@@ -30,13 +30,12 @@ public sealed class TestHandler(
             return CommandResult.Ok("No test framework detected, skipping tests");
         }
 
-        var result = await RunTestsAsync(repoPath, testCommand, cancellationToken);
+        var (exitCode, result) = await RunTestsAsync(repoPath, testCommand, cancellationToken);
         context.Pipeline.Set(ContextKeys.TestResults, result);
 
-        if (result.Contains("FAILED", StringComparison.OrdinalIgnoreCase)
-            || result.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        if (exitCode != 0)
         {
-            return CommandResult.Fail($"Tests failed:\n{result}");
+            return CommandResult.Fail($"Tests failed (exit code {exitCode}):\n{result}");
         }
 
         return CommandResult.Ok("Tests passed");
@@ -57,7 +56,7 @@ public sealed class TestHandler(
         return null;
     }
 
-    private async Task<string> RunTestsAsync(
+    private async Task<(int ExitCode, string Output)> RunTestsAsync(
         string repoPath, string command, CancellationToken cancellationToken)
     {
         logger.LogInformation("Running: {Command}", command);
@@ -89,14 +88,16 @@ public sealed class TestHandler(
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
-            return "Error: Test execution timed out.";
+            return (-1, "Test execution timed out.");
         }
 
         var stdout = await outputTask;
         var stderr = await errorTask;
 
-        return string.IsNullOrEmpty(stderr)
+        var output = string.IsNullOrEmpty(stderr)
             ? stdout
             : $"{stdout}\n[stderr]\n{stderr}";
+
+        return (process.ExitCode, output);
     }
 }
