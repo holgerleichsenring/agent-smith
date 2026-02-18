@@ -14,7 +14,8 @@ public sealed class ScoutAgent(
     AnthropicClient client,
     string model,
     int maxTokens,
-    ILogger logger)
+    ILogger logger,
+    TokenUsageTracker? usageTracker = null)
 {
     private const int MaxScoutIterations = 5;
 
@@ -74,6 +75,7 @@ public sealed class ScoutAgent(
                 cancellationToken);
 
             totalTokens += response.Usage.InputTokens + response.Usage.OutputTokens;
+            usageTracker?.Track(response);
 
             messages.Add(new Message
             {

@@ -21,6 +21,7 @@ public sealed class ClaudeAgentProvider(
     CacheConfig cacheConfig,
     CompactionConfig compactionConfig,
     IModelRegistry? modelRegistry,
+    PricingConfig pricingConfig,
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "Claude";
@@ -69,13 +70,19 @@ public sealed class ClaudeAgentProvider(
     {
         using var client = CreateResilientClient();
 
-        var scoutResult = await TryRunScoutAsync(plan, repository.LocalPath, cancellationToken);
+        var tracker = new TokenUsageTracker();
+        var costTracker = CreateCostTracker(tracker);
 
+        var scoutResult = await TryRunScoutAsync(
+            plan, repository.LocalPath, tracker, costTracker, cancellationToken);
+
+        tracker.SetPhase("primary");
         var primaryModel = ResolveModel(TaskType.Primary);
+        costTracker?.SetPhaseModel("primary", primaryModel.Model);
+
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(repository.LocalPath, logger, fileReadTracker);
-        var tracker = new TokenUsageTracker();
-        var compactor = CreateCompactor();
+        var compactor = CreateCompactor(tracker, costTracker);
         var loop = new AgenticLoop(
             client, primaryModel.Model, toolExecutor, logger,
             cacheConfig, tracker, compactionConfig, compactor);
@@ -87,6 +94,8 @@ public sealed class ClaudeAgentProvider(
 
         logger.LogInformation(
             "Agentic execution completed with {Count} file changes", changes.Count);
+
+        LogCostSummary(costTracker, tracker);
 
         return changes;
     }
@@ -100,17 +109,21 @@ public sealed class ClaudeAgentProvider(
     }
 
     private async Task<ScoutResult?> TryRunScoutAsync(
-        Plan plan, string repositoryPath, CancellationToken cancellationToken)
+        Plan plan, string repositoryPath,
+        TokenUsageTracker tracker, CostTracker? costTracker,
+        CancellationToken cancellationToken)
     {
         if (modelRegistry is null)
             return null;
 
         var scoutModel = modelRegistry.GetModel(TaskType.Scout);
+        tracker.SetPhase("scout");
+        costTracker?.SetPhaseModel("scout", scoutModel.Model);
 
         logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
 
         using var scoutClient = CreateResilientClient();
-        var scout = new ScoutAgent(scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger);
+        var scout = new ScoutAgent(scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger, tracker);
         var result = await scout.DiscoverAsync(plan, repositoryPath, cancellationToken);
 
         logger.LogInformation(
@@ -120,7 +133,8 @@ public sealed class ClaudeAgentProvider(
         return result;
     }
 
-    private ClaudeContextCompactor? CreateCompactor()
+    private ClaudeContextCompactor? CreateCompactor(
+        TokenUsageTracker tracker, CostTracker? costTracker)
     {
         if (!compactionConfig.Enabled)
             return null;
@@ -129,8 +143,34 @@ public sealed class ClaudeAgentProvider(
             ? modelRegistry.GetModel(TaskType.Summarization)
             : new ModelAssignment { Model = compactionConfig.SummaryModel, MaxTokens = 2048 };
 
+        costTracker?.SetPhaseModel("compaction", summaryModel.Model);
+
         var compactorClient = CreateResilientClient();
-        return new ClaudeContextCompactor(compactorClient, summaryModel.Model, logger);
+        return new ClaudeContextCompactor(compactorClient, summaryModel.Model, logger, tracker);
+    }
+
+    private CostTracker? CreateCostTracker(TokenUsageTracker tracker)
+    {
+        if (pricingConfig.Models.Count == 0)
+            return null;
+
+        var costTracker = new CostTracker(pricingConfig, logger);
+
+        var planningModel = ResolveModel(TaskType.Planning);
+        costTracker.SetPhaseModel("planning", planningModel.Model);
+
+        return costTracker;
+    }
+
+    private void LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    {
+        tracker.LogSummary(logger);
+
+        if (costTracker is null)
+            return;
+
+        var costSummary = costTracker.CalculateCost(tracker);
+        costTracker.LogCostSummary(costSummary);
     }
 
     private PromptCacheType ResolveCacheType()

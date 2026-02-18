@@ -11,4 +11,5 @@ public class AgentConfig
     public CacheConfig Cache { get; set; } = new();
     public CompactionConfig Compaction { get; set; } = new();
     public ModelRegistryConfig? Models { get; set; }
+    public PricingConfig Pricing { get; set; } = new();
 }
