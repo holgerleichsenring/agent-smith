@@ -1,24 +1,24 @@
-# Phase 2 - Schritt 3: Command Handlers (Stubs)
+# Phase 2 - Step 3: Command Handlers (Stubs)
 
-## Ziel
-Alle 9 Free Command Handlers als Stubs implementieren.
-Jeder Handler hat:
-- DI-fähigen Constructor (nimmt die richtigen Factories/Providers)
-- `ILogger<T>` für Logging
-- Guard Clauses am Anfang
-- TODO-Kommentar wo die echte Logik hinkommt
-- Schreibt Dummy-Daten in PipelineContext (damit die Pipeline durchläuft)
+## Goal
+Implement all 9 Free Command Handlers as stubs.
+Each handler has:
+- DI-capable constructor (takes the correct factories/providers)
+- `ILogger<T>` for logging
+- Guard clauses at the beginning
+- TODO comment where the real logic goes
+- Writes dummy data to PipelineContext (so the pipeline runs through)
 
 ---
 
-## Projekt
+## Project
 `AgentSmith.Application/Commands/Handlers/`
 
-## Pattern für jeden Handler
+## Pattern for Each Handler
 
 ```csharp
 public sealed class XxxHandler(
-    IXxxFactory factory,           // oder passender Provider/Service
+    IXxxFactory factory,           // or appropriate provider/service
     ILogger<XxxHandler> logger)
     : ICommandHandler<XxxContext>
 {
@@ -44,76 +44,76 @@ public sealed class XxxHandler(
 
 ### FetchTicketHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/FetchTicketHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/FetchTicketHandler.cs
 ```
 - DI: `ITicketProviderFactory`
-- Stub: Schreibt Dummy-Ticket in PipelineContext
+- Stub: Writes dummy ticket to PipelineContext
 - TODO: `var provider = factory.Create(context.Config); var ticket = await provider.GetTicketAsync(...)`
 
 ### CheckoutSourceHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/CheckoutSourceHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/CheckoutSourceHandler.cs
 ```
 - DI: `ISourceProviderFactory`
-- Stub: Schreibt Dummy-Repository in PipelineContext
+- Stub: Writes dummy repository to PipelineContext
 - TODO: `var provider = factory.Create(context.Config); var repo = await provider.CheckoutAsync(...)`
 
 ### LoadCodingPrinciplesHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/LoadCodingPrinciplesHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/LoadCodingPrinciplesHandler.cs
 ```
-- DI: nur `ILogger` (liest direkt vom Dateisystem)
-- Stub: Schreibt leeren String in PipelineContext
+- DI: only `ILogger` (reads directly from the file system)
+- Stub: Writes empty string to PipelineContext
 - TODO: `File.ReadAllTextAsync(context.FilePath, ct)`
-- Hinweis: Dieser Handler kann schon in Phase 2 fertig implementiert werden (kein Provider nötig)
+- Note: This handler can already be fully implemented in Phase 2 (no provider needed)
 
 ### AnalyzeCodeHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/AnalyzeCodeHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/AnalyzeCodeHandler.cs
 ```
-- DI: nur `ILogger`
-- Stub: Schreibt leere CodeAnalysis in PipelineContext
+- DI: only `ILogger`
+- Stub: Writes empty CodeAnalysis to PipelineContext
 - TODO: Directory traversal, dependency detection
 
 ### GeneratePlanHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/GeneratePlanHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/GeneratePlanHandler.cs
 ```
 - DI: `IAgentProviderFactory`
-- Stub: Schreibt Dummy-Plan in PipelineContext
+- Stub: Writes dummy plan to PipelineContext
 - TODO: `var provider = factory.Create(context.AgentConfig); var plan = await provider.GeneratePlanAsync(...)`
 
 ### ApprovalHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/ApprovalHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/ApprovalHandler.cs
 ```
-- DI: nur `ILogger`
-- Stub: Auto-approved, schreibt `true` in PipelineContext
+- DI: only `ILogger`
+- Stub: Auto-approved, writes `true` to PipelineContext
 - TODO: Console.ReadLine() prompt (y/n)
-- Hinweis: Kann in Phase 2 schon fertig implementiert werden
+- Note: Can already be fully implemented in Phase 2
 
 ### AgenticExecuteHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/AgenticExecuteHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/AgenticExecuteHandler.cs
 ```
 - DI: `IAgentProviderFactory`
-- Stub: Schreibt leere CodeChange-Liste in PipelineContext
+- Stub: Writes empty CodeChange list to PipelineContext
 - TODO: `var provider = factory.Create(context.AgentConfig); var changes = await provider.ExecutePlanAsync(...)`
 
 ### TestHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/TestHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/TestHandler.cs
 ```
-- DI: nur `ILogger`
-- Stub: Schreibt "All tests passed" in PipelineContext
-- TODO: Process.Start für `dotnet test` / `npm test` etc.
+- DI: only `ILogger`
+- Stub: Writes "All tests passed" to PipelineContext
+- TODO: Process.Start for `dotnet test` / `npm test` etc.
 
 ### CommitAndPRHandler
 ```
-Datei: src/AgentSmith.Application/Commands/Handlers/CommitAndPRHandler.cs
+File: src/AgentSmith.Application/Commands/Handlers/CommitAndPRHandler.cs
 ```
 - DI: `ISourceProviderFactory`
-- Stub: Schreibt Dummy-PR-URL in PipelineContext
+- Stub: Writes dummy PR URL to PipelineContext
 - TODO: `var provider = factory.Create(context.SourceConfig); await provider.CommitAndPushAsync(...)`
 
 ---
@@ -121,7 +121,7 @@ Datei: src/AgentSmith.Application/Commands/Handlers/CommitAndPRHandler.cs
 ## DI Registration
 
 ```
-Datei: src/AgentSmith.Application/ServiceCollectionExtensions.cs
+File: src/AgentSmith.Application/ServiceCollectionExtensions.cs
 ```
 
 ```csharp
@@ -149,10 +149,10 @@ public static class ServiceCollectionExtensions
 
 ---
 
-## Hinweise
-- Primary Constructors verwenden (.NET 8).
-- Alle Handler `sealed`.
-- `ILogger<T>` in jedem Handler.
-- Guard Clauses: Context-Properties auf null/empty prüfen wo sinnvoll.
-- Stub-Daten müssen "realistisch genug" sein damit nachfolgende Commands nicht crashen.
-- `LoadCodingPrinciplesHandler` und `ApprovalHandler` können schon fertig implementiert werden.
+## Notes
+- Use primary constructors (.NET 8).
+- All handlers `sealed`.
+- `ILogger<T>` in every handler.
+- Guard clauses: Check context properties for null/empty where appropriate.
+- Stub data must be "realistic enough" so that subsequent commands don't crash.
+- `LoadCodingPrinciplesHandler` and `ApprovalHandler` can already be fully implemented.

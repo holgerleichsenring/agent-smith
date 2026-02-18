@@ -1,9 +1,9 @@
-# Phase 8: File Read Tracker - Deduplizierung
+# Phase 8: File Read Tracker - Deduplication
 
-## Überblick
-Der FileReadTracker verhindert, dass dieselbe Datei mehrfach vollständig in die
-Konversationshistorie eingefügt wird. Wenn eine bereits gelesene Datei erneut
-angefragt wird, wird nur ein kurzer Hinweis zurückgegeben.
+## Overview
+The FileReadTracker prevents the same file from being fully inserted into the
+conversation history multiple times. When an already-read file is requested again,
+only a short note is returned.
 
 ---
 
@@ -42,26 +42,26 @@ public sealed class FileReadTracker
 
 ## Integration in ToolExecutor
 
-### Änderungen an ReadFile
+### Changes to ReadFile
 ```
-Im ReadFile-Tool:
-  1. Datei lesen (wie bisher)
+In the ReadFile tool:
+  1. Read file (as before)
   2. tracker.TrackRead(path)
-  3. Wenn dies der ERSTE Read ist: volle Datei zurückgeben
-  4. Wenn bereits gelesen: "[File previously read: {path}. Use the content from the earlier read.]"
+  3. If this is the FIRST read: return full file
+  4. If already read: "[File previously read: {path}. Use the content from the earlier read.]"
 ```
 
-### Warum?
-- In einer typischen Agentic Session liest Claude dieselbe Datei oft 3-5 mal
-- Jeder Read fügt den vollständigen Dateiinhalt erneut in die History ein
-- Bei 10 Iterationen mit je 2-3 File-Reads: 60-80% redundante Tokens
-- Der Tracker reduziert dies auf einen einzeiligen Hinweis
+### Why?
+- In a typical Agentic Session, Claude reads the same file 3-5 times
+- Each read inserts the complete file content into the history again
+- With 10 iterations and 2-3 file reads each: 60-80% redundant tokens
+- The tracker reduces this to a one-line note
 
-### Edge Case: Modifizierte Dateien
-Wenn eine Datei per `write_file` modifiziert wurde, MUSS der nächste `read_file`
-die neue Version zurückgeben. Lösung:
-- ToolExecutor benachrichtigt FileReadTracker bei write_file: `tracker.InvalidateRead(path)`
-- Nach Invalidierung wird der nächste Read wieder vollständig zurückgegeben
+### Edge Case: Modified Files
+When a file has been modified via `write_file`, the next `read_file` MUST
+return the new version. Solution:
+- ToolExecutor notifies FileReadTracker on write_file: `tracker.InvalidateRead(path)`
+- After invalidation, the next read returns the full content again
 
 ```csharp
 public void InvalidateRead(string filePath)
@@ -74,7 +74,7 @@ public void InvalidateRead(string filePath)
 
 ## Integration in ToolExecutor
 
-### Konstruktor-Änderung
+### Constructor Change
 ```csharp
 public sealed class ToolExecutor(
     string repositoryPath,
@@ -82,9 +82,9 @@ public sealed class ToolExecutor(
     FileReadTracker? fileReadTracker = null)
 ```
 
-Nullable für Backward-Kompatibilität. Wenn null, wird Deduplizierung übersprungen.
+Nullable for backward compatibility. If null, deduplication is skipped.
 
-### ReadFile-Änderung
+### ReadFile Change
 ```csharp
 private string ReadFile(JsonNode? input)
 {
@@ -109,7 +109,7 @@ private string ReadFile(JsonNode? input)
 }
 ```
 
-### WriteFile-Änderung
+### WriteFile Change
 ```csharp
 private string WriteFile(JsonNode? input)
 {

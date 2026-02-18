@@ -1,35 +1,35 @@
-# Phase 7 - Schritt 1: CacheConfig + TokenUsageTracker
+# Phase 7 - Step 1: CacheConfig + TokenUsageTracker
 
-## Ziel
-Config-Klasse für Cache-Steuerung und ein Tracker der Token-Usage über alle
-Iterationen kumuliert und Cache Hit Rates berechnet.
-Projekt: `AgentSmith.Contracts/Configuration/`, `AgentSmith.Infrastructure/Providers/Agent/`
+## Goal
+Config class for cache control and a tracker that accumulates token usage across all
+iterations and calculates cache hit rates.
+Project: `AgentSmith.Contracts/Configuration/`, `AgentSmith.Infrastructure/Providers/Agent/`
 
 ---
 
 ## CacheConfig
 
 ```
-Datei: src/AgentSmith.Contracts/Configuration/CacheConfig.cs
+File: src/AgentSmith.Contracts/Configuration/CacheConfig.cs
 ```
 
 - `bool Enabled` = true
-- `string Strategy` = "automatic" (Werte: "automatic", "fine-grained", "none")
+- `string Strategy` = "automatic" (Values: "automatic", "fine-grained", "none")
 
-### Hinweise
+### Notes
 - "automatic" → `PromptCacheType.AutomaticToolsAndSystem`
-- "fine-grained" → `PromptCacheType.FineGrained` (für spätere manuelle Kontrolle)
+- "fine-grained" → `PromptCacheType.FineGrained` (for later manual control)
 - "none" → `PromptCacheType.None`
 
 ---
 
-## AgentConfig Erweiterung
+## AgentConfig Extension
 
 ```
-Datei: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
+File: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
 ```
 
-Neues Property:
+New property:
 - `CacheConfig Cache { get; set; } = new();`
 
 ---
@@ -37,7 +37,7 @@ Neues Property:
 ## TokenUsageSummary
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/TokenUsageSummary.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/TokenUsageSummary.cs
 ```
 
 Sealed record:
@@ -60,17 +60,17 @@ public sealed record TokenUsageSummary(
 ## TokenUsageTracker
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/TokenUsageTracker.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/TokenUsageTracker.cs
 ```
 
-**Verantwortung:** Akkumuliert Token-Usage über alle API-Calls einer Execution.
+**Responsibility:** Accumulates token usage across all API calls of an execution.
 
-### Verhalten
-1. `Track(MessageResponse response)` → extrahiert Usage, addiert zu Gesamt
-2. `GetSummary()` → gibt `TokenUsageSummary` zurück
-3. `LogSummary(ILogger logger)` → loggt Zusammenfassung am Ende
+### Behavior
+1. `Track(MessageResponse response)` → extracts Usage, adds to total
+2. `GetSummary()` → returns `TokenUsageSummary`
+3. `LogSummary(ILogger logger)` → logs summary at the end
 
-### Code-Skizze
+### Code Sketch
 ```csharp
 public sealed class TokenUsageTracker
 {

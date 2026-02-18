@@ -1,19 +1,19 @@
-# Phase 4 - Schritt 2: PipelineExecutor + CommandContextFactory
+# Phase 4 - Step 2: PipelineExecutor + CommandContextFactory
 
-## Ziel
-Aus einer Liste von Command-Namen (aus YAML) die passenden Contexts bauen und
-sequentiell via CommandExecutor ausführen.
-Projekt: `AgentSmith.Application/Services/`
+## Goal
+Build the appropriate Contexts from a list of command names (from YAML) and
+execute them sequentially via CommandExecutor.
+Project: `AgentSmith.Application/Services/`
 
 ---
 
 ## CommandContextFactory
 
 ```
-Datei: src/AgentSmith.Application/Services/CommandContextFactory.cs
+File: src/AgentSmith.Application/Services/CommandContextFactory.cs
 ```
 
-Baut den passenden `ICommandContext` aus einem Command-Namen + Config + PipelineContext.
+Builds the appropriate `ICommandContext` from a command name + Config + PipelineContext.
 
 **Interface:**
 ```csharp
@@ -36,32 +36,32 @@ public interface ICommandContextFactory
 "CommitAndPRCommand"           → CommitAndPRContext(repo, changes, ticket, project.Source, pipeline)
 ```
 
-**Hinweise:**
-- Frühe Commands (FetchTicket, Checkout) holen Daten aus Config
-- Spätere Commands (GeneratePlan, Agentic) holen Daten aus PipelineContext (vorherige Steps)
-- TicketId wird vor dem Pipeline-Start in den PipelineContext gesetzt
-- Unbekannter Command-Name → `ConfigurationException`
+**Notes:**
+- Early commands (FetchTicket, Checkout) pull data from Config
+- Later commands (GeneratePlan, Agentic) pull data from PipelineContext (previous steps)
+- TicketId is set in the PipelineContext before the pipeline starts
+- Unknown command name → `ConfigurationException`
 
 ---
 
 ## PipelineExecutor
 
 ```
-Datei: src/AgentSmith.Application/Services/PipelineExecutor.cs
+File: src/AgentSmith.Application/Services/PipelineExecutor.cs
 ```
 
-Implementiert `IPipelineExecutor` aus Contracts.
+Implements `IPipelineExecutor` from Contracts.
 
 **Constructor:**
 - `ICommandExecutor commandExecutor`
 - `ICommandContextFactory contextFactory`
-- `ProjectConfig projectConfig` (über Factory/DI oder direkt übergeben)
+- `ProjectConfig projectConfig` (via Factory/DI or passed directly)
 - `ILogger<PipelineExecutor> logger`
 
-**Problem:** PipelineExecutor braucht `ProjectConfig`, die aber pro Aufruf anders ist.
-**Lösung:** ProjectConfig wird nicht per DI injiziert, sondern als Parameter übergeben.
+**Problem:** PipelineExecutor needs `ProjectConfig`, but it differs per invocation.
+**Solution:** ProjectConfig is not injected via DI, but passed as a parameter.
 
-Anpassung Interface:
+Interface adjustment:
 ```csharp
 public interface IPipelineExecutor
 {
@@ -74,18 +74,18 @@ public interface IPipelineExecutor
 ```
 
 **ExecuteAsync:**
-1. Für jeden Command-Namen:
+1. For each command name:
    a. `contextFactory.Create(name, projectConfig, pipeline)` → ICommandContext
    b. `commandExecutor.ExecuteAsync(context, ct)` → CommandResult
-   c. Log: Command-Name + Success/Fail
-   d. Bei Fail → sofort return mit Fail-Result
-2. Alle erfolgreich → `CommandResult.Ok("Pipeline completed")`
+   c. Log: Command name + Success/Fail
+   d. On Fail → immediately return with Fail result
+2. All successful → `CommandResult.Ok("Pipeline completed")`
 
-**Herausforderung:** `ExecuteAsync<TContext>` ist generisch, der Compile-Time-Typ
-ist aber `ICommandContext`. Lösung: Reflection oder Dictionary mit Delegates.
+**Challenge:** `ExecuteAsync<TContext>` is generic, but the compile-time type
+is `ICommandContext`. Solution: Reflection or Dictionary with Delegates.
 
-Pragmatischer Ansatz: `ExecuteCommandAsync(ICommandContext context)` Methode
-die per Pattern Matching den richtigen generischen Call macht:
+Pragmatic approach: `ExecuteCommandAsync(ICommandContext context)` method
+that uses pattern matching to make the correct generic call:
 ```csharp
 private Task<CommandResult> ExecuteCommandAsync(ICommandContext context, CancellationToken ct)
 {
@@ -93,7 +93,7 @@ private Task<CommandResult> ExecuteCommandAsync(ICommandContext context, Cancell
     {
         FetchTicketContext c => commandExecutor.ExecuteAsync(c, ct),
         CheckoutSourceContext c => commandExecutor.ExecuteAsync(c, ct),
-        // ... alle 9 Commands
+        // ... all 9 commands
         _ => throw new ConfigurationException($"Unknown context type: {context.GetType().Name}")
     };
 }

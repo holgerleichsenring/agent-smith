@@ -1,19 +1,19 @@
-# Phase 2 - Schritt 2: Command Contexts
+# Phase 2 - Step 2: Command Contexts
 
-## Ziel
-Alle 9 Free Command Context Records definieren.
-Jeder Context ist ein `sealed record` das `ICommandContext` implementiert.
+## Goal
+Define all 9 Free Command Context records.
+Each context is a `sealed record` that implements `ICommandContext`.
 
 ---
 
-## Projekt
+## Project
 `AgentSmith.Application/Commands/Contexts/`
 
 ## Contexts
 
 ### FetchTicketContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/FetchTicketContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/FetchTicketContext.cs
 ```
 ```csharp
 public sealed record FetchTicketContext(
@@ -24,7 +24,7 @@ public sealed record FetchTicketContext(
 
 ### CheckoutSourceContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/CheckoutSourceContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/CheckoutSourceContext.cs
 ```
 ```csharp
 public sealed record CheckoutSourceContext(
@@ -35,7 +35,7 @@ public sealed record CheckoutSourceContext(
 
 ### LoadCodingPrinciplesContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/LoadCodingPrinciplesContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/LoadCodingPrinciplesContext.cs
 ```
 ```csharp
 public sealed record LoadCodingPrinciplesContext(
@@ -45,7 +45,7 @@ public sealed record LoadCodingPrinciplesContext(
 
 ### AnalyzeCodeContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/AnalyzeCodeContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/AnalyzeCodeContext.cs
 ```
 ```csharp
 public sealed record AnalyzeCodeContext(
@@ -55,7 +55,7 @@ public sealed record AnalyzeCodeContext(
 
 ### GeneratePlanContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/GeneratePlanContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/GeneratePlanContext.cs
 ```
 ```csharp
 public sealed record GeneratePlanContext(
@@ -68,7 +68,7 @@ public sealed record GeneratePlanContext(
 
 ### ApprovalContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/ApprovalContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/ApprovalContext.cs
 ```
 ```csharp
 public sealed record ApprovalContext(
@@ -78,7 +78,7 @@ public sealed record ApprovalContext(
 
 ### AgenticExecuteContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/AgenticExecuteContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/AgenticExecuteContext.cs
 ```
 ```csharp
 public sealed record AgenticExecuteContext(
@@ -91,7 +91,7 @@ public sealed record AgenticExecuteContext(
 
 ### TestContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/TestContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/TestContext.cs
 ```
 ```csharp
 public sealed record TestContext(
@@ -102,7 +102,7 @@ public sealed record TestContext(
 
 ### CommitAndPRContext
 ```
-Datei: src/AgentSmith.Application/Commands/Contexts/CommitAndPRContext.cs
+File: src/AgentSmith.Application/Commands/Contexts/CommitAndPRContext.cs
 ```
 ```csharp
 public sealed record CommitAndPRContext(
@@ -115,9 +115,9 @@ public sealed record CommitAndPRContext(
 
 ---
 
-## Hinweise
-- Alle `sealed record` - immutable by design.
-- Jeder Context hat `PipelineContext Pipeline` als letzten Parameter.
-- Records brauchen die richtigen `using` Statements für Domain-Typen und Config-Typen.
-- Kein Verhalten in Contexts - nur Daten.
-- Ein Typ pro Datei.
+## Notes
+- All `sealed record` - immutable by design.
+- Each context has `PipelineContext Pipeline` as the last parameter.
+- Records need the correct `using` statements for domain types and config types.
+- No behavior in contexts - data only.
+- One type per file.

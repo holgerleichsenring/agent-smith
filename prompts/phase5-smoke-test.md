@@ -1,18 +1,18 @@
-# Phase 5 - Schritt 3: Smoke Tests
+# Phase 5 - Step 3: Smoke Tests
 
-## Ziel
-Sicherstellen dass DI-Container korrekt aufgebaut wird und CLI-Parsing funktioniert.
-Keine echten API-Calls, nur Struktur-Validierung.
+## Goal
+Ensure the DI container is built correctly and CLI parsing works.
+No real API calls, only structural validation.
 
 ---
 
 ## DI Integration Test
 
 ```
-Datei: tests/AgentSmith.Tests/Integration/DiRegistrationTests.cs
+File: tests/AgentSmith.Tests/Integration/DiRegistrationTests.cs
 ```
 
-Test baut den kompletten DI-Container und prüft ob alle Services auflösbar sind:
+Test builds the complete DI container and verifies that all services are resolvable:
 
 ```csharp
 [Fact]
@@ -24,7 +24,7 @@ public void AllServices_Resolvable()
     services.AddAgentSmithCommands();
     var provider = services.BuildServiceProvider();
 
-    // Alle kritischen Services auflösen
+    // Resolve all critical services
     provider.GetRequiredService<ProcessTicketUseCase>();
     provider.GetRequiredService<ICommandExecutor>();
     provider.GetRequiredService<IIntentParser>();
@@ -40,15 +40,15 @@ public void AllServices_Resolvable()
 
 ## CLI Smoke Test
 
-Prüft nur die CLI-Argument-Struktur:
-- `--help` gibt Hilfetext aus und exit 0
-- Ohne Argumente gibt Fehler und exit 1
-- `--dry-run` mit gültiger Config parsed Intent ohne Pipeline-Ausführung
+Verifies only the CLI argument structure:
+- `--help` outputs help text and exits 0
+- Without arguments outputs error and exits 1
+- `--dry-run` with valid config parses intent without pipeline execution
 
 ---
 
-## Was NICHT getestet wird
+## What is NOT Tested
 
-- Echte API-Calls (GitHub, Azure DevOps, Anthropic)
-- Echte Git-Operationen
-- Docker Build (das ist ein CI/CD-Thema)
+- Real API calls (GitHub, Azure DevOps, Anthropic)
+- Real Git operations
+- Docker build (that is a CI/CD concern)

@@ -1,72 +1,94 @@
 # Agent Smith - Prompts Index
 
-Dieses Verzeichnis ist die Single Source of Truth für Architektur, Planung und Coding Standards.
-Jede Änderung am Design wird hier reflektiert.
+This directory is the single source of truth for architecture, planning, and coding standards.
+Every design change is reflected here.
 
 ---
 
-## Übersicht
+## Overview
 
-| Datei | Inhalt | Status |
-|-------|--------|--------|
-| `architecture.md` | Gesamtarchitektur, Business Model, Tech Stack | Stabil |
-| `coding-principles.md` | Code-Qualitätsregeln (wird vom Agent geladen) | Stabil |
-| `phase1-plan.md` | Phase 1 Übersicht und Abhängigkeiten | Erledigt |
-| `phase1-solution-structure.md` | Schritt 1: .NET Solution anlegen | Erledigt |
-| `phase1-domain.md` | Schritt 2: Domain Entities & Value Objects | Erledigt |
-| `phase1-contracts.md` | Schritt 3: MediatR-Style Command Pattern & Interfaces | Erledigt |
-| `phase1-config.md` | Schritt 4: YAML Config Loader | Erledigt |
-| `phase2-plan.md` | Phase 2 Übersicht: Commands + Executor | Erledigt |
-| `phase2-executor.md` | CommandExecutor Implementierung | Erledigt |
-| `phase2-contexts.md` | Alle 9 Command Context Records | Erledigt |
-| `phase2-handlers.md` | Alle 9 Command Handler Stubs + DI Registration | Erledigt |
-| `phase3-plan.md` | Phase 3 Übersicht: Providers + Factories | Erledigt |
-| `phase3-factories.md` | Provider Factories (Ticket, Source, Agent) | Erledigt |
-| `phase3-tickets.md` | AzureDevOps + GitHub Ticket Providers | Erledigt |
-| `phase3-source.md` | Local + GitHub Source Providers | Erledigt |
-| `phase3-agent.md` | Claude Agent Provider (Plan + Execution) | Erledigt |
-| `phase3-agentic-loop.md` | Agentic Loop Detail (Tools, Loop, Security) | Erledigt |
-| `phase4-plan.md` | Phase 4 Übersicht: Pipeline Execution | Erledigt |
-| `phase4-intent-parser.md` | RegexIntentParser (User Input → Intent) | Erledigt |
-| `phase4-pipeline-executor.md` | PipelineExecutor + CommandContextFactory | Erledigt |
-| `phase4-use-case.md` | ProcessTicketUseCase (Orchestrierung) | Erledigt |
-| `phase4-di-wiring.md` | DI Registration + Host Program.cs | Erledigt |
-| `phase5-plan.md` | Phase 5 Übersicht: CLI & Docker | Erledigt |
-| `phase5-cli.md` | System.CommandLine CLI (--help, --config, --dry-run) | Erledigt |
-| `phase5-docker.md` | Multi-Stage Dockerfile + Docker Compose | Erledigt |
-| `phase5-smoke-test.md` | DI Integration Test + CLI Smoke Test | Erledigt |
-| `phase6-plan.md` | Phase 6 Übersicht: Resilience + Retry | Erledigt |
-| `phase6-retry.md` | RetryConfig, ResilientHttpClientFactory, Polly | Erledigt |
-| `phase7-plan.md` | Phase 7 Übersicht: Prompt Caching | Erledigt |
-| `phase7-caching.md` | CacheConfig, TokenUsageTracker, TokenUsageSummary | Erledigt |
-| `phase7-token-tracking.md` | PromptCaching aktivieren, System-Prompt Optimierung | Erledigt |
-| `phase8-plan.md` | Phase 8 Übersicht: Context Compaction | Erledigt |
-| `phase8-compaction.md` | CompactionConfig, IContextCompactor, ClaudeContextCompactor | Erledigt |
-| `phase8-file-tracking.md` | FileReadTracker, Deduplizierung von Datei-Reads | Erledigt |
-| `phase9-plan.md` | Phase 9 Übersicht: Model Registry & Scout | Erledigt |
-| `phase9-model-registry.md` | ModelRegistryConfig, IModelRegistry, TaskType | Erledigt |
-| `phase9-scout.md` | ScoutAgent, ScoutResult, ScoutTools | Erledigt |
+| File | Content | Status |
+|------|---------|--------|
+| `architecture.md` | Overall architecture, business model, tech stack | Stable |
+| `coding-principles.md` | Code quality rules (loaded by the agent at runtime) | Stable |
+| `phase1-plan.md` | Phase 1 overview and dependencies | Done |
+| `phase1-solution-structure.md` | Step 1: Create .NET solution | Done |
+| `phase1-domain.md` | Step 2: Domain entities & value objects | Done |
+| `phase1-contracts.md` | Step 3: MediatR-style command pattern & interfaces | Done |
+| `phase1-config.md` | Step 4: YAML config loader | Done |
+| `phase2-plan.md` | Phase 2 overview: Commands + Executor | Done |
+| `phase2-executor.md` | CommandExecutor implementation | Done |
+| `phase2-contexts.md` | All 9 command context records | Done |
+| `phase2-handlers.md` | All 9 command handler stubs + DI registration | Done |
+| `phase3-plan.md` | Phase 3 overview: Providers + Factories | Done |
+| `phase3-factories.md` | Provider factories (Ticket, Source, Agent) | Done |
+| `phase3-tickets.md` | AzureDevOps + GitHub ticket providers | Done |
+| `phase3-source.md` | Local + GitHub source providers | Done |
+| `phase3-agent.md` | Claude agent provider (Plan + Execution) | Done |
+| `phase3-agentic-loop.md` | Agentic loop detail (Tools, Loop, Security) | Done |
+| `phase4-plan.md` | Phase 4 overview: Pipeline execution | Done |
+| `phase4-intent-parser.md` | RegexIntentParser (User input -> Intent) | Done |
+| `phase4-pipeline-executor.md` | PipelineExecutor + CommandContextFactory | Done |
+| `phase4-use-case.md` | ProcessTicketUseCase (Orchestration) | Done |
+| `phase4-di-wiring.md` | DI registration + Host Program.cs | Done |
+| `phase5-plan.md` | Phase 5 overview: CLI & Docker | Done |
+| `phase5-cli.md` | System.CommandLine CLI (--help, --config, --dry-run) | Done |
+| `phase5-docker.md` | Multi-stage Dockerfile + Docker Compose | Done |
+| `phase5-smoke-test.md` | DI integration test + CLI smoke test | Done |
+| `phase6-plan.md` | Phase 6 overview: Resilience + Retry | Done |
+| `phase6-retry.md` | RetryConfig, ResilientHttpClientFactory, Polly | Done |
+| `phase7-plan.md` | Phase 7 overview: Prompt Caching | Done |
+| `phase7-caching.md` | CacheConfig, TokenUsageTracker, TokenUsageSummary | Done |
+| `phase7-token-tracking.md` | Prompt caching activation, system prompt optimization | Done |
+| `phase8-plan.md` | Phase 8 overview: Context Compaction | Done |
+| `phase8-compaction.md` | CompactionConfig, IContextCompactor, ClaudeContextCompactor | Done |
+| `phase8-file-tracking.md` | FileReadTracker, file read deduplication | Done |
+| `phase9-plan.md` | Phase 9 overview: Model Registry & Scout | Done |
+| `phase9-model-registry.md` | ModelRegistryConfig, IModelRegistry, TaskType | Done |
+| `phase9-scout.md` | ScoutAgent, ScoutResult, ScoutTools | Done |
+| `phase10-plan.md` | Phase 10 overview: Container production-ready | Done |
+| `phase10-headless.md` | Headless mode (--headless, auto-approve) | Done |
+| `phase10-docker.md` | Docker hardening (health check, non-root, .env) | Done |
+| `phase11-plan.md` | Phase 11 overview: Multi-provider (OpenAI + Gemini) | Done |
+| `phase11-openai.md` | OpenAI agent provider (GPT-4.1, tool calling loop) | Done |
+| `phase11-gemini.md` | Gemini agent provider (2.5 Flash/Pro, function calling) | Done |
+| `phase11-factory.md` | AgentProviderFactory extension for new providers | Done |
+| `phase12-plan.md` | Phase 12 overview: Cost tracking | Done |
+| `phase12-cost-tracker.md` | CostTracker, RunCostSummary, PricingConfig | Done |
+| `phase12-phase-tracking.md` | Per-phase token tracking in TokenUsageTracker | Done |
+| `phase13-plan.md` | Phase 13 overview: Ticket writeback & status | Done |
+| `phase13-ticket-writeback.md` | ITicketProvider extensions (UpdateStatus, Close) | Done |
+| `phase13-pipeline-integration.md` | PipelineExecutor + CommitAndPRHandler integration | Done |
+| `phase14-plan.md` | Phase 14 overview: GitHub Action / Webhook trigger | Done |
+| `phase14-github-action.md` | GitHub Actions workflow (issues.labeled trigger) | Done |
+| `phase14-webhook.md` | WebhookListener (HttpListener, --server mode) | Done |
 
 ---
 
-## Phasen-Übersicht
+## Phase Overview
 
-- **Phase 1: Core Infrastructure** ← Erledigt
-- **Phase 2: Free Commands (Stubs)** ← Erledigt
-- **Phase 3: Providers** ← Erledigt
-- **Phase 4: Pipeline Execution** ← Erledigt
-- **Phase 5: CLI & Docker** ← Erledigt
-- **Phase 6: Resilience - Retry** ← Erledigt
-- **Phase 7: Prompt Caching** ← Erledigt
-- **Phase 8: Context Compaction** ← Erledigt
-- **Phase 9: Model Registry & Scout** ← Erledigt
+- **Phase 1: Core Infrastructure** - Done
+- **Phase 2: Free Commands (Stubs)** - Done
+- **Phase 3: Providers** - Done
+- **Phase 4: Pipeline Execution** - Done
+- **Phase 5: CLI & Docker** - Done
+- **Phase 6: Resilience - Retry** - Done
+- **Phase 7: Prompt Caching** - Done
+- **Phase 8: Context Compaction** - Done
+- **Phase 9: Model Registry & Scout** - Done
+- **Phase 10: Container Production-Ready** - Done
+- **Phase 11: Multi-Provider (OpenAI + Gemini)** - Done
+- **Phase 12: Cost Tracking** - Done
+- **Phase 13: Ticket Writeback & Status** - Done
+- **Phase 14: GitHub Action / Webhook Trigger** - Done
 
 ---
 
-## Konventionen
+## Conventions
 
-- Prompts sind auf Deutsch (Projektsprache), Code ist auf Englisch.
-- Jede Phase hat einen `phase{N}-plan.md` als Einstiegspunkt.
-- Einzelschritte sind in `phase{N}-{thema}.md` aufgeteilt.
-- Änderungen am Design → `architecture.md` aktualisieren.
-- Änderungen an Code-Regeln → `coding-principles.md` aktualisieren.
+- All documentation and prompts are written in English.
+- All code text (comments, exceptions, logs) is in English.
+- Each phase has a `phase{N}-plan.md` as its entry point.
+- Individual steps are split into `phase{N}-{topic}.md` files.
+- Design changes -> update `architecture.md`.
+- Code rule changes -> update `coding-principles.md`.

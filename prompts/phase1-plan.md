@@ -1,75 +1,75 @@
-# Phase 1: Core Infrastructure - Implementierungsplan
+# Phase 1: Core Infrastructure - Implementation Plan
 
-## Ziel
-Fundament des Projekts: Solution Structure, Domain Entities, alle Contracts (nur Interfaces), Config Loader.
-Nach Phase 1 kompiliert die Solution, hat aber keine funktionale Logik.
+## Goal
+Foundation of the project: Solution Structure, Domain Entities, all Contracts (interfaces only), Config Loader.
+After Phase 1 the solution compiles but has no functional logic.
 
 ---
 
-## Vorbedingung
-- .NET 8 SDK installiert
-- Dieses Repo geklont
+## Prerequisite
+- .NET 8 SDK installed
+- This repo cloned
 
-## Schritte
+## Steps
 
-### Schritt 1: Solution & Projekte anlegen
-Siehe: `prompts/phase1-solution-structure.md`
+### Step 1: Solution & Projects Setup
+See: `prompts/phase1-solution-structure.md`
 
-Erstelle die .NET Solution mit allen Projekten und korrekten Referenzen.
-Ergebnis: `dotnet build` läuft durch (leer, aber fehlerfrei).
+Create the .NET Solution with all projects and correct references.
+Result: `dotnet build` succeeds (empty but error-free).
 
-### Schritt 2: Domain Entities & Value Objects
-Siehe: `prompts/phase1-domain.md`
+### Step 2: Domain Entities & Value Objects
+See: `prompts/phase1-domain.md`
 
-Die Kerntypen des Systems. Reine Datenmodelle ohne Infrastruktur-Abhängigkeiten.
+The core types of the system. Pure data models without infrastructure dependencies.
 - Entities: `Ticket`, `Repository`, `Plan`, `CodeChange`, `CodeAnalysis`
 - Value Objects: `TicketId`, `ProjectName`, `BranchName`, `FilePath`, `CommandResult`
 - Exceptions: `AgentSmithException`, `TicketNotFoundException`, `ConfigurationException`
 
-### Schritt 3: Contracts (Interfaces)
-Siehe: `prompts/phase1-contracts.md`
+### Step 3: Contracts (Interfaces)
+See: `prompts/phase1-contracts.md`
 
-Alle Interfaces die das System definieren. Keine Implementierung.
+All interfaces that define the system. No implementation.
 - Command Pattern (MediatR-Style): `ICommandContext`, `ICommandHandler<TContext>`, `ICommandExecutor`
 - Shared State: `PipelineContext`, `ContextKeys`
 - Providers: `ITicketProvider`, `ISourceProvider`, `IAgentProvider`
 - Services: `IPipelineExecutor`, `IIntentParser`, `IConfigurationLoader`
 - Factories: `ITicketProviderFactory`, `ISourceProviderFactory`, `IAgentProviderFactory`
 
-### Schritt 4: Configuration
-Siehe: `prompts/phase1-config.md`
+### Step 4: Configuration
+See: `prompts/phase1-config.md`
 
-YAML-basierte Konfiguration laden und als stark typisierte Objekte bereitstellen.
+Load YAML-based configuration and provide it as strongly typed objects.
 - Config Models: `AgentSmithConfig`, `ProjectConfig`, `SourceConfig`, `TicketConfig`, `AgentConfig`, `PipelineConfig`
-- `YamlConfigurationLoader` implementierung (einzige Implementierung in Phase 1)
-- Template `agentsmith.yml` als Beispiel
+- `YamlConfigurationLoader` implementation (only implementation in Phase 1)
+- Template `agentsmith.yml` as example
 
-### Schritt 5: Verify
+### Step 5: Verify
 ```bash
 dotnet build
-dotnet test  # Leere Test-Suite, aber muss durchlaufen
+dotnet test  # Empty test suite, but must pass
 ```
 
 ---
 
-## Abhängigkeiten zwischen Schritten
+## Dependencies Between Steps
 
 ```
-Schritt 1 (Solution)
-    └── Schritt 2 (Domain)
-         └── Schritt 3 (Contracts) ← braucht Domain-Typen
-              └── Schritt 4 (Config) ← braucht Contracts
-                   └── Schritt 5 (Verify)
+Step 1 (Solution)
+    └── Step 2 (Domain)
+         └── Step 3 (Contracts) ← needs Domain types
+              └── Step 4 (Config) ← needs Contracts
+                   └── Step 5 (Verify)
 ```
 
-Strikt sequentiell. Jeder Schritt baut auf dem vorherigen auf.
+Strictly sequential. Each step builds on the previous one.
 
 ---
 
-## Projekt-Referenzen nach Phase 1
+## Project References After Phase 1
 
 ```
-AgentSmith.Domain          → (keine Abhängigkeiten)
+AgentSmith.Domain          → (no dependencies)
 AgentSmith.Contracts       → AgentSmith.Domain
 AgentSmith.Application     → AgentSmith.Contracts, AgentSmith.Domain
 AgentSmith.Infrastructure  → AgentSmith.Contracts, AgentSmith.Domain
@@ -81,9 +81,9 @@ AgentSmith.Tests           → AgentSmith.Domain, AgentSmith.Contracts, AgentSmi
 
 ## NuGet Packages (Phase 1)
 
-| Projekt | Package | Zweck |
-|---------|---------|-------|
-| AgentSmith.Infrastructure | YamlDotNet | YAML Config laden |
+| Project | Package | Purpose |
+|---------|---------|---------|
+| AgentSmith.Infrastructure | YamlDotNet | Load YAML config |
 | AgentSmith.Host | Microsoft.Extensions.DependencyInjection | DI Container |
 | AgentSmith.Host | Microsoft.Extensions.Logging.Console | Logging |
 | AgentSmith.Tests | xunit | Test Framework |
@@ -95,12 +95,12 @@ AgentSmith.Tests           → AgentSmith.Domain, AgentSmith.Contracts, AgentSmi
 ---
 
 ## Definition of Done (Phase 1)
-- [ ] Solution kompiliert fehlerfrei
-- [ ] Alle Domain Entities mit Properties definiert
-- [ ] Alle Value Objects als Records definiert
-- [ ] Alle Interfaces in Contracts definiert
-- [ ] Config Loader liest YAML und gibt typisierte Config zurück
-- [ ] Beispiel `agentsmith.yml` vorhanden
-- [ ] `coding-principles.md` vorhanden
-- [ ] Mindestens 1 Unit Test (Config Loader)
-- [ ] Alle Dateien halten sich an Coding Principles (20/120 Regel)
+- [ ] Solution compiles without errors
+- [ ] All Domain Entities with properties defined
+- [ ] All Value Objects defined as records
+- [ ] All Interfaces defined in Contracts
+- [ ] Config Loader reads YAML and returns typed config
+- [ ] Example `agentsmith.yml` present
+- [ ] `coding-principles.md` present
+- [ ] At least 1 unit test (Config Loader)
+- [ ] All files adhere to Coding Principles (20/120 rule)

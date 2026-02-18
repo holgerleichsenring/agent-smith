@@ -1,9 +1,9 @@
-# Phase 8: Context Compaction - Implementierungsdetails
+# Phase 8: Context Compaction - Implementation Details
 
-## Überblick
-Context Compaction verhindert, dass die Konversationshistorie in der Agentic Loop
-unbegrenzt wächst. Alte Tool-Results werden durch LLM-generierte Zusammenfassungen
-ersetzt, während die letzten N Iterationen vollständig erhalten bleiben.
+## Overview
+Context Compaction prevents the conversation history in the Agentic Loop from
+growing unboundedly. Old tool results are replaced with LLM-generated summaries,
+while the last N iterations remain fully preserved.
 
 ---
 
@@ -21,10 +21,10 @@ public class CompactionConfig
 }
 ```
 
-- `ThresholdIterations`: Ab welcher Iteration die Komprimierung getriggert wird
-- `MaxContextTokens`: Alternatives Token-basiertes Limit (noch nicht aktiv, für Phase 9)
-- `KeepRecentIterations`: Letzte N Iterationen bleiben IMMER vollständig erhalten
-- `SummaryModel`: Günstiges Model für Zusammenfassung (Haiku: $1/MT Input)
+- `ThresholdIterations`: At which iteration compaction is triggered
+- `MaxContextTokens`: Alternative token-based limit (not yet active, for Phase 9)
+- `KeepRecentIterations`: Last N iterations ALWAYS remain fully preserved
+- `SummaryModel`: Cheap model for summarization (Haiku: $1/MT Input)
 
 ---
 
@@ -41,9 +41,9 @@ public interface IContextCompactor
 }
 ```
 
-Interface in Contracts, damit:
-1. Clean Architecture gewahrt bleibt (Infrastructure hängt von Contracts ab, nicht umgekehrt)
-2. Spätere Implementierungen möglich sind (regelbasiert, ohne LLM)
+Interface in Contracts so that:
+1. Clean Architecture is maintained (Infrastructure depends on Contracts, not the other way around)
+2. Alternative implementations are possible later (rule-based, without LLM)
 
 ---
 
@@ -53,19 +53,19 @@ Interface in Contracts, damit:
 // Providers/Agent/ClaudeContextCompactor.cs
 ```
 
-### Algorithmus
-1. **Eingabe**: Vollständige Message-Liste aus der Agentic Loop
-2. **Split**: Messages aufteilen in `old` (zu komprimieren) und `recent` (behalten)
-   - `recent` = letzte `keepRecentMessages` Messages
-   - `old` = alles davor
-3. **Extraktion**: Aus `old` alle TextContent-Inhalte und ToolResultContent extrahieren
-4. **Zusammenfassung**: Via Haiku-API-Call zusammenfassen
-   - System-Prompt: "Summarize the following conversation history. Keep file paths,
+### Algorithm
+1. **Input**: Complete message list from the Agentic Loop
+2. **Split**: Divide messages into `old` (to be compressed) and `recent` (to keep)
+   - `recent` = last `keepRecentMessages` messages
+   - `old` = everything before that
+3. **Extraction**: Extract all TextContent and ToolResultContent from `old`
+4. **Summarization**: Summarize via Haiku API call
+   - System prompt: "Summarize the following conversation history. Keep file paths,
      key decisions, and important findings. Omit raw file contents."
-   - User-Message: Die extrahierten alten Inhalte
-5. **Ergebnis**: Neue Message-Liste = [Summary als User-Message] + `recent`
+   - User message: The extracted old contents
+5. **Result**: New message list = [Summary as User Message] + `recent`
 
-### Prompt für Zusammenfassung
+### Prompt for Summarization
 ```
 You are a context compactor. Summarize the following conversation history between
 an AI assistant and tool calls. Preserve:
@@ -82,35 +82,35 @@ Omit:
 Be concise but complete. The summary will be used as context for continuing the work.
 ```
 
-### Wichtig
-- Der Compactor nutzt einen EIGENEN AnthropicClient (Haiku), nicht den des Primary-Loops
-- PromptCaching wird auch für den Compaction-Call aktiviert
-- Keine Rekursion: Wenn die Zusammenfassung selbst zu lang ist, wird sie gekürzt
+### Important
+- The Compactor uses its OWN AnthropicClient (Haiku), not the one from the Primary Loop
+- PromptCaching is also activated for the compaction call
+- No recursion: If the summary itself is too long, it gets truncated
 
 ---
 
 ## Integration in AgenticLoop
 
-### Trigger-Logik
+### Trigger Logic
 ```
-Nach jeder Iteration:
+After each iteration:
   if (compaction.Enabled && iteration >= compaction.ThresholdIterations):
-    if (iteration % compaction.ThresholdIterations == 0):  // periodisch, nicht nur einmal
+    if (iteration % compaction.ThresholdIterations == 0):  // periodic, not just once
       messages = await compactor.CompactAsync(messages, keepRecentMessages)
 ```
 
-`keepRecentMessages` = `KeepRecentIterations * 2` (jede Iteration = 1 Assistant + 1 User Message)
+`keepRecentMessages` = `KeepRecentIterations * 2` (each iteration = 1 Assistant + 1 User Message)
 
-### Änderungen an AgenticLoop
-- Neuer Konstruktor-Parameter: `CompactionConfig compactionConfig, IContextCompactor? compactor`
-- Compactor ist nullable (optional, backward-kompatibel)
-- Nach Trigger: messages-Liste wird in-place ersetzt
+### Changes to AgenticLoop
+- New constructor parameter: `CompactionConfig compactionConfig, IContextCompactor? compactor`
+- Compactor is nullable (optional, backward-compatible)
+- After trigger: messages list is replaced in-place
 - Logging: "Context compacted: {OldCount} messages → {NewCount} messages"
 
 ---
 
-## Backward-Kompatibilität
-- CompactionConfig hat sinnvolle Defaults (Enabled=true, Threshold=8)
-- Wenn kein Compactor injiziert wird (null), findet keine Komprimierung statt
-- AgentConfig bekommt `CompactionConfig Compaction` Property mit `new()` Default
-- Bestehende agentsmith.yml funktioniert ohne Änderung
+## Backward Compatibility
+- CompactionConfig has sensible defaults (Enabled=true, Threshold=8)
+- If no Compactor is injected (null), no compaction takes place
+- AgentConfig gets `CompactionConfig Compaction` property with `new()` default
+- Existing agentsmith.yml works without changes

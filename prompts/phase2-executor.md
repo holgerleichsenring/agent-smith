@@ -1,32 +1,32 @@
-# Phase 2 - Schritt 1: CommandExecutor
+# Phase 2 - Step 1: CommandExecutor
 
-## Ziel
-Die zentrale Klasse die `ICommandHandler<TContext>` per DI auflöst und ausführt.
-Einzige nicht-Stub Implementierung in Phase 2.
+## Goal
+The central class that resolves `ICommandHandler<TContext>` via DI and executes it.
+The only non-stub implementation in Phase 2.
 
 ---
 
 ## CommandExecutor
 ```
-Datei: src/AgentSmith.Application/Commands/CommandExecutor.cs
+File: src/AgentSmith.Application/Commands/CommandExecutor.cs
 ```
-Projekt: `AgentSmith.Application`
+Project: `AgentSmith.Application`
 
-Implementiert: `ICommandExecutor` (aus Contracts)
+Implements: `ICommandExecutor` (from Contracts)
 
-### Verantwortung
-1. Nimmt `IServiceProvider` per Constructor Injection
-2. Bei `ExecuteAsync<TContext>` → löst `ICommandHandler<TContext>` aus DI auf
-3. Ruft `handler.ExecuteAsync(context, ct)` auf
-4. Fängt Exceptions, wrapped sie in `CommandResult.Fail`
-5. Loggt Start, Ergebnis und ggf. Fehler
+### Responsibility
+1. Takes `IServiceProvider` via constructor injection
+2. On `ExecuteAsync<TContext>` -> resolves `ICommandHandler<TContext>` from DI
+3. Calls `handler.ExecuteAsync(context, ct)`
+4. Catches exceptions, wraps them in `CommandResult.Fail`
+5. Logs start, result, and errors if applicable
 
-### Verhalten
-- Handler nicht gefunden → `CommandResult.Fail("No handler registered for {typeof(TContext).Name}")`
-- Handler wirft Exception → `CommandResult.Fail(ex.Message, ex)` + Logging
-- Handler gibt `CommandResult` zurück → durchreichen
+### Behavior
+- Handler not found -> `CommandResult.Fail("No handler registered for {typeof(TContext).Name}")`
+- Handler throws exception -> `CommandResult.Fail(ex.Message, ex)` + logging
+- Handler returns `CommandResult` -> pass through
 
-### Code-Skizze
+### Code Sketch
 ```csharp
 public sealed class CommandExecutor(
     IServiceProvider serviceProvider,
@@ -60,8 +60,8 @@ public sealed class CommandExecutor(
 }
 ```
 
-### Hinweise
-- Primary Constructor verwenden (.NET 8).
-- `IServiceProvider.GetService<T>()` statt `GetRequiredService<T>()` → eigene Fehlermeldung statt DI-Exception.
-- Logging Levels: Info für Start/Ende, Error für Exceptions.
-- `sealed` Klasse.
+### Notes
+- Use primary constructor (.NET 8).
+- `IServiceProvider.GetService<T>()` instead of `GetRequiredService<T>()` -> custom error message instead of DI exception.
+- Logging levels: Info for start/end, Error for exceptions.
+- `sealed` class.
