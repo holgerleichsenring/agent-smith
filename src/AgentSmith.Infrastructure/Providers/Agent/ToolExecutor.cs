@@ -10,7 +10,10 @@ namespace AgentSmith.Infrastructure.Providers.Agent;
 /// Executes tool calls from the AI agent against the local repository.
 /// Tracks file changes for later commit.
 /// </summary>
-public sealed class ToolExecutor(string repositoryPath, ILogger logger)
+public sealed class ToolExecutor(
+    string repositoryPath,
+    ILogger logger,
+    FileReadTracker? fileReadTracker = null)
 {
     private const int MaxFileSizeBytes = 100 * 1024;
     private const int CommandTimeoutSeconds = 60;
@@ -48,16 +51,29 @@ public sealed class ToolExecutor(string repositoryPath, ILogger logger)
         if (!File.Exists(fullPath))
             return $"Error: File not found: {path}";
 
+        if (fileReadTracker is not null && fileReadTracker.HasBeenRead(path))
+        {
+            fileReadTracker.TrackRead(path);
+            logger.LogDebug("File {Path} already read, returning short reference", path);
+            return $"[File previously read: {path}. Content unchanged since last read.]";
+        }
+
         var info = new FileInfo(fullPath);
+        string content;
         if (info.Length > MaxFileSizeBytes)
         {
             logger.LogWarning("File {Path} exceeds size limit, truncating", path);
-            var content = File.ReadAllText(fullPath);
-            return content[..Math.Min(content.Length, MaxFileSizeBytes)]
-                   + "\n... [truncated]";
+            content = File.ReadAllText(fullPath);
+            content = content[..Math.Min(content.Length, MaxFileSizeBytes)]
+                      + "\n... [truncated]";
+        }
+        else
+        {
+            content = File.ReadAllText(fullPath);
         }
 
-        return File.ReadAllText(fullPath);
+        fileReadTracker?.TrackRead(path);
+        return content;
     }
 
     private string WriteFile(JsonNode? input)
@@ -75,6 +91,7 @@ public sealed class ToolExecutor(string repositoryPath, ILogger logger)
 
         File.WriteAllText(fullPath, content);
         _changes.Add(new CodeChange(new FilePath(path), content, changeType));
+        fileReadTracker?.InvalidateRead(path);
 
         logger.LogDebug("Wrote file {Path} ({ChangeType})", path, changeType);
         return $"File written: {path}";

@@ -19,6 +19,12 @@ projects:
       cache:
         enabled: true
         strategy: automatic
+      compaction:
+        enabled: true
+        threshold_iterations: 8
+        max_context_tokens: 80000
+        keep_recent_iterations: 3
+        summary_model: claude-haiku-4-5-20251001
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
