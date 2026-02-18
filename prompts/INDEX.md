@@ -62,6 +62,13 @@ Every design change is reflected here.
 | `phase14-plan.md` | Phase 14 overview: GitHub Action / Webhook trigger | Done |
 | `phase14-github-action.md` | GitHub Actions workflow (issues.labeled trigger) | Done |
 | `phase14-webhook.md` | WebhookListener (HttpListener, --server mode) | Done |
+| `phase15-plan.md` | Phase 15 overview: Azure Repos source provider | Done |
+| `phase15-azure-repos.md` | AzureReposSourceProvider (clone, branch, PR via DevOps API) | Done |
+| `phase16-plan.md` | Phase 16 overview: Jira ticket provider | Done |
+| `phase16-jira.md` | JiraTicketProvider (REST API v3, ADF parsing) | Done |
+| `phase17-plan.md` | Phase 17 overview: GitLab provider (Source + Tickets) | Done |
+| `phase17-gitlab-tickets.md` | GitLabTicketProvider (REST API v4) | Done |
+| `phase17-gitlab-source.md` | GitLabSourceProvider (clone, branch, merge request) | Done |
 
 ---
 
@@ -81,6 +88,9 @@ Every design change is reflected here.
 - **Phase 12: Cost Tracking** - Done
 - **Phase 13: Ticket Writeback & Status** - Done
 - **Phase 14: GitHub Action / Webhook Trigger** - Done
+- **Phase 15: Azure Repos Source Provider** - Done
+- **Phase 16: Jira Ticket Provider** - Done
+- **Phase 17: GitLab Provider (Source + Tickets)** - Done
 
 ---
 
