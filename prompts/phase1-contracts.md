@@ -1,19 +1,19 @@
-# Phase 1 - Schritt 3: Contracts (Interfaces)
+# Phase 1 - Step 3: Contracts (Interfaces)
 
-## Ziel
-Alle Interfaces definieren, die das System zusammenhalten.
-Keine Implementierung - nur Signaturen.
-Projekt: `AgentSmith.Contracts`
+## Goal
+Define all interfaces that hold the system together.
+No implementation - only signatures.
+Project: `AgentSmith.Contracts`
 
 ---
 
 ## Command Pattern (MediatR-Style)
 
-Das zentrale Pattern des Systems. Strikte Trennung von Command (Was) und Handler (Wie).
+The central pattern of the system. Strict separation of Command (What) and Handler (How).
 
 ### ICommandContext (Marker Interface)
 ```
-Datei: src/AgentSmith.Contracts/Commands/ICommandContext.cs
+File: src/AgentSmith.Contracts/Commands/ICommandContext.cs
 ```
 
 ```csharp
@@ -26,7 +26,7 @@ public interface ICommandContext;
 
 ### ICommandHandler\<TContext\>
 ```
-Datei: src/AgentSmith.Contracts/Commands/ICommandHandler.cs
+File: src/AgentSmith.Contracts/Commands/ICommandHandler.cs
 ```
 
 ```csharp
@@ -45,7 +45,7 @@ public interface ICommandHandler<in TContext> where TContext : ICommandContext
 
 ### ICommandExecutor
 ```
-Datei: src/AgentSmith.Contracts/Commands/ICommandExecutor.cs
+File: src/AgentSmith.Contracts/Commands/ICommandExecutor.cs
 ```
 
 ```csharp
@@ -66,26 +66,26 @@ public interface ICommandExecutor
 
 ## PipelineContext
 
-Konkrete Klasse in Contracts. Der gemeinsame Datenspeicher zwischen Pipeline-Schritten.
-Wird in die einzelnen ICommandContext-Records injiziert.
+Concrete class in Contracts. The shared data store between pipeline steps.
+Gets injected into the individual ICommandContext records.
 
 ```
-Datei: src/AgentSmith.Contracts/Commands/PipelineContext.cs
+File: src/AgentSmith.Contracts/Commands/PipelineContext.cs
 ```
 
-**Properties & Methoden:**
-- Interner `Dictionary<string, object>` Speicher
-- `void Set<T>(string key, T value)` - Wert setzen
-- `T Get<T>(string key)` - Wert holen (wirft wenn nicht vorhanden)
-- `bool TryGet<T>(string key, out T? value)` - Wert holen (safe)
-- `bool Has(string key)` - Prüfen ob Key existiert
+**Properties & Methods:**
+- Internal `Dictionary<string, object>` store
+- `void Set<T>(string key, T value)` - Set a value
+- `T Get<T>(string key)` - Get a value (throws if not present)
+- `bool TryGet<T>(string key, out T? value)` - Get a value (safe)
+- `bool Has(string key)` - Check if key exists
 
 ### ContextKeys
 ```
-Datei: src/AgentSmith.Contracts/Commands/ContextKeys.cs
+File: src/AgentSmith.Contracts/Commands/ContextKeys.cs
 ```
 
-Vordefinierte Keys als Konstanten:
+Predefined keys as constants:
 ```csharp
 public static class ContextKeys
 {
@@ -103,7 +103,7 @@ public static class ContextKeys
 
 ---
 
-## Zusammenspiel: Wie Context → Handler → Executor funktioniert
+## Interaction: How Context → Handler → Executor Works
 
 ```
 Pipeline Config (YAML)         ICommandContext Records         ICommandHandler<T>
@@ -128,7 +128,7 @@ Pipeline Config (YAML)         ICommandContext Records         ICommandHandler<T
 
 ### ITicketProvider
 ```
-Datei: src/AgentSmith.Contracts/Providers/ITicketProvider.cs
+File: src/AgentSmith.Contracts/Providers/ITicketProvider.cs
 ```
 
 ```csharp
@@ -143,7 +143,7 @@ public interface ITicketProvider
 
 ### ISourceProvider
 ```
-Datei: src/AgentSmith.Contracts/Providers/ISourceProvider.cs
+File: src/AgentSmith.Contracts/Providers/ISourceProvider.cs
 ```
 
 ```csharp
@@ -167,7 +167,7 @@ public interface ISourceProvider
 
 ### IAgentProvider
 ```
-Datei: src/AgentSmith.Contracts/Providers/IAgentProvider.cs
+File: src/AgentSmith.Contracts/Providers/IAgentProvider.cs
 ```
 
 ```csharp
@@ -193,7 +193,7 @@ public interface IAgentProvider
 
 ### IConfigurationLoader
 ```
-Datei: src/AgentSmith.Contracts/Services/IConfigurationLoader.cs
+File: src/AgentSmith.Contracts/Services/IConfigurationLoader.cs
 ```
 
 ```csharp
@@ -203,11 +203,11 @@ public interface IConfigurationLoader
 }
 ```
 
-Config-Models in `AgentSmith.Contracts/Configuration/` ablegen (werden von mehreren Layern gebraucht).
+Place config models in `AgentSmith.Contracts/Configuration/` (needed by multiple layers).
 
 ### IPipelineExecutor
 ```
-Datei: src/AgentSmith.Contracts/Services/IPipelineExecutor.cs
+File: src/AgentSmith.Contracts/Services/IPipelineExecutor.cs
 ```
 
 ```csharp
@@ -226,7 +226,7 @@ public interface IPipelineExecutor
 
 ### IIntentParser
 ```
-Datei: src/AgentSmith.Contracts/Services/IIntentParser.cs
+File: src/AgentSmith.Contracts/Services/IIntentParser.cs
 ```
 
 ```csharp
@@ -240,7 +240,7 @@ public interface IIntentParser
 
 ### ParsedIntent
 ```
-Datei: src/AgentSmith.Contracts/Services/ParsedIntent.cs
+File: src/AgentSmith.Contracts/Services/ParsedIntent.cs
 ```
 
 ```csharp
@@ -255,7 +255,7 @@ public sealed record ParsedIntent(
 
 ### ITicketProviderFactory
 ```
-Datei: src/AgentSmith.Contracts/Providers/ITicketProviderFactory.cs
+File: src/AgentSmith.Contracts/Providers/ITicketProviderFactory.cs
 ```
 
 ```csharp
@@ -267,7 +267,7 @@ public interface ITicketProviderFactory
 
 ### ISourceProviderFactory
 ```
-Datei: src/AgentSmith.Contracts/Providers/ISourceProviderFactory.cs
+File: src/AgentSmith.Contracts/Providers/ISourceProviderFactory.cs
 ```
 
 ```csharp
@@ -279,7 +279,7 @@ public interface ISourceProviderFactory
 
 ### IAgentProviderFactory
 ```
-Datei: src/AgentSmith.Contracts/Providers/IAgentProviderFactory.cs
+File: src/AgentSmith.Contracts/Providers/IAgentProviderFactory.cs
 ```
 
 ```csharp
@@ -291,7 +291,7 @@ public interface IAgentProviderFactory
 
 ---
 
-## Verzeichnisstruktur
+## Directory Structure
 
 ```
 src/AgentSmith.Contracts/
@@ -322,13 +322,13 @@ src/AgentSmith.Contracts/
     └── PipelineConfig.cs
 ```
 
-## Hinweise
+## Notes
 
-- Alle Interfaces mit XML-Doc Comments (englisch).
-- `PipelineContext` und `ContextKeys` sind die einzigen konkreten Typen in Contracts.
-- `ICommandContext` ist ein reines Marker Interface - keine Methoden.
-- `ICommandHandler<TContext>` ist generisch - jeder Handler implementiert genau eine Kombination.
-- `ICommandExecutor` ist die Brücke zwischen Context und Handler via DI.
-- `IPipelineExecutor` arbeitet mit Command-Namen (Strings aus YAML) und baut die Contexts.
-- Config-Models als einfache Klassen mit Properties (YamlDotNet Deserialisierung).
-- Factory-Interfaces nehmen die jeweilige Config-Sektion als Parameter.
+- All interfaces with XML-Doc Comments (English).
+- `PipelineContext` and `ContextKeys` are the only concrete types in Contracts.
+- `ICommandContext` is a pure marker interface - no methods.
+- `ICommandHandler<TContext>` is generic - each handler implements exactly one combination.
+- `ICommandExecutor` is the bridge between Context and Handler via DI.
+- `IPipelineExecutor` works with command names (strings from YAML) and builds the Contexts.
+- Config models as simple classes with properties (YamlDotNet deserialization).
+- Factory interfaces take the respective config section as parameter.

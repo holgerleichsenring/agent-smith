@@ -1,10 +1,10 @@
-# Phase 9: Scout Agent - Implementierungsdetails
+# Phase 9: Scout Agent - Implementation Details
 
-## Überblick
-Der Scout Agent ist eine leichtgewichtige, Haiku-basierte File-Discovery-Phase,
-die VOR der eigentlichen Coding-Phase läuft. Er identifiziert relevante Dateien
-und sammelt Kontext, damit der teurere Primary-Agent (Sonnet) direkt mit den
-richtigen Dateien arbeiten kann.
+## Overview
+The Scout Agent is a lightweight, Haiku-based file discovery phase that runs
+BEFORE the actual coding phase. It identifies relevant files and gathers context
+so that the more expensive Primary Agent (Sonnet) can work directly with the
+right files.
 
 ---
 
@@ -26,7 +26,7 @@ public sealed record ScoutResult(
 // Providers/Agent/ScoutAgent.cs
 ```
 
-### Konstruktor
+### Constructor
 ```csharp
 public sealed class ScoutAgent(
     AnthropicClient client,
@@ -35,7 +35,7 @@ public sealed class ScoutAgent(
     ILogger logger)
 ```
 
-### Methode
+### Method
 ```csharp
 public async Task<ScoutResult> DiscoverAsync(
     Plan plan,
@@ -43,16 +43,16 @@ public async Task<ScoutResult> DiscoverAsync(
     CancellationToken cancellationToken = default)
 ```
 
-### Algorithmus
-1. Erstellt eigenen ToolExecutor mit NUR read-only Tools
-2. Führt eine kurze Agentic Loop (max 5 Iterationen)
-3. System-Prompt instruiert: "Explore the codebase, identify relevant files"
-4. User-Prompt enthält: Plan-Summary, Plan-Steps, Repository-Pfad
-5. Sammelt alle gelesenen Datei-Pfade via FileReadTracker
-6. Extrahiert die finale Text-Antwort als ContextSummary
-7. Gibt ScoutResult zurück
+### Algorithm
+1. Creates its own ToolExecutor with ONLY read-only tools
+2. Runs a short Agentic Loop (max 5 iterations)
+3. System prompt instructs: "Explore the codebase, identify relevant files"
+4. User prompt contains: Plan summary, plan steps, repository path
+5. Collects all read file paths via FileReadTracker
+6. Extracts the final text response as ContextSummary
+7. Returns ScoutResult
 
-### System-Prompt
+### System Prompt
 ```
 You are a codebase scout. Your job is to explore the repository and identify
 all files relevant to the implementation plan below.
@@ -82,24 +82,24 @@ public static List<Tool> ScoutTools => new()
 };
 ```
 
-Scout bekommt nur 2 der 4 Tools. Kein Schreibzugriff, keine Command-Ausführung.
+Scout gets only 2 of the 4 tools. No write access, no command execution.
 
 ---
 
 ## Integration in ClaudeAgentProvider.ExecutePlanAsync
 
-### Ablauf mit Scout
+### Flow with Scout
 ```
-1. Wenn Models konfiguriert UND Scout-Model gesetzt:
+1. When Models is configured AND Scout model is set:
    a. ScoutAgent.DiscoverAsync(plan, repoPath)
-   b. Scout-Ergebnis (RelevantFiles + ContextSummary) wird dem User-Prompt hinzugefügt
-   c. Primary-Agent startet mit vorgeladenem Kontext
+   b. Scout result (RelevantFiles + ContextSummary) is added to the user prompt
+   c. Primary Agent starts with preloaded context
 
-2. Wenn kein Scout konfiguriert:
-   a. Verhalten wie bisher (Primary macht alles)
+2. When no Scout is configured:
+   a. Behavior as before (Primary does everything)
 ```
 
-### Erweiterter User-Prompt für Primary
+### Extended User Prompt for Primary
 ```
 Execute the following implementation plan in repository at: {repoPath}
 Branch: {branch}
@@ -114,16 +114,16 @@ Scout Summary: {contextSummary}
 ...
 ```
 
-### Vorteil
-- Scout (Haiku): ~$1/MT Input, 5 Iterationen File-Discovery → ~$0.01
-- Ohne Scout: Primary (Sonnet) macht File-Discovery selbst → ~$0.10 für die gleichen Iterationen
-- 10x Kostenreduktion für die Discovery-Phase
-- Primary startet direkt mit relevantem Kontext → weniger Iterationen insgesamt
+### Advantage
+- Scout (Haiku): ~$1/MT Input, 5 iterations file discovery → ~$0.01
+- Without Scout: Primary (Sonnet) does file discovery itself → ~$0.10 for the same iterations
+- 10x cost reduction for the discovery phase
+- Primary starts directly with relevant context → fewer iterations overall
 
 ---
 
-## Backward-Kompatibilität
-- `AgentConfig.Models` ist nullable
-- Wenn null → kein Scout, kein Registry, alles wie in Phase 8
-- Bestehende agentsmith.yml funktioniert ohne Änderung
-- Scout-Phase wird nur aktiviert wenn explizit konfiguriert
+## Backward Compatibility
+- `AgentConfig.Models` is nullable
+- If null → no Scout, no Registry, everything as in Phase 8
+- Existing agentsmith.yml works without changes
+- Scout phase is only activated when explicitly configured

@@ -1,37 +1,37 @@
 # Phase 5 - CLI & Docker
 
-## Ziel
-Agent Smith als echtes CLI-Tool und Docker-Image auslieferbar machen.
-User soll `agentsmith "fix #123 in payslip"` ausführen können - lokal oder im Container.
+## Goal
+Make Agent Smith deliverable as a real CLI tool and Docker image.
+User should be able to run `agentsmith "fix #123 in payslip"` - locally or in a container.
 
 ---
 
-## Komponenten
+## Components
 
-| Schritt | Datei | Beschreibung |
-|---------|-------|-------------|
-| 1 | `phase5-cli.md` | CLI mit System.CommandLine (Argumente, Optionen, --help) |
-| 2 | `phase5-docker.md` | Dockerfile (Multi-Stage), .dockerignore, Docker Compose Beispiel |
-| 3 | `phase5-smoke-test.md` | End-to-End Smoke Test (DI-Auflösung, CLI-Parsing) |
-| 4 | Tests | CLI Argument Parsing, DI Integration |
+| Step | File | Description |
+|------|------|-------------|
+| 1 | `phase5-cli.md` | CLI with System.CommandLine (arguments, options, --help) |
+| 2 | `phase5-docker.md` | Dockerfile (multi-stage), .dockerignore, Docker Compose example |
+| 3 | `phase5-smoke-test.md` | End-to-end smoke test (DI resolution, CLI parsing) |
+| 4 | Tests | CLI argument parsing, DI integration |
 
 ---
 
-## Design-Entscheidungen
+## Design Decisions
 
-### CLI: System.CommandLine statt handgeschriebenem Parsing
-- `System.CommandLine` ist das offizielle .NET CLI Framework
-- Gibt uns `--help`, `--version`, `--config`, Validierung gratis
-- Minimal-Overhead, kein Over-Engineering
+### CLI: System.CommandLine instead of hand-written parsing
+- `System.CommandLine` is the official .NET CLI framework
+- Gives us `--help`, `--version`, `--config`, validation for free
+- Minimal overhead, no over-engineering
 
 ### Docker: Multi-Stage Build
-- Stage 1: SDK zum Bauen
-- Stage 2: Runtime-only Image (schlank)
-- Config wird als Volume gemountet, nicht eingebaut
-- Ziel: Image < 200MB
+- Stage 1: SDK for building
+- Stage 2: Runtime-only image (lean)
+- Config is mounted as a volume, not built in
+- Target: Image < 200MB
 
-### Kein Over-Engineering
-- Keine Sub-Commands (nur ein Root-Command)
-- Keine interaktive Shell
-- Keine Watch-Modes oder Daemon-Prozesse
-- Einfach: Input rein → PR raus → Exit
+### No Over-Engineering
+- No sub-commands (only one root command)
+- No interactive shell
+- No watch modes or daemon processes
+- Simple: Input in → PR out → Exit

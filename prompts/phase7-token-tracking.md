@@ -1,28 +1,28 @@
-# Phase 7 - Schritt 2: Prompt Caching aktivieren
+# Phase 7 - Step 2: Activate Prompt Caching
 
-## Ziel
-`PromptCaching = AutomaticToolsAndSystem` auf allen API-Calls setzen und den
-System-Prompt für optimales Caching umstrukturieren.
-Projekt: `AgentSmith.Infrastructure/Providers/Agent/`
+## Goal
+Set `PromptCaching = AutomaticToolsAndSystem` on all API calls and restructure the
+System Prompt for optimal caching.
+Project: `AgentSmith.Infrastructure/Providers/Agent/`
 
 ---
 
-## AgenticLoop Anpassung
+## AgenticLoop Adjustment
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
 ```
 
-### Änderungen
+### Changes
 
-1. Constructor: `CacheConfig cacheConfig` und `TokenUsageTracker tracker` als Parameter
-2. In `SendRequestAsync`, `PromptCaching` setzen:
+1. Constructor: `CacheConfig cacheConfig` and `TokenUsageTracker tracker` as parameters
+2. In `SendRequestAsync`, set `PromptCaching`:
    ```csharp
    PromptCaching = ResolveCacheType(cacheConfig)
    ```
-3. Nach jedem API-Call: `tracker.Track(response)`
-4. Am Ende von `RunAsync`: `tracker.LogSummary(logger)`
-5. Bestehende `LogTokenUsage` Methode bleibt für Detail-Logging pro Iteration
+3. After each API call: `tracker.Track(response)`
+4. At the end of `RunAsync`: `tracker.LogSummary(logger)`
+5. Existing `LogTokenUsage` method remains for detail logging per iteration
 
 ### ResolveCacheType Helper
 ```csharp
@@ -40,47 +40,47 @@ private static PromptCacheType ResolveCacheType(CacheConfig config)
 
 ---
 
-## ClaudeAgentProvider Anpassung
+## ClaudeAgentProvider Adjustment
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
 ```
 
-### Änderungen
+### Changes
 
-1. System-Prompt Umstrukturierung für optimalen Cache-Prefix:
-   - **Erster SystemMessage**: Coding Principles (groß, statisch pro Execution)
-   - **Zweiter SystemMessage**: Execution Instructions (klein, variiert)
-   - Grund: Cache ist prefix-basiert. Der längste stabile Prefix wird gecacht.
+1. System Prompt restructuring for optimal cache prefix:
+   - **First SystemMessage**: Coding Principles (large, static per execution)
+   - **Second SystemMessage**: Execution Instructions (small, varies)
+   - Reason: Cache is prefix-based. The longest stable prefix gets cached.
 
-2. In `GeneratePlanAsync`: `PromptCaching` setzen
+2. In `GeneratePlanAsync`: Set `PromptCaching`
    ```csharp
    PromptCaching = ResolveCacheType(cacheConfig)
    ```
 
-3. In `ExecutePlanAsync`: `TokenUsageTracker` erstellen, an `AgenticLoop` übergeben
+3. In `ExecutePlanAsync`: Create `TokenUsageTracker`, pass to `AgenticLoop`
 
-4. Constructor: `CacheConfig` aus `AgentConfig` beziehen (via `retryConfig` Pattern)
+4. Constructor: Obtain `CacheConfig` from `AgentConfig` (via `retryConfig` pattern)
 
-### System-Prompt Aufbau (optimiert für Caching)
+### System Prompt Structure (optimized for caching)
 ```
-SystemMessage[0]: Coding Principles      ← ~1.5k tokens, GECACHT nach 1. Call
-SystemMessage[1]: Task Instructions       ← ~400 tokens, GECACHT nach 1. Call
-Tool Definitions (4 Tools)               ← ~800 tokens, GECACHT automatisch
+SystemMessage[0]: Coding Principles      ← ~1.5k tokens, CACHED after 1st call
+SystemMessage[1]: Task Instructions       ← ~400 tokens, CACHED after 1st call
+Tool Definitions (4 Tools)               ← ~800 tokens, CACHED automatically
 ```
 
-Ab Iteration 2: ~2.7k Tokens werden aus Cache gelesen statt gezählt.
-Bei 30k ITPM Limit (Tier 1) spart das ~9% pro Iteration.
+From Iteration 2 onwards: ~2.7k tokens are read from cache instead of being counted.
+At 30k ITPM limit (Tier 1) this saves ~9% per iteration.
 
 ---
 
-## AgentProviderFactory Anpassung
+## AgentProviderFactory Adjustment
 
-`CreateClaude` reicht `config.Cache` durch (wie bei `config.Retry`).
+`CreateClaude` passes `config.Cache` through (same as `config.Retry`).
 
 ---
 
-## Config Beispiel
+## Config Example
 
 ```yaml
 agent:

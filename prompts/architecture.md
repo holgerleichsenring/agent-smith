@@ -136,39 +136,39 @@ AgentSmith.sln
 ## Core Pattern: Command Pipeline (MediatR-Style)
 
 ### Pattern
-Inspiriert von MediatR Request/Response. Strikte Trennung von Command (Was) und Handler (Wie).
-Jeder Command definiert seinen eigenen Context-Typ. Der CommandExecutor löst den Handler per DI auf.
+Inspired by MediatR Request/Response. Strict separation of Command (What) and Handler (How).
+Each Command defines its own Context type. The CommandExecutor resolves the Handler via DI.
 
 ### Key Interfaces
 
 **ICommandContext (Marker):**
-- Marker interface für alle Command-Kontexte
-- Jeder Command definiert seinen eigenen Context als Record
-- Enthält die spezifischen Input-Daten für genau diesen Command
+- Marker interface for all Command contexts
+- Each Command defines its own Context as a Record
+- Contains the specific input data for exactly this Command
 
 **ICommandHandler\<TContext\>:**
 - Generic handler: `ICommandHandler<TContext> where TContext : ICommandContext`
 - Single method: `ExecuteAsync(TContext context, CancellationToken)`
 - Returns: `CommandResult`
-- Jeder Handler implementiert genau eine Kombination
+- Each Handler implements exactly one combination
 - Depends on providers via constructor injection
 
 **CommandExecutor:**
-- Löst `ICommandHandler<TContext>` per DI auf
-- `ExecuteAsync<TContext>(TContext context, CancellationToken)` → findet Handler, ruft aus
-- Zentrale Stelle für Cross-Cutting Concerns (Logging, Error Handling)
+- Resolves `ICommandHandler<TContext>` via DI
+- `ExecuteAsync<TContext>(TContext context, CancellationToken)` → finds Handler, invokes it
+- Central place for Cross-Cutting Concerns (Logging, Error Handling)
 
 **PipelineContext:**
-- Dictionary-based shared state bag zwischen Pipeline-Schritten
+- Dictionary-based shared state bag between Pipeline steps
 - Methods: `Get<T>(key)`, `Set<T>(key, value)`, `TryGet<T>(key, out value)`
-- Wird in die einzelnen ICommandContext-Records injiziert wo nötig
+- Injected into the individual ICommandContext records where needed
 
 **IProvider (base for all providers):**
 - `ITicketProvider` - fetch ticket details
 - `ISourceProvider` - git operations
 - `IAgentProvider` - Claude/OpenAI interactions
 
-### Beispiel
+### Example
 
 ```csharp
 // Command Context (Was soll passieren?)
@@ -550,17 +550,17 @@ docker run \
 - Test each before moving on
 
 ### Phase 4: Pipeline Execution
-- RegexIntentParser (Regex-basiert, kein LLM-Call)
-- CommandContextFactory (Command-Name → ICommandContext Mapping)
-- PipelineExecutor (sequentielle Ausführung, Stop on Fail)
-- ProcessTicketUseCase (Orchestrierung: Config → Intent → Pipeline)
+- RegexIntentParser (Regex-based, no LLM call)
+- CommandContextFactory (Command name → ICommandContext mapping)
+- PipelineExecutor (sequential execution, stop on fail)
+- ProcessTicketUseCase (orchestration: Config → Intent → Pipeline)
 - DI Wiring (Infrastructure + Application + Host Program.cs)
 
 ### Phase 5: CLI & Docker
 - System.CommandLine CLI (--help, --config, --dry-run, --verbose)
 - Multi-Stage Dockerfile (SDK → Runtime, ~150MB)
-- Docker Compose Beispiel
-- DI Integration Tests (alle Services auflösbar)
+- Docker Compose example
+- DI Integration Tests (all services resolvable)
 
 ### Phase 6: Pro Features (Private Repo)
 - Fork to agent-smith-pro

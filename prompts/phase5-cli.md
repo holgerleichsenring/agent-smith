@@ -1,8 +1,8 @@
-# Phase 5 - Schritt 1: CLI mit System.CommandLine
+# Phase 5 - Step 1: CLI with System.CommandLine
 
-## Ziel
-Echtes CLI-Interface mit Argument Parsing, --help, --config Option.
-Projekt: `AgentSmith.Host/`
+## Goal
+Real CLI interface with argument parsing, --help, --config option.
+Project: `AgentSmith.Host/`
 
 ---
 
@@ -12,7 +12,7 @@ Projekt: `AgentSmith.Host/`
 System.CommandLine --version 2.0.0-beta4.22272.1
 ```
 
-(Letzte stabile Beta, weit verbreitet, wird auch von .NET-Team empfohlen)
+(Latest stable beta, widely used, also recommended by the .NET team)
 
 ---
 
@@ -34,21 +34,21 @@ Options:
 
 ---
 
-## Program.cs Umbau
+## Program.cs Refactoring
 
 ```
-Datei: src/AgentSmith.Host/Program.cs
+File: src/AgentSmith.Host/Program.cs
 ```
 
-Statt dem einfachen `args[0]`-Parsing wird `System.CommandLine` verwendet:
+Instead of the simple `args[0]` parsing, `System.CommandLine` is used:
 
-1. Root Command mit Argument `<input>` und Optionen
-2. Handler: DI-Container bauen → ProcessTicketUseCase aufrufen
-3. `--dry-run`: Nur IntentParser + Config-Lookup, kein Pipeline-Execute
-4. `--verbose`: LogLevel auf Debug setzen
-5. Exit Code: 0 = Erfolg, 1 = Fehler
+1. Root command with argument `<input>` and options
+2. Handler: Build DI container → Call ProcessTicketUseCase
+3. `--dry-run`: Only IntentParser + Config lookup, no pipeline execution
+4. `--verbose`: Set LogLevel to Debug
+5. Exit code: 0 = Success, 1 = Error
 
-**Struktur:**
+**Structure:**
 
 ```csharp
 var inputArg = new Argument<string>("input", "Ticket reference and project");
@@ -71,25 +71,25 @@ return await rootCommand.InvokeAsync(args);
 
 ---
 
-## Dry-Run Modus
+## Dry-Run Mode
 
-Bei `--dry-run`:
-1. Config laden
-2. Intent parsen
-3. Project + Pipeline finden
-4. Ausgabe: "Would run pipeline 'fix-bug' for project 'payslip', ticket #123"
-5. Pipeline-Commands auflisten
+With `--dry-run`:
+1. Load config
+2. Parse intent
+3. Find project + pipeline
+4. Output: "Would run pipeline 'fix-bug' for project 'payslip', ticket #123"
+5. List pipeline commands
 6. Exit 0
 
-Kein API-Call, kein Checkout, kein PR.
+No API call, no checkout, no PR.
 
 ---
 
 ## Tests
 
 **CliTests:**
-- `ParseArgs_ValidInput_ReturnsZeroExitCode` (schwer ohne echte Providers)
-- Besser: Unit-Tests für die DI-Auflösung
+- `ParseArgs_ValidInput_ReturnsZeroExitCode` (difficult without real providers)
+- Better: Unit tests for DI resolution
 
 **DI Integration Test:**
-- `AllServices_Resolvable_FromContainer` - Baut den vollen DI-Container, resolved alle Services
+- `AllServices_Resolvable_FromContainer` - Builds the full DI container, resolves all services

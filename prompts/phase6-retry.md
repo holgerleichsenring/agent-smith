@@ -1,60 +1,60 @@
-# Phase 6 - Schritt 1 & 2: Retry mit Exponential Backoff
+# Phase 6 - Step 1 & 2: Retry with Exponential Backoff
 
-## Ziel
-Alle Anthropic API-Aufrufe überleben transiente Fehler und Rate Limits automatisch.
-Projekt: `AgentSmith.Contracts/Configuration/`, `AgentSmith.Infrastructure/Providers/Agent/`
+## Goal
+All Anthropic API calls survive transient errors and Rate Limits automatically.
+Project: `AgentSmith.Contracts/Configuration/`, `AgentSmith.Infrastructure/Providers/Agent/`
 
 ---
 
 ## RetryConfig
 
 ```
-Datei: src/AgentSmith.Contracts/Configuration/RetryConfig.cs
+File: src/AgentSmith.Contracts/Configuration/RetryConfig.cs
 ```
 
-Einfache Config-Klasse mit sinnvollen Defaults:
+Simple config class with sensible defaults:
 
 - `int MaxRetries` = 5
-- `int InitialDelayMs` = 2000 (2 Sekunden)
+- `int InitialDelayMs` = 2000 (2 seconds)
 - `double BackoffMultiplier` = 2.0
-- `int MaxDelayMs` = 60000 (1 Minute)
+- `int MaxDelayMs` = 60000 (1 minute)
 
-### Hinweise
-- Kein `UseJitter` Property nötig - Polly hat Jitter eingebaut
-- Defaults sind konservativ genug für Tier 1 (30k ITPM)
+### Notes
+- No `UseJitter` property needed - Polly has built-in Jitter
+- Defaults are conservative enough for Tier 1 (30k ITPM)
 
 ---
 
-## AgentConfig Erweiterung
+## AgentConfig Extension
 
 ```
-Datei: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
+File: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
 ```
 
-Neues Property:
+New property:
 - `RetryConfig Retry { get; set; } = new();`
 
-Backward-kompatibel: Default-Konstruktor liefert sinnvolle Werte.
+Backward-compatible: Default constructor provides sensible values.
 
 ---
 
 ## ResilientHttpClientFactory
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/ResilientHttpClientFactory.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/ResilientHttpClientFactory.cs
 ```
 
-**Verantwortung:** Erstellt HttpClient-Instanzen mit Polly Retry-Policy.
+**Responsibility:** Creates HttpClient instances with Polly Retry Policy.
 
-### Verhalten
-1. Erstellt `HttpClient` mit `SocketsHttpHandler` als Basis
-2. Fügt Polly `RetryPolicy` als `DelegatingHandler` hinzu
-3. Retry bei HTTP Status: 429, 500, 502, 503, 504
+### Behavior
+1. Creates `HttpClient` with `SocketsHttpHandler` as base
+2. Adds Polly `RetryPolicy` as `DelegatingHandler`
+3. Retry on HTTP Status: 429, 500, 502, 503, 504
 4. Exponential Backoff: `initialDelay * Math.Pow(backoffMultiplier, retryAttempt)`
-5. Jitter: ±25% auf jeden Delay (verhindert Thundering Herd)
-6. Loggt jeden Retry-Versuch mit Wartezeit
+5. Jitter: +/-25% on each delay (prevents Thundering Herd)
+6. Logs each retry attempt with wait time
 
-### Code-Skizze
+### Code Sketch
 
 ```csharp
 public sealed class ResilientHttpClientFactory(
@@ -87,23 +87,23 @@ public sealed class ResilientHttpClientFactory(
 }
 ```
 
-### Hinweise
-- `PolicyHttpMessageHandler` kommt aus `Microsoft.Extensions.Http.Polly`
-- Alternative: Direkt `Polly` nutzen ohne Microsoft.Extensions.Http
-- Prüfen ob `Microsoft.Extensions.Http.Resilience` oder `Polly` besser passt
-- Der HttpClient wird an `new AnthropicClient(apiKey, httpClient)` übergeben
+### Notes
+- `PolicyHttpMessageHandler` comes from `Microsoft.Extensions.Http.Polly`
+- Alternative: Use `Polly` directly without Microsoft.Extensions.Http
+- Check whether `Microsoft.Extensions.Http.Resilience` or `Polly` is a better fit
+- The HttpClient is passed to `new AnthropicClient(apiKey, httpClient)`
 
 ---
 
-## ClaudeAgentProvider Anpassung
+## ClaudeAgentProvider Adjustment
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
 ```
 
-### Änderungen
+### Changes
 
-**Constructor:** Erweitern um `RetryConfig retryConfig`
+**Constructor:** Extend with `RetryConfig retryConfig`
 
 ```csharp
 public sealed class ClaudeAgentProvider(
@@ -113,7 +113,7 @@ public sealed class ClaudeAgentProvider(
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 ```
 
-**Client-Erstellung:** Statt `new AnthropicClient(apiKey)`:
+**Client creation:** Instead of `new AnthropicClient(apiKey)`:
 
 ```csharp
 private AnthropicClient CreateClient()
@@ -124,19 +124,19 @@ private AnthropicClient CreateClient()
 }
 ```
 
-**Beide Methoden** (`GeneratePlanAsync`, `ExecutePlanAsync`) nutzen `CreateClient()`.
+**Both methods** (`GeneratePlanAsync`, `ExecutePlanAsync`) use `CreateClient()`.
 
 ---
 
-## AgenticLoop Anpassung
+## AgenticLoop Adjustment
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
 ```
 
-### Änderungen
+### Changes
 
-Nach jedem API-Call: Token-Usage loggen.
+After each API call: Log token usage.
 
 ```csharp
 private void LogUsage(MessageResponse response, int iteration)
@@ -152,20 +152,20 @@ private void LogUsage(MessageResponse response, int iteration)
 }
 ```
 
-### Hinweise
-- Noch kein TokenUsageTracker (kommt Phase 7)
-- Erstmal nur Logging pro Iteration für Observability
-- `Usage.CacheCreationInputTokens` und `CacheReadInputTokens` sind `int?`
+### Notes
+- No TokenUsageTracker yet (comes in Phase 7)
+- For now only logging per iteration for observability
+- `Usage.CacheCreationInputTokens` and `CacheReadInputTokens` are `int?`
 
 ---
 
-## AgentProviderFactory Anpassung
+## AgentProviderFactory Adjustment
 
 ```
-Datei: src/AgentSmith.Infrastructure/Factories/AgentProviderFactory.cs
+File: src/AgentSmith.Infrastructure/Factories/AgentProviderFactory.cs
 ```
 
-`CreateClaude` reicht `config.Retry` durch:
+`CreateClaude` passes `config.Retry` through:
 
 ```csharp
 private ClaudeAgentProvider CreateClaude(AgentConfig config)
@@ -179,7 +179,7 @@ private ClaudeAgentProvider CreateClaude(AgentConfig config)
 
 ---
 
-## Config Beispiel
+## Config Example
 
 ```yaml
 agent:
@@ -197,15 +197,15 @@ agent:
 ## Tests
 
 **RetryConfigTests:**
-- `Defaults_AreReasonable` - Default-Werte prüfen
-- `YamlDeserialization_Works` - Config aus YAML laden
+- `Defaults_AreReasonable` - Check default values
+- `YamlDeserialization_Works` - Load config from YAML
 
 **ResilientHttpClientFactoryTests:**
-- `Create_ReturnsHttpClient` - Nicht null
-- `RetryPolicy_Retries429` - Mock HTTP, prüfe dass 429 geretried wird
+- `Create_ReturnsHttpClient` - Not null
+- `RetryPolicy_Retries429` - Mock HTTP, verify that 429 is retried
 
 **AgentProviderFactoryTests:**
-- Bestehende Tests anpassen für neuen Constructor-Parameter
+- Adapt existing tests for new constructor parameter
 
 **DiRegistrationTests:**
-- Alle bestehenden Tests müssen weiter grün sein
+- All existing tests must remain green

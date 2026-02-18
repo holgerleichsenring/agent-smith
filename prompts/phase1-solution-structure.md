@@ -1,12 +1,12 @@
-# Phase 1 - Schritt 1: Solution Structure
+# Phase 1 - Step 1: Solution Structure
 
-## Ziel
-.NET 8 Solution mit allen Projekten, korrekten Referenzen und NuGet Packages.
-`dotnet build` muss fehlerfrei durchlaufen.
+## Goal
+.NET 8 Solution with all projects, correct references, and NuGet packages.
+`dotnet build` must succeed without errors.
 
 ---
 
-## Befehle
+## Commands
 
 ```bash
 # Solution erstellen
@@ -48,7 +48,7 @@ dotnet add tests/AgentSmith.Tests package Moq
 dotnet add tests/AgentSmith.Tests package FluentAssertions
 ```
 
-## Verzeichnisstruktur nach Schritt 1
+## Directory Structure After Step 1
 
 ```
 AgentSmith.sln
@@ -71,14 +71,14 @@ AgentSmith.sln
 └── prompts/
 ```
 
-## Hinweise
+## Notes
 
-- Alle auto-generierten `Class1.cs` Dateien löschen.
-- Nullable Reference Types in allen Projekten aktivieren (`<Nullable>enable</Nullable>`).
-- Implicit Usings aktivieren (`<ImplicitUsings>enable</ImplicitUsings>`).
-- `Program.cs` in Host vorerst minimal: nur `Console.WriteLine("Agent Smith")`.
+- Delete all auto-generated `Class1.cs` files.
+- Enable Nullable Reference Types in all projects (`<Nullable>enable</Nullable>`).
+- Enable Implicit Usings (`<ImplicitUsings>enable</ImplicitUsings>`).
+- Keep `Program.cs` in Host minimal for now: just `Console.WriteLine("Agent Smith")`.
 
-## Ergebnis
+## Result
 ```bash
-dotnet build  # Muss fehlerfrei sein
+dotnet build  # Must be error-free
 ```

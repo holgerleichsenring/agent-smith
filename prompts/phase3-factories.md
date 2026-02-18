@@ -1,14 +1,14 @@
-# Phase 3 - Schritt 1: Provider Factories
+# Phase 3 - Step 1: Provider Factories
 
-## Ziel
-Factories implementieren die anhand des `Type`-Feldes in der Config den richtigen Provider instanziieren.
-Projekt: `AgentSmith.Infrastructure/Factories/`
+## Goal
+Implement factories that instantiate the correct provider based on the `Type` field in the config.
+Project: `AgentSmith.Infrastructure/Factories/`
 
 ---
 
 ## TicketProviderFactory
 ```
-Datei: src/AgentSmith.Infrastructure/Factories/TicketProviderFactory.cs
+File: src/AgentSmith.Infrastructure/Factories/TicketProviderFactory.cs
 ```
 
 ```csharp
@@ -28,45 +28,45 @@ public sealed class TicketProviderFactory(IServiceProvider serviceProvider)
 }
 ```
 
-**Verhalten:**
-- Switch auf `config.Type` (case-insensitive)
-- Instanziiert den passenden Provider mit den Config-Werten
-- Secrets (Token etc.) werden aus Environment Variables gelesen
-- Unbekannter Typ → `ConfigurationException`
+**Behavior:**
+- Switch on `config.Type` (case-insensitive)
+- Instantiates the matching provider with the config values
+- Secrets (token etc.) are read from environment variables
+- Unknown type → `ConfigurationException`
 
 ---
 
 ## SourceProviderFactory
 ```
-Datei: src/AgentSmith.Infrastructure/Factories/SourceProviderFactory.cs
+File: src/AgentSmith.Infrastructure/Factories/SourceProviderFactory.cs
 ```
 
-**Verhalten:**
+**Behavior:**
 - `"local"` → `LocalSourceProvider(config.Path)`
 - `"github"` → `GitHubSourceProvider(config.Url, token)`
-- `"gitlab"` → `throw new NotSupportedException(...)` (Phase 3 Scope)
-- `"azurerepos"` → `throw new NotSupportedException(...)` (Phase 3 Scope)
+- `"gitlab"` → `throw new NotSupportedException(...)` (Phase 3 scope)
+- `"azurerepos"` → `throw new NotSupportedException(...)` (Phase 3 scope)
 
 ---
 
 ## AgentProviderFactory
 ```
-Datei: src/AgentSmith.Infrastructure/Factories/AgentProviderFactory.cs
+File: src/AgentSmith.Infrastructure/Factories/AgentProviderFactory.cs
 ```
 
-**Verhalten:**
+**Behavior:**
 - `"claude"` → `ClaudeAgentProvider(apiKey, config.Model)`
-- `"openai"` → `throw new NotSupportedException(...)` (Phase 3 Scope)
+- `"openai"` → `throw new NotSupportedException(...)` (Phase 3 scope)
 
 ---
 
-## Secrets-Auflösung
+## Secrets Resolution
 
-Die Factories lesen API Keys aus dem DI Container.
-Dafür wird eine `SecretsProvider` Klasse registriert die Environment Variables kapselt.
+The factories read API keys from the DI container.
+For this, a `SecretsProvider` class is registered that wraps environment variables.
 
 ```
-Datei: src/AgentSmith.Infrastructure/Configuration/SecretsProvider.cs
+File: src/AgentSmith.Infrastructure/Configuration/SecretsProvider.cs
 ```
 
 ```csharp
@@ -88,8 +88,8 @@ public sealed class SecretsProvider
 
 ---
 
-## Hinweise
-- Factories als `sealed` Klassen.
-- `IServiceProvider` per Constructor Injection für Zugriff auf Logger, Secrets etc.
-- Nicht implementierte Provider werfen `NotSupportedException` mit klarer Meldung.
-- Factories werden als Singleton registriert.
+## Notes
+- Factories as `sealed` classes.
+- `IServiceProvider` via constructor injection for access to logger, secrets, etc.
+- Unimplemented providers throw `NotSupportedException` with a clear message.
+- Factories are registered as singletons.

@@ -1,62 +1,62 @@
-# Phase 3: Providers - Implementierungsplan
+# Phase 3: Providers - Implementation Plan
 
-## Ziel
-Echte Provider-Implementierungen + Factories.
-Handler-Stubs aus Phase 2 werden mit echten Provider-Aufrufen verdrahtet.
-Nach Phase 3: Die Pipeline kann echte Tickets holen, Repos auschecken und Code generieren.
+## Goal
+Real provider implementations + factories.
+Handler stubs from Phase 2 are wired up with real provider calls.
+After Phase 3: The pipeline can fetch real tickets, check out repos, and generate code.
 
 ---
 
-## Vorbedingung
-- Phase 2 abgeschlossen (alle Handler-Stubs, CommandExecutor funktioniert)
+## Prerequisite
+- Phase 2 completed (all handler stubs, CommandExecutor working)
 
-## Reihenfolge (laut Architecture)
+## Order (per Architecture)
 
-Die Reihenfolge ist bewusst gewählt - jeder Provider kann isoliert getestet werden.
+The order is deliberately chosen - each provider can be tested in isolation.
 
-### Schritt 1: Provider Factories
-Siehe: `prompts/phase3-factories.md`
+### Step 1: Provider Factories
+See: `prompts/phase3-factories.md`
 
-Factories für alle drei Provider-Typen. Lösen den richtigen Provider anhand `config.Type` auf.
-Projekt: `AgentSmith.Infrastructure/Factories/`
+Factories for all three provider types. Resolve the correct provider based on `config.Type`.
+Project: `AgentSmith.Infrastructure/Factories/`
 
-### Schritt 2: Ticket Providers
-Siehe: `prompts/phase3-tickets.md`
+### Step 2: Ticket Providers
+See: `prompts/phase3-tickets.md`
 
-Erster Provider: AzureDevOpsTicketProvider (mit Azure DevOps SDK).
-Dann: GitHubTicketProvider (mit Octokit).
+First provider: AzureDevOpsTicketProvider (with Azure DevOps SDK).
+Then: GitHubTicketProvider (with Octokit).
 Optional Phase 3: JiraTicketProvider.
-Plus: FetchTicketHandler von Stub → echte Implementierung.
-Projekt: `AgentSmith.Infrastructure/Providers/Tickets/`
+Plus: FetchTicketHandler from stub to real implementation.
+Project: `AgentSmith.Infrastructure/Providers/Tickets/`
 
-### Schritt 3: Source Providers
-Siehe: `prompts/phase3-source.md`
+### Step 3: Source Providers
+See: `prompts/phase3-source.md`
 
-LocalSourceProvider (Dateisystem + LibGit2Sharp).
-Dann: GitHubSourceProvider (Octokit für PRs, LibGit2Sharp für Git).
-Plus: CheckoutSourceHandler + CommitAndPRHandler von Stub → echt.
-Projekt: `AgentSmith.Infrastructure/Providers/Source/`
+LocalSourceProvider (file system + LibGit2Sharp).
+Then: GitHubSourceProvider (Octokit for PRs, LibGit2Sharp for Git).
+Plus: CheckoutSourceHandler + CommitAndPRHandler from stub to real.
+Project: `AgentSmith.Infrastructure/Providers/Source/`
 
-### Schritt 4: Agent Provider (Agentic Loop)
-Siehe: `prompts/phase3-agent.md`
+### Step 4: Agent Provider (Agentic Loop)
+See: `prompts/phase3-agent.md`
 
-ClaudeAgentProvider mit Anthropic SDK. Das Herzstück.
+ClaudeAgentProvider with Anthropic SDK. The core piece.
 - Tool Definitions (read_file, write_file, list_files, run_command)
 - Agentic Loop (send → tool calls → execute → send back → repeat)
 - Plan Generation + Plan Execution
-Plus: GeneratePlanHandler + AgenticExecuteHandler von Stub → echt.
-Projekt: `AgentSmith.Infrastructure/Providers/Agent/`
+Plus: GeneratePlanHandler + AgenticExecuteHandler from stub to real.
+Project: `AgentSmith.Infrastructure/Providers/Agent/`
 
-### Schritt 5: Remaining Handlers verdrahten
-AnalyzeCodeHandler + TestHandler von Stub → echt.
-Diese brauchen keine Provider, nur Dateisystem/Process-Aufrufe.
+### Step 5: Wire up remaining handlers
+AnalyzeCodeHandler + TestHandler from stub to real.
+These don't need providers, only file system/process calls.
 
-### Schritt 6: Tests
-- Unit Tests für jede Factory
-- Unit Tests für jeden Provider (mit gemockten HTTP Clients)
-- Integration Tests für LocalSourceProvider (echtes Dateisystem)
+### Step 6: Tests
+- Unit tests for each factory
+- Unit tests for each provider (with mocked HTTP clients)
+- Integration tests for LocalSourceProvider (real file system)
 
-### Schritt 7: Verify
+### Step 7: Verify
 ```bash
 dotnet build
 dotnet test
@@ -66,8 +66,8 @@ dotnet test
 
 ## NuGet Packages (Phase 3)
 
-| Projekt | Package | Zweck |
-|---------|---------|-------|
+| Project | Package | Purpose |
+|---------|---------|---------|
 | AgentSmith.Infrastructure | Anthropic.SDK | Claude API |
 | AgentSmith.Infrastructure | Octokit | GitHub API |
 | AgentSmith.Infrastructure | LibGit2Sharp | Git Operations |
@@ -76,28 +76,28 @@ dotnet test
 
 ---
 
-## Abhängigkeiten
+## Dependencies
 
 ```
-Schritt 1 (Factories)
-    ├── Schritt 2 (Tickets) ← braucht TicketProviderFactory
-    ├── Schritt 3 (Source) ← braucht SourceProviderFactory
-    └── Schritt 4 (Agent) ← braucht AgentProviderFactory
-         └── Schritt 5 (Remaining Handlers)
-              └── Schritt 6 (Tests)
-                   └── Schritt 7 (Verify)
+Step 1 (Factories)
+    ├── Step 2 (Tickets) ← needs TicketProviderFactory
+    ├── Step 3 (Source) ← needs SourceProviderFactory
+    └── Step 4 (Agent) ← needs AgentProviderFactory
+         └── Step 5 (Remaining Handlers)
+              └── Step 6 (Tests)
+                   └── Step 7 (Verify)
 ```
 
-Schritte 2, 3, 4 können theoretisch parallel, aber sequentiell ist sicherer wegen SDK-Konflikten.
+Steps 2, 3, 4 can theoretically run in parallel, but sequential is safer due to SDK conflicts.
 
 ---
 
 ## Definition of Done (Phase 3)
-- [ ] Alle drei Factory-Implementierungen vorhanden
-- [ ] AzureDevOpsTicketProvider + GitHubTicketProvider implementiert
-- [ ] LocalSourceProvider + GitHubSourceProvider implementiert
-- [ ] ClaudeAgentProvider mit Agentic Loop implementiert
-- [ ] Alle Handler-Stubs durch echte Implementierungen ersetzt
-- [ ] Unit Tests für Factories + Providers
-- [ ] `dotnet build` + `dotnet test` fehlerfrei
-- [ ] Alle Dateien halten sich an Coding Principles (20/120, Englisch)
+- [ ] All three factory implementations present
+- [ ] AzureDevOpsTicketProvider + GitHubTicketProvider implemented
+- [ ] LocalSourceProvider + GitHubSourceProvider implemented
+- [ ] ClaudeAgentProvider with Agentic Loop implemented
+- [ ] All handler stubs replaced by real implementations
+- [ ] Unit tests for factories + providers
+- [ ] `dotnet build` + `dotnet test` pass without errors
+- [ ] All files adhere to Coding Principles (20/120, English)

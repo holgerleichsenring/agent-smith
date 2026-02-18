@@ -1,51 +1,51 @@
-# Phase 2: Free Commands (Stubs) - Implementierungsplan
+# Phase 2: Free Commands (Stubs) - Implementation Plan
 
-## Ziel
-Alle Free Command Contexts + Handler als Stubs implementieren.
-Handler haben echte Signaturen, Logging und Error Handling, aber TODO-Bodies für die Provider-Aufrufe.
-Zusätzlich: `CommandExecutor` als echte Implementierung (das Herzstück der DI-Auflösung).
+## Goal
+Implement all Free Command Contexts + Handlers as stubs.
+Handlers have real signatures, logging, and error handling, but TODO bodies for the provider calls.
+Additionally: `CommandExecutor` as a real implementation (the heart of DI resolution).
 
-Nach Phase 2: Pipeline ist "verdrahtet" - Commands laufen durch, tun aber noch nichts Echtes.
+After Phase 2: The pipeline is "wired up" - commands run through but don't do anything real yet.
 
 ---
 
-## Vorbedingung
-- Phase 1 abgeschlossen (Solution kompiliert, Contracts definiert)
+## Prerequisite
+- Phase 1 completed (solution compiles, contracts defined)
 
-## Schritte
+## Steps
 
-### Schritt 1: CommandExecutor Implementierung
-Siehe: `prompts/phase2-executor.md`
+### Step 1: CommandExecutor Implementation
+See: `prompts/phase2-executor.md`
 
-Die zentrale Klasse die `ICommandHandler<TContext>` per DI auflöst.
-Einzige nicht-Stub Implementierung in Phase 2.
-Projekt: `AgentSmith.Application`
+The central class that resolves `ICommandHandler<TContext>` via DI.
+The only non-stub implementation in Phase 2.
+Project: `AgentSmith.Application`
 
-### Schritt 2: Command Contexts
-Siehe: `prompts/phase2-contexts.md`
+### Step 2: Command Contexts
+See: `prompts/phase2-contexts.md`
 
-Alle 9 Free Command Context Records definieren.
-Projekt: `AgentSmith.Application/Commands/Contexts/`
+Define all 9 Free Command Context records.
+Project: `AgentSmith.Application/Commands/Contexts/`
 
-### Schritt 3: Command Handlers (Stubs)
-Siehe: `prompts/phase2-handlers.md`
+### Step 3: Command Handlers (Stubs)
+See: `prompts/phase2-handlers.md`
 
-Alle 9 Free Command Handler mit:
-- Echtem Constructor (DI-fähig, nimmt Factories/Providers)
+All 9 Free Command Handlers with:
+- Real constructor (DI-capable, takes factories/providers)
 - Logging (ILogger)
-- Guard Clauses
-- TODO im Body für die echte Logik
-- Schreibt Dummy-Daten in PipelineContext
-Projekt: `AgentSmith.Application/Commands/Handlers/`
+- Guard clauses
+- TODO in body for real logic
+- Writes dummy data to PipelineContext
+Project: `AgentSmith.Application/Commands/Handlers/`
 
-### Schritt 4: DI Registration
-`ServiceCollectionExtensions` in Application für Handler-Registrierung.
+### Step 4: DI Registration
+`ServiceCollectionExtensions` in Application for handler registration.
 
-### Schritt 5: Tests
-- CommandExecutor Tests (mit Mock-Handlern)
-- Mindestens 1 Handler-Stub Test (Logging, Guard Clauses)
+### Step 5: Tests
+- CommandExecutor tests (with mock handlers)
+- At least 1 handler stub test (logging, guard clauses)
 
-### Schritt 6: Verify
+### Step 6: Verify
 ```bash
 dotnet build
 dotnet test
@@ -53,36 +53,36 @@ dotnet test
 
 ---
 
-## Abhängigkeiten
+## Dependencies
 
 ```
-Schritt 1 (CommandExecutor)
-    └── Schritt 2 (Contexts) ← können parallel zu 1
-         └── Schritt 3 (Handlers) ← braucht Contexts + Executor-Interface
-              └── Schritt 4 (DI Registration)
-                   └── Schritt 5 (Tests)
-                        └── Schritt 6 (Verify)
+Step 1 (CommandExecutor)
+    └── Step 2 (Contexts) ← can be done in parallel with 1
+         └── Step 3 (Handlers) ← requires Contexts + Executor interface
+              └── Step 4 (DI Registration)
+                   └── Step 5 (Tests)
+                        └── Step 6 (Verify)
 ```
 
-Schritt 1 und 2 können parallel, der Rest sequentiell.
+Steps 1 and 2 can be done in parallel, the rest sequentially.
 
 ---
 
 ## NuGet Packages (Phase 2)
 
-| Projekt | Package | Zweck |
-|---------|---------|-------|
+| Project | Package | Purpose |
+|---------|---------|---------|
 | AgentSmith.Application | Microsoft.Extensions.Logging.Abstractions | ILogger<T> |
 | AgentSmith.Application | Microsoft.Extensions.DependencyInjection.Abstractions | IServiceCollection Extensions |
 
 ---
 
 ## Definition of Done (Phase 2)
-- [ ] CommandExecutor löst Handler per DI auf und ruft ExecuteAsync
-- [ ] Alle 9 Free Command Contexts definiert
-- [ ] Alle 9 Free Command Handlers als Stubs implementiert
-- [ ] Jeder Handler loggt Start/Ende und hat Guard Clauses
-- [ ] DI Registration für alle Handler vorhanden
-- [ ] CommandExecutor Tests grün
-- [ ] `dotnet build` + `dotnet test` fehlerfrei
-- [ ] Alle Dateien halten sich an Coding Principles (20/120, Englisch)
+- [ ] CommandExecutor resolves handlers via DI and calls ExecuteAsync
+- [ ] All 9 Free Command Contexts defined
+- [ ] All 9 Free Command Handlers implemented as stubs
+- [ ] Each handler logs start/end and has guard clauses
+- [ ] DI registration for all handlers present
+- [ ] CommandExecutor tests green
+- [ ] `dotnet build` + `dotnet test` error-free
+- [ ] All files adhere to coding principles (20/120, English)

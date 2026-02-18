@@ -1,47 +1,47 @@
-# Phase 1 - Schritt 2: Domain Entities & Value Objects
+# Phase 1 - Step 2: Domain Entities & Value Objects
 
-## Ziel
-Alle Kerntypen des Systems definieren. Reine Datenmodelle ohne Infrastruktur-Abhängigkeiten.
-Projekt: `AgentSmith.Domain`
+## Goal
+Define all core types of the system. Pure data models without infrastructure dependencies.
+Project: `AgentSmith.Domain`
 
 ---
 
 ## Value Objects (Records)
 
-Immutable, vergleichbar by value, selbst-validierend.
+Immutable, comparable by value, self-validating.
 
 ### TicketId
 ```
-Datei: src/AgentSmith.Domain/ValueObjects/TicketId.cs
+File: src/AgentSmith.Domain/ValueObjects/TicketId.cs
 ```
-- `string Value` (nicht leer, nicht null)
-- Guard Clause im Constructor
-- Implicit conversion von/zu string
+- `string Value` (not empty, not null)
+- Guard clause in constructor
+- Implicit conversion from/to string
 
 ### ProjectName
 ```
-Datei: src/AgentSmith.Domain/ValueObjects/ProjectName.cs
+File: src/AgentSmith.Domain/ValueObjects/ProjectName.cs
 ```
-- `string Value` (nicht leer, nicht null)
-- Guard Clause im Constructor
+- `string Value` (not empty, not null)
+- Guard clause in constructor
 
 ### BranchName
 ```
-Datei: src/AgentSmith.Domain/ValueObjects/BranchName.cs
+File: src/AgentSmith.Domain/ValueObjects/BranchName.cs
 ```
 - `string Value`
-- Factory method: `FromTicket(TicketId ticketId, string prefix = "fix")` → z.B. `fix/12345`
+- Factory method: `FromTicket(TicketId ticketId, string prefix = "fix")` → e.g. `fix/12345`
 
 ### FilePath
 ```
-Datei: src/AgentSmith.Domain/ValueObjects/FilePath.cs
+File: src/AgentSmith.Domain/ValueObjects/FilePath.cs
 ```
-- `string Value` (relativ zum Repo Root)
-- Validierung: kein absoluter Pfad, kein `..`
+- `string Value` (relative to repo root)
+- Validation: no absolute path, no `..`
 
 ### CommandResult
 ```
-Datei: src/AgentSmith.Domain/ValueObjects/CommandResult.cs
+File: src/AgentSmith.Domain/ValueObjects/CommandResult.cs
 ```
 - `bool Success`
 - `string Message`
@@ -52,22 +52,22 @@ Datei: src/AgentSmith.Domain/ValueObjects/CommandResult.cs
 
 ## Entities
 
-Haben Identität, können sich ändern.
+Have identity, can change over time.
 
 ### Ticket
 ```
-Datei: src/AgentSmith.Domain/Entities/Ticket.cs
+File: src/AgentSmith.Domain/Entities/Ticket.cs
 ```
 - `TicketId Id`
 - `string Title`
 - `string Description`
 - `string? AcceptanceCriteria`
 - `string Status`
-- `string Source` (z.B. "AzureDevOps", "Jira", "GitHub")
+- `string Source` (e.g. "AzureDevOps", "Jira", "GitHub")
 
 ### Repository
 ```
-Datei: src/AgentSmith.Domain/Entities/Repository.cs
+File: src/AgentSmith.Domain/Entities/Repository.cs
 ```
 - `string LocalPath`
 - `BranchName CurrentBranch`
@@ -75,15 +75,15 @@ Datei: src/AgentSmith.Domain/Entities/Repository.cs
 
 ### Plan
 ```
-Datei: src/AgentSmith.Domain/Entities/Plan.cs
+File: src/AgentSmith.Domain/Entities/Plan.cs
 ```
 - `string Summary`
 - `IReadOnlyList<PlanStep> Steps`
-- `string RawResponse` (Original-Antwort vom Agent)
+- `string RawResponse` (original response from the agent)
 
 ### PlanStep
 ```
-Datei: src/AgentSmith.Domain/Entities/PlanStep.cs
+File: src/AgentSmith.Domain/Entities/PlanStep.cs
 ```
 - `int Order`
 - `string Description`
@@ -92,7 +92,7 @@ Datei: src/AgentSmith.Domain/Entities/PlanStep.cs
 
 ### CodeChange
 ```
-Datei: src/AgentSmith.Domain/Entities/CodeChange.cs
+File: src/AgentSmith.Domain/Entities/CodeChange.cs
 ```
 - `FilePath Path`
 - `string Content`
@@ -100,7 +100,7 @@ Datei: src/AgentSmith.Domain/Entities/CodeChange.cs
 
 ### CodeAnalysis
 ```
-Datei: src/AgentSmith.Domain/Entities/CodeAnalysis.cs
+File: src/AgentSmith.Domain/Entities/CodeAnalysis.cs
 ```
 - `IReadOnlyList<string> FileStructure`
 - `IReadOnlyList<string> Dependencies`
@@ -111,41 +111,41 @@ Datei: src/AgentSmith.Domain/Entities/CodeAnalysis.cs
 
 ## Exceptions
 
-Alle erben von einer Basis-Exception.
+All inherit from a base exception.
 
 ### AgentSmithException
 ```
-Datei: src/AgentSmith.Domain/Exceptions/AgentSmithException.cs
+File: src/AgentSmith.Domain/Exceptions/AgentSmithException.cs
 ```
-- Basis-Exception für alle domänenspezifischen Fehler
+- Base exception for all domain-specific errors
 - Constructor: `(string message)`, `(string message, Exception innerException)`
 
 ### TicketNotFoundException
 ```
-Datei: src/AgentSmith.Domain/Exceptions/TicketNotFoundException.cs
+File: src/AgentSmith.Domain/Exceptions/TicketNotFoundException.cs
 ```
-- Erbt von `AgentSmithException`
+- Inherits from `AgentSmithException`
 - Constructor: `(TicketId ticketId)`
 - Message: `$"Ticket '{ticketId.Value}' not found."`
 
 ### ConfigurationException
 ```
-Datei: src/AgentSmith.Domain/Exceptions/ConfigurationException.cs
+File: src/AgentSmith.Domain/Exceptions/ConfigurationException.cs
 ```
-- Erbt von `AgentSmithException`
+- Inherits from `AgentSmithException`
 - Constructor: `(string message)`
 
 ### ProviderException
 ```
-Datei: src/AgentSmith.Domain/Exceptions/ProviderException.cs
+File: src/AgentSmith.Domain/Exceptions/ProviderException.cs
 ```
-- Erbt von `AgentSmithException`
+- Inherits from `AgentSmithException`
 - `string ProviderType` Property
 - Constructor: `(string providerType, string message, Exception? innerException = null)`
 
 ---
 
-## Verzeichnisstruktur
+## Directory Structure
 
 ```
 src/AgentSmith.Domain/
@@ -169,10 +169,10 @@ src/AgentSmith.Domain/
     └── ProviderException.cs
 ```
 
-## Hinweise
+## Notes
 
-- Alle Value Objects als `record` implementieren.
-- Entities als `sealed class` (vorerst kein Vererbungsbedarf).
-- Guard Clauses mit `ArgumentException.ThrowIfNullOrWhiteSpace()` (.NET 8).
-- Kein using von Infrastructure-Namespaces.
-- Kein NuGet-Package nötig - reine C# Typen.
+- Implement all Value Objects as `record`.
+- Entities as `sealed class` (no inheritance needed for now).
+- Guard clauses with `ArgumentException.ThrowIfNullOrWhiteSpace()` (.NET 8).
+- No using of infrastructure namespaces.
+- No NuGet package needed - pure C# types.

@@ -1,18 +1,18 @@
-# Phase 1 - Schritt 4: Configuration
+# Phase 1 - Step 4: Configuration
 
-## Ziel
-YAML-basierte Konfiguration laden und als stark typisierte Objekte bereitstellen.
-Einzige echte Implementierung in Phase 1.
+## Goal
+Load YAML-based configuration and provide it as strongly typed objects.
+Only real implementation in Phase 1.
 
 ---
 
 ## Config Models
 
-Alle in `AgentSmith.Contracts/Configuration/` (werden von mehreren Layern gebraucht).
+All in `AgentSmith.Contracts/Configuration/` (needed by multiple layers).
 
 ### AgentSmithConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/AgentSmithConfig.cs
+File: src/AgentSmith.Contracts/Configuration/AgentSmithConfig.cs
 ```
 - `Dictionary<string, ProjectConfig> Projects`
 - `Dictionary<string, PipelineConfig> Pipelines`
@@ -20,26 +20,26 @@ Datei: src/AgentSmith.Contracts/Configuration/AgentSmithConfig.cs
 
 ### ProjectConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/ProjectConfig.cs
+File: src/AgentSmith.Contracts/Configuration/ProjectConfig.cs
 ```
 - `SourceConfig Source`
 - `TicketConfig Tickets`
 - `AgentConfig Agent`
-- `string Pipeline` (Name der Pipeline-Definition)
+- `string Pipeline` (name of the pipeline definition)
 - `string? CodingPrinciplesPath`
 
 ### SourceConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/SourceConfig.cs
+File: src/AgentSmith.Contracts/Configuration/SourceConfig.cs
 ```
 - `string Type` (GitHub, GitLab, AzureRepos, Local)
 - `string? Url`
-- `string? Path` (für Local)
+- `string? Path` (for Local)
 - `string Auth` (token, ssh)
 
 ### TicketConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/TicketConfig.cs
+File: src/AgentSmith.Contracts/Configuration/TicketConfig.cs
 ```
 - `string Type` (AzureDevOps, Jira, GitHub)
 - `string? Organization`
@@ -49,48 +49,48 @@ Datei: src/AgentSmith.Contracts/Configuration/TicketConfig.cs
 
 ### AgentConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
+File: src/AgentSmith.Contracts/Configuration/AgentConfig.cs
 ```
 - `string Type` (Claude, OpenAI)
-- `string Model` (z.B. sonnet-4, gpt-4o)
+- `string Model` (e.g. sonnet-4, gpt-4o)
 
 ### PipelineConfig
 ```
-Datei: src/AgentSmith.Contracts/Configuration/PipelineConfig.cs
+File: src/AgentSmith.Contracts/Configuration/PipelineConfig.cs
 ```
-- `List<string> Commands` (Command-Klassennamen)
+- `List<string> Commands` (command class names)
 
 ---
 
-## Implementierung: YamlConfigurationLoader
+## Implementation: YamlConfigurationLoader
 
 ```
-Datei: src/AgentSmith.Infrastructure/Configuration/YamlConfigurationLoader.cs
+File: src/AgentSmith.Infrastructure/Configuration/YamlConfigurationLoader.cs
 ```
-Projekt: `AgentSmith.Infrastructure`
+Project: `AgentSmith.Infrastructure`
 
-**Verantwortung:**
-- Implementiert `IConfigurationLoader`
-- Liest YAML-Datei von Dateipfad
-- Deserialisiert zu `AgentSmithConfig`
-- Löst `${ENV_VAR}` Platzhalter in Secrets auf
-- Wirft `ConfigurationException` bei Fehlern
+**Responsibility:**
+- Implements `IConfigurationLoader`
+- Reads YAML file from file path
+- Deserializes to `AgentSmithConfig`
+- Resolves `${ENV_VAR}` placeholders in Secrets
+- Throws `ConfigurationException` on errors
 
-**Methoden:**
-- `AgentSmithConfig LoadConfig(string configPath)` (aus Interface)
-- Private: `string ResolveEnvironmentVariables(string value)` - ersetzt `${VAR}` mit `Environment.GetEnvironmentVariable`
+**Methods:**
+- `AgentSmithConfig LoadConfig(string configPath)` (from interface)
+- Private: `string ResolveEnvironmentVariables(string value)` - replaces `${VAR}` with `Environment.GetEnvironmentVariable`
 
-**Verhalten:**
-- Datei nicht gefunden → `ConfigurationException`
-- YAML ungültig → `ConfigurationException`
-- Environment Variable nicht gesetzt → Wert bleibt leer (kein Fehler, wird erst bei Nutzung validiert)
+**Behavior:**
+- File not found → `ConfigurationException`
+- Invalid YAML → `ConfigurationException`
+- Environment variable not set → value remains empty (no error, validated only at usage time)
 
 ---
 
-## Beispiel Config
+## Example Config
 
 ```
-Datei: config/agentsmith.yml
+File: config/agentsmith.yml
 ```
 
 ```yaml
@@ -151,21 +151,21 @@ secrets:
 ## Coding Principles Template
 
 ```
-Datei: config/coding-principles.md
+File: config/coding-principles.md
 ```
 
-Wird aus `prompts/coding-principles.md` kopiert.
-Diese Datei ist die, die der Agent zur Laufzeit lädt und an das LLM schickt.
+Copied from `prompts/coding-principles.md`.
+This is the file that the agent loads at runtime and sends to the LLM.
 
 ---
 
 ## Unit Tests
 
 ```
-Datei: tests/AgentSmith.Tests/Configuration/YamlConfigurationLoaderTests.cs
+File: tests/AgentSmith.Tests/Configuration/YamlConfigurationLoaderTests.cs
 ```
 
-**Testfälle:**
+**Test Cases:**
 - `LoadConfig_ValidYaml_ReturnsConfig` - Happy Path
 - `LoadConfig_FileNotFound_ThrowsConfigurationException`
 - `LoadConfig_InvalidYaml_ThrowsConfigurationException`
@@ -173,14 +173,14 @@ Datei: tests/AgentSmith.Tests/Configuration/YamlConfigurationLoaderTests.cs
 - `LoadConfig_ProjectHasAllFields_MapsCorrectly`
 - `LoadConfig_PipelineHasCommands_MapsCorrectly`
 
-**Testdaten:**
-- Erstelle Test-YAML Dateien unter `tests/AgentSmith.Tests/Configuration/TestData/`
-- `valid-config.yml` - vollständige gültige Config
-- `invalid-config.yml` - kaputtes YAML
+**Test Data:**
+- Create test YAML files under `tests/AgentSmith.Tests/Configuration/TestData/`
+- `valid-config.yml` - complete valid config
+- `invalid-config.yml` - broken YAML
 
 ---
 
-## Verzeichnisstruktur nach Schritt 4
+## Directory Structure After Step 4
 
 ```
 src/AgentSmith.Contracts/Configuration/
@@ -205,9 +205,9 @@ tests/AgentSmith.Tests/Configuration/
     └── invalid-config.yml
 ```
 
-## Hinweise
+## Notes
 
-- Config Models brauchen parameterlose Konstruktoren (YamlDotNet Deserialisierung).
-- Properties mit `{ get; set; }` (nicht `init`, wegen Deserialisierung).
-- YAML Property-Namen in snake_case, C# Properties in PascalCase → YamlDotNet `NamingConvention` konfigurieren.
-- Secrets-Auflösung ist bewusst lazy: nicht gesetzte Env-Vars sind kein Fehler beim Laden.
+- Config models need parameterless constructors (YamlDotNet deserialization).
+- Properties with `{ get; set; }` (not `init`, due to deserialization).
+- YAML property names in snake_case, C# properties in PascalCase → configure YamlDotNet `NamingConvention`.
+- Secret resolution is intentionally lazy: unset env vars are not an error during loading.

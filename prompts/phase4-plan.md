@@ -1,56 +1,56 @@
 # Phase 4 - Pipeline Execution
 
-## Ziel
-Das System end-to-end lauffähig machen: User gibt `"fix #123 in payslip"` ein →
-Intent wird erkannt → Config geladen → Pipeline gebaut → Commands sequentiell ausgeführt.
+## Goal
+Make the system work end-to-end: User enters `"fix #123 in payslip"` →
+Intent is recognized → Config loaded → Pipeline built → Commands executed sequentially.
 
 ---
 
-## Komponenten
+## Components
 
-| Schritt | Datei | Beschreibung |
-|---------|-------|-------------|
-| 1 | `phase4-intent-parser.md` | IntentParser: Regex-basiert, User Input → TicketId + ProjectName |
-| 2 | `phase4-pipeline-executor.md` | PipelineExecutor: Command-Namen → Contexts bauen → Handler ausführen |
-| 3 | `phase4-use-case.md` | ProcessTicketUseCase: Orchestriert den gesamten Flow |
+| Step | File | Description |
+|------|------|-------------|
+| 1 | `phase4-intent-parser.md` | IntentParser: Regex-based, User Input → TicketId + ProjectName |
+| 2 | `phase4-pipeline-executor.md` | PipelineExecutor: Command names → Build Contexts → Execute Handlers |
+| 3 | `phase4-use-case.md` | ProcessTicketUseCase: Orchestrates the entire flow |
 | 4 | `phase4-di-wiring.md` | DI Registration in Infrastructure + Host Program.cs |
-| 5 | Tests | IntentParser, PipelineExecutor, UseCase (mit Mocks) |
+| 5 | Tests | IntentParser, PipelineExecutor, UseCase (with mocks) |
 
 ---
 
-## Abhängigkeiten
+## Dependencies
 
-- **Phase 1-3** müssen komplett sein (sind sie)
-- IntentParser ist bewusst simpel gehalten (Regex statt LLM-Call)
-  - Begründung: Einfachheit, keine API-Kosten, deterministisch
-  - Später erweiterbar auf Claude-basiertes Parsing
-- PipelineExecutor nutzt den bestehenden CommandExecutor
-- ProcessTicketUseCase ist der zentrale Einstiegspunkt für Host/CLI
+- **Phase 1-3** must be complete (they are)
+- IntentParser is intentionally kept simple (Regex instead of LLM call)
+  - Rationale: Simplicity, no API costs, deterministic
+  - Can be extended later to Claude-based parsing
+- PipelineExecutor uses the existing CommandExecutor
+- ProcessTicketUseCase is the central entry point for Host/CLI
 
 ---
 
-## Design-Entscheidungen
+## Design Decisions
 
-### IntentParser: Regex statt LLM
-Laut architecture.md ist ein Claude-Call vorgesehen. Für Phase 4 implementieren wir
-eine Regex-basierte Variante, die die gängigsten Patterns erkennt:
+### IntentParser: Regex instead of LLM
+According to architecture.md, a Claude call is planned. For Phase 4 we implement
+a Regex-based variant that recognizes the most common patterns:
 - `"fix #123 in payslip"` → TicketId(123), ProjectName(payslip)
 - `"#34237 payslip"` → TicketId(34237), ProjectName(payslip)
 - `"payslip #123"` → TicketId(123), ProjectName(payslip)
 
-Ein LLM-basierter Parser kann später als Alternative registriert werden.
+An LLM-based parser can be registered as an alternative later.
 
 ### PipelineExecutor: Context-Building
-Die zentrale Herausforderung: Aus einem Command-Namen (String aus YAML Config)
-den passenden ICommandContext bauen. Das erfordert ein Mapping:
-- `"FetchTicketCommand"` → `FetchTicketContext` mit Daten aus Config + PipelineContext
-- Jeder Command braucht unterschiedliche Inputs
-- Lösung: Eine `CommandContextFactory` die das Mapping übernimmt
+The central challenge: Build the appropriate ICommandContext from a command name
+(string from YAML config). This requires a mapping:
+- `"FetchTicketCommand"` → `FetchTicketContext` with data from Config + PipelineContext
+- Each command needs different inputs
+- Solution: A `CommandContextFactory` that handles the mapping
 
 ### ProcessTicketUseCase
-Orchestriert den gesamten Flow:
-1. Config laden
-2. Intent parsen
-3. Project Config finden
-4. Pipeline Config finden
-5. PipelineExecutor starten
+Orchestrates the entire flow:
+1. Load config
+2. Parse intent
+3. Find project config
+4. Find pipeline config
+5. Start PipelineExecutor

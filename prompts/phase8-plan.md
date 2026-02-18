@@ -1,56 +1,56 @@
-# Phase 8: Context Compaction - Implementierungsplan
+# Phase 8: Context Compaction - Implementation Plan
 
-## Ziel
-Verhindern, dass die Konversationshistorie unbegrenzt wächst. Nach N Iterationen
-werden alte Tool-Results zusammengefasst und rohe Dateiinhalte entfernt. Ermöglicht
-25+ Iterationen für komplexe Multi-File-Tasks.
-
----
-
-## Vorbedingung
-- Phase 7 abgeschlossen (TokenUsageTracker liefert Token-Counts für Trigger-Entscheidung)
-
-## Schritte
-
-### Schritt 1: CompactionConfig + IContextCompactor + FileReadTracker
-Siehe: `prompts/phase8-compaction.md`
-
-Config, Interface und Deduplizierung.
-Projekt: `AgentSmith.Contracts/`, `AgentSmith.Infrastructure/`
-
-### Schritt 2: ClaudeContextCompactor + Integration
-Siehe: `prompts/phase8-file-tracking.md`
-
-LLM-basierte Komprimierung via Haiku + Integration in AgenticLoop.
-Projekt: `AgentSmith.Infrastructure/`
-
-### Schritt 3: Tests + Verify
+## Goal
+Prevent the conversation history from growing unboundedly. After N iterations,
+old tool results are summarized and raw file contents are removed. Enables
+25+ iterations for complex multi-file tasks.
 
 ---
 
-## Abhängigkeiten
+## Prerequisite
+- Phase 7 completed (TokenUsageTracker provides token counts for trigger decisions)
+
+## Steps
+
+### Step 1: CompactionConfig + IContextCompactor + FileReadTracker
+See: `prompts/phase8-compaction.md`
+
+Config, interface, and deduplication.
+Project: `AgentSmith.Contracts/`, `AgentSmith.Infrastructure/`
+
+### Step 2: ClaudeContextCompactor + Integration
+See: `prompts/phase8-file-tracking.md`
+
+LLM-based compression via Haiku + integration into AgenticLoop.
+Project: `AgentSmith.Infrastructure/`
+
+### Step 3: Tests + Verify
+
+---
+
+## Dependencies
 
 ```
-Schritt 1 (Config + Interface + FileTracker)
-    └── Schritt 2 (Compactor + Loop-Integration)
-         └── Schritt 3 (Tests + Verify)
+Step 1 (Config + Interface + FileTracker)
+    └── Step 2 (Compactor + Loop Integration)
+         └── Step 3 (Tests + Verify)
 ```
 
 ---
 
 ## NuGet Packages (Phase 8)
 
-Keine neuen Packages nötig.
+No new packages needed.
 
 ---
 
 ## Definition of Done (Phase 8)
-- [ ] `CompactionConfig` Klasse in Contracts
-- [ ] `IContextCompactor` Interface in Contracts
-- [ ] `ClaudeContextCompactor` Implementierung in Infrastructure (nutzt Haiku)
-- [ ] `FileReadTracker` dedupliziert Datei-Reads
-- [ ] `AgenticLoop` triggert Komprimierung basierend auf Iteration-Count ODER Token-Count
-- [ ] Letzte N Iterationen bleiben vollständig erhalten
-- [ ] Alle bestehenden Tests grün
-- [ ] Neue Unit Tests für Compactor, FileTracker, Compaction-Trigger
-- [ ] E2E-Test kann 15+ Iterationen ohne Context-Explosion
+- [ ] `CompactionConfig` class in Contracts
+- [ ] `IContextCompactor` interface in Contracts
+- [ ] `ClaudeContextCompactor` implementation in Infrastructure (uses Haiku)
+- [ ] `FileReadTracker` deduplicates file reads
+- [ ] `AgenticLoop` triggers compaction based on iteration count OR token count
+- [ ] Last N iterations remain fully preserved
+- [ ] All existing tests green
+- [ ] New unit tests for Compactor, FileTracker, Compaction trigger
+- [ ] E2E test can run 15+ iterations without context explosion

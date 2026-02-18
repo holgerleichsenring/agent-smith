@@ -1,68 +1,68 @@
-# Phase 7: Prompt Caching - Implementierungsplan
+# Phase 7: Prompt Caching - Implementation Plan
 
-## Ziel
-Anthropic Prompt Caching aktivieren, damit System-Prompt, Tool-Definitionen und Coding
-Principles server-seitig gecacht werden. Gecachte Tokens zählen NICHT gegen das ITPM
-Rate Limit - der größte einzelne Hebel für unsere Rate-Limit-Probleme.
+## Goal
+Activate Anthropic Prompt Caching so that System Prompt, Tool Definitions, and Coding
+Principles are cached server-side. Cached tokens do NOT count against the ITPM
+Rate Limit - the single biggest lever for our Rate Limit problems.
 
 ---
 
-## Vorbedingung
-- Phase 6 abgeschlossen (Retry-Logik vorhanden als Safety Net bei Cache-Misses)
+## Prerequisite
+- Phase 6 completed (Retry logic in place as safety net for cache misses)
 
-## SDK-Erkenntnisse
+## SDK Findings
 
-Anthropic.SDK 5.9.0 bietet:
-- `MessageParameters.PromptCaching` Property (Typ: `PromptCacheType`)
-  - `None` = 0 (kein Caching)
-  - `FineGrained` = 1 (manuell per `CacheControl` auf SystemMessages/Content)
-  - `AutomaticToolsAndSystem` = 2 (automatisch für alle System-Messages und Tools)
+Anthropic.SDK 5.9.0 provides:
+- `MessageParameters.PromptCaching` Property (Type: `PromptCacheType`)
+  - `None` = 0 (no caching)
+  - `FineGrained` = 1 (manual via `CacheControl` on SystemMessages/Content)
+  - `AutomaticToolsAndSystem` = 2 (automatic for all System Messages and Tools)
 - `SystemMessage(text, cacheControl)` Constructor
-- `CacheControl { Type = CacheControlType.ephemeral, TTL = null }` (5 Min Default)
-- `Usage.CacheCreationInputTokens` / `Usage.CacheReadInputTokens` auf Response
+- `CacheControl { Type = CacheControlType.ephemeral, TTL = null }` (5 min default)
+- `Usage.CacheCreationInputTokens` / `Usage.CacheReadInputTokens` on Response
 
-## Schritte
+## Steps
 
-### Schritt 1: CacheConfig + TokenUsageTracker
-Siehe: `prompts/phase7-caching.md`
+### Step 1: CacheConfig + TokenUsageTracker
+See: `prompts/phase7-caching.md`
 
-Neue Config-Klasse und Token-Tracking für Observability.
-Projekt: `AgentSmith.Contracts/`, `AgentSmith.Infrastructure/`
+New config class and token tracking for observability.
+Project: `AgentSmith.Contracts/`, `AgentSmith.Infrastructure/`
 
-### Schritt 2: Prompt Caching aktivieren
-Siehe: `prompts/phase7-token-tracking.md`
+### Step 2: Activate Prompt Caching
+See: `prompts/phase7-token-tracking.md`
 
-`PromptCaching = PromptCacheType.AutomaticToolsAndSystem` auf alle API-Calls setzen.
-System-Prompt umstrukturieren für optimalen Cache-Prefix.
-Projekt: `AgentSmith.Infrastructure/`
+Set `PromptCaching = PromptCacheType.AutomaticToolsAndSystem` on all API calls.
+Restructure System Prompt for optimal cache prefix.
+Project: `AgentSmith.Infrastructure/`
 
-### Schritt 3: Tests + Verify
+### Step 3: Tests + Verify
 
 ---
 
-## Abhängigkeiten
+## Dependencies
 
 ```
-Schritt 1 (CacheConfig + Tracker)
-    └── Schritt 2 (Caching aktivieren)
-         └── Schritt 3 (Tests + Verify)
+Step 1 (CacheConfig + Tracker)
+    └── Step 2 (Activate Caching)
+         └── Step 3 (Tests + Verify)
 ```
 
 ---
 
 ## NuGet Packages (Phase 7)
 
-Keine neuen Packages nötig. Alles im Anthropic.SDK 5.9.0 enthalten.
+No new packages needed. Everything is included in Anthropic.SDK 5.9.0.
 
 ---
 
 ## Definition of Done (Phase 7)
-- [ ] `CacheConfig` Klasse in Contracts
+- [ ] `CacheConfig` class in Contracts
 - [ ] `AgentConfig.Cache` Property
-- [ ] `PromptCaching = AutomaticToolsAndSystem` auf allen API-Calls (wenn enabled)
-- [ ] System-Prompt optimal strukturiert (Coding Principles zuerst = längster stabiler Prefix)
-- [ ] `TokenUsageTracker` loggt kumulative Usage inkl. Cache-Metriken
-- [ ] Cache Hit Rate in Logs sichtbar
-- [ ] Alle bestehenden Tests grün
-- [ ] Neue Unit Tests für TokenUsageTracker
-- [ ] E2E zeigt Cache Hits ab Iteration 2
+- [ ] `PromptCaching = AutomaticToolsAndSystem` on all API calls (when enabled)
+- [ ] System Prompt optimally structured (Coding Principles first = longest stable prefix)
+- [ ] `TokenUsageTracker` logs cumulative usage incl. cache metrics
+- [ ] Cache Hit Rate visible in logs
+- [ ] All existing tests green
+- [ ] New unit tests for TokenUsageTracker
+- [ ] E2E shows cache hits from Iteration 2 onwards

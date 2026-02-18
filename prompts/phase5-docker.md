@@ -1,27 +1,27 @@
-# Phase 5 - Schritt 2: Docker
+# Phase 5 - Step 2: Docker
 
-## Ziel
-Multi-Stage Dockerfile für schlankes Runtime-Image.
-Projekt Root: `Dockerfile`, `.dockerignore`
+## Goal
+Multi-stage Dockerfile for a lean runtime image.
+Project root: `Dockerfile`, `.dockerignore`
 
 ---
 
 ## Dockerfile
 
 ```
-Datei: Dockerfile (Projekt-Root)
+File: Dockerfile (project root)
 ```
 
 **Stage 1: Build**
 - Base: `mcr.microsoft.com/dotnet/sdk:8.0`
-- Copy Solution + alle csproj (für Restore-Caching)
+- Copy solution + all csproj (for restore caching)
 - `dotnet restore`
-- Copy Rest + `dotnet publish -c Release`
+- Copy rest + `dotnet publish -c Release`
 
 **Stage 2: Runtime**
 - Base: `mcr.microsoft.com/dotnet/runtime:8.0`
 - Copy published output
-- Copy `config/` als Default-Config
+- Copy `config/` as default config
 - ENTRYPOINT: `dotnet AgentSmith.Host.dll`
 
 ---
@@ -29,24 +29,24 @@ Datei: Dockerfile (Projekt-Root)
 ## .dockerignore
 
 ```
-Datei: .dockerignore (Projekt-Root)
+File: .dockerignore (project root)
 ```
 
-Ausschließen:
+Exclude:
 - `bin/`, `obj/`, `.git/`, `node_modules/`
-- `*.md` (außer config/coding-principles.md)
+- `*.md` (except config/coding-principles.md)
 - `.vs/`, `.idea/`, `*.user`
-- `tests/` (nicht im Runtime-Image)
+- `tests/` (not in the runtime image)
 
 ---
 
-## Docker Compose (Beispiel)
+## Docker Compose (Example)
 
 ```
-Datei: docker-compose.yml (Projekt-Root)
+File: docker-compose.yml (project root)
 ```
 
-Für lokale Entwicklung / Demo:
+For local development / demo:
 ```yaml
 services:
   agentsmith:
@@ -62,30 +62,30 @@ services:
 
 ---
 
-## Image-Größe
+## Image Size
 
-Ziel: < 200MB
-- Runtime Base: ~85MB
-- Published App: ~30-50MB (Self-Contained wäre ~80MB, aber Framework-Dependent reicht)
-- Gesamt: ~120-150MB
+Target: < 200MB
+- Runtime base: ~85MB
+- Published app: ~30-50MB (self-contained would be ~80MB, but framework-dependent is sufficient)
+- Total: ~120-150MB
 
 ---
 
-## Testen
+## Testing
 
 ```bash
-# Bauen
+# Build
 docker build -t agentsmith .
 
-# Hilfe anzeigen
+# Show help
 docker run --rm agentsmith --help
 
-# Dry-Run
+# Dry run
 docker run --rm \
   -v $(pwd)/config:/app/config \
   agentsmith --dry-run "fix #123 in payslip"
 
-# Echt
+# Real run
 docker run --rm \
   -e GITHUB_TOKEN=ghp_xxx \
   -e ANTHROPIC_API_KEY=sk-xxx \

@@ -1,20 +1,20 @@
-# Phase 4 - Schritt 1: IntentParser
+# Phase 4 - Step 1: IntentParser
 
-## Ziel
-User Input wie `"fix #123 in payslip"` in strukturierten `ParsedIntent` umwandeln.
-Projekt: `AgentSmith.Application/Services/`
+## Goal
+Convert user input like `"fix #123 in payslip"` into a structured `ParsedIntent`.
+Project: `AgentSmith.Application/Services/`
 
 ---
 
 ## RegexIntentParser
 
 ```
-Datei: src/AgentSmith.Application/Services/RegexIntentParser.cs
+File: src/AgentSmith.Application/Services/RegexIntentParser.cs
 ```
 
-Implementiert `IIntentParser` aus Contracts.
+Implements `IIntentParser` from Contracts.
 
-**Unterstützte Patterns:**
+**Supported Patterns:**
 ```
 "fix #123 in payslip"      → #123, payslip
 "#34237 payslip"            → #34237, payslip
@@ -23,33 +23,33 @@ Implementiert `IIntentParser` aus Contracts.
 "resolve ticket #42 in api" → #42, api
 ```
 
-**Regex-Strategie:**
-1. TicketId extrahieren: `#?(\d+)` - Zahl mit optionalem `#`
-2. ProjectName extrahieren: Bekannte Noise-Wörter entfernen (`fix`, `resolve`, `in`, `ticket`, etc.)
-   → übrig gebliebenes Wort = ProjectName
+**Regex Strategy:**
+1. Extract TicketId: `#?(\d+)` - Number with optional `#`
+2. Extract ProjectName: Remove known noise words (`fix`, `resolve`, `in`, `ticket`, etc.)
+   → remaining word = ProjectName
 
-**Alternativ-Ansatz (einfacher):**
-- Regex 1: `#?(\d+)\s+(?:in\s+)?(\w+)` → Ticket zuerst
-- Regex 2: `(\w+)\s+#?(\d+)` → Project zuerst
-- Beide versuchen, erster Match gewinnt
+**Alternative Approach (simpler):**
+- Regex 1: `#?(\d+)\s+(?:in\s+)?(\w+)` → Ticket first
+- Regex 2: `(\w+)\s+#?(\d+)` → Project first
+- Both are tried, first match wins
 
-**Validierung:**
-- Kein Match → `ConfigurationException("Could not parse intent from input: ...")`
-- TicketId muss numerisch sein
-- ProjectName muss nicht-leer sein
+**Validation:**
+- No match → `ConfigurationException("Could not parse intent from input: ...")`
+- TicketId must be numeric
+- ProjectName must be non-empty
 
 **Constructor:**
 - `ILogger<RegexIntentParser> logger`
 
 ---
 
-## Erweiterbarkeit
+## Extensibility
 
-Später kann ein `ClaudeIntentParser` als Alternative registriert werden:
+Later a `ClaudeIntentParser` can be registered as an alternative:
 ```csharp
-// DI: Austausch durch Config oder Feature Flag
+// DI: Swap via config or feature flag
 services.AddTransient<IIntentParser, RegexIntentParser>();
-// oder:
+// or:
 services.AddTransient<IIntentParser, ClaudeIntentParser>();
 ```
 

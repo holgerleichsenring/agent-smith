@@ -1,40 +1,40 @@
-# Phase 3 - Schritt 4: Agent Provider (Agentic Loop)
+# Phase 3 - Step 4: Agent Provider (Agentic Loop)
 
-## Ziel
-ClaudeAgentProvider mit Anthropic SDK implementieren. Das Herzstück des Systems.
-Projekt: `AgentSmith.Infrastructure/Providers/Agent/`
+## Goal
+Implement ClaudeAgentProvider with Anthropic SDK. The core piece of the system.
+Project: `AgentSmith.Infrastructure/Providers/Agent/`
 
 ---
 
-## Architektur
+## Architecture
 
-Der Agent Provider hat zwei Aufgaben:
-1. **Plan generieren** (`GeneratePlanAsync`) - Einmaliger API Call
-2. **Plan ausführen** (`ExecutePlanAsync`) - Agentic Loop mit Tool Calling
+The Agent Provider has two responsibilities:
+1. **Generate plan** (`GeneratePlanAsync`) - Single API call
+2. **Execute plan** (`ExecutePlanAsync`) - Agentic loop with tool calling
 
-Die Agentic Loop ist das komplexeste Feature. Der Agent entscheidet selbst welche Dateien
-er liest, ändert und in welcher Reihenfolge.
+The agentic loop is the most complex feature. The agent decides on its own which files
+it reads, modifies, and in what order.
 
 ---
 
 ## ClaudeAgentProvider
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/ClaudeAgentProvider.cs
 ```
 
 **NuGet:** `Anthropic.SDK`
 
 **Constructor:**
 - `string apiKey`
-- `string model` (z.B. `"claude-sonnet-4-20250514"`)
+- `string model` (e.g. `"claude-sonnet-4-20250514"`)
 - `ILogger<ClaudeAgentProvider> logger`
 
 ### GeneratePlanAsync
 
-1. Baue System Prompt mit Coding Principles
-2. Baue User Prompt mit Ticket Details + Code Analysis
-3. Sende an Claude API (kein Tool Calling, nur Text)
-4. Parse Antwort → Domain `Plan`
+1. Build system prompt with Coding Principles
+2. Build user prompt with ticket details + code analysis
+3. Send to Claude API (no tool calling, text only)
+4. Parse response → Domain `Plan`
 
 **System Prompt Template:**
 ```
@@ -55,13 +55,13 @@ then create a detailed implementation plan.
 
 ### ExecutePlanAsync (Agentic Loop)
 
-Das ist der Kern. Siehe `prompts/phase3-agentic-loop.md` für Details.
+This is the core. See `prompts/phase3-agentic-loop.md` for details.
 
 ---
 
 ## Handler Updates
 
-**GeneratePlanHandler:** Stub → echt
+**GeneratePlanHandler:** Stub → real
 ```csharp
 var provider = factory.Create(context.AgentConfig);
 var plan = await provider.GeneratePlanAsync(
@@ -69,7 +69,7 @@ var plan = await provider.GeneratePlanAsync(
 context.Pipeline.Set(ContextKeys.Plan, plan);
 ```
 
-**AgenticExecuteHandler:** Stub → echt
+**AgenticExecuteHandler:** Stub → real
 ```csharp
 var provider = factory.Create(context.AgentConfig);
 var changes = await provider.ExecutePlanAsync(
@@ -82,5 +82,5 @@ context.Pipeline.Set(ContextKeys.CodeChanges, changes);
 ## Tests
 
 **ClaudeAgentProviderTests:**
-- `GeneratePlanAsync_ValidInput_ReturnsPlan` (gemockter HTTP Client)
-- `ExecutePlanAsync_WithToolCalls_ReturnsChanges` (gemockter HTTP Client)
+- `GeneratePlanAsync_ValidInput_ReturnsPlan` (mocked HTTP client)
+- `ExecutePlanAsync_WithToolCalls_ReturnsChanges` (mocked HTTP client)
