@@ -1,0 +1,27 @@
+projects:
+  testproject:
+    source:
+      type: GitHub
+      url: https://github.com/test/repo
+      auth: token
+    tickets:
+      type: AzureDevOps
+      organization: testorg
+      project: TestProject
+      auth: token
+    agent:
+      type: Claude
+      model: sonnet-4
+    pipeline: fix-bug
+    coding_principles_path: ./config/coding-principles.md
+
+pipelines:
+  fix-bug:
+    commands:
+      - FetchTicketCommand
+      - CheckoutSourceCommand
+      - CommitAndPRCommand
+
+secrets:
+  github_token: ${GITHUB_TOKEN}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
