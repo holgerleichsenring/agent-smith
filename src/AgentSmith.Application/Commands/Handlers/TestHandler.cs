@@ -44,7 +44,7 @@ public sealed class TestHandler(
     private static string? DetectTestCommand(string repoPath)
     {
         if (Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories).Length > 0)
-            return "dotnet test --no-restore --verbosity minimal";
+            return "dotnet test --verbosity minimal";
 
         if (File.Exists(Path.Combine(repoPath, "package.json")))
             return "npm test";
