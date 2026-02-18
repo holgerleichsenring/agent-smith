@@ -19,6 +19,7 @@ public sealed class ProcessTicketUseCase(
     public async Task<CommandResult> ExecuteAsync(
         string userInput,
         string configPath,
+        bool headless = false,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Processing input: {Input}", userInput);
@@ -42,6 +43,7 @@ public sealed class ProcessTicketUseCase(
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, intent.TicketId);
+        pipeline.Set(ContextKeys.Headless, headless);
 
         var result = await pipelineExecutor.ExecuteAsync(
             pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);

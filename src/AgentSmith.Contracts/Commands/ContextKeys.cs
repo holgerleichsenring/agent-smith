@@ -15,4 +15,5 @@ public static class ContextKeys
     public const string Approved = "Approved";
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";
+    public const string Headless = "Headless";
 }
