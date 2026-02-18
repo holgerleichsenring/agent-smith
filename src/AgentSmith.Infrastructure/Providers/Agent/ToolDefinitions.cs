@@ -13,6 +13,11 @@ public static class ToolDefinitions
         ReadFile, WriteFile, ListFiles, RunCommand
     };
 
+    public static IList<Tool> ScoutTools => new List<Tool>
+    {
+        ReadFile, ListFiles
+    };
+
     public static Tool ReadFile => CreateTool(
         "read_file",
         "Read the contents of a file in the repository.",

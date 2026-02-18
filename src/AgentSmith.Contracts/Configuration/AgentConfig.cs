@@ -10,4 +10,5 @@ public class AgentConfig
     public RetryConfig Retry { get; set; } = new();
     public CacheConfig Cache { get; set; } = new();
     public CompactionConfig Compaction { get; set; } = new();
+    public ModelRegistryConfig? Models { get; set; }
 }
