@@ -9,4 +9,5 @@ public class AgentConfig
     public string Model { get; set; } = string.Empty;
     public RetryConfig Retry { get; set; } = new();
     public CacheConfig Cache { get; set; } = new();
+    public CompactionConfig Compaction { get; set; } = new();
 }

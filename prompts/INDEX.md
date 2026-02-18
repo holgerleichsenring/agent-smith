@@ -40,6 +40,9 @@ Jede Änderung am Design wird hier reflektiert.
 | `phase7-plan.md` | Phase 7 Übersicht: Prompt Caching | Erledigt |
 | `phase7-caching.md` | CacheConfig, TokenUsageTracker, TokenUsageSummary | Erledigt |
 | `phase7-token-tracking.md` | PromptCaching aktivieren, System-Prompt Optimierung | Erledigt |
+| `phase8-plan.md` | Phase 8 Übersicht: Context Compaction | Erledigt |
+| `phase8-compaction.md` | CompactionConfig, IContextCompactor, ClaudeContextCompactor | Erledigt |
+| `phase8-file-tracking.md` | FileReadTracker, Deduplizierung von Datei-Reads | Erledigt |
 
 ---
 
@@ -52,7 +55,7 @@ Jede Änderung am Design wird hier reflektiert.
 - **Phase 5: CLI & Docker** ← Erledigt
 - **Phase 6: Resilience - Retry** ← Erledigt
 - **Phase 7: Prompt Caching** ← Erledigt
-- Phase 8: Context Compaction
+- **Phase 8: Context Compaction** ← Erledigt
 - Phase 9: Model Registry & Scout
 
 ---
