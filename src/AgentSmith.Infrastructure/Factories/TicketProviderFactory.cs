@@ -20,7 +20,8 @@ public sealed class TicketProviderFactory(
         {
             "azuredevops" => CreateAzureDevOps(config),
             "github" => CreateGitHub(config),
-            "jira" => throw new NotSupportedException("Jira provider not yet implemented."),
+            "jira" => CreateJira(config),
+            "gitlab" => CreateGitLab(config),
             _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}")
         };
     }
@@ -36,5 +37,23 @@ public sealed class TicketProviderFactory(
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
         return new GitHubTicketProvider(config.Url!, token);
+    }
+
+    private JiraTicketProvider CreateJira(TicketConfig config)
+    {
+        var url = config.Url ?? secrets.GetRequired("JIRA_URL");
+        var email = secrets.GetRequired("JIRA_EMAIL");
+        var token = secrets.GetRequired("JIRA_TOKEN");
+        return new JiraTicketProvider(url, email, token, new HttpClient(),
+            loggerFactory.CreateLogger<JiraTicketProvider>());
+    }
+
+    private GitLabTicketProvider CreateGitLab(TicketConfig config)
+    {
+        var baseUrl = secrets.GetOptional("GITLAB_URL") ?? "https://gitlab.com";
+        var token = secrets.GetRequired("GITLAB_TOKEN");
+        var projectPath = config.Project ?? secrets.GetRequired("GITLAB_PROJECT");
+        return new GitLabTicketProvider(baseUrl, Uri.EscapeDataString(projectPath),
+            token, new HttpClient());
     }
 }
