@@ -1,0 +1,10 @@
+services:
+  agentsmith:
+    build: .
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN}
+    volumes:
+      - ./config:/app/config
+      - ~/.ssh:/root/.ssh:ro
