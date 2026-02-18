@@ -1,17 +1,16 @@
 projects:
-  payslip:
+  agent-smith:
     source:
       type: GitHub
-      url: https://github.com/user/payslip
+      url: https://github.com/holgerleichsenring/agent-smith
       auth: token
     tickets:
-      type: AzureDevOps
-      organization: myorg
-      project: PayslipProject
+      type: GitHub
+      url: https://github.com/holgerleichsenring/agent-smith
       auth: token
     agent:
       type: Claude
-      model: sonnet-4
+      model: claude-sonnet-4-20250514
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
