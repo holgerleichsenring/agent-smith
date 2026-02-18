@@ -35,6 +35,8 @@ Jede Änderung am Design wird hier reflektiert.
 | `phase5-cli.md` | System.CommandLine CLI (--help, --config, --dry-run) | Erledigt |
 | `phase5-docker.md` | Multi-Stage Dockerfile + Docker Compose | Erledigt |
 | `phase5-smoke-test.md` | DI Integration Test + CLI Smoke Test | Erledigt |
+| `phase6-plan.md` | Phase 6 Übersicht: Resilience + Retry | Erledigt |
+| `phase6-retry.md` | RetryConfig, ResilientHttpClientFactory, Polly | Erledigt |
 
 ---
 
@@ -45,7 +47,10 @@ Jede Änderung am Design wird hier reflektiert.
 - **Phase 3: Providers** ← Erledigt
 - **Phase 4: Pipeline Execution** ← Erledigt
 - **Phase 5: CLI & Docker** ← Erledigt
-- Phase 6: Pro Features (Private Repo)
+- **Phase 6: Resilience - Retry** ← Erledigt
+- Phase 7: Prompt Caching
+- Phase 8: Context Compaction
+- Phase 9: Model Registry & Scout
 
 ---
 
