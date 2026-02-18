@@ -20,7 +20,8 @@ public sealed class ResilientHttpClientFactory(
         HttpStatusCode.InternalServerError,   // 500
         HttpStatusCode.BadGateway,            // 502
         HttpStatusCode.ServiceUnavailable,    // 503
-        HttpStatusCode.GatewayTimeout         // 504
+        HttpStatusCode.GatewayTimeout,        // 504
+        (HttpStatusCode)529                   // Anthropic "Overloaded"
     };
 
     public HttpClient Create()
