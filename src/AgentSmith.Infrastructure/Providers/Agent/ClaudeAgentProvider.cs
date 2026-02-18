@@ -20,6 +20,7 @@ public sealed class ClaudeAgentProvider(
     RetryConfig retryConfig,
     CacheConfig cacheConfig,
     CompactionConfig compactionConfig,
+    IModelRegistry? modelRegistry,
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "Claude";
@@ -35,11 +36,13 @@ public sealed class ClaudeAgentProvider(
         var systemPrompt = BuildPlanSystemPrompt(codingPrinciples);
         var userPrompt = BuildPlanUserPrompt(ticket, codeAnalysis);
 
+        var planModel = ResolveModel(TaskType.Planning);
+
         var response = await client.Messages.GetClaudeMessageAsync(
             new MessageParameters
             {
-                Model = model,
-                MaxTokens = 4096,
+                Model = planModel.Model,
+                MaxTokens = planModel.MaxTokens,
                 System = new List<SystemMessage> { new(systemPrompt) },
                 Messages = new List<Message>
                 {
@@ -66,16 +69,19 @@ public sealed class ClaudeAgentProvider(
     {
         using var client = CreateResilientClient();
 
+        var scoutResult = await TryRunScoutAsync(plan, repository.LocalPath, cancellationToken);
+
+        var primaryModel = ResolveModel(TaskType.Primary);
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(repository.LocalPath, logger, fileReadTracker);
         var tracker = new TokenUsageTracker();
         var compactor = CreateCompactor();
         var loop = new AgenticLoop(
-            client, model, toolExecutor, logger,
+            client, primaryModel.Model, toolExecutor, logger,
             cacheConfig, tracker, compactionConfig, compactor);
 
         var systemPrompt = BuildExecutionSystemPrompt(codingPrinciples);
-        var userMessage = BuildExecutionUserPrompt(plan, repository);
+        var userMessage = BuildExecutionUserPrompt(plan, repository, scoutResult);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
 
@@ -85,13 +91,46 @@ public sealed class ClaudeAgentProvider(
         return changes;
     }
 
+    private ModelAssignment ResolveModel(TaskType taskType)
+    {
+        if (modelRegistry is not null)
+            return modelRegistry.GetModel(taskType);
+
+        return new ModelAssignment { Model = model, MaxTokens = 8192 };
+    }
+
+    private async Task<ScoutResult?> TryRunScoutAsync(
+        Plan plan, string repositoryPath, CancellationToken cancellationToken)
+    {
+        if (modelRegistry is null)
+            return null;
+
+        var scoutModel = modelRegistry.GetModel(TaskType.Scout);
+
+        logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
+
+        using var scoutClient = CreateResilientClient();
+        var scout = new ScoutAgent(scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger);
+        var result = await scout.DiscoverAsync(plan, repositoryPath, cancellationToken);
+
+        logger.LogInformation(
+            "Scout discovered {FileCount} relevant files using {Tokens} tokens",
+            result.RelevantFiles.Count, result.TokensUsed);
+
+        return result;
+    }
+
     private ClaudeContextCompactor? CreateCompactor()
     {
         if (!compactionConfig.Enabled)
             return null;
 
+        var summaryModel = modelRegistry is not null
+            ? modelRegistry.GetModel(TaskType.Summarization)
+            : new ModelAssignment { Model = compactionConfig.SummaryModel, MaxTokens = 2048 };
+
         var compactorClient = CreateResilientClient();
-        return new ClaudeContextCompactor(compactorClient, compactionConfig.SummaryModel, logger);
+        return new ClaudeContextCompactor(compactorClient, summaryModel.Model, logger);
     }
 
     private PromptCacheType ResolveCacheType()
@@ -179,22 +218,42 @@ public sealed class ClaudeAgentProvider(
             """;
     }
 
-    private static string BuildExecutionUserPrompt(Plan plan, Repository repository)
+    private static string BuildExecutionUserPrompt(
+        Plan plan, Repository repository, ScoutResult? scoutResult = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
 
+        var scoutSection = "";
+        if (scoutResult is not null && scoutResult.RelevantFiles.Count > 0)
+        {
+            var files = string.Join('\n', scoutResult.RelevantFiles.Select(f => $"  - {f}"));
+            scoutSection = $"""
+
+                ## Scout Results
+                The following files have been identified as relevant by the scout agent:
+                {files}
+
+                **Scout Summary:** {scoutResult.ContextSummary}
+
+                """;
+        }
+
+        var startInstruction = scoutResult is not null
+            ? "The scout has already explored the codebase. Proceed directly with implementation."
+            : "Start by listing the relevant files, then implement each step.";
+
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-
+            {scoutSection}
             ## Plan
             **Summary:** {plan.Summary}
 
             **Steps:**
             {steps}
 
-            Start by listing the relevant files, then implement each step.
+            {startInstruction}
             """;
     }
 

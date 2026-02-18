@@ -43,6 +43,9 @@ Jede Änderung am Design wird hier reflektiert.
 | `phase8-plan.md` | Phase 8 Übersicht: Context Compaction | Erledigt |
 | `phase8-compaction.md` | CompactionConfig, IContextCompactor, ClaudeContextCompactor | Erledigt |
 | `phase8-file-tracking.md` | FileReadTracker, Deduplizierung von Datei-Reads | Erledigt |
+| `phase9-plan.md` | Phase 9 Übersicht: Model Registry & Scout | Erledigt |
+| `phase9-model-registry.md` | ModelRegistryConfig, IModelRegistry, TaskType | Erledigt |
+| `phase9-scout.md` | ScoutAgent, ScoutResult, ScoutTools | Erledigt |
 
 ---
 
@@ -56,7 +59,7 @@ Jede Änderung am Design wird hier reflektiert.
 - **Phase 6: Resilience - Retry** ← Erledigt
 - **Phase 7: Prompt Caching** ← Erledigt
 - **Phase 8: Context Compaction** ← Erledigt
-- Phase 9: Model Registry & Scout
+- **Phase 9: Model Registry & Scout** ← Erledigt
 
 ---
 

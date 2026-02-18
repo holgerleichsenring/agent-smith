@@ -25,6 +25,19 @@ projects:
         max_context_tokens: 80000
         keep_recent_iterations: 3
         summary_model: claude-haiku-4-5-20251001
+      models:
+        scout:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 4096
+        primary:
+          model: claude-sonnet-4-20250514
+          max_tokens: 8192
+        planning:
+          model: claude-sonnet-4-20250514
+          max_tokens: 4096
+        summarization:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 2048
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
