@@ -23,10 +23,20 @@ public sealed class TokenUsageTracker
     public void Track(MessageResponse response)
     {
         var usage = response.Usage;
-        _totalInput += usage.InputTokens;
-        _totalOutput += usage.OutputTokens;
-        _cacheCreate += usage.CacheCreationInputTokens;
-        _cacheRead += usage.CacheReadInputTokens;
+        Track(usage.InputTokens, usage.OutputTokens,
+            usage.CacheCreationInputTokens, usage.CacheReadInputTokens);
+    }
+
+    /// <summary>
+    /// Provider-agnostic tracking with raw token counts.
+    /// </summary>
+    public void Track(int inputTokens, int outputTokens,
+        int cacheCreateTokens = 0, int cacheReadTokens = 0)
+    {
+        _totalInput += inputTokens;
+        _totalOutput += outputTokens;
+        _cacheCreate += cacheCreateTokens;
+        _cacheRead += cacheReadTokens;
         _iterations++;
 
         if (!_phases.TryGetValue(_currentPhase, out var phaseUsage))
@@ -35,9 +45,9 @@ public sealed class TokenUsageTracker
             _phases[_currentPhase] = phaseUsage;
         }
 
-        phaseUsage.InputTokens += usage.InputTokens;
-        phaseUsage.OutputTokens += usage.OutputTokens;
-        phaseUsage.CacheReadTokens += usage.CacheReadInputTokens;
+        phaseUsage.InputTokens += inputTokens;
+        phaseUsage.OutputTokens += outputTokens;
+        phaseUsage.CacheReadTokens += cacheReadTokens;
         phaseUsage.Iterations++;
     }
 
