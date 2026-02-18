@@ -169,7 +169,8 @@ public sealed class ClaudeAgentProvider(
     {
         try
         {
-            using var doc = JsonDocument.Parse(rawJson);
+            var cleaned = StripMarkdownCodeBlock(rawJson);
+            using var doc = JsonDocument.Parse(cleaned);
             var root = doc.RootElement;
 
             var summary = root.GetProperty("summary").GetString() ?? "";
@@ -184,6 +185,22 @@ public sealed class ClaudeAgentProvider(
             throw new ProviderException(
                 "Claude", $"Failed to parse plan response from Claude: {ex.Message}", ex);
         }
+    }
+
+    private static string StripMarkdownCodeBlock(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith("```"))
+        {
+            var firstNewline = trimmed.IndexOf('\n');
+            if (firstNewline >= 0)
+                trimmed = trimmed[(firstNewline + 1)..];
+        }
+        if (trimmed.EndsWith("```"))
+        {
+            trimmed = trimmed[..^3].TrimEnd();
+        }
+        return trimmed;
     }
 
     private static PlanStep ParsePlanStep(JsonElement element)
