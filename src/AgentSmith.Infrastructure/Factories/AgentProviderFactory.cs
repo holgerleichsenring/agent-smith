@@ -27,8 +27,18 @@ public sealed class AgentProviderFactory(
     private ClaudeAgentProvider CreateClaude(AgentConfig config)
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
+        var registry = CreateModelRegistry(config);
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
-            loggerFactory.CreateLogger<ClaudeAgentProvider>());
+            registry, loggerFactory.CreateLogger<ClaudeAgentProvider>());
+    }
+
+    private IModelRegistry? CreateModelRegistry(AgentConfig config)
+    {
+        if (config.Models is null)
+            return null;
+
+        return new ConfigBasedModelRegistry(
+            config.Models, loggerFactory.CreateLogger<ConfigBasedModelRegistry>());
     }
 }
