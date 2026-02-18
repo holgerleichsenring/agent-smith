@@ -1,28 +1,28 @@
-# Phase 3 - Schritt 3: Source Providers
+# Phase 3 - Step 3: Source Providers
 
-## Ziel
-Echte Implementierungen für Git-Operationen (Checkout, Commit, Push, PR erstellen).
-Projekt: `AgentSmith.Infrastructure/Providers/Source/`
+## Goal
+Real implementations for Git operations (checkout, commit, push, create PR).
+Project: `AgentSmith.Infrastructure/Providers/Source/`
 
 ---
 
 ## LocalSourceProvider
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Source/LocalSourceProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Source/LocalSourceProvider.cs
 ```
 
 **NuGet:** `LibGit2Sharp`
 
-Für lokale Repositories die bereits auf Disk liegen.
+For local repositories that already exist on disk.
 
 **Constructor:**
-- `string basePath` (aus Config `source.path`)
+- `string basePath` (from config `source.path`)
 
 **CheckoutAsync:**
-1. Öffne Repository mit `new LibGit2Sharp.Repository(basePath)`
-2. Erstelle Branch: `repo.CreateBranch(branch.Value)`
+1. Open repository with `new LibGit2Sharp.Repository(basePath)`
+2. Create branch: `repo.CreateBranch(branch.Value)`
 3. Checkout: `Commands.Checkout(repo, branch)`
-4. Returniere Domain `Repository(basePath, branch, remote.Url)`
+4. Return Domain `Repository(basePath, branch, remote.Url)`
 
 **CommitAndPushAsync:**
 1. Stage all changes: `Commands.Stage(repo, "*")`
@@ -30,61 +30,61 @@ Für lokale Repositories die bereits auf Disk liegen.
 3. Push: `repo.Network.Push(remote, refspec)`
 
 **CreatePullRequestAsync:**
-- Für Local Provider: Nur loggen, kein PR möglich
+- For Local Provider: Only log, no PR possible
 - Return: `"Local repository - no PR created, branch pushed: {branch}"`
 
-**Hinweise:**
-- `LibGit2Sharp.Signature` braucht Name + Email → aus Git Config oder Default
-- Push braucht Credentials → SSH Key oder Token
-- Fehler bei nicht-existierendem Pfad → `ProviderException`
+**Notes:**
+- `LibGit2Sharp.Signature` requires name + email → from Git config or default
+- Push requires credentials → SSH key or token
+- Error on non-existent path → `ProviderException`
 
 ---
 
 ## GitHubSourceProvider
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Source/GitHubSourceProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Source/GitHubSourceProvider.cs
 ```
 
 **NuGet:** `Octokit` + `LibGit2Sharp`
 
-Kombiniert: LibGit2Sharp für Git-Ops, Octokit für PR-Erstellung.
+Combined: LibGit2Sharp for Git ops, Octokit for PR creation.
 
 **Constructor:**
-- `string owner`, `string repo` (aus URL extrahiert)
+- `string owner`, `string repo` (extracted from URL)
 - `string token`
 - `string cloneUrl`
 
 **CheckoutAsync:**
-1. Clone falls nicht vorhanden: `LibGit2Sharp.Repository.Clone(cloneUrl, localPath)`
-2. Erstelle Branch + Checkout (wie LocalSourceProvider)
-3. Returniere Domain `Repository(localPath, branch, cloneUrl)`
+1. Clone if not present: `LibGit2Sharp.Repository.Clone(cloneUrl, localPath)`
+2. Create branch + checkout (same as LocalSourceProvider)
+3. Return Domain `Repository(localPath, branch, cloneUrl)`
 
 **CommitAndPushAsync:**
-1. Stage + Commit (wie LocalSourceProvider)
-2. Push mit Token-Credentials: `UsernamePasswordCredentials`
+1. Stage + commit (same as LocalSourceProvider)
+2. Push with token credentials: `UsernamePasswordCredentials`
 
 **CreatePullRequestAsync:**
-1. Erstelle `GitHubClient` mit Token
+1. Create `GitHubClient` with token
 2. `client.PullRequest.Create(owner, repo, new NewPullRequest(title, branch, "main"))`
 3. Return: PR URL (`pullRequest.HtmlUrl`)
 
-**Hinweise:**
-- Clone-Ziel: Temp-Verzeichnis unter `/tmp/agentsmith/{owner}/{repo}`
-- PR wird immer gegen `main` erstellt (konfigurierbar in Zukunft)
-- Owner/Repo aus URL extrahieren (gleiche Logik wie GitHubTicketProvider)
+**Notes:**
+- Clone target: Temp directory under `/tmp/agentsmith/{owner}/{repo}`
+- PR is always created against `main` (configurable in the future)
+- Extract owner/repo from URL (same logic as GitHubTicketProvider)
 
 ---
 
 ## Handler Updates
 
-**CheckoutSourceHandler:** Stub → echte Implementierung
+**CheckoutSourceHandler:** Stub → real implementation
 ```csharp
 var provider = factory.Create(context.Config);
 var repo = await provider.CheckoutAsync(context.Branch, cancellationToken);
 context.Pipeline.Set(ContextKeys.Repository, repo);
 ```
 
-**CommitAndPRHandler:** Stub → echte Implementierung
+**CommitAndPRHandler:** Stub → real implementation
 ```csharp
 var provider = factory.Create(context.SourceConfig);
 var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
@@ -99,8 +99,8 @@ context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
 ## Tests
 
 **LocalSourceProviderTests:**
-- `CheckoutAsync_ValidRepo_CreatesBranch` (echtes temp Git Repo)
-- `CommitAndPushAsync_WithChanges_Commits` (echtes temp Git Repo)
+- `CheckoutAsync_ValidRepo_CreatesBranch` (real temp Git repo)
+- `CommitAndPushAsync_WithChanges_Commits` (real temp Git repo)
 
 **GitHubSourceProviderTests:**
-- `CreatePullRequestAsync_ValidInput_ReturnsPrUrl` (gemockter Octokit Client)
+- `CreatePullRequestAsync_ValidInput_ReturnsPrUrl` (mocked Octokit client)

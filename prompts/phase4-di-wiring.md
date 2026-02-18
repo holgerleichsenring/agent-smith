@@ -1,20 +1,20 @@
-# Phase 4 - Schritt 4: DI Wiring
+# Phase 4 - Step 4: DI Wiring
 
-## Ziel
-Alle Phase-4-Komponenten in DI registrieren.
-Infrastructure ServiceCollectionExtensions + Host Program.cs updaten.
+## Goal
+Register all Phase 4 components in DI.
+Update Infrastructure ServiceCollectionExtensions + Host Program.cs.
 
 ---
 
 ## Infrastructure Registration
 
 ```
-Datei: src/AgentSmith.Infrastructure/ServiceCollectionExtensions.cs
+File: src/AgentSmith.Infrastructure/ServiceCollectionExtensions.cs
 ```
 
-Neue Extension Method: `AddAgentSmithInfrastructure()`
+New extension method: `AddAgentSmithInfrastructure()`
 
-Registriert:
+Registers:
 - `SecretsProvider` → Singleton
 - `ITicketProviderFactory` → `TicketProviderFactory` → Singleton
 - `ISourceProviderFactory` → `SourceProviderFactory` → Singleton
@@ -26,10 +26,10 @@ Registriert:
 ## Application Registration Update
 
 ```
-Datei: src/AgentSmith.Application/ServiceCollectionExtensions.cs
+File: src/AgentSmith.Application/ServiceCollectionExtensions.cs
 ```
 
-`AddAgentSmithCommands()` erweitern um:
+Extend `AddAgentSmithCommands()` with:
 - `IIntentParser` → `RegexIntentParser` → Transient
 - `ICommandContextFactory` → `CommandContextFactory` → Transient
 - `IPipelineExecutor` → `PipelineExecutor` → Transient
@@ -40,10 +40,10 @@ Datei: src/AgentSmith.Application/ServiceCollectionExtensions.cs
 ## Host Program.cs
 
 ```
-Datei: src/AgentSmith.Host/Program.cs
+File: src/AgentSmith.Host/Program.cs
 ```
 
-Minimal-CLI ohne CommandLineParser (das kommt in Phase 5):
+Minimal CLI without CommandLineParser (that comes in Phase 5):
 
 ```csharp
 var services = new ServiceCollection();
@@ -65,9 +65,9 @@ return result.Success ? 0 : 1;
 
 ---
 
-## Contract Änderung
+## Contract Change
 
-`IPipelineExecutor` Interface muss angepasst werden (ProjectConfig Parameter):
+`IPipelineExecutor` interface must be adjusted (ProjectConfig parameter):
 ```csharp
 Task<CommandResult> ExecuteAsync(
     IReadOnlyList<string> commandNames,
@@ -76,11 +76,11 @@ Task<CommandResult> ExecuteAsync(
     CancellationToken cancellationToken = default);
 ```
 
-Diese Änderung auf `architecture.md` reflektieren!
+Reflect this change in `architecture.md`!
 
 ---
 
 ## Tests
 
-DI-Integrations-Test:
-- `ServiceRegistration_AllServicesResolvable` - Baut ServiceProvider, resolved alle Typen
+DI integration test:
+- `ServiceRegistration_AllServicesResolvable` - Builds ServiceProvider, resolves all types

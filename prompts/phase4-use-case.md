@@ -1,15 +1,15 @@
-# Phase 4 - Schritt 3: ProcessTicketUseCase
+# Phase 4 - Step 3: ProcessTicketUseCase
 
-## Ziel
-Zentraler Einstiegspunkt: User Input → Config → Intent → Pipeline → Ergebnis.
-Projekt: `AgentSmith.Application/UseCases/`
+## Goal
+Central entry point: User Input → Config → Intent → Pipeline → Result.
+Project: `AgentSmith.Application/UseCases/`
 
 ---
 
 ## ProcessTicketUseCase
 
 ```
-Datei: src/AgentSmith.Application/UseCases/ProcessTicketUseCase.cs
+File: src/AgentSmith.Application/UseCases/ProcessTicketUseCase.cs
 ```
 
 **Constructor:**
@@ -20,32 +20,32 @@ Datei: src/AgentSmith.Application/UseCases/ProcessTicketUseCase.cs
 
 **ExecuteAsync(string userInput, string configPath, CancellationToken):**
 
-1. Config laden: `configLoader.LoadAsync(configPath, ct)`
-2. Intent parsen: `intentParser.ParseAsync(userInput, ct)`
-3. Project finden: `config.Projects[intent.ProjectName.Value]`
-   - Nicht gefunden → `ConfigurationException("Project '{name}' not found")`
-4. Pipeline finden: `config.Pipelines[projectConfig.Pipeline]`
-   - Nicht gefunden → `ConfigurationException("Pipeline '{name}' not found")`
-5. PipelineContext erstellen, TicketId setzen
-6. Pipeline ausführen: `pipelineExecutor.ExecuteAsync(commands, projectConfig, pipeline, ct)`
-7. Ergebnis loggen und zurückgeben
+1. Load config: `configLoader.LoadAsync(configPath, ct)`
+2. Parse intent: `intentParser.ParseAsync(userInput, ct)`
+3. Find project: `config.Projects[intent.ProjectName.Value]`
+   - Not found → `ConfigurationException("Project '{name}' not found")`
+4. Find pipeline: `config.Pipelines[projectConfig.Pipeline]`
+   - Not found → `ConfigurationException("Pipeline '{name}' not found")`
+5. Create PipelineContext, set TicketId
+6. Execute pipeline: `pipelineExecutor.ExecuteAsync(commands, projectConfig, pipeline, ct)`
+7. Log result and return
 
-**Return:** `CommandResult` (Ok mit PR URL oder Fail mit Fehlerdetails)
+**Return:** `CommandResult` (Ok with PR URL or Fail with error details)
 
 ---
 
-## Hinweise
+## Notes
 
-- UseCase ist dünn, orchestriert nur
-- Keine Business-Logik, nur Wiring
-- Fehlerbehandlung: Exceptions aus Providern werden zum Caller propagiert
-- Log-Level: Information für Start/Ende, Warning für Fehler
+- UseCase is thin, only orchestrates
+- No business logic, just wiring
+- Error handling: Exceptions from providers are propagated to the caller
+- Log level: Information for start/end, Warning for errors
 
 ---
 
 ## Tests
 
 **ProcessTicketUseCaseTests:**
-- `ExecuteAsync_ValidInput_RunsPipeline` (alle Dependencies gemockt)
+- `ExecuteAsync_ValidInput_RunsPipeline` (all dependencies mocked)
 - `ExecuteAsync_UnknownProject_ThrowsConfigurationException`
 - `ExecuteAsync_UnknownPipeline_ThrowsConfigurationException`

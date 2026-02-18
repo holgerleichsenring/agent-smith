@@ -1,75 +1,75 @@
-# Phase 3 - Schritt 2: Ticket Providers
+# Phase 3 - Step 2: Ticket Providers
 
-## Ziel
-Echte Implementierungen für das Holen von Tickets aus externen Systemen.
-Projekt: `AgentSmith.Infrastructure/Providers/Tickets/`
+## Goal
+Real implementations for fetching tickets from external systems.
+Project: `AgentSmith.Infrastructure/Providers/Tickets/`
 
 ---
 
 ## AzureDevOpsTicketProvider
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Tickets/AzureDevOpsTicketProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Tickets/AzureDevOpsTicketProvider.cs
 ```
 
 **NuGet:** `Microsoft.TeamFoundationServer.Client`
 
 **Constructor:**
-- `string organizationUrl` (z.B. `https://dev.azure.com/myorg`)
+- `string organizationUrl` (e.g. `https://dev.azure.com/myorg`)
 - `string project`
 - `string personalAccessToken`
 
 **GetTicketAsync:**
-1. Erstelle `VssConnection` mit PAT
-2. Hole `WorkItemTrackingHttpClient`
+1. Create `VssConnection` with PAT
+2. Get `WorkItemTrackingHttpClient`
 3. `GetWorkItemAsync(int.Parse(ticketId))`
-4. Mappe `WorkItem` → Domain `Ticket`
+4. Map `WorkItem` → Domain `Ticket`
    - Title: `workItem.Fields["System.Title"]`
    - Description: `workItem.Fields["System.Description"]`
    - AcceptanceCriteria: `workItem.Fields["Microsoft.VSTS.Common.AcceptanceCriteria"]`
    - Status: `workItem.Fields["System.State"]`
    - Source: `"AzureDevOps"`
-5. Nicht gefunden → `TicketNotFoundException`
+5. Not found → `TicketNotFoundException`
 
-**Hinweise:**
-- `VssBasicCredential` für PAT-Authentifizierung
-- WorkItem Fields sind Dictionary-basiert - defensive Zugriffe mit `TryGetValue`
-- Organization URL aus Config: `https://dev.azure.com/{organization}`
+**Notes:**
+- `VssBasicCredential` for PAT authentication
+- WorkItem Fields are dictionary-based - use defensive access with `TryGetValue`
+- Organization URL from config: `https://dev.azure.com/{organization}`
 
 ---
 
 ## GitHubTicketProvider
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Tickets/GitHubTicketProvider.cs
+File: src/AgentSmith.Infrastructure/Providers/Tickets/GitHubTicketProvider.cs
 ```
 
 **NuGet:** `Octokit`
 
 **Constructor:**
-- `string owner` (aus URL extrahiert)
-- `string repo` (aus URL extrahiert)
+- `string owner` (extracted from URL)
+- `string repo` (extracted from URL)
 - `string token`
 
 **GetTicketAsync:**
-1. Erstelle `GitHubClient` mit `Credentials(token)`
+1. Create `GitHubClient` with `Credentials(token)`
 2. `client.Issue.Get(owner, repo, int.Parse(ticketId))`
-3. Mappe `Issue` → Domain `Ticket`
+3. Map `Issue` → Domain `Ticket`
    - Title: `issue.Title`
    - Description: `issue.Body`
-   - AcceptanceCriteria: `null` (GitHub Issues haben das nicht)
+   - AcceptanceCriteria: `null` (GitHub Issues don't have this)
    - Status: `issue.State.StringValue`
    - Source: `"GitHub"`
-4. Nicht gefunden → `TicketNotFoundException`
+4. Not found → `TicketNotFoundException`
 
-**Hinweise:**
-- Owner/Repo aus der Source-URL extrahieren: `https://github.com/{owner}/{repo}`
-- `ProductHeaderValue("AgentSmith")` für API-Aufrufe
-- Rate Limiting beachten (GitHub API Limit: 5000/Stunde mit Token)
+**Notes:**
+- Extract owner/repo from the source URL: `https://github.com/{owner}/{repo}`
+- `ProductHeaderValue("AgentSmith")` for API calls
+- Be mindful of rate limiting (GitHub API limit: 5000/hour with token)
 
 ---
 
 ## FetchTicketHandler Update
 
-Den Stub in `FetchTicketHandler` durch die echte Implementierung ersetzen:
+Replace the stub in `FetchTicketHandler` with the real implementation:
 
 ```csharp
 public async Task<CommandResult> ExecuteAsync(
@@ -90,9 +90,9 @@ public async Task<CommandResult> ExecuteAsync(
 ## Tests
 
 **AzureDevOpsTicketProviderTests:**
-- `GetTicketAsync_ValidId_ReturnsTicket` (gemockter HTTP Client)
+- `GetTicketAsync_ValidId_ReturnsTicket` (mocked HTTP client)
 - `GetTicketAsync_NotFound_ThrowsTicketNotFoundException`
 
 **GitHubTicketProviderTests:**
-- `GetTicketAsync_ValidIssue_ReturnsTicket` (gemockter Octokit Client)
+- `GetTicketAsync_ValidIssue_ReturnsTicket` (mocked Octokit client)
 - `GetTicketAsync_NotFound_ThrowsTicketNotFoundException`

@@ -1,9 +1,9 @@
-# Phase 9: Model Registry - Implementierungsdetails
+# Phase 9: Model Registry - Implementation Details
 
-## Überblick
-Das Model Registry bildet Task-Typen auf konkrete Model-Zuweisungen ab.
-Statt überall dasselbe Model zu verwenden, wählt der Agent das passende Model
-je nach Aufgabe: günstig für Discovery, leistungsstark für Coding.
+## Overview
+The Model Registry maps task types to concrete model assignments.
+Instead of using the same model everywhere, the agent selects the appropriate model
+depending on the task: cheap for discovery, powerful for coding.
 
 ---
 
@@ -78,7 +78,7 @@ public interface IModelRegistry
 }
 ```
 
-Einfaches Interface - gibt für einen TaskType die passende ModelAssignment zurück.
+Simple interface - returns the appropriate ModelAssignment for a given TaskType.
 
 ---
 
@@ -88,13 +88,13 @@ Einfaches Interface - gibt für einen TaskType die passende ModelAssignment zur�
 // Providers/Agent/ConfigBasedModelRegistry.cs
 ```
 
-### Implementierung
-- Bekommt `ModelRegistryConfig` im Konstruktor
-- Mappt `TaskType` auf die entsprechende Property in der Config
-- Wenn `Reasoning` null ist und angefragt wird → Fallback auf `Primary`
-- Logging bei Model-Auswahl (Debug-Level)
+### Implementation
+- Receives `ModelRegistryConfig` in the constructor
+- Maps `TaskType` to the corresponding property in the config
+- If `Reasoning` is null and requested → falls back to `Primary`
+- Logging on model selection (Debug level)
 
-### Fallback-Strategie
+### Fallback Strategy
 ```
 TaskType.Scout          → config.Scout
 TaskType.Primary        → config.Primary
@@ -111,22 +111,22 @@ TaskType.Summarization  → config.Summarization
 public class AgentConfig
 {
     // ... existing properties ...
-    public ModelRegistryConfig? Models { get; set; }  // nullable für Backward-Compat
+    public ModelRegistryConfig? Models { get; set; }  // nullable for backward compatibility
 }
 ```
 
-Wenn `Models` null ist, wird das einzelne `Model`-Feld für ALLE TaskTypes verwendet.
-Dies stellt sicher, dass bestehende agentsmith.yml-Dateien ohne Änderung funktionieren.
+If `Models` is null, the single `Model` field is used for ALL TaskTypes.
+This ensures that existing agentsmith.yml files work without changes.
 
 ---
 
 ## Integration in ClaudeAgentProvider
 
-Der Provider nutzt die Registry für:
+The provider uses the registry for:
 1. `GeneratePlanAsync` → `TaskType.Planning`
-2. `ExecutePlanAsync` → `TaskType.Primary` (für AgenticLoop)
-3. Scout → `TaskType.Scout` (wenn Models konfiguriert)
-4. CompactionConfig.SummaryModel wird von `TaskType.Summarization` abgelöst
+2. `ExecutePlanAsync` → `TaskType.Primary` (for AgenticLoop)
+3. Scout → `TaskType.Scout` (when Models is configured)
+4. CompactionConfig.SummaryModel is superseded by `TaskType.Summarization`
 
 ---
 
@@ -135,7 +135,7 @@ Der Provider nutzt die Registry für:
 ```yaml
 agent:
   type: Claude
-  model: claude-sonnet-4-20250514  # Fallback wenn models nicht gesetzt
+  model: claude-sonnet-4-20250514  # Fallback when models is not set
   models:
     scout:
       model: claude-haiku-4-5-20251001

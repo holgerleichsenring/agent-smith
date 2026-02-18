@@ -1,12 +1,12 @@
 # Phase 3 - Agentic Loop (Detail)
 
-## Ziel
-Detailbeschreibung der Agentic Loop in `ClaudeAgentProvider.ExecutePlanAsync`.
-Das ist die komplexeste Logik im gesamten System.
+## Goal
+Detailed description of the agentic loop in `ClaudeAgentProvider.ExecutePlanAsync`.
+This is the most complex logic in the entire system.
 
 ---
 
-## Ablauf
+## Flow
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -98,19 +98,19 @@ Das ist die komplexeste Logik im gesamten System.
   }
 }
 ```
-**Execution:** `Process.Start("bash", "-c", command)` im Repo-Verzeichnis
+**Execution:** `Process.Start("bash", "-c", command)` in the repo directory
 **Return:** stdout + stderr, exit code
-**Security:** Timeout (60s), kein Zugriff außerhalb Repo
+**Security:** Timeout (60s), no access outside the repo
 
 ---
 
 ## Tool Executor
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/ToolExecutor.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/ToolExecutor.cs
 ```
 
-Zentrale Klasse die Tool Calls dispatcht:
+Central class that dispatches tool calls:
 
 ```csharp
 public sealed class ToolExecutor(string repositoryPath, ILogger logger)
@@ -133,21 +133,21 @@ public sealed class ToolExecutor(string repositoryPath, ILogger logger)
 }
 ```
 
-**Hinweise:**
-- `_changes` trackt alle write_file Aufrufe
-- Path Validation: Kein `..`, kein absoluter Pfad (Security)
-- run_command: Timeout, Working Directory = Repo Root
-- Fehler in Tools → Error Message als String zurück (kein Throw)
+**Notes:**
+- `_changes` tracks all write_file calls
+- Path validation: No `..`, no absolute paths (security)
+- run_command: Timeout, working directory = repo root
+- Errors in tools → error message returned as string (no throw)
 
 ---
 
 ## Agentic Loop Implementation
 
 ```
-Datei: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
+File: src/AgentSmith.Infrastructure/Providers/Agent/AgenticLoop.cs
 ```
 
-Eigene Klasse für die Loop-Logik, getrennt vom Provider.
+Separate class for the loop logic, decoupled from the provider.
 
 **Constructor:**
 - `AnthropicClient client`
@@ -157,41 +157,41 @@ Eigene Klasse für die Loop-Logik, getrennt vom Provider.
 - `int maxIterations = 25`
 
 **RunAsync(string systemPrompt, string userMessage):**
-1. Erstelle Messages-Liste: `[{role: "user", content: userMessage}]`
+1. Create messages list: `[{role: "user", content: userMessage}]`
 2. Loop:
-   a. API Call mit messages + tools
-   b. Append assistant response zu messages
-   c. Wenn `stop_reason == "end_turn"` → break
-   d. Für jeden `tool_use` Block:
+   a. API call with messages + tools
+   b. Append assistant response to messages
+   c. If `stop_reason == "end_turn"` → break
+   d. For each `tool_use` block:
       - Execute via ToolExecutor
-      - Append `tool_result` zu messages
+      - Append `tool_result` to messages
    e. Iteration counter check
 3. Return: `toolExecutor.GetChanges()`
 
-**Wichtig:**
-- Messages-Liste wächst mit jedem Schritt (Konversationshistorie)
-- `stop_reason == "tool_use"` → weitermachen
-- `stop_reason == "end_turn"` → Agent ist fertig
-- Max Iterations als Safety Net (Default: 25)
+**Important:**
+- Messages list grows with each step (conversation history)
+- `stop_reason == "tool_use"` → continue
+- `stop_reason == "end_turn"` → agent is done
+- Max iterations as safety net (default: 25)
 
 ---
 
-## Verzeichnisstruktur
+## Directory Structure
 
 ```
 src/AgentSmith.Infrastructure/Providers/Agent/
 ├── ClaudeAgentProvider.cs    ← IAgentProvider Implementation
-├── AgenticLoop.cs            ← Loop-Logik
-├── ToolExecutor.cs           ← Tool Dispatch + Execution
-└── ToolDefinitions.cs        ← Tool JSON Schemas als Konstanten
+├── AgenticLoop.cs            ← Loop logic
+├── ToolExecutor.cs           ← Tool dispatch + execution
+└── ToolDefinitions.cs        ← Tool JSON schemas as constants
 ```
 
 ---
 
-## Sicherheitshinweise
+## Security Notes
 
-- **Path Traversal:** Alle Pfade validieren - kein `..`, kein absoluter Pfad
-- **Command Injection:** run_command hat Timeout (60s) und läuft im Repo-Verzeichnis
-- **API Key:** Nie loggen, nie in Responses leaken
-- **Max Iterations:** Verhindert Endlosschleifen (Default: 25, konfigurierbar)
-- **File Size:** Große Dateien (>100KB) abschneiden beim read_file
+- **Path Traversal:** Validate all paths - no `..`, no absolute paths
+- **Command Injection:** run_command has a timeout (60s) and runs in the repo directory
+- **API Key:** Never log, never leak in responses
+- **Max Iterations:** Prevents infinite loops (default: 25, configurable)
+- **File Size:** Truncate large files (>100KB) on read_file
