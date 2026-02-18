@@ -33,7 +33,10 @@ public sealed class ResilientHttpClientFactory(
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             }
         };
-        return new HttpClient(handler);
+        return new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromMinutes(10)
+        };
     }
 
     private ResiliencePipeline<HttpResponseMessage> CreateResiliencePipeline()
