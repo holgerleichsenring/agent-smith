@@ -24,7 +24,21 @@ WORKDIR /app
 # Install git for LibGit2Sharp operations
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN groupadd --gid 1000 agentsmith && \
+    useradd --uid 1000 --gid agentsmith --create-home agentsmith && \
+    mkdir -p /home/agentsmith/.ssh && \
+    chown -R agentsmith:agentsmith /home/agentsmith
+
 COPY --from=build /app/publish .
 COPY config/ ./config/
+
+# Temp directory for cloned repos
+RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
+
+USER agentsmith
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD dotnet AgentSmith.Host.dll --help || exit 1
 
 ENTRYPOINT ["dotnet", "AgentSmith.Host.dll"]

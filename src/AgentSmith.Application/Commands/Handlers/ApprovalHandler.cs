@@ -19,9 +19,20 @@ public sealed class ApprovalHandler(
         logger.LogInformation("Plan summary: {Summary}", context.Plan.Summary);
         DisplayPlan(context.Plan);
 
-        Console.Write("Approve this plan? (y/n): ");
-        var input = Console.ReadLine()?.Trim().ToLowerInvariant();
-        var approved = input is "y" or "yes";
+        var headless = context.Pipeline.TryGet<bool>(ContextKeys.Headless, out var h) && h;
+
+        bool approved;
+        if (headless)
+        {
+            logger.LogInformation("Headless mode: auto-approving plan");
+            approved = true;
+        }
+        else
+        {
+            Console.Write("Approve this plan? (y/n): ");
+            var input = Console.ReadLine()?.Trim().ToLowerInvariant();
+            approved = input is "y" or "yes";
+        }
 
         context.Pipeline.Set(ContextKeys.Approved, approved);
 
