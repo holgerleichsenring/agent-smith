@@ -1,5 +1,6 @@
 # Agent Smith - Example Configuration
 # Copy to agentsmith.yml and adjust to your project.
+# Supported providers: Claude (Anthropic), OpenAI, Gemini (Google)
 
 projects:
   my-project:
@@ -14,8 +15,10 @@ projects:
       # Azure DevOps only:
       # organization: my-org
       # project: my-project
+
+    # --- Option A: Anthropic Claude (best tool calling, prompt caching) ---
     agent:
-      type: Claude # Claude (OpenAI and Gemini coming soon)
+      type: Claude # claude | anthropic
       model: claude-sonnet-4-20250514
       retry:
         max_retries: 5
@@ -44,8 +47,39 @@ projects:
         summarization:
           model: claude-haiku-4-5-20251001
           max_tokens: 2048
+
+    # --- Option B: OpenAI (uncomment to use instead of Claude) ---
+    # agent:
+    #   type: openai
+    #   model: gpt-4.1
+    #   retry:
+    #     max_retries: 5
+    #     initial_delay_ms: 2000
+    #     backoff_multiplier: 2.0
+    #     max_delay_ms: 60000
+    #   models:
+    #     primary:
+    #       model: gpt-4.1
+    #       max_tokens: 8192
+    #     planning:
+    #       model: gpt-4.1-mini
+    #       max_tokens: 4096
+
+    # --- Option C: Google Gemini (cheapest, fast) ---
+    # agent:
+    #   type: gemini
+    #   model: gemini-2.5-flash
+    #   models:
+    #     primary:
+    #       model: gemini-2.5-pro
+    #       max_tokens: 8192
+    #     planning:
+    #       model: gemini-2.5-flash
+    #       max_tokens: 4096
+
     pricing:
       models:
+        # Claude pricing (as of 2025)
         claude-sonnet-4-20250514:
           input_per_million: 3.0
           output_per_million: 15.0
@@ -54,6 +88,21 @@ projects:
           input_per_million: 0.80
           output_per_million: 4.0
           cache_read_per_million: 0.08
+        # OpenAI pricing (as of 2025)
+        gpt-4.1:
+          input_per_million: 2.0
+          output_per_million: 8.0
+        gpt-4.1-mini:
+          input_per_million: 0.40
+          output_per_million: 1.60
+        # Gemini pricing (as of 2025)
+        gemini-2.5-pro:
+          input_per_million: 1.25
+          output_per_million: 10.0
+        gemini-2.5-flash:
+          input_per_million: 0.15
+          output_per_million: 0.60
+
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
@@ -73,5 +122,6 @@ pipelines:
 secrets:
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
-  # azure_devops_token: ${AZURE_DEVOPS_TOKEN}
   # openai_api_key: ${OPENAI_API_KEY}
+  # gemini_api_key: ${GEMINI_API_KEY}
+  # azure_devops_token: ${AZURE_DEVOPS_TOKEN}

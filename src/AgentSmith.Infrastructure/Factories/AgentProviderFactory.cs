@@ -18,9 +18,11 @@ public sealed class AgentProviderFactory(
     {
         return config.Type.ToLowerInvariant() switch
         {
-            "claude" => CreateClaude(config),
-            "openai" => throw new NotSupportedException("OpenAI provider not yet implemented."),
-            _ => throw new ConfigurationException($"Unknown agent provider type: {config.Type}")
+            "claude" or "anthropic" => CreateClaude(config),
+            "openai" => CreateOpenAi(config),
+            "gemini" or "google" => CreateGemini(config),
+            _ => throw new ConfigurationException(
+                $"Unknown agent provider type: '{config.Type}'. Supported: claude, openai, gemini")
         };
     }
 
@@ -31,6 +33,24 @@ public sealed class AgentProviderFactory(
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
             registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>());
+    }
+
+    private OpenAiAgentProvider CreateOpenAi(AgentConfig config)
+    {
+        var apiKey = secrets.GetRequired("OPENAI_API_KEY");
+        var registry = CreateModelRegistry(config);
+        return new OpenAiAgentProvider(
+            apiKey, config.Model, config.Retry,
+            registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>());
+    }
+
+    private GeminiAgentProvider CreateGemini(AgentConfig config)
+    {
+        var apiKey = secrets.GetRequired("GEMINI_API_KEY");
+        var registry = CreateModelRegistry(config);
+        return new GeminiAgentProvider(
+            apiKey, config.Model,
+            registry, config.Pricing, loggerFactory.CreateLogger<GeminiAgentProvider>());
     }
 
     private IModelRegistry? CreateModelRegistry(AgentConfig config)
