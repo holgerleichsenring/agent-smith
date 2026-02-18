@@ -1,0 +1,67 @@
+# Agent Smith - Example Configuration
+# Copy to agentsmith.yml and adjust to your project.
+
+projects:
+  my-project:
+    source:
+      type: GitHub                    # GitHub | AzureRepos | Local
+      url: https://github.com/owner/repo
+      auth: token
+    tickets:
+      type: GitHub                    # GitHub | AzureDevOps | Jira
+      url: https://github.com/owner/repo
+      auth: token
+      # Azure DevOps only:
+      # organization: my-org
+      # project: my-project
+    agent:
+      type: Claude                    # Claude (OpenAI and Gemini coming soon)
+      model: claude-sonnet-4-20250514
+      retry:
+        max_retries: 5
+        initial_delay_ms: 2000
+        backoff_multiplier: 2.0
+        max_delay_ms: 60000
+      cache:
+        enabled: true
+        strategy: automatic
+      compaction:
+        enabled: true
+        threshold_iterations: 8
+        max_context_tokens: 80000
+        keep_recent_iterations: 3
+        summary_model: claude-haiku-4-5-20251001
+      models:
+        scout:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 4096
+        primary:
+          model: claude-sonnet-4-20250514
+          max_tokens: 8192
+        planning:
+          model: claude-sonnet-4-20250514
+          max_tokens: 4096
+        summarization:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 2048
+    pipeline: fix-bug
+    coding_principles_path: ./config/coding-principles.md
+
+pipelines:
+  fix-bug:
+    commands:
+      - FetchTicketCommand
+      - CheckoutSourceCommand
+      - LoadCodingPrinciplesCommand
+      - AnalyzeCodeCommand
+      - GeneratePlanCommand
+      - ApprovalCommand
+      - AgenticExecuteCommand
+      - TestCommand
+      - CommitAndPRCommand
+
+secrets:
+  github_token: ${GITHUB_TOKEN}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  # azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+  # openai_api_key: ${OPENAI_API_KEY}

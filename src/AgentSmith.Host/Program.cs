@@ -18,12 +18,15 @@ var dryRunOption = new Option<bool>(
 var verboseOption = new Option<bool>(
     "--verbose", "Enable verbose logging");
 
+var headlessOption = new Option<bool>(
+    "--headless", "Run without interactive prompts (auto-approve plans)");
+
 var rootCommand = new RootCommand("Agent Smith - AI Coding Agent")
 {
-    inputArg, configOption, dryRunOption, verboseOption
+    inputArg, configOption, dryRunOption, verboseOption, headlessOption
 };
 
-rootCommand.SetHandler(async (string input, string configPath, bool dryRun, bool verbose) =>
+rootCommand.SetHandler(async (string input, string configPath, bool dryRun, bool verbose, bool headless) =>
 {
     var provider = BuildServiceProvider(verbose);
 
@@ -34,7 +37,7 @@ rootCommand.SetHandler(async (string input, string configPath, bool dryRun, bool
     }
 
     var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
-    var result = await useCase.ExecuteAsync(input, configPath);
+    var result = await useCase.ExecuteAsync(input, configPath, headless);
 
     Console.WriteLine(result.Success
         ? $"Success: {result.Message}"
@@ -42,7 +45,7 @@ rootCommand.SetHandler(async (string input, string configPath, bool dryRun, bool
 
     Environment.ExitCode = result.Success ? 0 : 1;
 
-}, inputArg, configOption, dryRunOption, verboseOption);
+}, inputArg, configOption, dryRunOption, verboseOption, headlessOption);
 
 return await rootCommand.InvokeAsync(args);
 
