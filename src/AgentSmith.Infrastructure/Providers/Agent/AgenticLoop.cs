@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using AgentSmith.Contracts.Configuration;
 using AgentSmith.Domain.Entities;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
@@ -15,6 +16,8 @@ public sealed class AgenticLoop(
     string model,
     ToolExecutor toolExecutor,
     ILogger logger,
+    CacheConfig cacheConfig,
+    TokenUsageTracker tracker,
     int maxIterations = 25)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
@@ -32,6 +35,7 @@ public sealed class AgenticLoop(
             logger.LogDebug("Agentic loop iteration {Iteration}", iteration + 1);
 
             var response = await SendRequestAsync(systemPrompt, messages, cancellationToken);
+            tracker.Track(response);
             LogTokenUsage(response, iteration + 1);
             AppendAssistantResponse(messages, response);
 
@@ -46,6 +50,7 @@ public sealed class AgenticLoop(
             AppendToolResults(messages, toolResults);
         }
 
+        tracker.LogSummary(logger);
         return toolExecutor.GetChanges();
     }
 
@@ -61,7 +66,8 @@ public sealed class AgenticLoop(
             System = new List<SystemMessage> { new(systemPrompt) },
             Messages = messages,
             Tools = ToolDefinitions.All,
-            Stream = false
+            Stream = false,
+            PromptCaching = ResolveCacheType()
         };
 
         return await client.Messages.GetClaudeMessageAsync(parameters, cancellationToken);
@@ -115,6 +121,17 @@ public sealed class AgenticLoop(
             Role = RoleType.User,
             Content = toolResults.Cast<ContentBase>().ToList()
         });
+    }
+
+    private PromptCacheType ResolveCacheType()
+    {
+        if (!cacheConfig.Enabled) return PromptCacheType.None;
+        return cacheConfig.Strategy.ToLowerInvariant() switch
+        {
+            "automatic" => PromptCacheType.AutomaticToolsAndSystem,
+            "fine-grained" => PromptCacheType.FineGrained,
+            _ => PromptCacheType.None
+        };
     }
 
     private void LogTokenUsage(MessageResponse response, int iteration)

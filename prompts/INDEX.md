@@ -37,6 +37,9 @@ Jede Änderung am Design wird hier reflektiert.
 | `phase5-smoke-test.md` | DI Integration Test + CLI Smoke Test | Erledigt |
 | `phase6-plan.md` | Phase 6 Übersicht: Resilience + Retry | Erledigt |
 | `phase6-retry.md` | RetryConfig, ResilientHttpClientFactory, Polly | Erledigt |
+| `phase7-plan.md` | Phase 7 Übersicht: Prompt Caching | Erledigt |
+| `phase7-caching.md` | CacheConfig, TokenUsageTracker, TokenUsageSummary | Erledigt |
+| `phase7-token-tracking.md` | PromptCaching aktivieren, System-Prompt Optimierung | Erledigt |
 
 ---
 
@@ -48,7 +51,7 @@ Jede Änderung am Design wird hier reflektiert.
 - **Phase 4: Pipeline Execution** ← Erledigt
 - **Phase 5: CLI & Docker** ← Erledigt
 - **Phase 6: Resilience - Retry** ← Erledigt
-- Phase 7: Prompt Caching
+- **Phase 7: Prompt Caching** ← Erledigt
 - Phase 8: Context Compaction
 - Phase 9: Model Registry & Scout
 
