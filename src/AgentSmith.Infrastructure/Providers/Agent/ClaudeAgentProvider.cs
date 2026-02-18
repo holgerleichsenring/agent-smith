@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -16,6 +17,7 @@ namespace AgentSmith.Infrastructure.Providers.Agent;
 public sealed class ClaudeAgentProvider(
     string apiKey,
     string model,
+    RetryConfig retryConfig,
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "Claude";
@@ -26,7 +28,7 @@ public sealed class ClaudeAgentProvider(
         string codingPrinciples,
         CancellationToken cancellationToken = default)
     {
-        using var client = new AnthropicClient(apiKey);
+        using var client = CreateResilientClient();
 
         var systemPrompt = BuildPlanSystemPrompt(codingPrinciples);
         var userPrompt = BuildPlanUserPrompt(ticket, codeAnalysis);
@@ -59,7 +61,7 @@ public sealed class ClaudeAgentProvider(
         string codingPrinciples,
         CancellationToken cancellationToken = default)
     {
-        using var client = new AnthropicClient(apiKey);
+        using var client = CreateResilientClient();
 
         var toolExecutor = new ToolExecutor(repository.LocalPath, logger);
         var loop = new AgenticLoop(client, model, toolExecutor, logger);
@@ -73,6 +75,13 @@ public sealed class ClaudeAgentProvider(
             "Agentic execution completed with {Count} file changes", changes.Count);
 
         return changes;
+    }
+
+    private AnthropicClient CreateResilientClient()
+    {
+        var factory = new ResilientHttpClientFactory(retryConfig, logger);
+        var httpClient = factory.Create();
+        return new AnthropicClient(apiKey, httpClient);
     }
 
     private static string BuildPlanSystemPrompt(string codingPrinciples)

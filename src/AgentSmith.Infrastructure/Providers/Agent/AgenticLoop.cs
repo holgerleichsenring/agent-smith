@@ -32,6 +32,7 @@ public sealed class AgenticLoop(
             logger.LogDebug("Agentic loop iteration {Iteration}", iteration + 1);
 
             var response = await SendRequestAsync(systemPrompt, messages, cancellationToken);
+            LogTokenUsage(response, iteration + 1);
             AppendAssistantResponse(messages, response);
 
             if (!HasToolUse(response))
@@ -114,5 +115,18 @@ public sealed class AgenticLoop(
             Role = RoleType.User,
             Content = toolResults.Cast<ContentBase>().ToList()
         });
+    }
+
+    private void LogTokenUsage(MessageResponse response, int iteration)
+    {
+        var usage = response.Usage;
+        logger.LogDebug(
+            "Iteration {Iteration} tokens: Input={Input}, Output={Output}, " +
+            "CacheCreate={CacheCreate}, CacheRead={CacheRead}",
+            iteration,
+            usage.InputTokens,
+            usage.OutputTokens,
+            usage.CacheCreationInputTokens,
+            usage.CacheReadInputTokens);
     }
 }

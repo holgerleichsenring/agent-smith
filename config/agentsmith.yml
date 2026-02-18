@@ -11,6 +11,11 @@ projects:
     agent:
       type: Claude
       model: claude-sonnet-4-20250514
+      retry:
+        max_retries: 5
+        initial_delay_ms: 2000
+        backoff_multiplier: 2.0
+        max_delay_ms: 60000
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
