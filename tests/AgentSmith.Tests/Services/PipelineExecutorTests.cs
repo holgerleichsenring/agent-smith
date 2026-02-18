@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.ValueObjects;
 using FluentAssertions;
@@ -13,6 +14,7 @@ public class PipelineExecutorTests
 {
     private readonly Mock<ICommandExecutor> _executorMock = new();
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
+    private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
     private readonly PipelineExecutor _sut;
 
     public PipelineExecutorTests()
@@ -20,6 +22,7 @@ public class PipelineExecutorTests
         _sut = new PipelineExecutor(
             _executorMock.Object,
             _factoryMock.Object,
+            _ticketFactoryMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }
 
@@ -57,6 +60,39 @@ public class PipelineExecutorTests
             Array.Empty<string>(),
             new ProjectConfig(),
             new PipelineContext());
+
+        result.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PostsWorkingStatusToTicket()
+    {
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+            .Returns(ticketProviderMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+
+        await _sut.ExecuteAsync(Array.Empty<string>(), new ProjectConfig(), pipeline);
+
+        ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+            It.Is<TicketId>(id => id.Value == "42"),
+            It.Is<string>(s => s.Contains("working on")),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline()
+    {
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+            .Throws(new Exception("Ticket provider unavailable"));
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+
+        var result = await _sut.ExecuteAsync(
+            Array.Empty<string>(), new ProjectConfig(), pipeline);
 
         result.Success.Should().BeTrue();
     }

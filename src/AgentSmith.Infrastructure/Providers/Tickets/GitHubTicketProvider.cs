@@ -51,6 +51,26 @@ public sealed class GitHubTicketProvider : ITicketProvider
             "GitHub");
     }
 
+    public async Task UpdateStatusAsync(
+        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(ticketId.Value, out var issueNumber))
+            return;
+
+        await _client.Issue.Comment.Create(_owner, _repo, issueNumber, comment);
+    }
+
+    public async Task CloseTicketAsync(
+        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(ticketId.Value, out var issueNumber))
+            return;
+
+        await _client.Issue.Comment.Create(_owner, _repo, issueNumber, resolution);
+        await _client.Issue.Update(_owner, _repo, issueNumber,
+            new IssueUpdate { State = ItemState.Closed });
+    }
+
     private static (string owner, string repo) ParseGitHubUrl(string url)
     {
         var uri = new Uri(url);

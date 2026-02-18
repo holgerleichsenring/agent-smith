@@ -8,9 +8,11 @@ namespace AgentSmith.Application.Commands.Handlers;
 
 /// <summary>
 /// Commits changes and creates a pull request via source provider.
+/// Posts the result back to the ticket and closes it.
 /// </summary>
 public sealed class CommitAndPRHandler(
-    ISourceProviderFactory factory,
+    ISourceProviderFactory sourceFactory,
+    ITicketProviderFactory ticketFactory,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -21,12 +23,12 @@ public sealed class CommitAndPRHandler(
             "Creating PR for ticket {Ticket} with {Changes} changes...",
             context.Ticket.Id, context.Changes.Count);
 
-        var provider = factory.Create(context.SourceConfig);
+        var sourceProvider = sourceFactory.Create(context.SourceConfig);
 
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
-        await provider.CommitAndPushAsync(context.Repository, message, cancellationToken);
+        await sourceProvider.CommitAndPushAsync(context.Repository, message, cancellationToken);
 
-        var prUrl = await provider.CreatePullRequestAsync(
+        var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,
             context.Ticket.Title,
             context.Ticket.Description,
@@ -35,6 +37,41 @@ public sealed class CommitAndPRHandler(
         context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
 
         logger.LogInformation("Pull request created: {Url}", prUrl);
+
+        await CloseTicketWithSummaryAsync(context, prUrl, cancellationToken);
+
         return CommandResult.Ok($"Pull request created: {prUrl}");
+    }
+
+    private async Task CloseTicketWithSummaryAsync(
+        CommitAndPRContext context, string prUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var ticketProvider = ticketFactory.Create(context.TicketConfig);
+            var changes = string.Join("\n",
+                context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
+
+            var summary = $"""
+                ## Agent Smith - Completed
+
+                **PR:** {prUrl}
+
+                ### Changes
+                {changes}
+
+                This ticket was automatically processed by Agent Smith.
+                """;
+
+            await ticketProvider.CloseTicketAsync(
+                context.Ticket.Id, summary, cancellationToken);
+
+            logger.LogInformation("Ticket {Ticket} closed with summary", context.Ticket.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to close ticket {Ticket}, PR was still created", context.Ticket.Id);
+        }
     }
 }
