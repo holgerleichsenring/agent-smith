@@ -18,6 +18,7 @@ public sealed class ClaudeAgentProvider(
     string apiKey,
     string model,
     RetryConfig retryConfig,
+    CacheConfig cacheConfig,
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "Claude";
@@ -47,7 +48,8 @@ public sealed class ClaudeAgentProvider(
                         Content = new List<ContentBase> { new TextContent { Text = userPrompt } }
                     }
                 },
-                Stream = false
+                Stream = false,
+                PromptCaching = ResolveCacheType()
             },
             cancellationToken);
 
@@ -64,7 +66,8 @@ public sealed class ClaudeAgentProvider(
         using var client = CreateResilientClient();
 
         var toolExecutor = new ToolExecutor(repository.LocalPath, logger);
-        var loop = new AgenticLoop(client, model, toolExecutor, logger);
+        var tracker = new TokenUsageTracker();
+        var loop = new AgenticLoop(client, model, toolExecutor, logger, cacheConfig, tracker);
 
         var systemPrompt = BuildExecutionSystemPrompt(codingPrinciples);
         var userMessage = BuildExecutionUserPrompt(plan, repository);
@@ -75,6 +78,17 @@ public sealed class ClaudeAgentProvider(
             "Agentic execution completed with {Count} file changes", changes.Count);
 
         return changes;
+    }
+
+    private PromptCacheType ResolveCacheType()
+    {
+        if (!cacheConfig.Enabled) return PromptCacheType.None;
+        return cacheConfig.Strategy.ToLowerInvariant() switch
+        {
+            "automatic" => PromptCacheType.AutomaticToolsAndSystem,
+            "fine-grained" => PromptCacheType.FineGrained,
+            _ => PromptCacheType.None
+        };
     }
 
     private AnthropicClient CreateResilientClient()
@@ -131,13 +145,16 @@ public sealed class ClaudeAgentProvider(
 
     private static string BuildExecutionSystemPrompt(string codingPrinciples)
     {
+        // Coding principles placed first for optimal prompt caching:
+        // they form the longest stable prefix and will be cached after the first call.
         return $"""
+            ## Coding Principles
+            {codingPrinciples}
+
+            ## Role
             You are a senior software engineer implementing code changes.
             You have access to tools to read, write, and list files in the repository,
             as well as run shell commands.
-
-            ## Coding Principles
-            {codingPrinciples}
 
             ## Instructions
             - Read existing files before modifying them to understand the current state.
