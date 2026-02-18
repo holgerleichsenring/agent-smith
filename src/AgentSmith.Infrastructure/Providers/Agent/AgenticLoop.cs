@@ -18,6 +18,8 @@ public sealed class AgenticLoop(
     ILogger logger,
     CacheConfig cacheConfig,
     TokenUsageTracker tracker,
+    CompactionConfig compactionConfig,
+    IContextCompactor? compactor = null,
     int maxIterations = 25)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
@@ -48,6 +50,8 @@ public sealed class AgenticLoop(
 
             var toolResults = await ProcessToolCalls(response, cancellationToken);
             AppendToolResults(messages, toolResults);
+
+            messages = await TryCompactAsync(messages, iteration + 1, cancellationToken);
         }
 
         tracker.LogSummary(logger);
@@ -121,6 +125,26 @@ public sealed class AgenticLoop(
             Role = RoleType.User,
             Content = toolResults.Cast<ContentBase>().ToList()
         });
+    }
+
+    private async Task<List<Message>> TryCompactAsync(
+        List<Message> messages, int iteration, CancellationToken cancellationToken)
+    {
+        if (!compactionConfig.Enabled || compactor is null)
+            return messages;
+
+        if (iteration < compactionConfig.ThresholdIterations)
+            return messages;
+
+        if (iteration % compactionConfig.ThresholdIterations != 0)
+            return messages;
+
+        var keepRecentMessages = compactionConfig.KeepRecentIterations * 2;
+        logger.LogInformation(
+            "Triggering context compaction at iteration {Iteration}, keeping last {Keep} messages",
+            iteration, keepRecentMessages);
+
+        return await compactor.CompactAsync(messages, keepRecentMessages, cancellationToken);
     }
 
     private PromptCacheType ResolveCacheType()

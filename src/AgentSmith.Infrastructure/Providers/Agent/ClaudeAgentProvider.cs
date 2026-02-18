@@ -19,6 +19,7 @@ public sealed class ClaudeAgentProvider(
     string model,
     RetryConfig retryConfig,
     CacheConfig cacheConfig,
+    CompactionConfig compactionConfig,
     ILogger<ClaudeAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "Claude";
@@ -65,9 +66,13 @@ public sealed class ClaudeAgentProvider(
     {
         using var client = CreateResilientClient();
 
-        var toolExecutor = new ToolExecutor(repository.LocalPath, logger);
+        var fileReadTracker = new FileReadTracker();
+        var toolExecutor = new ToolExecutor(repository.LocalPath, logger, fileReadTracker);
         var tracker = new TokenUsageTracker();
-        var loop = new AgenticLoop(client, model, toolExecutor, logger, cacheConfig, tracker);
+        var compactor = CreateCompactor();
+        var loop = new AgenticLoop(
+            client, model, toolExecutor, logger,
+            cacheConfig, tracker, compactionConfig, compactor);
 
         var systemPrompt = BuildExecutionSystemPrompt(codingPrinciples);
         var userMessage = BuildExecutionUserPrompt(plan, repository);
@@ -78,6 +83,15 @@ public sealed class ClaudeAgentProvider(
             "Agentic execution completed with {Count} file changes", changes.Count);
 
         return changes;
+    }
+
+    private ClaudeContextCompactor? CreateCompactor()
+    {
+        if (!compactionConfig.Enabled)
+            return null;
+
+        var compactorClient = CreateResilientClient();
+        return new ClaudeContextCompactor(compactorClient, compactionConfig.SummaryModel, logger);
     }
 
     private PromptCacheType ResolveCacheType()
