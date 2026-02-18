@@ -40,8 +40,9 @@ public sealed class GitHubSourceProvider : ISourceProvider
         EnsureCloned(localPath);
 
         using var repo = new LibGit2Sharp.Repository(localPath);
-        var newBranch = repo.CreateBranch(branch.Value);
-        Commands.Checkout(repo, newBranch);
+        var existingBranch = repo.Branches[branch.Value];
+        var targetBranch = existingBranch ?? repo.CreateBranch(branch.Value);
+        Commands.Checkout(repo, targetBranch);
 
         _logger.LogInformation(
             "Checked out branch {Branch} in {Path}", branch, localPath);
