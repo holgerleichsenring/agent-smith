@@ -98,6 +98,6 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new CommitAndPRContext(repo, changes, ticket, project.Source, pipeline);
+        return new CommitAndPRContext(repo, changes, ticket, project.Source, project.Tickets, pipeline);
     }
 }

@@ -3,8 +3,11 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.ValueObjects;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.WebApi.Patch;
+using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
 namespace AgentSmith.Infrastructure.Providers.Tickets;
 
@@ -53,6 +56,50 @@ public sealed class AzureDevOpsTicketProvider(
             GetFieldOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria"),
             GetField(fields, "System.State"),
             "AzureDevOps");
+    }
+
+    public async Task UpdateStatusAsync(
+        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(ticketId.Value, out var id))
+            return;
+
+        var client = CreateClient();
+        var patch = new JsonPatchDocument
+        {
+            new()
+            {
+                Operation = Operation.Add,
+                Path = "/fields/System.History",
+                Value = comment
+            }
+        };
+        await client.UpdateWorkItemAsync(patch, project, id, cancellationToken: cancellationToken);
+    }
+
+    public async Task CloseTicketAsync(
+        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(ticketId.Value, out var id))
+            return;
+
+        var client = CreateClient();
+        var patch = new JsonPatchDocument
+        {
+            new()
+            {
+                Operation = Operation.Add,
+                Path = "/fields/System.History",
+                Value = resolution
+            },
+            new()
+            {
+                Operation = Operation.Add,
+                Path = "/fields/System.State",
+                Value = "Closed"
+            }
+        };
+        await client.UpdateWorkItemAsync(patch, project, id, cancellationToken: cancellationToken);
     }
 
     private static string GetField(IDictionary<string, object> fields, string key)

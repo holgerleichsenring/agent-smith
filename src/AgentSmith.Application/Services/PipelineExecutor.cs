@@ -1,6 +1,7 @@
 using AgentSmith.Application.Commands.Contexts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.ValueObjects;
@@ -11,10 +12,12 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Executes a pipeline by building contexts from command names and dispatching
 /// them through the CommandExecutor sequentially. Stops on first failure.
+/// Posts status updates and error reports to the ticket provider.
 /// </summary>
 public sealed class PipelineExecutor(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
+    ITicketProviderFactory ticketFactory,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -25,6 +28,9 @@ public sealed class PipelineExecutor(
     {
         logger.LogInformation(
             "Starting pipeline with {Count} commands", commandNames.Count);
+
+        await PostTicketStatusAsync(projectConfig, context,
+            "Agent Smith is working on this issue...", cancellationToken);
 
         for (var i = 0; i < commandNames.Count; i++)
         {
@@ -43,6 +49,11 @@ public sealed class PipelineExecutor(
                 logger.LogWarning(
                     "Pipeline stopped at step {Step}: {Command} failed - {Message}",
                     i + 1, commandName, result.Message);
+
+                await PostTicketStatusAsync(projectConfig, context,
+                    $"## Agent Smith - Failed\n\n**Step:** {commandName} ({i + 1}/{commandNames.Count})\n**Error:** {result.Message}",
+                    cancellationToken);
+
                 return result;
             }
 
@@ -72,5 +83,23 @@ public sealed class PipelineExecutor(
             _ => throw new ConfigurationException(
                 $"Unknown context type: {context.GetType().Name}")
         };
+    }
+
+    private async Task PostTicketStatusAsync(
+        ProjectConfig projectConfig, PipelineContext context,
+        string message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+                return;
+
+            var ticketProvider = ticketFactory.Create(projectConfig.Tickets);
+            await ticketProvider.UpdateStatusAsync(ticketId, message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to post status update to ticket");
+        }
     }
 }

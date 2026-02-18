@@ -12,4 +12,5 @@ public sealed record CommitAndPRContext(
     IReadOnlyList<CodeChange> Changes,
     Ticket Ticket,
     SourceConfig SourceConfig,
+    TicketConfig TicketConfig,
     PipelineContext Pipeline) : ICommandContext;
