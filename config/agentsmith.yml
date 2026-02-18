@@ -1,0 +1,50 @@
+projects:
+  payslip:
+    source:
+      type: GitHub
+      url: https://github.com/user/payslip
+      auth: token
+    tickets:
+      type: AzureDevOps
+      organization: myorg
+      project: PayslipProject
+      auth: token
+    agent:
+      type: Claude
+      model: sonnet-4
+    pipeline: fix-bug
+    coding_principles_path: ./config/coding-principles.md
+
+pipelines:
+  fix-bug:
+    commands:
+      - FetchTicketCommand
+      - CheckoutSourceCommand
+      - LoadCodingPrinciplesCommand
+      - AnalyzeCodeCommand
+      - GeneratePlanCommand
+      - ApprovalCommand
+      - AgenticExecuteCommand
+      - TestCommand
+      - CommitAndPRCommand
+
+  add-feature:
+    commands:
+      - FetchTicketCommand
+      - CheckoutSourceCommand
+      - LoadCodingPrinciplesCommand
+      - GeneratePlanCommand
+      - ApprovalCommand
+      - AgenticExecuteCommand
+      - GenerateTestsCommand
+      - TestCommand
+      - GenerateDocsCommand
+      - CommitAndPRCommand
+
+secrets:
+  azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+  github_token: ${GITHUB_TOKEN}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  openai_api_key: ${OPENAI_API_KEY}
+  jira_token: ${JIRA_TOKEN}
+  jira_email: ${JIRA_EMAIL}
