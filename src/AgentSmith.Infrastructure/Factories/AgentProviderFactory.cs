@@ -28,6 +28,7 @@ public sealed class AgentProviderFactory(
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
         return new ClaudeAgentProvider(
-            apiKey, config.Model, loggerFactory.CreateLogger<ClaudeAgentProvider>());
+            apiKey, config.Model, config.Retry,
+            loggerFactory.CreateLogger<ClaudeAgentProvider>());
     }
 }
