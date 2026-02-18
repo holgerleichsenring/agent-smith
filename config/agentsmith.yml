@@ -38,6 +38,16 @@ projects:
         summarization:
           model: claude-haiku-4-5-20251001
           max_tokens: 2048
+    pricing:
+      models:
+        claude-sonnet-4-20250514:
+          input_per_million: 3.0
+          output_per_million: 15.0
+          cache_read_per_million: 0.30
+        claude-haiku-4-5-20251001:
+          input_per_million: 0.80
+          output_per_million: 4.0
+          cache_read_per_million: 0.08
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 

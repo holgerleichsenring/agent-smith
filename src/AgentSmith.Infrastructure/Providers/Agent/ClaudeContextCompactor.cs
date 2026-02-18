@@ -11,7 +11,8 @@ namespace AgentSmith.Infrastructure.Providers.Agent;
 public sealed class ClaudeContextCompactor(
     AnthropicClient client,
     string summaryModel,
-    ILogger logger) : IContextCompactor
+    ILogger logger,
+    TokenUsageTracker? usageTracker = null) : IContextCompactor
 {
     private const string SummarySystemPrompt = """
         You are a context compactor. Summarize the following conversation history between
@@ -117,11 +118,15 @@ public sealed class ClaudeContextCompactor(
             },
             cancellationToken);
 
+        var previousPhase = TrackCompactionUsage(response);
+
         var summary = response.Content.OfType<TextContent>().FirstOrDefault()?.Text ?? "";
 
         logger.LogDebug(
             "Summary generated: {InputTokens} input → {OutputTokens} output tokens",
             response.Usage.InputTokens, response.Usage.OutputTokens);
+
+        RestorePhase(previousPhase);
 
         return summary;
     }
@@ -163,5 +168,22 @@ public sealed class ClaudeContextCompactor(
         }
 
         return string.Join("\n\n", parts);
+    }
+
+    private string? TrackCompactionUsage(MessageResponse response)
+    {
+        if (usageTracker is null)
+            return null;
+
+        var previousPhase = "primary";
+        usageTracker.SetPhase("compaction");
+        usageTracker.Track(response);
+        return previousPhase;
+    }
+
+    private void RestorePhase(string? previousPhase)
+    {
+        if (previousPhase is not null)
+            usageTracker?.SetPhase(previousPhase);
     }
 }

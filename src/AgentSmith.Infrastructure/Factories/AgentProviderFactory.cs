@@ -30,7 +30,7 @@ public sealed class AgentProviderFactory(
         var registry = CreateModelRegistry(config);
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
-            registry, loggerFactory.CreateLogger<ClaudeAgentProvider>());
+            registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>());
     }
 
     private IModelRegistry? CreateModelRegistry(AgentConfig config)
