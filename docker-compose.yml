@@ -1,5 +1,23 @@
+# One-shot mode: docker compose run --rm agentsmith --headless "fix #1 in my-project"
+# Server mode:   docker compose up -d agentsmith-server
 services:
   agentsmith:
+    build: .
+    restart: "no"
+    stdin_open: false
+    env_file:
+      - .env
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./config:/app/config
+      - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
+
+  agentsmith-server:
     build: .
     restart: unless-stopped
     stdin_open: false
@@ -10,6 +28,10 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    ports:
+      - "${WEBHOOK_PORT:-8080}:8080"
     volumes:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
+    command: ["--server", "--port", "8080"]

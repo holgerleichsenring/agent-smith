@@ -38,6 +38,9 @@ RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
 
 USER agentsmith
 
+# Expose webhook listener port (--server mode)
+EXPOSE 8080
+
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD dotnet AgentSmith.Host.dll --help || exit 1
 
