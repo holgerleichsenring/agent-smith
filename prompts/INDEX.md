@@ -69,6 +69,7 @@ Every design change is reflected here.
 | `phase17-plan.md` | Phase 17 overview: GitLab provider (Source + Tickets) | Done |
 | `phase17-gitlab-tickets.md` | GitLabTicketProvider (REST API v4) | Done |
 | `phase17-gitlab-source.md` | GitLabSourceProvider (clone, branch, merge request) | Done |
+| `phase18-plan.md` | Phase 18 overview: Multi-User Chat Gateway (Redis Streams + K8s Jobs) | In Progress |
 
 ---
 
@@ -91,6 +92,7 @@ Every design change is reflected here.
 - **Phase 15: Azure Repos Source Provider** - Done
 - **Phase 16: Jira Ticket Provider** - Done
 - **Phase 17: GitLab Provider (Source + Tickets)** - Done
+- **Phase 18: Multi-User Chat Gateway** - In Progress
 
 ---
 

@@ -13,14 +13,6 @@ Self-hosted AI coding agent. Takes ticket references, generates code changes via
 - Self-hosted via Docker
 - CLI interface
 
-### Pro (Paid - $49/month)
-- Auto-ticket creation from description
-- Smart documentation generation
-- Multi-repo orchestration
-- Chat integrations (WhatsApp/Teams/Slack)
-- Learning mode (remembers code review feedback)
-- License key activation
-
 ---
 
 ## Repository Strategy
