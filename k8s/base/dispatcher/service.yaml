@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentsmith-dispatcher
+  namespace: agentsmith
+  labels:
+    app: agentsmith-dispatcher
+    app.kubernetes.io/name: agentsmith-dispatcher
+    app.kubernetes.io/component: dispatcher
+spec:
+  type: ClusterIP
+  selector:
+    app: agentsmith-dispatcher
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

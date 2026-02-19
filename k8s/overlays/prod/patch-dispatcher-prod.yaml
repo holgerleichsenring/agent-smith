@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-dispatcher
+  namespace: agentsmith
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: dispatcher
+          imagePullPolicy: Always
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: IMAGE_PULL_POLICY
+              value: "Always"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "384Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"

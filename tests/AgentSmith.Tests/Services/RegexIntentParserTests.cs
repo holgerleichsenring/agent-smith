@@ -10,10 +10,10 @@ public class RegexIntentParserTests
     private readonly RegexIntentParser _sut = new(NullLogger<RegexIntentParser>.Instance);
 
     [Theory]
-    [InlineData("fix #123 in acme-pay", "123", "acme-pay")]
-    [InlineData("#34237 acme-pay", "34237", "acme-pay")]
-    [InlineData("acme-pay #123", "123", "acme-pay")]
-    [InlineData("fix 123 in acme-pay", "123", "acme-pay")]
+    [InlineData("fix #123 in todo-list", "123", "todo-list")]
+    [InlineData("#34237 todo-list", "34237", "todo-list")]
+    [InlineData("todo-list #123", "123", "todo-list")]
+    [InlineData("fix 123 in todo-list", "123", "todo-list")]
     [InlineData("resolve ticket #42 in api", "42", "api")]
     [InlineData("#7 myproject", "7", "myproject")]
     public async Task ParseAsync_ValidInput_ReturnsCorrectIntent(

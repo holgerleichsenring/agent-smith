@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-dispatcher
+  namespace: agentsmith
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: dispatcher
+          imagePullPolicy: Never
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Development"
+            - name: IMAGE_PULL_POLICY
+              value: "Never"

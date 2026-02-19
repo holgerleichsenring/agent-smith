@@ -70,6 +70,19 @@ Every design change is reflected here.
 | `phase17-gitlab-tickets.md` | GitLabTicketProvider (REST API v4) | Done |
 | `phase17-gitlab-source.md` | GitLabSourceProvider (clone, branch, merge request) | Done |
 | `phase18-plan.md` | Phase 18 overview: Multi-User Chat Gateway (Redis Streams + K8s Jobs) | In Progress |
+| `phase18-redis-bus.md` | IMessageBus, RedisMessageBus, BusMessage protocol | Done |
+| `phase18-progress-reporter.md` | IProgressReporter, ConsoleProgressReporter, RedisProgressReporter | Done |
+| `phase18-dispatcher.md` | Dispatcher Service: Program.cs, ChatIntentParser, JobSpawner, MessageBusListener | Done |
+| `phase18-conversation-state.md` | ConversationStateManager, ConversationState, Redis key schema | Done |
+| `phase18-slack-adapter.md` | SlackAdapter, IPlatformAdapter, SlackAdapterOptions | Done |
+| `phase19-plan.md` | Phase 19 overview: K8s Manifests + Dispatcher Dockerfile | Done |
+| `phase19-dispatcher-dockerfile.md` | Dispatcher Dockerfile (multi-stage, ASP.NET Core, non-root) | Done |
+| `phase19-redis.md` | Redis Deployment + Service (no PV, maxmemory 256mb, ephemeral) | Done |
+| `phase19-secrets.md` | K8s Secret schema + secret-template.yaml | Done |
+| `phase19-configmap.md` | ConfigMap for agentsmith.yml (generated from local config) | Done |
+| `phase19-dispatcher-deployment.md` | Dispatcher Deployment + Service + liveness/readiness probes | Done |
+| `phase19-rbac.md` | ServiceAccount + Role + RoleBinding for Job spawning | Done |
+| `phase19-kustomize.md` | Kustomize base + overlays/dev + overlays/prod | Done |
 
 ---
 
@@ -92,7 +105,8 @@ Every design change is reflected here.
 - **Phase 15: Azure Repos Source Provider** - Done
 - **Phase 16: Jira Ticket Provider** - Done
 - **Phase 17: GitLab Provider (Source + Tickets)** - Done
-- **Phase 18: Multi-User Chat Gateway** - In Progress
+- **Phase 18: Multi-User Chat Gateway** - Done
+- **Phase 19: K8s Manifests + Dispatcher Dockerfile** - Done
 
 ---
 
