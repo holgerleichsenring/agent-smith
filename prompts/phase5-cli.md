@@ -22,7 +22,7 @@ System.CommandLine --version 2.0.0-beta4.22272.1
 agentsmith <input> [options]
 
 Arguments:
-  <input>    Ticket reference and project, e.g. "fix #123 in payslip"
+  <input>    Ticket reference and project, e.g. "fix #123 in todo-list"
 
 Options:
   --config <path>    Path to configuration file [default: config/agentsmith.yml]
@@ -77,7 +77,7 @@ With `--dry-run`:
 1. Load config
 2. Parse intent
 3. Find project + pipeline
-4. Output: "Would run pipeline 'fix-bug' for project 'payslip', ticket #123"
+4. Output: "Would run pipeline 'fix-bug' for project 'todo-list', ticket #123"
 5. List pipeline commands
 6. Exit 0
 

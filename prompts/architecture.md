@@ -239,15 +239,15 @@ docker run \
 
 ```yaml
 projects:
-  payslip:
+  todo-list:
     source:
       type: GitHub
-      url: https://github.com/user/payslip
+      url: https://github.com/user/todo-list
       auth: token  # or ssh
     tickets:
       type: AzureDevOps
       organization: myorg
-      project: PayslipProject
+      project: Todo-listProject
       auth: token
     agent:
       type: Claude
@@ -307,7 +307,7 @@ secrets:
 
 ### Pipeline Execution Flow
 
-1. User input: `"fix #34237 in payslip"`
+1. User input: `"fix #34237 in todo-list"`
 2. Intent parser (Claude) extracts: ticket_id, project
 3. Config lookup: find project settings + pipeline template
 4. Build command name list from pipeline config

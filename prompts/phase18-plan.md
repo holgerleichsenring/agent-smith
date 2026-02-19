@@ -58,9 +58,9 @@ without spawning a job.
 
 | Intent | Example | Execution | Interactive | Duration |
 |--------|---------|-----------|-------------|----------|
-| `FixTicketIntent` | "fix #65 in payslip" | K8s Job | Yes | Minutes |
-| `ListTicketsIntent` | "list tickets in payslip" | Direct (Dispatcher) | No | <5s |
-| `CreateTicketIntent` | "create ticket 'Add logging' in payslip" | Direct (Dispatcher) | No | <5s |
+| `FixTicketIntent` | "fix #65 in todo-list" | K8s Job | Yes | Minutes |
+| `ListTicketsIntent` | "list tickets in todo-list" | Direct (Dispatcher) | No | <5s |
+| `CreateTicketIntent` | "create ticket 'Add logging' in todo-list" | Direct (Dispatcher) | No | <5s |
 
 ---
 
@@ -180,7 +180,7 @@ New project: `src/AgentSmith.Dispatcher`
 AgentSmith.Dispatcher/
   Program.cs                    # ASP.NET Core Minimal API entry point
   Services/
-    ChatIntentParser.cs         # "fix #65 in payslip" → FixTicketIntent
+    ChatIntentParser.cs         # "fix #65 in todo-list" → FixTicketIntent
     JobSpawner.cs               # Creates K8s Jobs via KubernetesClient
     ConversationStateManager.cs # Redis: jobId ↔ channelId mapping
     FastCommandExecutor.cs      # list/create without K8s job

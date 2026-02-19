@@ -1,7 +1,7 @@
 # Phase 4 - Pipeline Execution
 
 ## Goal
-Make the system work end-to-end: User enters `"fix #123 in payslip"` →
+Make the system work end-to-end: User enters `"fix #123 in todo-list"` →
 Intent is recognized → Config loaded → Pipeline built → Commands executed sequentially.
 
 ---
@@ -34,9 +34,9 @@ Intent is recognized → Config loaded → Pipeline built → Commands executed 
 ### IntentParser: Regex instead of LLM
 According to architecture.md, a Claude call is planned. For Phase 4 we implement
 a Regex-based variant that recognizes the most common patterns:
-- `"fix #123 in payslip"` → TicketId(123), ProjectName(payslip)
-- `"#34237 payslip"` → TicketId(34237), ProjectName(payslip)
-- `"payslip #123"` → TicketId(123), ProjectName(payslip)
+- `"fix #123 in todo-list"` → TicketId(123), ProjectName(todo-list)
+- `"#34237 todo-list"` → TicketId(34237), ProjectName(todo-list)
+- `"todo-list #123"` → TicketId(123), ProjectName(todo-list)
 
 An LLM-based parser can be registered as an alternative later.
 

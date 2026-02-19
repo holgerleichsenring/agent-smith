@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Parses user input into a TicketId and ProjectName using regex patterns.
-/// Supports formats like "fix #123 in payslip", "#123 payslip", "payslip #123".
+/// Supports formats like "fix #123 in todo-list", "#123 todo-list", "todo-list #123".
 /// </summary>
 public sealed class RegexIntentParser(
     ILogger<RegexIntentParser> logger) : IIntentParser

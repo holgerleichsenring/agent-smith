@@ -95,15 +95,15 @@ File: config/agentsmith.yml
 
 ```yaml
 projects:
-  payslip:
+  todo-list:
     source:
       type: GitHub
-      url: https://github.com/user/payslip
+      url: https://github.com/user/todo-list
       auth: token
     tickets:
       type: AzureDevOps
       organization: myorg
-      project: PayslipProject
+      project: Todo-listProject
       auth: token
     agent:
       type: Claude

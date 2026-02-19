@@ -1,7 +1,7 @@
 # Phase 4 - Step 1: IntentParser
 
 ## Goal
-Convert user input like `"fix #123 in payslip"` into a structured `ParsedIntent`.
+Convert user input like `"fix #123 in todo-list"` into a structured `ParsedIntent`.
 Project: `AgentSmith.Application/Services/`
 
 ---
@@ -16,10 +16,10 @@ Implements `IIntentParser` from Contracts.
 
 **Supported Patterns:**
 ```
-"fix #123 in payslip"      → #123, payslip
-"#34237 payslip"            → #34237, payslip
-"payslip #123"              → #123, payslip
-"fix 123 in payslip"        → 123, payslip
+"fix #123 in todo-list"      → #123, todo-list
+"#34237 todo-list"            → #34237, todo-list
+"todo-list #123"              → #123, todo-list
+"fix 123 in todo-list"        → 123, todo-list
 "resolve ticket #42 in api" → #42, api
 ```
 

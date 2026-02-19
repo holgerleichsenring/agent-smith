@@ -31,13 +31,13 @@ public class ProcessTicketUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["payslip"] = new ProjectConfig { Pipeline = "fix-bug" } },
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
             Pipelines = { ["fix-bug"] = new PipelineConfig { Commands = { "FetchTicketCommand" } } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
-        _intentMock.Setup(i => i.ParseAsync("fix #123 in payslip", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ParsedIntent(new TicketId("123"), new ProjectName("payslip")));
+        _intentMock.Setup(i => i.ParseAsync("fix #123 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("123"), new ProjectName("todo-list")));
         _pipelineMock.Setup(p => p.ExecuteAsync(
                 It.IsAny<IReadOnlyList<string>>(),
                 It.IsAny<ProjectConfig>(),
@@ -45,7 +45,7 @@ public class ProcessTicketUseCaseTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CommandResult.Ok("Done"));
 
-        var result = await _sut.ExecuteAsync("fix #123 in payslip", "config.yml");
+        var result = await _sut.ExecuteAsync("fix #123 in todo-list", "config.yml");
 
         result.Success.Should().BeTrue();
         _pipelineMock.Verify(p => p.ExecuteAsync(

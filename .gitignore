@@ -36,6 +36,7 @@ Thumbs.db
 
 ## Secrets
 .env
+k8s/secret-local.yaml
 
 ## Claude Code
 .claude/

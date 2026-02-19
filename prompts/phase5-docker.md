@@ -83,12 +83,12 @@ docker run --rm agentsmith --help
 # Dry run
 docker run --rm \
   -v $(pwd)/config:/app/config \
-  agentsmith --dry-run "fix #123 in payslip"
+  agentsmith --dry-run "fix #123 in todo-list"
 
 # Real run
 docker run --rm \
   -e GITHUB_TOKEN=ghp_xxx \
   -e ANTHROPIC_API_KEY=sk-xxx \
   -v $(pwd)/config:/app/config \
-  agentsmith "fix #123 in payslip"
+  agentsmith "fix #123 in todo-list"
 ```

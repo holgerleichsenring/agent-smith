@@ -2,7 +2,7 @@
 
 ## Goal
 Make Agent Smith deliverable as a real CLI tool and Docker image.
-User should be able to run `agentsmith "fix #123 in payslip"` - locally or in a container.
+User should be able to run `agentsmith "fix #123 in todo-list"` - locally or in a container.
 
 ---
 
