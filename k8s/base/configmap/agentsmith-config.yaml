@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentsmith-config
+  namespace: agentsmith
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: config
+data:
+  agentsmith.yml: |
+    # This ConfigMap is generated from config/agentsmith.yml.
+    # Do not edit manually. Regenerate with:
+    #
+    #   kubectl create configmap agentsmith-config \
+    #     --from-file=agentsmith.yml=config/agentsmith.yml \
+    #     -n agentsmith \
+    #     --dry-run=client -o yaml > k8s/base/configmap/agentsmith-config.yaml
+    #
+    projects:
+      my-project:
+        source:
+          type: GitHub
+          url: https://github.com/yourorg/your-repo
+          auth: token
+        tickets:
+          type: GitHub
+          url: https://github.com/yourorg/your-repo
+          auth: token
+        agent:
+          type: Claude
+          model: claude-sonnet-4-20250514
+          retry:
+            max_retries: 5
+            initial_delay_ms: 2000
+            backoff_multiplier: 2.0
+            max_delay_ms: 60000
+          cache:
+            enabled: true
+            strategy: automatic
+          compaction:
+            enabled: true
+            threshold_iterations: 8
+            max_context_tokens: 80000
+            keep_recent_iterations: 3
+            summary_model: claude-haiku-4-5-20251001
+          models:
+            scout:
+              model: claude-haiku-4-5-20251001
+              max_tokens: 4096
+            primary:
+              model: claude-sonnet-4-20250514
+              max_tokens: 8192
+            planning:
+              model: claude-sonnet-4-20250514
+              max_tokens: 4096
+            summarization:
+              model: claude-haiku-4-5-20251001
+              max_tokens: 2048
+        pricing:
+          models:
+            claude-sonnet-4-20250514:
+              input_per_million: 3.0
+              output_per_million: 15.0
+              cache_read_per_million: 0.30
+            claude-haiku-4-5-20251001:
+              input_per_million: 0.80
+              output_per_million: 4.0
+              cache_read_per_million: 0.08
+        pipeline: fix-bug
+        coding_principles_path: ./config/coding-principles.md
+
+    pipelines:
+      fix-bug:
+        commands:
+          - FetchTicketCommand
+          - CheckoutSourceCommand
+          - LoadCodingPrinciplesCommand
+          - AnalyzeCodeCommand
+          - GeneratePlanCommand
+          - ApprovalCommand
+          - AgenticExecuteCommand
+          - TestCommand
+          - CommitAndPRCommand
+
+      add-feature:
+        commands:
+          - FetchTicketCommand
+          - CheckoutSourceCommand
+          - LoadCodingPrinciplesCommand
+          - GeneratePlanCommand
+          - ApprovalCommand
+          - AgenticExecuteCommand
+          - GenerateTestsCommand
+          - TestCommand
+          - GenerateDocsCommand
+          - CommitAndPRCommand
+
+    secrets:
+      azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+      github_token: ${GITHUB_TOKEN}
+      anthropic_api_key: ${ANTHROPIC_API_KEY}
+      openai_api_key: ${OPENAI_API_KEY}
+      gemini_api_key: ${GEMINI_API_KEY}
+      jira_token: ${JIRA_TOKEN}
+      jira_email: ${JIRA_EMAIL}

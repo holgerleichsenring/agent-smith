@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-dispatcher
+  namespace: agentsmith
+  labels:
+    app: agentsmith-dispatcher
+    app.kubernetes.io/name: agentsmith-dispatcher
+    app.kubernetes.io/component: dispatcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentsmith-dispatcher
+  template:
+    metadata:
+      labels:
+        app: agentsmith-dispatcher
+    spec:
+      serviceAccountName: agentsmith
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: dispatcher
+          image: agentsmith-dispatcher:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: redis-url
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: slack-bot-token
+            - name: SLACK_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: slack-signing-secret
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AGENTSMITH_IMAGE
+              value: "agentsmith:latest"
+            - name: IMAGE_PULL_POLICY
+              value: "IfNotPresent"
+            - name: K8S_SECRET_NAME
+              value: "agentsmith-secrets"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: config
+          configMap:
+            name: agentsmith-config
+      restartPolicy: Always
