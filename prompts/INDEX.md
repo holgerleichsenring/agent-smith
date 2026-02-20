@@ -69,7 +69,7 @@ Every design change is reflected here.
 | `phase17-plan.md` | Phase 17 overview: GitLab provider (Source + Tickets) | Done |
 | `phase17-gitlab-tickets.md` | GitLabTicketProvider (REST API v4) | Done |
 | `phase17-gitlab-source.md` | GitLabSourceProvider (clone, branch, merge request) | Done |
-| `phase18-plan.md` | Phase 18 overview: Multi-User Chat Gateway (Redis Streams + K8s Jobs) | In Progress |
+| `phase18-plan.md` | Phase 18 overview: Multi-User Chat Gateway (Redis Streams + K8s Jobs) | Done |
 | `phase18-redis-bus.md` | IMessageBus, RedisMessageBus, BusMessage protocol | Done |
 | `phase18-progress-reporter.md` | IProgressReporter, ConsoleProgressReporter, RedisProgressReporter | Done |
 | `phase18-dispatcher.md` | Dispatcher Service: Program.cs, ChatIntentParser, JobSpawner, MessageBusListener | Done |
@@ -83,6 +83,13 @@ Every design change is reflected here.
 | `phase19-dispatcher-deployment.md` | Dispatcher Deployment + Service + liveness/readiness probes | Done |
 | `phase19-rbac.md` | ServiceAccount + Role + RoleBinding for Job spawning | Done |
 | `phase19-kustomize.md` | Kustomize base + overlays/dev + overlays/prod | Done |
+| `phase19-local-test.md` | Local K8s test guide (Docker Desktop / kind + ngrok) | Done |
+| `phase19a-plan.md` | Phase 19a overview: Docker Compose fully self-contained (DockerJobSpawner) | Done |
+| `phase19b-plan.md` | Phase 19b overview: Kubernetes fully self-contained with Helm Chart | Done |
+| `phase20a-plan.md` | Phase 20a overview: Intent Engine (Regex + Haiku + Project Resolver) | Done |
+| `phase20b-plan.md` | Phase 20b overview: Help Command & graceful unknown input | Done |
+| `phase20c-plan.md` | Phase 20c overview: Error UX — Retry, Logs & Contact buttons | Done |
+| `phase20d-plan.md` | Phase 20d overview: Agentic detail-updates in Slack thread | Done |
 
 ---
 
@@ -107,6 +114,12 @@ Every design change is reflected here.
 - **Phase 17: GitLab Provider (Source + Tickets)** - Done
 - **Phase 18: Multi-User Chat Gateway** - Done
 - **Phase 19: K8s Manifests + Dispatcher Dockerfile** - Done
+- **Phase 19a: Docker Compose Autark (DockerJobSpawner)** - In Progress
+- **Phase 19b: Kubernetes Autark (Helm Chart)** - Planned
+- **Phase 20a: Intent Engine (Regex + Haiku + Project Resolver)** - Planned
+- **Phase 20b: Help Command & Graceful Unknown Input** - Planned
+- **Phase 20c: Error UX (Retry, Logs, Contact)** - Planned
+- **Phase 20d: Agentic Detail-Updates im Slack Thread** - Planned
 
 ---
 

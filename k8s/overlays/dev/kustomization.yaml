@@ -11,3 +11,7 @@ patches:
     target:
       kind: Deployment
       name: agentsmith-dispatcher
+  - path: patch-service-nodeport.yaml
+    target:
+      kind: Service
+      name: agentsmith-dispatcher

@@ -5,10 +5,12 @@ using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.UseCases;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Bus;
 using AgentSmith.Host;
 using AgentSmith.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 PrintBanner();
 
@@ -124,14 +126,28 @@ static ServiceProvider BuildServiceProvider(
 static void RegisterProgressReporter(
     IServiceCollection services, bool headless, string jobId, string redisUrl)
 {
-    services.AddSingleton<IProgressReporter>(sp =>
+    if (!string.IsNullOrWhiteSpace(jobId) && !string.IsNullOrWhiteSpace(redisUrl))
     {
-        var logger = sp.GetRequiredService<ILogger<ConsoleProgressReporter>>();
-        // In K8s job mode we force headless=true on the console reporter
-        // (the RedisProgressReporter in the Dispatcher handles interactive questions).
-        var forceHeadless = headless || !string.IsNullOrWhiteSpace(jobId);
-        return new ConsoleProgressReporter(logger, forceHeadless);
-    });
+        // K8s job mode: publish progress to Redis Streams so the Dispatcher
+        // can relay updates to Slack in real time.
+        var redis = ConnectionMultiplexer.Connect(redisUrl);
+        services.AddSingleton<IConnectionMultiplexer>(redis);
+        services.AddSingleton<IMessageBus, RedisMessageBus>();
+        services.AddSingleton<IProgressReporter>(sp =>
+            new RedisProgressReporter(
+                sp.GetRequiredService<IMessageBus>(),
+                jobId,
+                sp.GetRequiredService<ILogger<RedisProgressReporter>>()));
+    }
+    else
+    {
+        // Local / CLI mode: write progress to stdout.
+        services.AddSingleton<IProgressReporter>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<ConsoleProgressReporter>>();
+            return new ConsoleProgressReporter(logger, headless);
+        });
+    }
 }
 
 static async Task RunServerMode(ServiceProvider provider, string configPath, int port)

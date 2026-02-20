@@ -22,6 +22,25 @@ public sealed class SlackAdapter(
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    // Tracks the progress message ts per channel so we can update instead of re-post
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>
+        _progressMessageTs = new();
+
+    private static readonly Dictionary<string, string> StepEmojis = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Fetching ticket"] = ":ticket:",
+        ["Checking out source"] = ":file_folder:",
+        ["Loading coding principles"] = ":books:",
+        ["Analyzing codebase"] = ":mag:",
+        ["Generating plan"] = ":bulb:",
+        ["Awaiting approval"] = ":white_check_mark:",
+        ["Executing plan"] = ":zap:",
+        ["Generating tests"] = ":test_tube:",
+        ["Running tests"] = ":rotating_light:",
+        ["Generating docs"] = ":memo:",
+        ["Creating pull request"] = ":rocket:",
+    };
+
     public string Platform => "slack";
 
     public async Task SendMessageAsync(string channelId, string text,
@@ -34,12 +53,27 @@ public sealed class SlackAdapter(
     public async Task SendProgressAsync(string channelId, int step, int total, string commandName,
         CancellationToken cancellationToken = default)
     {
-        var emoji = step == total ? ":white_check_mark:" : ":gear:";
+        var emoji = StepEmojis.GetValueOrDefault(commandName, ":gear:");
         var bar = BuildProgressBar(step, total);
-        var text = $"{emoji} *[{step}/{total}]* `{commandName}`\n{bar}";
+        var text = $"{emoji} *[{step}/{total}]* {commandName}\n{bar}";
 
-        var payload = new { channel = channelId, text };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        if (_progressMessageTs.TryGetValue(channelId, out var existingTs))
+        {
+            // Update the existing progress message instead of flooding the channel
+            var updatePayload = new { channel = channelId, ts = existingTs, text };
+            var updateResponse = await PostAsync("chat.update", updatePayload, cancellationToken);
+
+            // If update fails for any reason, fall back to a new message
+            var ok = updateResponse?["ok"]?.GetValue<bool>() ?? false;
+            if (ok) return;
+        }
+
+        // First step or fallback: post a new message and remember its ts
+        var postPayload = new { channel = channelId, text };
+        var response = await PostAsync("chat.postMessage", postPayload, cancellationToken);
+        var ts = ExtractTimestamp(response);
+        if (ts is not null)
+            _progressMessageTs[channelId] = ts;
     }
 
     public async Task<string> AskQuestionAsync(string channelId, string questionId, string text,
@@ -90,6 +124,9 @@ public sealed class SlackAdapter(
     public async Task SendDoneAsync(string channelId, string summary, string? prUrl,
         CancellationToken cancellationToken = default)
     {
+        // Remove progress message tracking for this channel
+        _progressMessageTs.TryRemove(channelId, out _);
+
         var text = string.IsNullOrWhiteSpace(prUrl)
             ? $":rocket: *Done!* {summary}"
             : $":rocket: *Done!* {summary}\n:link: <{prUrl}|View Pull Request>";
@@ -101,6 +138,9 @@ public sealed class SlackAdapter(
     public async Task SendErrorAsync(string channelId, string text,
         CancellationToken cancellationToken = default)
     {
+        // Remove progress message tracking for this channel
+        _progressMessageTs.TryRemove(channelId, out _);
+
         var payload = new
         {
             channel = channelId,

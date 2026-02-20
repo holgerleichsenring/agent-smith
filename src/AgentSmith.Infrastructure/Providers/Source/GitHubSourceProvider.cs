@@ -123,7 +123,9 @@ public sealed class GitHubSourceProvider : ISourceProvider
         };
 
         var canonicalName = repo.Head.CanonicalName;
-        var refspec = $"{canonicalName}:{canonicalName}";
+        // Force push (+) so re-runs on the same ticket don't fail with
+        // "non-fastforwardable reference" when the branch already exists on the remote.
+        var refspec = $"+{canonicalName}:{canonicalName}";
         repo.Network.Push(remote, refspec, options);
     }
 
