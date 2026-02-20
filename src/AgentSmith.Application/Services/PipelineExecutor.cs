@@ -71,13 +71,13 @@ public sealed class PipelineExecutor(
             {
                 logger.LogWarning(
                     "Pipeline stopped at step {Step}: {Command} failed - {Message}",
-                    i + 1, commandName, result.Message);
+                    step, commandName, result.Message);
 
                 await PostTicketStatusAsync(projectConfig, context,
-                    $"## Agent Smith - Failed\n\n**Step:** {commandName} ({i + 1}/{commandNames.Count})\n**Error:** {result.Message}",
+                    $"## Agent Smith - Failed\n\n**Step:** {label} ({step}/{total})\n**Error:** {result.Message}",
                     cancellationToken);
 
-                return result;
+                return result with { FailedStep = step, TotalSteps = total, StepName = label };
             }
 
             logger.LogInformation(

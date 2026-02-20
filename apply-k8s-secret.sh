@@ -72,11 +72,9 @@ add_literal "jira-email"          "${JIRA_EMAIL:-}"
 add_literal "slack-bot-token"     "${SLACK_BOT_TOKEN:-}"
 add_literal "slack-signing-secret" "${SLACK_SIGNING_SECRET:-}"
 
-# Redis URL for K8s Jobs: must be reachable from inside the cluster.
-# On Docker Desktop: host.docker.internal resolves to the host machine.
-# On a real cluster: point this to your Redis service / external address.
-K8S_REDIS_URL="${K8S_REDIS_URL:-host.docker.internal:6379}"
-add_literal "redis-url" "$K8S_REDIS_URL"
+# Redis URL for K8s Jobs: the in-cluster Redis service name.
+# Override via REDIS_URL in .env if your Redis runs elsewhere.
+add_literal "redis-url" "${REDIS_URL:-redis:6379}"
 
 echo "🔐  Applying secret '$SECRET_NAME' in namespace '$NAMESPACE' ..."
 

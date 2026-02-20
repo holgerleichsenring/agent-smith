@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Contracts.Providers;
@@ -19,5 +20,6 @@ public interface IAgentProvider
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default);
 }

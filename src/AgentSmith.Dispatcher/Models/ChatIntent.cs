@@ -54,3 +54,47 @@ public sealed record UnknownIntent : ChatIntent
         Platform = platform
     };
 }
+
+/// <summary>User asked for help or capabilities overview.</summary>
+public sealed record HelpIntent : ChatIntent
+{
+    public static HelpIntent From(string raw, string userId, string channelId, string platform) => new()
+    {
+        RawText = raw, UserId = userId, ChannelId = channelId, Platform = platform
+    };
+}
+
+/// <summary>User sent a greeting (hi, hello, hey, ...).</summary>
+public sealed record GreetingIntent : ChatIntent
+{
+    public static GreetingIntent From(string raw, string userId, string channelId, string platform) => new()
+    {
+        RawText = raw, UserId = userId, ChannelId = channelId, Platform = platform
+    };
+}
+
+/// <summary>Low-confidence parse — needs user confirmation before proceeding.</summary>
+public sealed record ClarificationNeeded : ChatIntent
+{
+    public required string Suggestion { get; init; }
+
+    public static ClarificationNeeded From(
+        string suggestion, string raw, string userId, string channelId, string platform) => new()
+    {
+        RawText = raw, Suggestion = suggestion,
+        UserId = userId, ChannelId = channelId, Platform = platform
+    };
+}
+
+/// <summary>A recoverable error during intent resolution (e.g. ticket not found).</summary>
+public sealed record ErrorIntent : ChatIntent
+{
+    public required string ErrorMessage { get; init; }
+
+    public static ErrorIntent From(
+        string errorMessage, string raw, string userId, string channelId, string platform) => new()
+    {
+        RawText = raw, ErrorMessage = errorMessage,
+        UserId = userId, ChannelId = channelId, Platform = platform
+    };
+}

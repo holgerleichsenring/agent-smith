@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
@@ -15,6 +16,7 @@ public sealed class OpenAiAgenticLoop(
     ToolExecutor toolExecutor,
     ILogger logger,
     TokenUsageTracker tracker,
+    IProgressReporter? progressReporter = null,
     int maxIterations = 25)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
@@ -35,6 +37,7 @@ public sealed class OpenAiAgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("OpenAI agentic loop iteration {Iteration}", iteration + 1);
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
 
             ChatCompletion completion = await client.CompleteChatAsync(
                 messages, options, cancellationToken);
@@ -93,5 +96,11 @@ public sealed class OpenAiAgenticLoop(
         logger.LogDebug(
             "OpenAI iteration {Iteration} tokens: Input={Input}, Output={Output}",
             iteration, inputTokens, outputTokens);
+    }
+
+    private void ReportDetail(string text)
+    {
+        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        catch { /* Detail reporting must never abort the pipeline */ }
     }
 }

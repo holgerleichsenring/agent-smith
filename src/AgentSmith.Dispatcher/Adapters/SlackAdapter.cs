@@ -135,17 +135,13 @@ public sealed class SlackAdapter(
         await PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
-    public async Task SendErrorAsync(string channelId, string text,
+    public async Task SendErrorAsync(string channelId, ErrorContext errorContext,
         CancellationToken cancellationToken = default)
     {
-        // Remove progress message tracking for this channel
         _progressMessageTs.TryRemove(channelId, out _);
 
-        var payload = new
-        {
-            channel = channelId,
-            text = $":x: *Agent Smith encountered an error:*\n```{text}```"
-        };
+        var (fallbackText, blocks) = SlackErrorBlockBuilder.Build(errorContext);
+        var payload = new { channel = channelId, text = fallbackText, blocks };
         await PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
@@ -176,6 +172,62 @@ public sealed class SlackAdapter(
         };
 
         await PostAsync("chat.update", payload, cancellationToken);
+    }
+
+    public async Task SendDetailAsync(string channelId, string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_progressMessageTs.TryGetValue(channelId, out var threadTs))
+        {
+            logger.LogDebug("No progress message to thread detail under for {Channel}", channelId);
+            return;
+        }
+
+        var payload = new { channel = channelId, text, thread_ts = threadTs };
+        await PostAsync("chat.postMessage", payload, cancellationToken);
+    }
+
+    public async Task SendClarificationAsync(string channelId, string suggestion,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new
+        {
+            channel = channelId,
+            text = $":thinking_face: Did you mean: *{suggestion}*?",
+            blocks = new object[]
+            {
+                new
+                {
+                    type = "section",
+                    text = new { type = "mrkdwn", text = $":thinking_face: Did you mean: *{suggestion}*?" }
+                },
+                new
+                {
+                    type = "actions",
+                    block_id = "clarification",
+                    elements = new object[]
+                    {
+                        new
+                        {
+                            type = "button",
+                            text = new { type = "plain_text", text = "Yes, do it" },
+                            style = "primary",
+                            value = "confirm",
+                            action_id = "clarification:confirm"
+                        },
+                        new
+                        {
+                            type = "button",
+                            text = new { type = "plain_text", text = "Show help" },
+                            value = "help",
+                            action_id = "clarification:help"
+                        }
+                    }
+                }
+            }
+        };
+
+        await PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     // --- Internal HTTP helpers ---

@@ -42,7 +42,7 @@ public sealed class ListTicketsIntentHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to list tickets for project {Project}", intent.Project);
-            await adapter.SendErrorAsync(intent.ChannelId, ex.Message, cancellationToken);
+            await adapter.SendMessageAsync(intent.ChannelId, $":x: {ex.Message}", cancellationToken);
         }
     }
 

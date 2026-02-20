@@ -70,11 +70,21 @@ public sealed class RedisProgressReporter(
     }
 
     public async Task ReportErrorAsync(string text,
+        int step = 0, int total = 0, string stepName = "",
         CancellationToken cancellationToken = default)
     {
-        var message = BusMessage.Error(jobId, text);
+        var message = BusMessage.Error(jobId, text, step, total, stepName);
         await messageBus.PublishAsync(message, cancellationToken);
 
         logger.LogError("Published Error for job {JobId}: {Text}", jobId, text);
+    }
+
+    public async Task ReportDetailAsync(string text,
+        CancellationToken cancellationToken = default)
+    {
+        var message = BusMessage.Detail(jobId, text);
+        await messageBus.PublishAsync(message, cancellationToken);
+
+        logger.LogDebug("Published detail for job {JobId}: {Text}", jobId, text);
     }
 }

@@ -40,9 +40,9 @@ public interface IPlatformAdapter
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends an error message to the channel.
+    /// Sends a structured error message with optional action buttons.
     /// </summary>
-    Task SendErrorAsync(string channelId, string text,
+    Task SendErrorAsync(string channelId, ErrorContext errorContext,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -51,4 +51,18 @@ public interface IPlatformAdapter
     /// </summary>
     Task UpdateQuestionAnsweredAsync(string channelId, string messageId, string questionText,
         string answer, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a low-level detail message (e.g. tool calls, iteration progress).
+    /// Implementations may post as thread replies under the progress message.
+    /// </summary>
+    Task SendDetailAsync(string channelId, string text,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a clarification question with confirm/help buttons.
+    /// Used when the IntentEngine has low confidence and needs user confirmation.
+    /// </summary>
+    Task SendClarificationAsync(string channelId, string suggestion,
+        CancellationToken cancellationToken = default);
 }

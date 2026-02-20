@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
@@ -15,7 +16,8 @@ public sealed class ScoutAgent(
     string model,
     int maxTokens,
     ILogger logger,
-    TokenUsageTracker? usageTracker = null)
+    TokenUsageTracker? usageTracker = null,
+    IProgressReporter? progressReporter = null)
 {
     private const int MaxScoutIterations = 5;
 
@@ -41,7 +43,8 @@ public sealed class ScoutAgent(
         logger.LogInformation("Scout agent starting file discovery with model {Model}", model);
 
         var fileReadTracker = new FileReadTracker();
-        var toolExecutor = new ToolExecutor(repositoryPath, logger, fileReadTracker);
+        var toolExecutor = new ToolExecutor(
+            repositoryPath, logger, fileReadTracker, progressReporter);
         var totalTokens = 0;
 
         var messages = new List<Message>

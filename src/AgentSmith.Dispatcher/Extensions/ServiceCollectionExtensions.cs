@@ -2,6 +2,7 @@ using AgentSmith.Dispatcher.Adapters;
 using AgentSmith.Dispatcher.Handlers;
 using AgentSmith.Dispatcher.Services;
 using AgentSmith.Infrastructure;
+using Anthropic.SDK;
 using Docker.DotNet;
 using k8s;
 using StackExchange.Redis;
@@ -21,10 +22,24 @@ internal static class ServiceCollectionExtensions
     {
         services.AddSingleton<IMessageBus, RedisMessageBus>();
         services.AddSingleton<ConversationStateManager>();
+        services.AddSingleton<ClarificationStateManager>();
         services.AddSingleton<ChatIntentParser>();
         services.AddSingleton<MessageBusListener>();
         services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
         services.AddAgentSmithInfrastructure();
+        services.AddIntentEngine();
+        return services;
+    }
+
+    private static IServiceCollection AddIntentEngine(this IServiceCollection services)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        var client = string.IsNullOrEmpty(apiKey) ? null : new AnthropicClient(apiKey);
+
+        services.AddSingleton<IHaikuIntentParser>(sp =>
+            new HaikuIntentParser(client, sp.GetRequiredService<ILogger<HaikuIntentParser>>()));
+        services.AddSingleton<IProjectResolver, ProjectResolver>();
+        services.AddScoped<IntentEngine>();
         return services;
     }
 
@@ -33,7 +48,9 @@ internal static class ServiceCollectionExtensions
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();
         services.AddScoped<CreateTicketIntentHandler>();
+        services.AddScoped<HelpHandler>();
         services.AddScoped<SlackMessageDispatcher>();
+        services.AddScoped<SlackErrorActionHandler>();
         services.AddScoped<SlackInteractionHandler>();
         return services;
     }
