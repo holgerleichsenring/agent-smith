@@ -1,7 +1,7 @@
 # Slack Setup Guide for Agent Smith Dispatcher
 
-This guide walks you through creating a Slack App and connecting it to the
-Agent Smith Dispatcher service.
+This guide is based on a real end-to-end setup. It documents exactly what you
+need to do — including the pitfalls that are easy to stumble into.
 
 ---
 
@@ -34,14 +34,22 @@ Agent Smith Dispatcher service.
 | Scope | Purpose |
 |-------|---------|
 | `chat:write` | Post messages to channels |
-| `chat:write.public` | Post to channels the bot hasn't joined |
+| `chat:write.public` | Post to channels the bot hasn't joined yet |
 | `channels:read` | List channels |
+| `channels:history` | Read messages in channels (required for Events API) |
+| `app_mentions:read` | Receive `@Agent Smith` mentions |
 | `im:write` | Send direct messages |
-| `reactions:write` | Add emoji reactions (optional, for status indicators) |
 
 4. Scroll up and click **Install to Workspace**
 5. Authorize the app
 6. Copy the **Bot User OAuth Token** (starts with `xoxb-`) — you'll need this later
+
+> **Pitfall:** After adding scopes later, Slack will show a banner asking you to
+> reinstall the app. You must do this or the new scopes won't take effect.
+
+> **Pitfall:** There is also an "App-Level Token" section (`xapp-...`) on the
+> Basic Information page. This is for Socket Mode only — **you do not need it**.
+> The Dispatcher uses HTTP webhooks, not Socket Mode.
 
 ---
 
@@ -53,12 +61,22 @@ Agent Smith Dispatcher service.
    ```
    https://your-dispatcher-url/slack/events
    ```
-   Slack will immediately send a `url_verification` challenge. The Dispatcher
-   handles this automatically — you should see a green checkmark.
+   Slack immediately sends a `url_verification` challenge. The Dispatcher
+   handles this automatically — you should see a green checkmark (✅ Verified).
+
+   > **Pitfall:** The Dispatcher must be running and publicly reachable
+   > *before* you paste the URL here. Start ngrok first, then paste the URL.
 
 4. Under **Subscribe to bot events**, click **Add Bot User Event** and add:
-   - `message.channels` — messages posted in channels the bot is a member of
-   - `app_mention` — messages that mention the bot directly (`@Agent Smith`)
+
+| Event | Purpose |
+|-------|---------|
+| `message.channels` | Messages posted in channels the bot is a member of |
+| `app_mention` | Messages that `@mention` the bot directly |
+
+   > **Pitfall:** There is no `message.im` event in the standard Bot Events list.
+   > If you want DM support you need additional setup. For channel-based usage,
+   > `message.channels` is sufficient.
 
 5. Click **Save Changes**
 
@@ -66,8 +84,8 @@ Agent Smith Dispatcher service.
 
 ## Step 4: Enable Interactivity (for Yes/No Buttons)
 
-This is required for the question/answer flow where the agent asks for
-confirmation and the user clicks a button.
+Required for the question/answer flow where the agent asks for confirmation
+and the user clicks a button in Slack.
 
 1. In the left sidebar, go to **Interactivity & Shortcuts**
 2. Toggle **Interactivity** to ON
@@ -81,7 +99,7 @@ confirmation and the user clicks a button.
 
 ## Step 5: Retrieve Credentials
 
-You need two values:
+You need exactly two values:
 
 ### Bot Token
 - Go to **OAuth & Permissions**
@@ -95,81 +113,79 @@ You need two values:
 
 ## Step 6: Configure the Dispatcher
 
-Set these environment variables on the Dispatcher service:
+Add both values to your `.env` file:
 
 ```bash
 SLACK_BOT_TOKEN=xoxb-your-token-here
 SLACK_SIGNING_SECRET=your-signing-secret-here
 ```
 
-In Kubernetes, add them to the `agentsmith-secrets` Secret:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: agentsmith-secrets
-  namespace: default
-type: Opaque
-stringData:
-  slack-bot-token: "xoxb-your-token-here"
-  slack-signing-secret: "your-signing-secret-here"
-  anthropic-api-key: "sk-ant-..."
-  azure-devops-token: "..."
-  github-token: "ghp_..."
-  redis-url: "redis://redis:6379"
-```
-
----
-
-## Step 7: Invite the Bot to a Channel
-
-1. Open the Slack channel where you want to use Agent Smith
-2. Type `/invite @Agent Smith`
-3. The bot is now a member and will receive messages in that channel
-
----
-
-## Step 8: Test the Integration
-
-### Local Testing with ngrok
+Then start the Dispatcher:
 
 ```bash
-# Install ngrok
-brew install ngrok
-
-# Expose the Dispatcher port (default 5000 for ASP.NET Core dev)
-ngrok http 5000
+docker compose up -d redis dispatcher
 ```
 
-Copy the `https://xxxxx.ngrok.io` URL and use it as your base URL in
-Steps 3 and 4 above.
-
-### Verify with a Health Check
+Verify it's running:
 
 ```bash
-curl https://your-dispatcher-url/health
+curl http://localhost:6000/health
 # Expected: {"status":"ok","timestamp":"..."}
 ```
 
-### Send a Test Message
+---
 
-In the Slack channel where you invited the bot:
+## Step 7: Expose Locally via ngrok
+
+Slack needs a public HTTPS URL to deliver events to your local Dispatcher.
+
+```bash
+brew install ngrok   # if not installed
+ngrok http 6000
+```
+
+ngrok prints something like:
 
 ```
-fix #54 in agent-smith-test
+Forwarding  https://abc123.ngrok.io -> http://localhost:6000
 ```
 
-Expected flow:
-1. Bot replies: `:rocket: Starting Agent Smith for ticket #54 in agent-smith-test...`
-2. Progress updates appear: `:gear: [1/9] FetchTicketCommand...`
-3. If agent has a question: buttons appear (Yes / No)
-4. On completion: `:rocket: Done! ... :link: View Pull Request`
+Use `https://abc123.ngrok.io` as your base URL in Steps 3 and 4.
+
+> **Pitfall:** Every time you restart ngrok, you get a **new URL**. You must
+> update the Event Subscriptions and Interactivity URLs in Slack each time.
+> To avoid this, use a paid ngrok plan with a fixed subdomain, or deploy the
+> Dispatcher to a server with a stable URL.
+
+---
+
+## Step 8: Invite the Bot to a Channel
+
+The bot only receives `message.channels` events in channels it is a **member** of.
+
+1. Open any Slack channel (e.g. `#test-agent`)
+2. Type `/invite @Agent Smith`
+3. The bot joins and will now receive messages in that channel
+
+> **Pitfall:** Writing to the bot in the **Direct Messages** (Apps) tab does not
+> work by default. The `message.channels` event only fires in channels.
+> Use a channel, not a DM.
+
+---
+
+## Step 9: Test the Integration
 
 ### List Tickets
 
 ```
 list tickets in agent-smith-test
+```
+
+Expected response:
+```
+🎫 Open tickets in agent-smith-test (3 total):
+• #1 — Fix login timeout [Active]
+• #2 — Add export CSV [New]
 ```
 
 ### Create a Ticket
@@ -178,51 +194,114 @@ list tickets in agent-smith-test
 create ticket "Add README documentation" in agent-smith-test
 ```
 
+### Fix a Ticket (requires Kubernetes)
+
+```
+fix #1 in agent-smith-test
+```
+
+Expected flow:
+1. 🚀 Starting Agent Smith for ticket #1 in agent-smith-test...
+2. ⚙️ [1/9] FetchTicketCommand
+3. ⚙️ [2/9] CheckoutSourceCommand
+4. ...
+5. 🚀 Done! · View Pull Request
+
+> **Note:** `fix` spawns a Kubernetes Job. You need Kubernetes enabled
+> (Docker Desktop → Settings → Kubernetes → Enable Kubernetes) for this
+> to work. `list` and `create` work without Kubernetes.
+
 ---
 
 ## Supported Commands
 
 | Command | Example |
 |---------|---------|
-| Fix a ticket | `fix #65 in todo-list` |
-| Fix (with mention) | `@Agent Smith fix #65 in todo-list` |
-| List open tickets | `list tickets in todo-list` |
-| List (alternative) | `list ticket for todo-list` |
-| Create a ticket | `create ticket "Title here" in todo-list` |
-| Create with description | `create ticket "Title" in todo-list "Description here"` |
+| Fix a ticket | `fix #65 in agent-smith-test` |
+| Fix (with mention) | `@Agent Smith fix #65 in agent-smith-test` |
+| List open tickets | `list tickets in agent-smith-test` |
+| List (alternative) | `list ticket for agent-smith-test` |
+| Create a ticket | `create ticket "Title here" in agent-smith-test` |
+| Create with description | `create ticket "Title" in agent-smith-test "Description"` |
+
+The project name must match a key in `config/agentsmith.yml`.
 
 ---
 
 ## Troubleshooting
 
-### Slack shows "dispatch_failed" on URL verification
-- Make sure the Dispatcher is running and accessible from the internet
-- Check that ngrok is running and the URL is correct
-- Check Dispatcher logs for incoming requests
+### Bot doesn't respond at all
 
-### Bot doesn't respond to messages
-- Verify the bot is invited to the channel (`/invite @Agent Smith`)
-- Check that `message.channels` event is subscribed
-- Check Dispatcher logs for incoming Slack events
+Check that events are actually reaching the Dispatcher:
 
-### Buttons don't work (question/answer flow)
-- Verify Interactivity Request URL is set correctly
-- The URL must be HTTPS — ngrok provides this automatically
-- Check Dispatcher logs for `/slack/interact` requests
+```bash
+docker compose logs dispatcher -f
+```
 
-### Signature verification fails
-- Make sure `SLACK_SIGNING_SECRET` matches the value in **Basic Information → App Credentials**
-- For local development without verification, leave `SLACK_SIGNING_SECRET` empty
+If you see no incoming requests, the problem is the URL — either ngrok is not
+running, or the Event Subscriptions URL in Slack is outdated (ngrok restarted).
+
+### "Project X not found in configuration"
+
+The project name in your Slack command must exactly match a key in
+`config/agentsmith.yml`. Check what projects are configured:
+
+```bash
+grep "^  [a-z]" config/agentsmith.yml
+```
+
+### URL verification fails (no green checkmark)
+
+The Dispatcher must be running and reachable before Slack can verify the URL.
+Check the order:
+
+1. `docker compose up -d redis dispatcher`
+2. `curl http://localhost:6000/health` — must return 200
+3. `ngrok http 6000` — must be running
+4. Paste the ngrok URL into Slack
+
+### Bot doesn't respond to messages (but URL verification worked)
+
+- Make sure `message.channels` is in the bot event subscriptions
+- Make sure `channels:history` scope is added and the app is reinstalled
+- Make sure the bot is **invited to the channel** (`/invite @Agent Smith`)
+
+### "GITHUB_TOKEN is not set" error
+
+Add the missing token to your `.env` file and restart:
+
+```bash
+docker compose up -d dispatcher
+```
+
+### ngrok URL changed after restart
+
+Update both URLs in the Slack App settings:
+- **Event Subscriptions** → Request URL
+- **Interactivity & Shortcuts** → Request URL
 
 ---
 
+## Local Development Checklist
+
+- [ ] Slack App created with correct Bot Token Scopes
+- [ ] `message.channels` and `app_mention` events subscribed
+- [ ] Interactivity enabled with `/slack/interact` URL
+- [ ] App installed to workspace (reinstall after scope changes)
+- [ ] `.env` contains `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET`
+- [ ] `docker compose up -d redis dispatcher` running
+- [ ] `curl http://localhost:6000/health` returns 200
+- [ ] ngrok running and URL set in Slack Event Subscriptions
+- [ ] Bot invited to at least one channel (`/invite @Agent Smith`)
+- [ ] Project names in Slack commands match `config/agentsmith.yml`
+
 ## Production Checklist
 
-- [ ] Dispatcher deployed with HTTPS
-- [ ] `SLACK_BOT_TOKEN` set in K8s Secret
-- [ ] `SLACK_SIGNING_SECRET` set in K8s Secret
+- [ ] Dispatcher deployed with stable public HTTPS URL
+- [ ] `SLACK_BOT_TOKEN` set in K8s Secret / environment
+- [ ] `SLACK_SIGNING_SECRET` set in K8s Secret / environment
 - [ ] Slack Event Subscriptions URL pointing to production Dispatcher
 - [ ] Slack Interactivity URL pointing to production Dispatcher
 - [ ] Bot invited to all relevant channels
-- [ ] Redis running in K8s (no PV needed for ephemeral mode)
-- [ ] `agentsmith-secrets` K8s Secret contains all provider tokens
+- [ ] Redis running (no PV needed for ephemeral mode)
+- [ ] Kubernetes available for `fix` commands

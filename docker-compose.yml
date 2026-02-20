@@ -1,5 +1,6 @@
-# One-shot mode: docker compose run --rm agentsmith --headless "fix #1 in my-project"
-# Server mode:   docker compose up -d agentsmith-server
+# One-shot mode:    docker compose run --rm agentsmith --headless "fix #1 in my-project"
+# Server mode:      docker compose up -d agentsmith-server
+# Dispatcher mode:  docker compose up -d dispatcher
 services:
   agentsmith:
     build: .
@@ -8,11 +9,11 @@ services:
     env_file:
       - .env
     environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
@@ -24,14 +25,69 @@ services:
     env_file:
       - .env
     environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     ports:
       - "${WEBHOOK_PORT:-8080}:8080"
     volumes:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
     command: ["--server", "--port", "8080"]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - "--maxmemory"
+      - "256mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--save"
+      - ""
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  dispatcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.dispatcher
+    restart: unless-stopped
+    user: root # needed for Docker socket write access in local dev (SPAWNER_TYPE=docker)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis:6379
+      - SPAWNER_TYPE=docker
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
+      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith:latest}
+      - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
+      - K8S_SECRET_NAME=${K8S_SECRET_NAME:-agentsmith-secrets}
+    ports:
+      - "${DISPATCHER_PORT:-6000}:8080"
+    volumes:
+      - ./config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentsmith-dispatcher
+  namespace: agentsmith
+  labels:
+    app: agentsmith-dispatcher
+    app.kubernetes.io/name: agentsmith-dispatcher
+    app.kubernetes.io/component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - agentsmith.yourdomain.com
+      secretName: agentsmith-tls
+  rules:
+    - host: agentsmith.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-dispatcher
+                port:
+                  name: http

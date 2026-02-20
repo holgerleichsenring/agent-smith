@@ -9,12 +9,16 @@ namespace AgentSmith.Dispatcher.Services;
 /// Spawns a Kubernetes Job for each FixTicketIntent.
 /// Each job runs an ephemeral agent-smith container with the ticket details
 /// and Redis bus connection injected via environment variables.
+/// Selected when SPAWNER_TYPE=kubernetes (or when unset, for prod compatibility).
 /// </summary>
-public sealed class JobSpawner(
+public sealed class KubernetesJobSpawner(
     IKubernetes k8sClient,
     JobSpawnerOptions options,
-    ILogger<JobSpawner> logger)
+    ILogger<KubernetesJobSpawner> logger) : IJobSpawner
 {
+    private readonly string _redisUrl =
+        Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379";
+
     public async Task<string> SpawnAsync(
         FixTicketIntent intent,
         CancellationToken cancellationToken = default)
@@ -22,7 +26,7 @@ public sealed class JobSpawner(
         var jobId = Guid.NewGuid().ToString("N")[..12];
         var jobName = $"agentsmith-{jobId}";
 
-        var job = BuildJob(jobName, jobId, intent);
+        var job = BuildJob(jobName, jobId, intent, _redisUrl);
 
         await k8sClient.BatchV1.CreateNamespacedJobAsync(
             job, options.Namespace, cancellationToken: cancellationToken);
@@ -34,7 +38,7 @@ public sealed class JobSpawner(
         return jobId;
     }
 
-    private V1Job BuildJob(string jobName, string jobId, FixTicketIntent intent) => new()
+    private V1Job BuildJob(string jobName, string jobId, FixTicketIntent intent, string redisUrl) => new()
     {
         Metadata = new V1ObjectMeta
         {
@@ -72,7 +76,7 @@ public sealed class JobSpawner(
                             Name = "agentsmith",
                             Image = options.Image,
                             ImagePullPolicy = options.ImagePullPolicy,
-                            Args = BuildArgs(jobId, intent),
+                            Args = BuildArgs(jobId, intent, redisUrl),
                             Env = BuildEnv(jobId, intent),
                             Resources = new V1ResourceRequirements
                             {
@@ -94,11 +98,11 @@ public sealed class JobSpawner(
         }
     };
 
-    private static List<string> BuildArgs(string jobId, FixTicketIntent intent) =>
+    private static List<string> BuildArgs(string jobId, FixTicketIntent intent, string redisUrl) =>
     [
         "--headless",
         "--job-id", jobId,
-        "--redis-url", "$(REDIS_URL)",
+        "--redis-url", redisUrl,
         "--platform", intent.Platform,
         "--channel-id", intent.ChannelId,
         $"fix #{intent.TicketId} in {intent.Project}"
@@ -137,13 +141,26 @@ public sealed class JobSpawner(
 }
 
 /// <summary>
-/// Configuration options for JobSpawner, bound from appsettings / environment.
+/// Configuration options for job spawning, shared by both KubernetesJobSpawner
+/// and DockerJobSpawner where applicable.
 /// </summary>
 public sealed class JobSpawnerOptions
 {
+    /// <summary>Kubernetes namespace for spawned jobs. Only used by KubernetesJobSpawner.</summary>
     public string Namespace { get; set; } = "default";
+
+    /// <summary>Agent container image name.</summary>
     public string Image { get; set; } = "agentsmith:latest";
+
+    /// <summary>Image pull policy. Use IfNotPresent locally, Always in prod.</summary>
     public string ImagePullPolicy { get; set; } = "IfNotPresent";
+
+    /// <summary>K8s Secret name containing API tokens. Only used by KubernetesJobSpawner.</summary>
     public string SecretName { get; set; } = "agentsmith-secrets";
+
+    /// <summary>Seconds after job completion before K8s cleans it up. Only used by KubernetesJobSpawner.</summary>
     public int TtlSecondsAfterFinished { get; set; } = 300;
+
+    /// <summary>Docker network to attach spawned containers to. Only used by DockerJobSpawner.</summary>
+    public string DockerNetwork { get; set; } = string.Empty;
 }

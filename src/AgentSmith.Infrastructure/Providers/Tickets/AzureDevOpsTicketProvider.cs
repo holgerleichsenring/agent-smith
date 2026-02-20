@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
+using Wiql = Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Wiql;
 
 namespace AgentSmith.Infrastructure.Providers.Tickets;
 
@@ -27,6 +28,48 @@ public sealed class AzureDevOpsTicketProvider(
         var client = CreateClient();
         var workItem = await FetchWorkItem(client, ticketId, cancellationToken);
         return MapToTicket(ticketId, workItem.Fields);
+    }
+
+    public async Task<IReadOnlyList<Ticket>> ListOpenAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var client = CreateClient();
+
+        var wiql = new Wiql
+        {
+            Query = $"""
+                SELECT [System.Id]
+                FROM WorkItems
+                WHERE [System.TeamProject] = '{project}'
+                  AND [System.State] <> 'Closed'
+                  AND [System.State] <> 'Resolved'
+                  AND [System.State] <> 'Done'
+                ORDER BY [System.ChangedDate] DESC
+                """
+        };
+
+        var result = await client.QueryByWiqlAsync(wiql, project, top: 50,
+            cancellationToken: cancellationToken);
+
+        if (result.WorkItems is null || !result.WorkItems.Any())
+            return Array.Empty<Ticket>();
+
+        var ids = result.WorkItems.Select(w => w.Id).ToArray();
+
+        var workItems = await client.GetWorkItemsAsync(
+            ids,
+            fields: ["System.Id", "System.Title", "System.Description",
+                     "System.State", "Microsoft.VSTS.Common.AcceptanceCriteria"],
+            cancellationToken: cancellationToken);
+
+        return workItems
+            .Where(w => w?.Fields is not null)
+            .Select(w =>
+            {
+                var id = new TicketId(w.Id!.Value.ToString());
+                return MapToTicket(id, w.Fields);
+            })
+            .ToList();
     }
 
     private WorkItemTrackingHttpClient CreateClient()

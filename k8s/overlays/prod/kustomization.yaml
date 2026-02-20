@@ -6,6 +6,9 @@ namespace: agentsmith
 bases:
   - ../../base
 
+resources:
+  - ingress.yaml
+
 patches:
   - path: patch-dispatcher-prod.yaml
     target:

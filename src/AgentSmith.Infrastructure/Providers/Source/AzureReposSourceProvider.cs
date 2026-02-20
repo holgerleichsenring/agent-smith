@@ -78,20 +78,52 @@ public sealed class AzureReposSourceProvider : ISourceProvider
         CancellationToken cancellationToken = default)
     {
         var client = CreateGitClient();
+        var sourceBranch = $"refs/heads/{repository.CurrentBranch.Value}";
+        const string targetBranch = "refs/heads/main";
+
         var pullRequest = new GitPullRequest
         {
             Title = title,
             Description = description,
-            SourceRefName = $"refs/heads/{repository.CurrentBranch.Value}",
-            TargetRefName = "refs/heads/main"
+            SourceRefName = sourceBranch,
+            TargetRefName = targetBranch
         };
 
-        var createdPr = await client.CreatePullRequestAsync(
-            pullRequest, _project, _repoName, cancellationToken: cancellationToken);
+        try
+        {
+            var createdPr = await client.CreatePullRequestAsync(
+                pullRequest, _project, _repoName, cancellationToken: cancellationToken);
 
-        var prUrl = $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{createdPr.PullRequestId}";
-        _logger.LogInformation("Pull request created: {Url}", prUrl);
-        return prUrl;
+            var prUrl = $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{createdPr.PullRequestId}";
+            _logger.LogInformation("Pull request created: {Url}", prUrl);
+            return prUrl;
+        }
+        catch (Exception ex) when (ex.Message.Contains("TF401179") || ex.Message.Contains("already exists"))
+        {
+            // A PR for this branch already exists (e.g. from a previous re-run).
+            // Find it and return its URL instead of failing.
+            _logger.LogWarning("PR already exists for branch {Branch}, looking up existing PR...",
+                repository.CurrentBranch.Value);
+
+            var existingPrs = await client.GetPullRequestsAsync(
+                _project,
+                _repoName,
+                new GitPullRequestSearchCriteria
+                {
+                    SourceRefName = sourceBranch,
+                    TargetRefName = targetBranch,
+                    Status = PullRequestStatus.Active
+                },
+                cancellationToken: cancellationToken);
+
+            var existing = existingPrs.FirstOrDefault()
+                ?? throw new ProviderException(ProviderType,
+                    $"PR already exists for branch {repository.CurrentBranch.Value} but could not be found.");
+
+            var existingUrl = $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{existing.PullRequestId}";
+            _logger.LogInformation("Found existing pull request: {Url}", existingUrl);
+            return existingUrl;
+        }
     }
 
     private string GetLocalPath()
@@ -138,7 +170,9 @@ public sealed class AzureReposSourceProvider : ISourceProvider
         };
 
         var canonicalName = repo.Head.CanonicalName;
-        var refspec = $"{canonicalName}:{canonicalName}";
+        // Force push (+) so re-runs on the same ticket don't fail with
+        // "non-fastforwardable reference" when the branch already exists on the remote.
+        var refspec = $"+{canonicalName}:{canonicalName}";
         repo.Network.Push(remote, refspec, options);
     }
 

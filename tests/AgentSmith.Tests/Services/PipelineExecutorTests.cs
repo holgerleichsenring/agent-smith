@@ -15,6 +15,7 @@ public class PipelineExecutorTests
     private readonly Mock<ICommandExecutor> _executorMock = new();
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
+    private readonly Mock<IProgressReporter> _progressReporterMock = new();
     private readonly PipelineExecutor _sut;
 
     public PipelineExecutorTests()
@@ -23,6 +24,7 @@ public class PipelineExecutorTests
             _executorMock.Object,
             _factoryMock.Object,
             _ticketFactoryMock.Object,
+            _progressReporterMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }
 
