@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.ValueObjects;
@@ -57,6 +58,7 @@ public sealed class OpenAiAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default)
     {
         var tracker = new TokenUsageTracker();
@@ -67,11 +69,12 @@ public sealed class OpenAiAgentProvider(
         costTracker?.SetPhaseModel("primary", primaryModel.Model);
 
         var fileReadTracker = new FileReadTracker();
-        var toolExecutor = new ToolExecutor(repository.LocalPath, logger, fileReadTracker);
+        var toolExecutor = new ToolExecutor(
+            repository.LocalPath, logger, fileReadTracker, progressReporter);
         var client = CreateChatClient(primaryModel.Model);
 
         var loop = new OpenAiAgenticLoop(
-            client, toolExecutor, logger, tracker);
+            client, toolExecutor, logger, tracker, progressReporter);
 
         var systemPrompt = BuildExecutionSystemPrompt(codingPrinciples);
         var userMessage = BuildExecutionUserPrompt(plan, repository);

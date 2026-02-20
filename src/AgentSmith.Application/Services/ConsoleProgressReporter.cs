@@ -58,9 +58,21 @@ public sealed class ConsoleProgressReporter(
     }
 
     public Task ReportErrorAsync(string text,
+        int step = 0, int total = 0, string stepName = "",
         CancellationToken cancellationToken = default)
     {
-        logger.LogError("Error: {Text}", text);
+        if (step > 0)
+            logger.LogError("Error at [{Step}/{Total}] {StepName}: {Text}", step, total, stepName, text);
+        else
+            logger.LogError("Error: {Text}", text);
+
+        return Task.CompletedTask;
+    }
+
+    public Task ReportDetailAsync(string text,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogDebug("  [detail] {Text}", text);
         return Task.CompletedTask;
     }
 }

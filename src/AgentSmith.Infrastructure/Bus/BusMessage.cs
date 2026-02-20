@@ -6,6 +6,7 @@ namespace AgentSmith.Infrastructure.Bus;
 public enum BusMessageType
 {
     Progress,
+    Detail,
     Question,
     Done,
     Error,
@@ -14,7 +15,7 @@ public enum BusMessageType
 
 /// <summary>
 /// A message published to or consumed from a Redis Stream.
-/// Agent → Dispatcher: Progress, Question, Done, Error
+/// Agent → Dispatcher: Progress, Detail, Question, Done, Error
 /// Dispatcher → Agent: Answer
 /// </summary>
 public sealed record BusMessage
@@ -33,6 +34,9 @@ public sealed record BusMessage
 
     /// <summary>Correlation ID for question/answer pairs.</summary>
     public string? QuestionId { get; init; }
+
+    /// <summary>Human-readable step label. Set for Progress and Error messages.</summary>
+    public string? StepName { get; init; }
 
     /// <summary>PR URL on successful completion. Only set for Done messages.</summary>
     public string? PrUrl { get; init; }
@@ -54,6 +58,13 @@ public sealed record BusMessage
         Text = text
     };
 
+    public static BusMessage Detail(string jobId, string text) => new()
+    {
+        Type = BusMessageType.Detail,
+        JobId = jobId,
+        Text = text
+    };
+
     public static BusMessage Question(string jobId, string questionId, string text) => new()
     {
         Type = BusMessageType.Question,
@@ -71,11 +82,16 @@ public sealed record BusMessage
         Text = summary
     };
 
-    public static BusMessage Error(string jobId, string text) => new()
+    public static BusMessage Error(
+        string jobId, string text,
+        int step = 0, int total = 0, string stepName = "") => new()
     {
         Type = BusMessageType.Error,
         JobId = jobId,
-        Text = text
+        Text = text,
+        Step = step > 0 ? step : null,
+        Total = total > 0 ? total : null,
+        StepName = string.IsNullOrEmpty(stepName) ? null : stepName
     };
 
     public static BusMessage Answer(string jobId, string questionId, string content) => new()

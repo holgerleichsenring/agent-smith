@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.ValueObjects;
@@ -66,6 +67,7 @@ public sealed class ClaudeAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default)
     {
         using var client = CreateResilientClient();
@@ -74,18 +76,20 @@ public sealed class ClaudeAgentProvider(
         var costTracker = CreateCostTracker(tracker);
 
         var scoutResult = await TryRunScoutAsync(
-            plan, repository.LocalPath, tracker, costTracker, cancellationToken);
+            plan, repository.LocalPath, tracker, costTracker,
+            progressReporter, cancellationToken);
 
         tracker.SetPhase("primary");
         var primaryModel = ResolveModel(TaskType.Primary);
         costTracker?.SetPhaseModel("primary", primaryModel.Model);
 
         var fileReadTracker = new FileReadTracker();
-        var toolExecutor = new ToolExecutor(repository.LocalPath, logger, fileReadTracker);
+        var toolExecutor = new ToolExecutor(
+            repository.LocalPath, logger, fileReadTracker, progressReporter);
         var compactor = CreateCompactor(tracker, costTracker);
         var loop = new AgenticLoop(
             client, primaryModel.Model, toolExecutor, logger,
-            cacheConfig, tracker, compactionConfig, compactor);
+            cacheConfig, tracker, compactionConfig, compactor, progressReporter);
 
         var systemPrompt = BuildExecutionSystemPrompt(codingPrinciples);
         var userMessage = BuildExecutionUserPrompt(plan, repository, scoutResult);
@@ -111,6 +115,7 @@ public sealed class ClaudeAgentProvider(
     private async Task<ScoutResult?> TryRunScoutAsync(
         Plan plan, string repositoryPath,
         TokenUsageTracker tracker, CostTracker? costTracker,
+        IProgressReporter? progressReporter,
         CancellationToken cancellationToken)
     {
         if (modelRegistry is null)
@@ -121,16 +126,23 @@ public sealed class ClaudeAgentProvider(
         costTracker?.SetPhaseModel("scout", scoutModel.Model);
 
         logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
+        ReportDetail(progressReporter, "\ud83d\udd0d Scout: analyzing codebase...");
 
         using var scoutClient = CreateResilientClient();
-        var scout = new ScoutAgent(scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger, tracker);
+        var scout = new ScoutAgent(
+            scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger, tracker, progressReporter);
         var result = await scout.DiscoverAsync(plan, repositoryPath, cancellationToken);
 
-        logger.LogInformation(
-            "Scout discovered {FileCount} relevant files using {Tokens} tokens",
-            result.RelevantFiles.Count, result.TokensUsed);
+        ReportDetail(progressReporter,
+            $"\ud83d\udd0d Scout: found {result.RelevantFiles.Count} relevant files");
 
         return result;
+    }
+
+    private static void ReportDetail(IProgressReporter? reporter, string text)
+    {
+        try { reporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        catch { /* Detail reporting must never abort the pipeline */ }
     }
 
     private ClaudeContextCompactor? CreateCompactor(
@@ -253,7 +265,10 @@ public sealed class ClaudeAgentProvider(
             - Read existing files before modifying them to understand the current state.
             - Write complete file contents when using write_file (not diffs).
             - Follow the coding principles strictly.
-            - Run build/test commands to verify your changes compile.
+            - Run build and test commands to verify your changes (e.g. dotnet build, dotnet test, npm run build, npm test).
+            - NEVER run long-running server processes (dotnet run, npm start, python -m http.server, etc.) — they will time out and block the pipeline.
+            - NEVER run interactive commands that require user input.
+            - Before each tool call, briefly state what you are doing and why (e.g. "Reading Program.cs to understand the current endpoint structure").
             - When done, stop calling tools and summarize what you did.
             """;
     }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using GenerativeAI;
 using GenerativeAI.Types;
@@ -17,6 +18,7 @@ public sealed class GeminiAgenticLoop(
     ToolExecutor toolExecutor,
     ILogger logger,
     TokenUsageTracker tracker,
+    IProgressReporter? progressReporter = null,
     int maxIterations = 25)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
@@ -32,6 +34,7 @@ public sealed class GeminiAgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("Gemini agentic loop iteration {Iteration}", iteration + 1);
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
 
             var request = new GenerateContentRequest
             {
@@ -116,5 +119,11 @@ public sealed class GeminiAgenticLoop(
         logger.LogDebug(
             "Gemini iteration {Iteration} tokens: Input={Input}, Output={Output}",
             iteration, inputTokens, outputTokens);
+    }
+
+    private void ReportDetail(string text)
+    {
+        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        catch { /* Detail reporting must never abort the pipeline */ }
     }
 }

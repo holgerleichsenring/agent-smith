@@ -27,8 +27,17 @@ public interface IProgressReporter
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Reports a pipeline error.
+    /// Reports a pipeline error with optional step context.
     /// </summary>
     Task ReportErrorAsync(string text,
+        int step = 0, int total = 0, string stepName = "",
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reports a fine-grained detail event during agentic execution.
+    /// In Slack mode, posted as a thread reply under the progress message.
+    /// In CLI mode, logged at Debug level (visible with --verbose).
+    /// </summary>
+    Task ReportDetailAsync(string text,
         CancellationToken cancellationToken = default);
 }

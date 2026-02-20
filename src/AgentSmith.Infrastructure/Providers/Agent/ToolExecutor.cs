@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -13,7 +14,8 @@ namespace AgentSmith.Infrastructure.Providers.Agent;
 public sealed class ToolExecutor(
     string repositoryPath,
     ILogger logger,
-    FileReadTracker? fileReadTracker = null)
+    FileReadTracker? fileReadTracker = null,
+    IProgressReporter? progressReporter = null)
 {
     private const int MaxFileSizeBytes = 100 * 1024;
     private const int CommandTimeoutSeconds = 60;
@@ -73,6 +75,7 @@ public sealed class ToolExecutor(
         }
 
         fileReadTracker?.TrackRead(path);
+        ReportDetail($"\ud83d\udcc4 Reading: {path}");
         return content;
     }
 
@@ -94,6 +97,7 @@ public sealed class ToolExecutor(
         fileReadTracker?.InvalidateRead(path);
 
         logger.LogDebug("Wrote file {Path} ({ChangeType})", path, changeType);
+        ReportDetail($"\u270f\ufe0f Writing: {path}");
         return $"File written: {path}";
     }
 
@@ -124,6 +128,10 @@ public sealed class ToolExecutor(
         var command = GetStringParam(input, "command");
 
         logger.LogInformation("Executing command: {Command}", command);
+        ReportDetail($"\u25b6\ufe0f Running: {Truncate(command, 80)}");
+
+        using var cts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(CommandTimeoutSeconds));
 
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
@@ -139,18 +147,18 @@ public sealed class ToolExecutor(
 
         process.Start();
 
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
-
-        var completed = await WaitForProcessAsync(process);
-        var stdout = await outputTask;
-        var stderr = await errorTask;
-
-        if (!completed)
+        try
         {
-            process.Kill(entireProcessTree: true);
-            return $"Error: Command timed out after {CommandTimeoutSeconds} seconds.";
+            await process.WaitForExitAsync(cts.Token);
         }
+        catch (OperationCanceledException)
+        {
+            KillProcess(process);
+            return $"Error: Command timed out after {CommandTimeoutSeconds} seconds.\nCommand: {command}";
+        }
+
+        var stdout = await process.StandardOutput.ReadToEndAsync();
+        var stderr = await process.StandardError.ReadToEndAsync();
 
         var result = string.IsNullOrEmpty(stderr)
             ? stdout
@@ -159,18 +167,15 @@ public sealed class ToolExecutor(
         return $"Exit code: {process.ExitCode}\n{result}".Trim();
     }
 
-    private static async Task<bool> WaitForProcessAsync(Process process)
+    private void KillProcess(Process process)
     {
-        using var cts = new CancellationTokenSource(
-            TimeSpan.FromSeconds(CommandTimeoutSeconds));
         try
         {
-            await process.WaitForExitAsync(cts.Token);
-            return true;
+            process.Kill(entireProcessTree: true);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            return false;
+            logger.LogWarning(ex, "Failed to kill timed-out process");
         }
     }
 
@@ -193,4 +198,13 @@ public sealed class ToolExecutor(
             throw new ArgumentException($"Missing required parameter: {name}");
         return value;
     }
+
+    private void ReportDetail(string text)
+    {
+        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        catch { /* Detail reporting must never abort the pipeline */ }
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length > maxLength ? text[..maxLength] + "..." : text;
 }

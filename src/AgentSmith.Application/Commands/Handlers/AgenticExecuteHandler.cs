@@ -1,6 +1,7 @@
 using AgentSmith.Application.Commands.Contexts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ namespace AgentSmith.Application.Commands.Handlers;
 /// </summary>
 public sealed class AgenticExecuteHandler(
     IAgentProviderFactory factory,
+    IProgressReporter progressReporter,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
 {
@@ -22,7 +24,8 @@ public sealed class AgenticExecuteHandler(
 
         var provider = factory.Create(context.AgentConfig);
         var changes = await provider.ExecutePlanAsync(
-            context.Plan, context.Repository, context.CodingPrinciples, cancellationToken);
+            context.Plan, context.Repository, context.CodingPrinciples,
+            progressReporter, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
 

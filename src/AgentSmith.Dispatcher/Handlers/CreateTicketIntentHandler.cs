@@ -43,7 +43,7 @@ public sealed class CreateTicketIntentHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create ticket in project {Project}", intent.Project);
-            await adapter.SendErrorAsync(intent.ChannelId, ex.Message, cancellationToken);
+            await adapter.SendMessageAsync(intent.ChannelId, $":x: {ex.Message}", cancellationToken);
         }
     }
 
