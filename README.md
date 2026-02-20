@@ -201,10 +201,8 @@ chmod +x apply-k8s-secret.sh
 This creates (or updates) the `agentsmith-secrets` Secret in the `default` namespace.
 For a different namespace, pass `--namespace <ns>`.
 
-> **Note:** On Docker Desktop the script automatically sets `redis-url` to
-> `host.docker.internal:6379` so K8s Jobs can reach the Redis container running
-> in Docker Compose. On a real cluster, set `K8S_REDIS_URL` in your `.env` to
-> point to your Redis service.
+> **Note:** The secret sets `redis-url` to `redis:6379` by default (the in-cluster
+> Redis service). Override via `REDIS_URL` in your `.env` if Redis runs elsewhere.
 
 ### 4. Run
 

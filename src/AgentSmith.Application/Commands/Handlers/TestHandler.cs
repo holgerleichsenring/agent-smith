@@ -41,9 +41,9 @@ public sealed class TestHandler(
         return CommandResult.Ok("Tests passed");
     }
 
-    private static string? DetectTestCommand(string repoPath)
+    private string? DetectTestCommand(string repoPath)
     {
-        if (Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories).Length > 0)
+        if (HasDotNetTestProjects(repoPath))
             return "dotnet test --verbosity minimal";
 
         if (File.Exists(Path.Combine(repoPath, "package.json")))
@@ -54,6 +54,30 @@ public sealed class TestHandler(
             return "pytest";
 
         return null;
+    }
+
+    private bool HasDotNetTestProjects(string repoPath)
+    {
+        var csprojFiles = Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories);
+
+        foreach (var csproj in csprojFiles)
+        {
+            try
+            {
+                var content = File.ReadAllText(csproj);
+                if (content.Contains("Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogInformation("Found test project: {Project}", Path.GetFileName(csproj));
+                    return true;
+                }
+            }
+            catch (IOException ex)
+            {
+                logger.LogWarning(ex, "Could not read {File}", csproj);
+            }
+        }
+
+        return false;
     }
 
     private async Task<(int ExitCode, string Output)> RunTestsAsync(

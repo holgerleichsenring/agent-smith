@@ -15,8 +15,8 @@ RUN dotnet restore src/AgentSmith.Host/AgentSmith.Host.csproj
 COPY src/ src/
 RUN dotnet publish src/AgentSmith.Host -c Release -o /app/publish --no-restore
 
-# Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
+# Stage 2: Runtime (SDK needed because the agentic loop runs dotnet build/test on cloned repos)
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS runtime
 WORKDIR /app
 
 # Install git for LibGit2Sharp operations

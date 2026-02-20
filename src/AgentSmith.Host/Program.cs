@@ -96,7 +96,8 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
         if (result.Success)
             await reporter.ReportDoneAsync(result.Message);
         else
-            await reporter.ReportErrorAsync(result.Message);
+            await reporter.ReportErrorAsync(
+                result.Message, result.FailedStep, result.TotalSteps, result.StepName);
     }
 
     Console.WriteLine(result.Success

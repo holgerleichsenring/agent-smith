@@ -117,6 +117,17 @@ pipelines:
       - TestCommand
       - CommitAndPRCommand
 
+  fix-no-test:
+    commands:
+      - FetchTicketCommand
+      - CheckoutSourceCommand
+      - LoadCodingPrinciplesCommand
+      - AnalyzeCodeCommand
+      - GeneratePlanCommand
+      - ApprovalCommand
+      - AgenticExecuteCommand
+      - CommitAndPRCommand
+
   add-feature:
     commands:
       - FetchTicketCommand

@@ -9,6 +9,15 @@ public sealed record CommandResult
     public string Message { get; }
     public Exception? Exception { get; }
 
+    /// <summary>Pipeline step where failure occurred (1-based). 0 if unknown.</summary>
+    public int FailedStep { get; init; }
+
+    /// <summary>Total pipeline steps. 0 if unknown.</summary>
+    public int TotalSteps { get; init; }
+
+    /// <summary>Human-readable label of the step that failed.</summary>
+    public string StepName { get; init; } = string.Empty;
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;

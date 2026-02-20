@@ -121,6 +121,10 @@ public sealed class MessageBusListener(
                 await HandleErrorAsync(adapter, state, message, cancellationToken);
                 break;
 
+            case BusMessageType.Detail:
+                await adapter.SendDetailAsync(state.ChannelId, message.Text, cancellationToken);
+                break;
+
             default:
                 logger.LogDebug(
                     "Ignoring message type {Type} for job {JobId}", message.Type, message.JobId);
@@ -179,7 +183,8 @@ public sealed class MessageBusListener(
     private async Task HandleErrorAsync(IPlatformAdapter adapter, ConversationState state,
         BusMessage message, CancellationToken cancellationToken)
     {
-        await adapter.SendErrorAsync(state.ChannelId, message.Text, cancellationToken);
+        var errorContext = BuildErrorContext(state, message);
+        await adapter.SendErrorAsync(state.ChannelId, errorContext, cancellationToken);
 
         await stateManager.RemoveAsync(state.Platform, state.ChannelId, cancellationToken);
         await messageBus.CleanupJobAsync(message.JobId, cancellationToken);
@@ -187,6 +192,20 @@ public sealed class MessageBusListener(
         logger.LogError(
             "Job {JobId} failed for channel {ChannelId}: {Error}",
             message.JobId, state.ChannelId, message.Text);
+    }
+
+    private static ErrorContext BuildErrorContext(ConversationState state, BusMessage message)
+    {
+        return new ErrorContext(
+            JobId: message.JobId,
+            ChannelId: state.ChannelId,
+            TicketId: state.TicketId,
+            Project: state.Project,
+            FailedStep: message.Step ?? 0,
+            TotalSteps: message.Total ?? 0,
+            StepName: message.StepName ?? string.Empty,
+            RawError: message.Text,
+            FriendlyError: ErrorFormatter.Humanize(message.Text));
     }
 
     private async Task CleanupJobAsync(string jobId, CancellationToken cancellationToken)

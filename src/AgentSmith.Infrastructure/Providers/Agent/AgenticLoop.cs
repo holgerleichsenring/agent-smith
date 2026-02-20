@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
@@ -20,6 +21,7 @@ public sealed class AgenticLoop(
     TokenUsageTracker tracker,
     CompactionConfig compactionConfig,
     IContextCompactor? compactor = null,
+    IProgressReporter? progressReporter = null,
     int maxIterations = 25)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
@@ -35,6 +37,7 @@ public sealed class AgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("Agentic loop iteration {Iteration}", iteration + 1);
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
 
             var response = await SendRequestAsync(systemPrompt, messages, cancellationToken);
             tracker.Track(response);
@@ -140,11 +143,14 @@ public sealed class AgenticLoop(
             return messages;
 
         var keepRecentMessages = compactionConfig.KeepRecentIterations * 2;
+        var beforeCount = messages.Count;
         logger.LogInformation(
             "Triggering context compaction at iteration {Iteration}, keeping last {Keep} messages",
             iteration, keepRecentMessages);
 
-        return await compactor.CompactAsync(messages, keepRecentMessages, cancellationToken);
+        var compacted = await compactor.CompactAsync(messages, keepRecentMessages, cancellationToken);
+        ReportDetail($"\u26a1 Context compacted ({beforeCount} \u2192 {compacted.Count} messages)");
+        return compacted;
     }
 
     private PromptCacheType ResolveCacheType()
@@ -156,6 +162,12 @@ public sealed class AgenticLoop(
             "fine-grained" => PromptCacheType.FineGrained,
             _ => PromptCacheType.None
         };
+    }
+
+    private void ReportDetail(string text)
+    {
+        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        catch { /* Detail reporting must never abort the pipeline */ }
     }
 
     private void LogTokenUsage(MessageResponse response, int iteration)
