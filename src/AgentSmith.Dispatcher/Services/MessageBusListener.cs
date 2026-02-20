@@ -1,5 +1,6 @@
 using AgentSmith.Dispatcher.Adapters;
 using AgentSmith.Dispatcher.Models;
+using AgentSmith.Infrastructure.Bus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 

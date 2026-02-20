@@ -50,6 +50,8 @@ Injected into the execution context via `LoadCodingPrinciplesCommand`.
 - **No Public Fields** - Always use properties.
 - **Guard Clauses** - Validate early, return early.
 - **Null Safety** - Nullable Reference Types enabled. Avoid `null` where possible.
+- **No Magic Values** - Use constants or configuration. Avoid hard-coded values.
+- **Convention over Configuration** - make things configureable but keep is simple by sensible conventions.
 
 ## Command Pattern (MediatR-Style)
 

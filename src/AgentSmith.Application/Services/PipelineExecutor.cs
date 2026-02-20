@@ -7,6 +7,7 @@ using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
+
 namespace AgentSmith.Application.Services;
 
 /// <summary>
@@ -18,8 +19,24 @@ public sealed class PipelineExecutor(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
+    IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
+    private static readonly Dictionary<string, string> StepLabels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FetchTicketCommand"] = "Fetching ticket",
+        ["CheckoutSourceCommand"] = "Checking out source",
+        ["LoadCodingPrinciplesCommand"] = "Loading coding principles",
+        ["AnalyzeCodeCommand"] = "Analyzing codebase",
+        ["GeneratePlanCommand"] = "Generating plan",
+        ["ApprovalCommand"] = "Awaiting approval",
+        ["AgenticExecuteCommand"] = "Executing plan",
+        ["GenerateTestsCommand"] = "Generating tests",
+        ["TestCommand"] = "Running tests",
+        ["GenerateDocsCommand"] = "Generating docs",
+        ["CommitAndPRCommand"] = "Creating pull request",
+    };
+
     public async Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
         ProjectConfig projectConfig,
@@ -35,9 +52,15 @@ public sealed class PipelineExecutor(
         for (var i = 0; i < commandNames.Count; i++)
         {
             var commandName = commandNames[i];
+            var step = i + 1;
+            var total = commandNames.Count;
+            var label = StepLabels.GetValueOrDefault(commandName, commandName);
+
             logger.LogInformation(
                 "[{Step}/{Total}] Executing {Command}...",
-                i + 1, commandNames.Count, commandName);
+                step, total, commandName);
+
+            await progressReporter.ReportProgressAsync(step, total, label, cancellationToken);
 
             var commandContext = contextFactory.Create(
                 commandName, projectConfig, context);

@@ -15,7 +15,7 @@ namespace AgentSmith.Dispatcher.Services;
 public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
 {
     private static readonly Regex FixPattern = new(
-        @"^fix\s+#(\d+)\s+in\s+(\S+)$",
+        @"^fix\s+(?:ticket\s+)?#(\d+)\s+in\s+(\S+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ListPattern = new(

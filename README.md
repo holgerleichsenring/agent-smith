@@ -178,7 +178,7 @@ secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-### 2. Create a `.env` file
+### 2. Create a `.env` file (and sync to Kubernetes)
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
@@ -188,7 +188,25 @@ GITHUB_TOKEN=ghp_...
 # GEMINI_API_KEY=...
 ```
 
-### 3. Run
+### 3. Sync secrets to Kubernetes
+
+The K8s Jobs spawned by the Dispatcher need your tokens as a Kubernetes Secret.
+Run this once after setup and whenever you change `.env`:
+
+```bash
+chmod +x apply-k8s-secret.sh
+./apply-k8s-secret.sh
+```
+
+This creates (or updates) the `agentsmith-secrets` Secret in the `default` namespace.
+For a different namespace, pass `--namespace <ns>`.
+
+> **Note:** On Docker Desktop the script automatically sets `redis-url` to
+> `host.docker.internal:6379` so K8s Jobs can reach the Redis container running
+> in Docker Compose. On a real cluster, set `K8S_REDIS_URL` in your `.env` to
+> point to your Redis service.
+
+### 4. Run
 
 ```bash
 # Build the image
@@ -203,7 +221,7 @@ docker run --rm \
   --headless "fix #1 in my-project"
 ```
 
-### 4. Or use Docker Compose
+### 5. Or use Docker Compose
 
 ```bash
 # One-shot run
@@ -457,7 +475,7 @@ agent-smith/
 - [x] Phase 13-14: Ticket writeback, GitHub Actions / Webhook trigger
 - [x] Phase 15-17: Azure Repos, Jira, GitLab
 - [x] Phase 18: Chat Gateway (Slack + Teams, Redis Streams, K8s Jobs)
-- [ ] Phase 19: K8s Manifests + Dispatcher Dockerfile
+- [x] Phase 19: K8s Manifests + Dispatcher Dockerfile
 - [ ] VS Code Extension
 - [ ] Telemetry Dashboard
 - [ ] On-prem LLM support (Ollama)
