@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/holger/ccs/main/context.schema.json
+# ============================================================================
+# .context.yaml — Compact Context Specification (CCS)
+# ============================================================================
+# Drop this file in your repo root. It tells any AI assistant everything
+# it needs to know about your project in ~1,000 tokens instead of ~40,000.
+#
+# Fill in what applies. Delete what doesn't. Keep it short.
+# ============================================================================
+
+meta:
+  project: my-project              # repo or solution name
+  version: 1.0.0                   # current version
+  type: [crud, api, ui]            # pick 1-3 from the list below
+  purpose: "One sentence. What it does, for whom."
+
+  # Archetypes (pick what fits):
+  #   crud      – Records, transactions, data management
+  #   api       – Request/Response (REST, GraphQL, gRPC)
+  #   pipeline  – Chainable steps, sequential processing
+  #   worker    – Scheduled/periodic background jobs
+  #   event     – Async, message/event-driven, reactive
+  #   stream    – Continuous data flow processing
+  #   agent     – Autonomous, goal-driven, decision-making
+  #   ui        – User-facing frontend
+  #   platform  – Infrastructure/services for other systems
+  #   rules     – Rule engine, policy evaluation, decision automation
+
+# --- What is it built with? ------------------------------------------------
+
+stack:
+  runtime: .NET 8
+  lang: C#
+  # Add what applies:
+  # frontend: [React, TypeScript]
+  # infra: [Docker, K8s, Azure-AppService]
+  # testing: [xUnit, Playwright]
+  # ci: [GitHub-Actions]
+
+# --- How is the code organized? --------------------------------------------
+
+arch:
+  style: [CleanArch]                # DDD, CleanArch, CQRS, Hexagonal, ...
+  patterns: [MediatR, Repository]   # the big ones, not every helper class
+  layers:
+    - Domain          # innermost — no dependencies
+    - Application     # use cases, handlers
+    - Infrastructure  # external world: DB, APIs, files
+    - Host            # entry point, DI wiring
+
+  # Optional — only if you have distinct bounded contexts:
+  # bounded-contexts:
+  #   - Payroll       # salary, tax, deductions
+  #   - Identity      # users, roles, auth
+
+# --- What does the system DO? ----------------------------------------------
+# Include only the sections that apply to your project.
+# The key under "behavior" is your archetype — use the same word from meta.type.
+
+behavior:
+
+  # --- API endpoints (for: api, crud) ---
+  # api:
+  #   style: REST
+  #   auth: [JWT]
+  #   groups:
+  #     users:
+  #       - "GET    /api/users"
+  #       - "POST   /api/users"
+  #     orders:
+  #       - "GET    /api/orders/{id}"
+  #       - "POST   /api/orders"
+
+  # --- Pipelines (for: pipeline, agent) ---
+  # pipeline:
+  #   process-order:
+  #     trigger: [cli, webhook]
+  #     steps: [Validate, Enrich, Process, Notify]
+  #     error: stop-on-first-failure
+
+  # --- Background workers (for: worker) ---
+  # worker:
+  #   nightly-sync:
+  #     schedule: "daily 02:00"
+  #     does: "Sync data from external system"
+
+  # --- Event listeners (for: event, stream) ---
+  # listener:
+  #   order-placed:
+  #     on: "queue:orders/placed"
+  #     does: "Triggers fulfillment workflow"
+  #     protocol: RabbitMQ
+
+  # --- Frontend (for: ui) ---
+  # ui:
+  #   type: SPA
+  #   framework: React
+  #   pages: [dashboard, detail-view, settings, admin]
+
+# --- Coding standards (compact form) --------------------------------------
+
+quality:
+  lang: english-only
+  limits: { method-lines: 20, class-lines: 120, types-per-file: 1 }
+  principles: [SOLID, DRY, GuardClauses]
+  naming:
+    classes: PascalCase
+    params: camelCase
+    fields: _camelCase
+    interfaces: I-prefix
+    async: Async-suffix
+  testing: { style: AAA, naming: "{Method}_{Scenario}_{Expected}" }
+  # Add language-specific rules:
+  # csharp: [file-scoped-ns, records-for-VOs, sealed-default]
+  # react: [functional-components, hooks-only]
+
+# --- External systems and storage -----------------------------------------
+
+# integrations:
+#   SAP-HR:     { type: inbound, protocol: RFC, does: "Employee master data" }
+#   Stripe:     { type: outbound, protocol: REST, does: "Payment processing" }
+#   Azure-Blob: { type: storage, does: "Document archive" }
+
+# data:
+#   primary:
+#     engine: SQL-Server
+#     orm: EF-Core
+#     migrations: code-first
+#     key-entities: [User, Order, Product, Invoice]
+#   cache:
+#     engine: Redis
+#     pattern: cache-aside
+
+# --- Where are we? --------------------------------------------------------
+
+state:
+  done:
+    v1.0: "Core functionality — one-line summary"
+    # v2.0: "Next milestone summary"
+  active:
+    v1.1:
+      goal: "What you're building right now"
+      components: [ComponentA, ComponentB]
+      # deps: [v1.0-something]
+      # blocked-by: "Optional — what's in the way"
+  planned:
+    v2.0: "Next big thing — one line"
+
+# --- Key design decisions (optional) --------------------------------------
+
+# decisions:
+#   - id: ADR-001
+#     title: "Chose X over Y"
+#     reason: "Because Z"

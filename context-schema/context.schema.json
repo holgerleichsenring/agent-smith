@@ -1,0 +1,876 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/holger/ccs/context.schema.json",
+  "title": "Compact Context Specification",
+  "description": "Token-efficient project context for AI assistants. Drop a .context.yaml in your repo root.",
+  "type": "object",
+  "required": [
+    "meta",
+    "stack",
+    "arch",
+    "quality",
+    "state"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "Project identity",
+      "required": [
+        "project",
+        "version",
+        "type",
+        "purpose"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Repository or solution name",
+          "examples": [
+            "agent-smith",
+            "rhs-payslip",
+            "order-service"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "description": "Current project version (semver)",
+          "pattern": "^\\d+\\.\\d+\\.\\d+",
+          "examples": [
+            "1.0.0",
+            "3.2.0"
+          ]
+        },
+        "type": {
+          "type": "array",
+          "description": "System archetypes, pick 1-3",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "enum": [
+              "crud",
+              "api",
+              "pipeline",
+              "worker",
+              "event",
+              "stream",
+              "agent",
+              "ui",
+              "platform",
+              "rules"
+            ]
+          }
+        },
+        "purpose": {
+          "type": "string",
+          "description": "One sentence, max 100 chars: what it does, for whom",
+          "maxLength": 100
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository URL (optional)"
+        }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "description": "Technology choices",
+      "required": [
+        "runtime",
+        "lang"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "Primary runtime/framework",
+          "examples": [
+            ".NET 8",
+            ".NET 9",
+            "Node.js 20",
+            "Node.js 22",
+            "Python 3.12",
+            "Java 21",
+            "Go 1.22",
+            "Rust 1.75",
+            "Ruby 3.3",
+            "PHP 8.3",
+            "Deno 2",
+            "Bun 1"
+          ]
+        },
+        "lang": {
+          "type": "string",
+          "description": "Primary language",
+          "examples": [
+            "C#",
+            "TypeScript",
+            "JavaScript",
+            "Python",
+            "Java",
+            "Kotlin",
+            "Go",
+            "Rust",
+            "Ruby",
+            "PHP",
+            "Swift",
+            "Dart"
+          ]
+        },
+        "frontend": {
+          "type": "array",
+          "description": "Frontend frameworks and tools",
+          "items": {
+            "type": "string",
+            "examples": [
+              "React",
+              "Next.js",
+              "Vue",
+              "Nuxt",
+              "Angular",
+              "Svelte",
+              "SvelteKit",
+              "Blazor",
+              "HTMX",
+              "Astro",
+              "Remix",
+              "TypeScript",
+              "JavaScript",
+              "Tailwind",
+              "Bootstrap",
+              "MUI",
+              "shadcn",
+              "Vite",
+              "Webpack",
+              "esbuild"
+            ]
+          }
+        },
+        "infra": {
+          "type": "array",
+          "description": "Infrastructure and deployment",
+          "items": {
+            "type": "string",
+            "examples": [
+              "Docker",
+              "K8s",
+              "Docker-Compose",
+              "AWS-ECS",
+              "AWS-Lambda",
+              "AWS-Fargate",
+              "Azure-AppService",
+              "Azure-Functions",
+              "Azure-ContainerApps",
+              "GCP-CloudRun",
+              "GCP-GKE",
+              "Vercel",
+              "Netlify",
+              "Fly.io",
+              "Railway",
+              "Terraform",
+              "Pulumi",
+              "Nginx",
+              "Traefik",
+              "Caddy",
+              "SQL-Server",
+              "PostgreSQL",
+              "MySQL",
+              "MongoDB",
+              "DynamoDB",
+              "CosmosDB",
+              "Redis",
+              "Memcached",
+              "RabbitMQ",
+              "Kafka",
+              "SQS",
+              "Azure-ServiceBus",
+              "Redis-Streams",
+              "S3",
+              "Azure-Blob",
+              "GCS",
+              "Elasticsearch",
+              "OpenSearch"
+            ]
+          }
+        },
+        "testing": {
+          "type": "array",
+          "description": "Testing frameworks and tools",
+          "items": {
+            "type": "string",
+            "examples": [
+              "xUnit",
+              "NUnit",
+              "MSTest",
+              "Moq",
+              "NSubstitute",
+              "FluentAssertions",
+              "Bogus",
+              "Testcontainers",
+              "Jest",
+              "Vitest",
+              "Playwright",
+              "Cypress",
+              "Testing-Library",
+              "pytest",
+              "unittest",
+              "hypothesis",
+              "JUnit",
+              "Mockito",
+              "Testcontainers",
+              "Storybook",
+              "Chromatic"
+            ]
+          }
+        },
+        "ci": {
+          "type": "array",
+          "description": "CI/CD platforms",
+          "items": {
+            "type": "string",
+            "examples": [
+              "GitHub-Actions",
+              "Azure-DevOps-Pipelines",
+              "GitLab-CI",
+              "Jenkins",
+              "CircleCI",
+              "Travis-CI",
+              "Bitbucket-Pipelines",
+              "ArgoCD",
+              "FluxCD",
+              "Octopus-Deploy"
+            ]
+          }
+        },
+        "sdks": {
+          "type": "array",
+          "description": "Significant SDKs and libraries",
+          "items": {
+            "type": "string",
+            "examples": [
+              "Anthropic",
+              "OpenAI",
+              "Google-Gemini",
+              "Azure-OpenAI",
+              "Octokit",
+              "LibGit2Sharp",
+              "Azure-DevOps",
+              "EF-Core",
+              "Dapper",
+              "Prisma",
+              "Drizzle",
+              "SQLAlchemy",
+              "MediatR",
+              "MassTransit",
+              "Rebus",
+              "Wolverine",
+              "Polly",
+              "Hangfire",
+              "Quartz.NET",
+              "AutoMapper",
+              "Mapster",
+              "FluentValidation",
+              "SignalR",
+              "gRPC",
+              "GraphQL-HotChocolate",
+              "Serilog",
+              "NLog",
+              "OpenTelemetry",
+              "YamlDotNet",
+              "Newtonsoft.Json"
+            ]
+          }
+        }
+      }
+    },
+    "arch": {
+      "type": "object",
+      "description": "Architecture and code organization",
+      "required": [
+        "style",
+        "layers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "type": "array",
+          "description": "Architecture styles",
+          "items": {
+            "type": "string",
+            "enum": [
+              "CleanArch",
+              "Hexagonal",
+              "Onion",
+              "Layered",
+              "Vertical-Slice",
+              "DDD",
+              "CQRS",
+              "Event-Sourcing",
+              "Microservices",
+              "Modular-Monolith",
+              "Monolith",
+              "Serverless",
+              "SOA",
+              "MVC",
+              "MVVM",
+              "Flux",
+              "EDA"
+            ]
+          }
+        },
+        "patterns": {
+          "type": "array",
+          "description": "Key design patterns used",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Repository",
+              "UnitOfWork",
+              "MediatR",
+              "CQRS-Handlers",
+              "Command/Handler",
+              "Factory",
+              "Abstract-Factory",
+              "Strategy",
+              "Observer",
+              "Decorator",
+              "Middleware",
+              "Pipeline",
+              "Chain-of-Responsibility",
+              "Specification",
+              "State-Machine",
+              "Saga",
+              "Outbox",
+              "Circuit-Breaker",
+              "Retry",
+              "Bulkhead",
+              "Gateway",
+              "Proxy",
+              "Adapter",
+              "Port/Adapter",
+              "Mediator",
+              "Pub/Sub",
+              "Event-Bus",
+              "Domain-Events",
+              "Integration-Events",
+              "Aggregate-Root",
+              "Value-Object",
+              "Entity",
+              "DTO",
+              "REPR",
+              "MediatR-Command/Handler",
+              "Repository/UnitOfWork"
+            ]
+          }
+        },
+        "layers": {
+          "type": "array",
+          "description": "Code layers, ordered inner to outer. Use # comments for one-line explanation.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            [
+              "Domain",
+              "Application",
+              "Infrastructure",
+              "Host"
+            ],
+            [
+              "Domain",
+              "Application",
+              "Infrastructure",
+              "API",
+              "Web"
+            ],
+            [
+              "Domain",
+              "Ports",
+              "Adapters",
+              "App"
+            ],
+            [
+              "Models",
+              "Services",
+              "Controllers",
+              "Views"
+            ]
+          ]
+        },
+        "bounded-contexts": {
+          "type": "array",
+          "description": "DDD bounded contexts (optional)",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "description": "What the system does. Include only sections that apply. Keys match meta.type archetypes.",
+      "additionalProperties": true,
+      "properties": {
+        "api": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "REST",
+                "GraphQL",
+                "gRPC",
+                "minimal-api",
+                "JSON-RPC",
+                "WebSocket",
+                "OData"
+              ]
+            },
+            "auth": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "examples": [
+                  "JWT",
+                  "OAuth2",
+                  "API-Key",
+                  "Basic",
+                  "AzureAD",
+                  "AzureAD-B2C",
+                  "Auth0",
+                  "Cognito",
+                  "Keycloak",
+                  "Cookie",
+                  "Session",
+                  "mTLS"
+                ]
+              }
+            },
+            "groups": {
+              "type": "object",
+              "description": "Endpoints grouped by domain",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "pipeline": {
+          "type": "object",
+          "description": "Named pipelines with triggers and steps",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "trigger": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "examples": [
+                    "cli",
+                    "webhook",
+                    "schedule",
+                    "manual",
+                    "slack",
+                    "teams",
+                    "api-call",
+                    "file-watch",
+                    "queue"
+                  ]
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "error": {
+                "type": "string",
+                "enum": [
+                  "stop-on-first-failure",
+                  "skip-and-log",
+                  "retry-3x",
+                  "dead-letter",
+                  "compensate"
+                ]
+              }
+            }
+          }
+        },
+        "worker": {
+          "type": "object",
+          "description": "Named background workers",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "schedule": {
+                "type": "string"
+              },
+              "does": {
+                "type": "string",
+                "maxLength": 80
+              }
+            }
+          }
+        },
+        "listener": {
+          "type": "object",
+          "description": "Named event listeners",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "on": {
+                "type": "string"
+              },
+              "does": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "protocol": {
+                "type": "string",
+                "examples": [
+                  "HTTP-POST",
+                  "WebSocket",
+                  "gRPC-stream",
+                  "RabbitMQ",
+                  "Kafka",
+                  "SQS",
+                  "Azure-ServiceBus",
+                  "Redis-Streams",
+                  "NATS",
+                  "Slack-Events-API",
+                  "Teams-Bot-Framework",
+                  "MQTT",
+                  "AMQP",
+                  "STOMP"
+                ]
+              }
+            }
+          }
+        },
+        "ui": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "SPA",
+                "SSR",
+                "MPA",
+                "PWA",
+                "mobile",
+                "desktop",
+                "CLI",
+                "hybrid"
+              ]
+            },
+            "framework": {
+              "type": "string"
+            },
+            "state": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "examples": [
+                  "React-Query",
+                  "TanStack-Query",
+                  "SWR",
+                  "Redux",
+                  "Redux-Toolkit",
+                  "Zustand",
+                  "Jotai",
+                  "Recoil",
+                  "MobX",
+                  "Pinia",
+                  "Vuex",
+                  "NgRx",
+                  "Akita",
+                  "Svelte-Stores",
+                  "Context-API",
+                  "Signals"
+                ]
+              }
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "auth": {
+              "type": "string"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "description": "Agentic behavior (autonomous, goal-driven)",
+          "additionalProperties": true
+        },
+        "stream": {
+          "type": "object",
+          "description": "Stream processing behavior",
+          "additionalProperties": true
+        },
+        "rules": {
+          "type": "object",
+          "description": "Rule engine behavior",
+          "additionalProperties": true
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "description": "Coding standards (compact form)",
+      "additionalProperties": true,
+      "properties": {
+        "lang": {
+          "type": "string",
+          "enum": [
+            "english-only",
+            "german-allowed",
+            "multilingual"
+          ],
+          "description": "Language policy for code, comments, commits"
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "method-lines": {
+              "type": "integer"
+            },
+            "class-lines": {
+              "type": "integer"
+            },
+            "types-per-file": {
+              "type": "integer"
+            },
+            "file-lines": {
+              "type": "integer"
+            }
+          }
+        },
+        "principles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "examples": [
+              "SOLID",
+              "DRY",
+              "KISS",
+              "YAGNI",
+              "TellDontAsk",
+              "GuardClauses",
+              "NullSafety",
+              "Immutability",
+              "CompositionOverInheritance",
+              "ProgramToInterface",
+              "FailFast",
+              "DefensiveCoding",
+              "SingleLevelOfAbstraction"
+            ]
+          }
+        },
+        "naming": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "testing": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "AAA",
+                "GWT",
+                "BDD",
+                "TDD"
+              ]
+            },
+            "naming": {
+              "type": "string"
+            },
+            "coverage": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "description": "External systems",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "inbound",
+              "outbound",
+              "bidirectional",
+              "storage"
+            ]
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "does": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pattern": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Persistence and storage",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "orm": {
+            "type": "string"
+          },
+          "migrations": {
+            "type": "string",
+            "enum": [
+              "code-first",
+              "db-first",
+              "sql-scripts",
+              "auto",
+              "none"
+            ]
+          },
+          "key-entities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "does": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "string"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "description": "Project progress",
+      "required": [
+        "done",
+        "active"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "done": {
+          "type": "object",
+          "description": "Completed work. Key = version/phase, value = one-line summary (max 80 chars)",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "active": {
+          "type": "object",
+          "description": "Current work. Key = version/phase",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "goal"
+            ],
+            "properties": {
+              "goal": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "components": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "flow": {
+                "type": "string"
+              },
+              "deps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "blocked-by": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "planned": {
+          "type": "object",
+          "description": "Future work. Key = version/phase, value = one-line intent",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Architecture Decision Records (compact)",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ADR-\\d{3}$"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      }
+    }
+  }
+}
