@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -21,7 +22,7 @@ public sealed class TestHandler(
         logger.LogInformation("Running tests for {Changes} changes...", context.Changes.Count);
 
         var repoPath = context.Repository.LocalPath;
-        var testCommand = DetectTestCommand(repoPath);
+        var testCommand = DetectTestCommand(repoPath, context.Pipeline);
 
         if (testCommand is null)
         {
@@ -41,8 +42,17 @@ public sealed class TestHandler(
         return CommandResult.Ok("Tests passed");
     }
 
-    private string? DetectTestCommand(string repoPath)
+    private string? DetectTestCommand(string repoPath, PipelineContext pipeline)
     {
+        // Use DetectedProject from bootstrap if available
+        if (pipeline.TryGet<DetectedProject>(ContextKeys.DetectedProject, out var detected)
+            && detected?.TestCommand is not null)
+        {
+            logger.LogInformation("Using detected test command: {Command}", detected.TestCommand);
+            return detected.TestCommand;
+        }
+
+        // Fallback: inline detection for backward compatibility
         if (HasDotNetTestProjects(repoPath))
             return "dotnet test --verbosity minimal";
 
