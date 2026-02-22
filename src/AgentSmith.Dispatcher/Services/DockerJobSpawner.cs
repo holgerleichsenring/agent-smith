@@ -160,15 +160,23 @@ public sealed class DockerJobSpawner(
         return "bridge";
     }
 
-    private static List<string> BuildArgs(string jobId, FixTicketIntent intent) =>
-    [
-        "--headless",
-        "--job-id", jobId,
-        "--redis-url", Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-        "--platform", intent.Platform,
-        "--channel-id", intent.ChannelId,
-        $"fix #{intent.TicketId} in {intent.Project}"
-    ];
+    private static List<string> BuildArgs(string jobId, FixTicketIntent intent)
+    {
+        var args = new List<string>
+        {
+            "--headless",
+            "--job-id", jobId,
+            "--redis-url", Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
+            "--platform", intent.Platform,
+            "--channel-id", intent.ChannelId,
+        };
+
+        if (!string.IsNullOrEmpty(intent.PipelineOverride))
+            args.AddRange(["--pipeline", intent.PipelineOverride]);
+
+        args.Add($"fix #{intent.TicketId} in {intent.Project}");
+        return args;
+    }
 
     private static List<string> BuildEnv(string jobId, FixTicketIntent intent)
     {

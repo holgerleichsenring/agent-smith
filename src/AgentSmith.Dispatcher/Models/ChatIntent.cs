@@ -19,6 +19,7 @@ public sealed record FixTicketIntent : ChatIntent
 {
     public required int TicketId { get; init; }
     public required string Project { get; init; }
+    public string? PipelineOverride { get; init; }
 }
 
 /// <summary>

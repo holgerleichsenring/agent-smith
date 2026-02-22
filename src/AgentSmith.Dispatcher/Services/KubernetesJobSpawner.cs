@@ -99,15 +99,23 @@ public sealed class KubernetesJobSpawner(
         }
     };
 
-    private static List<string> BuildArgs(string jobId, FixTicketIntent intent, string redisUrl) =>
-    [
-        "--headless",
-        "--job-id", jobId,
-        "--redis-url", redisUrl,
-        "--platform", intent.Platform,
-        "--channel-id", intent.ChannelId,
-        $"fix #{intent.TicketId} in {intent.Project}"
-    ];
+    private static List<string> BuildArgs(string jobId, FixTicketIntent intent, string redisUrl)
+    {
+        var args = new List<string>
+        {
+            "--headless",
+            "--job-id", jobId,
+            "--redis-url", redisUrl,
+            "--platform", intent.Platform,
+            "--channel-id", intent.ChannelId,
+        };
+
+        if (!string.IsNullOrEmpty(intent.PipelineOverride))
+            args.AddRange(["--pipeline", intent.PipelineOverride]);
+
+        args.Add($"fix #{intent.TicketId} in {intent.Project}");
+        return args;
+    }
 
     private List<V1EnvVar> BuildEnv(string jobId, FixTicketIntent intent) =>
     [

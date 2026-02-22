@@ -231,6 +231,22 @@ public sealed class SlackAdapter(
         await PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
+    // --- Modal helpers ---
+
+    internal async Task<JsonNode?> OpenViewAsync(
+        string triggerId, object view, CancellationToken ct = default)
+    {
+        var payload = new { trigger_id = triggerId, view };
+        return await PostAsync("views.open", payload, ct);
+    }
+
+    internal async Task<JsonNode?> UpdateViewAsync(
+        string viewId, object view, CancellationToken ct = default)
+    {
+        var payload = new { view_id = viewId, view };
+        return await PostAsync("views.update", payload, ct);
+    }
+
     // --- Internal HTTP helpers ---
 
     private async Task<JsonNode?> PostAsync(string method, object payload,
