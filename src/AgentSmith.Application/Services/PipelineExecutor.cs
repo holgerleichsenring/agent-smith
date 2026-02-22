@@ -35,6 +35,8 @@ public sealed class PipelineExecutor(
         ["TestCommand"] = "Running tests",
         ["GenerateDocsCommand"] = "Generating docs",
         ["CommitAndPRCommand"] = "Creating pull request",
+        ["BootstrapProjectCommand"] = "Bootstrapping project context",
+        ["LoadCodeMapCommand"] = "Loading code map",
     };
 
     public async Task<CommandResult> ExecuteAsync(
@@ -103,6 +105,8 @@ public sealed class PipelineExecutor(
             AgenticExecuteContext c => commandExecutor.ExecuteAsync(c, ct),
             TestContext c => commandExecutor.ExecuteAsync(c, ct),
             CommitAndPRContext c => commandExecutor.ExecuteAsync(c, ct),
+            BootstrapProjectContext c => commandExecutor.ExecuteAsync(c, ct),
+            LoadCodeMapContext c => commandExecutor.ExecuteAsync(c, ct),
             _ => throw new ConfigurationException(
                 $"Unknown context type: {context.GetType().Name}")
         };
