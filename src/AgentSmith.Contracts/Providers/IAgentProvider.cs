@@ -14,12 +14,14 @@ public interface IAgentProvider
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
+        string? codeMap = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CodeChange>> ExecutePlanAsync(
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        string? codeMap = null,
         IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default);
 }

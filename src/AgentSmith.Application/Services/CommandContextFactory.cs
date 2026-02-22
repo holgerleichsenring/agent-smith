@@ -28,6 +28,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
             "AgenticExecuteCommand" => CreateAgenticExecute(project, pipeline),
             "TestCommand" => CreateTest(pipeline),
             "CommitAndPRCommand" => CreateCommitAndPR(project, pipeline),
+            "BootstrapProjectCommand" => CreateBootstrapProject(pipeline),
+            "LoadCodeMapCommand" => CreateLoadCodeMap(pipeline),
             _ => throw new ConfigurationException(
                 $"Unknown command: '{commandName}'")
         };
@@ -67,7 +69,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
         var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        return new GeneratePlanContext(ticket, analysis, principles, project.Agent, pipeline);
+        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        return new GeneratePlanContext(ticket, analysis, principles, project.Agent, pipeline, codeMap);
     }
 
     private static ApprovalContext CreateApproval(PipelineContext pipeline)
@@ -82,7 +85,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        return new AgenticExecuteContext(plan, repo, principles, project.Agent, pipeline);
+        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        return new AgenticExecuteContext(plan, repo, principles, project.Agent, pipeline, codeMap);
     }
 
     private static TestContext CreateTest(PipelineContext pipeline)
@@ -99,5 +103,17 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
         return new CommitAndPRContext(repo, changes, ticket, project.Source, project.Tickets, pipeline);
+    }
+
+    private static BootstrapProjectContext CreateBootstrapProject(PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new BootstrapProjectContext(repo, pipeline);
+    }
+
+    private static LoadCodeMapContext CreateLoadCodeMap(PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new LoadCodeMapContext(repo, pipeline);
     }
 }

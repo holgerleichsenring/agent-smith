@@ -109,6 +109,8 @@ pipelines:
     commands:
       - FetchTicketCommand
       - CheckoutSourceCommand
+      - BootstrapProjectCommand
+      - LoadCodeMapCommand
       - LoadCodingPrinciplesCommand
       - AnalyzeCodeCommand
       - GeneratePlanCommand
@@ -121,6 +123,8 @@ pipelines:
     commands:
       - FetchTicketCommand
       - CheckoutSourceCommand
+      - BootstrapProjectCommand
+      - LoadCodeMapCommand
       - LoadCodingPrinciplesCommand
       - AnalyzeCodeCommand
       - GeneratePlanCommand

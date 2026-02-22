@@ -21,6 +21,8 @@ public sealed class ConfigBasedModelRegistry(
             TaskType.Planning => config.Planning,
             TaskType.Reasoning => config.Reasoning ?? config.Primary,
             TaskType.Summarization => config.Summarization,
+            TaskType.ContextGeneration => config.ContextGeneration,
+            TaskType.CodeMapGeneration => config.CodeMapGeneration,
             _ => config.Primary
         };
 

@@ -10,5 +10,7 @@ public enum TaskType
     Primary,
     Planning,
     Reasoning,
-    Summarization
+    Summarization,
+    ContextGeneration,
+    CodeMapGeneration
 }
