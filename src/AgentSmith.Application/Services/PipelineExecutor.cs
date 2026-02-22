@@ -1,10 +1,10 @@
-using AgentSmith.Application.Commands.Contexts;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 
@@ -67,7 +67,7 @@ public sealed class PipelineExecutor(
 
             var result = await ExecuteCommandAsync(commandContext, cancellationToken);
 
-            if (!result.Success)
+            if (!result.IsSuccess)
             {
                 logger.LogWarning(
                     "Pipeline stopped at step {Step}: {Command} failed - {Message}",

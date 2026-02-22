@@ -1,9 +1,9 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -51,7 +51,7 @@ public class PipelineExecutorTests
         var emptyCommands = Array.Empty<string>();
         var result = await _sut.ExecuteAsync(emptyCommands, project, pipeline);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Pipeline completed");
     }
 
@@ -63,7 +63,7 @@ public class PipelineExecutorTests
             new ProjectConfig(),
             new PipelineContext());
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
@@ -96,6 +96,6 @@ public class PipelineExecutorTests
         var result = await _sut.ExecuteAsync(
             Array.Empty<string>(), new ProjectConfig(), pipeline);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
     }
 }

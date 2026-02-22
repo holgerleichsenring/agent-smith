@@ -1,3 +1,4 @@
+using AgentSmith.Dispatcher.Contracts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Dispatcher.Models;
 using Microsoft.Extensions.Logging;

@@ -1,5 +1,5 @@
-using AgentSmith.Dispatcher.Adapters;
-using AgentSmith.Dispatcher.Handlers;
+using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Dispatcher.Services.Handlers;
 using AgentSmith.Dispatcher.Models;
 using AgentSmith.Dispatcher.Services;
 using System.Text.Json.Nodes;

@@ -1,10 +1,10 @@
-using AgentSmith.Application.Commands.Contexts;
-using AgentSmith.Application.Commands.Handlers;
+using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -44,7 +44,7 @@ public class CommitAndPRHandlerTests
 
         var result = await _sut.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("pull/42");
 
         _sourceProviderMock.Verify(s => s.CommitAndPushAsync(
@@ -66,7 +66,7 @@ public class CommitAndPRHandlerTests
         var context = CreateContext();
         var result = await _sut.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("pull/42");
     }
 

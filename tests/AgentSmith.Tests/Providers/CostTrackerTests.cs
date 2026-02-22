@@ -1,5 +1,5 @@
-using AgentSmith.Contracts.Configuration;
-using AgentSmith.Infrastructure.Providers.Agent;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Anthropic.SDK.Messaging;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

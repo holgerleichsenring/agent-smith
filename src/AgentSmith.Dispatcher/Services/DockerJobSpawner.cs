@@ -1,3 +1,4 @@
+using AgentSmith.Dispatcher.Contracts;
 using AgentSmith.Dispatcher.Models;
 using Docker.DotNet;
 using Docker.DotNet.Models;

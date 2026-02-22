@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Services;
 

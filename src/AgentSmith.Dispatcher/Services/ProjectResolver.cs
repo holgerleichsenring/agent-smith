@@ -1,7 +1,9 @@
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Dispatcher.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Dispatcher.Services;

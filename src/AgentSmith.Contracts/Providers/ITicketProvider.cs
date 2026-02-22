@@ -1,5 +1,5 @@
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Providers;
 
