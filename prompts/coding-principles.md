@@ -90,6 +90,20 @@ Rules:
 - No empty `catch` blocks.
 - Log before re-throwing.
 
+## Prompt-First Workflow (NON-NEGOTIABLE)
+
+Every feature phase MUST follow this order:
+
+1. **Create prompt file first** — Before writing any code, create a prompt/plan
+   document under `prompts/` (e.g. `prompts/phase-22-bootstrap.md`).
+2. **Commit prompts with the feature** — Prompt files are part of the deliverable
+   and MUST be committed together with the implementation code.
+3. **Register in `.context.yaml`** — After the feature is complete, update the
+   `state` section in the root `.context.yaml` to reflect the new phase.
+
+This ensures a complete audit trail and gives every contributor (human or AI)
+full context on what was planned and what was built.
+
 ## Testing
 
 - Every public method has at least one test.
