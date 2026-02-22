@@ -54,6 +54,9 @@ internal static class ServiceCollectionExtensions
         services.AddScoped<SlackMessageDispatcher>();
         services.AddScoped<SlackErrorActionHandler>();
         services.AddScoped<SlackInteractionHandler>();
+        services.AddScoped<SlackModalSubmissionHandler>();
+        services.AddSingleton<CachedTicketSearch>();
+        services.AddMemoryCache();
         return services;
     }
 

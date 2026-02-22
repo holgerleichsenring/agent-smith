@@ -40,4 +40,17 @@ internal static class DispatcherDefaults
     public const string SlackSignatureHeader = "X-Slack-Signature";
     public const string SlackSignaturePrefix = "v0=";
     public const int SlackReplayWindowSeconds = 300;
+
+    // --- Slack Modals ---
+    public const string SlackModalCallbackId = "agentsmith_command";
+    public const string SlackBlockCommand = "command_select";
+    public const string SlackBlockProject = "project_select";
+    public const string SlackBlockTicket = "ticket_select";
+    public const string SlackBlockTitle = "ticket_title";
+    public const string SlackBlockDescription = "ticket_description";
+    public const string SlackBlockPipeline = "pipeline_select";
+    public const string SlackActionCommand = "command_action";
+    public const string SlackActionProject = "project_action";
+    public const string SlackActionTicket = "ticket_action";
+    public const string SlackActionPipeline = "pipeline_action";
 }
