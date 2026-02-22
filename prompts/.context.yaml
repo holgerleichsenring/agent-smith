@@ -78,6 +78,11 @@ state:
     p19a: "Docker job spawner: DockerJobSpawner, self-contained docker-compose"
     p20: "Intent engine (regex+Haiku), help command, error UX, agentic Slack updates"
     p21: "Code quality: folder restructuring (6 projects), sealed, constants, boolean naming, 161 tests"
+    p22: "CCS auto-bootstrap: ProjectDetector, ContextGenerator, language-agnostic pipeline → prompts/phase-22-ccs-auto-bootstrap.md"
+    p24: "Code map generation: CodeMapGenerator, LoadCodeMapHandler, prompt integration → prompts/phase-24-code-map.md"
   active: {}
   planned:
-    p22: "Prompt optimization, token reduction"
+    p23: "Multi-repo support → prompts/phase-23-multi-repo.md"
+    p25: "PR review iteration → prompts/phase-25-pr-review-iteration.md"
+    p26: "Coding principles detection → prompts/phase-26-coding-principles-detection.md"
+    p27: "Structured command UI (Slack modals, Teams cards) → prompts/phase-27-structured-command-ui.md"

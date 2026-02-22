@@ -12,4 +12,5 @@ public sealed record AgenticExecuteContext(
     Repository Repository,
     string CodingPrinciples,
     AgentConfig AgentConfig,
-    PipelineContext Pipeline) : ICommandContext;
+    PipelineContext Pipeline,
+    string? CodeMap = null) : ICommandContext;

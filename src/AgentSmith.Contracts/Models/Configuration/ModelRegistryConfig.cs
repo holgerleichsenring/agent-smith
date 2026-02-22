@@ -31,4 +31,16 @@ public sealed class ModelRegistryConfig
         Model = "claude-haiku-4-5-20251001",
         MaxTokens = 2048
     };
+
+    public ModelAssignment ContextGeneration { get; set; } = new()
+    {
+        Model = "claude-haiku-4-5-20251001",
+        MaxTokens = 2048
+    };
+
+    public ModelAssignment CodeMapGeneration { get; set; } = new()
+    {
+        Model = "claude-haiku-4-5-20251001",
+        MaxTokens = 4096
+    };
 }

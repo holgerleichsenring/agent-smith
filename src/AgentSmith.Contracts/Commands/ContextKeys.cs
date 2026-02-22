@@ -16,4 +16,6 @@ public static class ContextKeys
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";
     public const string Headless = "Headless";
+    public const string DetectedProject = "DetectedProject";
+    public const string CodeMap = "CodeMap";
 }
