@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=context.schema.json
+meta:
+  project: agent-smith
+  version: 1.0.0
+  type: [agent, pipeline]
+  purpose: "Self-hosted AI coding agent: reads issues, plans, codes, creates PRs."
+
+stack:
+  runtime: .NET 8
+  lang: C#
+  infra: [Docker, K8s, Redis]
+  testing: [xUnit, Moq, FluentAssertions]
+  sdks: [Anthropic, OpenAI, Google-Gemini, Octokit, LibGit2Sharp, YamlDotNet]
+
+arch:
+  style: [CleanArch]
+  patterns: [Command/Handler, Pipeline, Factory, Strategy, Adapter]
+  layers:
+    - Domain        # entities, value objects — no deps
+    - Contracts     # interfaces, DTOs, config models
+    - Application   # handlers, pipeline executor, use cases
+    - Infrastructure # AI providers, git, tickets, Redis bus
+    - Host          # CLI entry point, DI wiring
+    - Dispatcher    # Slack gateway, job spawning, intent routing
+
+behavior:
+  pipeline:
+    process-ticket:
+      trigger: [cli, slack, webhook]
+      steps: [FetchTicket, CheckoutSource, LoadCodingPrinciples, AnalyzeCode,
+              GeneratePlan, Approve, AgenticExecute, Test, CommitAndPR]
+      error: stop-on-first-failure
+
+quality:
+  lang: english-only
+  limits: { method-lines: 20, class-lines: 120, types-per-file: 1 }
+  principles: [SOLID, DRY, GuardClauses, FailFast]
+  csharp: [file-scoped-ns, sealed-default, primary-constructors, records-for-DTOs]
+  naming:
+    classes: PascalCase
+    booleans: Is/Has/Can-prefix
+    async: Async-suffix
+    fields: _camelCase
+    interfaces: I-prefix
+  testing: { style: AAA, naming: "{Method}_{Scenario}_{Expected}" }
+
+integrations:
+  AI:     { type: outbound, providers: [Claude, OpenAI, Gemini] }
+  Git:    { type: bidirectional, protocol: SSH/HTTPS, does: "LibGit2Sharp clone/branch/commit/push" }
+  GitHub: { type: bidirectional, does: "Issues + PRs via Octokit" }
+  GitLab: { type: bidirectional, does: "Issues + MRs via REST" }
+  Azure:  { type: bidirectional, does: "Work items + Repos via DevOps SDK" }
+  Jira:   { type: inbound, does: "Tickets via REST v3" }
+  Slack:  { type: bidirectional, does: "Chat commands + progress via Events API" }
+  Redis:  { type: bidirectional, does: "Job queue + progress pub/sub" }
+
+state:
+  done:
+    p01: "Solution structure, domain entities, contracts, YAML config loader"
+    p02: "Command/Handler pattern: 9 context records, 9 handler stubs, CommandExecutor"
+    p03: "Providers: AzureDevOps+GitHub tickets, Local+GitHub source, Claude agentic loop"
+    p04: "Pipeline execution: IntentParser, PipelineExecutor, ProcessTicketUseCase, DI wiring"
+    p05: "CLI (System.CommandLine), Dockerfile, docker-compose, DI integration test"
+    p06: "Resilience: Polly retry with exponential backoff + jitter"
+    p07: "Prompt caching: CacheConfig, TokenUsageTracker, system prompt optimization"
+    p08: "Context compaction: ClaudeContextCompactor, FileReadTracker deduplication"
+    p09: "Model registry: per-task model selection, ScoutAgent for codebase discovery"
+    p10: "Production container: headless mode, Docker hardening, health checks"
+    p11: "Multi-provider: OpenAI GPT-4.1 + Gemini 2.5 agent providers"
+    p12: "Cost tracking: RunCostSummary, PricingConfig, per-phase token tracking"
+    p13: "Ticket writeback: UpdateStatus, Close, pipeline integration after PR"
+    p14: "Webhook trigger: GitHub Action (issues.labeled), WebhookListener (--server)"
+    p15: "Azure Repos source provider: clone, branch, PR via DevOps API"
+    p16: "Jira ticket provider: REST v3, ADF parsing"
+    p17: "GitLab provider: tickets + source (MRs, clone, branch)"
+    p18: "Chat gateway: Redis message bus, Dispatcher, Slack adapter, conversation state"
+    p19: "K8s manifests, Dispatcher Dockerfile, Kustomize overlays, docker-compose redis"
+    p19a: "Docker job spawner: DockerJobSpawner, self-contained docker-compose"
+    p20: "Intent engine (regex+Haiku), help command, error UX, agentic Slack updates"
+    p21: "Code quality: folder restructuring (6 projects), sealed, constants, boolean naming, 161 tests"
+  active: {}
+  planned:
+    p22: "Prompt optimization, token reduction"
