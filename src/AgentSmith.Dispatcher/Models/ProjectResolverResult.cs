@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Dispatcher.Models;
 
 /// <summary>
 /// Discriminated union of project resolution outcomes.

@@ -1,8 +1,8 @@
-using AgentSmith.Application.Commands.Contexts;
-using AgentSmith.Application.Commands.Handlers;
+using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -40,7 +40,7 @@ public class AnalyzeCodeHandlerTests : IDisposable
 
         var result = await _sut.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
 
         var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
         analysis.Language.Should().Be("C#");
@@ -58,7 +58,7 @@ public class AnalyzeCodeHandlerTests : IDisposable
 
         var result = await _sut.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
 
         var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
         analysis.FileStructure.Should().BeEmpty();

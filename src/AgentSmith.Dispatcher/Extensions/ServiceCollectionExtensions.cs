@@ -1,5 +1,7 @@
-using AgentSmith.Dispatcher.Adapters;
-using AgentSmith.Dispatcher.Handlers;
+using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Dispatcher.Models;
+using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Dispatcher.Services.Handlers;
 using AgentSmith.Dispatcher.Services;
 using AgentSmith.Infrastructure;
 using Anthropic.SDK;

@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Contracts.Services;
 

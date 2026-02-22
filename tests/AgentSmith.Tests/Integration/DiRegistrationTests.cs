@@ -1,5 +1,5 @@
 using AgentSmith.Application;
-using AgentSmith.Application.UseCases;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -20,6 +20,10 @@ public class DiRegistrationTests
         services.AddLogging(b => b.AddConsole());
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
+        services.AddSingleton<IProgressReporter>(sp =>
+            new AgentSmith.Application.Services.ConsoleProgressReporter(
+                sp.GetRequiredService<ILogger<AgentSmith.Application.Services.ConsoleProgressReporter>>(),
+                headless: true));
         _provider = services.BuildServiceProvider();
     }
 

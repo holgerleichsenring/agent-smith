@@ -1,5 +1,5 @@
-using AgentSmith.Application.Commands.Contexts;
-using AgentSmith.Application.Commands.Handlers;
+using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -23,7 +23,7 @@ public class LoadCodingPrinciplesHandlerTests
 
         var result = await _handler.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Test Principles");
 
         File.Delete(tempFile);
@@ -37,7 +37,7 @@ public class LoadCodingPrinciplesHandlerTests
 
         var result = await _handler.ExecuteAsync(context);
 
-        result.Success.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("not found");
     }
 }

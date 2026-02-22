@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models;
+
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>

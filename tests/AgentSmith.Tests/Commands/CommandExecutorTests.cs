@@ -1,6 +1,6 @@
-using AgentSmith.Application.Commands;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -28,7 +28,7 @@ public class CommandExecutorTests
 
         var result = await executor.ExecuteAsync(new TestCommandContext("test"));
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         result.Message.Should().Be("done");
     }
 
@@ -40,7 +40,7 @@ public class CommandExecutorTests
 
         var result = await executor.ExecuteAsync(new TestCommandContext("test"));
 
-        result.Success.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("No handler registered");
     }
 
@@ -56,7 +56,7 @@ public class CommandExecutorTests
 
         var result = await executor.ExecuteAsync(new TestCommandContext("test"));
 
-        result.Success.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
         result.Message.Should().Be("boom");
         result.Exception.Should().BeOfType<InvalidOperationException>();
     }
@@ -73,7 +73,7 @@ public class CommandExecutorTests
 
         var result = await executor.ExecuteAsync(new TestCommandContext("test"));
 
-        result.Success.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
         result.Message.Should().Be("rejected");
     }
 

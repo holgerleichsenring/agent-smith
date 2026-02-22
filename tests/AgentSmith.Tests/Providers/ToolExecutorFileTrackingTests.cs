@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using AgentSmith.Infrastructure.Providers.Agent;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 

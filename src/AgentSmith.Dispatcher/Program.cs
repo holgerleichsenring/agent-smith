@@ -1,4 +1,4 @@
-using AgentSmith.Dispatcher;
+using AgentSmith.Dispatcher.Services;
 using AgentSmith.Dispatcher.Extensions;
 
 DispatcherBanner.Print();
