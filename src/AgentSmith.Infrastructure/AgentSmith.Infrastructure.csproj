@@ -25,4 +25,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentSmith.Tests" />
+  </ItemGroup>
+
 </Project>
