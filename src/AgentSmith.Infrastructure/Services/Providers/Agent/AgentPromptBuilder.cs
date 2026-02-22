@@ -9,15 +9,17 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// </summary>
 public static class AgentPromptBuilder
 {
-    public static string BuildPlanSystemPrompt(string codingPrinciples)
+    public static string BuildPlanSystemPrompt(string codingPrinciples, string? codeMap = null)
     {
+        var codeMapSection = BuildCodeMapSection(codeMap);
+
         return $$"""
             You are a senior software engineer. Analyze the following ticket and codebase,
             then create a detailed implementation plan.
 
             ## Coding Principles
             {{codingPrinciples}}
-
+            {{codeMapSection}}
             ## Respond in JSON format:
             {
               "summary": "Brief summary of what needs to be done",
@@ -54,12 +56,14 @@ public static class AgentPromptBuilder
             """;
     }
 
-    public static string BuildExecutionSystemPrompt(string codingPrinciples)
+    public static string BuildExecutionSystemPrompt(string codingPrinciples, string? codeMap = null)
     {
+        var codeMapSection = BuildCodeMapSection(codeMap);
+
         return $"""
             ## Coding Principles
             {codingPrinciples}
-
+            {codeMapSection}
             ## Role
             You are a senior software engineer implementing code changes.
             You have access to tools to read, write, and list files in the repository,
@@ -74,6 +78,22 @@ public static class AgentPromptBuilder
             - NEVER run interactive commands that require user input.
             - Before each tool call, briefly state what you are doing and why (e.g. "Reading Program.cs to understand the current endpoint structure").
             - When done, stop calling tools and summarize what you did.
+            """;
+    }
+
+    internal static string BuildCodeMapSection(string? codeMap)
+    {
+        if (string.IsNullOrWhiteSpace(codeMap))
+            return "";
+
+        return $"""
+
+            ## Code Map
+            Use this map to understand module boundaries, interface contracts, and dependency flow.
+            ```yaml
+            {codeMap}
+            ```
+
             """;
     }
 

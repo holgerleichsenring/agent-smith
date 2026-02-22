@@ -33,6 +33,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
+        services.AddTransient<ICommandHandler<BootstrapProjectContext>, BootstrapProjectHandler>();
+        services.AddTransient<ICommandHandler<LoadCodeMapContext>, LoadCodeMapHandler>();
     }
 
     private static void RegisterPipeline(IServiceCollection services)

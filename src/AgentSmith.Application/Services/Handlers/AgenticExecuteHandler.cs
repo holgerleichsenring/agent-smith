@@ -25,7 +25,7 @@ public sealed class AgenticExecuteHandler(
         var provider = factory.Create(context.AgentConfig);
         var changes = await provider.ExecutePlanAsync(
             context.Plan, context.Repository, context.CodingPrinciples,
-            progressReporter, cancellationToken);
+            context.CodeMap, progressReporter, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
 

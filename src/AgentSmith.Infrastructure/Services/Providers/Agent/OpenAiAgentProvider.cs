@@ -30,12 +30,13 @@ public sealed class OpenAiAgentProvider(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
+        string? codeMap = null,
         CancellationToken cancellationToken = default)
     {
         var planModel = ResolveModel(TaskType.Planning);
         var client = CreateChatClient(planModel.Model);
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples);
+        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var messages = new List<ChatMessage>
@@ -56,6 +57,7 @@ public sealed class OpenAiAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        string? codeMap = null,
         IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default)
     {
@@ -74,7 +76,7 @@ public sealed class OpenAiAgentProvider(
         var loop = new OpenAiAgenticLoop(
             client, toolExecutor, logger, tracker, progressReporter);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples);
+        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap);
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);

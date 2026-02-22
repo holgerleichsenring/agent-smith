@@ -29,12 +29,13 @@ public sealed class GeminiAgentProvider(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
+        string? codeMap = null,
         CancellationToken cancellationToken = default)
     {
         var planModel = ResolveModel(TaskType.Planning);
         var genModel = CreateModel(planModel.Model);
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples);
+        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var response = await genModel.GenerateContentAsync(
@@ -62,6 +63,7 @@ public sealed class GeminiAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
+        string? codeMap = null,
         IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default)
     {
@@ -80,7 +82,7 @@ public sealed class GeminiAgentProvider(
         var loop = new GeminiAgenticLoop(
             genModel, toolExecutor, logger, tracker, progressReporter);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples);
+        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap);
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
