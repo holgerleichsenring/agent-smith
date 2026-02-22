@@ -90,19 +90,21 @@ Rules:
 - No empty `catch` blocks.
 - Log before re-throwing.
 
-## Prompt-First Workflow (NON-NEGOTIABLE)
+## Implementation Workflow (NON-NEGOTIABLE)
 
 Every feature phase MUST follow this order:
 
-1. **Create prompt file first** — Before writing any code, create a prompt/plan
-   document under `prompts/` (e.g. `prompts/phase-22-bootstrap.md`).
-2. **Commit prompts with the feature** — Prompt files are part of the deliverable
-   and MUST be committed together with the implementation code.
-3. **Register in `.context.yaml`** — After the feature is complete, update the
-   `state` section in the root `.context.yaml` to reflect the new phase.
+1. **Read phase prompt** — `prompts/phase-XX-*.md` contains requirements and scope.
+2. **Plan before coding** — Explore codebase, design approach, get approval.
+3. **Implement step by step** — Contracts first, then implementation, then DI, then tests.
+4. **Build after each step** — `dotnet build`, fix errors immediately.
+5. **Run ALL tests** — `dotnet test`, 0 failures before commit.
+6. **Update `.context.yaml`** — Move phase from `planned` to `done`.
+7. **Delete completed phase prompt** — Preserved in git history, not needed on disk.
+8. **Commit** — One commit per phase, descriptive message.
 
-This ensures a complete audit trail and gives every contributor (human or AI)
-full context on what was planned and what was built.
+The `.context.yaml` is the single source of truth for what has been built.
+Phase prompts exist only while a phase is planned or in progress.
 
 ## Testing
 

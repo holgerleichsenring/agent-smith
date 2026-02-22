@@ -40,3 +40,4 @@ k8s/secret-local.yaml
 
 ## Claude Code
 .claude/
+!.claude/prompt.md
