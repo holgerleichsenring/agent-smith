@@ -21,4 +21,8 @@
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentSmith.Tests" />
+  </ItemGroup>
+
 </Project>

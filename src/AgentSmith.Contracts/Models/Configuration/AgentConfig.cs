@@ -1,0 +1,15 @@
+namespace AgentSmith.Contracts.Models.Configuration;
+
+/// <summary>
+/// Configuration for an AI agent provider (Claude, OpenAI).
+/// </summary>
+public sealed class AgentConfig
+{
+    public string Type { get; set; } = string.Empty;
+    public string Model { get; set; } = string.Empty;
+    public RetryConfig Retry { get; set; } = new();
+    public CacheConfig Cache { get; set; } = new();
+    public CompactionConfig Compaction { get; set; } = new();
+    public ModelRegistryConfig? Models { get; set; }
+    public PricingConfig Pricing { get; set; } = new();
+}

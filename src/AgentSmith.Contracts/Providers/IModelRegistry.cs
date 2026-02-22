@@ -1,4 +1,4 @@
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Contracts.Providers;
 

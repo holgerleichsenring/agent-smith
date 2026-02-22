@@ -26,10 +26,10 @@ projects:
         backoff_multiplier: 2.0
         max_delay_ms: 60000
       cache:
-        enabled: true
+        is_enabled: true
         strategy: automatic
       compaction:
-        enabled: true
+        is_enabled: true
         threshold_iterations: 8
         max_context_tokens: 80000
         keep_recent_iterations: 3

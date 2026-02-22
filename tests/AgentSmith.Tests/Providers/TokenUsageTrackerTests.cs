@@ -1,5 +1,6 @@
-using AgentSmith.Contracts.Configuration;
-using AgentSmith.Infrastructure.Providers.Agent;
+using AgentSmith.Infrastructure.Models;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Anthropic.SDK.Messaging;
 using FluentAssertions;
 
@@ -88,7 +89,7 @@ public class CacheConfigTests
     {
         var config = new CacheConfig();
 
-        config.Enabled.Should().BeTrue();
+        config.IsEnabled.Should().BeTrue();
         config.Strategy.Should().Be("automatic");
     }
 
@@ -98,6 +99,6 @@ public class CacheConfigTests
         var agentConfig = new AgentConfig();
 
         agentConfig.Cache.Should().NotBeNull();
-        agentConfig.Cache.Enabled.Should().BeTrue();
+        agentConfig.Cache.IsEnabled.Should().BeTrue();
     }
 }

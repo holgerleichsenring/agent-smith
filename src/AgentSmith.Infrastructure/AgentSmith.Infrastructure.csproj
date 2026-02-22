@@ -9,6 +9,7 @@
     <PackageReference Include="Anthropic.SDK" Version="5.9.0" />
     <PackageReference Include="Google_GenerativeAI" Version="3.6.3" />
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="19.225.2" />

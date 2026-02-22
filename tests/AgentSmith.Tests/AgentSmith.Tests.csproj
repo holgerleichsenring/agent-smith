@@ -38,6 +38,7 @@
     <ProjectReference Include="..\..\src\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Application\AgentSmith.Application.csproj" />
+    <ProjectReference Include="..\..\src\AgentSmith.Dispatcher\AgentSmith.Dispatcher.csproj" />
   </ItemGroup>
 
 </Project>

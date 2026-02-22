@@ -26,6 +26,22 @@ Injected into the execution context via `LoadCodingPrinciplesCommand`.
 - **Max 120 lines per class** - Split when needed. Separate responsibilities.
 - **One type per file** - Class, interface, enum, record = its own file.
 
+## Project Structure
+
+Each project follows a consistent top-level folder convention:
+
+- `Contracts/` — Interfaces (with contextual sub-directories like `Providers/`, `Slack/`)
+- `Models/` — Records, DTOs, configuration classes, data objects
+- `Entities/` — Domain entities (Domain project only)
+- `Services/` — All functional code (handlers, factories, providers, configuration loaders, bus)
+- `Extensions/` — Extension method classes (`ServiceCollectionExtensions`, etc.)
+- `Exceptions/` — Custom exception classes
+
+Rules:
+- Factories, Handlers, and Configuration loaders live under `Services/` — never at root level.
+- Cross-layer interfaces belong in `AgentSmith.Contracts`. Project-internal interfaces use a local `Contracts/` folder.
+- No loose files at project root (except `Program.cs` in Host/Dispatcher).
+
 ## SOLID
 
 - **S** - Single Responsibility: Every class has exactly one reason to change.

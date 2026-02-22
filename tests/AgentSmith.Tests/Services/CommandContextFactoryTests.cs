@@ -1,10 +1,10 @@
-using AgentSmith.Application.Commands.Contexts;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;

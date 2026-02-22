@@ -1,3 +1,4 @@
+using AgentSmith.Dispatcher.Contracts;
 using AgentSmith.Dispatcher.Models;
 using k8s;
 using k8s.Models;

@@ -1,10 +1,10 @@
-using AgentSmith.Application.Commands.Contexts;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
 

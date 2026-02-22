@@ -1,12 +1,12 @@
 ﻿using System.CommandLine;
+using AgentSmith.Infrastructure.Models;
 using System.CommandLine.Invocation;
 
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
-using AgentSmith.Application.UseCases;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Bus;
-using AgentSmith.Host;
+using AgentSmith.Infrastructure.Services.Bus;
+using AgentSmith.Host.Services;
 using AgentSmith.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -93,18 +93,18 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
     if (!string.IsNullOrWhiteSpace(jobId))
     {
         var reporter = provider.GetRequiredService<IProgressReporter>();
-        if (result.Success)
+        if (result.IsSuccess)
             await reporter.ReportDoneAsync(result.Message);
         else
             await reporter.ReportErrorAsync(
                 result.Message, result.FailedStep, result.TotalSteps, result.StepName);
     }
 
-    Console.WriteLine(result.Success
+    Console.WriteLine(result.IsSuccess
         ? $"Success: {result.Message}"
         : $"Failed: {result.Message}");
 
-    ctx.ExitCode = result.Success ? 0 : 1;
+    ctx.ExitCode = result.IsSuccess ? 0 : 1;
 });
 
 return await rootCommand.InvokeAsync(args);

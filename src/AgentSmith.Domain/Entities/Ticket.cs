@@ -1,4 +1,4 @@
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Domain.Entities;
 

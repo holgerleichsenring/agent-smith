@@ -1,3 +1,4 @@
+using AgentSmith.Dispatcher.Contracts;
 using System.Text.Json;
 using AgentSmith.Dispatcher.Models;
 using Anthropic.SDK;

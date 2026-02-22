@@ -1,9 +1,10 @@
-using AgentSmith.Application.UseCases;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Domain.ValueObjects;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -47,7 +48,7 @@ public class ProcessTicketUseCaseTests
 
         var result = await _sut.ExecuteAsync("fix #123 in todo-list", "config.yml");
 
-        result.Success.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
         _pipelineMock.Verify(p => p.ExecuteAsync(
             It.Is<IReadOnlyList<string>>(cmds => cmds.Contains("FetchTicketCommand")),
             It.IsAny<ProjectConfig>(),
