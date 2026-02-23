@@ -17,7 +17,7 @@ arch:
   patterns: [Command/Handler, Pipeline, Factory, Strategy, Adapter]
   layers:
     - Domain        # entities, value objects — no deps
-    - Contracts     # interfaces, DTOs, config models
+    - Contracts   # interfaces, DTOs, config models
     - Application   # handlers, pipeline executor, use cases
     - Infrastructure # AI providers, git, tickets, Redis bus
     - Host          # CLI entry point, DI wiring
@@ -81,8 +81,8 @@ state:
     p22: "CCS auto-bootstrap: ProjectDetector, ContextGenerator, language-agnostic pipeline"
     p24: "Code map generation: CodeMapGenerator, LoadCodeMapHandler, prompt integration"
     p27: "Structured command UI: Slack modals, slash commands, cached ticket search, pipeline override"
+    p26: "Coding principles detection: RepoSnapshot, LLM-based style/arch/methodology, ModelRegistry DI fix"
   active: {}
   planned:
     p23: "Multi-repo support → prompts/phase-23-multi-repo.md"
     p25: "PR review iteration → prompts/phase-25-pr-review-iteration.md"
-    p26: "Coding principles detection → prompts/phase-26-coding-principles-detection.md"

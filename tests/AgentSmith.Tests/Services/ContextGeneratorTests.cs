@@ -187,6 +187,105 @@ public class ContextGeneratorTests : IDisposable
         result.Should().Contain("my-app");
     }
 
+    [Fact]
+    public void BuildUserPrompt_WithSnapshot_IncludesConfigFiles()
+    {
+        // Arrange
+        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+        var snapshot = new RepoSnapshot(
+            ConfigFileContents: ["### .editorconfig\n```\nroot = true\nindent_style = space\n```"],
+            CodeSamples: []);
+
+        // Act
+        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+
+        // Assert
+        result.Should().Contain("Config Files");
+        result.Should().Contain(".editorconfig");
+        result.Should().Contain("indent_style = space");
+    }
+
+    [Fact]
+    public void BuildUserPrompt_WithSnapshot_IncludesCodeSamples()
+    {
+        // Arrange
+        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+        var snapshot = new RepoSnapshot(
+            ConfigFileContents: [],
+            CodeSamples: ["### src/Program.cs\nusing System;\nConsole.WriteLine(\"Hello\");"]);
+
+        // Act
+        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+
+        // Assert
+        result.Should().Contain("Code Samples");
+        result.Should().Contain("Program.cs");
+        result.Should().Contain("Console.WriteLine");
+    }
+
+    [Fact]
+    public void BuildUserPrompt_WithSnapshot_UsesExtendedQualityTemplate()
+    {
+        // Arrange
+        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+        var snapshot = new RepoSnapshot(ConfigFileContents: [], CodeSamples: []);
+
+        // Act
+        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+
+        // Assert
+        result.Should().Contain("detected-style");
+        result.Should().Contain("architecture");
+        result.Should().Contain("methodology");
+        result.Should().Contain("quality-score");
+    }
+
+    [Fact]
+    public void BuildUserPrompt_WithNullSnapshot_UsesBasicQualityTemplate()
+    {
+        // Arrange
+        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+
+        // Act
+        var result = ContextGenerator.BuildUserPrompt(project, "", "");
+
+        // Assert
+        result.Should().NotContain("detected-style");
+        result.Should().NotContain("architecture:");
+        result.Should().NotContain("methodology");
+    }
+
+    [Fact]
+    public void BuildSnapshotSection_EmptySnapshot_ReturnsEmpty()
+    {
+        // Arrange
+        var snapshot = new RepoSnapshot(ConfigFileContents: [], CodeSamples: []);
+
+        // Act
+        var result = ContextGenerator.BuildSnapshotSection(snapshot);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void BuildSnapshotSection_WithConfigsAndSamples_IncludesBoth()
+    {
+        // Arrange
+        var snapshot = new RepoSnapshot(
+            ConfigFileContents: ["### .editorconfig\n```\nroot = true\n```"],
+            CodeSamples: ["### src/Main.cs\nclass Main {}"]);
+
+        // Act
+        var result = ContextGenerator.BuildSnapshotSection(snapshot);
+
+        // Assert
+        result.Should().Contain("Config Files");
+        result.Should().Contain("Code Samples");
+        result.Should().Contain(".editorconfig");
+        result.Should().Contain("Main.cs");
+    }
+
     private static DetectedProject CreateDetectedProject(
         string language, string runtime, string packageManager,
         string? readmeExcerpt = null) =>
