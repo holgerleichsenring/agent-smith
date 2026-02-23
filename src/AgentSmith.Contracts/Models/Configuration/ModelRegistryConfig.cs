@@ -35,7 +35,7 @@ public sealed class ModelRegistryConfig
     public ModelAssignment ContextGeneration { get; set; } = new()
     {
         Model = "claude-haiku-4-5-20251001",
-        MaxTokens = 2048
+        MaxTokens = 3072
     };
 
     public ModelAssignment CodeMapGeneration { get; set; } = new()
