@@ -172,6 +172,38 @@ public sealed class ConversationStateManager(
         await SetAsync(existing with { LastActivityAt = DateTimeOffset.UtcNow }, cancellationToken);
     }
 
+    /// <summary>
+    /// Returns all active conversation states by scanning conversation:* keys.
+    /// Used by OrphanJobDetector to find orphans after dispatcher restart.
+    /// </summary>
+    public async Task<IReadOnlyList<ConversationState>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var db = redis.GetDatabase();
+        var server = redis.GetServers().FirstOrDefault();
+        if (server is null) return [];
+
+        var states = new List<ConversationState>();
+
+        await foreach (var key in server.KeysAsync(pattern: "conversation:*:*"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var json = await db.StringGetAsync(key);
+            if (json.IsNullOrEmpty) continue;
+
+            try
+            {
+                var state = JsonSerializer.Deserialize<ConversationState>(json!, JsonOptions);
+                if (state is not null) states.Add(state);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Failed to deserialize conversation state for key {Key}", (string)key!);
+            }
+        }
+
+        return states;
+    }
+
     // --- Helpers ---
 
     private static RedisKey BuildKey(string platform, string channelId) =>
