@@ -19,13 +19,13 @@ public sealed class GeminiAgenticLoop(
     ToolExecutor toolExecutor,
     ILogger logger,
     TokenUsageTracker tracker,
-    IProgressReporter? progressReporter = null,
-    int maxIterations = 25)
+    IProgressReporter progressReporter,
+    int maxIterations)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
         string systemPrompt,
         string userMessage,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var contents = new List<Content>
         {
@@ -35,7 +35,7 @@ public sealed class GeminiAgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("Gemini agentic loop iteration {Iteration}", iteration + 1);
-            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...", cancellationToken);
 
             var request = new GenerateContentRequest
             {
@@ -122,9 +122,9 @@ public sealed class GeminiAgenticLoop(
             iteration, inputTokens, outputTokens);
     }
 
-    private void ReportDetail(string text)
+    private void ReportDetail(string text, CancellationToken cancellationToken)
     {
-        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        try { progressReporter?.ReportDetailAsync(text, cancellationToken).GetAwaiter().GetResult(); }
         catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 }

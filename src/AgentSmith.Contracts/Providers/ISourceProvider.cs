@@ -10,16 +10,16 @@ public interface ISourceProvider
 {
     string ProviderType { get; }
 
-    Task<Repository> CheckoutAsync(BranchName branch, CancellationToken cancellationToken = default);
+    Task<Repository> CheckoutAsync(BranchName branch, CancellationToken cancellationToken);
 
     Task<string> CreatePullRequestAsync(
         Repository repository,
         string title,
         string description,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     Task CommitAndPushAsync(
         Repository repository,
         string message,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

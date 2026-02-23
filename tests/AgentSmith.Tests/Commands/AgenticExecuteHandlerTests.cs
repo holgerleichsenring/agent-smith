@@ -49,7 +49,7 @@ public sealed class AgenticExecuteHandlerTests
         var context = new AgenticExecuteContext(
             plan, repo, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges).Should().HaveCount(1);
@@ -73,7 +73,7 @@ public sealed class AgenticExecuteHandlerTests
         var context = new AgenticExecuteContext(
             plan, repo, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
-        var act = async () => await _handler.ExecuteAsync(context);
+        var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>().WithMessage("Execution failed");
     }

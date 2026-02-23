@@ -18,7 +18,7 @@ public sealed class IntentEngine(
 {
     public async Task<ChatIntent> ParseAsync(
         string text, string userId, string channelId, string platform,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var intent = regexParser.Parse(text, userId, channelId, platform);
 

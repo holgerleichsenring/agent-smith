@@ -26,7 +26,7 @@ public class CommandExecutorTests
         var sp = BuildServiceProvider(handler.Object);
         var executor = new CommandExecutor(sp, _logger);
 
-        var result = await executor.ExecuteAsync(new TestCommandContext("test"));
+        var result = await executor.ExecuteAsync(new TestCommandContext("test"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Be("done");
@@ -38,7 +38,7 @@ public class CommandExecutorTests
         var sp = new ServiceCollection().BuildServiceProvider();
         var executor = new CommandExecutor(sp, _logger);
 
-        var result = await executor.ExecuteAsync(new TestCommandContext("test"));
+        var result = await executor.ExecuteAsync(new TestCommandContext("test"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("No handler registered");
@@ -54,7 +54,7 @@ public class CommandExecutorTests
         var sp = BuildServiceProvider(handler.Object);
         var executor = new CommandExecutor(sp, _logger);
 
-        var result = await executor.ExecuteAsync(new TestCommandContext("test"));
+        var result = await executor.ExecuteAsync(new TestCommandContext("test"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Be("boom");
@@ -71,7 +71,7 @@ public class CommandExecutorTests
         var sp = BuildServiceProvider(handler.Object);
         var executor = new CommandExecutor(sp, _logger);
 
-        var result = await executor.ExecuteAsync(new TestCommandContext("test"));
+        var result = await executor.ExecuteAsync(new TestCommandContext("test"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Be("rejected");

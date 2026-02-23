@@ -46,7 +46,7 @@ public sealed class PipelineExecutor(
         IReadOnlyList<string> commandNames,
         ProjectConfig projectConfig,
         PipelineContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation(
             "Starting pipeline with {Count} commands", commandNames.Count);

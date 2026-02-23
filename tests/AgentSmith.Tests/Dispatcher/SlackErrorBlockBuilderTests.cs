@@ -48,5 +48,6 @@ public sealed class SlackErrorBlockBuilderTests
         TotalSteps: 9,
         StepName: "Generating plan",
         RawError: "API connection failed",
-        FriendlyError: "Could not reach a required service");
+        FriendlyError: "Could not reach a required service",
+        LogUrl: null);
 }

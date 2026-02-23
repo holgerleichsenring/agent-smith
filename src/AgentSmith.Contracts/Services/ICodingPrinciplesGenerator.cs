@@ -12,5 +12,5 @@ public interface ICodingPrinciplesGenerator
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

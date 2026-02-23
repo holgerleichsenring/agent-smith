@@ -18,7 +18,7 @@ public sealed class CreateTicketIntentHandler(
     ITicketProviderFactory ticketFactory,
     ILogger<CreateTicketIntentHandler> logger)
 {
-    public async Task HandleAsync(CreateTicketIntent intent, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(CreateTicketIntent intent, CancellationToken cancellationToken)
     {
         try
         {

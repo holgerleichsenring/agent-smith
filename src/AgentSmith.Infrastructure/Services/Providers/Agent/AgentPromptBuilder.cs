@@ -10,7 +10,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 public static class AgentPromptBuilder
 {
     public static string BuildPlanSystemPrompt(
-        string codingPrinciples, string? codeMap = null, string? projectContext = null)
+        string codingPrinciples, string? codeMap, string? projectContext = null)
     {
         var projectContextSection = BuildProjectContextSection(projectContext);
         var codeMapSection = BuildCodeMapSection(codeMap);
@@ -59,7 +59,7 @@ public static class AgentPromptBuilder
     }
 
     public static string BuildExecutionSystemPrompt(
-        string codingPrinciples, string? codeMap = null, string? projectContext = null)
+        string codingPrinciples, string? codeMap, string? projectContext = null)
     {
         var projectContextSection = BuildProjectContextSection(projectContext);
         var codeMapSection = BuildCodeMapSection(codeMap);

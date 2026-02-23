@@ -28,7 +28,7 @@ public sealed class BootstrapProjectHandler(
     private const string CodingPrinciplesFileName = "coding-principles.md";
 
     public async Task<CommandResult> ExecuteAsync(
-        BootstrapProjectContext context, CancellationToken cancellationToken = default)
+        BootstrapProjectContext context, CancellationToken cancellationToken)
     {
         var repoPath = context.Repository.LocalPath;
         var agentDir = Path.Combine(repoPath, AgentSmithDir);

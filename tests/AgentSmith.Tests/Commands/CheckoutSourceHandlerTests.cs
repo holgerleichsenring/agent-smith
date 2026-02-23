@@ -40,7 +40,7 @@ public sealed class CheckoutSourceHandlerTests
         var context = new CheckoutSourceContext(
             new SourceConfig { Type = "local", Path = "/tmp" }, branch, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<Repository>(ContextKeys.Repository).Should().Be(repo);
@@ -60,7 +60,7 @@ public sealed class CheckoutSourceHandlerTests
         var context = new CheckoutSourceContext(
             new SourceConfig { Type = "github" }, new BranchName("feature/test"), pipeline);
 
-        var act = async () => await _handler.ExecuteAsync(context);
+        var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>().WithMessage("Clone failed");
     }

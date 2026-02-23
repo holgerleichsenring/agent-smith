@@ -34,7 +34,7 @@ public sealed class ClaudeContextCompactor(
     public async Task<List<Message>> CompactAsync(
         List<Message> messages,
         int keepRecentMessages,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         if (messages.Count <= keepRecentMessages)
             return messages;

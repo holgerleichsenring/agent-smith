@@ -14,6 +14,7 @@ public sealed record ConversationState
     public required string Project { get; init; }
     public required int TicketId { get; init; }
     public required DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset LastActivityAt { get; init; }
 
     /// <summary>
     /// The questionId currently waiting for an answer, if any.

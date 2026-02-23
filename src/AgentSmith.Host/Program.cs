@@ -93,17 +93,17 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
 
     var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
     var pipeline = string.IsNullOrWhiteSpace(pipelineOverride) ? null : pipelineOverride;
-    var result = await useCase.ExecuteAsync(input, configPath, headless, pipeline);
+    var result = await useCase.ExecuteAsync(input, configPath, headless, pipeline, CancellationToken.None);
 
     // In K8s job mode, signal done/error via the progress reporter (Redis)
     if (!string.IsNullOrWhiteSpace(jobId))
     {
         var reporter = provider.GetRequiredService<IProgressReporter>();
         if (result.IsSuccess)
-            await reporter.ReportDoneAsync(result.Message);
+            await reporter.ReportDoneAsync(result.Message, result.PrUrl, CancellationToken.None);
         else
             await reporter.ReportErrorAsync(
-                result.Message, result.FailedStep, result.TotalSteps, result.StepName);
+                result.Message, result.FailedStep, result.TotalSteps, result.StepName, CancellationToken.None);
     }
 
     Console.WriteLine(result.IsSuccess
@@ -116,7 +116,7 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
 return await rootCommand.InvokeAsync(args);
 
 static ServiceProvider BuildServiceProvider(
-    bool verbose, bool headless = false, string jobId = "", string redisUrl = "")
+    bool verbose, bool headless, string jobId, string redisUrl)
 {
     var services = new ServiceCollection();
     services.AddLogging(builder =>
@@ -195,7 +195,7 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
     var intentParser = provider.GetRequiredService<IIntentParser>();
 
     var config = configLoader.LoadConfig(configPath);
-    var intent = await intentParser.ParseAsync(input);
+    var intent = await intentParser.ParseAsync(input, CancellationToken.None);
 
     var projectName = intent.ProjectName.Value;
     if (!config.Projects.TryGetValue(projectName, out var projectConfig))

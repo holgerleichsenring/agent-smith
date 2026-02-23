@@ -22,7 +22,7 @@ public sealed class WriteRunResultHandler(
     private const string ContextFileName = "context.yaml";
 
     public async Task<CommandResult> ExecuteAsync(
-        WriteRunResultContext context, CancellationToken cancellationToken = default)
+        WriteRunResultContext context, CancellationToken cancellationToken)
     {
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
