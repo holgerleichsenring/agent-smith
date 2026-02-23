@@ -1,8 +1,6 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +33,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<BootstrapProjectContext>, BootstrapProjectHandler>();
         services.AddTransient<ICommandHandler<LoadCodeMapContext>, LoadCodeMapHandler>();
+        services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
+        services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
     }
 
     private static void RegisterPipeline(IServiceCollection services)

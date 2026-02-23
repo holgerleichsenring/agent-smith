@@ -32,11 +32,12 @@ public sealed class ClaudeAgentProvider(
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
         string? codeMap = null,
+        string? projectContext = null,
         CancellationToken cancellationToken = default)
     {
         using var client = CreateResilientClient();
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap);
+        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var planModel = ResolveModel(TaskType.Planning);
@@ -69,6 +70,7 @@ public sealed class ClaudeAgentProvider(
         Repository repository,
         string codingPrinciples,
         string? codeMap = null,
+        string? projectContext = null,
         IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default)
     {
@@ -93,7 +95,7 @@ public sealed class ClaudeAgentProvider(
             client, primaryModel.Model, toolExecutor, logger,
             cacheConfig, tracker, compactionConfig, compactor, progressReporter);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap);
+        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(
             plan, repository, scoutResult);
 

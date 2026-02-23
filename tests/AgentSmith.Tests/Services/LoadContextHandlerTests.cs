@@ -8,15 +8,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class LoadCodeMapHandlerTests : IDisposable
+public sealed class LoadContextHandlerTests : IDisposable
 {
-    private readonly LoadCodeMapHandler _sut;
+    private readonly LoadContextHandler _sut;
     private readonly string _tempDir;
 
-    public LoadCodeMapHandlerTests()
+    public LoadContextHandlerTests()
     {
-        _sut = new LoadCodeMapHandler(NullLogger<LoadCodeMapHandler>.Instance);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-loadmap-" + Guid.NewGuid().ToString("N")[..8]);
+        _sut = new LoadContextHandler(NullLogger<LoadContextHandler>.Instance);
+        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-loadctx-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
         Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
     }
@@ -28,16 +28,16 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_FileExists_LoadsContent()
+    public async Task ExecuteAsync_FileExists_ReturnsOkWithCharCount()
     {
-        var yaml = "modules:\n  - name: Core\n    path: src/Core";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
+        var yaml = "meta:\n  project: test\nstate:\n  done: {}";
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
 
         var context = CreateContext();
         var result = await _sut.ExecuteAsync(context);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Loaded code map");
+        result.Message.Should().Contain("Loaded project context");
     }
 
     [Fact]
@@ -47,25 +47,34 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
         var result = await _sut.ExecuteAsync(context);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No code map found");
+        result.Message.Should().Contain("No context file found");
     }
 
     [Fact]
     public async Task ExecuteAsync_FileExists_StoresInPipeline()
     {
-        var yaml = "modules:\n  - name: Core";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
+        var yaml = "meta:\n  project: test";
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
 
         var context = CreateContext();
         await _sut.ExecuteAsync(context);
 
-        context.Pipeline.TryGet<string>(ContextKeys.CodeMap, out var stored).Should().BeTrue();
+        context.Pipeline.TryGet<string>(ContextKeys.ProjectContext, out var stored).Should().BeTrue();
         stored.Should().Be(yaml);
     }
 
-    private LoadCodeMapContext CreateContext()
+    [Fact]
+    public async Task ExecuteAsync_FileNotFound_DoesNotSetPipeline()
+    {
+        var context = CreateContext();
+        await _sut.ExecuteAsync(context);
+
+        context.Pipeline.TryGet<string>(ContextKeys.ProjectContext, out _).Should().BeFalse();
+    }
+
+    private LoadContextContext CreateContext()
     {
         var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
-        return new LoadCodeMapContext(repo, new PipelineContext());
+        return new LoadContextContext(repo, new PipelineContext());
     }
 }
