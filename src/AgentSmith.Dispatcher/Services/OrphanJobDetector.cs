@@ -40,12 +40,11 @@ public sealed class OrphanJobDetector(
     {
         try
         {
-            var jobIds = await listener.GetTrackedJobIdsAsync(cancellationToken);
-            if (jobIds.Count == 0) return;
-
             var now = DateTimeOffset.UtcNow;
 
-            foreach (var jobId in jobIds)
+            // 1) Check in-memory tracked jobs (active bus subscriptions)
+            var trackedJobIds = await listener.GetTrackedJobIdsAsync(cancellationToken);
+            foreach (var jobId in trackedJobIds)
             {
                 var state = await stateManager.GetByJobIdAsync(jobId, cancellationToken);
 
@@ -65,6 +64,26 @@ public sealed class OrphanJobDetector(
                     jobId, state.StartedAt, state.LastActivityAt);
 
                 await CleanupOrphanAsync(jobId, state, cancellationToken);
+            }
+
+            // 2) Scan Redis for conversation states not tracked in memory
+            //    (e.g. from before a dispatcher restart)
+            var allStates = await stateManager.GetAllAsync(cancellationToken);
+            var trackedSet = trackedJobIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var state in allStates)
+            {
+                if (trackedSet.Contains(state.JobId))
+                    continue; // Already handled above
+
+                if (!IsOrphaned(state, now))
+                    continue;
+
+                logger.LogWarning(
+                    "Orphaned untracked job detected: {JobId} (started {StartedAt}, last activity {LastActivity})",
+                    state.JobId, state.StartedAt, state.LastActivityAt);
+
+                await CleanupOrphanAsync(state.JobId, state, cancellationToken);
             }
         }
         catch (OperationCanceledException)
