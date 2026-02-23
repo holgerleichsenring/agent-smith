@@ -21,7 +21,7 @@ public sealed class RegexIntentParser(
         @"#?(\d+)", RegexOptions.Compiled);
 
     public Task<ParsedIntent> ParseAsync(
-        string userInput, CancellationToken cancellationToken = default)
+        string userInput, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userInput);
 

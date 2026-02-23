@@ -15,7 +15,7 @@ public sealed class FetchTicketHandler(
     : ICommandHandler<FetchTicketContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        FetchTicketContext context, CancellationToken cancellationToken = default)
+        FetchTicketContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Fetching ticket {TicketId}...", context.TicketId);
 

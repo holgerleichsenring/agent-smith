@@ -38,7 +38,7 @@ public class AnalyzeCodeHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         var context = new AnalyzeCodeContext(repo, pipeline);
 
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
 
@@ -56,7 +56,7 @@ public class AnalyzeCodeHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         var context = new AnalyzeCodeContext(repo, pipeline);
 
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
 

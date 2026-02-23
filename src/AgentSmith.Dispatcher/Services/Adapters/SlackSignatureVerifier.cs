@@ -10,7 +10,7 @@ namespace AgentSmith.Dispatcher.Services.Adapters;
 /// </summary>
 public sealed class SlackSignatureVerifier(string signingSecret)
 {
-    public async Task<bool> VerifyAsync(HttpRequest request, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifyAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(signingSecret))
             return true; // skip verification in development if not configured

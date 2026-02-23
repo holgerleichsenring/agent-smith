@@ -20,7 +20,7 @@ internal sealed class SlackModalSubmissionHandler(
     IPlatformAdapter adapter,
     ILogger<SlackModalSubmissionHandler> logger)
 {
-    public async Task HandleAsync(JsonNode payload, CancellationToken ct = default)
+    public async Task HandleAsync(JsonNode payload, CancellationToken ct)
     {
         try
         {

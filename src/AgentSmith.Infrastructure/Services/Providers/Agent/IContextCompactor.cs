@@ -12,5 +12,5 @@ public interface IContextCompactor
     Task<List<Message>> CompactAsync(
         List<Message> messages,
         int keepRecentMessages,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

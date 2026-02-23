@@ -23,7 +23,7 @@ public sealed class AzureDevOpsTicketProvider(
     public string ProviderType => "AzureDevOps";
 
     public async Task<Ticket> GetTicketAsync(
-        TicketId ticketId, CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken)
     {
         var client = CreateClient();
         var workItem = await FetchWorkItem(client, ticketId, cancellationToken);
@@ -31,7 +31,7 @@ public sealed class AzureDevOpsTicketProvider(
     }
 
     public async Task<IReadOnlyList<Ticket>> ListOpenAsync(
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var client = CreateClient();
 
@@ -102,7 +102,7 @@ public sealed class AzureDevOpsTicketProvider(
     }
 
     public async Task UpdateStatusAsync(
-        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+        TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id))
             return;
@@ -121,7 +121,7 @@ public sealed class AzureDevOpsTicketProvider(
     }
 
     public async Task CloseTicketAsync(
-        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+        TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id))
             return;

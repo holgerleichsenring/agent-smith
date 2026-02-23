@@ -17,7 +17,7 @@ public sealed class CommitAndPRHandler(
     : ICommandHandler<CommitAndPRContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        CommitAndPRContext context, CancellationToken cancellationToken = default)
+        CommitAndPRContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation(
             "Creating PR for ticket {Ticket} with {Changes} changes...",

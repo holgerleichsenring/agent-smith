@@ -21,7 +21,7 @@ public sealed class RedisMessageBus(
     private static readonly TimeSpan KeyTtl = TimeSpan.FromHours(2);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
 
-    public async Task PublishAsync(BusMessage message, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(BusMessage message, CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var streamKey = OutboundKey(message.JobId);
@@ -34,7 +34,7 @@ public sealed class RedisMessageBus(
     }
 
     public async Task PublishAnswerAsync(string jobId, string questionId, string content,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var streamKey = InboundKey(jobId);
@@ -50,7 +50,7 @@ public sealed class RedisMessageBus(
 
     public async IAsyncEnumerable<BusMessage> SubscribeToJobAsync(
         string jobId,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var streamKey = OutboundKey(jobId);
@@ -87,7 +87,7 @@ public sealed class RedisMessageBus(
     }
 
     public async Task<BusMessage?> ReadAnswerAsync(string jobId, TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var streamKey = InboundKey(jobId);
@@ -118,7 +118,7 @@ public sealed class RedisMessageBus(
         return null;
     }
 
-    public async Task CleanupJobAsync(string jobId, CancellationToken cancellationToken = default)
+    public async Task CleanupJobAsync(string jobId, CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         await db.KeyDeleteAsync([OutboundKey(jobId), InboundKey(jobId)]);
@@ -176,7 +176,7 @@ public sealed class RedisMessageBus(
 
                 BusMessageType.Error => BusMessage.Error(
                     jobId,
-                    dict.GetValueOrDefault("text") ?? ""),
+                    dict.GetValueOrDefault("text") ?? "", 0, 0, string.Empty),
 
                 BusMessageType.Answer => BusMessage.Answer(
                     jobId,

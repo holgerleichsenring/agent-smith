@@ -18,6 +18,9 @@ public sealed record CommandResult
     /// <summary>Human-readable label of the step that failed.</summary>
     public string StepName { get; init; } = string.Empty;
 
+    /// <summary>Pull request URL, if one was created during the pipeline.</summary>
+    public string? PrUrl { get; init; }
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;

@@ -10,13 +10,13 @@ public interface IContextGenerator
     Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
-        RepoSnapshot? snapshot = null,
-        CancellationToken cancellationToken = default);
+        RepoSnapshot snapshot,
+        CancellationToken cancellationToken);
 
     Task<string> RetryWithErrorsAsync(
         DetectedProject project,
         string repoPath,
         string previousYaml,
         IReadOnlyList<string> validationErrors,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

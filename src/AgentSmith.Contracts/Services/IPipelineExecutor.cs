@@ -14,5 +14,5 @@ public interface IPipelineExecutor
         IReadOnlyList<string> commandNames,
         ProjectConfig projectConfig,
         PipelineContext context,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

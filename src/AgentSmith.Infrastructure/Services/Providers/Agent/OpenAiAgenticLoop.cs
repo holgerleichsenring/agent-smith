@@ -17,13 +17,13 @@ public sealed class OpenAiAgenticLoop(
     ToolExecutor toolExecutor,
     ILogger logger,
     TokenUsageTracker tracker,
-    IProgressReporter? progressReporter = null,
-    int maxIterations = 25)
+    IProgressReporter progressReporter,
+    int maxIterations)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
         string systemPrompt,
         string userMessage,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var messages = new List<ChatMessage>
         {
@@ -38,7 +38,7 @@ public sealed class OpenAiAgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("OpenAI agentic loop iteration {Iteration}", iteration + 1);
-            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...", cancellationToken);
 
             ChatCompletion completion = await client.CompleteChatAsync(
                 messages, options, cancellationToken);
@@ -99,9 +99,9 @@ public sealed class OpenAiAgenticLoop(
             iteration, inputTokens, outputTokens);
     }
 
-    private void ReportDetail(string text)
+    private void ReportDetail(string text, CancellationToken cancellationToken)
     {
-        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        try { progressReporter?.ReportDetailAsync(text, cancellationToken).GetAwaiter().GetResult(); }
         catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 }

@@ -14,4 +14,4 @@ public sealed record ErrorContext(
     string StepName,
     string RawError,
     string FriendlyError,
-    string? LogUrl = null);
+    string? LogUrl);

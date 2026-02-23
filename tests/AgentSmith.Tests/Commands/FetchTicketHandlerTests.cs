@@ -40,7 +40,7 @@ public sealed class FetchTicketHandlerTests
         pipeline.Set(ContextKeys.TicketId, ticketId);
         var context = new FetchTicketContext(ticketId, new TicketConfig { Type = "github" }, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<Ticket>(ContextKeys.Ticket).Should().Be(ticket);
@@ -61,7 +61,7 @@ public sealed class FetchTicketHandlerTests
         pipeline.Set(ContextKeys.TicketId, ticketId);
         var context = new FetchTicketContext(ticketId, new TicketConfig { Type = "github" }, pipeline);
 
-        var act = async () => await _handler.ExecuteAsync(context);
+        var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>().WithMessage("API error");
     }

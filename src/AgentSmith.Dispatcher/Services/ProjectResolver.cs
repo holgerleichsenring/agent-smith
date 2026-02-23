@@ -18,7 +18,7 @@ public sealed class ProjectResolver(
     ILogger<ProjectResolver> logger) : IProjectResolver
 {
     public async Task<ProjectResolverResult> ResolveAsync(
-        string ticketNumber, CancellationToken cancellationToken = default)
+        string ticketNumber, CancellationToken cancellationToken)
     {
         var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
         var projects = config.Projects;

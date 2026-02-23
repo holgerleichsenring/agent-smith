@@ -15,7 +15,7 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
     public string ProviderType => "Local";
 
     public Task<Repository> CheckoutAsync(
-        BranchName branch, CancellationToken cancellationToken = default)
+        BranchName branch, CancellationToken cancellationToken)
     {
         ValidateRepositoryPath();
 
@@ -29,7 +29,7 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
     }
 
     public Task CommitAndPushAsync(
-        Repository repository, string message, CancellationToken cancellationToken = default)
+        Repository repository, string message, CancellationToken cancellationToken)
     {
         using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
 
@@ -42,7 +42,7 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         // Local provider cannot create PRs - branch is pushed, user creates PR manually
         var result = $"Local repository - no PR created, branch pushed: {repository.CurrentBranch}";

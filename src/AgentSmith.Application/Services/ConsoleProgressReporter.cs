@@ -10,17 +10,17 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class ConsoleProgressReporter(
     ILogger<ConsoleProgressReporter> logger,
-    bool headless = false) : IProgressReporter
+    bool headless) : IProgressReporter
 {
     public Task ReportProgressAsync(int step, int total, string commandName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("[{Step}/{Total}] {Command}...", step, total, commandName);
         return Task.CompletedTask;
     }
 
-    public Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer = true,
-        CancellationToken cancellationToken = default)
+    public Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer,
+        CancellationToken cancellationToken)
     {
         if (headless)
         {
@@ -46,8 +46,8 @@ public sealed class ConsoleProgressReporter(
         return Task.FromResult(answer);
     }
 
-    public Task ReportDoneAsync(string summary, string? prUrl = null,
-        CancellationToken cancellationToken = default)
+    public Task ReportDoneAsync(string summary, string? prUrl,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Done: {Summary}", summary);
 
@@ -58,8 +58,8 @@ public sealed class ConsoleProgressReporter(
     }
 
     public Task ReportErrorAsync(string text,
-        int step = 0, int total = 0, string stepName = "",
-        CancellationToken cancellationToken = default)
+        int step, int total, string stepName,
+        CancellationToken cancellationToken)
     {
         if (step > 0)
             logger.LogError("Error at [{Step}/{Total}] {StepName}: {Text}", step, total, stepName, text);
@@ -70,7 +70,7 @@ public sealed class ConsoleProgressReporter(
     }
 
     public Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogDebug("  [detail] {Text}", text);
         return Task.CompletedTask;

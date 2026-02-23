@@ -18,10 +18,10 @@ internal static class WebApplicationExtensions
 
     internal static WebApplication MapSlackEndpoints(this WebApplication app)
     {
-        app.MapPost("/slack/events", HandleSlackEventsAsync);
-        app.MapPost("/slack/interact", HandleSlackInteractAsync);
-        app.MapPost("/slack/commands", HandleSlackCommandAsync);
-        app.MapPost("/slack/options", HandleSlackOptionsAsync);
+        app.MapPost("/slack/events", (Delegate)HandleSlackEventsAsync);
+        app.MapPost("/slack/interact", (Delegate)HandleSlackInteractAsync);
+        app.MapPost("/slack/commands", (Delegate)HandleSlackCommandAsync);
+        app.MapPost("/slack/options", (Delegate)HandleSlackOptionsAsync);
         return app;
     }
 
@@ -35,7 +35,7 @@ internal static class WebApplicationExtensions
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
 
-        if (!await verifier.VerifyAsync(ctx.Request))
+        if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
         {
             logger.LogWarning("Slack signature verification failed");
             return Results.Unauthorized();
@@ -78,7 +78,7 @@ internal static class WebApplicationExtensions
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
-                    .DispatchAsync(text, userId, channelId);
+                    .DispatchAsync(text, userId, channelId, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -96,7 +96,7 @@ internal static class WebApplicationExtensions
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
 
-        if (!await verifier.VerifyAsync(ctx.Request))
+        if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
             return Results.Unauthorized();
 
         var body = await ReadBodyAsync(ctx.Request);
@@ -121,7 +121,7 @@ internal static class WebApplicationExtensions
                     using var scope = scopeFactory.CreateScope();
                     await scope.ServiceProvider
                         .GetRequiredService<SlackModalSubmissionHandler>()
-                        .HandleAsync(json);
+                        .HandleAsync(json, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -150,7 +150,7 @@ internal static class WebApplicationExtensions
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackInteractionHandler>()
-                    .HandleAsync(channelId, questionId, answer, json);
+                    .HandleAsync(channelId, questionId, answer, json, CancellationToken.None);
             });
 
             return Results.Ok();
@@ -169,7 +169,7 @@ internal static class WebApplicationExtensions
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
 
-        if (!await verifier.VerifyAsync(ctx.Request))
+        if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
         {
             logger.LogWarning("Slack signature verification failed for slash command");
             return Results.Unauthorized();
@@ -196,7 +196,7 @@ internal static class WebApplicationExtensions
         var view = SlackModalBuilder.BuildInitialView(privateMetadata);
 
         var adapter = ctx.RequestServices.GetRequiredService<SlackAdapter>();
-        await adapter.OpenViewAsync(triggerId, view);
+        await adapter.OpenViewAsync(triggerId, view, ctx.RequestAborted);
 
         return Results.Ok();
     }
@@ -211,7 +211,7 @@ internal static class WebApplicationExtensions
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
 
-        if (!await verifier.VerifyAsync(ctx.Request))
+        if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
             return Results.Unauthorized();
 
         var body = await ReadBodyAsync(ctx.Request);
@@ -243,7 +243,7 @@ internal static class WebApplicationExtensions
                 return Results.Json(new { options = Array.Empty<object>() });
 
             var ticketSearch = ctx.RequestServices.GetRequiredService<CachedTicketSearch>();
-            var tickets = await ticketSearch.SearchAsync(selectedProject, searchQuery);
+            var tickets = await ticketSearch.SearchAsync(selectedProject, searchQuery, ctx.RequestAborted);
 
             var result = SlackModalBuilder.BuildTicketOptions(tickets, searchQuery: null);
             return Results.Json(result);
@@ -262,6 +262,9 @@ internal static class WebApplicationExtensions
 
         var actionId = json["actions"]?[0]?["action_id"]?.GetValue<string>() ?? string.Empty;
 
+        if (actionId == DispatcherDefaults.SlackActionProject)
+            return await HandleProjectSelectionAsync(json, ctx, logger);
+
         if (actionId != DispatcherDefaults.SlackActionCommand)
             return Results.Ok();
 
@@ -271,20 +274,53 @@ internal static class WebApplicationExtensions
             return Results.Ok();
 
         var viewId = json["view"]?["id"]?.GetValue<string>() ?? string.Empty;
-        var privateMetadata = json["view"]?["private_metadata"]?.GetValue<string>() ?? "{}";
-        var selectedProject = ExtractSelectedProjectFromViewState(json);
+        var metadata = GetMetadata(json);
+        var selectedProject = metadata.SelectedProject ?? ExtractSelectedProjectFromViewState(json);
 
         var configLoader = ctx.RequestServices.GetRequiredService<IConfigurationLoader>();
         var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
         var pipelineNames = config.Pipelines.Keys.ToList();
 
         var updatedView = SlackModalBuilder.BuildUpdatedView(
-            command.Value, privateMetadata, selectedProject, pipelineNames);
+            command.Value, SerializeMetadata(metadata), selectedProject, pipelineNames);
 
         var adapter = ctx.RequestServices.GetRequiredService<SlackAdapter>();
-        await adapter.UpdateViewAsync(viewId, updatedView);
+        await adapter.UpdateViewAsync(viewId, updatedView, ctx.RequestAborted);
 
         logger.LogInformation("Updated modal view {ViewId} for command {Command}", viewId, command);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> HandleProjectSelectionAsync(
+        JsonNode json, HttpContext ctx, ILogger logger)
+    {
+        var selectedProject = json["actions"]?[0]?["selected_option"]?["value"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(selectedProject))
+            return Results.Ok();
+
+        var viewId = json["view"]?["id"]?.GetValue<string>() ?? string.Empty;
+        var metadata = GetMetadata(json);
+        metadata.SelectedProject = selectedProject;
+
+        // Determine current command from view state
+        var commandValue = json["view"]?["state"]?["values"]
+            ?[DispatcherDefaults.SlackBlockCommand]
+            ?[DispatcherDefaults.SlackActionCommand]
+            ?["selected_option"]?["value"]?.GetValue<string>();
+        var command = SlackModalBuilder.ParseCommandValue(commandValue) ?? ModalCommandType.FixTicket;
+
+        var configLoader = ctx.RequestServices.GetRequiredService<IConfigurationLoader>();
+        var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
+        var pipelineNames = config.Pipelines.Keys.ToList();
+
+        var updatedView = SlackModalBuilder.BuildUpdatedView(
+            command, SerializeMetadata(metadata), selectedProject, pipelineNames);
+
+        var adapter = ctx.RequestServices.GetRequiredService<SlackAdapter>();
+        await adapter.UpdateViewAsync(viewId, updatedView, ctx.RequestAborted);
+
+        logger.LogInformation("Stored selected project {Project} in modal {ViewId}", selectedProject, viewId);
 
         return Results.Ok();
     }
@@ -334,12 +370,32 @@ internal static class WebApplicationExtensions
 
     private static string? ExtractSelectedProjectFromOptionsPayload(JsonNode json)
     {
-        // In options payload, the view state is accessible via view.state.values
-        return json["view"]?["state"]?["values"]
-            ?[DispatcherDefaults.SlackBlockProject]
-            ?[DispatcherDefaults.SlackActionProject]
-            ?["selected_option"]?["value"]?.GetValue<string>();
+        // external_select values are not in view.state.values for block_suggestion payloads,
+        // so we read the project from private_metadata where we stored it on selection.
+        var metadata = GetMetadata(json);
+        return metadata.SelectedProject;
     }
+
+    private sealed class ModalMetadata
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("channel_id")]
+        public string ChannelId { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("user_id")]
+        public string UserId { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("selected_project")]
+        public string? SelectedProject { get; set; }
+    }
+
+    private static ModalMetadata GetMetadata(JsonNode json)
+    {
+        var raw = json["view"]?["private_metadata"]?.GetValue<string>() ?? "{}";
+        return JsonSerializer.Deserialize<ModalMetadata>(raw) ?? new ModalMetadata();
+    }
+
+    private static string SerializeMetadata(ModalMetadata metadata) =>
+        JsonSerializer.Serialize(metadata);
 
     private static string StripMention(string text)
     {

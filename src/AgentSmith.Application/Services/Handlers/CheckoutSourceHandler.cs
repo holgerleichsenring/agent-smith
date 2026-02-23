@@ -15,7 +15,7 @@ public sealed class CheckoutSourceHandler(
     : ICommandHandler<CheckoutSourceContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        CheckoutSourceContext context, CancellationToken cancellationToken = default)
+        CheckoutSourceContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Checking out branch {Branch}...", context.Branch);
 

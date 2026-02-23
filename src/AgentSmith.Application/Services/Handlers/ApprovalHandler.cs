@@ -14,7 +14,7 @@ public sealed class ApprovalHandler(
     : ICommandHandler<ApprovalContext>
 {
     public Task<CommandResult> ExecuteAsync(
-        ApprovalContext context, CancellationToken cancellationToken = default)
+        ApprovalContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Plan summary: {Summary}", context.Plan.Summary);
         DisplayPlan(context.Plan);

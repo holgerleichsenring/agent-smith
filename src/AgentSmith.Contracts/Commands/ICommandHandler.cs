@@ -9,5 +9,5 @@ namespace AgentSmith.Contracts.Commands;
 /// </summary>
 public interface ICommandHandler<in TContext> where TContext : ICommandContext
 {
-    Task<CommandResult> ExecuteAsync(TContext context, CancellationToken cancellationToken = default);
+    Task<CommandResult> ExecuteAsync(TContext context, CancellationToken cancellationToken);
 }

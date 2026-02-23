@@ -28,6 +28,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ChatIntentParser>();
         services.AddSingleton<MessageBusListener>();
         services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
+        services.AddHostedService<OrphanJobDetector>();
         services.AddAgentSmithInfrastructure();
         services.AddIntentEngine();
         return services;

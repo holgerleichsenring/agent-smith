@@ -42,7 +42,7 @@ public class CommitAndPRHandlerTests
     {
         var context = CreateContext();
 
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("pull/42");
@@ -64,7 +64,7 @@ public class CommitAndPRHandlerTests
             .ThrowsAsync(new Exception("API error"));
 
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("pull/42");
@@ -80,7 +80,7 @@ public class CommitAndPRHandlerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateContext();
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         postedSummary.Should().NotBeNull();
         postedSummary.Should().Contain("README.md");

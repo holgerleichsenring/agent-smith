@@ -14,7 +14,7 @@ public sealed class LoadCodingPrinciplesHandler(
     : ICommandHandler<LoadCodingPrinciplesContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        LoadCodingPrinciplesContext context, CancellationToken cancellationToken = default)
+        LoadCodingPrinciplesContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Loading coding principles from {Path}...", context.FilePath);
 

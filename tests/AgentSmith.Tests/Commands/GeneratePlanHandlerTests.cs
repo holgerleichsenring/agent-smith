@@ -42,7 +42,7 @@ public sealed class GeneratePlanHandlerTests
         var context = new GeneratePlanContext(
             ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<Plan>(ContextKeys.Plan).Should().Be(plan);
@@ -65,7 +65,7 @@ public sealed class GeneratePlanHandlerTests
         var context = new GeneratePlanContext(
             ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
-        var act = async () => await _handler.ExecuteAsync(context);
+        var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>().WithMessage("API error");
     }

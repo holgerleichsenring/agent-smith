@@ -34,7 +34,7 @@ public sealed class LoadContextHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
 
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Loaded project context");
@@ -44,7 +44,7 @@ public sealed class LoadContextHandlerTests : IDisposable
     public async Task ExecuteAsync_FileNotFound_ReturnsOk()
     {
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("No context file found");
@@ -57,7 +57,7 @@ public sealed class LoadContextHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
 
         var context = CreateContext();
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<string>(ContextKeys.ProjectContext, out var stored).Should().BeTrue();
         stored.Should().Be(yaml);
@@ -67,7 +67,7 @@ public sealed class LoadContextHandlerTests : IDisposable
     public async Task ExecuteAsync_FileNotFound_DoesNotSetPipeline()
     {
         var context = CreateContext();
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<string>(ContextKeys.ProjectContext, out _).Should().BeFalse();
     }

@@ -13,14 +13,14 @@ public interface IMessageBus
     /// Publishes a message to the agent's outbound stream (job:{jobId}:out).
     /// Used by: agent container (RedisProgressReporter).
     /// </summary>
-    Task PublishAsync(BusMessage message, CancellationToken cancellationToken = default);
+    Task PublishAsync(BusMessage message, CancellationToken cancellationToken);
 
     /// <summary>
     /// Publishes an answer to the agent's inbound stream (job:{jobId}:in).
     /// Used by: dispatcher when user responds to a question.
     /// </summary>
     Task PublishAnswerAsync(string jobId, string questionId, string content,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Subscribes to all outbound messages from a specific job.
@@ -30,7 +30,7 @@ public interface IMessageBus
     /// (Done or Error message received) or the token is cancelled.
     /// </summary>
     IAsyncEnumerable<BusMessage> SubscribeToJobAsync(string jobId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Reads the next answer for a specific job from the inbound stream.
@@ -39,11 +39,11 @@ public interface IMessageBus
     /// Returns null on timeout.
     /// </summary>
     Task<BusMessage?> ReadAnswerAsync(string jobId, TimeSpan timeout,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes both streams for a job (cleanup after completion).
     /// Called by the dispatcher after receiving Done or Error.
     /// </summary>
-    Task CleanupJobAsync(string jobId, CancellationToken cancellationToken = default);
+    Task CleanupJobAsync(string jobId, CancellationToken cancellationToken);
 }

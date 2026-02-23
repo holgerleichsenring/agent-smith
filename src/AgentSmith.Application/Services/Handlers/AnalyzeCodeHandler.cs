@@ -14,7 +14,7 @@ public sealed class AnalyzeCodeHandler(
     : ICommandHandler<AnalyzeCodeContext>
 {
     public Task<CommandResult> ExecuteAsync(
-        AnalyzeCodeContext context, CancellationToken cancellationToken = default)
+        AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Analyzing code in {Path}...", context.Repository.LocalPath);
 

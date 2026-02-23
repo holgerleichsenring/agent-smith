@@ -15,7 +15,7 @@ public sealed class CommandExecutor(
 {
     public async Task<CommandResult> ExecuteAsync<TContext>(
         TContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
         where TContext : ICommandContext
     {
         var contextName = typeof(TContext).Name;

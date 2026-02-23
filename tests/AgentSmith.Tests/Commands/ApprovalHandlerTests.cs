@@ -22,7 +22,7 @@ public sealed class ApprovalHandlerTests
         pipeline.Set(ContextKeys.Plan, plan);
         var context = new ApprovalContext(plan, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("approved");

@@ -9,13 +9,13 @@ namespace AgentSmith.Dispatcher.Services;
 /// Manages active conversation state in Redis.
 /// Maps a chat channel to its currently running K8s job.
 /// Key schema: conversation:{platform}:{channelId}
-/// TTL: 2 hours (auto-cleanup after job ends or times out).
+/// TTL: 45 minutes (safety net; OrphanJobDetector is primary cleanup).
 /// </summary>
 public sealed class ConversationStateManager(
     IConnectionMultiplexer redis,
     ILogger<ConversationStateManager> logger)
 {
-    private static readonly TimeSpan StateTtl = TimeSpan.FromHours(2);
+    private static readonly TimeSpan StateTtl = TimeSpan.FromMinutes(45);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -26,7 +26,7 @@ public sealed class ConversationStateManager(
     /// Persists a new conversation state for the given channel.
     /// Overwrites any existing state (one active job per channel).
     /// </summary>
-    public async Task SetAsync(ConversationState state, CancellationToken cancellationToken = default)
+    public async Task SetAsync(ConversationState state, CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var key = BuildKey(state.Platform, state.ChannelId);
@@ -44,7 +44,7 @@ public sealed class ConversationStateManager(
     /// Returns null if no active job exists for the channel.
     /// </summary>
     public async Task<ConversationState?> GetAsync(string platform, string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var key = BuildKey(platform, channelId);
@@ -71,7 +71,7 @@ public sealed class ConversationStateManager(
     /// Prefer GetByJobIdIndexAsync if high throughput is needed.
     /// </summary>
     public async Task<ConversationState?> GetByJobIdAsync(string jobId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var indexKey = JobIndexKey(jobId);
@@ -101,7 +101,7 @@ public sealed class ConversationStateManager(
     /// Updates the pending question on an existing conversation state.
     /// </summary>
     public async Task SetPendingQuestionAsync(string platform, string channelId,
-        string questionId, CancellationToken cancellationToken = default)
+        string questionId, CancellationToken cancellationToken)
     {
         var existing = await GetAsync(platform, channelId, cancellationToken);
         if (existing is null)
@@ -118,7 +118,7 @@ public sealed class ConversationStateManager(
     /// Clears the pending question from an existing conversation state.
     /// </summary>
     public async Task ClearPendingQuestionAsync(string platform, string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var existing = await GetAsync(platform, channelId, cancellationToken);
         if (existing is null) return;
@@ -131,7 +131,7 @@ public sealed class ConversationStateManager(
     /// Also removes the job-id index entry.
     /// </summary>
     public async Task RemoveAsync(string platform, string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var existing = await GetAsync(platform, channelId, cancellationToken);
 
@@ -152,11 +152,24 @@ public sealed class ConversationStateManager(
     /// Must be called alongside SetAsync to enable GetByJobIdAsync.
     /// </summary>
     public async Task IndexJobAsync(ConversationState state,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var channelKey = BuildKey(state.Platform, state.ChannelId);
         await db.StringSetAsync(JobIndexKey(state.JobId), channelKey.ToString(), StateTtl);
+    }
+
+    /// <summary>
+    /// Updates LastActivityAt on an existing conversation state.
+    /// Called by MessageBusListener on every incoming message to track liveness.
+    /// </summary>
+    public async Task TouchActivityAsync(string platform, string channelId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await GetAsync(platform, channelId, cancellationToken);
+        if (existing is null) return;
+
+        await SetAsync(existing with { LastActivityAt = DateTimeOffset.UtcNow }, cancellationToken);
     }
 
     // --- Helpers ---
