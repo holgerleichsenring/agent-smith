@@ -19,4 +19,6 @@ public static class ContextKeys
     public const string DetectedProject = "DetectedProject";
     public const string RepoSnapshot = "RepoSnapshot";
     public const string CodeMap = "CodeMap";
+    public const string ProjectContext = "ProjectContext";
+    public const string RunNumber = "RunNumber";
 }

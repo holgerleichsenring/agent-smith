@@ -22,11 +22,13 @@ public sealed class CommandContextFactory : ICommandContextFactory
             "FetchTicketCommand" => CreateFetchTicket(project, pipeline),
             "CheckoutSourceCommand" => CreateCheckoutSource(project, pipeline),
             "LoadCodingPrinciplesCommand" => CreateLoadCodingPrinciples(project, pipeline),
+            "LoadContextCommand" => CreateLoadContext(pipeline),
             "AnalyzeCodeCommand" => CreateAnalyzeCode(pipeline),
             "GeneratePlanCommand" => CreateGeneratePlan(project, pipeline),
             "ApprovalCommand" => CreateApproval(pipeline),
             "AgenticExecuteCommand" => CreateAgenticExecute(project, pipeline),
             "TestCommand" => CreateTest(pipeline),
+            "WriteRunResultCommand" => CreateWriteRunResult(pipeline),
             "CommitAndPRCommand" => CreateCommitAndPR(project, pipeline),
             "BootstrapProjectCommand" => CreateBootstrapProject(pipeline),
             "LoadCodeMapCommand" => CreateLoadCodeMap(pipeline),
@@ -53,8 +55,14 @@ public sealed class CommandContextFactory : ICommandContextFactory
     private static LoadCodingPrinciplesContext CreateLoadCodingPrinciples(
         ProjectConfig project, PipelineContext pipeline)
     {
-        var path = project.CodingPrinciplesPath ?? "config/coding-principles.md";
+        var path = project.CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
         return new LoadCodingPrinciplesContext(path, pipeline);
+    }
+
+    private static LoadContextContext CreateLoadContext(PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new LoadContextContext(repo, pipeline);
     }
 
     private static AnalyzeCodeContext CreateAnalyzeCode(PipelineContext pipeline)
@@ -70,7 +78,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
-        return new GeneratePlanContext(ticket, analysis, principles, project.Agent, pipeline, codeMap);
+        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
+        return new GeneratePlanContext(ticket, analysis, principles, project.Agent, pipeline, codeMap, projectContext);
     }
 
     private static ApprovalContext CreateApproval(PipelineContext pipeline)
@@ -86,7 +95,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
-        return new AgenticExecuteContext(plan, repo, principles, project.Agent, pipeline, codeMap);
+        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
+        return new AgenticExecuteContext(plan, repo, principles, project.Agent, pipeline, codeMap, projectContext);
     }
 
     private static TestContext CreateTest(PipelineContext pipeline)
@@ -94,6 +104,15 @@ public sealed class CommandContextFactory : ICommandContextFactory
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         return new TestContext(repo, changes, pipeline);
+    }
+
+    private static WriteRunResultContext CreateWriteRunResult(PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var plan = pipeline.Get<Plan>(ContextKeys.Plan);
+        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
+        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
+        return new WriteRunResultContext(repo, plan, ticket, changes, pipeline);
     }
 
     private static CommitAndPRContext CreateCommitAndPR(

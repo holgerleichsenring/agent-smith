@@ -104,19 +104,23 @@ projects:
           output_per_million: 0.60
 
     pipeline: fix-bug
-    coding_principles_path: ./config/coding-principles.md
+    coding_principles_path: .agentsmith/coding-principles.md
 
 pipelines:
   fix-bug:
     commands:
       - FetchTicketCommand
       - CheckoutSourceCommand
+      - BootstrapProjectCommand
+      - LoadCodeMapCommand
       - LoadCodingPrinciplesCommand
+      - LoadContextCommand
       - AnalyzeCodeCommand
       - GeneratePlanCommand
       - ApprovalCommand
       - AgenticExecuteCommand
       - TestCommand
+      - WriteRunResultCommand
       - CommitAndPRCommand
 
 secrets:
