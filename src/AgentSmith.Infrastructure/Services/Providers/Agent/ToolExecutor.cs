@@ -201,7 +201,7 @@ public sealed class ToolExecutor(
 
     private void ReportDetail(string text)
     {
-        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        try { progressReporter?.ReportDetailAsync(text, CancellationToken.None).GetAwaiter().GetResult(); }
         catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 

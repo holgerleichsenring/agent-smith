@@ -46,7 +46,7 @@ public class ProcessTicketUseCaseTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CommandResult.Ok("Done"));
 
-        var result = await _sut.ExecuteAsync("fix #123 in todo-list", "config.yml");
+        var result = await _sut.ExecuteAsync("fix #123 in todo-list", "config.yml", false, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         _pipelineMock.Verify(p => p.ExecuteAsync(
@@ -57,6 +57,62 @@ public class ProcessTicketUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_SuccessfulPipeline_IncludesPrUrl()
+    {
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
+            Pipelines = { ["fix-bug"] = new PipelineConfig { Commands = { "CommitAndPRCommand" } } }
+        };
+
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync("fix #1 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("1"), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(),
+                It.IsAny<ProjectConfig>(),
+                It.IsAny<PipelineContext>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((IReadOnlyList<string> _, ProjectConfig _, PipelineContext ctx, CancellationToken _) =>
+            {
+                ctx.Set(ContextKeys.PullRequestUrl, "https://github.com/org/repo/pull/42");
+                return Task.FromResult(CommandResult.Ok("Done"));
+            });
+
+        var result = await _sut.ExecuteAsync("fix #1 in todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.PrUrl.Should().Be("https://github.com/org/repo/pull/42");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InitMode_IncludesPrUrl()
+    {
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
+            Pipelines = { ["init-project"] = new PipelineConfig { Commands = { "InitCommitCommand" } } }
+        };
+
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(),
+                It.IsAny<ProjectConfig>(),
+                It.IsAny<PipelineContext>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((IReadOnlyList<string> _, ProjectConfig _, PipelineContext ctx, CancellationToken _) =>
+            {
+                ctx.Set(ContextKeys.PullRequestUrl, "https://github.com/org/repo/pull/99");
+                return Task.FromResult(CommandResult.Ok("Initialized"));
+            });
+
+        var result = await _sut.ExecuteAsync("init todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.PrUrl.Should().Be("https://github.com/org/repo/pull/99");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_UnknownProject_ThrowsConfigurationException()
     {
         var config = new AgentSmithConfig();
@@ -64,7 +120,7 @@ public class ProcessTicketUseCaseTests
         _intentMock.Setup(i => i.ParseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ParsedIntent(new TicketId("1"), new ProjectName("unknown")));
 
-        var act = () => _sut.ExecuteAsync("fix #1 in unknown", "config.yml");
+        var act = () => _sut.ExecuteAsync("fix #1 in unknown", "config.yml", false, null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
             .WithMessage("*Project 'unknown' not found*");
@@ -81,7 +137,7 @@ public class ProcessTicketUseCaseTests
         _intentMock.Setup(i => i.ParseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ParsedIntent(new TicketId("1"), new ProjectName("myproject")));
 
-        var act = () => _sut.ExecuteAsync("fix #1 in myproject", "config.yml");
+        var act = () => _sut.ExecuteAsync("fix #1 in myproject", "config.yml", false, null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
             .WithMessage("*Pipeline 'nonexistent' not found*");

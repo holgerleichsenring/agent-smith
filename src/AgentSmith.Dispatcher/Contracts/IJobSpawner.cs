@@ -13,5 +13,5 @@ public interface IJobSpawner
     /// Spawns an ephemeral agent job for the given request.
     /// Returns the jobId that can be used to track progress via Redis Streams.
     /// </summary>
-    Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken = default);
+    Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken);
 }

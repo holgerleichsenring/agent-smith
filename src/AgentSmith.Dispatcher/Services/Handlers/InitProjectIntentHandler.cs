@@ -16,7 +16,7 @@ public sealed class InitProjectIntentHandler(
     MessageBusListener listener,
     ILogger<InitProjectIntentHandler> logger)
 {
-    public async Task HandleAsync(InitProjectIntent intent, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(InitProjectIntent intent, CancellationToken cancellationToken)
     {
         var existing = await stateManager.GetAsync(intent.Platform, intent.ChannelId, cancellationToken);
         if (existing is not null)
@@ -31,7 +31,7 @@ public sealed class InitProjectIntentHandler(
 
         await adapter.SendMessageAsync(
             intent.ChannelId,
-            $":gear: Starting project initialization for *{intent.Project}*...",
+            $"Starting project initialization for *{intent.Project}*...",
             cancellationToken);
 
         var request = new JobRequest
@@ -54,12 +54,13 @@ public sealed class InitProjectIntentHandler(
             Platform = intent.Platform,
             Project = intent.Project,
             TicketId = 0,
-            StartedAt = DateTimeOffset.UtcNow
+            StartedAt = DateTimeOffset.UtcNow,
+            LastActivityAt = DateTimeOffset.UtcNow
         };
 
         await stateManager.SetAsync(state, cancellationToken);
         await stateManager.IndexJobAsync(state, cancellationToken);
-        await listener.TrackJobAsync(jobId);
+        await listener.TrackJobAsync(jobId, cancellationToken);
 
         logger.LogInformation(
             "Job {JobId} spawned for init-project in {Project} (channel={ChannelId})",

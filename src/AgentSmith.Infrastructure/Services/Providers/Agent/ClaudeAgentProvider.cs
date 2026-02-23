@@ -31,9 +31,9 @@ public sealed class ClaudeAgentProvider(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
-        string? codeMap = null,
-        string? projectContext = null,
-        CancellationToken cancellationToken = default)
+        string? codeMap,
+        string? projectContext,
+        CancellationToken cancellationToken)
     {
         using var client = CreateResilientClient();
 
@@ -69,10 +69,10 @@ public sealed class ClaudeAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
-        string? codeMap = null,
-        string? projectContext = null,
-        IProgressReporter? progressReporter = null,
-        CancellationToken cancellationToken = default)
+        string? codeMap,
+        string? projectContext,
+        IProgressReporter progressReporter,
+        CancellationToken cancellationToken)
     {
         using var client = CreateResilientClient();
 
@@ -93,7 +93,7 @@ public sealed class ClaudeAgentProvider(
         var compactor = CreateCompactor(tracker, costTracker);
         var loop = new AgenticLoop(
             client, primaryModel.Model, toolExecutor, logger,
-            cacheConfig, tracker, compactionConfig, compactor, progressReporter);
+            cacheConfig, tracker, compactionConfig, compactor, progressReporter, 25);
 
         var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(
@@ -131,7 +131,7 @@ public sealed class ClaudeAgentProvider(
         costTracker?.SetPhaseModel("scout", scoutModel.Model);
 
         logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
-        ReportDetail(progressReporter, "\ud83d\udd0d Scout: analyzing codebase...");
+        ReportDetail(progressReporter, "\ud83d\udd0d Scout: analyzing codebase...", cancellationToken);
 
         using var scoutClient = CreateResilientClient();
         var scout = new ScoutAgent(
@@ -139,14 +139,14 @@ public sealed class ClaudeAgentProvider(
         var result = await scout.DiscoverAsync(plan, repositoryPath, cancellationToken);
 
         ReportDetail(progressReporter,
-            $"\ud83d\udd0d Scout: found {result.RelevantFiles.Count} relevant files");
+            $"\ud83d\udd0d Scout: found {result.RelevantFiles.Count} relevant files", cancellationToken);
 
         return result;
     }
 
-    private void ReportDetail(IProgressReporter? reporter, string text)
+    private void ReportDetail(IProgressReporter? reporter, string text, CancellationToken cancellationToken)
     {
-        try { reporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        try { reporter?.ReportDetailAsync(text, cancellationToken).GetAwaiter().GetResult(); }
         catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 

@@ -10,28 +10,28 @@ public interface IProgressReporter
     /// Reports the current pipeline step progress.
     /// </summary>
     Task ReportProgressAsync(int step, int total, string commandName,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Asks the user a yes/no question and waits for an answer.
     /// Returns true for yes, false for no.
     /// In headless mode, implementations should return the default value.
     /// </summary>
-    Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer = true,
-        CancellationToken cancellationToken = default);
+    Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reports successful pipeline completion with an optional PR URL.
+    /// Reports successful pipeline completion.
     /// </summary>
-    Task ReportDoneAsync(string summary, string? prUrl = null,
-        CancellationToken cancellationToken = default);
+    Task ReportDoneAsync(string summary, string? prUrl,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reports a pipeline error with optional step context.
+    /// Reports a pipeline error with step context.
     /// </summary>
     Task ReportErrorAsync(string text,
-        int step = 0, int total = 0, string stepName = "",
-        CancellationToken cancellationToken = default);
+        int step, int total, string stepName,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Reports a fine-grained detail event during agentic execution.
@@ -39,5 +39,5 @@ public interface IProgressReporter
     /// In CLI mode, logged at Debug level (visible with --verbose).
     /// </summary>
     Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

@@ -86,7 +86,7 @@ public sealed class SlackModalSubmissionHandlerTests
 
         var payload = BuildPayload("fix_ticket", "my-project", ticketId: "42");
 
-        await _sut.HandleAsync(payload);
+        await _sut.HandleAsync(payload, CancellationToken.None);
 
         _spawner.Verify(s => s.SpawnAsync(
             It.Is<JobRequest>(r => r.InputCommand.Contains("#42") && r.Project == "my-project"),
@@ -103,7 +103,7 @@ public sealed class SlackModalSubmissionHandlerTests
         var payload = BuildPayload("fix_ticket", "my-project",
             ticketId: "42", pipeline: "fix-no-test");
 
-        await _sut.HandleAsync(payload);
+        await _sut.HandleAsync(payload, CancellationToken.None);
 
         _spawner.Verify(s => s.SpawnAsync(
             It.Is<JobRequest>(r => r.PipelineOverride == "fix-no-test"),
@@ -115,7 +115,7 @@ public sealed class SlackModalSubmissionHandlerTests
     {
         var payload = BuildPayload("fix_ticket", project: null, ticketId: "42");
 
-        await _sut.HandleAsync(payload);
+        await _sut.HandleAsync(payload, CancellationToken.None);
 
         _adapter.Verify(a => a.SendMessageAsync(
             "C123",
@@ -128,7 +128,7 @@ public sealed class SlackModalSubmissionHandlerTests
     {
         var payload = BuildPayload("unknown_command", "my-project");
 
-        await _sut.HandleAsync(payload);
+        await _sut.HandleAsync(payload, CancellationToken.None);
 
         _adapter.Verify(a => a.SendMessageAsync(
             "C123",
@@ -141,7 +141,7 @@ public sealed class SlackModalSubmissionHandlerTests
     {
         var payload = BuildPayload("fix_ticket", "my-project");
 
-        await _sut.HandleAsync(payload);
+        await _sut.HandleAsync(payload, CancellationToken.None);
 
         _adapter.Verify(a => a.SendMessageAsync(
             "C123",
@@ -161,7 +161,7 @@ public sealed class SlackModalSubmissionHandlerTests
             }
         };
 
-        var act = async () => await _sut.HandleAsync(payload);
+        var act = async () => await _sut.HandleAsync(payload, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
     }

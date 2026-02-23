@@ -4,6 +4,7 @@
 services:
   agentsmith:
     build: .
+    image: agentsmith:latest
     restart: "no"
     stdin_open: false
     env_file:
@@ -31,11 +32,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     ports:
-      - "${WEBHOOK_PORT:-8080}:8080"
+      - "${WEBHOOK_PORT:-8081}:8081"
     volumes:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
-    command: ["--server", "--port", "8080"]
+    command: ["--server", "--port", "8081"]
 
   redis:
     image: redis:7-alpine
@@ -74,19 +75,19 @@ services:
       - SPAWNER_TYPE=docker
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
-      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_URLS=http://+:8081
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
       - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith:latest}
       - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
       - K8S_SECRET_NAME=${K8S_SECRET_NAME:-agentsmith-secrets}
     ports:
-      - "${DISPATCHER_PORT:-6000}:8080"
+      - "${DISPATCHER_PORT:-6000}:8081"
     volumes:
       - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 5s
       retries: 3

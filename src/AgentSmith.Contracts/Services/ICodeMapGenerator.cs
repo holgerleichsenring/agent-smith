@@ -11,5 +11,5 @@ public interface ICodeMapGenerator
     Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

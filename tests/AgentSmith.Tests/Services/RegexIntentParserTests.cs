@@ -19,7 +19,7 @@ public class RegexIntentParserTests
     public async Task ParseAsync_ValidInput_ReturnsCorrectIntent(
         string input, string expectedTicketId, string expectedProject)
     {
-        var result = await _sut.ParseAsync(input);
+        var result = await _sut.ParseAsync(input, CancellationToken.None);
 
         result.TicketId.Value.Should().Be(expectedTicketId);
         result.ProjectName.Value.Should().Be(expectedProject);
@@ -30,7 +30,7 @@ public class RegexIntentParserTests
     [InlineData("just some random text")]
     public async Task ParseAsync_NoTicketId_ThrowsConfigurationException(string input)
     {
-        var act = () => _sut.ParseAsync(input);
+        var act = () => _sut.ParseAsync(input, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>();
     }
@@ -38,7 +38,7 @@ public class RegexIntentParserTests
     [Fact]
     public async Task ParseAsync_OnlyNumber_ThrowsConfigurationException()
     {
-        var act = () => _sut.ParseAsync("#123");
+        var act = () => _sut.ParseAsync("#123", CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
             .WithMessage("*project name*");
@@ -47,7 +47,7 @@ public class RegexIntentParserTests
     [Fact]
     public async Task ParseAsync_EmptyInput_ThrowsArgumentException()
     {
-        var act = () => _sut.ParseAsync("");
+        var act = () => _sut.ParseAsync("", CancellationToken.None);
 
         await act.Should().ThrowAsync<ArgumentException>();
     }

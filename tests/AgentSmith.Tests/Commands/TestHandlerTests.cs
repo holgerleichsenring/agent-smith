@@ -26,7 +26,7 @@ public sealed class TestHandlerTests
             var pipeline = new PipelineContext();
             var context = new TestContext(repo, new List<CodeChange>(), pipeline);
 
-            var result = await _handler.ExecuteAsync(context);
+            var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
             result.IsSuccess.Should().BeTrue();
             result.Message.Should().Contain("No test framework detected");

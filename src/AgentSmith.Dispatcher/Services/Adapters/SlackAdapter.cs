@@ -45,18 +45,17 @@ public sealed class SlackAdapter(
     public string Platform => "slack";
 
     public async Task SendMessageAsync(string channelId, string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var payload = new { channel = channelId, text };
         await PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task SendProgressAsync(string channelId, int step, int total, string commandName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        var emoji = StepEmojis.GetValueOrDefault(commandName, ":gear:");
         var bar = BuildProgressBar(step, total);
-        var text = $"{emoji} *[{step}/{total}]* {commandName}\n{bar}";
+        var text = $"*[{step}/{total}]* {commandName}\n{bar}";
 
         if (_progressMessageTs.TryGetValue(channelId, out var existingTs))
         {
@@ -78,7 +77,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task<string> AskQuestionAsync(string channelId, string questionId, string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -123,7 +122,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task SendDoneAsync(string channelId, string summary, string? prUrl,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         // Remove progress message tracking for this channel
         _progressMessageTs.TryRemove(channelId, out _);
@@ -137,7 +136,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task SendErrorAsync(string channelId, ErrorContext errorContext,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         _progressMessageTs.TryRemove(channelId, out _);
 
@@ -147,7 +146,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
-        string questionText, string answer, CancellationToken cancellationToken = default)
+        string questionText, string answer, CancellationToken cancellationToken)
     {
         var emoji = answer.Equals("yes", StringComparison.OrdinalIgnoreCase)
             ? ":white_check_mark:"
@@ -176,7 +175,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task SendDetailAsync(string channelId, string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         if (!_progressMessageTs.TryGetValue(channelId, out var threadTs))
         {
@@ -189,7 +188,7 @@ public sealed class SlackAdapter(
     }
 
     public async Task SendClarificationAsync(string channelId, string suggestion,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -234,14 +233,14 @@ public sealed class SlackAdapter(
     // --- Modal helpers ---
 
     internal async Task<JsonNode?> OpenViewAsync(
-        string triggerId, object view, CancellationToken ct = default)
+        string triggerId, object view, CancellationToken ct)
     {
         var payload = new { trigger_id = triggerId, view };
         return await PostAsync("views.open", payload, ct);
     }
 
     internal async Task<JsonNode?> UpdateViewAsync(
-        string viewId, object view, CancellationToken ct = default)
+        string viewId, object view, CancellationToken ct)
     {
         var payload = new { view_id = viewId, view };
         return await PostAsync("views.update", payload, ct);

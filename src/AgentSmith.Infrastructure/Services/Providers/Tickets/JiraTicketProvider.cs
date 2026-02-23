@@ -40,7 +40,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     }
 
     public async Task<Ticket> GetTicketAsync(
-        TicketId ticketId, CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=summary,description,status";
         var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -79,7 +79,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     }
 
     public async Task UpdateStatusAsync(
-        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+        TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}/comment";
 
@@ -113,7 +113,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     }
 
     public async Task CloseTicketAsync(
-        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+        TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         // Post the resolution as a comment first.
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);

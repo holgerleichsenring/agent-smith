@@ -29,7 +29,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     }
 
     public async Task<Ticket> GetTicketAsync(
-        TicketId ticketId, CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
 
@@ -56,7 +56,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     }
 
     public async Task UpdateStatusAsync(
-        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+        TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}/notes";
 
@@ -69,7 +69,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     }
 
     public async Task CloseTicketAsync(
-        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+        TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         // Post the resolution as a note first.
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);

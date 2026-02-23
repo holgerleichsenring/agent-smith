@@ -23,14 +23,14 @@ public sealed class MessageBusListener(
     private readonly Dictionary<string, IPlatformAdapter> _adapters =
         adapters.ToDictionary(a => a.Platform, StringComparer.OrdinalIgnoreCase);
 
-    private readonly Dictionary<string, Task> _activeSubscriptions = new();
+    private readonly Dictionary<string, (Task Task, CancellationTokenSource Cts)> _activeSubscriptions = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     /// <summary>
     /// Registers a new job subscription after it has been spawned.
     /// Called by the dispatcher endpoint after JobSpawner.SpawnAsync succeeds.
     /// </summary>
-    public async Task TrackJobAsync(string jobId, CancellationToken cancellationToken = default)
+    public async Task TrackJobAsync(string jobId, CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
@@ -41,11 +41,49 @@ public sealed class MessageBusListener(
                 return;
             }
 
-            var subscriptionTask = SubscribeToJobAsync(jobId, cancellationToken);
-            _activeSubscriptions[jobId] = subscriptionTask;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var subscriptionTask = SubscribeToJobAsync(jobId, cts.Token);
+            _activeSubscriptions[jobId] = (subscriptionTask, cts);
 
             logger.LogInformation("Started tracking job {JobId} ({Active} active jobs)",
                 jobId, _activeSubscriptions.Count);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Returns the IDs of all currently tracked jobs.
+    /// Used by OrphanJobDetector to check for stale subscriptions.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetTrackedJobIdsAsync(CancellationToken cancellationToken)
+    {
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            return _activeSubscriptions.Keys.ToList();
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Cancels the subscription for a specific job (e.g. when orphan detected).
+    /// </summary>
+    public async Task CancelJobAsync(string jobId, CancellationToken cancellationToken)
+    {
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_activeSubscriptions.TryGetValue(jobId, out var entry))
+            {
+                await entry.Cts.CancelAsync();
+                logger.LogInformation("Cancelled subscription for orphaned job {JobId}", jobId);
+            }
         }
         finally
         {
@@ -84,7 +122,7 @@ public sealed class MessageBusListener(
         }
         finally
         {
-            await CleanupJobAsync(jobId, cancellationToken);
+            await CleanupJobAsync(jobId);
         }
     }
 
@@ -96,6 +134,9 @@ public sealed class MessageBusListener(
             logger.LogWarning("Received message for unknown job {JobId}, ignoring", message.JobId);
             return;
         }
+
+        // Update last activity timestamp for orphan detection
+        await stateManager.TouchActivityAsync(state.Platform, state.ChannelId, cancellationToken);
 
         if (!_adapters.TryGetValue(state.Platform, out var adapter))
         {
@@ -207,15 +248,21 @@ public sealed class MessageBusListener(
             TotalSteps: message.Total ?? 0,
             StepName: message.StepName ?? string.Empty,
             RawError: message.Text,
-            FriendlyError: ErrorFormatter.Humanize(message.Text));
+            FriendlyError: ErrorFormatter.Humanize(message.Text),
+            LogUrl: null);
     }
 
-    private async Task CleanupJobAsync(string jobId, CancellationToken cancellationToken)
+    private async Task CleanupJobAsync(string jobId)
     {
-        await _lock.WaitAsync(cancellationToken);
+        await _lock.WaitAsync();
         try
         {
-            _activeSubscriptions.Remove(jobId);
+            if (_activeSubscriptions.TryGetValue(jobId, out var entry))
+            {
+                entry.Cts.Dispose();
+                _activeSubscriptions.Remove(jobId);
+            }
+
             logger.LogDebug(
                 "Removed subscription for job {JobId} ({Active} remaining)",
                 jobId, _activeSubscriptions.Count);
@@ -232,12 +279,18 @@ public sealed class MessageBusListener(
         try
         {
             var completed = _activeSubscriptions
-                .Where(kvp => kvp.Value.IsCompleted)
+                .Where(kvp => kvp.Value.Task.IsCompleted)
                 .Select(kvp => kvp.Key)
                 .ToList();
 
             foreach (var jobId in completed)
-                _activeSubscriptions.Remove(jobId);
+            {
+                if (_activeSubscriptions.TryGetValue(jobId, out var entry))
+                {
+                    entry.Cts.Dispose();
+                    _activeSubscriptions.Remove(jobId);
+                }
+            }
 
             if (completed.Count > 0)
                 logger.LogDebug("Cleaned up {Count} completed job subscriptions", completed.Count);

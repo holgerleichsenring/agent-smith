@@ -18,7 +18,7 @@ public sealed class RedisProgressReporter(
     private static readonly TimeSpan AnswerTimeout = TimeSpan.FromMinutes(5);
 
     public async Task ReportProgressAsync(int step, int total, string commandName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var message = BusMessage.Progress(jobId, step, total, commandName);
         await messageBus.PublishAsync(message, cancellationToken);
@@ -26,8 +26,8 @@ public sealed class RedisProgressReporter(
         logger.LogDebug("Published progress {Step}/{Total} for job {JobId}", step, total, jobId);
     }
 
-    public async Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer = true,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> AskYesNoAsync(string questionId, string text, bool defaultAnswer,
+        CancellationToken cancellationToken)
     {
         var question = BusMessage.Question(jobId, questionId, text);
         await messageBus.PublishAsync(question, cancellationToken);
@@ -61,8 +61,8 @@ public sealed class RedisProgressReporter(
         return result;
     }
 
-    public async Task ReportDoneAsync(string summary, string? prUrl = null,
-        CancellationToken cancellationToken = default)
+    public async Task ReportDoneAsync(string summary, string? prUrl,
+        CancellationToken cancellationToken)
     {
         var message = BusMessage.Done(jobId, prUrl, summary);
         await messageBus.PublishAsync(message, cancellationToken);
@@ -71,8 +71,8 @@ public sealed class RedisProgressReporter(
     }
 
     public async Task ReportErrorAsync(string text,
-        int step = 0, int total = 0, string stepName = "",
-        CancellationToken cancellationToken = default)
+        int step, int total, string stepName,
+        CancellationToken cancellationToken)
     {
         var message = BusMessage.Error(jobId, text, step, total, stepName);
         await messageBus.PublishAsync(message, cancellationToken);
@@ -81,7 +81,7 @@ public sealed class RedisProgressReporter(
     }
 
     public async Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var message = BusMessage.Detail(jobId, text);
         await messageBus.PublishAsync(message, cancellationToken);

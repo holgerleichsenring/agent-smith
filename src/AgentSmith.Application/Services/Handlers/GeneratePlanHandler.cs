@@ -15,7 +15,7 @@ public sealed class GeneratePlanHandler(
     : ICommandHandler<GeneratePlanContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        GeneratePlanContext context, CancellationToken cancellationToken = default)
+        GeneratePlanContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
 

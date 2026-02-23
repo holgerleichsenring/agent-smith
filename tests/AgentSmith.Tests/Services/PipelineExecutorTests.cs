@@ -49,7 +49,7 @@ public class PipelineExecutorTests
         // Let's test with empty pipeline instead.
 
         var emptyCommands = Array.Empty<string>();
-        var result = await _sut.ExecuteAsync(emptyCommands, project, pipeline);
+        var result = await _sut.ExecuteAsync(emptyCommands, project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Pipeline completed");
@@ -61,7 +61,7 @@ public class PipelineExecutorTests
         var result = await _sut.ExecuteAsync(
             Array.Empty<string>(),
             new ProjectConfig(),
-            new PipelineContext());
+            new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -76,7 +76,7 @@ public class PipelineExecutorTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
-        await _sut.ExecuteAsync(Array.Empty<string>(), new ProjectConfig(), pipeline);
+        await _sut.ExecuteAsync(Array.Empty<string>(), new ProjectConfig(), pipeline, CancellationToken.None);
 
         ticketProviderMock.Verify(t => t.UpdateStatusAsync(
             It.Is<TicketId>(id => id.Value == "42"),
@@ -94,7 +94,7 @@ public class PipelineExecutorTests
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
         var result = await _sut.ExecuteAsync(
-            Array.Empty<string>(), new ProjectConfig(), pipeline);
+            Array.Empty<string>(), new ProjectConfig(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }

@@ -22,7 +22,7 @@ public sealed class CodingPrinciplesGenerator(
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation(
             "Generating coding-principles.md for {Lang} project at {Path}...",

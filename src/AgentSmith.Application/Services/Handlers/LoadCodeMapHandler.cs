@@ -16,7 +16,7 @@ public sealed class LoadCodeMapHandler(
     private const string CodeMapPath = ".agentsmith/code-map.yaml";
 
     public async Task<CommandResult> ExecuteAsync(
-        LoadCodeMapContext context, CancellationToken cancellationToken = default)
+        LoadCodeMapContext context, CancellationToken cancellationToken)
     {
         var codeMapPath = Path.Combine(context.Repository.LocalPath, CodeMapPath);
 

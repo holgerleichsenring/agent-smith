@@ -26,9 +26,9 @@ public sealed class ProcessTicketUseCase(
     public async Task<CommandResult> ExecuteAsync(
         string userInput,
         string configPath,
-        bool headless = false,
-        string? pipelineOverride = null,
-        CancellationToken cancellationToken = default)
+        bool headless,
+        string? pipelineOverride,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Processing input: {Input}", userInput);
 
@@ -72,6 +72,9 @@ public sealed class ProcessTicketUseCase(
         var result = await pipelineExecutor.ExecuteAsync(
             pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
 
+        if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
+            result = result with { PrUrl = prUrl };
+
         LogResult(result, projectName);
         return result;
     }
@@ -105,6 +108,9 @@ public sealed class ProcessTicketUseCase(
 
         var result = await pipelineExecutor.ExecuteAsync(
             pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
+
+        if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
+            result = result with { PrUrl = prUrl };
 
         LogResult(result, projectName);
         return result;

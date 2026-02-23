@@ -22,7 +22,7 @@ public sealed class KubernetesJobSpawner(
 
     public async Task<string> SpawnAsync(
         JobRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var jobId = Guid.NewGuid().ToString("N")[..12];
         var jobName = $"agentsmith-{jobId}";

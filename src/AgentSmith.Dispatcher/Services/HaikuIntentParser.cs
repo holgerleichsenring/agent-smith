@@ -40,7 +40,7 @@ public sealed class HaikuIntentParser(
 
     public async Task<ChatIntent?> ParseAsync(
         string text, string userId, string channelId, string platform,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         if (client is null) return null;
 

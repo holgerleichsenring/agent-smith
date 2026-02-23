@@ -39,7 +39,7 @@ public sealed class CachedTicketSearchTests : IDisposable
             CreateTicket(58, "Add dark mode")
         ]);
 
-        var result = await _sut.SearchAsync("my-project", null);
+        var result = await _sut.SearchAsync("my-project", null, CancellationToken.None);
 
         result.Should().HaveCount(2);
         ticketProvider.Verify(t => t.ListOpenAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -54,8 +54,8 @@ public sealed class CachedTicketSearchTests : IDisposable
             CreateTicket(42, "Fix login bug")
         ]);
 
-        await _sut.SearchAsync("my-project", null);
-        var result = await _sut.SearchAsync("my-project", null);
+        await _sut.SearchAsync("my-project", null, CancellationToken.None);
+        var result = await _sut.SearchAsync("my-project", null, CancellationToken.None);
 
         result.Should().HaveCount(1);
         ticketProvider.Verify(t => t.ListOpenAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -72,7 +72,7 @@ public sealed class CachedTicketSearchTests : IDisposable
             CreateTicket(99, "Login page redesign")
         ]);
 
-        var result = await _sut.SearchAsync("my-project", "login");
+        var result = await _sut.SearchAsync("my-project", "login", CancellationToken.None);
 
         result.Should().HaveCount(2);
         result.Should().Contain(t => t.Id == 42);
@@ -84,7 +84,7 @@ public sealed class CachedTicketSearchTests : IDisposable
     {
         SetupConfigWithProject("my-project");
 
-        var result = await _sut.SearchAsync("unknown-project", null);
+        var result = await _sut.SearchAsync("unknown-project", null, CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -99,7 +99,7 @@ public sealed class CachedTicketSearchTests : IDisposable
             CreateTicket(58, "Add dark mode")
         ]);
 
-        var result = await _sut.SearchAsync("my-project", "42");
+        var result = await _sut.SearchAsync("my-project", "42", CancellationToken.None);
 
         result.Should().HaveCount(1);
         result[0].Id.Should().Be(42);

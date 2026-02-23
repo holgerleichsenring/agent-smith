@@ -84,7 +84,7 @@ public sealed record BusMessage
 
     public static BusMessage Error(
         string jobId, string text,
-        int step = 0, int total = 0, string stepName = "") => new()
+        int step, int total, string stepName) => new()
     {
         Type = BusMessageType.Error,
         JobId = jobId,

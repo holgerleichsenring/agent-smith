@@ -34,7 +34,7 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
 
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Loaded code map");
@@ -44,7 +44,7 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
     public async Task ExecuteAsync_FileNotFound_ReturnsOk()
     {
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("No code map found");
@@ -57,7 +57,7 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
 
         var context = CreateContext();
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<string>(ContextKeys.CodeMap, out var stored).Should().BeTrue();
         stored.Should().Be(yaml);

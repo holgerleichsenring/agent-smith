@@ -33,7 +33,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var runsDir = Path.Combine(_tempDir, ".agentsmith", "runs");
         Directory.Exists(runsDir).Should().BeTrue();
@@ -46,7 +46,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
         var planFile = Path.Combine(runDir, "plan.md");
@@ -63,7 +63,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
         var resultFile = Path.Combine(runDir, "result.md");
@@ -80,7 +80,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var yaml = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
         yaml.Should().Contain("r01:");
@@ -93,7 +93,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<int>(ContextKeys.RunNumber, out var runNumber).Should().BeTrue();
         runNumber.Should().Be(1);
@@ -105,7 +105,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Fix null reference in checkout");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var yaml = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
         yaml.Should().Contain("fix #42");
@@ -119,7 +119,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         var context = CreateContext("Add dashboard");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var content = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
         content.Should().Contain("r03:");
@@ -134,7 +134,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var runDirs = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"));
         runDirs[0].Should().EndWith("r01-add-login-feature");

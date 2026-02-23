@@ -17,7 +17,7 @@ public sealed class TestHandler(
     private const int TestTimeoutSeconds = 300;
 
     public async Task<CommandResult> ExecuteAsync(
-        TestContext context, CancellationToken cancellationToken = default)
+        TestContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Running tests for {Changes} changes...", context.Changes.Count);
 

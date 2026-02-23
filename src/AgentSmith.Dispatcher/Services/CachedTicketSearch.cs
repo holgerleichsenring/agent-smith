@@ -20,7 +20,7 @@ internal sealed class CachedTicketSearch(
     private const string CacheKeyPrefix = "tickets:";
 
     public async Task<IReadOnlyList<(int Id, string Title)>> SearchAsync(
-        string project, string? query, CancellationToken ct = default)
+        string project, string? query, CancellationToken ct)
     {
         var allTickets = await GetOrLoadTicketsAsync(project, ct);
 

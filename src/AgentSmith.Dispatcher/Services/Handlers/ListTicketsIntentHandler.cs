@@ -20,7 +20,7 @@ public sealed class ListTicketsIntentHandler(
 {
     private const int MaxTicketsDisplayed = 20;
 
-    public async Task HandleAsync(ListTicketsIntent intent, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(ListTicketsIntent intent, CancellationToken cancellationToken)
     {
         try
         {

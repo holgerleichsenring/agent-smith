@@ -9,5 +9,5 @@ namespace AgentSmith.Dispatcher.Contracts;
 public interface IProjectResolver
 {
     Task<ProjectResolverResult> ResolveAsync(
-        string ticketNumber, CancellationToken cancellationToken = default);
+        string ticketNumber, CancellationToken cancellationToken);
 }

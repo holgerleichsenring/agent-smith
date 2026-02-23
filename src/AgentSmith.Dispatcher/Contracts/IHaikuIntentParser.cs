@@ -10,5 +10,5 @@ public interface IHaikuIntentParser
 {
     Task<ChatIntent?> ParseAsync(
         string text, string userId, string channelId, string platform,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 }

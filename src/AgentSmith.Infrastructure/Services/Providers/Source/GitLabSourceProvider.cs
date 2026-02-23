@@ -43,7 +43,7 @@ public sealed class GitLabSourceProvider : ISourceProvider
     }
 
     public Task<Repository> CheckoutAsync(
-        BranchName branch, CancellationToken cancellationToken = default)
+        BranchName branch, CancellationToken cancellationToken)
     {
         var localPath = GetLocalPath();
         EnsureCloned(localPath);
@@ -60,7 +60,7 @@ public sealed class GitLabSourceProvider : ISourceProvider
     }
 
     public Task CommitAndPushAsync(
-        Repository repository, string message, CancellationToken cancellationToken = default)
+        Repository repository, string message, CancellationToken cancellationToken)
     {
         using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
 
@@ -74,7 +74,7 @@ public sealed class GitLabSourceProvider : ISourceProvider
 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
 

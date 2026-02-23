@@ -30,7 +30,7 @@ public sealed class SlackInteractionHandler(
         string questionId,
         string answer,
         JsonNode payload,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         try
         {

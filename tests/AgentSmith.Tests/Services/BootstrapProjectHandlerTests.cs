@@ -56,7 +56,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -80,7 +80,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -111,7 +111,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -132,7 +132,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         context.Pipeline.TryGet<DetectedProject>(ContextKeys.DetectedProject, out var stored).Should().BeTrue();
@@ -155,7 +155,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         File.Exists(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml")).Should().BeTrue();
@@ -177,7 +177,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        await _sut.ExecuteAsync(context);
+        await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         _codeMapGenerator.Verify(
@@ -201,7 +201,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var context = CreateContext();
 
         // Act
-        var result = await _sut.ExecuteAsync(context);
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();

@@ -18,7 +18,7 @@ public sealed class AgenticExecuteHandler(
     : ICommandHandler<AgenticExecuteContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        AgenticExecuteContext context, CancellationToken cancellationToken = default)
+        AgenticExecuteContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
