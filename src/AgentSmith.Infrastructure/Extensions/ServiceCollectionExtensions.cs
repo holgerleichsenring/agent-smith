@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services;
 using AgentSmith.Infrastructure.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -23,16 +24,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<IProjectDetector, ProjectDetector>();
+        services.AddSingleton<IRepoSnapshotCollector, RepoSnapshotCollector>();
         services.AddSingleton<IContextValidator, ContextValidator>();
         services.AddSingleton<IContextGenerator>(sp =>
         {
             var secrets = sp.GetRequiredService<SecretsProvider>();
             var apiKey = secrets.GetOptional("ANTHROPIC_API_KEY") ?? "";
-            var model = new ModelAssignment
-            {
-                Model = "claude-haiku-4-5-20251001",
-                MaxTokens = 2048
-            };
+            var registry = CreateModelRegistry(sp);
+            var model = registry.GetModel(TaskType.ContextGeneration);
             var logger = sp.GetRequiredService<ILogger<ContextGenerator>>();
             return new ContextGenerator(apiKey, new RetryConfig(), model, logger);
         });
@@ -40,14 +39,17 @@ public static class ServiceCollectionExtensions
         {
             var secrets = sp.GetRequiredService<SecretsProvider>();
             var apiKey = secrets.GetOptional("ANTHROPIC_API_KEY") ?? "";
-            var model = new ModelAssignment
-            {
-                Model = "claude-haiku-4-5-20251001",
-                MaxTokens = 4096
-            };
+            var registry = CreateModelRegistry(sp);
+            var model = registry.GetModel(TaskType.CodeMapGeneration);
             var logger = sp.GetRequiredService<ILogger<CodeMapGenerator>>();
             return new CodeMapGenerator(apiKey, new RetryConfig(), model, logger);
         });
         return services;
+    }
+
+    private static ConfigBasedModelRegistry CreateModelRegistry(IServiceProvider sp)
+    {
+        var logger = sp.GetRequiredService<ILogger<ConfigBasedModelRegistry>>();
+        return new ConfigBasedModelRegistry(new ModelRegistryConfig(), logger);
     }
 }

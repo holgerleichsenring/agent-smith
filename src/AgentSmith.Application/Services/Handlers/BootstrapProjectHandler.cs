@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class BootstrapProjectHandler(
     IProjectDetector detector,
+    IRepoSnapshotCollector snapshotCollector,
     IContextGenerator generator,
     IContextValidator validator,
     ICodeMapGenerator codeMapGenerator,
@@ -28,9 +29,11 @@ public sealed class BootstrapProjectHandler(
         var repoPath = context.Repository.LocalPath;
         var contextFilePath = Path.Combine(repoPath, ContextFileName);
 
-        // Always detect project for pipeline context (even if .context.yaml exists)
+        // Always detect project and collect snapshot for pipeline context
         var detected = detector.Detect(repoPath);
+        var snapshot = snapshotCollector.Collect(repoPath, detected);
         context.Pipeline.Set(ContextKeys.DetectedProject, detected);
+        context.Pipeline.Set(ContextKeys.RepoSnapshot, snapshot);
 
         if (File.Exists(contextFilePath))
         {
@@ -43,7 +46,7 @@ public sealed class BootstrapProjectHandler(
             "No {File} found. Generating for {Lang} project...",
             ContextFileName, detected.Language);
 
-        var yaml = await generator.GenerateAsync(detected, repoPath, cancellationToken);
+        var yaml = await generator.GenerateAsync(detected, repoPath, snapshot, cancellationToken);
         var validation = validator.Validate(yaml);
 
         if (!validation.IsValid)

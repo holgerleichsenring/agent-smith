@@ -32,6 +32,7 @@ public sealed class ContextGenerator(
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
+        RepoSnapshot? snapshot = null,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Generating .context.yaml for {Lang} project at {Path}...",
@@ -39,7 +40,7 @@ public sealed class ContextGenerator(
 
         var keyFileContents = ReadKeyFiles(project.KeyFiles, repoPath);
         var directoryTree = GenerateTree(repoPath, MaxTreeDepth);
-        var userPrompt = BuildUserPrompt(project, keyFileContents, directoryTree);
+        var userPrompt = BuildUserPrompt(project, keyFileContents, directoryTree, snapshot);
 
         using var client = CreateClient();
 
@@ -176,7 +177,8 @@ public sealed class ContextGenerator(
     internal static string BuildUserPrompt(
         DetectedProject project,
         string keyFileContents,
-        string directoryTree)
+        string directoryTree,
+        RepoSnapshot? snapshot = null)
     {
         var detectedYaml = $"""
             language: {project.Language}
@@ -197,6 +199,9 @@ public sealed class ContextGenerator(
             """
             : "";
 
+        var snapshotSection = snapshot is not null ? BuildSnapshotSection(snapshot) : "";
+        var qualityTemplate = snapshot is not null ? QualityTemplateExtended : QualityTemplateBasic;
+
         const string emptyObj = "{}";
 
         return $"""
@@ -209,6 +214,7 @@ public sealed class ContextGenerator(
 
             ## Directory Structure
             {directoryTree}
+            {snapshotSection}
 
             ## Template
             Use this exact structure for the output. Fill in what you can determine,
@@ -235,9 +241,7 @@ public sealed class ContextGenerator(
                 - <layer1>
                 - <layer2>
 
-            quality:
-              lang: english-only
-              principles: [<detected-principles>]
+            {qualityTemplate}
 
             state:
               done: {emptyObj}
@@ -248,6 +252,56 @@ public sealed class ContextGenerator(
             Generate the .context.yaml. Return ONLY valid YAML, no explanation.
             """;
     }
+
+    internal static string BuildSnapshotSection(RepoSnapshot snapshot)
+    {
+        var lines = new List<string>();
+
+        if (snapshot.ConfigFileContents.Count > 0)
+        {
+            lines.Add("\n## Config Files (for style and tooling detection)");
+            lines.AddRange(snapshot.ConfigFileContents);
+        }
+
+        if (snapshot.CodeSamples.Count > 0)
+        {
+            lines.Add("\n## Code Samples (for style, architecture, and pattern detection)");
+            lines.AddRange(snapshot.CodeSamples);
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private const string QualityTemplateBasic = """
+            quality:
+              lang: english-only
+              principles: [<detected-principles>]
+            """;
+
+    private const string QualityTemplateExtended = """
+            quality:
+              lang: english-only
+              principles: [<detected-principles>]
+              detected-style:
+                naming: { classes: <PascalCase|camelCase|snake_case>, variables: <camelCase|snake_case>, files: <pattern> }
+                indentation: { type: <spaces|tabs>, size: <n> }
+                formatter: <name-or-none>
+                linter: <name-or-none>
+                pre-commit: <name-or-none>
+              architecture:
+                style: [<DDD|CleanArch|Hexagonal|MVC|Layered|ad-hoc>]
+                patterns: [<CQRS|Repository|MediatR|Factory|Strategy|etc>]
+                layer-discipline: <strict|loose|none>
+                domain-model: <rich|anemic|none>
+                di-approach: <constructor-injection|service-locator|framework-managed|none>
+              methodology:
+                testing: <test-first|test-after|no-tests>
+                test-style: <AAA|GWT|BDD|unclear>
+                coverage-estimate: <high|medium|low|none>
+                ci-enforced: <true|false>
+              quality-score: <high|medium|low>
+              recommendation: <follow-existing|suggest-improvements>
+            """;
 
     private AnthropicClient CreateClient()
     {

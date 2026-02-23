@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Services;
 public class BootstrapProjectHandlerTests : IDisposable
 {
     private readonly Mock<IProjectDetector> _detector = new();
+    private readonly Mock<IRepoSnapshotCollector> _snapshotCollector = new();
     private readonly Mock<IContextGenerator> _generator = new();
     private readonly Mock<IContextValidator> _validator = new();
     private readonly Mock<ICodeMapGenerator> _codeMapGenerator = new();
@@ -24,6 +25,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     {
         _sut = new BootstrapProjectHandler(
             _detector.Object,
+            _snapshotCollector.Object,
             _generator.Object,
             _validator.Object,
             _codeMapGenerator.Object,
@@ -56,7 +58,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Existing");
-        _generator.Verify(g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _generator.Verify(g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -67,7 +69,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
 
         var yaml = "meta:\n  project: test\nstack:\n  runtime: Node.js\n  lang: TypeScript\narch:\n  style: [Layered]\n  layers: [src]\nquality:\n  lang: english-only\nstate:\n  done: {}\n  active: {}";
-        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<CancellationToken>()))
+        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(yaml);
         _validator.Setup(v => v.Validate(yaml))
             .Returns(ContextValidationResult.Success());
@@ -93,7 +95,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var goodYaml = "meta:\n  project: test\nstack:\n  runtime: Python\n  lang: Python\narch:\n  style: [Layered]\n  layers: [src]\nquality:\n  lang: english-only\nstate:\n  done: {}\n  active: {}";
         var errors = new List<string> { "Missing section: meta" };
 
-        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<CancellationToken>()))
+        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(badYaml);
         _generator.Setup(g => g.RetryWithErrorsAsync(detected, _tempDir, badYaml, errors, It.IsAny<CancellationToken>()))
             .ReturnsAsync(goodYaml);
