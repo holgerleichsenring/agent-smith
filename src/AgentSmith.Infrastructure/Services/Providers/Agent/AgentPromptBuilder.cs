@@ -9,14 +9,16 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// </summary>
 public static class AgentPromptBuilder
 {
-    public static string BuildPlanSystemPrompt(string codingPrinciples, string? codeMap = null)
+    public static string BuildPlanSystemPrompt(
+        string codingPrinciples, string? codeMap = null, string? projectContext = null)
     {
+        var projectContextSection = BuildProjectContextSection(projectContext);
         var codeMapSection = BuildCodeMapSection(codeMap);
 
         return $$"""
             You are a senior software engineer. Analyze the following ticket and codebase,
             then create a detailed implementation plan.
-
+            {{projectContextSection}}
             ## Coding Principles
             {{codingPrinciples}}
             {{codeMapSection}}
@@ -56,11 +58,14 @@ public static class AgentPromptBuilder
             """;
     }
 
-    public static string BuildExecutionSystemPrompt(string codingPrinciples, string? codeMap = null)
+    public static string BuildExecutionSystemPrompt(
+        string codingPrinciples, string? codeMap = null, string? projectContext = null)
     {
+        var projectContextSection = BuildProjectContextSection(projectContext);
         var codeMapSection = BuildCodeMapSection(codeMap);
 
         return $"""
+            {projectContextSection}
             ## Coding Principles
             {codingPrinciples}
             {codeMapSection}
@@ -78,6 +83,22 @@ public static class AgentPromptBuilder
             - NEVER run interactive commands that require user input.
             - Before each tool call, briefly state what you are doing and why (e.g. "Reading Program.cs to understand the current endpoint structure").
             - When done, stop calling tools and summarize what you did.
+            """;
+    }
+
+    internal static string BuildProjectContextSection(string? projectContext)
+    {
+        if (string.IsNullOrWhiteSpace(projectContext))
+            return "";
+
+        return $"""
+
+            ## Project Context
+            This describes the project's identity, architecture, and recent history.
+            ```yaml
+            {projectContext}
+            ```
+
             """;
     }
 

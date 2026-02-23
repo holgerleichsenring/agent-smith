@@ -22,7 +22,7 @@ public sealed class GeneratePlanHandler(
         var provider = factory.Create(context.AgentConfig);
         var plan = await provider.GeneratePlanAsync(
             context.Ticket, context.CodeAnalysis, context.CodingPrinciples,
-            context.CodeMap, cancellationToken);
+            context.CodeMap, context.ProjectContext, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.Plan, plan);
 

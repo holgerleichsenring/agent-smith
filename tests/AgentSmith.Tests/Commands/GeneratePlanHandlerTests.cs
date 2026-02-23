@@ -31,7 +31,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -54,7 +54,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);

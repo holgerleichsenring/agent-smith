@@ -18,6 +18,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     private readonly Mock<IContextGenerator> _generator = new();
     private readonly Mock<IContextValidator> _validator = new();
     private readonly Mock<ICodeMapGenerator> _codeMapGenerator = new();
+    private readonly Mock<ICodingPrinciplesGenerator> _codingPrinciplesGenerator = new();
     private readonly BootstrapProjectHandler _sut;
     private readonly string _tempDir;
 
@@ -29,10 +30,12 @@ public class BootstrapProjectHandlerTests : IDisposable
             _generator.Object,
             _validator.Object,
             _codeMapGenerator.Object,
+            _codingPrinciplesGenerator.Object,
             NullLogger<BootstrapProjectHandler>.Instance);
 
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-bootstrap-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
+        Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
     }
 
     public void Dispose()
@@ -45,7 +48,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     public async Task Execute_ExistingContextYaml_SkipsGeneration()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".context.yaml"), "meta: {}");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
@@ -81,7 +84,7 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        File.Exists(Path.Combine(_tempDir, ".context.yaml")).Should().BeTrue();
+        File.Exists(Path.Combine(_tempDir, ".agentsmith", "context.yaml")).Should().BeTrue();
     }
 
     [Fact]
@@ -121,7 +124,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     public async Task Execute_StoresDetectedProjectInPipeline()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".context.yaml"), "meta: {}");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
@@ -140,7 +143,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     public async Task Execute_NoCodeMap_GeneratesCodeMap()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".context.yaml"), "meta: {}");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
@@ -155,7 +158,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         await _sut.ExecuteAsync(context);
 
         // Assert
-        File.Exists(Path.Combine(_tempDir, "code-map.yaml")).Should().BeTrue();
+        File.Exists(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml")).Should().BeTrue();
         _codeMapGenerator.Verify(
             g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -165,8 +168,8 @@ public class BootstrapProjectHandlerTests : IDisposable
     public async Task Execute_ExistingCodeMap_SkipsGeneration()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".context.yaml"), "meta: {}");
-        File.WriteAllText(Path.Combine(_tempDir, "code-map.yaml"), "modules: []");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), "modules: []");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
@@ -186,7 +189,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     public async Task Execute_CodeMapGenerationFails_ContinuesSuccessfully()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".context.yaml"), "meta: {}");
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
@@ -202,7 +205,7 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        File.Exists(Path.Combine(_tempDir, "code-map.yaml")).Should().BeFalse();
+        File.Exists(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml")).Should().BeFalse();
     }
 
     private BootstrapProjectContext CreateContext()
