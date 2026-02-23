@@ -86,6 +86,7 @@ state:
     p28: ".agentsmith/ directory: unified meta-file home, LoadContext/WriteRunResult, coding-principles generation, context injection"
     p29: "Init Project command: Slack modal + chat, JobRequest generalization, init-project pipeline"
     p30: "Systemic fixes: PR URL propagation, orphan job detection, optional parameter elimination (288 tests)"
+    p31: "OrphanJobDetector Redis scan: GetAllAsync for untracked stale states after dispatcher restart (290 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/p23-multi-repo.md"
