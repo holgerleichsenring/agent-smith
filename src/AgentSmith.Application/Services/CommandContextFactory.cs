@@ -60,7 +60,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
         ProjectConfig project, PipelineContext pipeline)
     {
         var path = project.CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
-        return new LoadCodingPrinciplesContext(path, pipeline);
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new LoadCodingPrinciplesContext(path, repo, pipeline);
     }
 
     private static LoadContextContext CreateLoadContext(PipelineContext pipeline)

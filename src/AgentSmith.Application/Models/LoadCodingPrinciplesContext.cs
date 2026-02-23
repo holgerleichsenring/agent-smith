@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Models;
 
@@ -6,5 +7,6 @@ namespace AgentSmith.Application.Models;
 /// Context for loading coding principles from a markdown file.
 /// </summary>
 public sealed record LoadCodingPrinciplesContext(
-    string FilePath,
+    string RelativePath,
+    Repository Repository,
     PipelineContext Pipeline) : ICommandContext;

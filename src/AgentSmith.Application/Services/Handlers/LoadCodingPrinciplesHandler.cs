@@ -16,12 +16,13 @@ public sealed class LoadCodingPrinciplesHandler(
     public async Task<CommandResult> ExecuteAsync(
         LoadCodingPrinciplesContext context, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Loading coding principles from {Path}...", context.FilePath);
+        var fullPath = Path.Combine(context.Repository.LocalPath, context.RelativePath);
+        logger.LogInformation("Loading coding principles from {Path}...", fullPath);
 
-        if (!File.Exists(context.FilePath))
-            return CommandResult.Fail($"Coding principles file not found: {context.FilePath}");
+        if (!File.Exists(fullPath))
+            return CommandResult.Fail($"Coding principles file not found: {fullPath}");
 
-        var content = await File.ReadAllTextAsync(context.FilePath, cancellationToken);
+        var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
         context.Pipeline.Set(ContextKeys.CodingPrinciples, content);
         return CommandResult.Ok($"Loaded coding principles ({content.Length} chars)");
     }
