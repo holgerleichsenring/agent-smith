@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
@@ -10,6 +11,8 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Central entry point: takes user input, parses intent, loads config,
 /// resolves the project pipeline, and executes it end-to-end.
+/// Supports both ticket-based flows ("fix #123 in project") and
+/// init flows ("init in project").
 /// </summary>
 public sealed class ProcessTicketUseCase(
     IConfigurationLoader configLoader,
@@ -17,14 +20,34 @@ public sealed class ProcessTicketUseCase(
     IPipelineExecutor pipelineExecutor,
     ILogger<ProcessTicketUseCase> logger)
 {
+    private static readonly Regex InitPattern = new(
+        @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public async Task<CommandResult> ExecuteAsync(
         string userInput,
         string configPath,
         bool headless = false,
+        string? pipelineOverride = null,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Processing input: {Input}", userInput);
 
+        var initMatch = InitPattern.Match(userInput);
+        if (initMatch.Success)
+            return await ExecuteInitAsync(
+                initMatch.Groups[1].Value, configPath, pipelineOverride, headless, cancellationToken);
+
+        return await ExecuteTicketAsync(
+            userInput, configPath, pipelineOverride, headless, cancellationToken);
+    }
+
+    private async Task<CommandResult> ExecuteTicketAsync(
+        string userInput,
+        string configPath,
+        string? pipelineOverride,
+        bool headless,
+        CancellationToken cancellationToken)
+    {
         var config = configLoader.LoadConfig(configPath);
         var intent = await intentParser.ParseAsync(userInput, cancellationToken);
 
@@ -33,7 +56,7 @@ public sealed class ProcessTicketUseCase(
             throw new ConfigurationException(
                 $"Project '{projectName}' not found in configuration.");
 
-        var pipelineName = projectConfig.Pipeline;
+        var pipelineName = pipelineOverride ?? projectConfig.Pipeline;
         if (!config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
             throw new ConfigurationException(
                 $"Pipeline '{pipelineName}' not found in configuration.");
@@ -49,23 +72,53 @@ public sealed class ProcessTicketUseCase(
         var result = await pipelineExecutor.ExecuteAsync(
             pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
 
-        LogResult(result, intent);
+        LogResult(result, projectName);
         return result;
     }
 
-    private void LogResult(CommandResult result, ParsedIntent intent)
+    private async Task<CommandResult> ExecuteInitAsync(
+        string projectName,
+        string configPath,
+        string? pipelineOverride,
+        bool headless,
+        CancellationToken cancellationToken)
+    {
+        var config = configLoader.LoadConfig(configPath);
+
+        projectName = projectName.ToLowerInvariant();
+        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
+            throw new ConfigurationException(
+                $"Project '{projectName}' not found in configuration.");
+
+        var pipelineName = pipelineOverride ?? "init-project";
+        if (!config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
+            throw new ConfigurationException(
+                $"Pipeline '{pipelineName}' not found in configuration.");
+
+        logger.LogInformation(
+            "Running init pipeline '{Pipeline}' for project '{Project}'",
+            pipelineName, projectName);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.InitMode, true);
+        pipeline.Set(ContextKeys.Headless, headless);
+
+        var result = await pipelineExecutor.ExecuteAsync(
+            pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
+
+        LogResult(result, projectName);
+        return result;
+    }
+
+    private void LogResult(CommandResult result, string projectName)
     {
         if (result.IsSuccess)
-        {
             logger.LogInformation(
-                "Ticket {Ticket} processed successfully: {Message}",
-                intent.TicketId, result.Message);
-        }
+                "Project {Project} processed successfully: {Message}",
+                projectName, result.Message);
         else
-        {
             logger.LogWarning(
-                "Ticket {Ticket} processing failed: {Message}",
-                intent.TicketId, result.Message);
-        }
+                "Project {Project} processing failed: {Message}",
+                projectName, result.Message);
     }
 }

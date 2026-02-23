@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Dispatcher.Services;
 
 /// <summary>
-/// Spawns a Kubernetes Job for each FixTicketIntent.
-/// Each job runs an ephemeral agent-smith container with the ticket details
+/// Spawns a Kubernetes Job for each agent request.
+/// Each job runs an ephemeral agent-smith container with the command details
 /// and Redis bus connection injected via environment variables.
 /// Selected when SPAWNER_TYPE=kubernetes (or when unset, for prod compatibility).
 /// </summary>
@@ -21,25 +21,25 @@ public sealed class KubernetesJobSpawner(
         Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379";
 
     public async Task<string> SpawnAsync(
-        FixTicketIntent intent,
+        JobRequest request,
         CancellationToken cancellationToken = default)
     {
         var jobId = Guid.NewGuid().ToString("N")[..12];
         var jobName = $"agentsmith-{jobId}";
 
-        var job = BuildJob(jobName, jobId, intent, _redisUrl);
+        var job = BuildJob(jobName, jobId, request, _redisUrl);
 
         await k8sClient.BatchV1.CreateNamespacedJobAsync(
             job, options.Namespace, cancellationToken: cancellationToken);
 
         logger.LogInformation(
-            "Spawned K8s Job {JobName} (id={JobId}) for ticket #{TicketId} in {Project}",
-            jobName, jobId, intent.TicketId, intent.Project);
+            "Spawned K8s Job {JobName} (id={JobId}) for {Command} in {Project}",
+            jobName, jobId, request.InputCommand, request.Project);
 
         return jobId;
     }
 
-    private V1Job BuildJob(string jobName, string jobId, FixTicketIntent intent, string redisUrl) => new()
+    private V1Job BuildJob(string jobName, string jobId, JobRequest request, string redisUrl) => new()
     {
         Metadata = new V1ObjectMeta
         {
@@ -49,8 +49,8 @@ public sealed class KubernetesJobSpawner(
             {
                 ["app"] = "agentsmith",
                 ["job-id"] = jobId,
-                ["platform"] = intent.Platform,
-                ["project"] = intent.Project
+                ["platform"] = request.Platform,
+                ["project"] = request.Project
             }
         },
         Spec = new V1JobSpec
@@ -77,8 +77,8 @@ public sealed class KubernetesJobSpawner(
                             Name = "agentsmith",
                             Image = options.Image,
                             ImagePullPolicy = options.ImagePullPolicy,
-                            Args = BuildArgs(jobId, intent, redisUrl),
-                            Env = BuildEnv(jobId, intent),
+                            Args = BuildArgs(jobId, request, redisUrl),
+                            Env = BuildEnv(jobId, request),
                             Resources = new V1ResourceRequirements
                             {
                                 Requests = new Dictionary<string, ResourceQuantity>
@@ -99,25 +99,25 @@ public sealed class KubernetesJobSpawner(
         }
     };
 
-    private static List<string> BuildArgs(string jobId, FixTicketIntent intent, string redisUrl)
+    private static List<string> BuildArgs(string jobId, JobRequest request, string redisUrl)
     {
         var args = new List<string>
         {
             "--headless",
             "--job-id", jobId,
             "--redis-url", redisUrl,
-            "--platform", intent.Platform,
-            "--channel-id", intent.ChannelId,
+            "--platform", request.Platform,
+            "--channel-id", request.ChannelId,
         };
 
-        if (!string.IsNullOrEmpty(intent.PipelineOverride))
-            args.AddRange(["--pipeline", intent.PipelineOverride]);
+        if (!string.IsNullOrEmpty(request.PipelineOverride))
+            args.AddRange(["--pipeline", request.PipelineOverride]);
 
-        args.Add($"fix #{intent.TicketId} in {intent.Project}");
+        args.Add(request.InputCommand);
         return args;
     }
 
-    private List<V1EnvVar> BuildEnv(string jobId, FixTicketIntent intent) =>
+    private List<V1EnvVar> BuildEnv(string jobId, JobRequest request) =>
     [
         EnvFromSecret("ANTHROPIC_API_KEY", options.SecretName, "anthropic-api-key"),
         EnvFromSecret("AZURE_DEVOPS_TOKEN", options.SecretName, "azure-devops-token"),
@@ -126,11 +126,10 @@ public sealed class KubernetesJobSpawner(
         EnvFromSecret("GEMINI_API_KEY", options.SecretName, "gemini-api-key"),
         EnvFromSecret("REDIS_URL", options.SecretName, "redis-url"),
         new V1EnvVar { Name = "JOB_ID", Value = jobId },
-        new V1EnvVar { Name = "TICKET_ID", Value = intent.TicketId.ToString() },
-        new V1EnvVar { Name = "PROJECT", Value = intent.Project },
-        new V1EnvVar { Name = "CHANNEL_ID", Value = intent.ChannelId },
-        new V1EnvVar { Name = "USER_ID", Value = intent.UserId },
-        new V1EnvVar { Name = "PLATFORM", Value = intent.Platform }
+        new V1EnvVar { Name = "PROJECT", Value = request.Project },
+        new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
+        new V1EnvVar { Name = "USER_ID", Value = request.UserId },
+        new V1EnvVar { Name = "PLATFORM", Value = request.Platform }
     ];
 
     private static V1EnvVar EnvFromSecret(string envName, string secretName, string secretKey) =>

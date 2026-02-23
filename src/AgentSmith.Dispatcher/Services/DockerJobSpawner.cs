@@ -36,7 +36,7 @@ public sealed class DockerJobSpawner(
     ];
 
     public async Task<string> SpawnAsync(
-        FixTicketIntent intent,
+        JobRequest request,
         CancellationToken cancellationToken = default)
     {
         var jobId = Guid.NewGuid().ToString("N")[..12];
@@ -44,8 +44,8 @@ public sealed class DockerJobSpawner(
 
         using var client = CreateDockerClient();
 
-        var env = BuildEnv(jobId, intent);
-        var args = BuildArgs(jobId, intent);
+        var env = BuildEnv(jobId, request);
+        var args = BuildArgs(jobId, request);
         var network = await ResolveNetworkAsync(client, cancellationToken);
 
         var createParams = new CreateContainerParameters
@@ -58,8 +58,8 @@ public sealed class DockerJobSpawner(
             {
                 ["app"] = "agentsmith",
                 ["job-id"] = jobId,
-                ["platform"] = intent.Platform,
-                ["project"] = intent.Project,
+                ["platform"] = request.Platform,
+                ["project"] = request.Project,
                 ["managed-by"] = "agentsmith-dispatcher"
             },
             HostConfig = new HostConfig
@@ -74,8 +74,8 @@ public sealed class DockerJobSpawner(
         };
 
         logger.LogInformation(
-            "Creating Docker container {ContainerName} (id={JobId}) for ticket #{TicketId} in {Project} on network {Network}",
-            containerName, jobId, intent.TicketId, intent.Project, network);
+            "Creating Docker container {ContainerName} (id={JobId}) for {Command} in {Project} on network {Network}",
+            containerName, jobId, request.InputCommand, request.Project, network);
 
         CreateContainerResponse response;
         try
@@ -160,34 +160,33 @@ public sealed class DockerJobSpawner(
         return "bridge";
     }
 
-    private static List<string> BuildArgs(string jobId, FixTicketIntent intent)
+    private static List<string> BuildArgs(string jobId, JobRequest request)
     {
         var args = new List<string>
         {
             "--headless",
             "--job-id", jobId,
             "--redis-url", Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-            "--platform", intent.Platform,
-            "--channel-id", intent.ChannelId,
+            "--platform", request.Platform,
+            "--channel-id", request.ChannelId,
         };
 
-        if (!string.IsNullOrEmpty(intent.PipelineOverride))
-            args.AddRange(["--pipeline", intent.PipelineOverride]);
+        if (!string.IsNullOrEmpty(request.PipelineOverride))
+            args.AddRange(["--pipeline", request.PipelineOverride]);
 
-        args.Add($"fix #{intent.TicketId} in {intent.Project}");
+        args.Add(request.InputCommand);
         return args;
     }
 
-    private static List<string> BuildEnv(string jobId, FixTicketIntent intent)
+    private static List<string> BuildEnv(string jobId, JobRequest request)
     {
         var env = new List<string>
         {
             $"JOB_ID={jobId}",
-            $"TICKET_ID={intent.TicketId}",
-            $"PROJECT={intent.Project}",
-            $"CHANNEL_ID={intent.ChannelId}",
-            $"USER_ID={intent.UserId}",
-            $"PLATFORM={intent.Platform}",
+            $"PROJECT={request.Project}",
+            $"CHANNEL_ID={request.ChannelId}",
+            $"USER_ID={request.UserId}",
+            $"PLATFORM={request.Platform}",
         };
 
         // Forward secrets from Dispatcher's own environment — no K8s Secret needed locally

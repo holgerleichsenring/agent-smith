@@ -84,6 +84,7 @@ state:
     p27: "Structured command UI: Slack modals, slash commands, cached ticket search, pipeline override"
     p26: "Coding principles detection: RepoSnapshot, LLM-based style/arch/methodology, ModelRegistry DI fix"
     p28: ".agentsmith/ directory: unified meta-file home, LoadContext/WriteRunResult, coding-principles generation, context injection"
+    p29: "Init Project command: Slack modal + chat, JobRequest generalization, init-project pipeline"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/p23-multi-repo.md"
