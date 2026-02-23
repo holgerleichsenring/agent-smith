@@ -16,7 +16,7 @@ public sealed class LoadContextHandler(
     private const string ContextPath = ".agentsmith/context.yaml";
 
     public async Task<CommandResult> ExecuteAsync(
-        LoadContextContext context, CancellationToken cancellationToken = default)
+        LoadContextContext context, CancellationToken cancellationToken)
     {
         var path = Path.Combine(context.Repository.LocalPath, ContextPath);
 

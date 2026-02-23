@@ -23,7 +23,7 @@ public sealed class ClarificationStateManager(
 
     public async Task SetAsync(
         string platform, string channelId, PendingClarification pending,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var key = BuildKey(platform, channelId);
@@ -35,7 +35,7 @@ public sealed class ClarificationStateManager(
 
     public async Task<PendingClarification?> GetAsync(
         string platform, string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var json = await db.StringGetAsync(BuildKey(platform, channelId));
@@ -54,7 +54,7 @@ public sealed class ClarificationStateManager(
 
     public async Task ClearAsync(
         string platform, string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         await db.KeyDeleteAsync(BuildKey(platform, channelId).ToString());

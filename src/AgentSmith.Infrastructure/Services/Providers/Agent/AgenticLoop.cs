@@ -21,14 +21,14 @@ public sealed class AgenticLoop(
     CacheConfig cacheConfig,
     TokenUsageTracker tracker,
     CompactionConfig compactionConfig,
-    IContextCompactor? compactor = null,
-    IProgressReporter? progressReporter = null,
-    int maxIterations = 25)
+    IContextCompactor? compactor,
+    IProgressReporter progressReporter,
+    int maxIterations)
 {
     public async Task<IReadOnlyList<CodeChange>> RunAsync(
         string systemPrompt,
         string userMessage,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var messages = new List<Message>
         {
@@ -38,7 +38,7 @@ public sealed class AgenticLoop(
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             logger.LogDebug("Agentic loop iteration {Iteration}", iteration + 1);
-            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...");
+            ReportDetail($"\ud83d\udd04 Iteration {iteration + 1}...", cancellationToken);
 
             var response = await SendRequestAsync(systemPrompt, messages, cancellationToken);
             tracker.Track(response);
@@ -150,7 +150,7 @@ public sealed class AgenticLoop(
             iteration, keepRecentMessages);
 
         var compacted = await compactor.CompactAsync(messages, keepRecentMessages, cancellationToken);
-        ReportDetail($"\u26a1 Context compacted ({beforeCount} \u2192 {compacted.Count} messages)");
+        ReportDetail($"\u26a1 Context compacted ({beforeCount} \u2192 {compacted.Count} messages)", cancellationToken);
         return compacted;
     }
 
@@ -165,9 +165,9 @@ public sealed class AgenticLoop(
         };
     }
 
-    private void ReportDetail(string text)
+    private void ReportDetail(string text, CancellationToken cancellationToken)
     {
-        try { progressReporter?.ReportDetailAsync(text).GetAwaiter().GetResult(); }
+        try { progressReporter?.ReportDetailAsync(text, cancellationToken).GetAwaiter().GetResult(); }
         catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 

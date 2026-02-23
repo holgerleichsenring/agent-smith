@@ -17,7 +17,7 @@ public sealed class FixTicketIntentHandler(
     MessageBusListener listener,
     ILogger<FixTicketIntentHandler> logger)
 {
-    public async Task HandleAsync(FixTicketIntent intent, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(FixTicketIntent intent, CancellationToken cancellationToken)
     {
         var existing = await stateManager.GetAsync(intent.Platform, intent.ChannelId, cancellationToken);
         if (existing is not null)
@@ -28,7 +28,7 @@ public sealed class FixTicketIntentHandler(
 
         await adapter.SendMessageAsync(
             intent.ChannelId,
-            $":rocket: Starting Agent Smith for ticket *#{intent.TicketId}* in *{intent.Project}*...",
+            $"Starting Agent Smith for ticket *#{intent.TicketId}* in *{intent.Project}*...",
             cancellationToken);
 
         var request = new JobRequest
@@ -75,11 +75,12 @@ public sealed class FixTicketIntentHandler(
             Platform = intent.Platform,
             Project = intent.Project,
             TicketId = intent.TicketId,
-            StartedAt = DateTimeOffset.UtcNow
+            StartedAt = DateTimeOffset.UtcNow,
+            LastActivityAt = DateTimeOffset.UtcNow
         };
 
         await stateManager.SetAsync(state, cancellationToken);
         await stateManager.IndexJobAsync(state, cancellationToken);
-        await listener.TrackJobAsync(jobId);
+        await listener.TrackJobAsync(jobId, cancellationToken);
     }
 }

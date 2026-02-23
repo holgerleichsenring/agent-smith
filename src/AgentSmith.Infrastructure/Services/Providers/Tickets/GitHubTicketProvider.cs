@@ -24,7 +24,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     }
 
     public async Task<Ticket> GetTicketAsync(
-        TicketId ticketId, CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var issueNumber))
             throw new TicketNotFoundException(ticketId);
@@ -52,7 +52,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     }
 
     public async Task UpdateStatusAsync(
-        TicketId ticketId, string comment, CancellationToken cancellationToken = default)
+        TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var issueNumber))
             return;
@@ -61,7 +61,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     }
 
     public async Task CloseTicketAsync(
-        TicketId ticketId, string resolution, CancellationToken cancellationToken = default)
+        TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var issueNumber))
             return;

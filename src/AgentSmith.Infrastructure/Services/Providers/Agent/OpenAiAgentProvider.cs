@@ -30,9 +30,9 @@ public sealed class OpenAiAgentProvider(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
-        string? codeMap = null,
-        string? projectContext = null,
-        CancellationToken cancellationToken = default)
+        string? codeMap,
+        string? projectContext,
+        CancellationToken cancellationToken)
     {
         var planModel = ResolveModel(TaskType.Planning);
         var client = CreateChatClient(planModel.Model);
@@ -58,10 +58,10 @@ public sealed class OpenAiAgentProvider(
         Plan plan,
         Repository repository,
         string codingPrinciples,
-        string? codeMap = null,
-        string? projectContext = null,
-        IProgressReporter? progressReporter = null,
-        CancellationToken cancellationToken = default)
+        string? codeMap,
+        string? projectContext,
+        IProgressReporter progressReporter,
+        CancellationToken cancellationToken)
     {
         var tracker = new TokenUsageTracker();
         var costTracker = CreateCostTracker(tracker);
@@ -76,7 +76,7 @@ public sealed class OpenAiAgentProvider(
         var client = CreateChatClient(primaryModel.Model);
 
         var loop = new OpenAiAgenticLoop(
-            client, toolExecutor, logger, tracker, progressReporter);
+            client, toolExecutor, logger, tracker, progressReporter, 25);
 
         var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);

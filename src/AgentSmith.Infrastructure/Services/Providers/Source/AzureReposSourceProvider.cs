@@ -44,7 +44,7 @@ public sealed class AzureReposSourceProvider : ISourceProvider
     }
 
     public Task<Repository> CheckoutAsync(
-        BranchName branch, CancellationToken cancellationToken = default)
+        BranchName branch, CancellationToken cancellationToken)
     {
         var localPath = GetLocalPath();
         EnsureCloned(localPath);
@@ -61,7 +61,7 @@ public sealed class AzureReposSourceProvider : ISourceProvider
     }
 
     public Task CommitAndPushAsync(
-        Repository repository, string message, CancellationToken cancellationToken = default)
+        Repository repository, string message, CancellationToken cancellationToken)
     {
         using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
 
@@ -75,7 +75,7 @@ public sealed class AzureReposSourceProvider : ISourceProvider
 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var client = CreateGitClient();
         var sourceBranch = $"refs/heads/{repository.CurrentBranch.Value}";

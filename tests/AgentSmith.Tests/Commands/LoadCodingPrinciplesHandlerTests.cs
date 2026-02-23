@@ -21,7 +21,7 @@ public class LoadCodingPrinciplesHandlerTests
         var pipeline = new PipelineContext();
         var context = new LoadCodingPrinciplesContext(tempFile, pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Test Principles");
@@ -35,7 +35,7 @@ public class LoadCodingPrinciplesHandlerTests
         var pipeline = new PipelineContext();
         var context = new LoadCodingPrinciplesContext("/nonexistent/path.md", pipeline);
 
-        var result = await _handler.ExecuteAsync(context);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("not found");

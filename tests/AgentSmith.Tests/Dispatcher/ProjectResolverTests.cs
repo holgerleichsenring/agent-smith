@@ -35,7 +35,7 @@ public sealed class ProjectResolverTests
         });
         SetupTicketProviderExists();
 
-        var result = await _resolver.ResolveAsync("42");
+        var result = await _resolver.ResolveAsync("42", CancellationToken.None);
 
         result.Should().BeOfType<ProjectResolved>();
         ((ProjectResolved)result).ProjectName.Should().Be("backend");
@@ -46,7 +46,7 @@ public sealed class ProjectResolverTests
     {
         SetupConfig(new Dictionary<string, ProjectConfig>());
 
-        var result = await _resolver.ResolveAsync("42");
+        var result = await _resolver.ResolveAsync("42", CancellationToken.None);
 
         result.Should().BeOfType<ProjectNotFound>();
     }

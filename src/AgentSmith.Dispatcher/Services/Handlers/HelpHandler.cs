@@ -12,7 +12,7 @@ public sealed class HelpHandler(
     IPlatformAdapter adapter,
     ILogger<HelpHandler> logger)
 {
-    public async Task SendHelpAsync(string channelId, CancellationToken ct = default)
+    public async Task SendHelpAsync(string channelId, CancellationToken ct)
     {
         await adapter.SendMessageAsync(channelId,
             ":robot_face: *Agent Smith — here's what I can do:*\n\n" +
@@ -23,7 +23,7 @@ public sealed class HelpHandler(
             "_I also understand free-form text — just describe what you need._", ct);
     }
 
-    public async Task SendGreetingAsync(string channelId, CancellationToken ct = default)
+    public async Task SendGreetingAsync(string channelId, CancellationToken ct)
     {
         await adapter.SendMessageAsync(channelId,
             ":wave: Hey! I'm Agent Smith — an autonomous coding agent.\n" +
@@ -31,7 +31,7 @@ public sealed class HelpHandler(
     }
 
     public async Task SendUnknownAsync(
-        string channelId, string originalInput, CancellationToken ct = default)
+        string channelId, string originalInput, CancellationToken ct)
     {
         await adapter.SendMessageAsync(channelId,
             $":shrug: I didn't understand: \"{originalInput}\"\n\n" +
@@ -39,7 +39,7 @@ public sealed class HelpHandler(
     }
 
     public async Task SendClarificationAsync(
-        string channelId, string suggestion, CancellationToken ct = default)
+        string channelId, string suggestion, CancellationToken ct)
     {
         await adapter.SendClarificationAsync(channelId, suggestion, ct);
         logger.LogInformation("Sent clarification to {ChannelId}: {Suggestion}", channelId, suggestion);

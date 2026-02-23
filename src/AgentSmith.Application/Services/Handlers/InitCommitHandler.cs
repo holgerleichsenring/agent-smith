@@ -16,7 +16,7 @@ public sealed class InitCommitHandler(
     : ICommandHandler<InitCommitContext>
 {
     public async Task<CommandResult> ExecuteAsync(
-        InitCommitContext context, CancellationToken cancellationToken = default)
+        InitCommitContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Committing .agentsmith/ files and creating PR...");
 

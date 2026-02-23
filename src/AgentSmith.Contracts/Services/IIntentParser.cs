@@ -7,5 +7,5 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface IIntentParser
 {
-    Task<ParsedIntent> ParseAsync(string userInput, CancellationToken cancellationToken = default);
+    Task<ParsedIntent> ParseAsync(string userInput, CancellationToken cancellationToken);
 }

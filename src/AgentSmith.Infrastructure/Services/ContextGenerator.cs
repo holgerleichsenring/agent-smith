@@ -32,8 +32,8 @@ public sealed class ContextGenerator(
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
-        RepoSnapshot? snapshot = null,
-        CancellationToken cancellationToken = default)
+        RepoSnapshot snapshot,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Generating .context.yaml for {Lang} project at {Path}...",
             project.Language, repoPath);
@@ -73,7 +73,7 @@ public sealed class ContextGenerator(
         string repoPath,
         string previousYaml,
         IReadOnlyList<string> validationErrors,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Retrying .context.yaml generation with {ErrorCount} validation errors",
             validationErrors.Count);

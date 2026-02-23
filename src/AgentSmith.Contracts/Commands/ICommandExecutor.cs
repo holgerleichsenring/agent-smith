@@ -10,6 +10,6 @@ public interface ICommandExecutor
 {
     Task<CommandResult> ExecuteAsync<TContext>(
         TContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
         where TContext : ICommandContext;
 }

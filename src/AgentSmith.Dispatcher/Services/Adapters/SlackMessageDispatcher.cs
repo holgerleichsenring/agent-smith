@@ -25,7 +25,7 @@ public sealed class SlackMessageDispatcher(
         string text,
         string userId,
         string channelId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         try
         {

@@ -33,7 +33,7 @@ public sealed class CodeMapGenerator(
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation(
             "Generating code-map.yaml for {Lang} project at {Path}...",

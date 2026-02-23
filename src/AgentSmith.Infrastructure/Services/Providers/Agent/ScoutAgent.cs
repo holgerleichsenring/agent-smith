@@ -39,7 +39,7 @@ public sealed class ScoutAgent(
     public async Task<ScoutResult> DiscoverAsync(
         Plan plan,
         string repositoryPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Scout agent starting file discovery with model {Model}", model);
 
