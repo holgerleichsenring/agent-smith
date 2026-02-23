@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadCodeMapContext>, LoadCodeMapHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
+        services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
     }
 
     private static void RegisterPipeline(IServiceCollection services)

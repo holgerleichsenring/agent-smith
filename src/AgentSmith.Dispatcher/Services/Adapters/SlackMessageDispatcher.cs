@@ -15,6 +15,7 @@ public sealed class SlackMessageDispatcher(
     FixTicketIntentHandler fixHandler,
     ListTicketsIntentHandler listHandler,
     CreateTicketIntentHandler createHandler,
+    InitProjectIntentHandler initHandler,
     HelpHandler helpHandler,
     ClarificationStateManager clarificationState,
     IPlatformAdapter adapter,
@@ -51,6 +52,9 @@ public sealed class SlackMessageDispatcher(
                 break;
             case CreateTicketIntent create:
                 await createHandler.HandleAsync(create, ct);
+                break;
+            case InitProjectIntent init:
+                await initHandler.HandleAsync(init, ct);
                 break;
             case HelpIntent:
                 await helpHandler.SendHelpAsync(channelId, ct);

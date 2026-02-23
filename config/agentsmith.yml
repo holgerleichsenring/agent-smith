@@ -136,6 +136,12 @@ pipelines:
       - WriteRunResultCommand
       - CommitAndPRCommand
 
+  init-project:
+    commands:
+      - CheckoutSourceCommand
+      - BootstrapProjectCommand
+      - InitCommitCommand
+
   add-feature:
     commands:
       - FetchTicketCommand

@@ -43,6 +43,15 @@ public sealed record CreateTicketIntent : ChatIntent
 }
 
 /// <summary>
+/// User wants to initialize a project: "init todo-list"
+/// Spawns a K8s Job that runs BootstrapProject + InitCommit.
+/// </summary>
+public sealed record InitProjectIntent : ChatIntent
+{
+    public required string Project { get; init; }
+}
+
+/// <summary>
 /// Input did not match any known pattern.
 /// </summary>
 public sealed record UnknownIntent : ChatIntent

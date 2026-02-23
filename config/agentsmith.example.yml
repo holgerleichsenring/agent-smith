@@ -123,6 +123,12 @@ pipelines:
       - WriteRunResultCommand
       - CommitAndPRCommand
 
+  init-project:
+    commands:
+      - CheckoutSourceCommand
+      - BootstrapProjectCommand
+      - InitCommitCommand
+
 secrets:
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
