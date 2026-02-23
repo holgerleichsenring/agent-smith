@@ -2,7 +2,7 @@ namespace AgentSmith.Dispatcher.Models;
 
 /// <summary>
 /// Tracks an active agent job linked to a specific chat channel.
-/// Stored in Redis with TTL = 2 hours.
+/// Stored in Redis with TTL = 45 minutes.
 /// Key: conversation:{platform}:{channelId}
 /// </summary>
 public sealed record ConversationState
