@@ -50,6 +50,7 @@ internal static class ServiceCollectionExtensions
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();
         services.AddScoped<CreateTicketIntentHandler>();
+        services.AddScoped<InitProjectIntentHandler>();
         services.AddScoped<HelpHandler>();
         services.AddScoped<SlackMessageDispatcher>();
         services.AddScoped<SlackErrorActionHandler>();

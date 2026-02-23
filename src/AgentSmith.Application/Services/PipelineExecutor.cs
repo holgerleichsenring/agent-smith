@@ -39,6 +39,7 @@ public sealed class PipelineExecutor(
         ["LoadCodeMapCommand"] = "Loading code map",
         ["LoadContextCommand"] = "Loading project context",
         ["WriteRunResultCommand"] = "Writing run result",
+        ["InitCommitCommand"] = "Committing init files",
     };
 
     public async Task<CommandResult> ExecuteAsync(
@@ -111,6 +112,7 @@ public sealed class PipelineExecutor(
             LoadCodeMapContext c => commandExecutor.ExecuteAsync(c, ct),
             LoadContextContext c => commandExecutor.ExecuteAsync(c, ct),
             WriteRunResultContext c => commandExecutor.ExecuteAsync(c, ct),
+            InitCommitContext c => commandExecutor.ExecuteAsync(c, ct),
             _ => throw new ConfigurationException(
                 $"Unknown context type: {context.GetType().Name}")
         };

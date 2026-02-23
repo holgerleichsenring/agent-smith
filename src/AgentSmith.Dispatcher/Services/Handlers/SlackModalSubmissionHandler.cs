@@ -16,6 +16,7 @@ internal sealed class SlackModalSubmissionHandler(
     FixTicketIntentHandler fixHandler,
     ListTicketsIntentHandler listHandler,
     CreateTicketIntentHandler createHandler,
+    InitProjectIntentHandler initHandler,
     IPlatformAdapter adapter,
     ILogger<SlackModalSubmissionHandler> logger)
 {
@@ -55,6 +56,10 @@ internal sealed class SlackModalSubmissionHandler(
                 ?[DispatcherDefaults.SlackActionProject]
                 ?["selected_option"]?["value"]?.GetValue<string>();
 
+            // Fallback: external_select may not be in state — read from private_metadata
+            if (string.IsNullOrWhiteSpace(project))
+                project = ExtractProjectFromMetadata(payload);
+
             if (string.IsNullOrWhiteSpace(project))
             {
                 await adapter.SendMessageAsync(channelId,
@@ -87,6 +92,10 @@ internal sealed class SlackModalSubmissionHandler(
 
             case ModalCommandType.CreateTicket:
                 await HandleCreateTicketAsync(values, project, userId, channelId, ct);
+                break;
+
+            case ModalCommandType.InitProject:
+                await HandleInitProjectAsync(project, userId, channelId, ct);
                 break;
         }
     }
@@ -178,6 +187,35 @@ internal sealed class SlackModalSubmissionHandler(
 
         logger.LogInformation("Modal submission: create ticket in {Project}: {Title}", project, title);
         await createHandler.HandleAsync(intent, ct);
+    }
+
+    private async Task HandleInitProjectAsync(
+        string project, string userId, string channelId,
+        CancellationToken ct)
+    {
+        var intent = new InitProjectIntent
+        {
+            Project = project,
+            RawText = $"/agentsmith init {project}",
+            UserId = userId,
+            ChannelId = channelId,
+            Platform = DispatcherDefaults.PlatformSlack
+        };
+
+        logger.LogInformation("Modal submission: init project {Project}", project);
+        await initHandler.HandleAsync(intent, ct);
+    }
+
+    private static string? ExtractProjectFromMetadata(JsonNode payload)
+    {
+        var metadataStr = payload["view"]?["private_metadata"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(metadataStr)) return null;
+        try
+        {
+            var metadata = JsonNode.Parse(metadataStr);
+            return metadata?["selected_project"]?.GetValue<string>();
+        }
+        catch (JsonException) { return null; }
     }
 
     private static (string ChannelId, string UserId) ExtractPrivateMetadata(JsonNode payload)

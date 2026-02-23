@@ -61,10 +61,18 @@ public sealed class SlackModalSubmissionHandlerTests
             _ticketFactory.Object,
             NullLogger<CreateTicketIntentHandler>.Instance);
 
+        var initHandler = new InitProjectIntentHandler(
+            _spawner.Object,
+            _adapter.Object,
+            stateManager,
+            listener,
+            NullLogger<InitProjectIntentHandler>.Instance);
+
         _sut = new SlackModalSubmissionHandler(
             fixHandler,
             listHandler,
             createHandler,
+            initHandler,
             _adapter.Object,
             NullLogger<SlackModalSubmissionHandler>.Instance);
     }
@@ -73,7 +81,7 @@ public sealed class SlackModalSubmissionHandlerTests
     public async Task HandleAsync_FixTicket_SpawnsJob()
     {
         _spawner.Setup(s => s.SpawnAsync(
-                It.IsAny<FixTicketIntent>(), It.IsAny<CancellationToken>()))
+                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("job-123");
 
         var payload = BuildPayload("fix_ticket", "my-project", ticketId: "42");
@@ -81,7 +89,7 @@ public sealed class SlackModalSubmissionHandlerTests
         await _sut.HandleAsync(payload);
 
         _spawner.Verify(s => s.SpawnAsync(
-            It.Is<FixTicketIntent>(i => i.TicketId == 42 && i.Project == "my-project"),
+            It.Is<JobRequest>(r => r.InputCommand.Contains("#42") && r.Project == "my-project"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -89,7 +97,7 @@ public sealed class SlackModalSubmissionHandlerTests
     public async Task HandleAsync_FixTicket_WithPipelineOverride_PassesOverride()
     {
         _spawner.Setup(s => s.SpawnAsync(
-                It.IsAny<FixTicketIntent>(), It.IsAny<CancellationToken>()))
+                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("job-123");
 
         var payload = BuildPayload("fix_ticket", "my-project",
@@ -98,7 +106,7 @@ public sealed class SlackModalSubmissionHandlerTests
         await _sut.HandleAsync(payload);
 
         _spawner.Verify(s => s.SpawnAsync(
-            It.Is<FixTicketIntent>(i => i.PipelineOverride == "fix-no-test"),
+            It.Is<JobRequest>(r => r.PipelineOverride == "fix-no-test"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -13,7 +13,8 @@ internal static class SlackModalBuilder
     [
         ("fix_ticket", "Fix Ticket"),
         ("list_tickets", "List Tickets"),
-        ("create_ticket", "Create Ticket")
+        ("create_ticket", "Create Ticket"),
+        ("init_project", "Init Project")
     ];
 
     /// <summary>
@@ -62,7 +63,7 @@ internal static class SlackModalBuilder
                 blocks.Add(BuildDescriptionBlock());
                 break;
 
-            // ListTickets needs no additional fields
+            // ListTickets and InitProject need no additional fields
         }
 
         return new
@@ -125,6 +126,7 @@ internal static class SlackModalBuilder
         "fix_ticket" => ModalCommandType.FixTicket,
         "list_tickets" => ModalCommandType.ListTickets,
         "create_ticket" => ModalCommandType.CreateTicket,
+        "init_project" => ModalCommandType.InitProject,
         _ => null
     };
 
@@ -156,6 +158,7 @@ internal static class SlackModalBuilder
             ModalCommandType.FixTicket => "fix_ticket",
             ModalCommandType.ListTickets => "list_tickets",
             ModalCommandType.CreateTicket => "create_ticket",
+            ModalCommandType.InitProject => "init_project",
             _ => "fix_ticket"
         };
 
@@ -187,6 +190,7 @@ internal static class SlackModalBuilder
     {
         type = "input",
         block_id = DispatcherDefaults.SlackBlockProject,
+        dispatch_action = true,
         label = new { type = "plain_text", text = "Project" },
         element = new
         {
@@ -206,6 +210,7 @@ internal static class SlackModalBuilder
         {
             type = "input",
             block_id = DispatcherDefaults.SlackBlockProject,
+            dispatch_action = true,
             label = new { type = "plain_text", text = "Project" },
             element = new
             {

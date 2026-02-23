@@ -17,9 +17,12 @@ public sealed class CommandContextFactory : ICommandContextFactory
     public ICommandContext Create(
         string commandName, ProjectConfig project, PipelineContext pipeline)
     {
+        var initMode = pipeline.TryGet<bool>(ContextKeys.InitMode, out var isInit) && isInit;
+
         return commandName switch
         {
             "FetchTicketCommand" => CreateFetchTicket(project, pipeline),
+            "CheckoutSourceCommand" when initMode => CreateInitCheckoutSource(project, pipeline),
             "CheckoutSourceCommand" => CreateCheckoutSource(project, pipeline),
             "LoadCodingPrinciplesCommand" => CreateLoadCodingPrinciples(project, pipeline),
             "LoadContextCommand" => CreateLoadContext(pipeline),
@@ -30,6 +33,7 @@ public sealed class CommandContextFactory : ICommandContextFactory
             "TestCommand" => CreateTest(pipeline),
             "WriteRunResultCommand" => CreateWriteRunResult(pipeline),
             "CommitAndPRCommand" => CreateCommitAndPR(project, pipeline),
+            "InitCommitCommand" => CreateInitCommit(project, pipeline),
             "BootstrapProjectCommand" => CreateBootstrapProject(pipeline),
             "LoadCodeMapCommand" => CreateLoadCodeMap(pipeline),
             _ => throw new ConfigurationException(
@@ -134,5 +138,19 @@ public sealed class CommandContextFactory : ICommandContextFactory
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadCodeMapContext(repo, pipeline);
+    }
+
+    private static CheckoutSourceContext CreateInitCheckoutSource(
+        ProjectConfig project, PipelineContext pipeline)
+    {
+        var branch = new BranchName("agentsmith/init");
+        return new CheckoutSourceContext(project.Source, branch, pipeline);
+    }
+
+    private static InitCommitContext CreateInitCommit(
+        ProjectConfig project, PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new InitCommitContext(repo, project.Source, project.Tickets, pipeline);
     }
 }
