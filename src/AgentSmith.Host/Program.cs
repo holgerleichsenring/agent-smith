@@ -33,7 +33,7 @@ var serverOption = new Option<bool>(
     "--server", "Start as webhook listener (HTTP server mode)");
 
 var portOption = new Option<int>(
-    "--port", () => 8080, "Port for webhook listener (--server mode)");
+    "--port", () => 8081, "Port for webhook listener (--server mode)");
 
 var jobIdOption = new Option<string>(
     "--job-id", () => string.Empty, "Redis Streams job ID (K8s job mode)");
@@ -47,10 +47,14 @@ var channelIdOption = new Option<string>(
 var platformOption = new Option<string>(
     "--platform", () => string.Empty, "Source platform: slack|teams|whatsapp");
 
+var pipelineOption = new Option<string>(
+    "--pipeline", () => string.Empty, "Override pipeline name (e.g. init-project)");
+
 var rootCommand = new RootCommand("Agent Smith - AI Coding Agent")
 {
     inputArg, configOption, dryRunOption, verboseOption, headlessOption,
-    serverOption, portOption, jobIdOption, redisUrlOption, channelIdOption, platformOption
+    serverOption, portOption, jobIdOption, redisUrlOption, channelIdOption, platformOption,
+    pipelineOption
 };
 
 rootCommand.SetHandler(async (InvocationContext ctx) =>
@@ -64,6 +68,7 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
     var port = ctx.ParseResult.GetValueForOption(portOption);
     var jobId = ctx.ParseResult.GetValueForOption(jobIdOption) ?? string.Empty;
     var redisUrl = ctx.ParseResult.GetValueForOption(redisUrlOption) ?? string.Empty;
+    var pipelineOverride = ctx.ParseResult.GetValueForOption(pipelineOption) ?? string.Empty;
 
     var provider = BuildServiceProvider(verbose, headless, jobId, redisUrl);
 
@@ -87,7 +92,8 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
     }
 
     var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
-    var result = await useCase.ExecuteAsync(input, configPath, headless);
+    var pipeline = string.IsNullOrWhiteSpace(pipelineOverride) ? null : pipelineOverride;
+    var result = await useCase.ExecuteAsync(input, configPath, headless, pipeline);
 
     // In K8s job mode, signal done/error via the progress reporter (Redis)
     if (!string.IsNullOrWhiteSpace(jobId))

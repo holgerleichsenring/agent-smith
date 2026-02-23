@@ -7,5 +7,6 @@ public enum ModalCommandType
 {
     FixTicket,
     ListTickets,
-    CreateTicket
+    CreateTicket,
+    InitProject
 }

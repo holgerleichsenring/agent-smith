@@ -31,7 +31,17 @@ public sealed class FixTicketIntentHandler(
             $":rocket: Starting Agent Smith for ticket *#{intent.TicketId}* in *{intent.Project}*...",
             cancellationToken);
 
-        var jobId = await spawner.SpawnAsync(intent, cancellationToken);
+        var request = new JobRequest
+        {
+            InputCommand = $"fix #{intent.TicketId} in {intent.Project}",
+            Project = intent.Project,
+            ChannelId = intent.ChannelId,
+            UserId = intent.UserId,
+            Platform = intent.Platform,
+            PipelineOverride = intent.PipelineOverride
+        };
+
+        var jobId = await spawner.SpawnAsync(request, cancellationToken);
         await RegisterJobAsync(jobId, intent, cancellationToken);
 
         logger.LogInformation(
