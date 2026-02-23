@@ -15,6 +15,7 @@ public interface IAgentProvider
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
         string? codeMap = null,
+        string? projectContext = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CodeChange>> ExecutePlanAsync(
@@ -22,6 +23,7 @@ public interface IAgentProvider
         Repository repository,
         string codingPrinciples,
         string? codeMap = null,
+        string? projectContext = null,
         IProgressReporter? progressReporter = null,
         CancellationToken cancellationToken = default);
 }

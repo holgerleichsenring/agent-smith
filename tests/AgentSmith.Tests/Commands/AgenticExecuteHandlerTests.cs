@@ -37,7 +37,7 @@ public sealed class AgenticExecuteHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
-                It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<IProgressReporter?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(changes);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
@@ -61,7 +61,7 @@ public sealed class AgenticExecuteHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
-                It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<IProgressReporter?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Execution failed"));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))

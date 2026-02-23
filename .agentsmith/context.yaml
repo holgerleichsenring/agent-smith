@@ -27,8 +27,9 @@ behavior:
   pipeline:
     process-ticket:
       trigger: [cli, slack, webhook]
-      steps: [FetchTicket, CheckoutSource, LoadCodingPrinciples, AnalyzeCode,
-              GeneratePlan, Approve, AgenticExecute, Test, CommitAndPR]
+      steps: [FetchTicket, CheckoutSource, BootstrapProject, LoadCodeMap,
+              LoadCodingPrinciples, LoadContext, AnalyzeCode, GeneratePlan,
+              Approve, AgenticExecute, Test, WriteRunResult, CommitAndPR]
       error: stop-on-first-failure
 
 quality:
@@ -82,7 +83,8 @@ state:
     p24: "Code map generation: CodeMapGenerator, LoadCodeMapHandler, prompt integration"
     p27: "Structured command UI: Slack modals, slash commands, cached ticket search, pipeline override"
     p26: "Coding principles detection: RepoSnapshot, LLM-based style/arch/methodology, ModelRegistry DI fix"
+    p28: ".agentsmith/ directory: unified meta-file home, LoadContext/WriteRunResult, coding-principles generation, context injection"
   active: {}
   planned:
-    p23: "Multi-repo support → prompts/phase-23-multi-repo.md"
-    p25: "PR review iteration → prompts/phase-25-pr-review-iteration.md"
+    p23: "Multi-repo support → .agentsmith/phases/p23-multi-repo.md"
+    p25: "PR review iteration → .agentsmith/phases/p25-pr-review.md"

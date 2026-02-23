@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Auto-detects project type and generates .context.yaml and code-map.yaml if not present.
+/// Auto-detects project type and generates .agentsmith/ meta-files if not present:
+/// context.yaml, code-map.yaml, and coding-principles.md.
 /// Stores DetectedProject in pipeline context for downstream use (e.g. TestHandler).
 /// </summary>
 public sealed class BootstrapProjectHandler(
@@ -17,17 +18,23 @@ public sealed class BootstrapProjectHandler(
     IContextGenerator generator,
     IContextValidator validator,
     ICodeMapGenerator codeMapGenerator,
+    ICodingPrinciplesGenerator codingPrinciplesGenerator,
     ILogger<BootstrapProjectHandler> logger)
     : ICommandHandler<BootstrapProjectContext>
 {
-    private const string ContextFileName = ".context.yaml";
+    private const string AgentSmithDir = ".agentsmith";
+    private const string ContextFileName = "context.yaml";
     private const string CodeMapFileName = "code-map.yaml";
+    private const string CodingPrinciplesFileName = "coding-principles.md";
 
     public async Task<CommandResult> ExecuteAsync(
         BootstrapProjectContext context, CancellationToken cancellationToken = default)
     {
         var repoPath = context.Repository.LocalPath;
-        var contextFilePath = Path.Combine(repoPath, ContextFileName);
+        var agentDir = Path.Combine(repoPath, AgentSmithDir);
+        Directory.CreateDirectory(agentDir);
+
+        var contextFilePath = Path.Combine(agentDir, ContextFileName);
 
         // Always detect project and collect snapshot for pipeline context
         var detected = detector.Detect(repoPath);
@@ -38,7 +45,8 @@ public sealed class BootstrapProjectHandler(
         if (File.Exists(contextFilePath))
         {
             logger.LogInformation("Found existing {File}, skipping generation", ContextFileName);
-            await TryGenerateCodeMapAsync(detected, repoPath, cancellationToken);
+            await TryGenerateCodeMapAsync(detected, agentDir, repoPath, cancellationToken);
+            await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, cancellationToken);
             return CommandResult.Ok($"Existing {ContextFileName} found, project detected as {detected.Language}");
         }
 
@@ -69,16 +77,17 @@ public sealed class BootstrapProjectHandler(
         await File.WriteAllTextAsync(contextFilePath, yaml, cancellationToken);
         logger.LogInformation("Written {File} ({Chars} chars)", contextFilePath, yaml.Length);
 
-        await TryGenerateCodeMapAsync(detected, repoPath, cancellationToken);
+        await TryGenerateCodeMapAsync(detected, agentDir, repoPath, cancellationToken);
+        await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, cancellationToken);
 
         return CommandResult.Ok(
             $"Generated {ContextFileName} for {detected.Language} project ({yaml.Length} chars)");
     }
 
     private async Task TryGenerateCodeMapAsync(
-        DetectedProject detected, string repoPath, CancellationToken cancellationToken)
+        DetectedProject detected, string agentDir, string repoPath, CancellationToken cancellationToken)
     {
-        var codeMapPath = Path.Combine(repoPath, CodeMapFileName);
+        var codeMapPath = Path.Combine(agentDir, CodeMapFileName);
 
         if (File.Exists(codeMapPath))
         {
@@ -103,6 +112,39 @@ public sealed class BootstrapProjectHandler(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Code map generation failed, continuing without code map");
+        }
+    }
+
+    private async Task TryGenerateCodingPrinciplesAsync(
+        DetectedProject detected, string agentDir, string repoPath,
+        RepoSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        var principlesPath = Path.Combine(agentDir, CodingPrinciplesFileName);
+
+        if (File.Exists(principlesPath))
+        {
+            logger.LogInformation("Found existing {File}, skipping generation", CodingPrinciplesFileName);
+            return;
+        }
+
+        try
+        {
+            logger.LogInformation("Generating {File} for {Lang} project...", CodingPrinciplesFileName, detected.Language);
+            var principles = await codingPrinciplesGenerator.GenerateAsync(
+                detected, repoPath, snapshot, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(principles))
+            {
+                logger.LogWarning("Coding principles generation returned empty result, skipping");
+                return;
+            }
+
+            await File.WriteAllTextAsync(principlesPath, principles, cancellationToken);
+            logger.LogInformation("Written {File} ({Chars} chars)", principlesPath, principles.Length);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Coding principles generation failed, continuing without");
         }
     }
 

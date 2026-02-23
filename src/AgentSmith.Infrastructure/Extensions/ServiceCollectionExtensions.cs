@@ -44,6 +44,15 @@ public static class ServiceCollectionExtensions
             var logger = sp.GetRequiredService<ILogger<CodeMapGenerator>>();
             return new CodeMapGenerator(apiKey, new RetryConfig(), model, logger);
         });
+        services.AddSingleton<ICodingPrinciplesGenerator>(sp =>
+        {
+            var secrets = sp.GetRequiredService<SecretsProvider>();
+            var apiKey = secrets.GetOptional("ANTHROPIC_API_KEY") ?? "";
+            var registry = CreateModelRegistry(sp);
+            var model = registry.GetModel(TaskType.ContextGeneration);
+            var logger = sp.GetRequiredService<ILogger<CodingPrinciplesGenerator>>();
+            return new CodingPrinciplesGenerator(apiKey, new RetryConfig(), model, logger);
+        });
         return services;
     }
 
