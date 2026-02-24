@@ -201,11 +201,11 @@ fix #1 in agent-smith-test
 ```
 
 Expected flow:
-1. 🚀 Starting Agent Smith for ticket #1 in agent-smith-test...
-2. ⚙️ [1/9] FetchTicketCommand
-3. ⚙️ [2/9] CheckoutSourceCommand
+1. Starting Agent Smith for ticket #1 in agent-smith-test...
+2. [1/9] FetchTicketCommand
+3. [2/9] CheckoutSourceCommand
 4. ...
-5. 🚀 Done! · View Pull Request
+5. Done! · View Pull Request
 
 > **Note:** `fix` spawns a Kubernetes Job. You need Kubernetes enabled
 > (Docker Desktop → Settings → Kubernetes → Enable Kubernetes) for this
