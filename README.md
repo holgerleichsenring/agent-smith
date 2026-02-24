@@ -1,6 +1,6 @@
 # Agent Smith
 
-[![Agent smith](/docs/agent-smith-logo-large.png)](logo)
+[![Agent smith](/docs/agent-smith-logo-large-green.png)](logo)
 
 An open-source, self-hosted AI coding agent that reads your tickets and ships the code.
 
