@@ -171,6 +171,81 @@ public class RepoSnapshotCollectorTests : IDisposable
         result[0].Should().Contain("app.py");
     }
 
+    [Fact]
+    public void Collect_IncludesDirectoryTree()
+    {
+        // Arrange
+        var srcDir = Path.Combine(_tempDir, "src");
+        Directory.CreateDirectory(srcDir);
+        File.WriteAllText(Path.Combine(srcDir, "app.cs"), "class App {}");
+        File.WriteAllText(Path.Combine(_tempDir, "README.md"), "# Test");
+
+        // Act
+        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
+
+        // Assert
+        snapshot.DirectoryTree.Should().Contain("src/");
+        snapshot.DirectoryTree.Should().Contain("README.md");
+        snapshot.DirectoryTree.Should().Contain("app.cs");
+    }
+
+    [Fact]
+    public void GenerateTree_EmptyDir_ReturnsEmpty()
+    {
+        RepoSnapshotCollector.GenerateTree(_tempDir, 3).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GenerateTree_WithFiles_ReturnsStructure()
+    {
+        // Arrange
+        File.WriteAllText(Path.Combine(_tempDir, "README.md"), "# Test");
+        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
+        File.WriteAllText(Path.Combine(_tempDir, "src", "main.cs"), "class Main {}");
+
+        // Act
+        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 3);
+
+        // Assert
+        result.Should().Contain("README.md");
+        result.Should().Contain("src/");
+        result.Should().Contain("main.cs");
+    }
+
+    [Fact]
+    public void GenerateTree_ExcludesGitAndNodeModules()
+    {
+        // Arrange
+        Directory.CreateDirectory(Path.Combine(_tempDir, ".git"));
+        Directory.CreateDirectory(Path.Combine(_tempDir, "node_modules"));
+        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
+
+        // Act
+        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 3);
+
+        // Assert
+        result.Should().Contain("src/");
+        result.Should().NotContain(".git");
+        result.Should().NotContain("node_modules");
+    }
+
+    [Fact]
+    public void GenerateTree_RespectsMaxDepth()
+    {
+        // Arrange
+        var deep = Path.Combine(_tempDir, "a", "b", "c", "d", "e");
+        Directory.CreateDirectory(deep);
+        File.WriteAllText(Path.Combine(deep, "deep.txt"), "");
+
+        // Act — depth 2 should not reach "d" or "e"
+        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 2);
+
+        // Assert
+        result.Should().Contain("a/");
+        result.Should().Contain("b/");
+        result.Should().NotContain("deep.txt");
+    }
+
     private static DetectedProject CreateProject(string language) =>
         new(
             Language: language,

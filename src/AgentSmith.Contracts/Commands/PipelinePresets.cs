@@ -1,0 +1,57 @@
+namespace AgentSmith.Contracts.Commands;
+
+/// <summary>
+/// Code-defined pipeline presets. YAML pipelines section is an optional override.
+/// </summary>
+public static class PipelinePresets
+{
+    public static readonly IReadOnlyList<string> FixBug =
+    [
+        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
+        CommandNames.Approval, CommandNames.AgenticExecute,
+        CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+    ];
+
+    public static readonly IReadOnlyList<string> FixNoTest =
+    [
+        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
+        CommandNames.Approval, CommandNames.AgenticExecute,
+        CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+    ];
+
+    public static readonly IReadOnlyList<string> InitProject =
+    [
+        CommandNames.CheckoutSource, CommandNames.BootstrapProject,
+        CommandNames.InitCommit,
+    ];
+
+    public static readonly IReadOnlyList<string> AddFeature =
+    [
+        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.GeneratePlan, CommandNames.Approval,
+        CommandNames.AgenticExecute, CommandNames.GenerateTests,
+        CommandNames.Test, CommandNames.GenerateDocs,
+        CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+    ];
+
+    private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fix-bug"] = FixBug,
+        ["fix-no-test"] = FixNoTest,
+        ["init-project"] = InitProject,
+        ["add-feature"] = AddFeature,
+    };
+
+    public static IReadOnlyList<string> Names { get; } = All.Keys.ToList();
+
+    public static IReadOnlyList<string>? TryResolve(string name) =>
+        All.GetValueOrDefault(name);
+}

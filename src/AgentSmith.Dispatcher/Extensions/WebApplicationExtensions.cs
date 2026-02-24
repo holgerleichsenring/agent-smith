@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Dispatcher.Services.Adapters;
 using AgentSmith.Dispatcher.Services.Handlers;
@@ -277,9 +278,7 @@ internal static class WebApplicationExtensions
         var metadata = GetMetadata(json);
         var selectedProject = metadata.SelectedProject ?? ExtractSelectedProjectFromViewState(json);
 
-        var configLoader = ctx.RequestServices.GetRequiredService<IConfigurationLoader>();
-        var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
-        var pipelineNames = config.Pipelines.Keys.ToList();
+        var pipelineNames = PipelinePresets.Names;
 
         var updatedView = SlackModalBuilder.BuildUpdatedView(
             command.Value, SerializeMetadata(metadata), selectedProject, pipelineNames);
@@ -310,9 +309,7 @@ internal static class WebApplicationExtensions
             ?["selected_option"]?["value"]?.GetValue<string>();
         var command = SlackModalBuilder.ParseCommandValue(commandValue) ?? ModalCommandType.FixTicket;
 
-        var configLoader = ctx.RequestServices.GetRequiredService<IConfigurationLoader>();
-        var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
-        var pipelineNames = config.Pipelines.Keys.ToList();
+        var pipelineNames = PipelinePresets.Names;
 
         var updatedView = SlackModalBuilder.BuildUpdatedView(
             command, SerializeMetadata(metadata), selectedProject, pipelineNames);

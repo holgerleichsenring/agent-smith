@@ -51,15 +51,15 @@ projects:
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
 
-  agent-smith-test:
+  todo-list:
     source:
       type: AzureRepos
-      url: https://dev.azure.com/holgerleichsenring/agent-smith-test/_git/agent-smith-test
+      url: https://dev.azure.com/holgerleichsenring/todo-list/_git/todo-list
       auth: token
     tickets:
       type: AzureDevOps
       organization: holgerleichsenring
-      project: agent-smith-test
+      project: todo-list
       auth: token
     agent:
       type: Claude
@@ -103,61 +103,6 @@ projects:
           cache_read_per_million: 0.08
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
-
-pipelines:
-  fix-bug:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - LoadCodeMapCommand
-      - LoadCodingPrinciplesCommand
-      - LoadContextCommand
-      - AnalyzeCodeCommand
-      - GeneratePlanCommand
-      - ApprovalCommand
-      - AgenticExecuteCommand
-      - TestCommand
-      - WriteRunResultCommand
-      - CommitAndPRCommand
-
-  fix-no-test:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - LoadCodeMapCommand
-      - LoadCodingPrinciplesCommand
-      - LoadContextCommand
-      - AnalyzeCodeCommand
-      - GeneratePlanCommand
-      - ApprovalCommand
-      - AgenticExecuteCommand
-      - WriteRunResultCommand
-      - CommitAndPRCommand
-
-  init-project:
-    commands:
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - InitCommitCommand
-
-  add-feature:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - LoadCodeMapCommand
-      - LoadCodingPrinciplesCommand
-      - LoadContextCommand
-      - GeneratePlanCommand
-      - ApprovalCommand
-      - AgenticExecuteCommand
-      - GenerateTestsCommand
-      - TestCommand
-      - GenerateDocsCommand
-      - WriteRunResultCommand
-      - CommitAndPRCommand
 
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}

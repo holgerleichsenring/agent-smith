@@ -10,11 +10,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Auto-detects project type and generates .agentsmith/ meta-files if not present:
 /// context.yaml, code-map.yaml, and coding-principles.md.
+/// Creates a per-project ILlmClient via ILlmClientFactory for generator calls.
 /// Stores DetectedProject in pipeline context for downstream use (e.g. TestHandler).
 /// </summary>
 public sealed class BootstrapProjectHandler(
     IProjectDetector detector,
     IRepoSnapshotCollector snapshotCollector,
+    ILlmClientFactory llmClientFactory,
     IContextGenerator generator,
     IContextValidator validator,
     ICodeMapGenerator codeMapGenerator,
@@ -42,11 +44,14 @@ public sealed class BootstrapProjectHandler(
         context.Pipeline.Set(ContextKeys.DetectedProject, detected);
         context.Pipeline.Set(ContextKeys.RepoSnapshot, snapshot);
 
+        // Create per-project LLM client from agent configuration
+        var llmClient = llmClientFactory.Create(context.Agent);
+
         if (File.Exists(contextFilePath))
         {
             logger.LogInformation("Found existing {File}, skipping generation", ContextFileName);
-            await TryGenerateCodeMapAsync(detected, agentDir, repoPath, cancellationToken);
-            await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, cancellationToken);
+            await TryGenerateCodeMapAsync(detected, agentDir, repoPath, snapshot, llmClient, cancellationToken);
+            await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, llmClient, cancellationToken);
             return CommandResult.Ok($"Existing {ContextFileName} found, project detected as {detected.Language}");
         }
 
@@ -54,7 +59,7 @@ public sealed class BootstrapProjectHandler(
             "No {File} found. Generating for {Lang} project...",
             ContextFileName, detected.Language);
 
-        var yaml = await generator.GenerateAsync(detected, repoPath, snapshot, cancellationToken);
+        var yaml = await generator.GenerateAsync(detected, repoPath, snapshot, llmClient, cancellationToken);
         var validation = validator.Validate(yaml);
 
         if (!validation.IsValid)
@@ -63,7 +68,7 @@ public sealed class BootstrapProjectHandler(
                 "Generated YAML has {ErrorCount} validation errors, retrying...",
                 validation.Errors.Count);
 
-            yaml = await RetryGenerationAsync(detected, repoPath, yaml, validation.Errors, cancellationToken);
+            yaml = await RetryGenerationAsync(detected, repoPath, yaml, validation.Errors, llmClient, cancellationToken);
             validation = validator.Validate(yaml);
 
             if (!validation.IsValid)
@@ -77,15 +82,16 @@ public sealed class BootstrapProjectHandler(
         await File.WriteAllTextAsync(contextFilePath, yaml, cancellationToken);
         logger.LogInformation("Written {File} ({Chars} chars)", contextFilePath, yaml.Length);
 
-        await TryGenerateCodeMapAsync(detected, agentDir, repoPath, cancellationToken);
-        await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, cancellationToken);
+        await TryGenerateCodeMapAsync(detected, agentDir, repoPath, snapshot, llmClient, cancellationToken);
+        await TryGenerateCodingPrinciplesAsync(detected, agentDir, repoPath, snapshot, llmClient, cancellationToken);
 
         return CommandResult.Ok(
             $"Generated {ContextFileName} for {detected.Language} project ({yaml.Length} chars)");
     }
 
     private async Task TryGenerateCodeMapAsync(
-        DetectedProject detected, string agentDir, string repoPath, CancellationToken cancellationToken)
+        DetectedProject detected, string agentDir, string repoPath,
+        RepoSnapshot snapshot, ILlmClient llmClient, CancellationToken cancellationToken)
     {
         var codeMapPath = Path.Combine(agentDir, CodeMapFileName);
 
@@ -98,7 +104,7 @@ public sealed class BootstrapProjectHandler(
         try
         {
             logger.LogInformation("Generating {File} for {Lang} project...", CodeMapFileName, detected.Language);
-            var codeMap = await codeMapGenerator.GenerateAsync(detected, repoPath, cancellationToken);
+            var codeMap = await codeMapGenerator.GenerateAsync(detected, repoPath, snapshot, llmClient, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(codeMap))
             {
@@ -117,7 +123,7 @@ public sealed class BootstrapProjectHandler(
 
     private async Task TryGenerateCodingPrinciplesAsync(
         DetectedProject detected, string agentDir, string repoPath,
-        RepoSnapshot snapshot, CancellationToken cancellationToken)
+        RepoSnapshot snapshot, ILlmClient llmClient, CancellationToken cancellationToken)
     {
         var principlesPath = Path.Combine(agentDir, CodingPrinciplesFileName);
 
@@ -131,7 +137,7 @@ public sealed class BootstrapProjectHandler(
         {
             logger.LogInformation("Generating {File} for {Lang} project...", CodingPrinciplesFileName, detected.Language);
             var principles = await codingPrinciplesGenerator.GenerateAsync(
-                detected, repoPath, snapshot, cancellationToken);
+                detected, repoPath, snapshot, llmClient, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(principles))
             {
@@ -153,9 +159,10 @@ public sealed class BootstrapProjectHandler(
         string repoPath,
         string previousYaml,
         IReadOnlyList<string> errors,
+        ILlmClient llmClient,
         CancellationToken cancellationToken)
     {
         return await generator.RetryWithErrorsAsync(
-            detected, repoPath, previousYaml, errors, cancellationToken);
+            detected, repoPath, previousYaml, errors, llmClient, cancellationToken);
     }
 }
