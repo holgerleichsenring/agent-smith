@@ -21,5 +21,7 @@ public static class ContextKeys
     public const string CodeMap = "CodeMap";
     public const string ProjectContext = "ProjectContext";
     public const string RunNumber = "RunNumber";
+    public const string RunCostSummary = "RunCostSummary";
+    public const string RunDurationSeconds = "RunDurationSeconds";
     public const string InitMode = "InitMode";
 }
