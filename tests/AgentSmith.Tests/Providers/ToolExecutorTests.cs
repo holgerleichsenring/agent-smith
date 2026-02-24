@@ -179,4 +179,75 @@ public class ToolExecutorTests : IDisposable
 
         result.Should().Contain("Unknown tool");
     }
+
+    [Theory]
+    [InlineData("dotnet run")]
+    [InlineData("dotnet run --urls=http://localhost:5001")]
+    [InlineData("dotnet watch")]
+    [InlineData("npm start")]
+    [InlineData("npm run dev")]
+    [InlineData("npm run serve")]
+    [InlineData("yarn start")]
+    [InlineData("yarn dev")]
+    [InlineData("ng serve")]
+    [InlineData("python -m http.server")]
+    [InlineData("python manage.py runserver")]
+    [InlineData("flask run")]
+    [InlineData("uvicorn main:app")]
+    [InlineData("gunicorn app:app")]
+    [InlineData("docker run nginx")]
+    [InlineData("docker compose up")]
+    [InlineData("docker-compose up")]
+    [InlineData("vite")]
+    [InlineData("webpack serve")]
+    public void IsBlockedCommand_BlockedCommands_ReturnsTrue(string command)
+    {
+        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("dotnet build")]
+    [InlineData("dotnet test")]
+    [InlineData("dotnet restore")]
+    [InlineData("npm install")]
+    [InlineData("npm test")]
+    [InlineData("npm run build")]
+    [InlineData("npm run test")]
+    [InlineData("yarn install")]
+    [InlineData("yarn test")]
+    [InlineData("echo hello")]
+    [InlineData("ls -la")]
+    [InlineData("python -m pytest")]
+    [InlineData("docker build .")]
+    public void IsBlockedCommand_AllowedCommands_ReturnsFalse(string command)
+    {
+        ToolExecutor.IsBlockedCommand(command).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("dotnet build && dotnet run")]
+    [InlineData("dotnet build; dotnet run --urls=http://localhost:5001")]
+    [InlineData("nohup dotnet run &")]
+    public void IsBlockedCommand_BlockedInMultiCommand_ReturnsTrue(string command)
+    {
+        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("dotnet run --urls=\"http://localhost:5001\" &\nsleep 2\ncurl -s http://localhost:5001/todos")]
+    public void IsBlockedCommand_BlockedInMultiLineCommand_ReturnsTrue(string command)
+    {
+        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RunCommand_BlockedCommand_ReturnsErrorWithoutExecuting()
+    {
+        var input = new JsonObject { ["command"] = "dotnet run" };
+
+        var result = await _sut.ExecuteAsync("run_command", input);
+
+        result.Should().Contain("Error: Command rejected");
+        result.Should().Contain("Long-running server processes are not allowed");
+    }
 }

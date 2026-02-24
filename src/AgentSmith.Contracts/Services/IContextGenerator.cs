@@ -11,6 +11,7 @@ public interface IContextGenerator
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
+        ILlmClient llmClient,
         CancellationToken cancellationToken);
 
     Task<string> RetryWithErrorsAsync(
@@ -18,5 +19,6 @@ public interface IContextGenerator
         string repoPath,
         string previousYaml,
         IReadOnlyList<string> validationErrors,
+        ILlmClient llmClient,
         CancellationToken cancellationToken);
 }
