@@ -22,98 +22,13 @@ public class ContextGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void StripCodeFences_PlainYaml_ReturnsUnchanged()
-    {
-        // Arrange
-        var yaml = "meta:\n  project: test";
-
-        // Act
-        var result = ContextGenerator.StripCodeFences(yaml);
-
-        // Assert
-        result.Should().Be(yaml);
-    }
-
-    [Fact]
-    public void StripCodeFences_YamlFences_StripsCodeBlock()
-    {
-        // Arrange
-        var yaml = "```yaml\nmeta:\n  project: test\n```";
-
-        // Act
-        var result = ContextGenerator.StripCodeFences(yaml);
-
-        // Assert
-        result.Should().Be("meta:\n  project: test");
-    }
-
-    [Fact]
-    public void StripCodeFences_GenericFences_StripsCodeBlock()
-    {
-        // Arrange
-        var yaml = "```\nmeta:\n  project: test\n```";
-
-        // Act
-        var result = ContextGenerator.StripCodeFences(yaml);
-
-        // Assert
-        result.Should().Be("meta:\n  project: test");
-    }
-
-    [Fact]
-    public void GenerateTree_EmptyDir_ReturnsEmpty()
-    {
-        // Act
-        var result = ContextGenerator.GenerateTree(_tempDir, 3);
-
-        // Assert
-        result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void GenerateTree_WithFiles_ReturnsStructure()
-    {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "README.md"), "# Test");
-        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
-        File.WriteAllText(Path.Combine(_tempDir, "src", "main.cs"), "class Main {}");
-
-        // Act
-        var result = ContextGenerator.GenerateTree(_tempDir, 3);
-
-        // Assert
-        result.Should().Contain("README.md");
-        result.Should().Contain("src/");
-        result.Should().Contain("main.cs");
-    }
-
-    [Fact]
-    public void GenerateTree_ExcludesGitAndNodeModules()
-    {
-        // Arrange
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".git"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "node_modules"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
-
-        // Act
-        var result = ContextGenerator.GenerateTree(_tempDir, 3);
-
-        // Assert
-        result.Should().Contain("src/");
-        result.Should().NotContain(".git");
-        result.Should().NotContain("node_modules");
-    }
-
-    [Fact]
     public void BuildUserPrompt_IncludesDetectedStack()
     {
-        // Arrange
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+        var snapshot = CreateEmptySnapshot();
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "");
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
         result.Should().Contain("C#");
         result.Should().Contain(".NET 8");
         result.Should().Contain("NuGet");
@@ -122,14 +37,12 @@ public class ContextGeneratorTests : IDisposable
     [Fact]
     public void BuildUserPrompt_IncludesReadmeExcerpt()
     {
-        // Arrange
         var project = CreateDetectedProject("Python", "Python", "pip",
             readmeExcerpt: "This is a Django web application.");
+        var snapshot = CreateEmptySnapshot();
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "");
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
         result.Should().Contain("README (excerpt)");
         result.Should().Contain("Django web application");
     }
@@ -137,27 +50,22 @@ public class ContextGeneratorTests : IDisposable
     [Fact]
     public void BuildUserPrompt_OmitsReadmeSectionWhenNull()
     {
-        // Arrange
         var project = CreateDetectedProject("TypeScript", "Node.js", "npm");
+        var snapshot = CreateEmptySnapshot();
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "");
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
         result.Should().NotContain("README (excerpt)");
     }
 
     [Fact]
     public void ReadKeyFiles_TruncatesLargeFiles()
     {
-        // Arrange
         var fileName = "large.csproj";
         File.WriteAllText(Path.Combine(_tempDir, fileName), new string('x', 5000));
 
-        // Act
         var result = ContextGenerator.ReadKeyFiles([fileName], _tempDir);
 
-        // Assert
         result.Should().Contain("(truncated)");
         result.Should().Contain(fileName);
     }
@@ -165,75 +73,79 @@ public class ContextGeneratorTests : IDisposable
     [Fact]
     public void ReadKeyFiles_SkipsMissingFiles()
     {
-        // Act
         var result = ContextGenerator.ReadKeyFiles(["nonexistent.txt"], _tempDir);
 
-        // Assert
         result.Should().BeEmpty();
     }
 
     [Fact]
     public void ReadKeyFiles_ReadsExistingFile()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, "package.json"),
             """{"name": "my-app"}""");
 
-        // Act
         var result = ContextGenerator.ReadKeyFiles(["package.json"], _tempDir);
 
-        // Assert
         result.Should().Contain("package.json");
         result.Should().Contain("my-app");
     }
 
     [Fact]
-    public void BuildUserPrompt_WithSnapshot_IncludesConfigFiles()
+    public void BuildUserPrompt_IncludesConfigFiles()
     {
-        // Arrange
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = new RepoSnapshot(
             ConfigFileContents: ["### .editorconfig\n```\nroot = true\nindent_style = space\n```"],
-            CodeSamples: []);
+            CodeSamples: [],
+            DirectoryTree: "");
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
         result.Should().Contain("Config Files");
         result.Should().Contain(".editorconfig");
         result.Should().Contain("indent_style = space");
     }
 
     [Fact]
-    public void BuildUserPrompt_WithSnapshot_IncludesCodeSamples()
+    public void BuildUserPrompt_IncludesCodeSamples()
     {
-        // Arrange
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = new RepoSnapshot(
             ConfigFileContents: [],
-            CodeSamples: ["### src/Program.cs\nusing System;\nConsole.WriteLine(\"Hello\");"]);
+            CodeSamples: ["### src/Program.cs\nusing System;\nConsole.WriteLine(\"Hello\");"],
+            DirectoryTree: "");
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
         result.Should().Contain("Code Samples");
         result.Should().Contain("Program.cs");
         result.Should().Contain("Console.WriteLine");
     }
 
     [Fact]
-    public void BuildUserPrompt_WithSnapshot_UsesExtendedQualityTemplate()
+    public void BuildUserPrompt_IncludesDirectoryTree()
     {
-        // Arrange
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
-        var snapshot = new RepoSnapshot(ConfigFileContents: [], CodeSamples: []);
+        var snapshot = new RepoSnapshot(
+            ConfigFileContents: [],
+            CodeSamples: [],
+            DirectoryTree: "src/\n  Program.cs\nREADME.md");
 
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "", snapshot);
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
 
-        // Assert
+        result.Should().Contain("src/");
+        result.Should().Contain("Program.cs");
+        result.Should().Contain("README.md");
+    }
+
+    [Fact]
+    public void BuildUserPrompt_UsesExtendedQualityTemplate()
+    {
+        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
+        var snapshot = CreateEmptySnapshot();
+
+        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+
         result.Should().Contain("detected-style");
         result.Should().Contain("architecture");
         result.Should().Contain("methodology");
@@ -241,50 +153,31 @@ public class ContextGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void BuildUserPrompt_WithNullSnapshot_UsesBasicQualityTemplate()
-    {
-        // Arrange
-        var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
-
-        // Act
-        var result = ContextGenerator.BuildUserPrompt(project, "", "");
-
-        // Assert
-        result.Should().NotContain("detected-style");
-        result.Should().NotContain("architecture:");
-        result.Should().NotContain("methodology");
-    }
-
-    [Fact]
     public void BuildSnapshotSection_EmptySnapshot_ReturnsEmpty()
     {
-        // Arrange
-        var snapshot = new RepoSnapshot(ConfigFileContents: [], CodeSamples: []);
+        var snapshot = CreateEmptySnapshot();
 
-        // Act
-        var result = ContextGenerator.BuildSnapshotSection(snapshot);
-
-        // Assert
-        result.Should().BeEmpty();
+        ContextGenerator.BuildSnapshotSection(snapshot).Should().BeEmpty();
     }
 
     [Fact]
     public void BuildSnapshotSection_WithConfigsAndSamples_IncludesBoth()
     {
-        // Arrange
         var snapshot = new RepoSnapshot(
             ConfigFileContents: ["### .editorconfig\n```\nroot = true\n```"],
-            CodeSamples: ["### src/Main.cs\nclass Main {}"]);
+            CodeSamples: ["### src/Main.cs\nclass Main {}"],
+            DirectoryTree: "");
 
-        // Act
         var result = ContextGenerator.BuildSnapshotSection(snapshot);
 
-        // Assert
         result.Should().Contain("Config Files");
         result.Should().Contain("Code Samples");
         result.Should().Contain(".editorconfig");
         result.Should().Contain("Main.cs");
     }
+
+    private static RepoSnapshot CreateEmptySnapshot() =>
+        new(ConfigFileContents: [], CodeSamples: [], DirectoryTree: "");
 
     private static DetectedProject CreateDetectedProject(
         string language, string runtime, string packageManager,

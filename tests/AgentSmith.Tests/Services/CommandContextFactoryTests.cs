@@ -20,7 +20,7 @@ public class CommandContextFactoryTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("123"));
 
-        var result = _sut.Create("FetchTicketCommand", project, pipeline);
+        var result = _sut.Create(CommandNames.FetchTicket, project, pipeline);
 
         result.Should().BeOfType<FetchTicketContext>();
         var ctx = (FetchTicketContext)result;
@@ -34,7 +34,7 @@ public class CommandContextFactoryTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("456"));
 
-        var result = _sut.Create("CheckoutSourceCommand", project, pipeline);
+        var result = _sut.Create(CommandNames.CheckoutSource, project, pipeline);
 
         result.Should().BeOfType<CheckoutSourceContext>();
         var ctx = (CheckoutSourceContext)result;
@@ -52,7 +52,7 @@ public class CommandContextFactoryTests
             Array.Empty<string>(), Array.Empty<string>(), null, null));
         pipeline.Set(ContextKeys.CodingPrinciples, "principles");
 
-        var result = _sut.Create("GeneratePlanCommand", project, pipeline);
+        var result = _sut.Create(CommandNames.GeneratePlan, project, pipeline);
 
         result.Should().BeOfType<GeneratePlanContext>();
         var ctx = (GeneratePlanContext)result;

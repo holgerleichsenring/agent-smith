@@ -12,5 +12,6 @@ public interface ICodingPrinciplesGenerator
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
+        ILlmClient llmClient,
         CancellationToken cancellationToken);
 }

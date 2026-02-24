@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -57,9 +58,7 @@ public sealed class ProcessTicketUseCase(
                 $"Project '{projectName}' not found in configuration.");
 
         var pipelineName = pipelineOverride ?? projectConfig.Pipeline;
-        if (!config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
-            throw new ConfigurationException(
-                $"Pipeline '{pipelineName}' not found in configuration.");
+        var commands = ResolvePipeline(pipelineName, config);
 
         logger.LogInformation(
             "Running pipeline '{Pipeline}' for project '{Project}', ticket {Ticket}",
@@ -70,7 +69,7 @@ public sealed class ProcessTicketUseCase(
         pipeline.Set(ContextKeys.Headless, headless);
 
         var result = await pipelineExecutor.ExecuteAsync(
-            pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
+            commands, projectConfig, pipeline, cancellationToken);
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
@@ -94,9 +93,7 @@ public sealed class ProcessTicketUseCase(
                 $"Project '{projectName}' not found in configuration.");
 
         var pipelineName = pipelineOverride ?? "init-project";
-        if (!config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
-            throw new ConfigurationException(
-                $"Pipeline '{pipelineName}' not found in configuration.");
+        var commands = ResolvePipeline(pipelineName, config);
 
         logger.LogInformation(
             "Running init pipeline '{Pipeline}' for project '{Project}'",
@@ -107,13 +104,26 @@ public sealed class ProcessTicketUseCase(
         pipeline.Set(ContextKeys.Headless, headless);
 
         var result = await pipelineExecutor.ExecuteAsync(
-            pipelineConfig.Commands, projectConfig, pipeline, cancellationToken);
+            commands, projectConfig, pipeline, cancellationToken);
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
 
         LogResult(result, projectName);
         return result;
+    }
+
+    private static IReadOnlyList<string> ResolvePipeline(
+        string pipelineName, AgentSmithConfig config)
+    {
+        if (PipelinePresets.TryResolve(pipelineName) is { } preset)
+            return preset;
+
+        if (config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
+            return pipelineConfig.Commands;
+
+        throw new ConfigurationException(
+            $"Pipeline '{pipelineName}' not found in presets or configuration.");
     }
 
     private void LogResult(CommandResult result, string projectName)

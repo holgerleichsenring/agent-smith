@@ -6,7 +6,8 @@ namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
 /// Collects raw repository data for LLM interpretation.
-/// Two jobs: read config files, collect code samples. No interpretation.
+/// Three jobs: read config files, collect code samples, generate directory tree.
+/// No interpretation — just data collection.
 /// </summary>
 public sealed class RepoSnapshotCollector(
     ILogger<RepoSnapshotCollector> logger) : IRepoSnapshotCollector
@@ -14,8 +15,10 @@ public sealed class RepoSnapshotCollector(
     private const int MaxCodeSampleChars = 10_000;
     private const int MaxSampleLines = 80;
     private const int MaxSampleFiles = 15;
+    private const int MaxTreeDepth = 4;
+    private const int MaxTreeLines = 200;
 
-    private static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> ExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git", "node_modules", "bin", "obj", ".vs", ".idea",
         "__pycache__", ".mypy_cache", ".pytest_cache", "dist", "build",
@@ -36,11 +39,12 @@ public sealed class RepoSnapshotCollector(
 
         var configs = CollectConfigFiles(repoPath);
         var samples = CollectCodeSamples(repoPath, project);
+        var tree = GenerateTree(repoPath, MaxTreeDepth);
 
-        logger.LogInformation("Snapshot: {Configs} config files, {Samples} code samples",
-            configs.Count, samples.Count);
+        logger.LogInformation("Snapshot: {Configs} config files, {Samples} code samples, tree {TreeChars} chars",
+            configs.Count, samples.Count, tree.Length);
 
-        return new RepoSnapshot(configs, samples);
+        return new RepoSnapshot(configs, samples, tree);
     }
 
     internal static IReadOnlyList<string> CollectConfigFiles(string repoPath)
@@ -92,6 +96,13 @@ public sealed class RepoSnapshotCollector(
         return samples;
     }
 
+    internal static string GenerateTree(string rootPath, int maxDepth)
+    {
+        var lines = new List<string>();
+        BuildTreeLines(rootPath, "", maxDepth, 0, lines);
+        return string.Join('\n', lines.Take(MaxTreeLines));
+    }
+
     private static string[] GetSourceExtensions(string language) => language switch
     {
         "C#" => ["*.cs"],
@@ -120,5 +131,32 @@ public sealed class RepoSnapshotCollector(
     {
         var relative = Path.GetRelativePath(repoPath, fullPath);
         return ExcludedDirs.Any(d => relative.Contains(d, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void BuildTreeLines(
+        string dirPath, string prefix, int maxDepth, int currentDepth, List<string> lines)
+    {
+        if (currentDepth >= maxDepth || lines.Count > MaxTreeLines) return;
+
+        try
+        {
+            var entries = Directory.GetFileSystemEntries(dirPath)
+                .Select(e => new { Path = e, Name = Path.GetFileName(e), IsDir = Directory.Exists(e) })
+                .Where(e => !ExcludedDirs.Contains(e.Name))
+                .OrderBy(e => !e.IsDir)
+                .ThenBy(e => e.Name)
+                .ToList();
+
+            foreach (var entry in entries)
+            {
+                var marker = entry.IsDir ? "/" : "";
+                lines.Add($"{prefix}{entry.Name}{marker}");
+
+                if (entry.IsDir)
+                    BuildTreeLines(entry.Path, prefix + "  ", maxDepth, currentDepth + 1, lines);
+            }
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (IOException) { }
     }
 }

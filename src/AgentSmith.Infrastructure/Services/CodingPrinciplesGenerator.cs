@@ -1,9 +1,6 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services.Providers.Agent;
-using Anthropic.SDK;
-using Anthropic.SDK.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services;
@@ -13,15 +10,13 @@ namespace AgentSmith.Infrastructure.Services;
 /// Analyzes code samples and config files to produce actionable coding guidelines.
 /// </summary>
 public sealed class CodingPrinciplesGenerator(
-    string apiKey,
-    RetryConfig retryConfig,
-    ModelAssignment modelAssignment,
     ILogger<CodingPrinciplesGenerator> logger) : ICodingPrinciplesGenerator
 {
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
+        ILlmClient llmClient,
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
@@ -29,28 +24,8 @@ public sealed class CodingPrinciplesGenerator(
             project.Language, repoPath);
 
         var userPrompt = BuildUserPrompt(project, snapshot);
-
-        using var client = CreateClient();
-
-        var response = await client.Messages.GetClaudeMessageAsync(
-            new MessageParameters
-            {
-                Model = modelAssignment.Model,
-                MaxTokens = modelAssignment.MaxTokens,
-                System = new List<SystemMessage> { new(SystemPrompt) },
-                Messages = new List<Message>
-                {
-                    new()
-                    {
-                        Role = RoleType.User,
-                        Content = new List<ContentBase> { new TextContent { Text = userPrompt } }
-                    }
-                },
-                Stream = false
-            },
-            cancellationToken);
-
-        var markdown = response.Content.OfType<TextContent>().FirstOrDefault()?.Text?.Trim() ?? "";
+        var markdown = await llmClient.CompleteAsync(
+            SystemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
 
         logger.LogInformation("Generated coding-principles.md ({Chars} chars)", markdown.Length);
         return markdown;
@@ -78,13 +53,6 @@ public sealed class CodingPrinciplesGenerator(
 
             {codeSection}
             """;
-    }
-
-    private AnthropicClient CreateClient()
-    {
-        var factory = new ResilientHttpClientFactory(retryConfig, logger);
-        var httpClient = factory.Create();
-        return new AnthropicClient(apiKey, httpClient);
     }
 
     private const string SystemPrompt = """

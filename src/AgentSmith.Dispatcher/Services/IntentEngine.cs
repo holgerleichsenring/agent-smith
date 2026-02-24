@@ -11,7 +11,7 @@ namespace AgentSmith.Dispatcher.Services;
 /// </summary>
 public sealed class IntentEngine(
     ChatIntentParser regexParser,
-    IHaikuIntentParser haikuParser,
+    ILlmIntentParser llmParser,
     IProjectResolver projectResolver,
     IConfigurationLoader configLoader,
     ILogger<IntentEngine> logger)
@@ -32,7 +32,7 @@ public sealed class IntentEngine(
         ChatIntent fallback, string text, string userId, string channelId,
         string platform, CancellationToken ct)
     {
-        var haikuIntent = await haikuParser.ParseAsync(text, userId, channelId, platform, ct);
+        var haikuIntent = await llmParser.ParseAsync(text, userId, channelId, platform, ct);
 
         if (haikuIntent is not null and not UnknownIntent)
         {
