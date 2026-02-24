@@ -1,6 +1,8 @@
+using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -58,7 +60,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_WritesResultFile()
+    public async Task ExecuteAsync_WritesResultWithFrontmatter()
     {
         SetupContextYaml();
         var context = CreateContext("Add login feature");
@@ -66,12 +68,79 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var resultFile = Path.Combine(runDir, "result.md");
-        File.Exists(resultFile).Should().BeTrue();
+        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
 
-        var content = File.ReadAllText(resultFile);
-        content.Should().Contain("Add login feature");
+        content.Should().Contain("---");
+        content.Should().Contain("ticket: \"#42");
+        content.Should().Contain("result: success");
+        content.Should().Contain("type: feat");
         content.Should().Contain("[Create] src/Login.cs");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithCostData_IncludesCostInFrontmatter()
+    {
+        SetupContextYaml();
+        var pipeline = new PipelineContext();
+        var phases = new Dictionary<string, PhaseCost>
+        {
+            ["scout"] = new("claude-haiku-4-5-20251001", 4200, 1800, 2100, 1, 0.02m),
+            ["primary"] = new("claude-sonnet-4-20250514", 38150, 6320, 16100, 6, 0.36m)
+        };
+        pipeline.Set(ContextKeys.RunCostSummary, new RunCostSummary(phases.AsReadOnly(), 0.38m));
+        pipeline.Set(ContextKeys.RunDurationSeconds, 145);
+
+        var context = CreateContext("Add login feature", pipeline);
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
+        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+
+        content.Should().Contain("duration_seconds: 145");
+        content.Should().Contain("tokens:");
+        content.Should().Contain("  input: 42350");
+        content.Should().Contain("  output: 8120");
+        content.Should().Contain("total_usd: 0.3800");
+        content.Should().Contain("    scout:");
+        content.Should().Contain("    primary:");
+        content.Should().Contain("      model: claude-sonnet-4-20250514");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutCostData_OmitsCostSections()
+    {
+        SetupContextYaml();
+        var context = CreateContext("Add login feature");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
+        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+
+        content.Should().Contain("---");
+        content.Should().Contain("ticket:");
+        content.Should().NotContain("tokens:");
+        content.Should().NotContain("cost:");
+        content.Should().NotContain("duration_seconds:");
+    }
+
+    [Fact]
+    public void BuildFrontmatter_UsesInvariantCulture()
+    {
+        var phases = new Dictionary<string, PhaseCost>
+        {
+            ["primary"] = new("model", 1000, 500, 200, 3, 0.1234m)
+        };
+        var costSummary = new RunCostSummary(phases.AsReadOnly(), 0.1234m);
+        var ticket = new Ticket(new TicketId("1"), "Test", "Desc", null, "Open", "github");
+
+        var sb = new StringBuilder();
+        WriteRunResultHandler.BuildFrontmatter(sb, ticket, "feat", 60, costSummary);
+        var result = sb.ToString();
+
+        result.Should().Contain("0.1234");
+        result.Should().NotContain("0,1234");
     }
 
     [Fact]
@@ -201,7 +270,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
     }
 
-    private WriteRunResultContext CreateContext(string ticketTitle)
+    private WriteRunResultContext CreateContext(string ticketTitle, PipelineContext? pipeline = null)
     {
         var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
         var ticket = new Ticket(new TicketId("42"), ticketTitle, "Description", null, "Open", "github");
@@ -214,6 +283,6 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         {
             new(new FilePath("src/Login.cs"), "public class Login {}", "Create")
         };
-        return new WriteRunResultContext(repo, plan, ticket, changes, new PipelineContext());
+        return new WriteRunResultContext(repo, plan, ticket, changes, pipeline ?? new PipelineContext());
     }
 }

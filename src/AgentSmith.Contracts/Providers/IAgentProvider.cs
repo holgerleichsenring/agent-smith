@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 
@@ -18,7 +19,7 @@ public interface IAgentProvider
         string? projectContext,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<CodeChange>> ExecutePlanAsync(
+    Task<AgentExecutionResult> ExecutePlanAsync(
         Plan plan,
         Repository repository,
         string codingPrinciples,

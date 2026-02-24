@@ -1,6 +1,8 @@
-using AgentSmith.Infrastructure.Models;
+using System.Diagnostics;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -65,7 +67,7 @@ public sealed class ClaudeAgentProvider(
         return PlanParser.Parse("Claude", rawResponse);
     }
 
-    public async Task<IReadOnlyList<CodeChange>> ExecutePlanAsync(
+    public async Task<AgentExecutionResult> ExecutePlanAsync(
         Plan plan,
         Repository repository,
         string codingPrinciples,
@@ -74,6 +76,7 @@ public sealed class ClaudeAgentProvider(
         IProgressReporter progressReporter,
         CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
         using var client = CreateResilientClient();
 
         var tracker = new TokenUsageTracker();
@@ -100,13 +103,16 @@ public sealed class ClaudeAgentProvider(
             plan, repository, scoutResult);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
+        sw.Stop();
 
         logger.LogInformation(
-            "Agentic execution completed with {Count} file changes", changes.Count);
+            "Agentic execution completed with {Count} file changes in {Seconds}s",
+            changes.Count, (int)sw.Elapsed.TotalSeconds);
 
-        LogCostSummary(costTracker, tracker);
+        var costSummary = LogCostSummary(costTracker, tracker);
 
-        return changes;
+        return new AgentExecutionResult(
+            changes, costSummary, (int)sw.Elapsed.TotalSeconds);
     }
 
     private ModelAssignment ResolveModel(TaskType taskType)
@@ -177,13 +183,14 @@ public sealed class ClaudeAgentProvider(
         return costTracker;
     }
 
-    private void LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    private RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
     {
         tracker.LogSummary(logger);
-        if (costTracker is null) return;
+        if (costTracker is null) return null;
 
         var costSummary = costTracker.CalculateCost(tracker);
         costTracker.LogCostSummary(costSummary);
+        return costSummary;
     }
 
     private PromptCacheType ResolveCacheType()
