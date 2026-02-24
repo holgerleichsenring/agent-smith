@@ -87,7 +87,8 @@ state:
     p29: "Init Project command: Slack modal + chat, JobRequest generalization, init-project pipeline"
     p30: "Systemic fixes: PR URL propagation, orphan job detection, optional parameter elimination (288 tests)"
     p31: "OrphanJobDetector Redis scan: GetAllAsync for untracked stale states after dispatcher restart (290 tests)"
+    p32: "Architecture cleanup: ILlmClient abstraction, ILlmClientFactory per-project, ILlmIntentParser, blocked commands (339 tests)"
   active: {}
   planned:
-    p23: "Multi-repo support → .agentsmith/phases/p23-multi-repo.md"
-    p25: "PR review iteration → .agentsmith/phases/p25-pr-review.md"
+    p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
+    p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
