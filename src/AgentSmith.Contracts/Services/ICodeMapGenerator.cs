@@ -11,5 +11,7 @@ public interface ICodeMapGenerator
     Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
+        RepoSnapshot snapshot,
+        ILlmClient llmClient,
         CancellationToken cancellationToken);
 }

@@ -22,26 +22,6 @@ public sealed class PipelineExecutor(
     IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
-    private static readonly Dictionary<string, string> StepLabels = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["FetchTicketCommand"] = "Fetching ticket",
-        ["CheckoutSourceCommand"] = "Checking out source",
-        ["LoadCodingPrinciplesCommand"] = "Loading coding principles",
-        ["AnalyzeCodeCommand"] = "Analyzing codebase",
-        ["GeneratePlanCommand"] = "Generating plan",
-        ["ApprovalCommand"] = "Awaiting approval",
-        ["AgenticExecuteCommand"] = "Executing plan",
-        ["GenerateTestsCommand"] = "Generating tests",
-        ["TestCommand"] = "Running tests",
-        ["GenerateDocsCommand"] = "Generating docs",
-        ["CommitAndPRCommand"] = "Creating pull request",
-        ["BootstrapProjectCommand"] = "Bootstrapping project context",
-        ["LoadCodeMapCommand"] = "Loading code map",
-        ["LoadContextCommand"] = "Loading project context",
-        ["WriteRunResultCommand"] = "Writing run result",
-        ["InitCommitCommand"] = "Committing init files",
-    };
-
     public async Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
         ProjectConfig projectConfig,
@@ -59,7 +39,7 @@ public sealed class PipelineExecutor(
             var commandName = commandNames[i];
             var step = i + 1;
             var total = commandNames.Count;
-            var label = StepLabels.GetValueOrDefault(commandName, commandName);
+            var label = CommandNames.GetLabel(commandName);
 
             logger.LogInformation(
                 "[{Step}/{Total}] Executing {Command}...",

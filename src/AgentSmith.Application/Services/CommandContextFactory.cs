@@ -21,21 +21,21 @@ public sealed class CommandContextFactory : ICommandContextFactory
 
         return commandName switch
         {
-            "FetchTicketCommand" => CreateFetchTicket(project, pipeline),
-            "CheckoutSourceCommand" when initMode => CreateInitCheckoutSource(project, pipeline),
-            "CheckoutSourceCommand" => CreateCheckoutSource(project, pipeline),
-            "LoadCodingPrinciplesCommand" => CreateLoadCodingPrinciples(project, pipeline),
-            "LoadContextCommand" => CreateLoadContext(pipeline),
-            "AnalyzeCodeCommand" => CreateAnalyzeCode(pipeline),
-            "GeneratePlanCommand" => CreateGeneratePlan(project, pipeline),
-            "ApprovalCommand" => CreateApproval(pipeline),
-            "AgenticExecuteCommand" => CreateAgenticExecute(project, pipeline),
-            "TestCommand" => CreateTest(pipeline),
-            "WriteRunResultCommand" => CreateWriteRunResult(pipeline),
-            "CommitAndPRCommand" => CreateCommitAndPR(project, pipeline),
-            "InitCommitCommand" => CreateInitCommit(project, pipeline),
-            "BootstrapProjectCommand" => CreateBootstrapProject(pipeline),
-            "LoadCodeMapCommand" => CreateLoadCodeMap(pipeline),
+            CommandNames.FetchTicket => CreateFetchTicket(project, pipeline),
+            CommandNames.CheckoutSource when initMode => CreateInitCheckoutSource(project, pipeline),
+            CommandNames.CheckoutSource => CreateCheckoutSource(project, pipeline),
+            CommandNames.LoadCodingPrinciples => CreateLoadCodingPrinciples(project, pipeline),
+            CommandNames.LoadContext => CreateLoadContext(pipeline),
+            CommandNames.AnalyzeCode => CreateAnalyzeCode(pipeline),
+            CommandNames.GeneratePlan => CreateGeneratePlan(project, pipeline),
+            CommandNames.Approval => CreateApproval(pipeline),
+            CommandNames.AgenticExecute => CreateAgenticExecute(project, pipeline),
+            CommandNames.Test => CreateTest(pipeline),
+            CommandNames.WriteRunResult => CreateWriteRunResult(pipeline),
+            CommandNames.CommitAndPR => CreateCommitAndPR(project, pipeline),
+            CommandNames.InitCommit => CreateInitCommit(project, pipeline),
+            CommandNames.BootstrapProject => CreateBootstrapProject(project, pipeline),
+            CommandNames.LoadCodeMap => CreateLoadCodeMap(pipeline),
             _ => throw new ConfigurationException(
                 $"Unknown command: '{commandName}'")
         };
@@ -129,10 +129,11 @@ public sealed class CommandContextFactory : ICommandContextFactory
         return new CommitAndPRContext(repo, changes, ticket, project.Source, project.Tickets, pipeline);
     }
 
-    private static BootstrapProjectContext CreateBootstrapProject(PipelineContext pipeline)
+    private static BootstrapProjectContext CreateBootstrapProject(
+        ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new BootstrapProjectContext(repo, pipeline);
+        return new BootstrapProjectContext(repo, project.Agent, pipeline);
     }
 
     private static LoadCodeMapContext CreateLoadCodeMap(PipelineContext pipeline)

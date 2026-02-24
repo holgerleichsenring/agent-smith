@@ -20,6 +20,35 @@ public sealed class ToolExecutor(
     private const int MaxFileSizeBytes = 100 * 1024;
     private const int CommandTimeoutSeconds = 60;
 
+    /// <summary>
+    /// Commands that start long-running server processes or interactive sessions.
+    /// These block the pipeline and must be rejected before execution.
+    /// </summary>
+    private static readonly string[] BlockedCommandPatterns =
+    [
+        "dotnet run",
+        "dotnet watch",
+        "npm start",
+        "npm run dev",
+        "npm run serve",
+        "yarn start",
+        "yarn dev",
+        "node server",
+        "python -m http.server",
+        "python manage.py runserver",
+        "flask run",
+        "uvicorn ",
+        "gunicorn ",
+        "java -jar",
+        "docker run",
+        "docker compose up",
+        "docker-compose up",
+        "kubectl port-forward",
+        "ng serve",
+        "vite",
+        "webpack serve",
+    ];
+
     private readonly List<CodeChange> _changes = new();
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
@@ -127,6 +156,14 @@ public sealed class ToolExecutor(
     {
         var command = GetStringParam(input, "command");
 
+        if (IsBlockedCommand(command))
+        {
+            logger.LogWarning("Blocked command rejected: {Command}", command);
+            return $"Error: Command rejected. Long-running server processes are not allowed " +
+                   $"(matched blocked pattern). Use 'dotnet build' and 'dotnet test' to verify changes. " +
+                   $"Command: {command}";
+        }
+
         logger.LogInformation("Executing command: {Command}", command);
         ReportDetail($"\u25b6\ufe0f Running: {Truncate(command, 80)}");
 
@@ -177,6 +214,35 @@ public sealed class ToolExecutor(
         {
             logger.LogWarning(ex, "Failed to kill timed-out process");
         }
+    }
+
+    internal static bool IsBlockedCommand(string command)
+    {
+        // Normalize: trim, collapse whitespace for matching
+        var normalized = command.Trim();
+
+        // Check each line of a multi-line command (commands separated by ; && || or newlines)
+        var segments = normalized.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var segment in segments)
+        {
+            // Split on command separators (; && ||) and check each part
+            var parts = segment.Split(new[] { ";", "&&", "||" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                foreach (var pattern in BlockedCommandPatterns)
+                {
+                    if (trimmed.StartsWith(pattern, StringComparison.OrdinalIgnoreCase))
+                        return true;
+
+                    // Also catch: nohup dotnet run, bash -c "dotnet run", etc.
+                    if (trimmed.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static void ValidatePath(string path)

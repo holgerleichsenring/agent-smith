@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -15,6 +16,8 @@ public class BootstrapProjectHandlerTests : IDisposable
 {
     private readonly Mock<IProjectDetector> _detector = new();
     private readonly Mock<IRepoSnapshotCollector> _snapshotCollector = new();
+    private readonly Mock<ILlmClientFactory> _llmClientFactory = new();
+    private readonly Mock<ILlmClient> _llmClient = new();
     private readonly Mock<IContextGenerator> _generator = new();
     private readonly Mock<IContextValidator> _validator = new();
     private readonly Mock<ICodeMapGenerator> _codeMapGenerator = new();
@@ -24,9 +27,12 @@ public class BootstrapProjectHandlerTests : IDisposable
 
     public BootstrapProjectHandlerTests()
     {
+        _llmClientFactory.Setup(f => f.Create(It.IsAny<AgentConfig>())).Returns(_llmClient.Object);
+
         _sut = new BootstrapProjectHandler(
             _detector.Object,
             _snapshotCollector.Object,
+            _llmClientFactory.Object,
             _generator.Object,
             _validator.Object,
             _codeMapGenerator.Object,
@@ -47,7 +53,6 @@ public class BootstrapProjectHandlerTests : IDisposable
     [Fact]
     public async Task Execute_ExistingContextYaml_SkipsGeneration()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
@@ -55,34 +60,34 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         var context = CreateContext();
 
-        // Act
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Existing");
-        _generator.Verify(g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _generator.Verify(g => g.GenerateAsync(
+            It.IsAny<DetectedProject>(), It.IsAny<string>(),
+            It.IsAny<RepoSnapshot?>(), It.IsAny<ILlmClient>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task Execute_NewRepo_GeneratesAndValidates()
     {
-        // Arrange
         var detected = CreateDetectedProject("TypeScript");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
 
         var yaml = "meta:\n  project: test\nstack:\n  runtime: Node.js\n  lang: TypeScript\narch:\n  style: [Layered]\n  layers: [src]\nquality:\n  lang: english-only\nstate:\n  done: {}\n  active: {}";
-        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()))
+        _generator.Setup(g => g.GenerateAsync(
+                detected, _tempDir, It.IsAny<RepoSnapshot?>(),
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(yaml);
         _validator.Setup(v => v.Validate(yaml))
             .Returns(ContextValidationResult.Success());
 
         var context = CreateContext();
 
-        // Act
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         result.IsSuccess.Should().BeTrue();
         File.Exists(Path.Combine(_tempDir, ".agentsmith", "context.yaml")).Should().BeTrue();
     }
@@ -90,7 +95,6 @@ public class BootstrapProjectHandlerTests : IDisposable
     [Fact]
     public async Task Execute_InvalidGeneration_RetriesOnce()
     {
-        // Arrange
         var detected = CreateDetectedProject("Python");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
 
@@ -98,9 +102,13 @@ public class BootstrapProjectHandlerTests : IDisposable
         var goodYaml = "meta:\n  project: test\nstack:\n  runtime: Python\n  lang: Python\narch:\n  style: [Layered]\n  layers: [src]\nquality:\n  lang: english-only\nstate:\n  done: {}\n  active: {}";
         var errors = new List<string> { "Missing section: meta" };
 
-        _generator.Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<RepoSnapshot?>(), It.IsAny<CancellationToken>()))
+        _generator.Setup(g => g.GenerateAsync(
+                detected, _tempDir, It.IsAny<RepoSnapshot?>(),
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(badYaml);
-        _generator.Setup(g => g.RetryWithErrorsAsync(detected, _tempDir, badYaml, errors, It.IsAny<CancellationToken>()))
+        _generator.Setup(g => g.RetryWithErrorsAsync(
+                detected, _tempDir, badYaml, errors,
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(goodYaml);
 
         _validator.Setup(v => v.Validate(badYaml))
@@ -110,20 +118,20 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         var context = CreateContext();
 
-        // Act
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         result.IsSuccess.Should().BeTrue();
         _generator.Verify(
-            g => g.RetryWithErrorsAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()),
+            g => g.RetryWithErrorsAsync(
+                It.IsAny<DetectedProject>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(),
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
     public async Task Execute_StoresDetectedProjectInPipeline()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
@@ -131,10 +139,8 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         var context = CreateContext();
 
-        // Act
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         context.Pipeline.TryGet<DetectedProject>(ContextKeys.DetectedProject, out var stored).Should().BeTrue();
         stored.Should().Be(detected);
     }
@@ -142,32 +148,33 @@ public class BootstrapProjectHandlerTests : IDisposable
     [Fact]
     public async Task Execute_NoCodeMap_GeneratesCodeMap()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
 
         _codeMapGenerator
-            .Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<CancellationToken>()))
+            .Setup(g => g.GenerateAsync(
+                detected, _tempDir, It.IsAny<RepoSnapshot>(),
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("modules:\n  - name: Core");
 
         var context = CreateContext();
 
-        // Act
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         File.Exists(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml")).Should().BeTrue();
         _codeMapGenerator.Verify(
-            g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            g => g.GenerateAsync(
+                It.IsAny<DetectedProject>(), It.IsAny<string>(),
+                It.IsAny<RepoSnapshot>(), It.IsAny<ILlmClient>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
     public async Task Execute_ExistingCodeMap_SkipsGeneration()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), "modules: []");
 
@@ -176,42 +183,57 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         var context = CreateContext();
 
-        // Act
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         _codeMapGenerator.Verify(
-            g => g.GenerateAsync(It.IsAny<DetectedProject>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            g => g.GenerateAsync(
+                It.IsAny<DetectedProject>(), It.IsAny<string>(),
+                It.IsAny<RepoSnapshot>(), It.IsAny<ILlmClient>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
     public async Task Execute_CodeMapGenerationFails_ContinuesSuccessfully()
     {
-        // Arrange
         File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
 
         var detected = CreateDetectedProject("C#");
         _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
 
         _codeMapGenerator
-            .Setup(g => g.GenerateAsync(detected, _tempDir, It.IsAny<CancellationToken>()))
+            .Setup(g => g.GenerateAsync(
+                detected, _tempDir, It.IsAny<RepoSnapshot>(),
+                It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("LLM API failure"));
 
         var context = CreateContext();
 
-        // Act
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        // Assert
         result.IsSuccess.Should().BeTrue();
         File.Exists(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Execute_CreatesLlmClientFromAgentConfig()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+
+        var detected = CreateDetectedProject("C#");
+        _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
+
+        var context = CreateContext();
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        _llmClientFactory.Verify(f => f.Create(context.Agent), Times.Once);
     }
 
     private BootstrapProjectContext CreateContext()
     {
         var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
-        return new BootstrapProjectContext(repo, new PipelineContext());
+        return new BootstrapProjectContext(repo, new AgentConfig { Type = "claude" }, new PipelineContext());
     }
 
     private static DetectedProject CreateDetectedProject(string language) =>

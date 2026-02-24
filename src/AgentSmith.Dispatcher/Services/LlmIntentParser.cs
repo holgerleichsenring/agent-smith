@@ -1,23 +1,20 @@
-using AgentSmith.Dispatcher.Contracts;
 using System.Text.Json;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Dispatcher.Contracts;
 using AgentSmith.Dispatcher.Models;
-using Anthropic.SDK;
-using Anthropic.SDK.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Dispatcher.Services;
 
 /// <summary>
-/// Uses Claude Haiku to classify free-form user input into a typed intent.
-/// Only called when the regex stage fails to match. Near-zero cost per call.
+/// Uses an LLM (via ILlmClient with Scout task type) to classify free-form user input
+/// into a typed intent. Only called when the regex stage fails to match.
 /// </summary>
-public sealed class HaikuIntentParser(
-    AnthropicClient? client,
-    ILogger<HaikuIntentParser> logger) : IHaikuIntentParser
+public sealed class LlmIntentParser(
+    ILlmClient llmClient,
+    ILogger<LlmIntentParser> logger) : ILlmIntentParser
 {
-    private const string HaikuModel = "claude-haiku-4-5-20251001";
-    private const int MaxResponseTokens = 256;
-
     private const string SystemPrompt = """
         You are an intent classifier for a coding agent bot called Agent Smith.
         Extract the user's intent from their message and return ONLY a JSON object.
@@ -42,40 +39,17 @@ public sealed class HaikuIntentParser(
         string text, string userId, string channelId, string platform,
         CancellationToken cancellationToken)
     {
-        if (client is null) return null;
-
         try
         {
-            var json = await CallHaikuAsync(text, cancellationToken);
+            var json = await llmClient.CompleteAsync(
+                SystemPrompt, text, TaskType.Scout, cancellationToken);
             return ParseJsonResponse(json, text, userId, channelId, platform);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Haiku intent parsing failed for '{Text}'", text);
+            logger.LogWarning(ex, "LLM intent parsing failed for '{Text}'", text);
             return null;
         }
-    }
-
-    private async Task<string> CallHaikuAsync(string text, CancellationToken ct)
-    {
-        var response = await client!.Messages.GetClaudeMessageAsync(
-            new MessageParameters
-            {
-                Model = HaikuModel,
-                MaxTokens = MaxResponseTokens,
-                System = [new SystemMessage(SystemPrompt)],
-                Messages =
-                [
-                    new Message
-                    {
-                        Role = RoleType.User,
-                        Content = [new TextContent { Text = text }]
-                    }
-                ],
-                Stream = false
-            }, ct);
-
-        return response.Content.OfType<TextContent>().First().Text;
     }
 
     private ChatIntent? ParseJsonResponse(

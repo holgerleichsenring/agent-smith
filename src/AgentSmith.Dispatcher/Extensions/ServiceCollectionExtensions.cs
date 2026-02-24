@@ -1,10 +1,11 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Dispatcher.Contracts;
 using AgentSmith.Dispatcher.Models;
 using AgentSmith.Dispatcher.Services.Adapters;
 using AgentSmith.Dispatcher.Services.Handlers;
 using AgentSmith.Dispatcher.Services;
 using AgentSmith.Infrastructure;
-using Anthropic.SDK;
 using Docker.DotNet;
 using k8s;
 using StackExchange.Redis;
@@ -36,11 +37,12 @@ internal static class ServiceCollectionExtensions
 
     private static IServiceCollection AddIntentEngine(this IServiceCollection services)
     {
-        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-        var client = string.IsNullOrEmpty(apiKey) ? null : new AnthropicClient(apiKey);
-
-        services.AddSingleton<IHaikuIntentParser>(sp =>
-            new HaikuIntentParser(client, sp.GetRequiredService<ILogger<HaikuIntentParser>>()));
+        services.AddSingleton<ILlmIntentParser>(sp =>
+        {
+            var factory = sp.GetRequiredService<ILlmClientFactory>();
+            var defaultClient = factory.Create(new AgentConfig { Type = "claude" });
+            return new LlmIntentParser(defaultClient, sp.GetRequiredService<ILogger<LlmIntentParser>>());
+        });
         services.AddSingleton<IProjectResolver, ProjectResolver>();
         services.AddScoped<IntentEngine>();
         return services;
