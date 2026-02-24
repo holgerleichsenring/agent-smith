@@ -16,17 +16,21 @@ Agent Smith reads the ticket, clones the repo, analyzes the codebase, writes a p
 ## What It Does
 
 ```
-You:           "fix #54 in agent-smith-test"
+You:           "fix #54 in todo-list"
                ↓
-[1/9] FetchTicket       → Reads ticket from Azure DevOps / GitHub / Jira / GitLab
-[2/9] CheckoutSource    → Clones repo, creates branch fix/54
-[3/9] LoadPrinciples    → Loads your coding standards
-[4/9] AnalyzeCode       → Scout agent maps the codebase
-[5/9] GeneratePlan      → AI generates a step-by-step implementation plan
-[6/9] Approval          → Shows plan, waits for your OK (or runs headless)
-[7/9] AgenticExecute    → AI agent writes the code, iterating with tools
-[8/9] Test              → Runs your test suite
-[9/9] CommitAndPR       → Commits, pushes, opens PR, closes ticket
+ [1/13] FetchTicket          → Reads ticket from Azure DevOps / GitHub / Jira / GitLab
+ [2/13] CheckoutSource       → Clones repo, creates branch fix/54
+ [3/13] BootstrapProject     → Detects language, framework, project type
+ [4/13] LoadCodeMap          → Generates navigable code map
+ [5/13] LoadCodingPrinciples → Loads your coding standards
+ [6/13] LoadContext           → Loads project context (.agentsmith/context.yaml)
+ [7/13] AnalyzeCode          → Scout agent maps the codebase, identifies relevant files
+ [8/13] GeneratePlan         → AI generates a step-by-step implementation plan
+ [9/13] Approval             → Shows plan, waits for your OK (or runs headless)
+[10/13] AgenticExecute       → AI agent writes the code, iterating with tools
+[11/13] Test                 → Runs your test suite
+[12/13] WriteRunResult       → Writes run result with token usage & cost data
+[13/13] CommitAndPR          → Commits, pushes, opens PR, closes ticket
                ↓
 Agent Smith:   "Pull request created: https://github.com/.../pull/42"
 ```
@@ -60,12 +64,36 @@ It iterates, reads its own output, corrects mistakes, and only stops when it's s
 Before the main agent starts, a lightweight Scout agent (Haiku by default) maps the codebase and identifies relevant files. This saves tokens and keeps the main agent focused.
 
 ### Cost Tracking
-Every run reports token usage and estimated cost per model:
+Every run writes a `result.md` with YAML frontmatter containing token usage and cost per phase:
+```yaml
+---
+ticket: "#57 — GET /todos returns 500 when database is empty"
+date: 2026-02-24
+result: success
+duration_seconds: 50
+tokens:
+  input: 17164
+  output: 2011
+  cache_read: 11790
+  total: 30965
+cost:
+  total_usd: 0.0682
+  phases:
+    scout:
+      model: claude-haiku-4-5-20251001
+      turns: 3
+      usd: 0.0062
+    primary:
+      model: claude-sonnet-4-20250514
+      turns: 7
+      usd: 0.0620
+---
 ```
-Token usage: 7,978 input | 1,110 output | 4,692 cache-read
-Cache hit rate: 37.0%
-Estimated cost: $0.031
-```
+
+Machine-parseable (queryable via `yq`) and human-readable.
+
+### Auto-Bootstrap
+On first run against a new repo, Agent Smith auto-detects the project type, coding conventions, and architecture — then generates `.agentsmith/context.yaml`, `coding-principles.md`, and a code map. No manual setup needed.
 
 ### Prompt Caching
 System prompts and coding principles are cached at the Anthropic level, reducing costs significantly on repeated runs against the same codebase.
@@ -74,7 +102,17 @@ System prompts and coding principles are cached at the Anthropic level, reducing
 Long agentic runs automatically compact the conversation context before hitting token limits. A summarization model (Haiku) distills history, keeping the full context window available.
 
 ### Resilience
-All API calls are wrapped with Polly retry logic — exponential backoff, jitter, configurable limits. Rate limit errors (30k tokens/minute) are handled gracefully without crashing.
+All API calls are wrapped with Polly retry logic — exponential backoff, jitter, configurable limits. Rate limit errors and transient failures are handled gracefully without crashing.
+
+### Pipeline Presets
+Multiple built-in pipelines for different workflows:
+
+| Preset | Steps | Use Case |
+|--------|-------|----------|
+| `fix-bug` | 13 | Standard bug fix with tests |
+| `fix-no-test` | 12 | Bug fix without test step |
+| `add-feature` | 14 | Feature with test generation + docs |
+| `init-project` | 3 | Bootstrap a new repo |
 
 ### Headless Mode
 Run fully unattended in CI/CD or K8s. `--headless` auto-approves plans and never blocks on stdin.
@@ -82,7 +120,7 @@ Run fully unattended in CI/CD or K8s. `--headless` auto-approves plans and never
 ### Webhook / Server Mode
 Run as an HTTP server that listens for GitHub or Azure DevOps webhooks. Label a ticket `agent-smith` → the agent starts automatically.
 
-### Chat Gateway (Phase 18)
+### Chat Gateway
 Talk to Agent Smith from Slack or Teams:
 - `fix #65 in todo-list` → spawns a K8s Job, posts real-time progress to your channel
 - `list tickets in todo-list` → lists open tickets instantly
@@ -102,7 +140,7 @@ Talk to Agent Smith from Slack or Teams:
 ┌──────────────▼───────────────────────────────────────┐
 │               AgentSmith.Application                  │
 │   ProcessTicketUseCase → PipelineExecutor             │
-│   9 Command Handlers (one per pipeline step)          │
+│   13 Command Handlers (one per pipeline step)         │
 └──────────────┬───────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────┐
@@ -113,11 +151,11 @@ Talk to Agent Smith from Slack or Teams:
 └──────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────┐
-│             AgentSmith.Dispatcher (Phase 18)          │
+│             AgentSmith.Dispatcher                     │
 │   ASP.NET Core Minimal API                           │
 │   Slack / Teams Adapters                             │
 │   Redis Streams Message Bus                          │
-│   K8s Job Spawner                                    │
+│   K8s / Docker Job Spawner                           │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -157,28 +195,21 @@ projects:
     agent:
       type: Claude
       model: claude-sonnet-4-20250514
+      pricing:
+        models:
+          claude-sonnet-4-20250514:
+            input_per_million: 3.0
+            output_per_million: 15.0
+            cache_read_per_million: 0.30
     pipeline: fix-bug
-    coding_principles_path: ./config/coding-principles.md
-
-pipelines:
-  fix-bug:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - LoadCodingPrinciplesCommand
-      - AnalyzeCodeCommand
-      - GeneratePlanCommand
-      - ApprovalCommand
-      - AgenticExecuteCommand
-      - TestCommand
-      - CommitAndPRCommand
+    coding_principles_path: .agentsmith/coding-principles.md
 
 secrets:
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-### 2. Create a `.env` file (and sync to Kubernetes)
+### 2. Create a `.env` file
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
@@ -245,10 +276,10 @@ agent:
     backoff_multiplier: 2.0
     max_delay_ms: 60000
   cache:
-    enabled: true
+    is_enabled: true
     strategy: automatic  # automatic | fine-grained | none
   compaction:
-    enabled: true
+    is_enabled: true
     threshold_iterations: 8
     max_context_tokens: 80000
     keep_recent_iterations: 3
@@ -260,6 +291,22 @@ agent:
     primary:
       model: claude-sonnet-4-20250514
       max_tokens: 8192
+    planning:
+      model: claude-sonnet-4-20250514
+      max_tokens: 4096
+    summarization:
+      model: claude-haiku-4-5-20251001
+      max_tokens: 2048
+  pricing:
+    models:
+      claude-sonnet-4-20250514:
+        input_per_million: 3.0
+        output_per_million: 15.0
+        cache_read_per_million: 0.30
+      claude-haiku-4-5-20251001:
+        input_per_million: 0.80
+        output_per_million: 4.0
+        cache_read_per_million: 0.08
 ```
 
 ### Ticket Providers
@@ -373,7 +420,7 @@ For SSH-based git operations, mount your SSH key:
 
 Agent Smith loads your coding principles at runtime and injects them into every AI prompt. This means the generated code follows *your* standards — not some generic defaults.
 
-Edit `config/coding-principles.md` to define:
+On first run (`init-project` pipeline), Agent Smith auto-detects your conventions from the codebase and generates `.agentsmith/coding-principles.md`. You can also define them manually:
 - Line length limits
 - Naming conventions
 - Architecture patterns
@@ -401,18 +448,18 @@ Configure a Service Hook on `Work item updated` events pointing to your webhook 
 
 ---
 
-## Slack / Teams Integration (Phase 18)
+## Slack / Teams Integration
 
 Talk to Agent Smith directly from your chat:
 
 ```
 fix #65 in todo-list
 → Starting Agent Smith for ticket #65 in todo-list...
-→ [1/9] FetchTicketCommand...
-→ [2/9] CheckoutSourceCommand...
+→ [1/13] FetchTicketCommand...
+→ [2/13] CheckoutSourceCommand...
 → Should I write unit tests? [Yes] [No]
-→ [7/9] AgenticExecuteCommand...
-→ Done! 3 files changed · View Pull Request
+→ [10/13] AgenticExecuteCommand...
+→ Done! Pipeline completed successfully · View Pull Request
 ```
 
 ```
@@ -423,20 +470,9 @@ list tickets in todo-list
   ...
 ```
 
-Each `fix` request runs in its own ephemeral Kubernetes Job. Progress, questions and results stream back to your channel in real time via Redis Streams.
+Each `fix` request runs in its own ephemeral Kubernetes Job (or Docker container). Progress, questions and results stream back to your channel in real time via Redis Streams.
 
 See [docs/slack-setup.md](docs/slack-setup.md) for the full setup guide.
-
----
-
-## Run Logs
-
-Real runs, documented:
-
-| Log | Date | Setup | Result |
-|-----|------|-------|--------|
-| [Run 001](docs/run-log-001-first-e2e-test.md) | 2026-02-16 | GitHub Issues + `dotnet run` | 7/9 — rate limited at agentic loop |
-| [Run 002](docs/run-log-002-azure-devops-docker.md) | 2026-02-19 | Azure DevOps + Docker headless | 9/9 — PR created, ticket closed |
 
 ---
 
@@ -450,15 +486,23 @@ agent-smith/
 │   ├── AgentSmith.Application/     # Use cases, pipeline, command handlers
 │   ├── AgentSmith.Infrastructure/  # Provider implementations
 │   ├── AgentSmith.Host/            # CLI entry point, Webhook listener
-│   └── AgentSmith.Dispatcher/      # Chat gateway (Slack, Teams, K8s Jobs)
+│   └── AgentSmith.Dispatcher/      # Chat gateway (Slack, Teams, K8s/Docker Jobs)
 ├── tests/
-│   └── AgentSmith.Tests/
+│   └── AgentSmith.Tests/           # 344 tests (xUnit, Moq, FluentAssertions)
+├── .agentsmith/                    # Agent meta-files (auto-generated per repo)
+│   ├── context.yaml                # Project description + state tracking
+│   ├── code-map.yaml               # LLM-generated code map
+│   ├── coding-principles.md        # Detected coding conventions
+│   ├── phases/                     # Phase documentation
+│   │   ├── done/                   # Completed phases
+│   │   ├── active/                 # Currently active (max 1)
+│   │   └── planned/               # Upcoming phases
+│   └── runs/                       # Execution artifacts (plan.md + result.md)
 ├── config/
-│   ├── agentsmith.example.yml      # Config template
-│   └── coding-principles.md        # Default coding standards
+│   └── agentsmith.example.yml      # Config template
 ├── docs/                           # Run logs, setup guides
-├── prompts/                        # Architecture & phase documentation
 ├── Dockerfile
+├── Dockerfile.dispatcher
 └── docker-compose.yml
 ```
 
@@ -466,17 +510,21 @@ agent-smith/
 
 ## Roadmap
 
-- [x] Phase 1-5: Core pipeline, CLI, Docker
-- [x] Phase 6-8: Retry, caching, context compaction
-- [x] Phase 9-10: Model registry, Scout agent, container hardening
-- [x] Phase 11-12: OpenAI + Gemini providers, cost tracking
-- [x] Phase 13-14: Ticket writeback, GitHub Actions / Webhook trigger
-- [x] Phase 15-17: Azure Repos, Jira, GitLab
-- [x] Phase 18: Chat Gateway (Slack + Teams, Redis Streams, K8s Jobs)
-- [x] Phase 19: K8s Manifests + Dispatcher Dockerfile
-- [ ] VS Code Extension
-- [ ] Telemetry Dashboard
-- [ ] On-prem LLM support (Ollama)
+- [x] Core pipeline, CLI, Docker (p01-p05)
+- [x] Retry, caching, context compaction (p06-p08)
+- [x] Model registry, Scout agent, container hardening (p09-p10)
+- [x] OpenAI + Gemini providers, cost tracking (p11-p12)
+- [x] Ticket writeback, Webhook trigger (p13-p14)
+- [x] Azure Repos, Jira, GitLab providers (p15-p17)
+- [x] Chat Gateway: Slack/Teams, Redis Streams, K8s/Docker Jobs (p18-p20)
+- [x] Code quality, auto-bootstrap, code map generation (p21-p22, p24)
+- [x] Coding principles detection, `.agentsmith/` directory (p26, p28)
+- [x] Structured command UI: Slack modals, slash commands (p27)
+- [x] Init project command, systemic fixes, orphan detection (p29-p31)
+- [x] Architecture cleanup: ILlmClient abstraction (p32)
+- [x] Run cost data in result.md with YAML frontmatter (p33)
+- [ ] Multi-repo support (p23)
+- [ ] PR review iteration (p25)
 
 ---
 
@@ -486,7 +534,7 @@ Contributions are welcome. Please:
 
 1. Fork the repository
 2. Create a feature branch
-3. Follow the coding principles in `config/coding-principles.md`
+3. Follow the coding principles in `.agentsmith/coding-principles.md`
 4. Open a Pull Request with a clear description
 
 For significant changes, open an issue first to discuss the approach.
