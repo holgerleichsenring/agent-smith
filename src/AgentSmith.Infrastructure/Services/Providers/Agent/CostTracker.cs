@@ -1,5 +1,6 @@
-using AgentSmith.Infrastructure.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;

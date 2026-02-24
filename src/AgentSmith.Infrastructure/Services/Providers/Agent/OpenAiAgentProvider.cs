@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Models;
 using System.ClientModel;
 using System.ClientModel.Primitives;
@@ -54,7 +56,7 @@ public sealed class OpenAiAgentProvider(
         return PlanParser.Parse("OpenAI", rawResponse);
     }
 
-    public async Task<IReadOnlyList<CodeChange>> ExecutePlanAsync(
+    public async Task<AgentExecutionResult> ExecutePlanAsync(
         Plan plan,
         Repository repository,
         string codingPrinciples,
@@ -63,6 +65,7 @@ public sealed class OpenAiAgentProvider(
         IProgressReporter progressReporter,
         CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
         var tracker = new TokenUsageTracker();
         var costTracker = CreateCostTracker(tracker);
 
@@ -82,13 +85,16 @@ public sealed class OpenAiAgentProvider(
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
+        sw.Stop();
 
         logger.LogInformation(
-            "OpenAI agentic execution completed with {Count} file changes", changes.Count);
+            "OpenAI agentic execution completed with {Count} file changes in {Seconds}s",
+            changes.Count, (int)sw.Elapsed.TotalSeconds);
 
-        LogCostSummary(costTracker, tracker);
+        var costSummary = LogCostSummary(costTracker, tracker);
 
-        return changes;
+        return new AgentExecutionResult(
+            changes, costSummary, (int)sw.Elapsed.TotalSeconds);
     }
 
     private ModelAssignment ResolveModel(TaskType taskType)
@@ -119,12 +125,13 @@ public sealed class OpenAiAgentProvider(
         return costTracker;
     }
 
-    private void LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    private RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
     {
         tracker.LogSummary(logger);
-        if (costTracker is null) return;
+        if (costTracker is null) return null;
 
         var costSummary = costTracker.CalculateCost(tracker);
         costTracker.LogCostSummary(costSummary);
+        return costSummary;
     }
 }

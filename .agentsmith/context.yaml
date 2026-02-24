@@ -88,6 +88,7 @@ state:
     p30: "Systemic fixes: PR URL propagation, orphan job detection, optional parameter elimination (288 tests)"
     p31: "OrphanJobDetector Redis scan: GetAllAsync for untracked stale states after dispatcher restart (290 tests)"
     p32: "Architecture cleanup: ILlmClient abstraction, ILlmClientFactory per-project, ILlmIntentParser, blocked commands (339 tests)"
+    p33: "Run cost in result.md: AgentExecutionResult, YAML frontmatter with token/cost/duration data (344 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"

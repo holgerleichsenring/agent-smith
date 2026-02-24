@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -108,14 +109,13 @@ public sealed class WriteRunResultHandler(
         var changeType = context.Ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
 
+        context.Pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
+        context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var durationSeconds);
+
         var sb = new StringBuilder();
         sb.AppendLine($"# r{runNumber:D2}: {context.Ticket.Title}");
         sb.AppendLine();
-        sb.AppendLine($"- **Ticket**: #{context.Ticket.Id} — {context.Ticket.Title}");
-        sb.AppendLine($"- **Date**: {DateTime.UtcNow:yyyy-MM-dd}");
-        sb.AppendLine($"- **Result**: success");
-        sb.AppendLine($"- **Type**: {changeType}");
-        sb.AppendLine();
+        BuildFrontmatter(sb, context.Ticket, changeType, durationSeconds, costSummary);
         sb.AppendLine("## Changed Files");
 
         foreach (var change in context.Changes)
@@ -127,6 +127,63 @@ public sealed class WriteRunResultHandler(
 
         await File.WriteAllTextAsync(
             Path.Combine(runDir, "result.md"), sb.ToString(), ct);
+    }
+
+    internal static void BuildFrontmatter(
+        StringBuilder sb, Ticket ticket, string changeType,
+        int durationSeconds, RunCostSummary? costSummary)
+    {
+        var ci = CultureInfo.InvariantCulture;
+
+        sb.AppendLine("---");
+        sb.AppendLine($"ticket: \"#{ticket.Id} — {ticket.Title}\"");
+        sb.AppendLine($"date: {DateTime.UtcNow:yyyy-MM-dd}");
+        sb.AppendLine("result: success");
+        sb.AppendLine($"type: {changeType}");
+
+        if (durationSeconds > 0)
+            sb.AppendLine($"duration_seconds: {durationSeconds}");
+
+        if (costSummary is not null)
+        {
+            AppendTokenSection(sb, costSummary);
+            AppendCostSection(sb, costSummary, ci);
+        }
+
+        sb.AppendLine("---");
+        sb.AppendLine();
+    }
+
+    private static void AppendTokenSection(StringBuilder sb, RunCostSummary costSummary)
+    {
+        var totalInput = costSummary.Phases.Values.Sum(p => p.InputTokens);
+        var totalOutput = costSummary.Phases.Values.Sum(p => p.OutputTokens);
+        var totalCache = costSummary.Phases.Values.Sum(p => p.CacheReadTokens);
+
+        sb.AppendLine("tokens:");
+        sb.AppendLine($"  input: {totalInput}");
+        sb.AppendLine($"  output: {totalOutput}");
+        sb.AppendLine($"  cache_read: {totalCache}");
+        sb.AppendLine($"  total: {totalInput + totalOutput + totalCache}");
+    }
+
+    private static void AppendCostSection(
+        StringBuilder sb, RunCostSummary costSummary, CultureInfo ci)
+    {
+        sb.AppendLine("cost:");
+        sb.AppendLine(string.Format(ci, "  total_usd: {0:F4}", costSummary.TotalCost));
+        sb.AppendLine("  phases:");
+
+        foreach (var (phase, cost) in costSummary.Phases)
+        {
+            sb.AppendLine($"    {phase}:");
+            sb.AppendLine($"      model: {cost.Model}");
+            sb.AppendLine($"      input: {cost.InputTokens}");
+            sb.AppendLine($"      output: {cost.OutputTokens}");
+            sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
+            sb.AppendLine($"      turns: {cost.Iterations}");
+            sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
+        }
     }
 
     private static async Task AppendToContextYamlAsync(

@@ -1,4 +1,4 @@
-namespace AgentSmith.Infrastructure.Models;
+namespace AgentSmith.Contracts.Models;
 
 /// <summary>
 /// Cost breakdown for a single pipeline run, in USD.
