@@ -302,6 +302,6 @@ public sealed class SlackAdapter(
         const int barLength = 10;
         var filled = (int)Math.Round((double)step / total * barLength);
         var empty = barLength - filled;
-        return $"`[{"█".PadRight(filled + empty - empty, '█').Substring(0, filled)}{"░".PadRight(empty, '░')}]` {step}/{total}";
+        return $"`[{new string('█', filled)}{new string('░', empty)}]` {step}/{total}";
     }
 }
