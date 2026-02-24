@@ -94,17 +94,17 @@ Rules:
 
 Every feature phase MUST follow this order:
 
-1. **Read phase prompt** — `prompts/phase-XX-*.md` contains requirements and scope.
+1. **Read phase prompt** — `.agentsmith/phases/active/p{NN}-*.md` contains requirements and scope.
 2. **Plan before coding** — Explore codebase, design approach, get approval.
 3. **Implement step by step** — Contracts first, then implementation, then DI, then tests.
 4. **Build after each step** — `dotnet build`, fix errors immediately.
 5. **Run ALL tests** — `dotnet test`, 0 failures before commit.
-6. **Update `.context.yaml`** — Move phase from `planned` to `done`.
-7. **Delete completed phase prompt** — Preserved in git history, not needed on disk.
+6. **Update `.agentsmith/context.yaml`** — Move phase from `planned`/`active` to `done`.
+7. **Move phase file to `done/`** — Move from `active/` to `done/`.
 8. **Commit** — One commit per phase, descriptive message.
 
-The `.context.yaml` is the single source of truth for what has been built.
-Phase prompts exist only while a phase is planned or in progress.
+Phase directory structure: `phases/planned/` → `phases/active/` → `phases/done/`.
+The `.agentsmith/context.yaml` is the single source of truth for what has been built.
 
 ## Testing
 
