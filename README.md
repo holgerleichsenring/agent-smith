@@ -1,6 +1,6 @@
 # Agent Smith
 
-> *"I'd like to share a revelation that I've had during my time here..."*
+[![Agent smith](/docs/agent-smith-logo-large.png)](logo)
 
 An open-source, self-hosted AI coding agent that reads your tickets and ships the code.
 
@@ -407,17 +407,17 @@ Talk to Agent Smith directly from your chat:
 
 ```
 fix #65 in todo-list
-→ 🚀 Starting Agent Smith for ticket #65 in todo-list...
-→ ⚙️ [1/9] FetchTicketCommand...
-→ ⚙️ [2/9] CheckoutSourceCommand...
-→ 💭 Should I write unit tests? [Yes] [No]
-→ ⚙️ [7/9] AgenticExecuteCommand...
-→ 🚀 Done! 3 files changed · View Pull Request
+→ Starting Agent Smith for ticket #65 in todo-list...
+→ [1/9] FetchTicketCommand...
+→ [2/9] CheckoutSourceCommand...
+→ Should I write unit tests? [Yes] [No]
+→ [7/9] AgenticExecuteCommand...
+→ Done! 3 files changed · View Pull Request
 ```
 
 ```
 list tickets in todo-list
-→ 🎫 Open tickets in todo-list (5 total):
+→ Open tickets in todo-list (5 total):
   • #65 — Fix login timeout [Active]
   • #66 — Add export CSV [New]
   ...
@@ -436,7 +436,7 @@ Real runs, documented:
 | Log | Date | Setup | Result |
 |-----|------|-------|--------|
 | [Run 001](docs/run-log-001-first-e2e-test.md) | 2026-02-16 | GitHub Issues + `dotnet run` | 7/9 — rate limited at agentic loop |
-| [Run 002](docs/run-log-002-azure-devops-docker.md) | 2026-02-19 | Azure DevOps + Docker headless | ✅ 9/9 — PR created, ticket closed |
+| [Run 002](docs/run-log-002-azure-devops-docker.md) | 2026-02-19 | Azure DevOps + Docker headless | 9/9 — PR created, ticket closed |
 
 ---
 
