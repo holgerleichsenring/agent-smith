@@ -98,4 +98,36 @@ public class PipelineExecutorTests
 
         result.IsSuccess.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash()
+    {
+        var commands = new[] { "BadCommand" };
+        var project = new ProjectConfig();
+        var pipeline = new PipelineContext();
+
+        _factoryMock.Setup(f => f.Create("BadCommand", project, pipeline))
+            .Throws(new Exception("Unknown command: 'BadCommand'"));
+
+        var result = await _sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("BadCommand");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OperationCanceled_PropagatesException()
+    {
+        var commands = new[] { "CancelledCommand" };
+        var project = new ProjectConfig();
+        var pipeline = new PipelineContext();
+
+        _factoryMock.Setup(f => f.Create("CancelledCommand", project, pipeline))
+            .Throws(new OperationCanceledException());
+
+        var act = async () => await _sut.ExecuteAsync(
+            commands, project, pipeline, CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
 }

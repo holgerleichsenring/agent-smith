@@ -61,12 +61,28 @@ public sealed class PipelineExecutor(
             await progressReporter.ReportProgressAsync(
                 executionCount, total, label, cancellationToken);
 
-            var commandContext = contextFactory.Create(
-                commandName, projectConfig, context);
-
+            CommandResult result;
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var result = await ExecuteCommandAsync(commandContext, cancellationToken);
-            sw.Stop();
+            try
+            {
+                var commandContext = contextFactory.Create(
+                    commandName, projectConfig, context);
+
+                result = await ExecuteCommandAsync(commandContext, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // Propagate cancellation
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Command {Command} threw an unhandled exception", commandName);
+                result = CommandResult.Fail($"{commandName} failed: {ex.Message}");
+            }
+            finally
+            {
+                sw.Stop();
+            }
 
             context.TrackCommand(commandName, result.IsSuccess, result.Message,
                 sw.Elapsed, result.InsertNext?.Count);
@@ -142,6 +158,8 @@ public sealed class PipelineExecutor(
             SwitchSkillContext c => commandExecutor.ExecuteAsync(c, ct),
             SkillRoundContext c => commandExecutor.ExecuteAsync(c, ct),
             ConvergenceCheckContext c => commandExecutor.ExecuteAsync(c, ct),
+            GenerateTestsContext c => commandExecutor.ExecuteAsync(c, ct),
+            GenerateDocsContext c => commandExecutor.ExecuteAsync(c, ct),
             _ => throw new ConfigurationException(
                 $"Unknown context type: {context.GetType().Name}")
         };

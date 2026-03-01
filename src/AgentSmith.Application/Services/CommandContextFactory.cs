@@ -46,6 +46,8 @@ public sealed class CommandContextFactory : ICommandContextFactory
             CommandNames.SwitchSkill => CreateSwitchSkill(commandName, pipeline),
             CommandNames.SkillRound => CreateSkillRound(commandName, project, pipeline),
             CommandNames.ConvergenceCheck => CreateConvergenceCheck(project, pipeline),
+            CommandNames.GenerateTests => CreateGenerateTests(project, pipeline),
+            CommandNames.GenerateDocs => CreateGenerateDocs(project, pipeline),
             _ => throw new ConfigurationException(
                 $"Unknown command: '{commandName}'")
         };
@@ -195,5 +197,27 @@ public sealed class CommandContextFactory : ICommandContextFactory
         ProjectConfig project, PipelineContext pipeline)
     {
         return new ConvergenceCheckContext(project.Agent, pipeline);
+    }
+
+    private static GenerateTestsContext CreateGenerateTests(
+        ProjectConfig project, PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
+        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
+        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
+        return new GenerateTestsContext(repo, changes, principles, project.Agent, pipeline, codeMap, projectContext);
+    }
+
+    private static GenerateDocsContext CreateGenerateDocs(
+        ProjectConfig project, PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
+        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
+        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
+        return new GenerateDocsContext(repo, changes, principles, project.Agent, pipeline, codeMap, projectContext);
     }
 }
