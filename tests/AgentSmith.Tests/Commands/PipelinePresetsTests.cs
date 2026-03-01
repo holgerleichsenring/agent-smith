@@ -61,4 +61,32 @@ public class PipelinePresetsTests
         PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateTests);
         PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateDocs);
     }
+
+    [Theory]
+    [InlineData("fix-bug")]
+    [InlineData("fix-no-test")]
+    [InlineData("add-feature")]
+    public void MainPresets_ContainTriage(string name)
+    {
+        var preset = PipelinePresets.TryResolve(name);
+        preset.Should().Contain(CommandNames.Triage);
+    }
+
+    [Fact]
+    public void InitProject_DoesNotContainTriage()
+    {
+        PipelinePresets.InitProject.Should().NotContain(CommandNames.Triage);
+    }
+
+    [Theory]
+    [InlineData("fix-bug")]
+    [InlineData("fix-no-test")]
+    [InlineData("add-feature")]
+    public void MainPresets_TriageBeforeGeneratePlan(string name)
+    {
+        var preset = PipelinePresets.TryResolve(name)!;
+        var triageIndex = preset.ToList().IndexOf(CommandNames.Triage);
+        var planIndex = preset.ToList().IndexOf(CommandNames.GeneratePlan);
+        triageIndex.Should().BeLessThan(planIndex, "Triage must run before GeneratePlan");
+    }
 }
