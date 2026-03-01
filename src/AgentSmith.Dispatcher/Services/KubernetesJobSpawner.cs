@@ -39,6 +39,25 @@ public sealed class KubernetesJobSpawner(
         return jobId;
     }
 
+    public async Task<bool> IsAliveAsync(string jobId, CancellationToken cancellationToken)
+    {
+        var jobName = $"agentsmith-{jobId}";
+
+        try
+        {
+            var job = await k8sClient.BatchV1.ReadNamespacedJobAsync(
+                jobName, options.Namespace, cancellationToken: cancellationToken);
+
+            // Active > 0 means the pod is still running
+            return job.Status?.Active is > 0;
+        }
+        catch (k8s.Autorest.HttpOperationException ex) when (ex.Response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Job already cleaned up by TTL controller
+            return false;
+        }
+    }
+
     private V1Job BuildJob(string jobName, string jobId, JobRequest request, string redisUrl) => new()
     {
         Metadata = new V1ObjectMeta
@@ -129,7 +148,7 @@ public sealed class KubernetesJobSpawner(
         new V1EnvVar { Name = "PROJECT", Value = request.Project },
         new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
         new V1EnvVar { Name = "USER_ID", Value = request.UserId },
-        new V1EnvVar { Name = "PLATFORM", Value = request.Platform }
+        new V1EnvVar { Name = "AGENTSMITH_PLATFORM", Value = request.Platform }
     ];
 
     private static V1EnvVar EnvFromSecret(string envName, string secretName, string secretKey) =>
