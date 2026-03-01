@@ -9,6 +9,7 @@ public static class CommandNames
     public const string CheckoutSource = "CheckoutSourceCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
+    public const string LoadDomainRules = "LoadDomainRulesCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";
     public const string LoadContext = "LoadContextCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";
@@ -21,9 +22,23 @@ public static class CommandNames
     public const string InitCommit = "InitCommitCommand";
     public const string GenerateTests = "GenerateTestsCommand";
     public const string GenerateDocs = "GenerateDocsCommand";
+    public const string Triage = "TriageCommand";
+    public const string SwitchSkill = "SwitchSkillCommand";
+    public const string SkillRound = "SkillRoundCommand";
+    public const string ConvergenceCheck = "ConvergenceCheckCommand";
 
-    public static string GetLabel(string commandName) =>
-        Labels.GetValueOrDefault(commandName, commandName);
+    public static string GetLabel(string commandName)
+    {
+        if (Labels.TryGetValue(commandName, out var label))
+            return label;
+
+        // Handle parameterized commands (e.g. "SkillRoundCommand:architect:1")
+        var baseCommand = commandName.Contains(':')
+            ? commandName[..commandName.IndexOf(':')]
+            : commandName;
+
+        return Labels.GetValueOrDefault(baseCommand, commandName);
+    }
 
     private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,7 +46,8 @@ public static class CommandNames
         [CheckoutSource] = "Checking out source",
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
-        [LoadCodingPrinciples] = "Loading coding principles",
+        [LoadDomainRules] = "Loading domain rules",
+        [LoadCodingPrinciples] = "Loading domain rules",
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [GeneratePlan] = "Generating plan",
@@ -43,5 +59,9 @@ public static class CommandNames
         [InitCommit] = "Committing init files",
         [GenerateTests] = "Generating tests",
         [GenerateDocs] = "Generating docs",
+        [Triage] = "Triaging ticket",
+        [SwitchSkill] = "Switching skill",
+        [SkillRound] = "Skill round",
+        [ConvergenceCheck] = "Checking convergence",
     };
 }

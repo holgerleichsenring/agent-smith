@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
         services.AddTransient<ICommandHandler<CheckoutSourceContext>, CheckoutSourceHandler>();
-        services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
+        services.AddTransient<ICommandHandler<LoadDomainRulesContext>, LoadDomainRulesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeCodeHandler>();
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
@@ -36,6 +36,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
+        services.AddTransient<ICommandHandler<TriageContext>, TriageHandler>();
+        services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
+        services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
+        services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
     }
 
     private static void RegisterPipeline(IServiceCollection services)
