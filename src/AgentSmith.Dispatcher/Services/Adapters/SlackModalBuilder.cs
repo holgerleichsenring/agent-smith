@@ -11,7 +11,9 @@ internal static class SlackModalBuilder
 {
     private static readonly (string Value, string Label)[] CommandOptions =
     [
-        ("fix_ticket", "Fix Ticket"),
+        ("fix_bug", "Fix Bug"),
+        ("fix_bug_no_tests", "Fix Bug (no tests)"),
+        ("add_feature", "Add Feature"),
         ("list_tickets", "List Tickets"),
         ("create_ticket", "Create Ticket"),
         ("init_project", "Init Project")
@@ -41,8 +43,7 @@ internal static class SlackModalBuilder
     public static object BuildUpdatedView(
         ModalCommandType command,
         string privateMetadata,
-        string? selectedProject,
-        IReadOnlyList<string>? pipelineNames = null)
+        string? selectedProject)
     {
         var blocks = new List<object>
         {
@@ -52,10 +53,10 @@ internal static class SlackModalBuilder
 
         switch (command)
         {
-            case ModalCommandType.FixTicket:
+            case ModalCommandType.FixBug:
+            case ModalCommandType.FixBugNoTests:
+            case ModalCommandType.AddFeature:
                 blocks.Add(BuildTicketBlock());
-                if (pipelineNames is { Count: > 1 })
-                    blocks.Add(BuildPipelineBlock(pipelineNames));
                 break;
 
             case ModalCommandType.CreateTicket:
@@ -123,7 +124,9 @@ internal static class SlackModalBuilder
     /// </summary>
     public static ModalCommandType? ParseCommandValue(string? value) => value switch
     {
-        "fix_ticket" => ModalCommandType.FixTicket,
+        "fix_bug" => ModalCommandType.FixBug,
+        "fix_bug_no_tests" => ModalCommandType.FixBugNoTests,
+        "add_feature" => ModalCommandType.AddFeature,
         "list_tickets" => ModalCommandType.ListTickets,
         "create_ticket" => ModalCommandType.CreateTicket,
         "init_project" => ModalCommandType.InitProject,
@@ -155,11 +158,13 @@ internal static class SlackModalBuilder
     {
         var selectedValue = command switch
         {
-            ModalCommandType.FixTicket => "fix_ticket",
+            ModalCommandType.FixBug => "fix_bug",
+            ModalCommandType.FixBugNoTests => "fix_bug_no_tests",
+            ModalCommandType.AddFeature => "add_feature",
             ModalCommandType.ListTickets => "list_tickets",
             ModalCommandType.CreateTicket => "create_ticket",
             ModalCommandType.InitProject => "init_project",
-            _ => "fix_ticket"
+            _ => "fix_bug"
         };
 
         return new
@@ -266,25 +271,6 @@ internal static class SlackModalBuilder
             action_id = "desc_input",
             multiline = true,
             placeholder = new { type = "plain_text", text = "Enter ticket description (optional)..." }
-        }
-    };
-
-    private static object BuildPipelineBlock(IReadOnlyList<string> pipelineNames) => new
-    {
-        type = "input",
-        block_id = DispatcherDefaults.SlackBlockPipeline,
-        optional = true,
-        label = new { type = "plain_text", text = "Pipeline" },
-        element = new
-        {
-            type = "static_select",
-            action_id = DispatcherDefaults.SlackActionPipeline,
-            placeholder = new { type = "plain_text", text = "Override pipeline (optional)..." },
-            options = pipelineNames.Select(p => new
-            {
-                text = new { type = "plain_text", text = p },
-                value = p
-            }).ToArray()
         }
     };
 
