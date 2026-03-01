@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Executes a pipeline by building contexts from command names and dispatching
 /// them through the CommandExecutor sequentially. Stops on first failure.
+/// Supports runtime command insertion via CommandResult.InsertNext.
 /// Posts status updates and error reports to the ticket provider.
 /// </summary>
 public sealed class PipelineExecutor(
@@ -22,6 +23,8 @@ public sealed class PipelineExecutor(
     IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
+    private const int MaxCommandExecutions = 100;
+
     public async Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
         ProjectConfig projectConfig,
@@ -34,40 +37,82 @@ public sealed class PipelineExecutor(
         await PostTicketStatusAsync(projectConfig, context,
             "Agent Smith is working on this issue...", cancellationToken);
 
-        for (var i = 0; i < commandNames.Count; i++)
+        var commands = new LinkedList<string>(commandNames);
+        var current = commands.First;
+        var executionCount = 0;
+
+        while (current is not null)
         {
-            var commandName = commandNames[i];
-            var step = i + 1;
-            var total = commandNames.Count;
+            if (++executionCount > MaxCommandExecutions)
+            {
+                return CommandResult.Fail(
+                    $"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
+                    "Possible infinite loop in command insertion.");
+            }
+
+            var commandName = current.Value;
+            var total = commands.Count;
             var label = CommandNames.GetLabel(commandName);
 
             logger.LogInformation(
                 "[{Step}/{Total}] Executing {Command}...",
-                step, total, commandName);
+                executionCount, total, commandName);
 
-            await progressReporter.ReportProgressAsync(step, total, label, cancellationToken);
+            await progressReporter.ReportProgressAsync(
+                executionCount, total, label, cancellationToken);
 
             var commandContext = contextFactory.Create(
                 commandName, projectConfig, context);
 
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = await ExecuteCommandAsync(commandContext, cancellationToken);
+            sw.Stop();
+
+            context.TrackCommand(commandName, result.IsSuccess, result.Message,
+                sw.Elapsed, result.InsertNext?.Count);
 
             if (!result.IsSuccess)
             {
                 logger.LogWarning(
                     "Pipeline stopped at step {Step}: {Command} failed - {Message}",
-                    step, commandName, result.Message);
+                    executionCount, commandName, result.Message);
 
                 await PostTicketStatusAsync(projectConfig, context,
-                    $"## Agent Smith - Failed\n\n**Step:** {label} ({step}/{total})\n**Error:** {result.Message}",
+                    $"## Agent Smith - Failed\n\n**Step:** {label} ({executionCount}/{total})\n**Error:** {result.Message}",
                     cancellationToken);
 
-                return result with { FailedStep = step, TotalSteps = total, StepName = label };
+                return result with
+                {
+                    FailedStep = executionCount,
+                    TotalSteps = total,
+                    StepName = label
+                };
             }
+
+            if (result.InsertNext is { Count: > 0 })
+            {
+                var insertAfter = current;
+                foreach (var next in result.InsertNext)
+                {
+                    commands.AddAfter(insertAfter, next);
+                    insertAfter = insertAfter.Next!;
+                }
+
+                logger.LogInformation(
+                    "{Command} inserted {Count} follow-up commands: {Commands}",
+                    commandName,
+                    result.InsertNext.Count,
+                    string.Join(", ", result.InsertNext));
+            }
+
+            // Post skill-related detail to Slack/progress reporter
+            await PostSkillDetailAsync(commandName, result, cancellationToken);
 
             logger.LogInformation(
                 "[{Step}/{Total}] {Command} completed: {Message}",
-                i + 1, commandNames.Count, commandName, result.Message);
+                executionCount, commands.Count, commandName, result.Message);
+
+            current = current.Next;
         }
 
         logger.LogInformation("Pipeline completed successfully");
@@ -81,7 +126,7 @@ public sealed class PipelineExecutor(
         {
             FetchTicketContext c => commandExecutor.ExecuteAsync(c, ct),
             CheckoutSourceContext c => commandExecutor.ExecuteAsync(c, ct),
-            LoadCodingPrinciplesContext c => commandExecutor.ExecuteAsync(c, ct),
+            LoadDomainRulesContext c => commandExecutor.ExecuteAsync(c, ct),
             AnalyzeCodeContext c => commandExecutor.ExecuteAsync(c, ct),
             GeneratePlanContext c => commandExecutor.ExecuteAsync(c, ct),
             ApprovalContext c => commandExecutor.ExecuteAsync(c, ct),
@@ -93,9 +138,40 @@ public sealed class PipelineExecutor(
             LoadContextContext c => commandExecutor.ExecuteAsync(c, ct),
             WriteRunResultContext c => commandExecutor.ExecuteAsync(c, ct),
             InitCommitContext c => commandExecutor.ExecuteAsync(c, ct),
+            TriageContext c => commandExecutor.ExecuteAsync(c, ct),
+            SwitchSkillContext c => commandExecutor.ExecuteAsync(c, ct),
+            SkillRoundContext c => commandExecutor.ExecuteAsync(c, ct),
+            ConvergenceCheckContext c => commandExecutor.ExecuteAsync(c, ct),
             _ => throw new ConfigurationException(
                 $"Unknown context type: {context.GetType().Name}")
         };
+    }
+
+    private async Task PostSkillDetailAsync(
+        string commandName, CommandResult result, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var baseCommand = commandName.Contains(':')
+                ? commandName[..commandName.IndexOf(':')]
+                : commandName;
+
+            var detail = baseCommand switch
+            {
+                CommandNames.Triage => $"Triage: {result.Message}",
+                CommandNames.SkillRound => $"Skill Round: {result.Message}",
+                CommandNames.ConvergenceCheck => $"Convergence: {result.Message}",
+                CommandNames.SwitchSkill => $"Skill Switch: {result.Message}",
+                _ => null
+            };
+
+            if (detail is not null)
+                await progressReporter.ReportDetailAsync(detail, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to post skill detail");
+        }
     }
 
     private async Task PostTicketStatusAsync(

@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContextGenerator, ContextGenerator>();
         services.AddSingleton<ICodeMapGenerator, CodeMapGenerator>();
         services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();
+        services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         return services;
     }
 }

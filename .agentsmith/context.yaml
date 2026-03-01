@@ -28,7 +28,7 @@ behavior:
     process-ticket:
       trigger: [cli, slack, webhook]
       steps: [FetchTicket, CheckoutSource, BootstrapProject, LoadCodeMap,
-              LoadCodingPrinciples, LoadContext, AnalyzeCode, GeneratePlan,
+              LoadDomainRules, LoadContext, AnalyzeCode, Triage, GeneratePlan,
               Approve, AgenticExecute, Test, WriteRunResult, CommitAndPR]
       error: stop-on-first-failure
 
@@ -89,6 +89,7 @@ state:
     p31: "OrphanJobDetector Redis scan: GetAllAsync for untracked stale states after dispatcher restart (290 tests)"
     p32: "Architecture cleanup: ILlmClient abstraction, ILlmClientFactory per-project, ILlmIntentParser, blocked commands (339 tests)"
     p33: "Run cost in result.md: AgentExecutionResult, YAML frontmatter with token/cost/duration data (344 tests)"
+    p34: "Multi-skill architecture: cascading commands, role-based triage, SkillRound/ConvergenceCheck, execution trail, auto-detection (407 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"

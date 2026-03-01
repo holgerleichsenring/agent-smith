@@ -17,6 +17,12 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
+        if (context.Pipeline.Has(ContextKeys.ConsolidatedPlan))
+        {
+            logger.LogInformation("Plan already consolidated by multi-role discussion, skipping generation");
+            return CommandResult.Ok("Plan consolidated by multi-role discussion");
+        }
+
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
 
         var provider = factory.Create(context.AgentConfig);
