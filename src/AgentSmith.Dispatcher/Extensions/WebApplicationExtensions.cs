@@ -1,4 +1,3 @@
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Dispatcher.Services.Adapters;
 using AgentSmith.Dispatcher.Services.Handlers;
@@ -278,10 +277,8 @@ internal static class WebApplicationExtensions
         var metadata = GetMetadata(json);
         var selectedProject = metadata.SelectedProject ?? ExtractSelectedProjectFromViewState(json);
 
-        var pipelineNames = PipelinePresets.Names;
-
         var updatedView = SlackModalBuilder.BuildUpdatedView(
-            command.Value, SerializeMetadata(metadata), selectedProject, pipelineNames);
+            command.Value, SerializeMetadata(metadata), selectedProject);
 
         var adapter = ctx.RequestServices.GetRequiredService<SlackAdapter>();
         await adapter.UpdateViewAsync(viewId, updatedView, ctx.RequestAborted);
@@ -307,12 +304,10 @@ internal static class WebApplicationExtensions
             ?[DispatcherDefaults.SlackBlockCommand]
             ?[DispatcherDefaults.SlackActionCommand]
             ?["selected_option"]?["value"]?.GetValue<string>();
-        var command = SlackModalBuilder.ParseCommandValue(commandValue) ?? ModalCommandType.FixTicket;
-
-        var pipelineNames = PipelinePresets.Names;
+        var command = SlackModalBuilder.ParseCommandValue(commandValue) ?? ModalCommandType.FixBug;
 
         var updatedView = SlackModalBuilder.BuildUpdatedView(
-            command, SerializeMetadata(metadata), selectedProject, pipelineNames);
+            command, SerializeMetadata(metadata), selectedProject);
 
         var adapter = ctx.RequestServices.GetRequiredService<SlackAdapter>();
         await adapter.UpdateViewAsync(viewId, updatedView, ctx.RequestAborted);

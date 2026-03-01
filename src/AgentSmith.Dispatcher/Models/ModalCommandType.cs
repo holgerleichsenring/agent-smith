@@ -5,7 +5,9 @@ namespace AgentSmith.Dispatcher.Models;
 /// </summary>
 public enum ModalCommandType
 {
-    FixTicket,
+    FixBug,
+    FixBugNoTests,
+    AddFeature,
     ListTickets,
     CreateTicket,
     InitProject

@@ -82,8 +82,10 @@ internal sealed class SlackModalSubmissionHandler(
     {
         switch (command)
         {
-            case ModalCommandType.FixTicket:
-                await HandleFixTicketAsync(values, project, userId, channelId, ct);
+            case ModalCommandType.FixBug:
+            case ModalCommandType.FixBugNoTests:
+            case ModalCommandType.AddFeature:
+                await HandleFixTicketAsync(command, values, project, userId, channelId, ct);
                 break;
 
             case ModalCommandType.ListTickets:
@@ -101,7 +103,7 @@ internal sealed class SlackModalSubmissionHandler(
     }
 
     private async Task HandleFixTicketAsync(
-        JsonNode values, string project, string userId, string channelId,
+        ModalCommandType command, JsonNode values, string project, string userId, string channelId,
         CancellationToken ct)
     {
         var ticketIdStr = values
@@ -116,24 +118,27 @@ internal sealed class SlackModalSubmissionHandler(
             return;
         }
 
-        var pipelineOverride = values
-            [DispatcherDefaults.SlackBlockPipeline]
-            ?[DispatcherDefaults.SlackActionPipeline]
-            ?["selected_option"]?["value"]?.GetValue<string>();
+        var pipeline = command switch
+        {
+            ModalCommandType.FixBug => "fix-bug",
+            ModalCommandType.FixBugNoTests => "fix-no-test",
+            ModalCommandType.AddFeature => "add-feature",
+            _ => "fix-bug"
+        };
 
         var intent = new FixTicketIntent
         {
             TicketId = ticketId,
             Project = project,
-            PipelineOverride = pipelineOverride,
+            PipelineOverride = pipeline,
             RawText = $"/fix #{ticketId} in {project}",
             UserId = userId,
             ChannelId = channelId,
             Platform = DispatcherDefaults.PlatformSlack
         };
 
-        logger.LogInformation("Modal submission: fix #{TicketId} in {Project} (pipeline={Pipeline})",
-            ticketId, project, pipelineOverride ?? "default");
+        logger.LogInformation("Modal submission: {Command} #{TicketId} in {Project} (pipeline={Pipeline})",
+            command, ticketId, project, pipeline);
 
         await fixHandler.HandleAsync(intent, ct);
     }
