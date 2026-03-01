@@ -17,7 +17,8 @@ public sealed class SlackModalBuilderTests
         var json = JsonSerializer.Serialize(view);
         json.Should().Contain("command_select");
         json.Should().Contain("command_action");
-        json.Should().Contain("Fix Ticket");
+        json.Should().Contain("Fix Bug");
+        json.Should().Contain("Add Feature");
         json.Should().Contain("List Tickets");
         json.Should().Contain("Create Ticket");
     }
@@ -43,11 +44,14 @@ public sealed class SlackModalBuilderTests
         json.Should().Contain("C123");
     }
 
-    [Fact]
-    public void BuildUpdatedView_FixTicket_ShowsTicketField()
+    [Theory]
+    [InlineData(ModalCommandType.FixBug)]
+    [InlineData(ModalCommandType.FixBugNoTests)]
+    [InlineData(ModalCommandType.AddFeature)]
+    public void BuildUpdatedView_TicketCommands_ShowsTicketField(ModalCommandType command)
     {
         var view = SlackModalBuilder.BuildUpdatedView(
-            ModalCommandType.FixTicket, PrivateMetadata, "my-project");
+            command, PrivateMetadata, "my-project");
 
         var json = JsonSerializer.Serialize(view);
         json.Should().Contain("ticket_select");
@@ -80,17 +84,14 @@ public sealed class SlackModalBuilderTests
     }
 
     [Fact]
-    public void BuildUpdatedView_FixTicket_WithPipelines_ShowsPipelineDropdown()
+    public void BuildUpdatedView_TicketCommands_NoPipelineDropdown()
     {
-        var pipelines = new List<string> { "fix-bug", "fix-no-test", "add-feature" };
-
         var view = SlackModalBuilder.BuildUpdatedView(
-            ModalCommandType.FixTicket, PrivateMetadata, "my-project", pipelines);
+            ModalCommandType.FixBug, PrivateMetadata, "my-project");
 
         var json = JsonSerializer.Serialize(view);
-        json.Should().Contain("pipeline_select");
-        json.Should().Contain("fix-bug");
-        json.Should().Contain("fix-no-test");
+        json.Should().NotContain("pipeline_select");
+        json.Should().NotContain("pipeline_action");
     }
 
     [Fact]
@@ -152,9 +153,12 @@ public sealed class SlackModalBuilderTests
     }
 
     [Theory]
-    [InlineData("fix_ticket", ModalCommandType.FixTicket)]
+    [InlineData("fix_bug", ModalCommandType.FixBug)]
+    [InlineData("fix_bug_no_tests", ModalCommandType.FixBugNoTests)]
+    [InlineData("add_feature", ModalCommandType.AddFeature)]
     [InlineData("list_tickets", ModalCommandType.ListTickets)]
     [InlineData("create_ticket", ModalCommandType.CreateTicket)]
+    [InlineData("init_project", ModalCommandType.InitProject)]
     public void ParseCommandValue_ValidValues_ReturnsCorrectType(string value, ModalCommandType expected)
     {
         SlackModalBuilder.ParseCommandValue(value).Should().Be(expected);
