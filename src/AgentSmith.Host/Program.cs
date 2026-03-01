@@ -5,6 +5,7 @@ using System.CommandLine.Invocation;
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Host.Services;
 using AgentSmith.Infrastructure;
@@ -93,7 +94,17 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
 
     var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
     var pipeline = string.IsNullOrWhiteSpace(pipelineOverride) ? null : pipelineOverride;
-    var result = await useCase.ExecuteAsync(input, configPath, headless, pipeline, CancellationToken.None);
+
+    CommandResult result;
+    try
+    {
+        result = await useCase.ExecuteAsync(input, configPath, headless, pipeline, CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        result = CommandResult.Fail($"Unhandled exception: {ex.Message}");
+        Console.Error.WriteLine($"Fatal: {ex}");
+    }
 
     // In K8s job mode, signal done/error via the progress reporter (Redis)
     if (!string.IsNullOrWhiteSpace(jobId))
