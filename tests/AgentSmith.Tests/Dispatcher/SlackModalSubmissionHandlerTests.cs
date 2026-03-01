@@ -78,30 +78,32 @@ public sealed class SlackModalSubmissionHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_FixTicket_SpawnsJob()
+    public async Task HandleAsync_FixBug_SpawnsJobWithFixBugPipeline()
     {
         _spawner.Setup(s => s.SpawnAsync(
                 It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("job-123");
 
-        var payload = BuildPayload("fix_ticket", "my-project", ticketId: "42");
+        var payload = BuildPayload("fix_bug", "my-project", ticketId: "42");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
         _spawner.Verify(s => s.SpawnAsync(
-            It.Is<JobRequest>(r => r.InputCommand.Contains("#42") && r.Project == "my-project"),
+            It.Is<JobRequest>(r =>
+                r.InputCommand.Contains("#42") &&
+                r.Project == "my-project" &&
+                r.PipelineOverride == "fix-bug"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task HandleAsync_FixTicket_WithPipelineOverride_PassesOverride()
+    public async Task HandleAsync_FixBugNoTests_SpawnsJobWithFixNoTestPipeline()
     {
         _spawner.Setup(s => s.SpawnAsync(
                 It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("job-123");
 
-        var payload = BuildPayload("fix_ticket", "my-project",
-            ticketId: "42", pipeline: "fix-no-test");
+        var payload = BuildPayload("fix_bug_no_tests", "my-project", ticketId: "42");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
@@ -111,9 +113,27 @@ public sealed class SlackModalSubmissionHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_AddFeature_SpawnsJobWithAddFeaturePipeline()
+    {
+        _spawner.Setup(s => s.SpawnAsync(
+                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("job-123");
+
+        var payload = BuildPayload("add_feature", "my-project", ticketId: "58");
+
+        await _sut.HandleAsync(payload, CancellationToken.None);
+
+        _spawner.Verify(s => s.SpawnAsync(
+            It.Is<JobRequest>(r =>
+                r.InputCommand.Contains("#58") &&
+                r.PipelineOverride == "add-feature"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task HandleAsync_MissingProject_SendsError()
     {
-        var payload = BuildPayload("fix_ticket", project: null, ticketId: "42");
+        var payload = BuildPayload("fix_bug", project: null, ticketId: "42");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
@@ -137,9 +157,9 @@ public sealed class SlackModalSubmissionHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_FixTicket_MissingTicket_SendsError()
+    public async Task HandleAsync_FixBug_MissingTicket_SendsError()
     {
-        var payload = BuildPayload("fix_ticket", "my-project");
+        var payload = BuildPayload("fix_bug", "my-project");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
@@ -169,7 +189,7 @@ public sealed class SlackModalSubmissionHandlerTests
     private static JsonNode BuildPayload(
         string command, string? project,
         string? ticketId = null, string? title = null,
-        string? description = null, string? pipeline = null)
+        string? description = null)
     {
         var values = new JsonObject();
 
@@ -235,17 +255,6 @@ public sealed class SlackModalSubmissionHandlerTests
             values[DispatcherDefaults.SlackBlockDescription] = new JsonObject
             {
                 ["desc_input"] = new JsonObject { ["value"] = description }
-            };
-        }
-
-        if (pipeline is not null)
-        {
-            values[DispatcherDefaults.SlackBlockPipeline] = new JsonObject
-            {
-                [DispatcherDefaults.SlackActionPipeline] = new JsonObject
-                {
-                    ["selected_option"] = new JsonObject { ["value"] = pipeline }
-                }
             };
         }
 

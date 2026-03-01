@@ -90,6 +90,7 @@ state:
     p32: "Architecture cleanup: ILlmClient abstraction, ILlmClientFactory per-project, ILlmIntentParser, blocked commands (339 tests)"
     p33: "Run cost in result.md: AgentExecutionResult, YAML frontmatter with token/cost/duration data (344 tests)"
     p34: "Multi-skill architecture: cascading commands, role-based triage, SkillRound/ConvergenceCheck, execution trail, auto-detection (407 tests)"
+    p35: "Simplified Slack commands: Fix Ticket+Pipeline dropdown → Fix Bug, Fix Bug (no tests), Add Feature with implicit pipeline (413 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"

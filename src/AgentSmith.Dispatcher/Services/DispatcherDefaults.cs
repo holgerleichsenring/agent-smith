@@ -48,9 +48,7 @@ internal static class DispatcherDefaults
     public const string SlackBlockTicket = "ticket_select";
     public const string SlackBlockTitle = "ticket_title";
     public const string SlackBlockDescription = "ticket_description";
-    public const string SlackBlockPipeline = "pipeline_select";
     public const string SlackActionCommand = "command_action";
     public const string SlackActionProject = "project_action";
     public const string SlackActionTicket = "ticket_action";
-    public const string SlackActionPipeline = "pipeline_action";
 }
