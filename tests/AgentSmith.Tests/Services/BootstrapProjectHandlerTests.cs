@@ -22,6 +22,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     private readonly Mock<IContextValidator> _validator = new();
     private readonly Mock<ICodeMapGenerator> _codeMapGenerator = new();
     private readonly Mock<ICodingPrinciplesGenerator> _codingPrinciplesGenerator = new();
+    private readonly Mock<ISkillLoader> _skillLoader = new();
     private readonly BootstrapProjectHandler _sut;
     private readonly string _tempDir;
 
@@ -37,6 +38,7 @@ public class BootstrapProjectHandlerTests : IDisposable
             _validator.Object,
             _codeMapGenerator.Object,
             _codingPrinciplesGenerator.Object,
+            _skillLoader.Object,
             NullLogger<BootstrapProjectHandler>.Instance);
 
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-bootstrap-" + Guid.NewGuid().ToString("N")[..8]);
@@ -234,6 +236,108 @@ public class BootstrapProjectHandlerTests : IDisposable
     {
         var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
         return new BootstrapProjectContext(repo, new AgentConfig { Type = "claude" }, new PipelineContext());
+    }
+
+    [Fact]
+    public async Task Execute_SkillLoaderReturnsRoles_StoresInPipeline()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+
+        var detected = CreateDetectedProject("C#");
+        _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
+
+        var roles = new List<RoleSkillDefinition>
+        {
+            new() { Name = "architect", DisplayName = "Architect", Rules = "Design rules" },
+            new() { Name = "tester", DisplayName = "Tester", Rules = "Test rules" }
+        };
+        _skillLoader.Setup(s => s.LoadRoleDefinitions(It.IsAny<string>())).Returns(roles);
+        _skillLoader.Setup(s => s.LoadProjectSkills(It.IsAny<string>())).Returns((SkillConfig?)null);
+
+        var context = CreateContext();
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out var stored).Should().BeTrue();
+        stored.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Execute_SkillYamlExists_FiltersRolesViaGetActiveRoles()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+
+        var detected = CreateDetectedProject("C#");
+        _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
+
+        var allRoles = new List<RoleSkillDefinition>
+        {
+            new() { Name = "architect", DisplayName = "Architect", Rules = "Design rules" },
+            new() { Name = "tester", DisplayName = "Tester", Rules = "Test rules" }
+        };
+        var filteredRoles = new List<RoleSkillDefinition>
+        {
+            new() { Name = "architect", DisplayName = "Architect", Rules = "Design rules" }
+        };
+        var skillConfig = new SkillConfig
+        {
+            Roles = new Dictionary<string, RoleProjectConfig>
+            {
+                ["architect"] = new() { Enabled = true }
+            }
+        };
+
+        _skillLoader.Setup(s => s.LoadRoleDefinitions(It.IsAny<string>())).Returns(allRoles);
+        _skillLoader.Setup(s => s.LoadProjectSkills(It.IsAny<string>())).Returns(skillConfig);
+        _skillLoader.Setup(s => s.GetActiveRoles(allRoles, skillConfig)).Returns(filteredRoles);
+
+        var context = CreateContext();
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out var stored).Should().BeTrue();
+        stored.Should().HaveCount(1);
+        stored![0].Name.Should().Be("architect");
+
+        context.Pipeline.TryGet<SkillConfig>(
+            ContextKeys.ProjectSkills, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Execute_NoRoleDefinitions_DoesNotStoreRoles()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+
+        var detected = CreateDetectedProject("C#");
+        _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
+
+        _skillLoader.Setup(s => s.LoadRoleDefinitions(It.IsAny<string>()))
+            .Returns(new List<RoleSkillDefinition>());
+
+        var context = CreateContext();
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Execute_SkillLoaderThrows_ContinuesSuccessfully()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), "meta: {}");
+
+        var detected = CreateDetectedProject("C#");
+        _detector.Setup(d => d.Detect(_tempDir)).Returns(detected);
+
+        _skillLoader.Setup(s => s.LoadRoleDefinitions(It.IsAny<string>()))
+            .Throws(new Exception("Skills directory missing"));
+
+        var context = CreateContext();
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out _).Should().BeFalse();
     }
 
     private static DetectedProject CreateDetectedProject(string language) =>

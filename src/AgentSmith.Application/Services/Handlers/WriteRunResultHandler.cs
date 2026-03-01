@@ -125,6 +125,8 @@ public sealed class WriteRunResultHandler(
         sb.AppendLine("## Summary");
         sb.AppendLine(context.Plan.Summary);
 
+        AppendExecutionTrail(sb, context.Pipeline);
+
         await File.WriteAllTextAsync(
             Path.Combine(runDir, "result.md"), sb.ToString(), ct);
     }
@@ -184,6 +186,38 @@ public sealed class WriteRunResultHandler(
             sb.AppendLine($"      turns: {cost.Iterations}");
             sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
         }
+    }
+
+    private static void AppendExecutionTrail(StringBuilder sb, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<List<ExecutionTrailEntry>>(
+                ContextKeys.ExecutionTrail, out var trail) || trail is null || trail.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("## Execution Trail");
+        sb.AppendLine();
+        sb.AppendLine("| # | Command | Skill | Result | Duration | Inserted |");
+        sb.AppendLine("|---|---------|-------|--------|----------|----------|");
+
+        var totalDuration = TimeSpan.Zero;
+        for (var i = 0; i < trail.Count; i++)
+        {
+            var e = trail[i];
+            var status = e.Success ? "OK" : "FAIL";
+            var msg = e.Message.Length > 40 ? e.Message[..40] + "..." : e.Message;
+            var skill = e.Skill ?? "-";
+            var duration = $"{e.Duration.TotalSeconds:F1}s";
+            var inserted = e.InsertedCommandCount.HasValue ? $"+{e.InsertedCommandCount}" : "-";
+            totalDuration += e.Duration;
+
+            sb.AppendLine($"| {i + 1} | {e.CommandName} | {skill} | {status}: {msg} | {duration} | {inserted} |");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine($"**Total: {trail.Count} commands, {totalDuration.TotalSeconds:F1}s**");
     }
 
     private static async Task AppendToContextYamlAsync(

@@ -9,8 +9,9 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
-        CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
+        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.AnalyzeCode, CommandNames.Triage,
+        CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
@@ -19,8 +20,9 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
-        CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
+        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.AnalyzeCode, CommandNames.Triage,
+        CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
@@ -35,7 +37,8 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
         CommandNames.Test, CommandNames.GenerateDocs,

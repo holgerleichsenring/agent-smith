@@ -34,4 +34,24 @@ public sealed class PipelineContext
     }
 
     public bool Has(string key) => _data.ContainsKey(key);
+
+    /// <summary>
+    /// Tracks a command execution in the execution trail.
+    /// </summary>
+    public void TrackCommand(
+        string commandName, bool success, string message,
+        TimeSpan duration, int? insertedCount)
+    {
+        var trail = TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var existing)
+            ? existing!
+            : [];
+
+        string? skill = TryGet<string>(ContextKeys.ActiveSkill, out var s) ? s : null;
+
+        trail.Add(new ExecutionTrailEntry(
+            commandName, skill, success, message,
+            DateTimeOffset.UtcNow, duration, insertedCount));
+
+        Set(ContextKeys.ExecutionTrail, trail);
+    }
 }

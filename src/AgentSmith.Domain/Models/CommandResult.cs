@@ -21,6 +21,9 @@ public sealed record CommandResult
     /// <summary>Pull request URL, if one was created during the pipeline.</summary>
     public string? PrUrl { get; init; }
 
+    /// <summary>Commands to insert directly after the current command in the pipeline.</summary>
+    public IReadOnlyList<string>? InsertNext { get; init; }
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;
@@ -33,5 +36,13 @@ public sealed record CommandResult
     public static CommandResult Fail(string message, Exception? exception = null)
     {
         return new(false, message, exception);
+    }
+
+    public static CommandResult OkAndContinueWith(string message, params string[] nextCommands)
+    {
+        return new(true, message)
+        {
+            InsertNext = nextCommands.Length > 0 ? nextCommands : null
+        };
     }
 }

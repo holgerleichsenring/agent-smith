@@ -22,7 +22,7 @@ You:           "fix #54 in todo-list"
  [2/13] CheckoutSource       → Clones repo, creates branch fix/54
  [3/13] BootstrapProject     → Detects language, framework, project type
  [4/13] LoadCodeMap          → Generates navigable code map
- [5/13] LoadCodingPrinciples → Loads your coding standards
+ [5/13] LoadDomainRules     → Loads your coding standards & domain rules
  [6/13] LoadContext           → Loads project context (.agentsmith/context.yaml)
  [7/13] AnalyzeCode          → Scout agent maps the codebase, identifies relevant files
  [8/13] GeneratePlan         → AI generates a step-by-step implementation plan
@@ -95,6 +95,15 @@ Machine-parseable (queryable via `yq`) and human-readable.
 ### Auto-Bootstrap
 On first run against a new repo, Agent Smith auto-detects the project type, coding conventions, and architecture — then generates `.agentsmith/context.yaml`, `coding-principles.md`, and a code map. No manual setup needed.
 
+### Multi-Skill Architecture
+For complex tickets, Agent Smith can run a multi-role planning discussion before writing code. A triage step selects relevant specialist roles (Architect, Tester, DevOps, DBA, Security, etc.) which then debate the approach in rounds, raising objections and suggestions until convergence. The consolidated plan incorporates all perspectives.
+
+- Role definitions live in `config/skills/*.yaml` — each role has triggers, rules, and convergence criteria
+- Per-project configuration via `.agentsmith/skill.yaml` enables/disables roles and adds project-specific rules
+- Cascading commands: any handler can inject follow-up commands into the pipeline at runtime
+- Safety limit of 100 command executions prevents runaway loops
+- Execution trail tracks every command with timing, skill context, and inserted commands
+
 ### Prompt Caching
 System prompts and coding principles are cached at the Anthropic level, reducing costs significantly on repeated runs against the same codebase.
 
@@ -140,7 +149,7 @@ Talk to Agent Smith from Slack or Teams:
 ┌──────────────▼───────────────────────────────────────┐
 │               AgentSmith.Application                  │
 │   ProcessTicketUseCase → PipelineExecutor             │
-│   13 Command Handlers (one per pipeline step)         │
+│   Command Handlers (one per pipeline step)             │
 └──────────────┬───────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────┐
@@ -420,7 +429,7 @@ For SSH-based git operations, mount your SSH key:
 
 Agent Smith loads your coding principles at runtime and injects them into every AI prompt. This means the generated code follows *your* standards — not some generic defaults.
 
-On first run (`init-project` pipeline), Agent Smith auto-detects your conventions from the codebase and generates `.agentsmith/coding-principles.md`. You can also define them manually:
+On first run (`init-project` pipeline), Agent Smith auto-detects your conventions from the codebase and generates `.agentsmith/coding-principles.md` and `.agentsmith/skill.yaml`. You can also define them manually:
 - Line length limits
 - Naming conventions
 - Architecture patterns
@@ -488,18 +497,20 @@ agent-smith/
 │   ├── AgentSmith.Host/            # CLI entry point, Webhook listener
 │   └── AgentSmith.Dispatcher/      # Chat gateway (Slack, Teams, K8s/Docker Jobs)
 ├── tests/
-│   └── AgentSmith.Tests/           # 344 tests (xUnit, Moq, FluentAssertions)
+│   └── AgentSmith.Tests/           # 394 tests (xUnit, Moq, FluentAssertions)
 ├── .agentsmith/                    # Agent meta-files (auto-generated per repo)
 │   ├── context.yaml                # Project description + state tracking
 │   ├── code-map.yaml               # LLM-generated code map
 │   ├── coding-principles.md        # Detected coding conventions
+│   ├── skill.yaml                  # Per-project skill/role config (auto-generated)
 │   ├── phases/                     # Phase documentation
 │   │   ├── done/                   # Completed phases
 │   │   ├── active/                 # Currently active (max 1)
 │   │   └── planned/               # Upcoming phases
 │   └── runs/                       # Execution artifacts (plan.md + result.md)
 ├── config/
-│   └── agentsmith.example.yml      # Config template
+│   ├── agentsmith.example.yml      # Config template
+│   └── skills/                     # Role definitions (architect, tester, devops, ...)
 ├── docs/                           # Run logs, setup guides
 ├── Dockerfile
 ├── Dockerfile.dispatcher
@@ -523,6 +534,7 @@ agent-smith/
 - [x] Init project command, systemic fixes, orphan detection (p29-p31)
 - [x] Architecture cleanup: ILlmClient abstraction (p32)
 - [x] Run cost data in result.md with YAML frontmatter (p33)
+- [x] Multi-Skill Architecture: cascading commands, role-based planning (p34)
 - [ ] Multi-repo support (p23)
 - [ ] PR review iteration (p25)
 

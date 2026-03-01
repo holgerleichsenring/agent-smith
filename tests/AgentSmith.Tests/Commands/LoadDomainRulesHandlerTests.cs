@@ -4,15 +4,14 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Commands;
 
-public class LoadCodingPrinciplesHandlerTests
+public class LoadDomainRulesHandlerTests
 {
-    private readonly LoadCodingPrinciplesHandler _handler = new(
-        NullLoggerFactory.Instance.CreateLogger<LoadCodingPrinciplesHandler>());
+    private readonly LoadDomainRulesHandler _handler = new(
+        NullLogger<LoadDomainRulesHandler>.Instance);
 
     [Fact]
     public async Task ExecuteAsync_FileExists_LoadsContent()
@@ -26,12 +25,12 @@ public class LoadCodingPrinciplesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadCodingPrinciplesContext(relativePath, repo, pipeline);
+        var context = new LoadDomainRulesContext(relativePath, repo, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Test Principles");
+        pipeline.Get<string>(ContextKeys.DomainRules).Should().Be("# Test Principles");
 
         Directory.Delete(tempDir, true);
     }
@@ -44,12 +43,34 @@ public class LoadCodingPrinciplesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadCodingPrinciplesContext("nonexistent/path.md", repo, pipeline);
+        var context = new LoadDomainRulesContext("nonexistent/path.md", repo, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("not found");
+
+        Directory.Delete(tempDir, true);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ContentAccessibleViaCodingPrinciplesAlias()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        var relativePath = ".agentsmith/coding-principles.md";
+        var fullPath = Path.Combine(tempDir, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await File.WriteAllTextAsync(fullPath, "# Rules");
+
+        var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
+        var pipeline = new PipelineContext();
+        var context = new LoadDomainRulesContext(relativePath, repo, pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        // CodingPrinciples is an alias for DomainRules — both resolve to same key
+        pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Rules");
 
         Directory.Delete(tempDir, true);
     }

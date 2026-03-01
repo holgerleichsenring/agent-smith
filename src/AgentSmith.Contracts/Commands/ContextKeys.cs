@@ -11,7 +11,14 @@ public static class ContextKeys
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
     public const string CodeAnalysis = "CodeAnalysis";
-    public const string CodingPrinciples = "CodingPrinciples";
+    public const string DomainRules = "DomainRules";
+    public const string CodingPrinciples = DomainRules;
+    public const string ActiveSkill = "ActiveSkill";
+    public const string AvailableRoles = "AvailableRoles";
+    public const string ProjectSkills = "ProjectSkills";
+    public const string ExecutionTrail = "ExecutionTrail";
+    public const string DiscussionLog = "DiscussionLog";
+    public const string ConsolidatedPlan = "ConsolidatedPlan";
     public const string Approved = "Approved";
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";

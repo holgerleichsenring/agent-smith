@@ -26,18 +26,28 @@ public class CommandNamesTests
     }
 
     [Fact]
+    public void GetLabel_ParameterizedCommand_ReturnsBaseLabel()
+    {
+        CommandNames.GetLabel("SkillRoundCommand:architect:1").Should().Be("Skill round");
+        CommandNames.GetLabel("SwitchSkillCommand:tester").Should().Be("Switching skill");
+    }
+
+    [Fact]
     public void AllConstants_HaveLabels()
     {
         var constants = new[]
         {
             CommandNames.FetchTicket, CommandNames.CheckoutSource,
             CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-            CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+            CommandNames.LoadDomainRules, CommandNames.LoadCodingPrinciples,
+            CommandNames.LoadContext,
             CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
             CommandNames.Approval, CommandNames.AgenticExecute,
             CommandNames.Test, CommandNames.WriteRunResult,
             CommandNames.CommitAndPR, CommandNames.InitCommit,
             CommandNames.GenerateTests, CommandNames.GenerateDocs,
+            CommandNames.Triage, CommandNames.SwitchSkill,
+            CommandNames.SkillRound, CommandNames.ConvergenceCheck,
         };
 
         foreach (var name in constants)
