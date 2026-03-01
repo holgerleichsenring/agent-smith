@@ -24,6 +24,7 @@ public sealed class OrphanJobDetectorTests
     private readonly Mock<IServer> _server = new();
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<IMessageBus> _messageBus = new();
+    private readonly Mock<IJobSpawner> _jobSpawner = new();
     private readonly ConversationStateManager _stateManager;
     private readonly MessageBusListener _listener;
     private readonly OrphanJobDetector _sut;
@@ -53,6 +54,7 @@ public sealed class OrphanJobDetectorTests
             _listener,
             new[] { _adapter.Object },
             _messageBus.Object,
+            _jobSpawner.Object,
             NullLogger<OrphanJobDetector>.Instance);
     }
 
@@ -135,6 +137,143 @@ public sealed class OrphanJobDetectorTests
         var allStates = await _stateManager.GetAllAsync(CancellationToken.None);
 
         allStates.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DetectOrphans_ContainerAlive_DoesNotCleanup()
+    {
+        // Arrange: a tracked job with stale activity but container is still alive
+        var state = new ConversationState
+        {
+            JobId = "alive-job",
+            ChannelId = "C100",
+            UserId = "U100",
+            Platform = "slack",
+            Project = "test",
+            TicketId = 1,
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+            LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        SetupRedisState(state);
+        await _listener.TrackJobAsync("alive-job", CancellationToken.None);
+
+        _jobSpawner.Setup(s => s.IsAliveAsync("alive-job", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _sut.DetectAndCleanupOrphansAsync(CancellationToken.None);
+
+        // Assert: no cleanup should have occurred
+        _adapter.Verify(a => a.SendMessageAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DetectOrphans_ContainerDead_CleansUp()
+    {
+        // Arrange: a tracked job whose container is dead
+        var state = new ConversationState
+        {
+            JobId = "dead-job",
+            ChannelId = "C200",
+            UserId = "U200",
+            Platform = "slack",
+            Project = "test",
+            TicketId = 2,
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+            LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        SetupRedisState(state);
+        await _listener.TrackJobAsync("dead-job", CancellationToken.None);
+
+        _jobSpawner.Setup(s => s.IsAliveAsync("dead-job", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        await _sut.DetectAndCleanupOrphansAsync(CancellationToken.None);
+
+        // Assert: cleanup should have occurred
+        _adapter.Verify(a => a.SendMessageAsync(
+            "C200", It.Is<string>(m => m.Contains("dead-job")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DetectOrphans_YoungJob_SkipsEvenIfContainerDead()
+    {
+        // Arrange: a job started only 10 seconds ago (within MinRuntime grace)
+        var state = new ConversationState
+        {
+            JobId = "young-job",
+            ChannelId = "C300",
+            UserId = "U300",
+            Platform = "slack",
+            Project = "test",
+            TicketId = 3,
+            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-10),
+            LastActivityAt = DateTimeOffset.UtcNow.AddSeconds(-5)
+        };
+        SetupRedisState(state);
+        await _listener.TrackJobAsync("young-job", CancellationToken.None);
+
+        _jobSpawner.Setup(s => s.IsAliveAsync("young-job", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        await _sut.DetectAndCleanupOrphansAsync(CancellationToken.None);
+
+        // Assert: no cleanup — job is too young
+        _adapter.Verify(a => a.SendMessageAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _jobSpawner.Verify(s => s.IsAliveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DetectOrphans_LivenessCheckFails_DoesNotCleanup()
+    {
+        // Arrange: container status check throws — should not declare orphaned
+        var state = new ConversationState
+        {
+            JobId = "error-job",
+            ChannelId = "C400",
+            UserId = "U400",
+            Platform = "slack",
+            Project = "test",
+            TicketId = 4,
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+            LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        SetupRedisState(state);
+        await _listener.TrackJobAsync("error-job", CancellationToken.None);
+
+        _jobSpawner.Setup(s => s.IsAliveAsync("error-job", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Docker socket unavailable"));
+
+        // Act
+        await _sut.DetectAndCleanupOrphansAsync(CancellationToken.None);
+
+        // Assert: no cleanup — can't confirm container is dead
+        _adapter.Verify(a => a.SendMessageAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private void SetupRedisState(ConversationState state)
+    {
+        var json = JsonSerializer.Serialize(state, JsonOptions);
+        var channelKey = (RedisKey)$"conversation:{state.Platform}:{state.ChannelId}";
+        var indexKey = (RedisKey)$"job-index:{state.JobId}";
+
+        // GetByJobIdAsync: job-index:{jobId} → channel key → state JSON
+        _db.Setup(d => d.StringGetAsync(indexKey, It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisValue)channelKey.ToString());
+
+        _db.Setup(d => d.StringGetAsync(channelKey, It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisValue)json);
+
+        // GetAllAsync: scan keys
+        _server.Setup(s => s.KeysAsync(
+                It.IsAny<int>(), It.IsAny<RedisValue>(), It.IsAny<int>(),
+                It.IsAny<long>(), It.IsAny<int>(), It.IsAny<CommandFlags>()))
+            .Returns(ToAsyncEnumerable(new[] { channelKey }));
     }
 
     private static async IAsyncEnumerable<BusMessage> BlockForeverAsync(

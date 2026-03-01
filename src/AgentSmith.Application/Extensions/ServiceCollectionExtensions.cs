@@ -40,6 +40,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
+        services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
+        services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
     }
 
     private static void RegisterPipeline(IServiceCollection services)

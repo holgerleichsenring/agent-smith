@@ -101,6 +101,26 @@ public sealed class DockerJobSpawner(
 
     // --- Private helpers ---
 
+    public async Task<bool> IsAliveAsync(string jobId, CancellationToken cancellationToken)
+    {
+        var containerName = $"agentsmith-{jobId}";
+        using var client = CreateDockerClient();
+
+        try
+        {
+            var inspection = await client.Containers.InspectContainerAsync(
+                containerName, cancellationToken);
+
+            // Running means the container is actively executing
+            return inspection.State.Running;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            // AutoRemove=true means dead containers are already gone
+            return false;
+        }
+    }
+
     private static DockerClient CreateDockerClient()
     {
         // Prefer explicit DOCKER_HOST env var, fall back to platform default socket
@@ -186,7 +206,7 @@ public sealed class DockerJobSpawner(
             $"PROJECT={request.Project}",
             $"CHANNEL_ID={request.ChannelId}",
             $"USER_ID={request.UserId}",
-            $"PLATFORM={request.Platform}",
+            $"AGENTSMITH_PLATFORM={request.Platform}",
         };
 
         // Forward secrets from Dispatcher's own environment — no K8s Secret needed locally

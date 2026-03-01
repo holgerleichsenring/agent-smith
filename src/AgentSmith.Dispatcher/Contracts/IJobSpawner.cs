@@ -14,4 +14,10 @@ public interface IJobSpawner
     /// Returns the jobId that can be used to track progress via Redis Streams.
     /// </summary>
     Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks whether the container/pod for the given job is still running.
+    /// Returns false if the container has exited or cannot be found.
+    /// </summary>
+    Task<bool> IsAliveAsync(string jobId, CancellationToken cancellationToken);
 }

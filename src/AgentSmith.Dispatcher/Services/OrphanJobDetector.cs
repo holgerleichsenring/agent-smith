@@ -16,11 +16,12 @@ public sealed class OrphanJobDetector(
     MessageBusListener listener,
     IEnumerable<IPlatformAdapter> adapters,
     IMessageBus messageBus,
+    IJobSpawner jobSpawner,
     ILogger<OrphanJobDetector> logger) : BackgroundService
 {
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan MaxInactivity = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan MinRuntime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan MinRuntime = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan MaxRuntime = TimeSpan.FromMinutes(120);
 
     private readonly Dictionary<string, IPlatformAdapter> _adapters =
         adapters.ToDictionary(a => a.Platform, StringComparer.OrdinalIgnoreCase);
@@ -36,7 +37,7 @@ public sealed class OrphanJobDetector(
         }
     }
 
-    private async Task DetectAndCleanupOrphansAsync(CancellationToken cancellationToken)
+    internal async Task DetectAndCleanupOrphansAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -56,7 +57,7 @@ public sealed class OrphanJobDetector(
                     continue;
                 }
 
-                if (!IsOrphaned(state, now))
+                if (!await IsOrphanedAsync(state, now, cancellationToken))
                     continue;
 
                 logger.LogWarning(
@@ -76,7 +77,7 @@ public sealed class OrphanJobDetector(
                 if (trackedSet.Contains(state.JobId))
                     continue; // Already handled above
 
-                if (!IsOrphaned(state, now))
+                if (!await IsOrphanedAsync(state, now, cancellationToken))
                     continue;
 
                 logger.LogWarning(
@@ -96,12 +97,48 @@ public sealed class OrphanJobDetector(
         }
     }
 
-    private static bool IsOrphaned(ConversationState state, DateTimeOffset now)
+    private async Task<bool> IsOrphanedAsync(
+        ConversationState state, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var runtime = now - state.StartedAt;
-        var inactivity = now - state.LastActivityAt;
 
-        return runtime > MinRuntime && inactivity > MaxInactivity;
+        // Don't check very young jobs (startup grace period)
+        if (runtime < MinRuntime)
+            return false;
+
+        // Absolute safety limit — no job should run this long
+        if (runtime > MaxRuntime)
+        {
+            logger.LogWarning("Job {JobId} exceeded max runtime of {MaxRuntime}", state.JobId, MaxRuntime);
+            return true;
+        }
+
+        // Check if the container/pod is still alive
+        try
+        {
+            var alive = await jobSpawner.IsAliveAsync(state.JobId, cancellationToken);
+
+            if (alive)
+            {
+                // Container is still running — not orphaned
+                return false;
+            }
+
+            // Container is dead/gone — it crashed without sending completion
+            logger.LogInformation(
+                "Container for job {JobId} is no longer running, declaring orphaned", state.JobId);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Can't determine container status — don't declare orphaned
+            logger.LogWarning(ex, "Could not check container liveness for job {JobId}, skipping", state.JobId);
+            return false;
+        }
     }
 
     private async Task CleanupOrphanAsync(
@@ -115,8 +152,7 @@ public sealed class OrphanJobDetector(
                 await adapter.SendMessageAsync(
                     state.ChannelId,
                     $":warning: Job `{jobId}` appears to have crashed " +
-                    $"(no activity for over {MaxInactivity.TotalMinutes:0} minutes, " +
-                    $"running for {runtime.TotalMinutes:0} minutes). " +
+                    $"(container no longer running after {runtime.TotalMinutes:0.#} minutes). " +
                     "The channel has been unblocked. Please retry your command.",
                     cancellationToken);
             }
