@@ -4,8 +4,11 @@
 
 An open-source, self-hosted AI coding agent that reads your tickets and ships the code.
 
-You write: `fix #65 in todo-list`
-Agent Smith reads the ticket, clones the repo, analyzes the codebase, writes a plan, executes it with Claude (or OpenAI, or Gemini), runs the tests, and opens a Pull Request — all without you touching a keyboard.
+Using Agent Smith is easy: Configure Agent Smith for accessing your ticket system. The pipeline will iterate the usual tasks you may be familiar with when running azure devops pipelines. Cloning your repo and execution of tasks. Certainly Agent Smith does something different. It analyses the codebase for the sake of generation of an implementation plan. When having this finished and persisted, it writes the code and runs tests. Finally it opens a pull request. This is done fully automated.
+
+You say, you’ve seen that before, what’s the difference?
+
+It runs on your infrastructure. Bring your own API key for again the most famous LLMs (Claude, OpenAI, or Gemini, local LLMs to come), configure the cloned repo, and let it run locally, in Docker, your K8s cluster, or as a GitHub Action.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)
@@ -35,9 +38,6 @@ You:           "fix #54 in todo-list"
 Agent Smith:   "Pull request created: https://github.com/.../pull/42"
 ```
 
-It is not a code completion tool. It is not a chatbot.
-It is an autonomous agent that takes a ticket from `New` to `Pull Request` — by itself.
-
 ---
 
 ## Key Features
@@ -58,7 +58,7 @@ The AI doesn't just generate code once and call it done. It runs in a loop with 
 - `list_files` — explores the directory tree
 - `run_command` — executes shell commands (tests, linters, build)
 
-It iterates, reads its own output, corrects mistakes, and only stops when it's satisfied.
+Agentic procedure has been implemented as well as multi agents with different skills. Therefore it iterates if necessary through roles with certain skills. The context will be shared. There are limits defined to not work on none-solvable tasks forever. 
 
 ### Scout Agent
 Before the main agent starts, a lightweight Scout agent (Haiku by default) maps the codebase and identifies relevant files. This saves tokens and keeps the main agent focused.
@@ -93,13 +93,13 @@ cost:
 Machine-parseable (queryable via `yq`) and human-readable.
 
 ### Auto-Bootstrap
-On first run against a new repo, Agent Smith auto-detects the project type, coding conventions, and architecture — then generates `.agentsmith/context.yaml`, `coding-principles.md`, and a code map. No manual setup needed.
+On first run against a new repo, Agent Smith needs to auto-detects the project type. It will scan the project to derive coding conventions, and architecture. By that information `.agentsmith/context.yaml`, `coding-principles.md`, and a code map are generated. This will lead to much faster and cost efficient processing on bug and feature implementations.
 
 ### Multi-Skill Architecture
-For complex tickets, Agent Smith can run a multi-role planning discussion before writing code. A triage step selects relevant specialist roles (Architect, Tester, DevOps, DBA, Security, etc.) which then debate the approach in rounds, raising objections and suggestions until convergence. The consolidated plan incorporates all perspectives.
+For complex tickets, Agent Smith can run a multi-role planning discussion before writing code. A triage step selects relevant specialist roles (Architect, Tester, DevOps, DBA, Security, etc.) which then debate the approach in rounds, raising objections and suggestions until convergence. 
 
-- Role definitions live in `config/skills/*.yaml` — each role has triggers, rules, and convergence criteria
-- Per-project configuration via `.agentsmith/skill.yaml` enables/disables roles and adds project-specific rules
+- Role definitions live in `config/skills/*.yaml`: each role has triggers, rules, and convergence criteria
+- Per-project configuration via `.agentsmith/skill.yaml`: enables/disables roles and adds project-specific rules
 - Cascading commands: any handler can inject follow-up commands into the pipeline at runtime
 - Safety limit of 100 command executions prevents runaway loops
 - Execution trail tracks every command with timing, skill context, and inserted commands
