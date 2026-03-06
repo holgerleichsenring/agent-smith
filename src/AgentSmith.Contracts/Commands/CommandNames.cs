@@ -26,6 +26,7 @@ public static class CommandNames
     public const string SwitchSkill = "SwitchSkillCommand";
     public const string SkillRound = "SkillRoundCommand";
     public const string ConvergenceCheck = "ConvergenceCheckCommand";
+    public const string CompileDiscussion = "CompileDiscussionCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -63,5 +64,6 @@ public static class CommandNames
         [SwitchSkill] = "Switching skill",
         [SkillRound] = "Skill round",
         [ConvergenceCheck] = "Checking convergence",
+        [CompileDiscussion] = "Compiling discussion",
     };
 }

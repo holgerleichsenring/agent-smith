@@ -12,4 +12,5 @@ namespace AgentSmith.Application.Models;
 public sealed record BootstrapProjectContext(
     Repository Repository,
     AgentConfig Agent,
+    string SkillsPath,
     PipelineContext Pipeline) : ICommandContext;

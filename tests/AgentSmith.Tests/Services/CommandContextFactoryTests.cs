@@ -36,6 +36,7 @@ public class CommandContextFactoryTests
         new(CommandNames.ConvergenceCheck, new ConvergenceCheckContextBuilder()),
         new(CommandNames.GenerateTests, new GenerateTestsContextBuilder()),
         new(CommandNames.GenerateDocs, new GenerateDocsContextBuilder()),
+        new(CommandNames.CompileDiscussion, new CompileDiscussionContextBuilder()),
     ];
 
     private readonly CommandContextFactory _sut = new(Builders);
