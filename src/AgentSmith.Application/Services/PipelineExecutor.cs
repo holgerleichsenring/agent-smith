@@ -1,9 +1,7 @@
-using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -137,33 +135,7 @@ public sealed class PipelineExecutor(
 
     private Task<CommandResult> ExecuteCommandAsync(
         ICommandContext context, CancellationToken ct)
-    {
-        return context switch
-        {
-            FetchTicketContext c => commandExecutor.ExecuteAsync(c, ct),
-            CheckoutSourceContext c => commandExecutor.ExecuteAsync(c, ct),
-            LoadDomainRulesContext c => commandExecutor.ExecuteAsync(c, ct),
-            AnalyzeCodeContext c => commandExecutor.ExecuteAsync(c, ct),
-            GeneratePlanContext c => commandExecutor.ExecuteAsync(c, ct),
-            ApprovalContext c => commandExecutor.ExecuteAsync(c, ct),
-            AgenticExecuteContext c => commandExecutor.ExecuteAsync(c, ct),
-            TestContext c => commandExecutor.ExecuteAsync(c, ct),
-            CommitAndPRContext c => commandExecutor.ExecuteAsync(c, ct),
-            BootstrapProjectContext c => commandExecutor.ExecuteAsync(c, ct),
-            LoadCodeMapContext c => commandExecutor.ExecuteAsync(c, ct),
-            LoadContextContext c => commandExecutor.ExecuteAsync(c, ct),
-            WriteRunResultContext c => commandExecutor.ExecuteAsync(c, ct),
-            InitCommitContext c => commandExecutor.ExecuteAsync(c, ct),
-            TriageContext c => commandExecutor.ExecuteAsync(c, ct),
-            SwitchSkillContext c => commandExecutor.ExecuteAsync(c, ct),
-            SkillRoundContext c => commandExecutor.ExecuteAsync(c, ct),
-            ConvergenceCheckContext c => commandExecutor.ExecuteAsync(c, ct),
-            GenerateTestsContext c => commandExecutor.ExecuteAsync(c, ct),
-            GenerateDocsContext c => commandExecutor.ExecuteAsync(c, ct),
-            _ => throw new ConfigurationException(
-                $"Unknown context type: {context.GetType().Name}")
-        };
-    }
+        => commandExecutor.ExecuteAsync(context, ct);
 
     private async Task PostSkillDetailAsync(
         string commandName, CommandResult result, CancellationToken cancellationToken)

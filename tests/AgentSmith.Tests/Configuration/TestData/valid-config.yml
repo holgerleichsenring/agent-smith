@@ -15,13 +15,6 @@ projects:
     pipeline: fix-bug
     coding_principles_path: ./config/coding-principles.md
 
-pipelines:
-  fix-bug:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - CommitAndPRCommand
-
 secrets:
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}

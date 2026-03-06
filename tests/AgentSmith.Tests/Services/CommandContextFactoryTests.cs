@@ -1,7 +1,9 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -11,7 +13,32 @@ namespace AgentSmith.Tests.Services;
 
 public class CommandContextFactoryTests
 {
-    private readonly CommandContextFactory _sut = new();
+    private static readonly KeyedContextBuilder[] Builders =
+    [
+        new(CommandNames.FetchTicket, new FetchTicketContextBuilder()),
+        new(CommandNames.CheckoutSource, new CheckoutSourceContextBuilder()),
+        new(CommandNames.LoadDomainRules, new LoadDomainRulesContextBuilder()),
+        new(CommandNames.LoadCodingPrinciples, new LoadDomainRulesContextBuilder()),
+        new(CommandNames.LoadContext, new LoadContextContextBuilder()),
+        new(CommandNames.LoadCodeMap, new LoadCodeMapContextBuilder()),
+        new(CommandNames.BootstrapProject, new BootstrapProjectContextBuilder()),
+        new(CommandNames.AnalyzeCode, new AnalyzeCodeContextBuilder()),
+        new(CommandNames.GeneratePlan, new GeneratePlanContextBuilder()),
+        new(CommandNames.Approval, new ApprovalContextBuilder()),
+        new(CommandNames.AgenticExecute, new AgenticExecuteContextBuilder()),
+        new(CommandNames.Test, new TestContextBuilder()),
+        new(CommandNames.WriteRunResult, new WriteRunResultContextBuilder()),
+        new(CommandNames.CommitAndPR, new CommitAndPRContextBuilder()),
+        new(CommandNames.InitCommit, new InitCommitContextBuilder()),
+        new(CommandNames.Triage, new TriageContextBuilder()),
+        new(CommandNames.SwitchSkill, new SwitchSkillContextBuilder()),
+        new(CommandNames.SkillRound, new SkillRoundContextBuilder()),
+        new(CommandNames.ConvergenceCheck, new ConvergenceCheckContextBuilder()),
+        new(CommandNames.GenerateTests, new GenerateTestsContextBuilder()),
+        new(CommandNames.GenerateDocs, new GenerateDocsContextBuilder()),
+    ];
+
+    private readonly CommandContextFactory _sut = new(Builders);
 
     [Fact]
     public void Create_FetchTicketCommand_ReturnsFetchTicketContext()

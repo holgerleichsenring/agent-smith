@@ -202,7 +202,7 @@ public class ToolExecutorTests : IDisposable
     [InlineData("webpack serve")]
     public void IsBlockedCommand_BlockedCommands_ReturnsTrue(string command)
     {
-        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+        CommandRunner.IsBlockedCommand(command).Should().BeTrue();
     }
 
     [Theory]
@@ -221,7 +221,7 @@ public class ToolExecutorTests : IDisposable
     [InlineData("docker build .")]
     public void IsBlockedCommand_AllowedCommands_ReturnsFalse(string command)
     {
-        ToolExecutor.IsBlockedCommand(command).Should().BeFalse();
+        CommandRunner.IsBlockedCommand(command).Should().BeFalse();
     }
 
     [Theory]
@@ -230,14 +230,14 @@ public class ToolExecutorTests : IDisposable
     [InlineData("nohup dotnet run &")]
     public void IsBlockedCommand_BlockedInMultiCommand_ReturnsTrue(string command)
     {
-        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+        CommandRunner.IsBlockedCommand(command).Should().BeTrue();
     }
 
     [Theory]
     [InlineData("dotnet run --urls=\"http://localhost:5001\" &\nsleep 2\ncurl -s http://localhost:5001/todos")]
     public void IsBlockedCommand_BlockedInMultiLineCommand_ReturnsTrue(string command)
     {
-        ToolExecutor.IsBlockedCommand(command).Should().BeTrue();
+        CommandRunner.IsBlockedCommand(command).Should().BeTrue();
     }
 
     [Fact]
