@@ -63,6 +63,6 @@ public sealed class BootstrapProjectContextBuilder : IContextBuilder
     public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new BootstrapProjectContext(repo, project.Agent, pipeline);
+        return new BootstrapProjectContext(repo, project.Agent, project.SkillsPath, pipeline);
     }
 }

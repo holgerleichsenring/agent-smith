@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
+        services.AddTransient<ICommandHandler<CompileDiscussionContext>, CompileDiscussionHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -70,6 +71,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
+        AddBuilder<CompileDiscussionContextBuilder>(services, CommandNames.CompileDiscussion);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
