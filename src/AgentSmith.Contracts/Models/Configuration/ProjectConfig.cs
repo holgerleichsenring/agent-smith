@@ -10,4 +10,5 @@ public sealed class ProjectConfig
     public AgentConfig Agent { get; set; } = new();
     public string Pipeline { get; set; } = string.Empty;
     public string? CodingPrinciplesPath { get; set; }
+    public string SkillsPath { get; set; } = "config/skills";
 }

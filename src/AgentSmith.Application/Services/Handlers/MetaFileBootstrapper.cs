@@ -25,7 +25,7 @@ public sealed class MetaFileBootstrapper(
     public async Task BootstrapAsync(
         DetectedProject detected, string agentDir, string repoPath,
         RepoSnapshot snapshot, ILlmClient llmClient,
-        PipelineContext pipeline, string sourceType,
+        PipelineContext pipeline, string sourceType, string skillsPath,
         CancellationToken cancellationToken)
     {
         await TryGenerateFileAsync(CodeMapFileName, agentDir, detected,
@@ -37,7 +37,7 @@ public sealed class MetaFileBootstrapper(
             snapshot, llmClient, cancellationToken);
 
         TryGenerateSkillYaml(detected, agentDir, sourceType);
-        TryLoadSkillRoles(agentDir, pipeline);
+        TryLoadSkillRoles(agentDir, skillsPath, pipeline);
     }
 
     private async Task TryGenerateFileAsync(
@@ -94,11 +94,11 @@ public sealed class MetaFileBootstrapper(
         }
     }
 
-    private void TryLoadSkillRoles(string agentDir, PipelineContext pipeline)
+    private void TryLoadSkillRoles(string agentDir, string skillsPath, PipelineContext pipeline)
     {
         try
         {
-            var allRoles = skillLoader.LoadRoleDefinitions("config/skills");
+            var allRoles = skillLoader.LoadRoleDefinitions(skillsPath);
             if (allRoles.Count == 0) return;
 
             var projectSkills = skillLoader.LoadProjectSkills(agentDir);
