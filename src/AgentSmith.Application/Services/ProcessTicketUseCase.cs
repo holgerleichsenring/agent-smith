@@ -58,7 +58,7 @@ public sealed class ProcessTicketUseCase(
                 $"Project '{projectName}' not found in configuration.");
 
         var pipelineName = pipelineOverride ?? projectConfig.Pipeline;
-        var commands = ResolvePipeline(pipelineName, config);
+        var commands = ResolvePipeline(pipelineName);
 
         logger.LogInformation(
             "Running pipeline '{Pipeline}' for project '{Project}', ticket {Ticket}",
@@ -93,7 +93,7 @@ public sealed class ProcessTicketUseCase(
                 $"Project '{projectName}' not found in configuration.");
 
         var pipelineName = pipelineOverride ?? "init-project";
-        var commands = ResolvePipeline(pipelineName, config);
+        var commands = ResolvePipeline(pipelineName);
 
         logger.LogInformation(
             "Running init pipeline '{Pipeline}' for project '{Project}'",
@@ -113,17 +113,11 @@ public sealed class ProcessTicketUseCase(
         return result;
     }
 
-    private static IReadOnlyList<string> ResolvePipeline(
-        string pipelineName, AgentSmithConfig config)
+    private static IReadOnlyList<string> ResolvePipeline(string pipelineName)
     {
-        if (PipelinePresets.TryResolve(pipelineName) is { } preset)
-            return preset;
-
-        if (config.Pipelines.TryGetValue(pipelineName, out var pipelineConfig))
-            return pipelineConfig.Commands;
-
-        throw new ConfigurationException(
-            $"Pipeline '{pipelineName}' not found in presets or configuration.");
+        return PipelinePresets.TryResolve(pipelineName)
+            ?? throw new ConfigurationException(
+                $"Pipeline '{pipelineName}' not found in presets.");
     }
 
     private void LogResult(CommandResult result, string projectName)

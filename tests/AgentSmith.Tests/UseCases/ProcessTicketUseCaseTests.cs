@@ -1,7 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -32,8 +32,7 @@ public class ProcessTicketUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
-            Pipelines = { ["fix-bug"] = new PipelineConfig { Commands = { "FetchTicketCommand" } } }
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -50,7 +49,7 @@ public class ProcessTicketUseCaseTests
 
         result.IsSuccess.Should().BeTrue();
         _pipelineMock.Verify(p => p.ExecuteAsync(
-            It.Is<IReadOnlyList<string>>(cmds => cmds.Contains("FetchTicketCommand")),
+            It.Is<IReadOnlyList<string>>(cmds => cmds.Contains(CommandNames.FetchTicket)),
             It.IsAny<ProjectConfig>(),
             It.Is<PipelineContext>(ctx => ctx.Has(ContextKeys.TicketId)),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -61,8 +60,7 @@ public class ProcessTicketUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
-            Pipelines = { ["fix-bug"] = new PipelineConfig { Commands = { "CommitAndPRCommand" } } }
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -90,8 +88,7 @@ public class ProcessTicketUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } },
-            Pipelines = { ["init-project"] = new PipelineConfig { Commands = { "InitCommitCommand" } } }
+            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);

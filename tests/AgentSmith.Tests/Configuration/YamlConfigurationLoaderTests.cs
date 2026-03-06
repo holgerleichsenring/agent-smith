@@ -22,7 +22,6 @@ public class YamlConfigurationLoaderTests
 
         config.Should().NotBeNull();
         config.Projects.Should().ContainKey("testproject");
-        config.Pipelines.Should().ContainKey("fix-bug");
     }
 
     [Fact]
@@ -70,15 +69,4 @@ public class YamlConfigurationLoaderTests
         project.Pipeline.Should().Be("fix-bug");
     }
 
-    [Fact]
-    public void LoadConfig_PipelineHasCommands_MapsCorrectly()
-    {
-        var config = _loader.LoadConfig(TestDataPath("valid-config.yml"));
-        var pipeline = config.Pipelines["fix-bug"];
-
-        pipeline.Commands.Should().HaveCount(3);
-        pipeline.Commands[0].Should().Be("FetchTicketCommand");
-        pipeline.Commands[1].Should().Be("CheckoutSourceCommand");
-        pipeline.Commands[2].Should().Be("CommitAndPRCommand");
-    }
 }
