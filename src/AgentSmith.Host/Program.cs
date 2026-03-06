@@ -4,6 +4,7 @@ using System.CommandLine.Invocation;
 
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Bus;
@@ -216,9 +217,10 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
         return;
     }
 
-    if (!config.Pipelines.TryGetValue(projectConfig.Pipeline, out var pipelineConfig))
+    var commands = PipelinePresets.TryResolve(projectConfig.Pipeline);
+    if (commands is null)
     {
-        Console.Error.WriteLine($"Pipeline '{projectConfig.Pipeline}' not found in configuration.");
+        Console.Error.WriteLine($"Pipeline '{projectConfig.Pipeline}' not found in presets.");
         Environment.ExitCode = 1;
         return;
     }
@@ -228,6 +230,6 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
     Console.WriteLine($"  Ticket:   #{intent.TicketId}");
     Console.WriteLine($"  Pipeline: {projectConfig.Pipeline}");
     Console.WriteLine($"  Commands:");
-    foreach (var cmd in pipelineConfig.Commands)
+    foreach (var cmd in commands)
         Console.WriteLine($"    - {cmd}");
 }

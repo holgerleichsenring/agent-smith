@@ -12,4 +12,8 @@ public interface ICommandExecutor
         TContext context,
         CancellationToken cancellationToken)
         where TContext : ICommandContext;
+
+    Task<CommandResult> ExecuteAsync(
+        ICommandContext context,
+        CancellationToken cancellationToken);
 }
