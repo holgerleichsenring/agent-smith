@@ -46,7 +46,7 @@ public sealed class BootstrapProjectHandler(
             logger.LogInformation("Found existing {File}, skipping generation", ContextFileName);
             await metaFileBootstrapper.BootstrapAsync(
                 detected, agentDir, repoPath, snapshot, llmClient,
-                context.Pipeline, sourceType, cancellationToken);
+                context.Pipeline, sourceType, context.SkillsPath, cancellationToken);
             return CommandResult.Ok($"Existing {ContextFileName} found, project detected as {detected.Language}");
         }
 
@@ -65,7 +65,7 @@ public sealed class BootstrapProjectHandler(
 
         await metaFileBootstrapper.BootstrapAsync(
             detected, agentDir, repoPath, snapshot, llmClient,
-            context.Pipeline, sourceType, cancellationToken);
+            context.Pipeline, sourceType, context.SkillsPath, cancellationToken);
 
         return CommandResult.Ok(
             $"Generated {ContextFileName} for {detected.Language} project ({yaml.Length} chars)");
