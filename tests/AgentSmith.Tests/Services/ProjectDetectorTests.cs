@@ -1,4 +1,6 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services;
+using AgentSmith.Infrastructure.Services.Detection;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -6,7 +8,14 @@ namespace AgentSmith.Tests.Services;
 
 public class ProjectDetectorTests : IDisposable
 {
-    private readonly ProjectDetector _sut = new(NullLogger<ProjectDetector>.Instance);
+    private static readonly ILanguageDetector[] Detectors =
+    [
+        new DotNetLanguageDetector(NullLogger<DotNetLanguageDetector>.Instance),
+        new TypeScriptLanguageDetector(NullLogger<TypeScriptLanguageDetector>.Instance),
+        new PythonLanguageDetector()
+    ];
+
+    private readonly ProjectDetector _sut = new(Detectors, NullLogger<ProjectDetector>.Instance);
     private readonly string _tempDir;
 
     public ProjectDetectorTests()

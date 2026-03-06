@@ -136,7 +136,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         var ticket = new Ticket(new TicketId("1"), "Test", "Desc", null, "Open", "github");
 
         var sb = new StringBuilder();
-        WriteRunResultHandler.BuildFrontmatter(sb, ticket, "feat", 60, costSummary);
+        RunResultFormatter.AppendFrontmatter(sb, ticket, "feat", 60, costSummary);
         var result = sb.ToString();
 
         result.Should().Contain("0.1234");

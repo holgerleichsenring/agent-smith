@@ -30,15 +30,19 @@ public class BootstrapProjectHandlerTests : IDisposable
     {
         _llmClientFactory.Setup(f => f.Create(It.IsAny<AgentConfig>())).Returns(_llmClient.Object);
 
+        var metaFileBootstrapper = new MetaFileBootstrapper(
+            _codeMapGenerator.Object,
+            _codingPrinciplesGenerator.Object,
+            _skillLoader.Object,
+            NullLogger<MetaFileBootstrapper>.Instance);
+
         _sut = new BootstrapProjectHandler(
             _detector.Object,
             _snapshotCollector.Object,
             _llmClientFactory.Object,
             _generator.Object,
             _validator.Object,
-            _codeMapGenerator.Object,
-            _codingPrinciplesGenerator.Object,
-            _skillLoader.Object,
+            metaFileBootstrapper,
             NullLogger<BootstrapProjectHandler>.Instance);
 
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-bootstrap-" + Guid.NewGuid().ToString("N")[..8]);

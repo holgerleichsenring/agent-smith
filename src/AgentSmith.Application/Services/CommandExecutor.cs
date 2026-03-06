@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,12 +9,18 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Resolves and executes command handlers via DI.
-/// Central place for logging and error handling.
+/// Supports both generic (compile-time) and non-generic (runtime) dispatch.
 /// </summary>
 public sealed class CommandExecutor(
     IServiceProvider serviceProvider,
     ILogger<CommandExecutor> logger) : ICommandExecutor
 {
+    private static readonly ConcurrentDictionary<Type, MethodInfo> DispatchCache = new();
+
+    private static readonly MethodInfo OpenGenericMethod =
+        typeof(CommandExecutor).GetMethods()
+            .First(m => m.Name == nameof(ExecuteAsync) && m.IsGenericMethod);
+
     public async Task<CommandResult> ExecuteAsync<TContext>(
         TContext context,
         CancellationToken cancellationToken)
@@ -26,6 +34,17 @@ public sealed class CommandExecutor(
             return CommandResult.Fail($"No handler registered for {contextName}");
 
         return await ExecuteHandler(handler, context, contextName, cancellationToken);
+    }
+
+    public Task<CommandResult> ExecuteAsync(
+        ICommandContext context,
+        CancellationToken cancellationToken)
+    {
+        var contextType = context.GetType();
+        var method = DispatchCache.GetOrAdd(contextType,
+            static type => OpenGenericMethod.MakeGenericMethod(type));
+
+        return (Task<CommandResult>)method.Invoke(this, [context, cancellationToken])!;
     }
 
     private async Task<CommandResult> ExecuteHandler<TContext>(
