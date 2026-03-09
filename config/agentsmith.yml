@@ -106,8 +106,8 @@ projects:
 
   mad-discussion:
     source:
-      type: GitHub
-      url: https://github.com/holgerleichsenring/agent-smith
+      type: AzureRepos
+      url: https://dev.azure.com/holgerleichsenring/todo-list/_git/todo-list
       auth: token
     tickets:
       type: AzureDevOps
@@ -136,7 +136,7 @@ projects:
             output_per_million: 15.0
             cache_read_per_million: 0.30
     pipeline: mad-discussion
-    skills_path: config/skills/mad
+    skills_path: skills/mad
 
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}

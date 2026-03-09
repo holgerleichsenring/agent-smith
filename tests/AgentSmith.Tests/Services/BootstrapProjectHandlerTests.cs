@@ -239,7 +239,7 @@ public class BootstrapProjectHandlerTests : IDisposable
     private BootstrapProjectContext CreateContext()
     {
         var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
-        return new BootstrapProjectContext(repo, new AgentConfig { Type = "claude" }, "config/skills", new PipelineContext());
+        return new BootstrapProjectContext(repo, new AgentConfig { Type = "claude" }, "config/skills/coding", new PipelineContext());
     }
 
     [Fact]
