@@ -102,12 +102,17 @@ public sealed class MetaFileBootstrapper(
             if (allRoles.Count == 0) return;
 
             var projectSkills = skillLoader.LoadProjectSkills(agentDir);
-            var activeRoles = projectSkills is not null
-                ? skillLoader.GetActiveRoles(allRoles, projectSkills)
-                : allRoles;
+            var activeRoles = allRoles;
 
             if (projectSkills is not null)
-                pipeline.Set(ContextKeys.ProjectSkills, projectSkills);
+            {
+                var filtered = skillLoader.GetActiveRoles(allRoles, projectSkills);
+                if (filtered.Count > 0)
+                {
+                    activeRoles = filtered;
+                    pipeline.Set(ContextKeys.ProjectSkills, projectSkills);
+                }
+            }
 
             if (activeRoles.Count > 0)
                 pipeline.Set(ContextKeys.AvailableRoles, activeRoles);
