@@ -51,7 +51,8 @@ public static class PipelinePresets
         CommandNames.BootstrapProject, CommandNames.LoadContext,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
-        CommandNames.CompileDiscussion, CommandNames.CommitAndPR,
+        CommandNames.CompileDiscussion,
+        CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
