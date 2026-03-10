@@ -31,4 +31,7 @@ public static class ContextKeys
     public const string RunCostSummary = "RunCostSummary";
     public const string RunDurationSeconds = "RunDurationSeconds";
     public const string InitMode = "InitMode";
+    public const string SourceFilePath = "SourceFilePath";
+    public const string DocumentMarkdown = "DocumentMarkdown";
+    public const string ContractType = "ContractType";
 }
