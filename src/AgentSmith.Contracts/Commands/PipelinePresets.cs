@@ -55,6 +55,17 @@ public static class PipelinePresets
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
+    public static readonly IReadOnlyList<string> LegalAnalysis =
+    [
+        CommandNames.AcquireSource,
+        CommandNames.BootstrapDocument,
+        CommandNames.LoadDomainRules,
+        CommandNames.Triage,
+        CommandNames.ConvergenceCheck,
+        CommandNames.CompileDiscussion,
+        CommandNames.DeliverOutput,
+    ];
+
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
     {
         ["fix-bug"] = FixBug,
@@ -62,6 +73,7 @@ public static class PipelinePresets
         ["init-project"] = InitProject,
         ["add-feature"] = AddFeature,
         ["mad-discussion"] = MadDiscussion,
+        ["legal-analysis"] = LegalAnalysis,
     };
 
     public static IReadOnlyList<string> Names { get; } = All.Keys.ToList();

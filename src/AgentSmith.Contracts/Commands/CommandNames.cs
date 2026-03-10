@@ -27,6 +27,9 @@ public static class CommandNames
     public const string SkillRound = "SkillRoundCommand";
     public const string ConvergenceCheck = "ConvergenceCheckCommand";
     public const string CompileDiscussion = "CompileDiscussionCommand";
+    public const string AcquireSource = "AcquireSourceCommand";
+    public const string BootstrapDocument = "BootstrapDocumentCommand";
+    public const string DeliverOutput = "DeliverOutputCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -65,5 +68,8 @@ public static class CommandNames
         [SkillRound] = "Skill round",
         [ConvergenceCheck] = "Checking convergence",
         [CompileDiscussion] = "Compiling discussion",
+        [AcquireSource] = "Acquiring source document",
+        [BootstrapDocument] = "Bootstrapping document",
+        [DeliverOutput] = "Delivering output",
     };
 }
