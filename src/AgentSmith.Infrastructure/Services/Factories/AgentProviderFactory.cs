@@ -21,8 +21,9 @@ public sealed class AgentProviderFactory(
             "claude" or "anthropic" => CreateClaude(config),
             "openai" => CreateOpenAi(config),
             "gemini" or "google" => CreateGemini(config),
+            "ollama" => CreateOllama(config),
             _ => throw new ConfigurationException(
-                $"Unknown agent provider type: '{config.Type}'. Supported: claude, openai, gemini")
+                $"Unknown agent provider type: '{config.Type}'. Supported: claude, openai, gemini, ollama")
         };
     }
 
@@ -51,6 +52,15 @@ public sealed class AgentProviderFactory(
         return new GeminiAgentProvider(
             apiKey, config.Model,
             registry, config.Pricing, loggerFactory.CreateLogger<GeminiAgentProvider>());
+    }
+
+    private OllamaAgentProvider CreateOllama(AgentConfig config)
+    {
+        var endpoint = config.Endpoint ?? "http://localhost:11434";
+        var registry = CreateModelRegistry(config);
+        return new OllamaAgentProvider(
+            config.Model, endpoint, hasToolCalling: false,
+            registry, config.Pricing, loggerFactory.CreateLogger<OllamaAgentProvider>());
     }
 
     private IModelRegistry? CreateModelRegistry(AgentConfig config)

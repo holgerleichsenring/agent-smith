@@ -39,6 +39,19 @@ services:
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
     command: ["server", "--port", "8081"]
 
+  ollama:
+    image: ollama/ollama
+    profiles: [local-models]
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -93,3 +106,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+volumes:
+  ollama-data:
