@@ -14,6 +14,9 @@ internal static class SlackModalBuilder
         ("fix_bug", "Fix Bug"),
         ("fix_bug_no_tests", "Fix Bug (no tests)"),
         ("add_feature", "Add Feature"),
+        ("security_review", "Security Review"),
+        ("mad_discussion", "MAD Discussion"),
+        ("legal_analysis", "Legal Analysis"),
         ("list_tickets", "List Tickets"),
         ("create_ticket", "Create Ticket"),
         ("init_project", "Init Project")
@@ -56,6 +59,7 @@ internal static class SlackModalBuilder
             case ModalCommandType.FixBug:
             case ModalCommandType.FixBugNoTests:
             case ModalCommandType.AddFeature:
+            case ModalCommandType.MadDiscussion:
                 blocks.Add(BuildTicketBlock());
                 break;
 
@@ -64,7 +68,7 @@ internal static class SlackModalBuilder
                 blocks.Add(BuildDescriptionBlock());
                 break;
 
-            // ListTickets and InitProject need no additional fields
+            // SecurityReview, LegalAnalysis, ListTickets, InitProject need only project
         }
 
         return new
@@ -127,6 +131,9 @@ internal static class SlackModalBuilder
         "fix_bug" => ModalCommandType.FixBug,
         "fix_bug_no_tests" => ModalCommandType.FixBugNoTests,
         "add_feature" => ModalCommandType.AddFeature,
+        "security_review" => ModalCommandType.SecurityReview,
+        "mad_discussion" => ModalCommandType.MadDiscussion,
+        "legal_analysis" => ModalCommandType.LegalAnalysis,
         "list_tickets" => ModalCommandType.ListTickets,
         "create_ticket" => ModalCommandType.CreateTicket,
         "init_project" => ModalCommandType.InitProject,
@@ -161,6 +168,9 @@ internal static class SlackModalBuilder
             ModalCommandType.FixBug => "fix_bug",
             ModalCommandType.FixBugNoTests => "fix_bug_no_tests",
             ModalCommandType.AddFeature => "add_feature",
+            ModalCommandType.SecurityReview => "security_review",
+            ModalCommandType.MadDiscussion => "mad_discussion",
+            ModalCommandType.LegalAnalysis => "legal_analysis",
             ModalCommandType.ListTickets => "list_tickets",
             ModalCommandType.CreateTicket => "create_ticket",
             ModalCommandType.InitProject => "init_project",
