@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// Source provider for GitHub repositories. Uses LibGit2Sharp for git ops, Octokit for PRs.
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -141,6 +141,15 @@ public sealed class GitHubSourceProvider : ISourceProvider
         var name = config.GetValueOrDefault("user.name", "Agent Smith");
         var email = config.GetValueOrDefault("user.email", "agent-smith@noreply.local");
         return new Signature(name, email, DateTimeOffset.Now);
+    }
+
+    public async Task PostCommentAsync(
+        string prIdentifier, string markdown, CancellationToken cancellationToken = default)
+    {
+        var prNumber = int.Parse(prIdentifier);
+        var client = CreateGitHubClient();
+        await client.Issue.Comment.Create(_owner, _repo, prNumber, markdown);
+        _logger.LogInformation("Posted comment on PR #{PrNumber}", prNumber);
     }
 
     private GitHubClient CreateGitHubClient()
