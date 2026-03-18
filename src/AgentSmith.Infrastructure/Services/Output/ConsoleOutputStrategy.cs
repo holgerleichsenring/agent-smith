@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Services.Output;
 public sealed class ConsoleOutputStrategy(
     ILogger<ConsoleOutputStrategy> logger) : IOutputStrategy
 {
-    public string StrategyType => "console";
+    public string ProviderType => "console";
 
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
@@ -19,25 +19,15 @@ public sealed class ConsoleOutputStrategy(
             return Task.CompletedTask;
         }
 
-        var high = context.Findings.Count(f => f.Severity.Equals("HIGH", StringComparison.OrdinalIgnoreCase));
-        var medium = context.Findings.Count(f => f.Severity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase));
-        var low = context.Findings.Count(f => f.Severity.Equals("LOW", StringComparison.OrdinalIgnoreCase));
+        var summary = FindingSummary.From(context.Findings);
 
         logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW)",
-            context.Findings.Count, high, medium, low);
+            summary.Total, summary.High, summary.Medium, summary.Low);
 
         foreach (var finding in context.Findings)
         {
-            var icon = finding.Severity.ToUpperInvariant() switch
-            {
-                "HIGH" => "HIGH",
-                "MEDIUM" => "MEDIUM",
-                "LOW" => "LOW",
-                _ => finding.Severity
-            };
-
             logger.LogInformation("[{Severity}] {File}:{Line} — {Title}",
-                icon, finding.File, finding.StartLine, finding.Title);
+                finding.Severity.ToUpperInvariant(), finding.File, finding.StartLine, finding.Title);
         }
 
         if (context.ReportMarkdown is not null)

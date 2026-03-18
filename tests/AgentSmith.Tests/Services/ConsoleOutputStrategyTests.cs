@@ -11,9 +11,9 @@ public sealed class ConsoleOutputStrategyTests
     private readonly ConsoleOutputStrategy _sut = new(NullLogger<ConsoleOutputStrategy>.Instance);
 
     [Fact]
-    public void StrategyType_IsConsole()
+    public void ProviderType_IsConsole()
     {
-        _sut.StrategyType.Should().Be("console");
+        _sut.ProviderType.Should().Be("console");
     }
 
     [Fact]
