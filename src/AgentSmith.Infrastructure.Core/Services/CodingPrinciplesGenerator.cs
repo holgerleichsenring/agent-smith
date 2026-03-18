@@ -83,7 +83,7 @@ public sealed class CodingPrinciplesGenerator(
 
         Rules:
         - Only document what you can actually detect from the code and config
-        - Be precise and actionable — an AI coding agent will follow these rules
+        - Be precise and actionable — an AI agent will follow these rules
         - Use imperative mood ("Use PascalCase", not "PascalCase is used")
         - Keep it concise — aim for 50-100 lines
         - Do NOT wrap in code fences — return plain Markdown

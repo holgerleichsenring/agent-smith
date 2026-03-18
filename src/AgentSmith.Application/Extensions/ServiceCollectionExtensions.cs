@@ -89,6 +89,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IIntentParser, RegexIntentParser>();
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
-        services.AddTransient<ProcessTicketUseCase>();
+        services.AddTransient<ExecutePipelineUseCase>();
     }
 }
