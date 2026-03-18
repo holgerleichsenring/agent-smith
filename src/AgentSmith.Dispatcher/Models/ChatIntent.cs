@@ -52,6 +52,16 @@ public sealed record InitProjectIntent : ChatIntent
 }
 
 /// <summary>
+/// User wants a security review: "/security-review PR#42 in my-api"
+/// Spawns a K8s Job running the security-scan pipeline.
+/// </summary>
+public sealed record SecurityReviewIntent : ChatIntent
+{
+    public required string Project { get; init; }
+    public string? PrIdentifier { get; init; }
+}
+
+/// <summary>
 /// Input did not match any known pattern.
 /// </summary>
 public sealed record UnknownIntent : ChatIntent

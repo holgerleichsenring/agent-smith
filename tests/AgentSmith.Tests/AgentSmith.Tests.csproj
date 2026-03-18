@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\src\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Application\AgentSmith.Application.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Dispatcher\AgentSmith.Dispatcher.csproj" />
+    <ProjectReference Include="..\..\src\AgentSmith.Host\AgentSmith.Host.csproj" />
   </ItemGroup>
 
 </Project>
