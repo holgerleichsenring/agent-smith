@@ -1,4 +1,4 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using AgentSmith.Infrastructure.Models;
 using System.CommandLine.Invocation;
 
@@ -16,26 +16,16 @@ using StackExchange.Redis;
 
 PrintBanner();
 
-var inputArg = new Argument<string>(
-    "input", () => "", "Ticket reference and project, e.g. \"fix #123 in my-project\"");
+// --- Shared options ---
 
 var configOption = new Option<string>(
     "--config", () => "config/agentsmith.yml", "Path to configuration file");
-
-var dryRunOption = new Option<bool>(
-    "--dry-run", "Parse intent and show pipeline, but don't execute");
 
 var verboseOption = new Option<bool>(
     "--verbose", "Enable verbose logging");
 
 var headlessOption = new Option<bool>(
     "--headless", "Run without interactive prompts (auto-approve plans)");
-
-var serverOption = new Option<bool>(
-    "--server", "Start as webhook listener (HTTP server mode)");
-
-var portOption = new Option<int>(
-    "--port", () => 8081, "Port for webhook listener (--server mode)");
 
 var jobIdOption = new Option<string>(
     "--job-id", () => string.Empty, "Redis Streams job ID (K8s job mode)");
@@ -49,43 +39,35 @@ var channelIdOption = new Option<string>(
 var platformOption = new Option<string>(
     "--platform", () => string.Empty, "Source platform: slack|teams|whatsapp");
 
+// --- 'run' subcommand (replaces old root command) ---
+
+var runInputArg = new Argument<string>(
+    "input", "Ticket reference and project, e.g. \"fix #123 in my-project\"");
+
+var dryRunOption = new Option<bool>(
+    "--dry-run", "Parse intent and show pipeline, but don't execute");
+
 var pipelineOption = new Option<string>(
     "--pipeline", () => string.Empty, "Override pipeline name (e.g. init-project)");
 
-var rootCommand = new RootCommand("Agent Smith - AI Coding Agent")
+var runCommand = new Command("run", "Process a ticket (plan → execute → PR)")
 {
-    inputArg, configOption, dryRunOption, verboseOption, headlessOption,
-    serverOption, portOption, jobIdOption, redisUrlOption, channelIdOption, platformOption,
-    pipelineOption
+    runInputArg, configOption, dryRunOption, verboseOption, headlessOption,
+    jobIdOption, redisUrlOption, channelIdOption, platformOption, pipelineOption
 };
 
-rootCommand.SetHandler(async (InvocationContext ctx) =>
+runCommand.SetHandler(async (InvocationContext ctx) =>
 {
-    var input = ctx.ParseResult.GetValueForArgument(inputArg);
+    var input = ctx.ParseResult.GetValueForArgument(runInputArg);
     var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
     var dryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
     var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
     var headless = ctx.ParseResult.GetValueForOption(headlessOption);
-    var server = ctx.ParseResult.GetValueForOption(serverOption);
-    var port = ctx.ParseResult.GetValueForOption(portOption);
     var jobId = ctx.ParseResult.GetValueForOption(jobIdOption) ?? string.Empty;
     var redisUrl = ctx.ParseResult.GetValueForOption(redisUrlOption) ?? string.Empty;
     var pipelineOverride = ctx.ParseResult.GetValueForOption(pipelineOption) ?? string.Empty;
 
     var provider = BuildServiceProvider(verbose, headless, jobId, redisUrl);
-
-    if (server)
-    {
-        await RunServerMode(provider, configPath, port);
-        return;
-    }
-
-    if (string.IsNullOrWhiteSpace(input))
-    {
-        Console.Error.WriteLine("Error: input argument is required (or use --server mode).");
-        ctx.ExitCode = 1;
-        return;
-    }
 
     if (dryRun)
     {
@@ -107,7 +89,6 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
         Console.Error.WriteLine($"Fatal: {ex}");
     }
 
-    // In K8s job mode, signal done/error via the progress reporter (Redis)
     if (!string.IsNullOrWhiteSpace(jobId))
     {
         var reporter = provider.GetRequiredService<IProgressReporter>();
@@ -125,7 +106,97 @@ rootCommand.SetHandler(async (InvocationContext ctx) =>
     ctx.ExitCode = result.IsSuccess ? 0 : 1;
 });
 
+// --- 'security-scan' subcommand ---
+
+var repoOption = new Option<string>(
+    "--repo", "Path or URL of repository to scan") { IsRequired = true };
+
+var prOption = new Option<string>(
+    "--pr", () => string.Empty, "PR/MR number (diff only; if absent, full repo scan)");
+
+var outputOption = new Option<string>(
+    "--output", () => "console", "Output format: sarif | markdown | console");
+
+var projectOption = new Option<string>(
+    "--project", () => string.Empty, "Project name from config (for multi-project configs)");
+
+var securityScanCommand = new Command("security-scan", "Analyze code for security vulnerabilities")
+{
+    repoOption, prOption, outputOption, projectOption, configOption, verboseOption
+};
+
+securityScanCommand.SetHandler(async (InvocationContext ctx) =>
+{
+    var repo = ctx.ParseResult.GetValueForOption(repoOption)!;
+    var pr = ctx.ParseResult.GetValueForOption(prOption) ?? string.Empty;
+    var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
+    var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
+    var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
+    var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
+
+    var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
+    var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
+
+    // Build input string for the security-scan pipeline
+    var input = !string.IsNullOrWhiteSpace(project)
+        ? $"security-scan in {project}"
+        : $"security-scan in {Path.GetFileName(Path.GetFullPath(repo))}";
+
+    // Set pipeline context overrides via environment for now
+    // The AcquireSourceHandler will pick up --repo and --pr from context
+    var pipelineContext = new PipelineContext();
+    pipelineContext.Set(ContextKeys.SourceFilePath, Path.GetFullPath(repo));
+
+    CommandResult result;
+    try
+    {
+        result = await useCase.ExecuteAsync(input, configPath, headless: true, "security-scan", CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        result = CommandResult.Fail($"Unhandled exception: {ex.Message}");
+        Console.Error.WriteLine($"Fatal: {ex}");
+    }
+
+    Console.WriteLine(result.IsSuccess
+        ? $"Security scan complete: {result.Message}"
+        : $"Security scan failed: {result.Message}");
+
+    ctx.ExitCode = result.IsSuccess ? 0 : 1;
+});
+
+// --- 'server' subcommand ---
+
+var portOption = new Option<int>(
+    "--port", () => 8081, "Port for webhook listener");
+
+var serverCommand = new Command("server", "Start as webhook listener (HTTP server mode)")
+{
+    portOption, configOption, verboseOption
+};
+
+serverCommand.SetHandler(async (InvocationContext ctx) =>
+{
+    var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
+    var port = ctx.ParseResult.GetValueForOption(portOption);
+    var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
+
+    var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
+    await RunServerMode(provider, configPath, port);
+});
+
+// --- Root command ---
+
+var rootCommand = new RootCommand("Agent Smith - AI Coding Agent")
+{
+    runCommand,
+    securityScanCommand,
+    serverCommand,
+};
+
 return await rootCommand.InvokeAsync(args);
+
+// --- Helper methods ---
 
 static ServiceProvider BuildServiceProvider(
     bool verbose, bool headless, string jobId, string redisUrl)
@@ -147,8 +218,6 @@ static void RegisterProgressReporter(
 {
     if (!string.IsNullOrWhiteSpace(jobId) && !string.IsNullOrWhiteSpace(redisUrl))
     {
-        // K8s job mode: publish progress to Redis Streams so the Dispatcher
-        // can relay updates to Slack in real time.
         var redis = ConnectionMultiplexer.Connect(redisUrl);
         services.AddSingleton<IConnectionMultiplexer>(redis);
         services.AddSingleton<IMessageBus, RedisMessageBus>();
@@ -160,7 +229,6 @@ static void RegisterProgressReporter(
     }
     else
     {
-        // Local / CLI mode: write progress to stdout.
         services.AddSingleton<IProgressReporter>(sp =>
         {
             var logger = sp.GetRequiredService<ILogger<ConsoleProgressReporter>>();
