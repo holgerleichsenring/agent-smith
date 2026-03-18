@@ -16,7 +16,10 @@ RUN dotnet restore src/AgentSmith.Host/AgentSmith.Host.csproj
 COPY src/ src/
 RUN dotnet publish src/AgentSmith.Host -c Release -o /app/publish --no-restore
 
-# Stage 2: Runtime (SDK needed because the agentic loop runs dotnet build/test on cloned repos)
+# Stage 2: Runtime
+# TODO p4x: dotnet SDK required until TestCommand spawns ephemeral job containers.
+# Target: aspnet:8.0 base + job-based test execution (see DockerJobSpawner).
+# Agent Smith is language-agnostic — hardcoding SDK is technical debt.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS runtime
 WORKDIR /app
 
