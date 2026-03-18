@@ -1,4 +1,4 @@
-# Phase 41e: Webhook Expansion — GitHub PR, GitLab MR, Azure DevOps
+# Phase 43e: Webhook Expansion — GitHub PR, GitLab MR, Azure DevOps
 
 ## Goal
 
@@ -6,7 +6,7 @@ Extend the existing `WebhookListener` to handle PR/MR label events from all
 three platforms. When a `security-review` label is added, trigger the
 `security-scan` pipeline. Also support Slack/Teams commands.
 
-Depends on p41b (security pipeline) and p41c (SARIF output) being in place.
+Depends on p43b (security pipeline) and p43c (SARIF output) being in place.
 
 ---
 

@@ -1,16 +1,16 @@
-# Phase 41c: SARIF Output Strategy & Platform Integration
+# Phase 43c: SARIF Output Strategy & Platform Integration
 
 ## Goal
 
 Security scan findings are delivered in SARIF format and uploaded to the
 platform's security dashboard. A human-readable summary is posted as a PR/MR
-comment. Depends on p41b being in place.
+comment. Depends on p43b being in place.
 
 ---
 
 ## IOutputStrategy Implementations
 
-p41b defines `IOutputStrategy`. This phase adds:
+p43b defines `IOutputStrategy`. This phase adds:
 
 ### SarifOutputStrategy
 
