@@ -15,11 +15,11 @@ namespace AgentSmith.Application.Services;
 /// Supports both ticket-based flows ("fix #123 in project") and
 /// init flows ("init in project").
 /// </summary>
-public sealed class ProcessTicketUseCase(
+public sealed class ExecutePipelineUseCase(
     IConfigurationLoader configLoader,
     IIntentParser intentParser,
     IPipelineExecutor pipelineExecutor,
-    ILogger<ProcessTicketUseCase> logger)
+    ILogger<ExecutePipelineUseCase> logger)
 {
     private static readonly Regex InitPattern = new(
         @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);

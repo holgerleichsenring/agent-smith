@@ -121,7 +121,7 @@ public sealed class WebhookListener(
     {
         try
         {
-            var useCase = services.GetRequiredService<ProcessTicketUseCase>();
+            var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
             var result = await useCase.ExecuteAsync(input, configPath, headless: true, null, CancellationToken.None);
 
             if (result.IsSuccess)
