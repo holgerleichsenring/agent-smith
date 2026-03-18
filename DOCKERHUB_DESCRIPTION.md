@@ -1,7 +1,7 @@
 # Agent Smith
 
-Self-hosted AI coding agent that processes tickets, generates plans, executes
-code changes, and creates pull requests — fully automated.
+Self-hosted AI orchestration framework. Code, legal, security, workflows.
+Your AI. Your infrastructure. Your rules.
 
 ## Quick Start
 
