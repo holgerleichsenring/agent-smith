@@ -34,4 +34,6 @@ public static class ContextKeys
     public const string SourceFilePath = "SourceFilePath";
     public const string DocumentMarkdown = "DocumentMarkdown";
     public const string ContractType = "ContractType";
+    public const string Attachments = "Attachments";
+    public const string Decisions = "Decisions";
 }

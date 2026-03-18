@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Services;
 
-namespace AgentSmith.Infrastructure.Services.Detection;
+namespace AgentSmith.Infrastructure.Core.Services.Detection;
 
 public sealed class PythonLanguageDetector : ILanguageDetector
 {

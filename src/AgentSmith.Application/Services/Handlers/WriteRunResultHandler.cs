@@ -41,10 +41,11 @@ public sealed class WriteRunResultHandler(
         context.Pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
         context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var durationSeconds);
         context.Pipeline.TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var trail);
+        context.Pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
 
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket, context.Plan, context.Changes,
-            nextRunNumber, durationSeconds, costSummary, trail);
+            nextRunNumber, durationSeconds, costSummary, trail, decisions);
         await File.WriteAllTextAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(contextPath, nextRunNumber, context.Ticket, cancellationToken);

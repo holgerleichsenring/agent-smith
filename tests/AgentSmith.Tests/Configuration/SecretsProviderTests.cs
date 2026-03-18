@@ -1,5 +1,5 @@
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Configuration;

@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services;
-using AgentSmith.Infrastructure.Services.Detection;
+using AgentSmith.Infrastructure.Core.Services;
+using AgentSmith.Infrastructure.Core.Services.Detection;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 

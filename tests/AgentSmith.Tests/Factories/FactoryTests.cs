@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

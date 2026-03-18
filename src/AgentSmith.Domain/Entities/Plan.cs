@@ -7,12 +7,15 @@ public sealed class Plan
 {
     public string Summary { get; }
     public IReadOnlyList<PlanStep> Steps { get; }
+    public IReadOnlyList<PlanDecision> Decisions { get; }
     public string RawResponse { get; }
 
-    public Plan(string summary, IReadOnlyList<PlanStep> steps, string rawResponse)
+    public Plan(string summary, IReadOnlyList<PlanStep> steps, string rawResponse,
+                IReadOnlyList<PlanDecision>? decisions = null)
     {
         Summary = summary;
         Steps = steps;
+        Decisions = decisions ?? Array.Empty<PlanDecision>();
         RawResponse = rawResponse;
     }
 }

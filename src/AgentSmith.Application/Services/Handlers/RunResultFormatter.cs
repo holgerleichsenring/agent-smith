@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -34,7 +35,7 @@ public static class RunResultFormatter
     public static string FormatResult(
         Ticket ticket, Plan plan, IReadOnlyList<CodeChange> changes,
         int runNumber, int durationSeconds, RunCostSummary? costSummary,
-        List<ExecutionTrailEntry>? trail)
+        List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -53,6 +54,7 @@ public static class RunResultFormatter
         sb.AppendLine("## Summary");
         sb.AppendLine(plan.Summary);
 
+        AppendDecisions(sb, decisions);
         AppendExecutionTrail(sb, trail);
 
         return sb.ToString();
@@ -112,6 +114,26 @@ public static class RunResultFormatter
             sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
             sb.AppendLine($"      turns: {cost.Iterations}");
             sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
+        }
+    }
+
+    internal static void AppendDecisions(StringBuilder sb, IReadOnlyList<PlanDecision>? decisions)
+    {
+        if (decisions is null || decisions.Count == 0) return;
+
+        sb.AppendLine();
+        sb.AppendLine("## Decisions");
+
+        var grouped = decisions
+            .GroupBy(d => d.Category, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in grouped)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"### {group.Key}");
+            foreach (var d in group)
+                sb.AppendLine($"- {d.Decision}");
         }
     }
 

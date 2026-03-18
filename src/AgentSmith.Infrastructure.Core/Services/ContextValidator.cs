@@ -2,7 +2,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using YamlDotNet.RepresentationModel;
 
-namespace AgentSmith.Infrastructure.Services;
+namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Validates generated .context.yaml against the CCS structure.

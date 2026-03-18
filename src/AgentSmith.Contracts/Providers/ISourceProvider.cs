@@ -6,10 +6,8 @@ namespace AgentSmith.Contracts.Providers;
 /// <summary>
 /// Provides git operations for a source repository.
 /// </summary>
-public interface ISourceProvider
+public interface ISourceProvider : ITypedProvider
 {
-    string ProviderType { get; }
-
     Task<Repository> CheckoutAsync(BranchName branch, CancellationToken cancellationToken);
 
     Task<string> CreatePullRequestAsync(

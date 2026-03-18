@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Infrastructure.Services;
+namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Generates a .context.yaml (CCS format) for a repository using one cheap LLM call.

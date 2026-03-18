@@ -181,6 +181,46 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithDecisionsInPipeline_IncludesDecisionsInResult()
+    {
+        SetupContextYaml();
+        var pipeline = new PipelineContext();
+        var decisions = new List<PlanDecision>
+        {
+            new("Architecture", "**Redis Streams**: fan-out required"),
+            new("Tooling", "**DuckDB**: reads Parquet natively")
+        };
+        pipeline.Set(ContextKeys.Decisions, decisions);
+
+        var context = CreateContext("Add caching layer", pipeline);
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
+        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+
+        content.Should().Contain("## Decisions");
+        content.Should().Contain("### Architecture");
+        content.Should().Contain("- **Redis Streams**: fan-out required");
+        content.Should().Contain("### Tooling");
+        content.Should().Contain("- **DuckDB**: reads Parquet natively");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutDecisions_OmitsDecisionsSection()
+    {
+        SetupContextYaml();
+        var context = CreateContext("Add login feature");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
+        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+
+        content.Should().NotContain("## Decisions");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ExistingRuns_IncrementsNumber()
     {
         var yaml = "state:\n  done:\n    p01: \"initial setup\"\n    r01: \"feat #10: Add auth\"\n    r02: \"fix #11: Fix login\"\n  active: {}";
@@ -207,6 +247,44 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         var runDirs = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"));
         runDirs[0].Should().EndWith("r01-add-login-feature");
+    }
+
+    [Fact]
+    public void AppendDecisions_GroupsByCategory()
+    {
+        var sb = new StringBuilder();
+        var decisions = new List<PlanDecision>
+        {
+            new("Architecture", "**First**: reason"),
+            new("Tooling", "**Tool1**: reason"),
+            new("Architecture", "**Second**: reason")
+        };
+
+        RunResultFormatter.AppendDecisions(sb, decisions);
+        var result = sb.ToString();
+
+        result.Should().Contain("## Decisions");
+        result.Should().Contain("### Architecture");
+        result.Should().Contain("### Tooling");
+        result.Should().Contain("- **First**: reason");
+        result.Should().Contain("- **Second**: reason");
+        result.Should().Contain("- **Tool1**: reason");
+
+        var archIndex = result.IndexOf("### Architecture", StringComparison.Ordinal);
+        var toolIndex = result.IndexOf("### Tooling", StringComparison.Ordinal);
+        archIndex.Should().BeLessThan(toolIndex);
+    }
+
+    [Fact]
+    public void AppendDecisions_NullOrEmpty_WritesNothing()
+    {
+        var sb = new StringBuilder();
+        RunResultFormatter.AppendDecisions(sb, null);
+        sb.ToString().Should().BeEmpty();
+
+        sb.Clear();
+        RunResultFormatter.AppendDecisions(sb, new List<PlanDecision>());
+        sb.ToString().Should().BeEmpty();
     }
 
     [Theory]

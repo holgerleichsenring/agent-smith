@@ -11,7 +11,7 @@ public static class OpenAiToolDefinitions
 {
     public static IList<ChatTool> All => new List<ChatTool>
     {
-        ReadFile, WriteFile, ListFiles, RunCommand
+        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
     };
 
     public static IList<ChatTool> ScoutTools => new List<ChatTool>
@@ -69,6 +69,21 @@ public static class OpenAiToolDefinitions
                     "command": { "type": "string", "description": "Shell command to execute." }
                 },
                 "required": ["command"]
+            }
+            """));
+
+    public static ChatTool LogDecision => ChatTool.CreateFunctionTool(
+        functionName: "log_decision",
+        functionDescription: "Log an architectural, tooling, or implementation decision with its reason. " +
+            "Call this when deviating from the plan or making a non-trivial decision during execution.",
+        functionParameters: BinaryData.FromString("""
+            {
+                "type": "object",
+                "properties": {
+                    "category": { "type": "string", "enum": ["Architecture", "Tooling", "Implementation", "TradeOff"], "description": "Decision category." },
+                    "decision": { "type": "string", "description": "Format: '**DecisionName**: reason why, not what'" }
+                },
+                "required": ["category", "decision"]
             }
             """));
 }

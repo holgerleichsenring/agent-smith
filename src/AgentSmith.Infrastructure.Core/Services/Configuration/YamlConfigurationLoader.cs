@@ -4,7 +4,7 @@ using AgentSmith.Domain.Exceptions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace AgentSmith.Infrastructure.Services.Configuration;
+namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
 /// Loads configuration from a YAML file and resolves environment variable placeholders.
