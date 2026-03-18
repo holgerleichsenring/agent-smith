@@ -85,7 +85,16 @@ internal sealed class SlackModalSubmissionHandler(
             case ModalCommandType.FixBug:
             case ModalCommandType.FixBugNoTests:
             case ModalCommandType.AddFeature:
+            case ModalCommandType.MadDiscussion:
                 await HandleFixTicketAsync(command, values, project, userId, channelId, ct);
+                break;
+
+            case ModalCommandType.SecurityReview:
+                await HandlePipelineOnlyAsync("security-scan", project, userId, channelId, ct);
+                break;
+
+            case ModalCommandType.LegalAnalysis:
+                await HandlePipelineOnlyAsync("legal-analysis", project, userId, channelId, ct);
                 break;
 
             case ModalCommandType.ListTickets:
@@ -123,6 +132,7 @@ internal sealed class SlackModalSubmissionHandler(
             ModalCommandType.FixBug => "fix-bug",
             ModalCommandType.FixBugNoTests => "fix-no-test",
             ModalCommandType.AddFeature => "add-feature",
+            ModalCommandType.MadDiscussion => "mad-discussion",
             _ => "fix-bug"
         };
 
@@ -140,6 +150,25 @@ internal sealed class SlackModalSubmissionHandler(
         logger.LogInformation("Modal submission: {Command} #{TicketId} in {Project} (pipeline={Pipeline})",
             command, ticketId, project, pipeline);
 
+        await fixHandler.HandleAsync(intent, ct);
+    }
+
+    private async Task HandlePipelineOnlyAsync(
+        string pipeline, string project, string userId, string channelId,
+        CancellationToken ct)
+    {
+        var intent = new FixTicketIntent
+        {
+            TicketId = 0,
+            Project = project,
+            PipelineOverride = pipeline,
+            RawText = $"/{pipeline} in {project}",
+            UserId = userId,
+            ChannelId = channelId,
+            Platform = DispatcherDefaults.PlatformSlack
+        };
+
+        logger.LogInformation("Modal submission: {Pipeline} in {Project}", pipeline, project);
         await fixHandler.HandleAsync(intent, ct);
     }
 
