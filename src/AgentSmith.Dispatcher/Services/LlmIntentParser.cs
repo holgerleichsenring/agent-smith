@@ -16,7 +16,7 @@ public sealed class LlmIntentParser(
     ILogger<LlmIntentParser> logger) : ILlmIntentParser
 {
     private const string SystemPrompt = """
-        You are an intent classifier for a coding agent bot called Agent Smith.
+        You are an intent classifier for an AI orchestration platform called Agent Smith.
         Extract the user's intent from their message and return ONLY a JSON object.
 
         Valid commandTypes: fix, list, create, help, unknown
