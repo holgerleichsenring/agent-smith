@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// Source provider for Azure DevOps repositories. Uses LibGit2Sharp for git ops,
 /// Azure DevOps GitHttpClient for pull requests.
 /// </summary>
-public sealed class AzureReposSourceProvider : ISourceProvider
+public sealed class AzureReposSourceProvider : ISourceProvider, IPrCommentProvider
 {
     private readonly string _organizationUrl;
     private readonly string _project;
@@ -124,6 +124,24 @@ public sealed class AzureReposSourceProvider : ISourceProvider
             _logger.LogInformation("Found existing pull request: {Url}", existingUrl);
             return existingUrl;
         }
+    }
+
+    public async Task PostCommentAsync(
+        string prIdentifier, string markdown, CancellationToken cancellationToken = default)
+    {
+        var prId = int.Parse(prIdentifier);
+        var creds = new VssBasicCredential(string.Empty, _personalAccessToken);
+        var connection = new VssConnection(new Uri(_organizationUrl), creds);
+        var gitClient = await connection.GetClientAsync<GitHttpClient>(cancellationToken);
+
+        var thread = new GitPullRequestCommentThread
+        {
+            Comments = [new Comment { Content = markdown, CommentType = CommentType.Text }],
+            Status = CommentThreadStatus.Active
+        };
+
+        await gitClient.CreateThreadAsync(thread, _project, _repoName, prId, cancellationToken: cancellationToken);
+        _logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
     private string GetLocalPath()

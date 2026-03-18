@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// Shared HTTP client for OpenAI-compatible APIs (OpenAI, Ollama, etc.).
 /// Handles chat completions with optional tool calling support.
 /// </summary>
-internal sealed class OpenAiCompatibleClient(
+public sealed class OpenAiCompatibleClient(
     string endpoint,
     string? apiKey,
     ILogger logger)
@@ -17,7 +17,7 @@ internal sealed class OpenAiCompatibleClient(
     private readonly HttpClient _httpClient = CreateHttpClient(endpoint, apiKey);
     private readonly HttpClient _metadataClient = new();
 
-    internal async Task<JsonElement> ChatCompleteAsync(
+    public async Task<JsonElement> ChatCompleteAsync(
         string model, JsonArray messages, JsonArray? tools,
         int maxTokens, CancellationToken cancellationToken)
     {
@@ -42,7 +42,7 @@ internal sealed class OpenAiCompatibleClient(
         return doc.RootElement.Clone();
     }
 
-    internal async Task<bool> CheckToolCallingSupport(string model, CancellationToken cancellationToken)
+    public async Task<bool> CheckToolCallingSupport(string model, CancellationToken cancellationToken)
     {
         try
         {
@@ -64,7 +64,7 @@ internal sealed class OpenAiCompatibleClient(
         }
     }
 
-    internal async Task<string> GetVersionAsync(CancellationToken cancellationToken)
+    public async Task<string> GetVersionAsync(CancellationToken cancellationToken)
     {
         try
         {

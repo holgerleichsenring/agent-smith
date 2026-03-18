@@ -6,11 +6,14 @@ namespace AgentSmith.Tests.Providers;
 
 public sealed class OllamaAgentProviderTests
 {
+    private static OpenAiCompatibleClient CreateClient() =>
+        new("http://localhost:11434/v1", null, NullLogger.Instance);
+
     [Fact]
     public void ProviderType_IsOllama()
     {
         var sut = new OllamaAgentProvider(
-            "qwen2.5-coder:32b", "http://localhost:11434",
+            "qwen2.5-coder:32b", CreateClient(),
             hasToolCalling: false, null, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
@@ -18,15 +21,15 @@ public sealed class OllamaAgentProviderTests
     }
 
     [Fact]
-    public void Constructor_AcceptsToolCallingFlag()
+    public void Constructor_AcceptsToolCallingFlags()
     {
         var withTools = new OllamaAgentProvider(
-            "qwen2.5-coder:32b", "http://localhost:11434",
+            "qwen2.5-coder:32b", CreateClient(),
             hasToolCalling: true, null, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
         var withoutTools = new OllamaAgentProvider(
-            "mistral-small:3.1", "http://localhost:11434",
+            "mistral-small:3.1", CreateClient(),
             hasToolCalling: false, null, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
