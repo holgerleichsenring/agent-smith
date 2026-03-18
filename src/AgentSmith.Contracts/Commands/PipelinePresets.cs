@@ -68,8 +68,10 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> SecurityScan =
     [
-        CommandNames.AcquireSource,
+        CommandNames.CheckoutSource,
+        CommandNames.BootstrapProject,
         CommandNames.LoadDomainRules,
+        CommandNames.AnalyzeCode,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
