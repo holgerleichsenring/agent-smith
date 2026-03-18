@@ -20,23 +20,14 @@ This makes Agent Smith consumable without cloning — customers pull directly.
 
 ## Dockerfile Optimization
 
-Both Dockerfiles switch from `mcr.microsoft.com/dotnet/sdk:8.0` (runtime) to
-`mcr.microsoft.com/dotnet/aspnet:8.0` + manual git install:
+**Host (`Dockerfile`)**: Stays on `mcr.microsoft.com/dotnet/sdk:8.0` for runtime
+because the agentic loop runs `dotnet build/test` on cloned repositories. Added
+`libgit2-dev` alongside git. Added `Infrastructure.Core` csproj to restore layer.
 
-```dockerfile
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+**Dispatcher (`Dockerfile.dispatcher`)**: Already on `aspnet:8.0` (~250MB).
+Added `Infrastructure.Core` csproj to restore layer.
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git libgit2-dev \
-    && rm -rf /var/lib/apt/lists/*
-```
-
-Expected image size: ~250MB (down from ~800MB).
-
-Build stage remains `mcr.microsoft.com/dotnet/sdk:8.0` (multi-arch compatible).
-
-Both Dockerfiles are already multi-arch compatible (no platform pinning).
+Both Dockerfiles are multi-arch compatible (no platform pinning).
 
 ---
 

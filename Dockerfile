@@ -6,6 +6,7 @@ WORKDIR /src
 COPY src/AgentSmith.Domain/AgentSmith.Domain.csproj src/AgentSmith.Domain/
 COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj src/AgentSmith.Contracts/
 COPY src/AgentSmith.Application/AgentSmith.Application.csproj src/AgentSmith.Application/
+COPY src/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/AgentSmith.Infrastructure.Core/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/AgentSmith.Infrastructure/
 COPY src/AgentSmith.Host/AgentSmith.Host.csproj src/AgentSmith.Host/
 
@@ -20,7 +21,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS runtime
 WORKDIR /app
 
 # Install git for LibGit2Sharp operations
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git libgit2-dev && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd --gid 1000 agentsmith && \
