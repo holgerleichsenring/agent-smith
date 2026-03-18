@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Commands;
@@ -12,7 +13,9 @@ namespace AgentSmith.Tests.Commands;
 public sealed class DeliverOutputHandlerTests : IDisposable
 {
     private readonly string _baseDir = Path.Combine(Path.GetTempPath(), $"ast-deliver-{Guid.NewGuid():N}");
-    private readonly DeliverOutputHandler _sut = new(NullLogger<DeliverOutputHandler>.Instance);
+    private readonly DeliverOutputHandler _sut = new(
+        new ServiceCollection().BuildServiceProvider(),
+        NullLogger<DeliverOutputHandler>.Instance);
 
     public DeliverOutputHandlerTests()
     {

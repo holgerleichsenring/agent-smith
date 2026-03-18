@@ -57,10 +57,37 @@ public sealed class AgentProviderFactory(
     private OllamaAgentProvider CreateOllama(AgentConfig config)
     {
         var endpoint = config.Endpoint ?? "http://localhost:11434";
+        var ollamaLogger = loggerFactory.CreateLogger<OllamaAgentProvider>();
+        var client = new OpenAiCompatibleClient(
+            endpoint + "/v1", null, loggerFactory.CreateLogger("Ollama"));
+
+        var hasToolCalling = CheckOllamaCapabilities(client, config.Model, endpoint, ollamaLogger);
         var registry = CreateModelRegistry(config);
+
         return new OllamaAgentProvider(
-            config.Model, endpoint, hasToolCalling: false,
-            registry, config.Pricing, loggerFactory.CreateLogger<OllamaAgentProvider>());
+            config.Model, client, hasToolCalling,
+            registry, config.Pricing, ollamaLogger);
+    }
+
+    private static bool CheckOllamaCapabilities(
+        OpenAiCompatibleClient client, string model, string endpoint, ILogger logger)
+    {
+        try
+        {
+            var version = client.GetVersionAsync(CancellationToken.None).GetAwaiter().GetResult();
+            logger.LogInformation("Connected to Ollama {Version} at {Endpoint}", version, endpoint);
+
+            var hasTools = client.CheckToolCallingSupport(model, CancellationToken.None).GetAwaiter().GetResult();
+            logger.LogInformation("Model {Model}: tool_calling={HasTools}", model, hasTools);
+            return hasTools;
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ConfigurationException(
+                $"Cannot connect to Ollama at '{endpoint}'. " +
+                $"Ensure Ollama is running: docker run -d -p 11434:11434 ollama/ollama && " +
+                $"docker exec ollama ollama pull {model}. Error: {ex.Message}");
+        }
     }
 
     private IModelRegistry? CreateModelRegistry(AgentConfig config)

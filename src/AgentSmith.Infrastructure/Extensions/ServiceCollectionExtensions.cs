@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Output;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure;
@@ -19,6 +20,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
+
+        // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
+        services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
+        services.AddKeyedSingleton<IOutputStrategy, SarifOutputStrategy>("sarif");
+        services.AddKeyedSingleton<IOutputStrategy, MarkdownOutputStrategy>("markdown");
+
         return services;
     }
 }

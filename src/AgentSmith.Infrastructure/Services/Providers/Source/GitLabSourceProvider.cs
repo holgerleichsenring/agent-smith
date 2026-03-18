@@ -15,7 +15,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// Source provider for GitLab repositories. Uses LibGit2Sharp for git ops, REST API v4 for merge requests.
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -99,6 +99,18 @@ public sealed class GitLabSourceProvider : ISourceProvider
 
         _logger.LogInformation("Merge request created: {Url}", webUrl);
         return webUrl;
+    }
+
+    public async Task PostCommentAsync(
+        string prIdentifier, string markdown, CancellationToken cancellationToken = default)
+    {
+        var encodedPath = Uri.EscapeDataString(_projectPath);
+        var url = $"{_baseUrl}/api/v4/projects/{encodedPath}/merge_requests/{prIdentifier}/notes";
+        var json = System.Text.Json.JsonSerializer.Serialize(new { body = markdown });
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync(url, content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
     }
 
     private string GetLocalPath()
