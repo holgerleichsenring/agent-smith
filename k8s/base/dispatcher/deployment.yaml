@@ -29,11 +29,11 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 8081
               protocol: TCP
           env:
             - name: ASPNETCORE_URLS
-              value: "http://+:8080"
+              value: "http://+:8081"
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
             - name: REDIS_URL
@@ -68,7 +68,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: 8081
             initialDelaySeconds: 15
             periodSeconds: 30
             timeoutSeconds: 5
@@ -76,7 +76,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3

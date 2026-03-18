@@ -15,7 +15,7 @@ public static class GeminiToolDefinitions
     {
         FunctionDeclarations = new List<FunctionDeclaration>
         {
-            ReadFile, WriteFile, ListFiles, RunCommand
+            ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
         }
     };
 
@@ -85,6 +85,28 @@ public static class GeminiToolDefinitions
                 ["command"] = new() { Type = TypeString, Description = "Shell command to execute." }
             },
             Required = new List<string> { "command" }
+        }
+    };
+
+    private static FunctionDeclaration LogDecision => new()
+    {
+        Name = "log_decision",
+        Description = "Log an architectural, tooling, or implementation decision with its reason. " +
+            "Call this when deviating from the plan or making a non-trivial decision during execution.",
+        Parameters = new Schema
+        {
+            Type = TypeObject,
+            Properties = new Dictionary<string, Schema>
+            {
+                ["category"] = new()
+                {
+                    Type = TypeString,
+                    Description = "Decision category.",
+                    Enum = new List<string> { "Architecture", "Tooling", "Implementation", "TradeOff" }
+                },
+                ["decision"] = new() { Type = TypeString, Description = "Format: '**DecisionName**: reason why, not what'" }
+            },
+            Required = new List<string> { "category", "decision" }
         }
     };
 }

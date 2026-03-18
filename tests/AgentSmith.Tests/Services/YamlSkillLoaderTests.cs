@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Infrastructure.Services;
+using AgentSmith.Infrastructure.Core.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 

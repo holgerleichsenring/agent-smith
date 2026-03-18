@@ -21,6 +21,7 @@ public sealed class MetaFileBootstrapper(
     private const string CodeMapFileName = "code-map.yaml";
     private const string CodingPrinciplesFileName = "coding-principles.md";
     private const string SkillFileName = "skill.yaml";
+    private const string DecisionsFileName = "decisions.md";
 
     public async Task BootstrapAsync(
         DetectedProject detected, string agentDir, string repoPath,
@@ -37,6 +38,7 @@ public sealed class MetaFileBootstrapper(
             snapshot, llmClient, cancellationToken);
 
         TryGenerateSkillYaml(detected, agentDir, sourceType);
+        TryCreateDecisionsTemplate(agentDir);
         TryLoadSkillRoles(agentDir, skillsPath, pipeline);
     }
 
@@ -91,6 +93,26 @@ public sealed class MetaFileBootstrapper(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Skill YAML generation failed, continuing without");
+        }
+    }
+
+    private void TryCreateDecisionsTemplate(string agentDir)
+    {
+        var path = Path.Combine(agentDir, DecisionsFileName);
+        if (File.Exists(path))
+        {
+            logger.LogInformation("Found existing {File}, skipping creation", DecisionsFileName);
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(path, "# Decision Log\n");
+            logger.LogInformation("Created empty {File}", DecisionsFileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Decision log creation failed, continuing without");
         }
     }
 

@@ -10,7 +10,7 @@ public static class ToolDefinitions
 {
     public static IList<Tool> All => new List<Tool>
     {
-        ReadFile, WriteFile, ListFiles, RunCommand
+        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
     };
 
     public static IList<Tool> ScoutTools => new List<Tool>
@@ -89,6 +89,30 @@ public static class ToolDefinitions
                 }
             },
             ["required"] = new JsonArray("command")
+        });
+
+    public static Tool LogDecision => CreateTool(
+        "log_decision",
+        "Log an architectural, tooling, or implementation decision with its reason. " +
+        "Call this when deviating from the plan or making a non-trivial decision during execution.",
+        new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["category"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray("Architecture", "Tooling", "Implementation", "TradeOff"),
+                    ["description"] = "Decision category."
+                },
+                ["decision"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Format: '**DecisionName**: reason why, not what'"
+                }
+            },
+            ["required"] = new JsonArray("category", "decision")
         });
 
     private static Tool CreateTool(string name, string description, JsonObject parameters)
