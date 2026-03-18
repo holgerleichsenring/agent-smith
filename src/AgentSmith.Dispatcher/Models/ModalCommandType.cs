@@ -8,6 +8,9 @@ public enum ModalCommandType
     FixBug,
     FixBugNoTests,
     AddFeature,
+    SecurityReview,
+    MadDiscussion,
+    LegalAnalysis,
     ListTickets,
     CreateTicket,
     InitProject
