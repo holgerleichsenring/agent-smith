@@ -122,6 +122,7 @@ public sealed class KubernetesJobSpawner(
     {
         var args = new List<string>
         {
+            "run",
             "--headless",
             "--job-id", jobId,
             "--redis-url", redisUrl,
