@@ -21,7 +21,7 @@ public sealed class MarkdownOutputStrategy(
         await File.WriteAllTextAsync(outputPath, markdown, cancellationToken);
         logger.LogInformation("Markdown report written to {Path}", outputPath);
 
-        Console.WriteLine(markdown);
+        logger.LogInformation("{Report}", markdown);
     }
 
     internal static string BuildMarkdown(IReadOnlyList<Finding> findings)
