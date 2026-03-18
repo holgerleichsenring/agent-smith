@@ -1,10 +1,10 @@
-# Phase 41d: Local Model Support (Ollama) & Hybrid Routing
+# Phase 43d: Local Model Support (Ollama) & Hybrid Routing
 
 ## Goal
 
 Support locally-hosted LLMs via Ollama as an `IAgentProvider`. Extend
 `ModelAssignment` to support per-task provider routing between cloud and
-local models. Can be built in parallel with p41b/p41c after p41a.
+local models. Can be built in parallel with p43b/p43c after p43a.
 
 ---
 
