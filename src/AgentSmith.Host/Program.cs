@@ -142,10 +142,8 @@ securityScanCommand.SetHandler(async (InvocationContext ctx) =>
         ? $"security-scan in {project}"
         : $"security-scan in {Path.GetFileName(Path.GetFullPath(repo))}";
 
-    // Set pipeline context overrides via environment for now
-    // The AcquireSourceHandler will pick up --repo and --pr from context
-    var pipelineContext = new PipelineContext();
-    pipelineContext.Set(ContextKeys.SourceFilePath, Path.GetFullPath(repo));
+    // TODO: pass --repo and --pr to pipeline context once ProcessTicketUseCase
+    // supports PipelineContext injection (currently input string is the only entry point)
 
     CommandResult result;
     try

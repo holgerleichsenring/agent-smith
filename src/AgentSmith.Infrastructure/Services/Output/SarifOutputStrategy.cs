@@ -15,7 +15,7 @@ namespace AgentSmith.Infrastructure.Services.Output;
 public sealed class SarifOutputStrategy(
     ILogger<SarifOutputStrategy> logger) : IOutputStrategy
 {
-    public string StrategyType => "sarif";
+    public string ProviderType => "sarif";
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
@@ -136,10 +136,8 @@ public sealed class SarifOutputStrategy(
             return;
         }
 
-        var high = findings.Count(f => f.Severity.Equals("HIGH", StringComparison.OrdinalIgnoreCase));
-        var medium = findings.Count(f => f.Severity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase));
-        var low = findings.Count(f => f.Severity.Equals("LOW", StringComparison.OrdinalIgnoreCase));
+        var s = FindingSummary.From(findings);
         logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW)",
-            findings.Count, high, medium, low);
+            s.Total, s.High, s.Medium, s.Low);
     }
 }

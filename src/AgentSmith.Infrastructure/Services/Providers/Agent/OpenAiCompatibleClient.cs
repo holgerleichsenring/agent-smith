@@ -15,6 +15,7 @@ internal sealed class OpenAiCompatibleClient(
     ILogger logger)
 {
     private readonly HttpClient _httpClient = CreateHttpClient(endpoint, apiKey);
+    private readonly HttpClient _metadataClient = new();
 
     internal async Task<JsonElement> ChatCompleteAsync(
         string model, JsonArray messages, JsonArray? tools,
@@ -37,24 +38,23 @@ internal sealed class OpenAiCompatibleClient(
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonDocument.Parse(json).RootElement;
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
     }
 
     internal async Task<bool> CheckToolCallingSupport(string model, CancellationToken cancellationToken)
     {
         try
         {
-            var showEndpoint = endpoint.TrimEnd('/').Replace("/v1", "") + "/api/show";
-            using var client = new HttpClient();
+            var showUrl = BaseMetadataUrl() + "/api/show";
             var requestBody = new JsonObject { ["name"] = model };
             var content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(showEndpoint, content, cancellationToken);
+            var response = await _metadataClient.PostAsync(showUrl, content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
                 return false;
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            // Ollama /api/show returns model info — check template for tool support
             return json.Contains("tool_call", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
@@ -68,11 +68,10 @@ internal sealed class OpenAiCompatibleClient(
     {
         try
         {
-            var versionEndpoint = endpoint.TrimEnd('/').Replace("/v1", "") + "/api/version";
-            using var client = new HttpClient();
-            var responseStr = await client.GetStringAsync(versionEndpoint, cancellationToken);
-            var responseJson = JsonDocument.Parse(responseStr).RootElement;
-            return responseJson.GetProperty("version").GetString() ?? "unknown";
+            var versionUrl = BaseMetadataUrl() + "/api/version";
+            var responseStr = await _metadataClient.GetStringAsync(versionUrl, cancellationToken);
+            using var doc = JsonDocument.Parse(responseStr);
+            return doc.RootElement.GetProperty("version").GetString() ?? "unknown";
         }
         catch (Exception ex)
         {
@@ -80,6 +79,8 @@ internal sealed class OpenAiCompatibleClient(
             throw;
         }
     }
+
+    private string BaseMetadataUrl() => endpoint.TrimEnd('/').Replace("/v1", "");
 
     private static HttpClient CreateHttpClient(string endpoint, string? apiKey)
     {
