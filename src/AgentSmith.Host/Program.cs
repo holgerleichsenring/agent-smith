@@ -71,7 +71,7 @@ runCommand.SetHandler(async (InvocationContext ctx) =>
 
     if (dryRun)
     {
-        await RunDryMode(provider, input, configPath);
+        await RunDryMode(provider, input, configPath, pipelineOverride);
         return;
     }
 
@@ -276,7 +276,7 @@ static void PrintBanner()
     Console.ForegroundColor = original;
 }
 
-static async Task RunDryMode(ServiceProvider provider, string input, string configPath)
+static async Task RunDryMode(ServiceProvider provider, string input, string configPath, string pipelineOverride)
 {
     var configLoader = provider.GetRequiredService<IConfigurationLoader>();
     var intentParser = provider.GetRequiredService<IIntentParser>();
@@ -292,7 +292,8 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
         return;
     }
 
-    var commands = PipelinePresets.TryResolve(projectConfig.Pipeline);
+    var pipelineName = string.IsNullOrWhiteSpace(pipelineOverride) ? projectConfig.Pipeline : pipelineOverride;
+    var commands = PipelinePresets.TryResolve(pipelineName);
     if (commands is null)
     {
         Console.Error.WriteLine($"Pipeline '{projectConfig.Pipeline}' not found in presets.");
@@ -303,7 +304,7 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
     Console.WriteLine($"Dry run - would execute:");
     Console.WriteLine($"  Project:  {projectName}");
     Console.WriteLine($"  Ticket:   #{intent.TicketId}");
-    Console.WriteLine($"  Pipeline: {projectConfig.Pipeline}");
+    Console.WriteLine($"  Pipeline: {pipelineName}");
     Console.WriteLine($"  Commands:");
     foreach (var cmd in commands)
         Console.WriteLine($"    - {cmd}");
