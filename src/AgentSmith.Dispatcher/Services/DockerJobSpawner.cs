@@ -184,6 +184,7 @@ public sealed class DockerJobSpawner(
     {
         var args = new List<string>
         {
+            "run",
             "--headless",
             "--job-id", jobId,
             "--redis-url", Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
