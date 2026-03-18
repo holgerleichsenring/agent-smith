@@ -11,20 +11,20 @@ using Moq;
 
 namespace AgentSmith.Tests.UseCases;
 
-public class ProcessTicketUseCaseTests
+public class ExecutePipelineUseCaseTests
 {
     private readonly Mock<IConfigurationLoader> _configMock = new();
     private readonly Mock<IIntentParser> _intentMock = new();
     private readonly Mock<IPipelineExecutor> _pipelineMock = new();
-    private readonly ProcessTicketUseCase _sut;
+    private readonly ExecutePipelineUseCase _sut;
 
-    public ProcessTicketUseCaseTests()
+    public ExecutePipelineUseCaseTests()
     {
-        _sut = new ProcessTicketUseCase(
+        _sut = new ExecutePipelineUseCase(
             _configMock.Object,
             _intentMock.Object,
             _pipelineMock.Object,
-            NullLogger<ProcessTicketUseCase>.Instance);
+            NullLogger<ExecutePipelineUseCase>.Instance);
     }
 
     [Fact]

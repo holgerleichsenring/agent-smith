@@ -28,7 +28,7 @@ You:           "fix #54 in todo-list"
  [3/13] BootstrapProject     → Detects language, framework, project type
  [4/13] LoadCodeMap          → Generates navigable code map
  [5/13] LoadDomainRules      → Loads your coding standards & domain rules
- [6/13] LoadContext           → Loads project context (.agentsmith/context.yaml)
+ [6/13] LoadContext          → Loads project context (.agentsmith/context.yaml)
  [7/13] AnalyzeCode          → Scout agent maps the codebase, identifies relevant files
  [8/13] GeneratePlan         → AI generates a step-by-step implementation plan
  [9/13] Approval             → Shows plan, waits for your OK (or runs headless)
