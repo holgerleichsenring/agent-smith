@@ -1,4 +1,4 @@
-# Phase 41b: Security Pipeline — CLI, Docker, DeliverOutputCommand
+# Phase 43b: Security Pipeline — CLI, Docker, DeliverOutputCommand
 
 ## Goal
 
@@ -7,7 +7,7 @@ vulnerabilities. This phase implements the CLI verb, the pipeline preset,
 security skills, `PrDiffProvider`, and the `DeliverOutputCommand` (which also
 unblocks the legal-analysis pipeline).
 
-Webhook triggers (GitHub PR labels, GitLab MR, AzDO) are deferred to p41e.
+Webhook triggers (GitHub PR labels, GitLab MR, AzDO) are deferred to p43e.
 
 ---
 
@@ -103,8 +103,8 @@ public sealed record OutputContext(
     PipelineContext Pipeline);
 ```
 
-In p41b, implement only `ConsoleOutputStrategy` (stdout).
-`SarifOutputStrategy` and `MarkdownOutputStrategy` come in p41c.
+In p43b, implement only `ConsoleOutputStrategy` (stdout).
+`SarifOutputStrategy` and `MarkdownOutputStrategy` come in p43c.
 `LocalFileOutputStrategy` is the refactored `DeliverOutputHandler` from p42.
 
 ---
