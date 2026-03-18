@@ -34,6 +34,10 @@ public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
         @"^create\s+(?:ticket\s+)?[""'](.+?)[""']\s+in\s+(\S+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex SecurityReviewPattern = new(
+        @"^(?:/)?security[- ]review\s+(?:PR#?(\d+)\s+in\s+)?(\S+)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly Regex InitPattern = new(
         @"^init(?:ialize)?\s+(\S+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -47,6 +51,7 @@ public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
             ?? TryParseCreateWithDesc(trimmed, userId, channelId, platform)
             ?? TryParseCreate(trimmed, userId, channelId, platform)
             ?? TryParseFix(trimmed, userId, channelId, platform)
+            ?? TryParseSecurityReview(trimmed, userId, channelId, platform)
             ?? TryParseInit(trimmed, userId, channelId, platform)
             ?? TryParseList(trimmed, userId, channelId, platform)
             ?? (ChatIntent)UnknownIntent.From(trimmed, userId, channelId, platform);
@@ -117,6 +122,20 @@ public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
         {
             RawText = text, UserId = userId, ChannelId = channelId, Platform = platform,
             Project = match.Groups[1].Value
+        };
+    }
+
+    private static SecurityReviewIntent? TryParseSecurityReview(
+        string text, string userId, string channelId, string platform)
+    {
+        var match = SecurityReviewPattern.Match(text);
+        if (!match.Success) return null;
+
+        return new SecurityReviewIntent
+        {
+            RawText = text, UserId = userId, ChannelId = channelId, Platform = platform,
+            Project = match.Groups[2].Value,
+            PrIdentifier = match.Groups[1].Success ? match.Groups[1].Value : null
         };
     }
 
