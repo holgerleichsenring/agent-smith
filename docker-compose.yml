@@ -1,4 +1,5 @@
-# One-shot mode:    docker compose run --rm agentsmith --headless "fix #1 in my-project"
+# One-shot mode:    docker compose run --rm agentsmith run --headless "fix #1 in my-project"
+# Security scan:    docker compose run --rm agentsmith security-scan --repo /app/repo --output console
 # Server mode:      docker compose up -d agentsmith-server
 # Dispatcher mode:  docker compose up -d dispatcher
 services:
@@ -36,7 +37,7 @@ services:
     volumes:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
-    command: ["--server", "--port", "8081"]
+    command: ["server", "--port", "8081"]
 
   redis:
     image: redis:7-alpine

@@ -66,6 +66,16 @@ public static class PipelinePresets
         CommandNames.DeliverOutput,
     ];
 
+    public static readonly IReadOnlyList<string> SecurityScan =
+    [
+        CommandNames.AcquireSource,
+        CommandNames.LoadDomainRules,
+        CommandNames.Triage,
+        CommandNames.ConvergenceCheck,
+        CommandNames.CompileDiscussion,
+        CommandNames.DeliverOutput,
+    ];
+
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
     {
         ["fix-bug"] = FixBug,
@@ -74,6 +84,7 @@ public static class PipelinePresets
         ["add-feature"] = AddFeature,
         ["mad-discussion"] = MadDiscussion,
         ["legal-analysis"] = LegalAnalysis,
+        ["security-scan"] = SecurityScan,
     };
 
     public static IReadOnlyList<string> Names { get; } = All.Keys.ToList();
