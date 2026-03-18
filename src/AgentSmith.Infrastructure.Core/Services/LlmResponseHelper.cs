@@ -1,6 +1,6 @@
 using YamlDotNet.RepresentationModel;
 
-namespace AgentSmith.Infrastructure.Services;
+namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Shared utilities for processing LLM responses.

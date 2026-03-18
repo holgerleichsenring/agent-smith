@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace AgentSmith.Infrastructure.Services;
+namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Loads skill configuration and role definitions from YAML files.

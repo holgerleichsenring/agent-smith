@@ -2,7 +2,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Infrastructure.Services;
+namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Collects raw repository data for LLM interpretation.

@@ -2,7 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Infrastructure.Services.Detection;
+namespace AgentSmith.Infrastructure.Core.Services.Detection;
 
 public sealed class TypeScriptLanguageDetector(
     ILogger<TypeScriptLanguageDetector> logger) : ILanguageDetector

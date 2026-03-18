@@ -85,16 +85,17 @@ public sealed class OpenAiAgentProvider(
         var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
+        var decisions = toolExecutor.GetDecisions();
         sw.Stop();
 
         logger.LogInformation(
-            "OpenAI agentic execution completed with {Count} file changes in {Seconds}s",
-            changes.Count, (int)sw.Elapsed.TotalSeconds);
+            "OpenAI agentic execution completed with {Count} file changes and {Decisions} decisions in {Seconds}s",
+            changes.Count, decisions.Count, (int)sw.Elapsed.TotalSeconds);
 
         var costSummary = LogCostSummary(costTracker, tracker);
 
         return new AgentExecutionResult(
-            changes, costSummary, (int)sw.Elapsed.TotalSeconds);
+            changes, costSummary, (int)sw.Elapsed.TotalSeconds, decisions);
     }
 
     private ModelAssignment ResolveModel(TaskType taskType)

@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Microsoft.Extensions.Logging;
 

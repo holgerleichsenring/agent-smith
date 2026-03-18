@@ -20,8 +20,10 @@ public sealed class ToolExecutor(
 
     private readonly CommandRunner _commandRunner = new(repositoryPath, logger, progressReporter);
     private readonly List<CodeChange> _changes = new();
+    private readonly List<PlanDecision> _decisions = new();
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
+    public IReadOnlyList<PlanDecision> GetDecisions() => _decisions.AsReadOnly();
 
     public async Task<string> ExecuteAsync(string toolName, JsonNode? input)
     {
@@ -33,6 +35,7 @@ public sealed class ToolExecutor(
                 "write_file" => WriteFile(input),
                 "list_files" => ListFiles(input),
                 "run_command" => await _commandRunner.RunAsync(input),
+                "log_decision" => LogDecision(input),
                 _ => $"Error: Unknown tool '{toolName}'."
             };
         }
@@ -120,6 +123,16 @@ public sealed class ToolExecutor(
             .ToList();
 
         return string.Join('\n', files);
+    }
+
+    private string LogDecision(JsonNode? input)
+    {
+        var category = GetStringParam(input, "category");
+        var decision = GetStringParam(input, "decision");
+
+        _decisions.Add(new PlanDecision(category, decision));
+        logger.LogDebug("Decision logged [{Category}]: {Decision}", category, decision);
+        return $"Decision logged: [{category}] {decision}";
     }
 
     private static void ValidatePath(string path)

@@ -250,4 +250,38 @@ public class ToolExecutorTests : IDisposable
         result.Should().Contain("Error: Command rejected");
         result.Should().Contain("Long-running server processes are not allowed");
     }
+
+    [Fact]
+    public async Task LogDecision_StoresDecisionAndReturnsConfirmation()
+    {
+        var input = new JsonObject
+        {
+            ["category"] = "Architecture",
+            ["decision"] = "**Redis Streams**: fan-out to multiple consumers required"
+        };
+
+        var result = await _sut.ExecuteAsync("log_decision", input);
+
+        result.Should().Contain("Decision logged");
+        result.Should().Contain("Architecture");
+        var decisions = _sut.GetDecisions();
+        decisions.Should().HaveCount(1);
+        decisions[0].Category.Should().Be("Architecture");
+        decisions[0].Decision.Should().Be("**Redis Streams**: fan-out to multiple consumers required");
+    }
+
+    [Fact]
+    public async Task LogDecision_MultipleDecisions_AllStored()
+    {
+        await _sut.ExecuteAsync("log_decision", new JsonObject
+        {
+            ["category"] = "Architecture", ["decision"] = "**First**: reason"
+        });
+        await _sut.ExecuteAsync("log_decision", new JsonObject
+        {
+            ["category"] = "Tooling", ["decision"] = "**Second**: reason"
+        });
+
+        _sut.GetDecisions().Should().HaveCount(2);
+    }
 }

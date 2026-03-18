@@ -6,10 +6,8 @@ namespace AgentSmith.Contracts.Providers;
 /// <summary>
 /// Provides access to tickets from an external system (Azure DevOps, Jira, GitHub).
 /// </summary>
-public interface ITicketProvider
+public interface ITicketProvider : ITypedProvider
 {
-    string ProviderType { get; }
-
     Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -37,4 +35,13 @@ public interface ITicketProvider
     /// </summary>
     Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    /// <summary>
+    /// Returns attachment references found on the ticket.
+    /// Default: empty list (providers that have no attachments skip this).
+    /// </summary>
+    Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
+        TicketId ticketId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<AttachmentRef>>(Array.Empty<AttachmentRef>());
 }

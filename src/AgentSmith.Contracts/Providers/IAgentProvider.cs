@@ -7,10 +7,8 @@ namespace AgentSmith.Contracts.Providers;
 /// <summary>
 /// Provides AI agent capabilities (plan generation, agentic code execution).
 /// </summary>
-public interface IAgentProvider
+public interface IAgentProvider : ITypedProvider
 {
-    string ProviderType { get; }
-
     Task<Plan> GeneratePlanAsync(
         Ticket ticket,
         CodeAnalysis codeAnalysis,

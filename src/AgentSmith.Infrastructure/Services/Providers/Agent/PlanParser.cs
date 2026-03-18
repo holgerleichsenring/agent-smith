@@ -23,8 +23,11 @@ public static class PlanParser
             var steps = root.GetProperty("steps").EnumerateArray()
                 .Select(ParseStep)
                 .ToList();
+            var decisions = root.TryGetProperty("decisions", out var dArr)
+                ? dArr.EnumerateArray().Select(ParseDecision).ToList()
+                : new List<PlanDecision>();
 
-            return new Plan(summary, steps, rawJson);
+            return new Plan(summary, steps, rawJson, decisions);
         }
         catch (JsonException ex)
         {
@@ -47,6 +50,15 @@ public static class PlanParser
         if (trimmed.EndsWith("```"))
             trimmed = trimmed[..^3].TrimEnd();
         return trimmed;
+    }
+
+    private static PlanDecision ParseDecision(JsonElement element)
+    {
+        var category = element.TryGetProperty("category", out var cat)
+            ? cat.GetString() ?? "Implementation"
+            : "Implementation";
+        var decision = element.GetProperty("decision").GetString() ?? "";
+        return new PlanDecision(category, decision);
     }
 
     private static PlanStep ParseStep(JsonElement element)
