@@ -28,9 +28,9 @@ public class DiRegistrationTests
     }
 
     [Fact]
-    public void ProcessTicketUseCase_IsResolvable()
+    public void ExecutePipelineUseCase_IsResolvable()
     {
-        var service = _provider.GetRequiredService<ProcessTicketUseCase>();
+        var service = _provider.GetRequiredService<ExecutePipelineUseCase>();
         service.Should().NotBeNull();
     }
 

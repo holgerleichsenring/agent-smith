@@ -10,7 +10,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// <summary>
 /// Lightweight file-discovery agent using a cheap model (Haiku).
 /// Explores the codebase with read-only tools to identify relevant files
-/// before the primary coding agent runs.
+/// before the primary agent runs.
 /// </summary>
 public sealed class ScoutAgent(
     AnthropicClient client,

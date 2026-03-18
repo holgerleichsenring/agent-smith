@@ -75,7 +75,7 @@ runCommand.SetHandler(async (InvocationContext ctx) =>
         return;
     }
 
-    var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
+    var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
     var pipeline = string.IsNullOrWhiteSpace(pipelineOverride) ? null : pipelineOverride;
 
     CommandResult result;
@@ -135,14 +135,14 @@ securityScanCommand.SetHandler(async (InvocationContext ctx) =>
     var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
 
     var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
-    var useCase = provider.GetRequiredService<ProcessTicketUseCase>();
+    var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
     // Build input string for the security-scan pipeline
     var input = !string.IsNullOrWhiteSpace(project)
         ? $"security-scan in {project}"
         : $"security-scan in {Path.GetFileName(Path.GetFullPath(repo))}";
 
-    // TODO: pass --repo and --pr to pipeline context once ProcessTicketUseCase
+    // TODO: pass --repo and --pr to pipeline context once ExecutePipelineUseCase
     // supports PipelineContext injection (currently input string is the only entry point)
 
     CommandResult result;
