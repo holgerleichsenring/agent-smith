@@ -58,16 +58,6 @@ Agent Smith is not a one-trick pony. It ships with seven pipeline presets and yo
 
 **init-project** bootstraps a new repo. Three steps: clone, detect everything about the project (language, framework, architecture, coding conventions), and commit the generated `.agentsmith/` directory.
 
-### Discussion Pipelines
-
-**mad-discussion** stands for Multi-Agent Discussion. Instead of writing code immediately, Agent Smith assembles a panel of specialists (Architect, Tester, DevOps, DBA, Security Reviewer) who debate the approach in rounds. They raise objections, make suggestions, and argue until they converge on a plan. Think of it as a design review that happens in thirty seconds instead of three meetings.
-
-### Legal Analysis
-
-**legal-analysis** has nothing to do with code. Drop a contract (PDF, DOCX, whatever) into the inbox folder and Agent Smith converts it to Markdown, detects the contract type, and sends it through a panel of five legal specialists: a Contract Analyst who reads every clause, a Compliance Checker who knows DSGVO and AGB-Recht by heart, a Risk Assessor who rates every clause from green to red, a Liability Analyst who deep-dives into the scary parts, and a Clause Negotiator who writes alternative formulations for the problematic bits. All output is in German legal language. This is not legal advice. It's a pre-review aid that saves your lawyer eight hours of reading.
-
-The inbox folder is watched by a polling service. New documents get picked up automatically, analyzed, and the result lands in the outbox. Source documents are archived. No manual intervention needed.
-
 ### Security Scanning
 
 **security-scan** is the newest pipeline. Point it at a repo or a pull request and it runs a team of security specialists over the code: a Vulnerability Analyst who checks for OWASP Top 10, an Auth Reviewer who knows JWT and OAuth inside out, an Injection Checker who traces every user input to every database query, a Secrets Detector who finds your hardcoded API keys, and a False Positive Filter who throws out everything that smells like noise. Confidence below 8 out of 10? Gone.
@@ -79,6 +69,15 @@ agent-smith security-scan --repo ./my-api --output sarif
 agent-smith security-scan --repo . --pr 42 --output markdown
 ```
 
+### Legal Analysis
+
+**legal-analysis** has nothing to do with code. Drop a contract (PDF, DOCX, whatever) into the inbox folder and Agent Smith converts it to Markdown, detects the contract type, and sends it through a panel of five legal specialists: a Contract Analyst who reads every clause, a Compliance Checker who knows DSGVO and AGB-Recht by heart, a Risk Assessor who rates every clause from green to red, a Liability Analyst who deep-dives into the scary parts, and a Clause Negotiator who writes alternative formulations for the problematic bits. All output is in German legal language. This is not legal advice. It's a pre-review aid that saves your lawyer eight hours of reading.
+
+The inbox folder is watched by a polling service. New documents get picked up automatically, analyzed, and the result lands in the outbox. Source documents are archived. No manual intervention needed.
+
+### Discussion Pipelines
+
+**mad-discussion** stands for Multi-Agent Discussion. Instead of writing code immediately, Agent Smith assembles a panel of specialists (Architect, Tester, DevOps, DBA, Security Reviewer) who debate the approach in rounds. They raise objections, make suggestions, and argue until they converge on a plan. Think of it as a design review that happens in thirty seconds instead of three meetings.
 ---
 
 ## AI Providers

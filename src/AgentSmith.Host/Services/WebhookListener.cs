@@ -1,22 +1,21 @@
 using System.Net;
-using System.Text.Json;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Host.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Host.Services;
 
 /// <summary>
-/// Minimal HTTP webhook listener for GitHub/Azure DevOps webhook events.
-/// Listens for issue labeled events and triggers Agent Smith runs.
+/// Thin HTTP server that dispatches webhook events to IWebhookHandler implementations.
+/// Determines platform from headers, validates signature, finds matching handler.
 /// </summary>
 public sealed class WebhookListener(
     IServiceProvider services,
     string configPath,
     ILogger<WebhookListener> logger)
 {
-    private const string TriggerLabel = "agent-smith";
-
     public async Task RunAsync(int port, CancellationToken cancellationToken)
     {
         var prefix = $"http://+:{port}/";
@@ -24,8 +23,7 @@ public sealed class WebhookListener(
         listener.Prefixes.Add(prefix);
         listener.Start();
 
-        logger.LogInformation("Agent Smith webhook listener started on port {Port}", port);
-        logger.LogInformation("Waiting for GitHub/Azure DevOps webhook events...");
+        logger.LogInformation("Webhook listener started on port {Port}", port);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -34,14 +32,8 @@ public sealed class WebhookListener(
                 var context = await listener.GetContextAsync().WaitAsync(cancellationToken);
                 _ = Task.Run(() => HandleRequestAsync(context), cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error accepting webhook request");
-            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex) { logger.LogError(ex, "Error accepting webhook request"); }
         }
 
         listener.Stop();
@@ -60,88 +52,125 @@ public sealed class WebhookListener(
 
             if (context.Request.HttpMethod != "POST" || context.Request.Url?.AbsolutePath != "/webhook")
             {
-                await RespondAsync(context, 404, "Not found. Use POST /webhook or GET /health");
+                await RespondAsync(context, 404, "Not found");
                 return;
             }
 
             using var reader = new StreamReader(context.Request.InputStream);
             var body = await reader.ReadToEndAsync();
+            var headers = ExtractHeaders(context.Request.Headers);
+            var (platform, eventType) = DetectPlatform(headers);
 
-            var triggerInput = TryParseGitHubEvent(body, context.Request.Headers);
-            if (triggerInput is null)
+            if (platform is null)
             {
-                await RespondAsync(context, 200, "Event ignored (not a matching labeled event)");
+                await RespondAsync(context, 200, "Unknown platform");
                 return;
             }
 
-            logger.LogInformation("Webhook triggered: {Input}", triggerInput);
-            await RespondAsync(context, 202, $"Accepted: {triggerInput}");
+            if (!ValidateSignature(platform, body, headers))
+            {
+                logger.LogWarning("Signature validation failed for {Platform}", platform);
+                await RespondAsync(context, 401, "Signature validation failed");
+                return;
+            }
 
-            await ExecuteRunAsync(triggerInput);
+            var handlers = services.GetServices<IWebhookHandler>();
+            var result = await DispatchAsync(handlers, platform, eventType!, body, headers);
+
+            if (!result.Handled)
+            {
+                await RespondAsync(context, 200, "Event ignored");
+                return;
+            }
+
+            logger.LogInformation("Webhook: {Input} (pipeline: {Pipeline})",
+                result.TriggerInput, result.Pipeline ?? "default");
+            await RespondAsync(context, 202, $"Accepted: {result.TriggerInput}");
+
+            if (result.TriggerInput is not null)
+                await ExecuteRunAsync(result.TriggerInput, result.Pipeline);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error handling webhook request");
+            logger.LogError(ex, "Error handling webhook");
             await RespondAsync(context, 500, "Internal server error");
         }
     }
 
-    private string? TryParseGitHubEvent(string body, System.Collections.Specialized.NameValueCollection headers)
+    private static async Task<WebhookResult> DispatchAsync(
+        IEnumerable<IWebhookHandler> handlers, string platform, string eventType,
+        string body, IDictionary<string, string> headers)
     {
-        var eventType = headers["X-GitHub-Event"];
-        if (eventType != "issues")
-            return null;
-
-        try
+        foreach (var handler in handlers)
         {
-            using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-
-            var action = root.GetProperty("action").GetString();
-            if (action != "labeled")
-                return null;
-
-            var labelName = root.GetProperty("label").GetProperty("name").GetString();
-            if (!string.Equals(labelName, TriggerLabel, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            var issueNumber = root.GetProperty("issue").GetProperty("number").GetInt32();
-            var repoName = root.GetProperty("repository").GetProperty("name").GetString();
-
-            return $"fix #{issueNumber} in {repoName}";
+            if (!handler.CanHandle(platform, eventType))
+                continue;
+            var result = await handler.HandleAsync(body, headers);
+            if (result.Handled) return result;
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to parse GitHub webhook payload");
-            return null;
-        }
+        return new WebhookResult(false, null, null);
     }
 
-    private async Task ExecuteRunAsync(string input)
+    private static (string? platform, string? eventType) DetectPlatform(
+        IDictionary<string, string> headers)
+    {
+        if (headers.TryGetValue("X-GitHub-Event", out var ghEvent))
+            return ("github", ghEvent);
+        if (headers.TryGetValue("X-Gitlab-Event", out var glEvent))
+            return ("gitlab", glEvent.Contains("Merge Request") ? "merge_request" : glEvent.ToLowerInvariant());
+        if (headers.TryGetValue("X-Azure-DevOps-EventType", out var azdoEvent))
+            return ("azuredevops", azdoEvent);
+        return (null, null);
+    }
+
+    private static bool ValidateSignature(
+        string platform, string body, IDictionary<string, string> headers)
+    {
+        return platform switch
+        {
+            "github" => !headers.TryGetValue("X-Hub-Signature-256", out var sig)
+                        || WebhookSignatureValidator.ValidateGitHub(body, sig,
+                            Environment.GetEnvironmentVariable("GITHUB_WEBHOOK_SECRET") ?? ""),
+            "gitlab" => !headers.TryGetValue("X-Gitlab-Token", out var token)
+                        || WebhookSignatureValidator.ValidateGitLab(token,
+                            Environment.GetEnvironmentVariable("GITLAB_WEBHOOK_TOKEN") ?? ""),
+            _ => true
+        };
+    }
+
+    private async Task ExecuteRunAsync(string input, string? pipelineOverride)
     {
         try
         {
             var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
-            var result = await useCase.ExecuteAsync(input, configPath, headless: true, null, CancellationToken.None);
+            var result = await useCase.ExecuteAsync(
+                input, configPath, headless: true, pipelineOverride, CancellationToken.None);
 
-            if (result.IsSuccess)
-                logger.LogInformation("Run completed successfully: {Message}", result.Message);
-            else
-                logger.LogWarning("Run failed: {Message}", result.Message);
+            logger.LogInformation(result.IsSuccess
+                ? "Run completed: {Message}" : "Run failed: {Message}", result.Message);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Run failed with exception for input: {Input}", input);
+            logger.LogError(ex, "Run failed for: {Input}", input);
         }
     }
 
-    private static async Task RespondAsync(HttpListenerContext context, int statusCode, string body)
+    private static Dictionary<string, string> ExtractHeaders(
+        System.Collections.Specialized.NameValueCollection headers)
     {
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "text/plain";
-        var buffer = System.Text.Encoding.UTF8.GetBytes(body);
-        context.Response.ContentLength64 = buffer.Length;
-        await context.Response.OutputStream.WriteAsync(buffer);
-        context.Response.Close();
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string? key in headers.AllKeys)
+            if (key is not null) dict[key] = headers[key] ?? "";
+        return dict;
+    }
+
+    private static async Task RespondAsync(HttpListenerContext ctx, int code, string body)
+    {
+        ctx.Response.StatusCode = code;
+        ctx.Response.ContentType = "text/plain";
+        var buf = System.Text.Encoding.UTF8.GetBytes(body);
+        ctx.Response.ContentLength64 = buf.Length;
+        await ctx.Response.OutputStream.WriteAsync(buf);
+        ctx.Response.Close();
     }
 }

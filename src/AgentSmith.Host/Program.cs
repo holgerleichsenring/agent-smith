@@ -207,8 +207,17 @@ static ServiceProvider BuildServiceProvider(
     });
     services.AddAgentSmithInfrastructure();
     services.AddAgentSmithCommands();
+    RegisterWebhookHandlers(services);
     RegisterProgressReporter(services, headless, jobId, redisUrl);
     return services.BuildServiceProvider();
+}
+
+static void RegisterWebhookHandlers(IServiceCollection services)
+{
+    services.AddSingleton<IWebhookHandler, AgentSmith.Host.Services.Webhooks.GitHubIssueWebhookHandler>();
+    services.AddSingleton<IWebhookHandler, AgentSmith.Host.Services.Webhooks.GitHubPrLabelWebhookHandler>();
+    services.AddSingleton<IWebhookHandler, AgentSmith.Host.Services.Webhooks.GitLabMrLabelWebhookHandler>();
+    services.AddSingleton<IWebhookHandler, AgentSmith.Host.Services.Webhooks.AzureDevOpsWorkItemWebhookHandler>();
 }
 
 static void RegisterProgressReporter(
