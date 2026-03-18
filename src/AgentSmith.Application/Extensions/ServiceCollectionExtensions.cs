@@ -45,6 +45,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
         services.AddTransient<ICommandHandler<CompileDiscussionContext>, CompileDiscussionHandler>();
+        services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>();
+        services.AddTransient<ICommandHandler<BootstrapDocumentContext>, BootstrapDocumentHandler>();
+        services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -72,6 +75,9 @@ public static class ServiceCollectionExtensions
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
         AddBuilder<CompileDiscussionContextBuilder>(services, CommandNames.CompileDiscussion);
+        AddBuilder<AcquireSourceContextBuilder>(services, CommandNames.AcquireSource);
+        AddBuilder<BootstrapDocumentContextBuilder>(services, CommandNames.BootstrapDocument);
+        AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
