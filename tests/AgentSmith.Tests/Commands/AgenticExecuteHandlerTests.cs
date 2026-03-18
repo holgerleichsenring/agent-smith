@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -17,6 +18,7 @@ namespace AgentSmith.Tests.Commands;
 public sealed class AgenticExecuteHandlerTests
 {
     private readonly Mock<IAgentProviderFactory> _factoryMock = new();
+    private readonly Mock<IDecisionLogger> _decisionLoggerMock = new();
     private readonly Mock<IProgressReporter> _reporterMock = new();
     private readonly AgenticExecuteHandler _handler;
 
@@ -24,6 +26,7 @@ public sealed class AgenticExecuteHandlerTests
     {
         _handler = new AgenticExecuteHandler(
             _factoryMock.Object,
+            _decisionLoggerMock.Object,
             _reporterMock.Object,
             NullLoggerFactory.Instance.CreateLogger<AgenticExecuteHandler>());
     }
@@ -105,6 +108,53 @@ public sealed class AgenticExecuteHandlerTests
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>().WithMessage("Execution failed");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithDecisions_WritesViaDecisionLogger()
+    {
+        var changes = new List<CodeChange>();
+        var decisions = new List<PlanDecision>
+        {
+            new("Architecture", "**Sealed classes**: prevents accidental inheritance"),
+            new("TradeOff", "**No local Dynamics**: dev always against real environment")
+        };
+        var executionResult = new AgentExecutionResult(changes, null, null, decisions);
+        SetupProvider(executionResult);
+
+        var pipeline = new PipelineContext();
+        var context = CreateContext(pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        _decisionLoggerMock.Verify(d => d.LogAsync(
+            "/tmp", DecisionCategory.Architecture,
+            "**Sealed classes**: prevents accidental inheritance",
+            It.IsAny<CancellationToken>()), Times.Once);
+        _decisionLoggerMock.Verify(d => d.LogAsync(
+            "/tmp", DecisionCategory.TradeOff,
+            "**No local Dynamics**: dev always against real environment",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithDecisions_StoresDecisionsInPipeline()
+    {
+        var decisions = new List<PlanDecision>
+        {
+            new("Architecture", "**Sealed**: reason"),
+            new("TradeOff", "**No local**: reason")
+        };
+        var executionResult = new AgentExecutionResult(new List<CodeChange>(), null, null, decisions);
+        SetupProvider(executionResult);
+
+        var pipeline = new PipelineContext();
+        var context = CreateContext(pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var stored).Should().BeTrue();
+        stored.Should().HaveCount(2);
     }
 
     private void SetupProvider(AgentExecutionResult executionResult)

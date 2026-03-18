@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -10,9 +11,11 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Executes the plan via AI agent agentic loop (tool calling).
+/// Writes execution decisions to the decision log after completion.
 /// </summary>
 public sealed class AgenticExecuteHandler(
     IAgentProviderFactory factory,
+    IDecisionLogger decisionLogger,
     IProgressReporter progressReporter,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
@@ -35,9 +38,31 @@ public sealed class AgenticExecuteHandler(
         if (result.DurationSeconds is not null)
             context.Pipeline.Set(ContextKeys.RunDurationSeconds, result.DurationSeconds.Value);
 
+        if (result.Decisions is { Count: > 0 })
+        {
+            foreach (var d in result.Decisions)
+            {
+                if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
+                    await decisionLogger.LogAsync(
+                        context.Repository.LocalPath, cat, d.Decision, cancellationToken);
+            }
+
+            StoreDecisionsInPipeline(context.Pipeline, result.Decisions);
+        }
+
         logger.LogInformation(
-            "Agentic execution completed: {Count} files changed", result.Changes.Count);
+            "Agentic execution completed: {Count} files changed, {Decisions} decisions",
+            result.Changes.Count, result.Decisions?.Count ?? 0);
 
         return CommandResult.Ok($"Agentic execution completed: {result.Changes.Count} files changed");
+    }
+
+    private static void StoreDecisionsInPipeline(
+        PipelineContext pipeline, IReadOnlyList<PlanDecision> decisions)
+    {
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var existing);
+        var all = existing ?? new List<PlanDecision>();
+        all.AddRange(decisions);
+        pipeline.Set(ContextKeys.Decisions, all);
     }
 }

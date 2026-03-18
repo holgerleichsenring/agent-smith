@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -8,9 +10,11 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Generates an execution plan using the AI agent provider.
+/// Writes plan decisions to the decision log after parsing.
 /// </summary>
 public sealed class GeneratePlanHandler(
     IAgentProviderFactory factory,
+    IDecisionLogger decisionLogger,
     ILogger<GeneratePlanHandler> logger)
     : ICommandHandler<GeneratePlanContext>
 {
@@ -32,10 +36,38 @@ public sealed class GeneratePlanHandler(
 
         context.Pipeline.Set(ContextKeys.Plan, plan);
 
+        if (plan.Decisions.Count > 0)
+        {
+            context.Pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo);
+            await WriteDecisionsAsync(repo?.LocalPath, plan.Decisions, cancellationToken);
+            StoreDecisionsInPipeline(context.Pipeline, plan.Decisions);
+        }
+
         logger.LogInformation(
-            "Plan generated: {Summary} ({Steps} steps)",
-            plan.Summary, plan.Steps.Count);
+            "Plan generated: {Summary} ({Steps} steps, {Decisions} decisions)",
+            plan.Summary, plan.Steps.Count, plan.Decisions.Count);
 
         return CommandResult.Ok($"Plan generated with {plan.Steps.Count} steps");
+    }
+
+    private async Task WriteDecisionsAsync(
+        string? repoPath, IReadOnlyList<PlanDecision> decisions,
+        CancellationToken cancellationToken)
+    {
+        foreach (var d in decisions)
+        {
+            if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
+                await decisionLogger.LogAsync(repoPath, cat, d.Decision, cancellationToken);
+            else
+                logger.LogWarning("Unknown decision category '{Category}', skipping", d.Category);
+        }
+    }
+
+    private static void StoreDecisionsInPipeline(PipelineContext pipeline, IReadOnlyList<PlanDecision> decisions)
+    {
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var existing);
+        var all = existing ?? new List<PlanDecision>();
+        all.AddRange(decisions);
+        pipeline.Set(ContextKeys.Decisions, all);
     }
 }

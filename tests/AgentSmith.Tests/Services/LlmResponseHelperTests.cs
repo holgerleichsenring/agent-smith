@@ -1,4 +1,4 @@
-using AgentSmith.Infrastructure.Services;
+using AgentSmith.Infrastructure.Core.Services;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;

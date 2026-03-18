@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Infrastructure.Services.Detection;
+namespace AgentSmith.Infrastructure.Core.Services.Detection;
 
 public sealed partial class DotNetLanguageDetector(
     ILogger<DotNetLanguageDetector> logger) : ILanguageDetector

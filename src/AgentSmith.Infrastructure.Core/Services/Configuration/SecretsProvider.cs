@@ -1,6 +1,6 @@
 using AgentSmith.Domain.Exceptions;
 
-namespace AgentSmith.Infrastructure.Services.Configuration;
+namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
 /// Reads secrets from environment variables.
