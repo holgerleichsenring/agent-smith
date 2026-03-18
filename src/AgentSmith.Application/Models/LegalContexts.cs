@@ -22,8 +22,10 @@ public sealed record BootstrapDocumentContext(
 
 /// <summary>
 /// Context for writing the analysis output and archiving the source document.
+/// When OutputFormat is set, delegates to the matching IOutputStrategy.
 /// </summary>
 public sealed record DeliverOutputContext(
     SourceConfig Config,
     Repository Repository,
-    PipelineContext Pipeline) : ICommandContext;
+    PipelineContext Pipeline,
+    string? OutputFormat = null) : ICommandContext;

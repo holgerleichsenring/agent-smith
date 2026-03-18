@@ -1,20 +1,22 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
 /// Agent provider for locally-hosted LLMs via Ollama (OpenAI-compatible API).
-/// Supports native tool calling or structured text fallback depending on model capabilities.
+/// Supports native tool calling or structured text fallback.
 /// </summary>
 public sealed class OllamaAgentProvider(
     string model,
-    string endpoint,
+    OpenAiCompatibleClient client,
     bool hasToolCalling,
     IModelRegistry? modelRegistry,
     PricingConfig? pricing,
@@ -26,17 +28,26 @@ public sealed class OllamaAgentProvider(
         Ticket ticket, CodeAnalysis codeAnalysis, string codingPrinciples,
         string? codeMap, string? projectContext, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Generating plan via Ollama ({Model}) at {Endpoint}", model, endpoint);
+        var planModel = ResolveModel(TaskType.Planning);
+        logger.LogInformation("Generating plan via Ollama ({Model})", planModel.Model);
 
-        // Ollama uses same plan generation as OpenAI (JSON response, no tool calling)
-        // Delegate to shared OpenAI-compatible logic
-        var client = new OpenAiCompatibleClient(endpoint + "/v1", null, logger);
+        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(
+            codingPrinciples, codeMap, projectContext);
+        var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
-        // For now, return a placeholder — full implementation mirrors OpenAiAgentProvider
-        // with the OpenAiCompatibleClient replacing the official OpenAI SDK
-        throw new NotImplementedException(
-            "OllamaAgentProvider.GeneratePlanAsync requires OpenAiCompatibleClient integration. " +
-            "This is a structural placeholder — wire the client in a follow-up.");
+        var messages = new System.Text.Json.Nodes.JsonArray
+        {
+            Msg("system", systemPrompt),
+            Msg("user", userPrompt)
+        };
+
+        var response = await client.ChatCompleteAsync(
+            planModel.Model, messages, null, planModel.MaxTokens, cancellationToken);
+
+        var content = response.GetProperty("choices")[0]
+            .GetProperty("message").GetProperty("content").GetString() ?? "";
+
+        return PlanParser.Parse("Ollama", content);
     }
 
     public async Task<AgentExecutionResult> ExecutePlanAsync(
@@ -44,24 +55,54 @@ public sealed class OllamaAgentProvider(
         string? codeMap, string? projectContext,
         IProgressReporter progressReporter, CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
+        var primaryModel = ResolveModel(TaskType.Primary);
+
         logger.LogInformation(
-            "Executing plan via Ollama ({Model}, tool_calling={HasTools}) at {Endpoint}",
-            model, hasToolCalling, endpoint);
+            "Executing plan via Ollama ({Model}, tool_calling={HasTools})",
+            primaryModel.Model, hasToolCalling);
+
+        var fileReadTracker = new FileReadTracker();
+        var toolExecutor = new ToolExecutor(
+            repository.LocalPath, logger, fileReadTracker, progressReporter);
+
+        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(
+            codingPrinciples, codeMap, projectContext);
+        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
+
+        IReadOnlyList<CodeChange> changes;
 
         if (hasToolCalling)
         {
-            // Native tool calling — same flow as OpenAI
-            logger.LogDebug("Using native tool calling");
+            var loop = new OllamaAgenticLoop(
+                client, primaryModel.Model, toolExecutor, logger, progressReporter, 25);
+            changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
         }
         else
         {
-            // Structured text fallback — prompt returns JSON action list
-            logger.LogDebug("Using structured text fallback (no tool calling support)");
+            logger.LogWarning("Ollama model {Model} does not support tool calling. " +
+                              "Structured text fallback not yet implemented.", primaryModel.Model);
+            changes = toolExecutor.GetChanges();
         }
 
-        // Structural placeholder — full implementation in follow-up
-        throw new NotImplementedException(
-            "OllamaAgentProvider.ExecutePlanAsync requires tool executor integration. " +
-            "This is a structural placeholder — wire the client in a follow-up.");
+        var decisions = toolExecutor.GetDecisions();
+        sw.Stop();
+
+        logger.LogInformation(
+            "Ollama execution completed: {Changes} files, {Decisions} decisions in {Seconds}s",
+            changes.Count, decisions.Count, (int)sw.Elapsed.TotalSeconds);
+
+        return new AgentExecutionResult(changes, null, (int)sw.Elapsed.TotalSeconds, decisions);
     }
+
+    private ModelAssignment ResolveModel(TaskType taskType)
+    {
+        if (modelRegistry is not null)
+            return modelRegistry.GetModel(taskType);
+
+        return new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
+    }
+
+    private static System.Text.Json.Nodes.JsonObject Msg(string role, string content) =>
+        new() { ["role"] = role, ["content"] = content };
 }
