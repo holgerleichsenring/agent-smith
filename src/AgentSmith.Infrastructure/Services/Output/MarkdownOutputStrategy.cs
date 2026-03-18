@@ -11,7 +11,7 @@ namespace AgentSmith.Infrastructure.Services.Output;
 public sealed class MarkdownOutputStrategy(
     ILogger<MarkdownOutputStrategy> logger) : IOutputStrategy
 {
-    public string StrategyType => "markdown";
+    public string ProviderType => "markdown";
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
@@ -36,11 +36,9 @@ public sealed class MarkdownOutputStrategy(
             return sb.ToString();
         }
 
-        var high = findings.Count(f => f.Severity.Equals("HIGH", StringComparison.OrdinalIgnoreCase));
-        var medium = findings.Count(f => f.Severity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase));
-        var low = findings.Count(f => f.Severity.Equals("LOW", StringComparison.OrdinalIgnoreCase));
+        var s = FindingSummary.From(findings);
 
-        sb.AppendLine($"Found {findings.Count} issues ({high} HIGH, {medium} MEDIUM, {low} LOW)");
+        sb.AppendLine($"Found {s.Total} issues ({s.High} HIGH, {s.Medium} MEDIUM, {s.Low} LOW)");
         sb.AppendLine();
 
         sb.AppendLine("| Severity | File | Line | Issue |");

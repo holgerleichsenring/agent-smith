@@ -1,3 +1,4 @@
+using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -40,7 +41,7 @@ public sealed class GeneratePlanHandler(
         {
             context.Pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo);
             await WriteDecisionsAsync(repo?.LocalPath, plan.Decisions, cancellationToken);
-            StoreDecisionsInPipeline(context.Pipeline, plan.Decisions);
+            context.Pipeline.AppendDecisions(plan.Decisions);
         }
 
         logger.LogInformation(
@@ -61,13 +62,5 @@ public sealed class GeneratePlanHandler(
             else
                 logger.LogWarning("Unknown decision category '{Category}', skipping", d.Category);
         }
-    }
-
-    private static void StoreDecisionsInPipeline(PipelineContext pipeline, IReadOnlyList<PlanDecision> decisions)
-    {
-        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var existing);
-        var all = existing ?? new List<PlanDecision>();
-        all.AddRange(decisions);
-        pipeline.Set(ContextKeys.Decisions, all);
     }
 }

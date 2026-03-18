@@ -1,3 +1,4 @@
+using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -47,7 +48,7 @@ public sealed class AgenticExecuteHandler(
                         context.Repository.LocalPath, cat, d.Decision, cancellationToken);
             }
 
-            StoreDecisionsInPipeline(context.Pipeline, result.Decisions);
+            context.Pipeline.AppendDecisions(result.Decisions);
         }
 
         logger.LogInformation(
@@ -55,14 +56,5 @@ public sealed class AgenticExecuteHandler(
             result.Changes.Count, result.Decisions?.Count ?? 0);
 
         return CommandResult.Ok($"Agentic execution completed: {result.Changes.Count} files changed");
-    }
-
-    private static void StoreDecisionsInPipeline(
-        PipelineContext pipeline, IReadOnlyList<PlanDecision> decisions)
-    {
-        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var existing);
-        var all = existing ?? new List<PlanDecision>();
-        all.AddRange(decisions);
-        pipeline.Set(ContextKeys.Decisions, all);
     }
 }
