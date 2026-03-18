@@ -3,7 +3,7 @@ meta:
   project: agent-smith
   version: 1.0.0
   type: [agent, pipeline]
-  purpose: "Self-hosted AI coding agent: reads issues, plans, codes, creates PRs."
+  purpose: "Self-hosted AI orchestration framework: code, legal, security, workflows."
 
 stack:
   runtime: .NET 8

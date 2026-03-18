@@ -1,12 +1,16 @@
 # Agent Smith
 
+**Your AI. Your infrastructure. Your rules.**
+
+Self-hosted AI orchestration · code · legal · security · workflows
+
 [![Agent smith](/docs/agent-smith-logo-large-green.png)](logo)
 
-An open-source, self-hosted AI coding agent that reads your tickets and ships the code. Also reviews contracts, scans for vulnerabilities, and runs on your local GPU if you want. Not bad for a program named after a movie villain.
+Agent Smith is an open-source framework for building and running AI-powered workflows. You define a pipeline as a chain of steps. Each step has a handler. Steps can spawn sub-agents, run multi-role discussions, call tools, or just move files around. The framework handles orchestration, tool calling, cost tracking, and delivery.
 
-Agent Smith connects to your ticket system, clones your repo, reads the codebase, writes an implementation plan, executes it, runs the tests, and opens a pull request. Fully automated. No human in the loop unless you want one.
+Out of the box it ships with pipelines for fixing bugs, adding features, analyzing legal contracts, scanning code for security vulnerabilities, and running multi-agent design discussions. Those are presets. You can build your own.
 
-You say you've seen that before? Fair point. The difference is that Agent Smith runs on your infrastructure. Your API keys. Your data. Your rules. No SaaS platform skimming your source code.
+Everything runs on your infrastructure. Your API keys. Your data. Cloud models or local ones on your own GPU. No SaaS platform in between.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)

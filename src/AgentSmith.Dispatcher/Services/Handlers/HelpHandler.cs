@@ -26,7 +26,7 @@ public sealed class HelpHandler(
     public async Task SendGreetingAsync(string channelId, CancellationToken ct)
     {
         await adapter.SendMessageAsync(channelId,
-            ":wave: Hey! I'm Agent Smith — an autonomous coding agent.\n" +
+            ":wave: Hey! I'm Agent Smith — AI orchestration for code, legal, security, and workflows.\n" +
             "Type `help` to see what I can do.", ct);
     }
 

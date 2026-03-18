@@ -50,7 +50,7 @@ var dryRunOption = new Option<bool>(
 var pipelineOption = new Option<string>(
     "--pipeline", () => string.Empty, "Override pipeline name (e.g. init-project)");
 
-var runCommand = new Command("run", "Process a ticket (plan → execute → PR)")
+var runCommand = new Command("run", "Execute a pipeline (ticket, analysis, scan)")
 {
     runInputArg, configOption, dryRunOption, verboseOption, headlessOption,
     jobIdOption, redisUrlOption, channelIdOption, platformOption, pipelineOption
@@ -185,7 +185,7 @@ serverCommand.SetHandler(async (InvocationContext ctx) =>
 
 // --- Root command ---
 
-var rootCommand = new RootCommand("Agent Smith - AI Coding Agent")
+var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration")
 {
     runCommand,
     securityScanCommand,
@@ -262,8 +262,8 @@ static void PrintBanner()
  ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║       ███████║██║ ╚═╝ ██║██║   ██║   ██║  ██║
  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝  ╚═╝       ╚══════╝╚═╝     ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝");
     Console.ForegroundColor = ConsoleColor.DarkGreen;
-    Console.WriteLine("  Self-hosted AI coding agent · ticket → code → PR\n");
-
+    Console.WriteLine("  Your AI. Your infrastructure. Your rules.\n");
+    Console.WriteLine("  code · legal · security · workflows\n");
     Console.ForegroundColor = original;
 }
 
