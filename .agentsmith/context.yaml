@@ -100,7 +100,7 @@ state:
     p43a: "CI/CD: GitHub Action, Docker Hub publishing, multi-arch, Dockerfile optimization"
     p43b: "Security pipeline: CLI subcommands, IPrDiffProvider, IOutputStrategy, security skills (478 tests)"
     p43c: "SARIF output: SarifOutputStrategy, MarkdownOutputStrategy, IPrCommentProvider (488 tests)"
-    p43d: "Ollama local models: OllamaAgentProvider, OpenAiCompatibleClient, hybrid routing (492 tests)"
+    p43d: "Ollama local models: OllamaAgentProvider, OllamaAgenticLoop, capability check, IOutputStrategy DI, IPrCommentProvider (492 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
