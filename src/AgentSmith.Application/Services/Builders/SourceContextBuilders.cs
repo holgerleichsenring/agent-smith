@@ -25,6 +25,10 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
         if (initMode)
             return new CheckoutSourceContext(project.Source, new BranchName("agentsmith/init"), pipeline);
 
+        if (pipeline.TryGet<string>(ContextKeys.ScanBranch, out var scanBranch)
+            && !string.IsNullOrWhiteSpace(scanBranch))
+            return new CheckoutSourceContext(project.Source, new BranchName(scanBranch), pipeline);
+
         var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
         return new CheckoutSourceContext(project.Source, BranchName.FromTicket(ticketId), pipeline);
     }
