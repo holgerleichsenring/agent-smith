@@ -8,6 +8,7 @@ public sealed class AgentConfig
     public string Type { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string? Endpoint { get; set; }
+    public string? ApiKeySecret { get; set; }
     public RetryConfig Retry { get; set; } = new();
     public CacheConfig Cache { get; set; } = new();
     public CompactionConfig Compaction { get; set; } = new();

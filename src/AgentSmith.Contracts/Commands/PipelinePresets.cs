@@ -72,7 +72,7 @@ public static class PipelinePresets
         CommandNames.BootstrapProject,
         CommandNames.LoadDomainRules,
         CommandNames.AnalyzeCode,
-        CommandNames.Triage,
+        CommandNames.SecurityTriage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
         CommandNames.DeliverOutput,

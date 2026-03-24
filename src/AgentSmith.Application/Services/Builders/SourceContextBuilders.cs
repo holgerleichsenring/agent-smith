@@ -29,6 +29,9 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
             && !string.IsNullOrWhiteSpace(scanBranch))
             return new CheckoutSourceContext(project.Source, new BranchName(scanBranch), pipeline);
 
+        if (pipeline.Has(ContextKeys.ScanRepoPath))
+            return new CheckoutSourceContext(project.Source, new BranchName("main"), pipeline);
+
         var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
         return new CheckoutSourceContext(project.Source, BranchName.FromTicket(ticketId), pipeline);
     }
