@@ -75,10 +75,12 @@ public sealed class ConvergenceCheckHandler(
 
             var commandsToInsert = new List<string>();
             var nextRound = currentMaxRound + 1;
+            var skillRoundCmd = context.Pipeline.Has(ContextKeys.Ticket)
+                ? "SkillRoundCommand" : "SecuritySkillRoundCommand";
 
             foreach (var objector in objectors)
             {
-                commandsToInsert.Add($"SkillRoundCommand:{objector}:{nextRound}");
+                commandsToInsert.Add($"{skillRoundCmd}:{objector}:{nextRound}");
             }
 
             commandsToInsert.Add("ConvergenceCheckCommand");
@@ -120,27 +122,32 @@ public sealed class ConvergenceCheckHandler(
         var discussionText = string.Join("\n\n---\n\n", discussionLog.Select(e =>
             $"{e.Emoji} {e.DisplayName} (Round {e.Round}):\n{e.Content}"));
 
-        var ticket = context.Pipeline.Get<Ticket>(ContextKeys.Ticket);
+        context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket);
 
         var escalationNote = escalated
-            ? "\nNOTE: Not all roles agreed. Note the dissenting views in the plan."
+            ? "\nNOTE: Not all roles agreed. Note the dissenting views in the summary."
             : "";
 
-        var systemPrompt = "You are consolidating a planning discussion into a final implementation plan.";
+        var systemPrompt = "You are consolidating a multi-specialist discussion into a final summary.";
+
+        var inputSection = ticket is not null
+            ? $"""
+                ## Ticket
+                {ticket.Title}
+                {ticket.Description}
+                """
+            : "## Analysis Target\nSee discussion below for context.";
 
         var userPrompt = $"""
-            ## Ticket
-            {ticket.Title}
-            {ticket.Description}
+            {inputSection}
 
             ## Discussion
             {discussionText}
             {escalationNote}
 
             ## Task
-            Create a consolidated implementation plan that incorporates all agreed-upon decisions.
-            Format the plan as a numbered list of concrete implementation steps.
-            Each step should include: what to do, which files to modify, and the approach.
+            Create a consolidated summary that incorporates all findings and agreed-upon decisions.
+            Format as a numbered list of concrete items.
             """;
 
         try
@@ -155,7 +162,8 @@ public sealed class ConvergenceCheckHandler(
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .Select((l, i) => new PlanStep(i + 1, l.TrimStart('-', ' ', '*'), null, "modify"))
                 .ToList();
-            var plan = new Plan(ticket.Title, steps, consolidatedPlan);
+            var title = ticket?.Title ?? "Security Scan Findings";
+            var plan = new Plan(title, steps, consolidatedPlan);
             context.Pipeline.Set(ContextKeys.Plan, plan);
 
             logger.LogInformation("Consolidated plan stored ({Chars} chars)", consolidatedPlan.Length);

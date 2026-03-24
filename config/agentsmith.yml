@@ -171,6 +171,52 @@ projects:
     pipeline: security-scan
     skills_path: skills/security
 
+  agent-smith-security-claude:
+    source:
+      type: GitHub
+      url: https://github.com/holgerleichsenring/agent-smith
+      auth: token
+    tickets:
+      type: GitHub
+      url: https://github.com/holgerleichsenring/agent-smith
+      auth: token
+    agent:
+      type: Claude
+      model: claude-sonnet-4-20250514
+      retry:
+        max_retries: 5
+        initial_delay_ms: 2000
+        backoff_multiplier: 2.0
+        max_delay_ms: 60000
+      cache:
+        is_enabled: true
+        strategy: automatic
+      models:
+        scout:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 4096
+        primary:
+          model: claude-sonnet-4-20250514
+          max_tokens: 8192
+        planning:
+          model: claude-sonnet-4-20250514
+          max_tokens: 4096
+        summarization:
+          model: claude-haiku-4-5-20251001
+          max_tokens: 2048
+      pricing:
+        models:
+          claude-sonnet-4-20250514:
+            input_per_million: 3.0
+            output_per_million: 15.0
+            cache_read_per_million: 0.30
+          claude-haiku-4-5-20251001:
+            input_per_million: 0.80
+            output_per_million: 4.0
+            cache_read_per_million: 0.08
+    pipeline: security-scan
+    skills_path: skills/security
+
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}
   github_token: ${GITHUB_TOKEN}
