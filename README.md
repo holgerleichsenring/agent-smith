@@ -60,13 +60,25 @@ Agent Smith is not a one-trick pony. It ships with seven pipeline presets and yo
 
 ### Security Scanning
 
-**security-scan** is the newest pipeline. Point it at a repo or a pull request and it runs a team of security specialists over the code: a Vulnerability Analyst who checks for OWASP Top 10, an Auth Reviewer who knows JWT and OAuth inside out, an Injection Checker who traces every user input to every database query, a Secrets Detector who finds your hardcoded API keys, and a False Positive Filter who throws out everything that smells like noise. Confidence below 8 out of 10? Gone.
+**security-scan** analyzes a codebase for security vulnerabilities. Point it at a repo, a branch, or a pull request. A team of security specialists reviews the code: a Vulnerability Analyst who checks for OWASP Top 10, an Auth Reviewer who knows JWT and OAuth inside out, an Injection Checker who traces every user input to every database query, a Secrets Detector who finds your hardcoded API keys, and a False Positive Filter who throws out everything below confidence 8/10.
 
 Output comes in three flavors. SARIF for your GitHub Security tab or GitLab security widget. Markdown for a PR comment that your team can read. Console for local runs where you just want to see what's wrong.
 
 ```bash
 agent-smith security-scan --repo ./my-api --output sarif
 agent-smith security-scan --repo . --pr 42 --output markdown
+agent-smith security-scan --repo . --branch feature/auth --output console
+```
+
+### API Security Scanning
+
+**api-scan** is a different beast. Point it at a running API with its swagger.json and it runs a Nuclei container for automated vulnerability detection, then sends the results plus the full OpenAPI spec through a panel of API security specialists. The API Design Auditor checks for OWASP API Security Top 10 (2023): missing pagination, inconsistent auth, BOLA-prone endpoints, SSRF-eligible parameters, admin paths without elevated permissions. The Auth Tester reviews JWT, OAuth flows, and API key handling. The Vulnerability Analyst maps Nuclei findings to OWASP categories.
+
+In its first real scan, it analyzed a 33-endpoint .NET API and found that the Swagger spec declared OAuth2 but attached it to zero endpoints. Every endpoint showed `auth: False`. The Auth Reviewer correctly flagged this as a complete authentication bypass. Turned out the code had `[Authorize]` attributes but Swashbuckle wasn't reflecting them in the spec. A real finding, just not the one anyone expected.
+
+```bash
+agent-smith api-scan --swagger https://api.example.com/swagger/v1/swagger.json --target https://api.example.com
+agent-smith api-scan --swagger ./swagger.json --target https://localhost:5000 --output sarif
 ```
 
 ### Legal Analysis
@@ -201,14 +213,21 @@ Every push to `main` builds both Docker images and publishes them to Docker Hub.
 
 ## CLI
 
+Every pipeline is its own verb. Explicit flags, no free-text parsing.
+
 ```
-agent-smith run "fix #42 in my-project"                    # process a ticket
-agent-smith run "fix #42 in my-project" --dry-run          # show pipeline only
-agent-smith run "fix #42 in my-project" --headless          # no approval prompt
-agent-smith security-scan --repo . --output sarif           # scan for vulnerabilities
-agent-smith security-scan --repo . --pr 42 --output markdown # scan a PR
-agent-smith server --port 8081                              # webhook listener mode
+agent-smith fix --ticket 42 --project my-api                   # fix a bug
+agent-smith feature --ticket 42 --project my-api               # add a feature
+agent-smith init --project my-api                              # bootstrap .agentsmith/
+agent-smith mad --ticket 42 --project my-api                   # design discussion
+agent-smith legal --source ./contract.pdf                      # analyze a document
+agent-smith security-scan --repo . --project my-api            # scan codebase
+agent-smith security-scan --repo . --branch feature/auth       # scan a branch
+agent-smith api-scan --swagger ./spec.json --target https://..  # scan a live API
+agent-smith server --port 8081                                 # webhook listener
 ```
+
+All verbs support `--dry-run`, `--config`, and `--verbose`.
 
 ---
 
@@ -261,7 +280,7 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
 ```
 ┌──────────────────────────────────────────────────────┐
 │                  AgentSmith.Host                      │
-│   CLI (System.CommandLine subcommands)                │
+│   CLI (8 verbs: fix, feature, init, mad, legal, ...)  │
 └──────────────┬───────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────┐
@@ -279,6 +298,7 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
 │   Tickets: AzureDevOps / GitHub / Jira / GitLab      │
 │   Source:  AzureRepos / GitHub / GitLab / Local       │
 │   Output:  SARIF / Markdown / Console                 │
+│   Scan:    Nuclei / SwaggerProvider                   │
 └──────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────┐
@@ -330,11 +350,11 @@ agent-smith/
 
 ## Roadmap
 
-Everything up to phase 43 is done. That's 45 completed phases. Here's what's next.
+Everything up to phase 46 is done. That's 48 completed phases. Here's what's next.
 
-**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing.
+**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama, Groq, any OpenAI-compatible endpoint). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. API security scanning with Nuclei and OWASP API Top 10 skills. CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing. Verb-per-pipeline CLI refactor. Tell-don't-ask architecture cleanup.
 
-**Planned:** Multi-repo support (p23). PR review iteration (p25). Provider decomposition into independently deployable projects (p40b-d). Webhook expansion for all three platforms (p43e).
+**Planned:** Multi-repo support (p23). PR review iteration (p25). Provider decomposition into independently deployable projects (p40b-d).
 
 ---
 
