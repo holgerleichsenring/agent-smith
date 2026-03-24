@@ -10,7 +10,9 @@ namespace AgentSmith.Infrastructure.Services.Providers;
 public sealed class SwaggerProvider(
     ILogger<SwaggerProvider> logger) : ISwaggerProvider
 {
-    private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private static readonly HttpClient HttpClient = new(
+        new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true })
+    { Timeout = TimeSpan.FromSeconds(30) };
 
     public async Task<SwaggerSpec> LoadAsync(string pathOrUrl, CancellationToken cancellationToken)
     {
