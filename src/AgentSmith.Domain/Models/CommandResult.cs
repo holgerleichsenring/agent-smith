@@ -22,7 +22,7 @@ public sealed record CommandResult
     public string? PrUrl { get; init; }
 
     /// <summary>Commands to insert directly after the current command in the pipeline.</summary>
-    public IReadOnlyList<string>? InsertNext { get; init; }
+    public IReadOnlyList<PipelineCommand>? InsertNext { get; init; }
 
     private CommandResult(bool success, string message, Exception? exception = null)
     {
@@ -38,7 +38,7 @@ public sealed record CommandResult
         return new(false, message, exception);
     }
 
-    public static CommandResult OkAndContinueWith(string message, params string[] nextCommands)
+    public static CommandResult OkAndContinueWith(string message, params PipelineCommand[] nextCommands)
     {
         return new(true, message)
         {

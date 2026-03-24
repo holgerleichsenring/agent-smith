@@ -54,7 +54,7 @@ public class CommandContextFactoryTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("123"));
 
-        var result = _sut.Create(CommandNames.FetchTicket, project, pipeline);
+        var result = _sut.Create(PipelineCommand.Simple(CommandNames.FetchTicket), project, pipeline);
 
         result.Should().BeOfType<FetchTicketContext>();
         var ctx = (FetchTicketContext)result;
@@ -68,7 +68,7 @@ public class CommandContextFactoryTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("456"));
 
-        var result = _sut.Create(CommandNames.CheckoutSource, project, pipeline);
+        var result = _sut.Create(PipelineCommand.Simple(CommandNames.CheckoutSource), project, pipeline);
 
         result.Should().BeOfType<CheckoutSourceContext>();
         var ctx = (CheckoutSourceContext)result;
@@ -86,7 +86,7 @@ public class CommandContextFactoryTests
             Array.Empty<string>(), Array.Empty<string>(), null, null));
         pipeline.Set(ContextKeys.CodingPrinciples, "principles");
 
-        var result = _sut.Create(CommandNames.GeneratePlan, project, pipeline);
+        var result = _sut.Create(PipelineCommand.Simple(CommandNames.GeneratePlan), project, pipeline);
 
         result.Should().BeOfType<GeneratePlanContext>();
         var ctx = (GeneratePlanContext)result;
@@ -100,7 +100,7 @@ public class CommandContextFactoryTests
         var project = CreateProjectConfig();
         var pipeline = new PipelineContext();
 
-        var act = () => _sut.Create("UnknownCommand", project, pipeline);
+        var act = () => _sut.Create(PipelineCommand.Simple("UnknownCommand"), project, pipeline);
 
         act.Should().Throw<ConfigurationException>()
             .WithMessage("*Unknown command*");
