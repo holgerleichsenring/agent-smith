@@ -33,6 +33,15 @@ public sealed class NucleiSpawnerTests
         findings.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("https://localhost:5000", "https://host.docker.internal:5000")]
+    [InlineData("https://127.0.0.1:8080", "https://host.docker.internal:8080")]
+    [InlineData("https://api.example.com", "https://api.example.com")]
+    public void RewriteLocalhostForDocker_ReplacesCorrectly(string input, string expected)
+    {
+        NucleiSpawner.RewriteLocalhostForDocker(input).Should().Be(expected);
+    }
+
     [Fact]
     public void ParseJsonLines_MixedWithStatusLines_SkipsNonJson()
     {
