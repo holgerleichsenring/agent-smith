@@ -90,9 +90,19 @@ Every provider is swappable. No vendor lock-in. Change one line in the config an
 
 **Gemini** from Google. Same deal.
 
-**Ollama** is the new kid. Run models locally on your own hardware. Qwen2.5-Coder, DeepSeek-R1, Mistral Small, Llama 3.3. Zero API costs. Agent Smith auto-detects whether the model supports tool calling. If it does, native tools. If it doesn't, structured text fallback. Transparent to the rest of the pipeline.
+**Ollama** runs models locally on your own hardware. Qwen2.5-Coder, DeepSeek-R1, Mistral Small, Llama 3.3. Zero API costs. Agent Smith auto-detects whether the model supports tool calling. If it does, native tools. If it doesn't, structured text fallback. Transparent to the rest of the pipeline.
 
-The model registry lets you mix providers per task. Use Claude for planning (where quality matters), Ollama for execution (where cost matters), and Haiku for scouting (where speed matters). All in one config file.
+**Any OpenAI-compatible endpoint** works out of the box. Groq, Together AI, Fireworks, vLLM, LiteLLM. Set `type: OpenAI`, point the endpoint at the API, done. Agent Smith ran its first successful security scan against its own codebase using Llama 3.3 70B on Groq's free tier. Four security specialists, multi-round discussion, real findings. Cost: $0.00.
+
+```yaml
+agent:
+  type: OpenAI
+  model: llama-3.3-70b-versatile
+  endpoint: https://api.groq.com/openai
+  api_key_secret: GROQ_API_KEY
+```
+
+The model registry lets you mix providers per task. Use Claude for planning (where quality matters), a local model for execution (where cost matters), and Haiku for scouting (where speed matters). All in one config file.
 
 ```yaml
 agent:
@@ -256,8 +266,8 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
                │
 ┌──────────────▼───────────────────────────────────────┐
 │               AgentSmith.Application                  │
-│   ProcessTicketUseCase → PipelineExecutor             │
-│   22 Command Handlers (one per pipeline step)         │
+│   ExecutePipelineUseCase → PipelineExecutor             │
+│   24 Command Handlers (one per pipeline step)         │
 └──────────────┬───────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────┐
@@ -279,7 +289,7 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
 └──────────────────────────────────────────────────────┘
 ```
 
-Clean Architecture. Every layer depends only inward. Every provider is behind an interface. 492 tests make sure it stays that way.
+Clean Architecture. Every layer depends only inward. Every provider is behind an interface. 511 tests make sure it stays that way.
 
 ---
 
@@ -290,13 +300,13 @@ agent-smith/
 ├── src/
 │   ├── AgentSmith.Domain/              # Entities, Value Objects, Exceptions
 │   ├── AgentSmith.Contracts/           # Interfaces, Commands, Config contracts
-│   ├── AgentSmith.Application/         # Use cases, pipeline, 22 command handlers
+│   ├── AgentSmith.Application/         # Use cases, pipeline, 24 command handlers
 │   ├── AgentSmith.Infrastructure.Core/ # Config, detection, code map, registries
 │   ├── AgentSmith.Infrastructure/      # Provider implementations (AI, Git, Tickets, Output)
 │   ├── AgentSmith.Host/               # CLI entry point, Webhook listener
 │   └── AgentSmith.Dispatcher/         # Chat gateway (Slack, Teams, K8s/Docker Jobs)
 ├── tests/
-│   └── AgentSmith.Tests/              # 492 tests (xUnit, Moq, FluentAssertions)
+│   └── AgentSmith.Tests/              # 511 tests (xUnit, Moq, FluentAssertions)
 ├── config/
 │   ├── agentsmith.example.yml         # Config template
 │   └── skills/                        # Role definitions
@@ -343,5 +353,5 @@ Use it. Modify it. Ship it. Just keep the license notice.
 ---
 
 <p align="center">
-  Built with Claude · Runs on .NET 8 · Ships via Docker · 492 tests and counting
+  Built with Claude · Runs on .NET 8 · Ships via Docker · 511 tests and counting
 </p>
