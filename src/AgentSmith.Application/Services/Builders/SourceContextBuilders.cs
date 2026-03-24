@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class FetchTicketContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
         return new FetchTicketContext(ticketId, project.Tickets, pipeline);
@@ -18,7 +18,7 @@ public sealed class FetchTicketContextBuilder : IContextBuilder
 
 public sealed class CheckoutSourceContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var initMode = pipeline.TryGet<bool>(ContextKeys.InitMode, out var isInit) && isInit;
 
@@ -39,7 +39,7 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
 
 public sealed class LoadDomainRulesContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var path = project.CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
@@ -49,7 +49,7 @@ public sealed class LoadDomainRulesContextBuilder : IContextBuilder
 
 public sealed class LoadContextContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadContextContext(repo, pipeline);
@@ -58,7 +58,7 @@ public sealed class LoadContextContextBuilder : IContextBuilder
 
 public sealed class LoadCodeMapContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadCodeMapContext(repo, pipeline);
@@ -67,7 +67,7 @@ public sealed class LoadCodeMapContextBuilder : IContextBuilder
 
 public sealed class BootstrapProjectContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new BootstrapProjectContext(repo, project.Agent, project.SkillsPath, pipeline);
