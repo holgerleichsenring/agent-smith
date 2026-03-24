@@ -24,6 +24,15 @@ public sealed class ApiSecurityTriageContextBuilder : IContextBuilder
         => new ApiSecurityTriageContext(project.Agent, pipeline);
 }
 
+public sealed class DeliverFindingsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    {
+        pipeline.TryGet<string>(ContextKeys.OutputFormat, out var format);
+        return new DeliverFindingsContext(format ?? "console", pipeline);
+    }
+}
+
 public sealed class LoadSkillsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)

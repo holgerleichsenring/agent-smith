@@ -38,6 +38,7 @@ public static class CommandNames
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
     public const string CompileFindings = "CompileFindingsCommand";
     public const string LoadSkills = "LoadSkillsCommand";
+    public const string DeliverFindings = "DeliverFindingsCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -87,5 +88,6 @@ public static class CommandNames
         [ApiSecuritySkillRound] = "API security skill round",
         [CompileFindings] = "Compiling findings",
         [LoadSkills] = "Loading skills",
+        [DeliverFindings] = "Delivering findings",
     };
 }

@@ -45,6 +45,7 @@ public class CommandContextFactoryTests
         new(CommandNames.ApiSecuritySkillRound, new ApiSecuritySkillRoundContextBuilder()),
         new(CommandNames.CompileFindings, new CompileFindingsContextBuilder()),
         new(CommandNames.LoadSkills, new LoadSkillsContextBuilder()),
+        new(CommandNames.DeliverFindings, new DeliverFindingsContextBuilder()),
     ];
 
     private readonly CommandContextFactory _sut = new(Builders);

@@ -86,7 +86,7 @@ public static class PipelinePresets
         CommandNames.ApiSecurityTriage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileFindings,
-        CommandNames.DeliverOutput,
+        CommandNames.DeliverFindings,
     ];
 
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
