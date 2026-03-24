@@ -174,6 +174,71 @@ securityScanCommand.SetHandler(async (InvocationContext ctx) =>
     ctx.ExitCode = result.IsSuccess ? 0 : 1;
 });
 
+// --- 'api-scan' subcommand ---
+
+var swaggerOption = new Option<string>(
+    "--swagger", "Path or URL to swagger.json / OpenAPI spec") { IsRequired = true };
+
+var targetOption = new Option<string>(
+    "--target", "Base URL of the running API") { IsRequired = true };
+
+var apiOutputOption = new Option<string>(
+    "--output", () => "console", "Output format: sarif | markdown | console");
+
+var apiProjectOption = new Option<string>(
+    "--project", () => string.Empty, "Project name from config (for multi-project configs)");
+
+var apiScanCommand = new Command("api-scan", "Scan a running API against its OpenAPI spec")
+{
+    swaggerOption, targetOption, apiOutputOption, apiProjectOption, configOption, verboseOption
+};
+
+apiScanCommand.SetHandler(async (InvocationContext ctx) =>
+{
+    var swagger = ctx.ParseResult.GetValueForOption(swaggerOption)!;
+    var target = ctx.ParseResult.GetValueForOption(targetOption)!;
+    var output = ctx.ParseResult.GetValueForOption(apiOutputOption) ?? "console";
+    var project = ctx.ParseResult.GetValueForOption(apiProjectOption) ?? string.Empty;
+    var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
+    var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
+
+    var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
+    var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
+
+    var input = !string.IsNullOrWhiteSpace(project)
+        ? $"api-scan in {project}"
+        : $"api-scan in api-security";
+
+    var swaggerPath = swagger.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+        ? swagger
+        : Path.GetFullPath(swagger);
+
+    var scanContext = new Dictionary<string, object>
+    {
+        [ContextKeys.SwaggerPath] = swaggerPath,
+        [ContextKeys.ApiTarget] = target,
+        [ContextKeys.OutputFormat] = output
+    };
+
+    CommandResult result;
+    try
+    {
+        result = await useCase.ExecuteAsync(input, configPath, headless: true, "api-security-scan",
+            CancellationToken.None, scanContext);
+    }
+    catch (Exception ex)
+    {
+        result = CommandResult.Fail($"Unhandled exception: {ex.Message}");
+        Console.Error.WriteLine($"Fatal: {ex}");
+    }
+
+    Console.WriteLine(result.IsSuccess
+        ? $"API scan complete: {result.Message}"
+        : $"API scan failed: {result.Message}");
+
+    ctx.ExitCode = result.IsSuccess ? 0 : 1;
+});
+
 // --- 'server' subcommand ---
 
 var portOption = new Option<int>(
@@ -200,6 +265,7 @@ var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration"
 {
     runCommand,
     securityScanCommand,
+    apiScanCommand,
     serverCommand,
 };
 

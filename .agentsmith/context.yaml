@@ -115,7 +115,8 @@ state:
     p43d: "Ollama local models: OllamaAgentProvider, OllamaAgenticLoop, capability check, IOutputStrategy DI, IPrCommentProvider (492 tests)"
     p43e: "Webhook expansion: IWebhookHandler dispatch, GitHub/GitLab/AzDO signature verification (503 tests)"
     p44: "Rename ProcessTicketUseCase → ExecutePipelineUseCase, rebrand to AI orchestration framework (511 tests)"
-  active: {}
+  active:
+    p45: "API security scan: Nuclei + swagger.json analysis, OWASP API Top 10 skills"
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
