@@ -373,5 +373,5 @@ Use it. Modify it. Ship it. Just keep the license notice.
 ---
 
 <p align="center">
-  Built with Claude · Runs on .NET 8 · Ships via Docker · 511 tests and counting
+  Built with Claude · Runs on .NET 8 · Ships via Docker · 517 tests and counting
 </p>
