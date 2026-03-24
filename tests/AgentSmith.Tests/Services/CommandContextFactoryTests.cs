@@ -43,6 +43,8 @@ public class CommandContextFactoryTests
         new(CommandNames.SpawnNuclei, new SpawnNucleiContextBuilder()),
         new(CommandNames.ApiSecurityTriage, new ApiSecurityTriageContextBuilder()),
         new(CommandNames.ApiSecuritySkillRound, new ApiSecuritySkillRoundContextBuilder()),
+        new(CommandNames.CompileFindings, new CompileFindingsContextBuilder()),
+        new(CommandNames.LoadSkills, new LoadSkillsContextBuilder()),
     ];
 
     private readonly CommandContextFactory _sut = new(Builders);

@@ -24,6 +24,18 @@ public sealed class ApiSecurityTriageContextBuilder : IContextBuilder
         => new ApiSecurityTriageContext(project.Agent, pipeline);
 }
 
+public sealed class LoadSkillsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new LoadSkillsContext(project.SkillsPath, pipeline);
+}
+
+public sealed class CompileFindingsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new CompileFindingsContext(pipeline);
+}
+
 public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)

@@ -36,6 +36,8 @@ public static class CommandNames
     public const string SpawnNuclei = "SpawnNucleiCommand";
     public const string ApiSecurityTriage = "ApiSecurityTriageCommand";
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
+    public const string CompileFindings = "CompileFindingsCommand";
+    public const string LoadSkills = "LoadSkillsCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -83,5 +85,7 @@ public static class CommandNames
         [SpawnNuclei] = "Running Nuclei scan",
         [ApiSecurityTriage] = "Triaging API security scan",
         [ApiSecuritySkillRound] = "API security skill round",
+        [CompileFindings] = "Compiling findings",
+        [LoadSkills] = "Loading skills",
     };
 }
