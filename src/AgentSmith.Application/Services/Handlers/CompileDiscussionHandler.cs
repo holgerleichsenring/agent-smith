@@ -32,6 +32,7 @@ public sealed class CompileDiscussionHandler(
 
         var ticketId = ticket?.Id.ToString() ?? "scan";
         var fileName = $"discussion-{ticketId}.md";
+
         var filePath = Path.Combine(context.Repository.LocalPath, fileName);
         await File.WriteAllTextAsync(filePath, markdown, cancellationToken);
 

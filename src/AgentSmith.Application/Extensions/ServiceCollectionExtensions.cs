@@ -54,6 +54,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<ApiSecurityTriageContext>, ApiSecurityTriageHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
+        services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
+        services.AddTransient<ICommandHandler<LoadSkillsContext>, LoadSkillsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -90,6 +92,8 @@ public static class ServiceCollectionExtensions
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<ApiSecurityTriageContextBuilder>(services, CommandNames.ApiSecurityTriage);
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
+        AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
+        AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)

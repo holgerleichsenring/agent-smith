@@ -82,9 +82,10 @@ public static class PipelinePresets
     [
         CommandNames.LoadSwagger,
         CommandNames.SpawnNuclei,
+        CommandNames.LoadSkills,
         CommandNames.ApiSecurityTriage,
         CommandNames.ConvergenceCheck,
-        CommandNames.CompileDiscussion,
+        CommandNames.CompileFindings,
         CommandNames.DeliverOutput,
     ];
 
