@@ -30,6 +30,7 @@ public static class CommandNames
     public const string AcquireSource = "AcquireSourceCommand";
     public const string BootstrapDocument = "BootstrapDocumentCommand";
     public const string DeliverOutput = "DeliverOutputCommand";
+    public const string SecurityTriage = "SecurityTriageCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -71,5 +72,6 @@ public static class CommandNames
         [AcquireSource] = "Acquiring source document",
         [BootstrapDocument] = "Bootstrapping document",
         [DeliverOutput] = "Delivering output",
+        [SecurityTriage] = "Triaging security scan",
     };
 }

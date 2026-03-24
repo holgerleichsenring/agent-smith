@@ -138,11 +138,33 @@ projects:
     pipeline: mad-discussion
     skills_path: skills/mad
 
+  agent-smith-security:
+    source:
+      type: GitHub
+      url: https://github.com/holgerleichsenring/agent-smith
+      auth: token
+    tickets:
+      type: GitHub
+      url: https://github.com/holgerleichsenring/agent-smith
+      auth: token
+    agent:
+      type: OpenAI
+      model: llama-3.3-70b-versatile
+      endpoint: https://api.groq.com/openai
+      api_key_secret: GROQ_API_KEY
+      models:
+        primary:
+          model: llama-3.3-70b-versatile
+          max_tokens: 8192
+    pipeline: security-scan
+    skills_path: skills/security
+
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
   openai_api_key: ${OPENAI_API_KEY}
   gemini_api_key: ${GEMINI_API_KEY}
+  groq_api_key: ${GROQ_API_KEY}
   jira_token: ${JIRA_TOKEN}
   jira_email: ${JIRA_EMAIL}
