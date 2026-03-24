@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddTransient<ICommandHandler<LoadSkillsContext>, LoadSkillsHandler>();
+        services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -94,6 +95,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
         AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);
+        AddBuilder<DeliverFindingsContextBuilder>(services, CommandNames.DeliverFindings);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
