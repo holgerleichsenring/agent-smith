@@ -2,7 +2,9 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Nuclei;
 using AgentSmith.Infrastructure.Services.Output;
+using AgentSmith.Infrastructure.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure;
@@ -25,6 +27,9 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
         services.AddKeyedSingleton<IOutputStrategy, SarifOutputStrategy>("sarif");
         services.AddKeyedSingleton<IOutputStrategy, MarkdownOutputStrategy>("markdown");
+
+        services.AddSingleton<ISwaggerProvider, SwaggerProvider>();
+        services.AddSingleton<INucleiScanner, NucleiSpawner>();
 
         return services;
     }
