@@ -25,12 +25,13 @@ public sealed class CompileDiscussionHandler(
             return CommandResult.Ok("No discussion log, skipping compilation");
         }
 
-        var ticket = context.Pipeline.Get<Ticket>(ContextKeys.Ticket);
+        context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket);
         context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var summary);
 
         var markdown = FormatDiscussion(ticket, log, summary);
 
-        var fileName = $"discussion-{ticket.Id}.md";
+        var ticketId = ticket?.Id.ToString() ?? "scan";
+        var fileName = $"discussion-{ticketId}.md";
         var filePath = Path.Combine(context.Repository.LocalPath, fileName);
         await File.WriteAllTextAsync(filePath, markdown, cancellationToken);
 
@@ -40,8 +41,8 @@ public sealed class CompileDiscussionHandler(
         };
         context.Pipeline.Set(ContextKeys.CodeChanges, (IReadOnlyList<CodeChange>)changes);
 
-        // Set a minimal Plan so CommitAndPR can generate a PR description
-        var plan = new Plan(ticket.Title, [], summary ?? "Discussion compiled");
+        var title = ticket?.Title ?? "Security Scan";
+        var plan = new Plan(title, [], summary ?? "Discussion compiled");
         context.Pipeline.Set(ContextKeys.Plan, plan);
 
         logger.LogInformation(
@@ -52,12 +53,13 @@ public sealed class CompileDiscussionHandler(
     }
 
     internal static string FormatDiscussion(
-        Ticket ticket, List<DiscussionEntry> log, string? summary)
+        Ticket? ticket, List<DiscussionEntry> log, string? summary)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"# {ticket.Title}");
+        sb.AppendLine($"# {ticket?.Title ?? "Security Scan Results"}");
         sb.AppendLine();
-        sb.AppendLine($"**Ticket:** #{ticket.Id}");
+        if (ticket is not null)
+            sb.AppendLine($"**Ticket:** #{ticket.Id}");
         sb.AppendLine($"**Date:** {DateTime.UtcNow:yyyy-MM-dd}");
         sb.AppendLine($"**Participants:** {string.Join(", ", log.Select(e => e.DisplayName).Distinct())}");
         sb.AppendLine();
