@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Delivers pipeline output via IOutputStrategy (when OutputFormat is set)
+/// Delivers pipeline output via IOutputStrategy (keyed by OutputFormat)
 /// or falls back to file-based outbox delivery (legal analysis pipeline).
 /// </summary>
 public sealed class DeliverOutputHandler(
@@ -19,41 +19,10 @@ public sealed class DeliverOutputHandler(
     public async Task<CommandResult> ExecuteAsync(
         DeliverOutputContext context, CancellationToken cancellationToken)
     {
-        if (string.Equals(context.OutputFormat, "console", StringComparison.OrdinalIgnoreCase))
-            return DeliverToConsole(context);
-
         if (!string.IsNullOrWhiteSpace(context.OutputFormat))
             return await DeliverViaStrategyAsync(context, cancellationToken);
 
         return await DeliverToFileAsync(context, cancellationToken);
-    }
-
-    private CommandResult DeliverToConsole(DeliverOutputContext context)
-    {
-        context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
-        context.Pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var log);
-
-        var output = consolidated;
-        if (string.IsNullOrWhiteSpace(output) && log is { Count: > 0 })
-        {
-            output = string.Join("\n\n---\n\n", log.Select(e =>
-                $"### {e.Emoji} {e.DisplayName} (Round {e.Round})\n\n{e.Content}"));
-        }
-
-        if (string.IsNullOrWhiteSpace(output))
-            return CommandResult.Ok("No findings to deliver");
-
-        Console.WriteLine();
-        Console.WriteLine("═══════════════════════════════════════════════════");
-        Console.WriteLine("  Agent Smith Security Review");
-        Console.WriteLine("═══════════════════════════════════════════════════");
-        Console.WriteLine();
-        Console.WriteLine(output);
-        Console.WriteLine();
-        Console.WriteLine("═══════════════════════════════════════════════════");
-
-        logger.LogInformation("Delivered findings to console ({Chars} chars)", output.Length);
-        return CommandResult.Ok($"Delivered to console ({output.Length} chars)");
     }
 
     private async Task<CommandResult> DeliverViaStrategyAsync(
@@ -91,7 +60,7 @@ public sealed class DeliverOutputHandler(
         await WriteToOutboxAsync(basePath, timestamp, sourceFileName, changes, cancellationToken);
         ArchiveSource(basePath, timestamp, sourceFileName, sourceFilePath);
 
-        return CommandResult.Ok($"Delivered analysis to outbox");
+        return CommandResult.Ok("Delivered analysis to outbox");
     }
 
     private async Task WriteToOutboxAsync(
