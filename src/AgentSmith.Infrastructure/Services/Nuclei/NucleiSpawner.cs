@@ -33,7 +33,8 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
             var args = $"run --rm --add-host=host.docker.internal:host-gateway -v {tempDir}:/input {NucleiImage} " +
                        $"-target {dockerTarget} -jsonl " +
                        $"-severity critical,high,medium,low " +
-                       $"-exclude-tags dos";
+                       $"-tags exposure,misconfig,token,auth,cors,header,ssl,api " +
+                       $"-exclude-tags dos,fuzz";
 
             logger.LogInformation("Starting Nuclei scan: {Target} (docker: {DockerTarget})",
                 targetUrl, dockerTarget);
