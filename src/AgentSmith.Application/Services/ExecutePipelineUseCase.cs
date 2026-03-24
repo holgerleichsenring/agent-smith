@@ -29,7 +29,8 @@ public sealed class ExecutePipelineUseCase(
         string configPath,
         bool headless,
         string? pipelineOverride,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Dictionary<string, object>? initialContext = null)
     {
         logger.LogInformation("Processing input: {Input}", userInput);
 
@@ -39,7 +40,7 @@ public sealed class ExecutePipelineUseCase(
                 initMatch.Groups[1].Value, configPath, pipelineOverride, headless, cancellationToken);
 
         return await ExecuteTicketAsync(
-            userInput, configPath, pipelineOverride, headless, cancellationToken);
+            userInput, configPath, pipelineOverride, headless, cancellationToken, initialContext);
     }
 
     private async Task<CommandResult> ExecuteTicketAsync(
@@ -47,7 +48,8 @@ public sealed class ExecutePipelineUseCase(
         string configPath,
         string? pipelineOverride,
         bool headless,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Dictionary<string, object>? initialContext = null)
     {
         var config = configLoader.LoadConfig(configPath);
         var intent = await intentParser.ParseAsync(userInput, cancellationToken);
@@ -67,6 +69,12 @@ public sealed class ExecutePipelineUseCase(
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, intent.TicketId);
         pipeline.Set(ContextKeys.Headless, headless);
+
+        if (initialContext is not null)
+        {
+            foreach (var (key, value) in initialContext)
+                pipeline.Set(key, value);
+        }
 
         var result = await pipelineExecutor.ExecuteAsync(
             commands, projectConfig, pipeline, cancellationToken);

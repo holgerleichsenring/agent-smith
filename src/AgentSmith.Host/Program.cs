@@ -114,6 +114,9 @@ var repoOption = new Option<string>(
 var prOption = new Option<string>(
     "--pr", () => string.Empty, "PR/MR number (diff only; if absent, full repo scan)");
 
+var branchOption = new Option<string>(
+    "--branch", () => string.Empty, "Branch to scan (diff against main/master; if absent, full repo scan)");
+
 var outputOption = new Option<string>(
     "--output", () => "console", "Output format: sarif | markdown | console");
 
@@ -122,13 +125,14 @@ var projectOption = new Option<string>(
 
 var securityScanCommand = new Command("security-scan", "Analyze code for security vulnerabilities")
 {
-    repoOption, prOption, outputOption, projectOption, configOption, verboseOption
+    repoOption, prOption, branchOption, outputOption, projectOption, configOption, verboseOption
 };
 
 securityScanCommand.SetHandler(async (InvocationContext ctx) =>
 {
     var repo = ctx.ParseResult.GetValueForOption(repoOption)!;
     var pr = ctx.ParseResult.GetValueForOption(prOption) ?? string.Empty;
+    var branch = ctx.ParseResult.GetValueForOption(branchOption) ?? string.Empty;
     var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
     var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
     var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
@@ -137,18 +141,25 @@ securityScanCommand.SetHandler(async (InvocationContext ctx) =>
     var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
     var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
-    // Build input string for the security-scan pipeline
     var input = !string.IsNullOrWhiteSpace(project)
         ? $"security-scan in {project}"
         : $"security-scan in {Path.GetFileName(Path.GetFullPath(repo))}";
 
-    // TODO: pass --repo and --pr to pipeline context once ExecutePipelineUseCase
-    // supports PipelineContext injection (currently input string is the only entry point)
+    var scanContext = new Dictionary<string, object>
+    {
+        [ContextKeys.ScanRepoPath] = Path.GetFullPath(repo),
+        [ContextKeys.OutputFormat] = output
+    };
+    if (!string.IsNullOrWhiteSpace(pr))
+        scanContext[ContextKeys.ScanPrIdentifier] = pr;
+    if (!string.IsNullOrWhiteSpace(branch))
+        scanContext[ContextKeys.ScanBranch] = branch;
 
     CommandResult result;
     try
     {
-        result = await useCase.ExecuteAsync(input, configPath, headless: true, "security-scan", CancellationToken.None);
+        result = await useCase.ExecuteAsync(input, configPath, headless: true, "security-scan",
+            CancellationToken.None, scanContext);
     }
     catch (Exception ex)
     {
