@@ -83,16 +83,19 @@ public abstract class TriageHandlerBase
                 $"Triage: single role ({triageResult.Participants[0]}), no discussion needed");
         }
 
-        var commandsToInsert = new List<string>();
-        commandsToInsert.Add($"{SkillRoundCommandName}:{triageResult.Lead}:1");
+        // Store the skill round command name so ConvergenceCheck can use it for re-insertion
+        pipeline.Set(ContextKeys.ActiveSkill, SkillRoundCommandName);
+
+        var commandsToInsert = new List<PipelineCommand>();
+        commandsToInsert.Add(PipelineCommand.SkillRound(SkillRoundCommandName, triageResult.Lead, 1));
 
         foreach (var participant in triageResult.Participants
                      .Where(p => p != triageResult.Lead))
         {
-            commandsToInsert.Add($"{SkillRoundCommandName}:{participant}:1");
+            commandsToInsert.Add(PipelineCommand.SkillRound(SkillRoundCommandName, participant, 1));
         }
 
-        commandsToInsert.Add("ConvergenceCheckCommand");
+        commandsToInsert.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
 
         Logger.LogInformation(
             "Triage complete. Lead: {Lead}, Participants: {Participants}",
