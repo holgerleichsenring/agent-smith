@@ -20,20 +20,13 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
-        var initMode = pipeline.TryGet<bool>(ContextKeys.InitMode, out var isInit) && isInit;
+        var branch = pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var b) && !string.IsNullOrWhiteSpace(b)
+            ? new BranchName(b)
+            : pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId)
+                ? BranchName.FromTicket(ticketId!)
+                : new BranchName("main");
 
-        if (initMode)
-            return new CheckoutSourceContext(project.Source, new BranchName("agentsmith/init"), pipeline);
-
-        if (pipeline.TryGet<string>(ContextKeys.ScanBranch, out var scanBranch)
-            && !string.IsNullOrWhiteSpace(scanBranch))
-            return new CheckoutSourceContext(project.Source, new BranchName(scanBranch), pipeline);
-
-        if (pipeline.Has(ContextKeys.ScanRepoPath))
-            return new CheckoutSourceContext(project.Source, new BranchName("main"), pipeline);
-
-        var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
-        return new CheckoutSourceContext(project.Source, BranchName.FromTicket(ticketId), pipeline);
+        return new CheckoutSourceContext(project.Source, branch, pipeline);
     }
 }
 

@@ -194,16 +194,7 @@ public sealed class ClaudeAgentProvider(
         return costSummary;
     }
 
-    private PromptCacheType ResolveCacheType()
-    {
-        if (!cacheConfig.IsEnabled) return PromptCacheType.None;
-        return cacheConfig.Strategy.ToLowerInvariant() switch
-        {
-            "automatic" => PromptCacheType.AutomaticToolsAndSystem,
-            "fine-grained" => PromptCacheType.FineGrained,
-            _ => PromptCacheType.None
-        };
-    }
+    private PromptCacheType ResolveCacheType() => CacheTypeResolver.Resolve(cacheConfig);
 
     private AnthropicClient CreateResilientClient()
     {

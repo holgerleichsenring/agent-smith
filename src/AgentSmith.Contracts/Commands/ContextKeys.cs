@@ -44,4 +44,5 @@ public static class ContextKeys
     public const string NucleiResult = "NucleiResult";
     public const string ApiTarget = "ApiTarget";
     public const string SwaggerPath = "SwaggerPath";
+    public const string CheckoutBranch = "CheckoutBranch";
 }
