@@ -99,8 +99,8 @@ public sealed class GenerateDocsHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter?>(), It.IsAny<CancellationToken>()))
-            .Callback<Plan, Repository, string, string?, string?, IProgressReporter?, CancellationToken>(
+                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
+            .Callback<Plan, Repository, string, string?, string?, IProgressReporter, CancellationToken>(
                 (plan, _, _, _, _, _, _) => capturedPlan = plan)
             .ReturnsAsync(new AgentExecutionResult([], null, null));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
@@ -124,7 +124,7 @@ public sealed class GenerateDocsHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(executionResult);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
