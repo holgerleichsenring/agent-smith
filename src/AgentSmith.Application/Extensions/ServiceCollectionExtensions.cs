@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SecurityTriageContext>, SecurityTriageHandler>();
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
+        services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
@@ -73,6 +74,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<SecurityTriageContextBuilder>(services, CommandNames.SecurityTriage);
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);
+        AddBuilder<SecuritySkillRoundContextBuilder>(services, CommandNames.SecuritySkillRound);
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
