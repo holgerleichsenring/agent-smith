@@ -28,10 +28,10 @@ public sealed class ContextGenerator(
         var keyFileContents = ReadKeyFiles(project.KeyFiles, repoPath);
         var userPrompt = BuildUserPrompt(project, keyFileContents, snapshot);
 
-        var response = await llmClient.CompleteAsync(
+        var llmResponse = await llmClient.CompleteAsync(
             SystemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
 
-        var yaml = LlmResponseHelper.StripCodeFences(response);
+        var yaml = LlmResponseHelper.StripCodeFences(llmResponse.Text);
 
         logger.LogInformation("Generated .context.yaml ({Chars} chars)", yaml.Length);
         return yaml;
@@ -64,10 +64,10 @@ public sealed class ContextGenerator(
             Return ONLY valid YAML, no explanation.
             """;
 
-        var response = await llmClient.CompleteAsync(
+        var llmResponse = await llmClient.CompleteAsync(
             SystemPrompt, retryPrompt, TaskType.ContextGeneration, cancellationToken);
 
-        return LlmResponseHelper.StripCodeFences(response);
+        return LlmResponseHelper.StripCodeFences(llmResponse.Text);
     }
 
     internal static string ReadKeyFiles(IReadOnlyList<string> keyFiles, string repoPath)
