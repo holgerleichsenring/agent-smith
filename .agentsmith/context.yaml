@@ -116,6 +116,7 @@ state:
     p43e: "Webhook expansion: IWebhookHandler dispatch, GitHub/GitLab/AzDO signature verification (503 tests)"
     p44: "Rename ProcessTicketUseCase → ExecutePipelineUseCase, rebrand to AI orchestration framework (511 tests)"
     p45: "API security scan: Nuclei + swagger.json analysis, OWASP API Top 10 skills, LoadSwagger/SpawnNuclei handlers (517 tests)"
+    p46: "CLI refactor: PipelineCommand, PipelineRequest, Program.cs split (456→18), factory registries, LlmIntentParser, tell-don't-ask cleanup (517 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
@@ -123,4 +124,3 @@ state:
     p40b: "Git provider extraction (GitHub, AzureDevOps, GitLab, Jira) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (Claude, OpenAI, Gemini) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
     p40d: "Storage providers & LoadAttachmentsCommand → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
-    p46: "CLI refactor, LLM intent, ticketless cleanup, Program.cs split → .agentsmith/phases/planned/p46-cli-refactor-llm-intent.md"
