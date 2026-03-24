@@ -30,8 +30,11 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
 
             var dockerTarget = RewriteLocalhostForDocker(targetUrl);
 
+            var isLocalTarget = dockerTarget.Contains("host.docker.internal");
+            var insecureFlag = isLocalTarget ? "-insecure " : "";
+
             var args = $"run --rm --add-host=host.docker.internal:host-gateway -v {tempDir}:/input {NucleiImage} " +
-                       $"-target {dockerTarget} -jsonl " +
+                       $"-target {dockerTarget} -jsonl {insecureFlag}" +
                        $"-severity critical,high,medium " +
                        $"-tags api,owasp -exclude-tags dos";
 
