@@ -68,7 +68,7 @@ public sealed class AnthropicLlmClient : ILlmClient, IDisposable
 
         _logger.LogDebug("LLM response: {Chars} chars, {In}+{Out} tokens",
             text.Length, inputTokens, outputTokens);
-        return new LlmResponse(text, inputTokens, outputTokens);
+        return new LlmResponse(text, inputTokens, outputTokens, model.Model);
     }
 
     public void Dispose()
