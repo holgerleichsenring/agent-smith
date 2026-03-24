@@ -1,0 +1,236 @@
+# Phase 46: CLI Refactor, LLM Intent Parsing, Ticketless Cleanup
+
+## Goal
+
+Replace free-text regex parsing with explicit CLI flags and LLM-based intent
+parsing for Slack. Split oversized files. Make all verbs dry-runnable. Eliminate
+the "ticketless" concept — every pipeline type is first-class.
+
+---
+
+## The Problem
+
+1. **`Program.cs` is 456 lines.** Limit is 120. Three command handlers, helper
+   methods, banner, service provider setup — all in one file.
+
+2. **`ExecutePipelineUseCase` uses regex to guess intent.** `TicketlessPattern`
+   is a growing regex (`security-scan|legal-analysis|api-scan|...`) that breaks
+   every time a new pipeline type is added. The "ticketless" vs "ticket" split
+   is a leaky abstraction — the pipeline type determines what's needed, not
+   whether a ticket exists.
+
+3. **`run` subcommand parses free text.** `"fix #42 in my-api"` goes through
+   `RegexIntentParser` which extracts ticket ID and project name via pattern
+   matching. Fragile, not self-documenting, impossible to extend.
+
+4. **Slack intent parsing is regex-based.** `ChatIntentParser` uses regex too.
+   Works for known patterns, fails for anything new.
+
+5. **Several Dispatcher files exceed 120 lines.**
+
+---
+
+## Architecture Decisions (final)
+
+- **CLI: explicit flags only.** No free-text parsing in the CLI.
+- **Slack: LLM intent parsing via Haiku.** Free text is natural for chat — but
+  the parser is an LLM, not a regex. Returns structured JSON.
+- **No "ticketless" concept.** Each pipeline type declares what it needs. The
+  use case routes by pipeline type, not by regex pattern matching.
+- **Program.cs → command registrations only.** Handler logic moves to dedicated
+  classes.
+
+---
+
+## CLI Refactor
+
+### Before
+```bash
+agent-smith run "fix #42 in my-api"
+agent-smith run "fix #42 in my-api" --pipeline add-feature
+```
+
+### After
+```bash
+agent-smith run --ticket 42 --project my-api                     # fix-bug (default)
+agent-smith run --ticket 42 --project my-api --pipeline add-feature
+agent-smith run --pipeline mad-discussion --ticket 42 --project my-api
+agent-smith run --pipeline init-project --project my-api
+agent-smith security-scan --repo . --project my-api              # unchanged
+agent-smith api-scan --swagger ./spec.json --target https://...  # unchanged
+```
+
+All verbs support `--dry-run`, `--config`, `--verbose`.
+
+Breaking change: `agent-smith run "fix #42 in my-api"` no longer works.
+The positional `<input>` argument is replaced by `--ticket` and `--project`.
+
+### Backward compatibility
+Keep `<input>` as optional positional arg for one release. If provided, log a
+deprecation warning and parse it via the existing regex. Remove in next major.
+
+---
+
+## Program.cs Split
+
+Current: 456 lines, everything in one file.
+
+Split into:
+
+```
+src/AgentSmith.Host/
+  Program.cs                  ← ~40 lines: root command, sub-commands, return
+  Commands/
+    RunCommandSetup.cs        ← run verb: options, handler, dry-run
+    SecurityScanCommandSetup.cs ← security-scan verb
+    ApiScanCommandSetup.cs    ← api-scan verb
+    ServerCommandSetup.cs     ← server verb
+  Banner.cs                   ← PrintBanner()
+  ServiceProviderFactory.cs   ← BuildServiceProvider()
+```
+
+Each `*CommandSetup` class: static `Configure(RootCommand)` method that adds
+the sub-command with its options and handler. Under 120 lines each.
+
+---
+
+## ExecutePipelineUseCase Refactor
+
+### Before
+```csharp
+var initMatch = InitPattern.Match(userInput);
+var ticketlessMatch = TicketlessPattern.Match(userInput);
+// falls through to ticket-based execution
+```
+
+### After
+```csharp
+public Task<CommandResult> ExecuteAsync(PipelineRequest request, ...)
+
+public sealed record PipelineRequest(
+    string ProjectName,
+    string PipelineName,
+    TicketId? TicketId,               // null for ticketless pipelines
+    Dictionary<string, object>? Context);  // swagger path, target URL, etc.
+```
+
+No regex. No pattern matching. The CLI builds the `PipelineRequest` explicitly.
+Slack's LLM intent parser builds it too. Same record, same code path.
+
+The `ExecuteTicketAsync` / `ExecuteTicketlessAsync` / `ExecuteInitAsync` split
+disappears. One method: `ExecuteAsync(PipelineRequest)`.
+
+---
+
+## LLM Intent Parser for Slack
+
+Replace `RegexIntentParser` and `ChatIntentParser` with `LlmIntentParser`:
+
+```csharp
+public sealed class LlmIntentParser(ILlmClientFactory llmClientFactory) : IIntentParser
+{
+    public async Task<PipelineRequest> ParseAsync(string userInput, ...)
+    {
+        // System prompt: list of available pipelines, projects, parameters
+        // User input: free text
+        // Response: structured JSON → PipelineRequest
+    }
+}
+```
+
+Model: Haiku (fast, cheap — ~0.001$ per intent).
+
+The system prompt includes:
+- Available pipeline names and what each needs
+- Available project names from config
+- Expected JSON response format
+
+This replaces both `RegexIntentParser` and `ChatIntentParser`. The Haiku call
+is the only parser. No regex fallback.
+
+---
+
+## Dry-Run Consolidation
+
+Current: `RunDryMode`, `RunTicketlessDryMode`, `PrintDryRun` — three methods.
+
+After: One method that takes a `PipelineRequest` and prints the resolved pipeline.
+Lives in its own class, not in Program.cs.
+
+```csharp
+public static class DryRunPrinter
+{
+    public static void Print(PipelineRequest request, IReadOnlyList<string> commands)
+    {
+        Console.WriteLine("Dry run - would execute:");
+        Console.WriteLine($"  Project:  {request.ProjectName}");
+        Console.WriteLine($"  Pipeline: {request.PipelineName}");
+        if (request.TicketId is not null)
+            Console.WriteLine($"  Ticket:   #{request.TicketId}");
+        // print context entries (swagger, target, repo, etc.)
+        // print commands
+    }
+}
+```
+
+---
+
+## Files Over 120 Lines (candidates for split)
+
+| File | Lines | Action |
+|------|-------|--------|
+| Program.cs | 456 | Split into 6 files (see above) |
+| WebApplicationExtensions.cs | 410 | Split middleware registration by area |
+| MessageBusListener.cs | 309 | Extract message handlers |
+| SlackAdapter.cs | 307 | Extract API call helpers |
+| SlackModalBuilder.cs | 289 | Extract block builders |
+| SlackModalSubmissionHandler.cs | 273 | Extract per-command handlers |
+| ContextGenerator.cs | 230 | Extract prompt builders |
+| JiraTicketProvider.cs | 223 | Extract ADF parser |
+| DockerJobSpawner.cs | 223 | Extract container config builder |
+| ExecutePipelineUseCase.cs | 189 | Collapses to ~80 after PipelineRequest refactor |
+
+Priority: Program.cs and ExecutePipelineUseCase (blocking for this phase).
+Rest: follow-up or parallel work.
+
+---
+
+## Files to Create
+
+- `src/AgentSmith.Host/Commands/RunCommandSetup.cs`
+- `src/AgentSmith.Host/Commands/SecurityScanCommandSetup.cs`
+- `src/AgentSmith.Host/Commands/ApiScanCommandSetup.cs`
+- `src/AgentSmith.Host/Commands/ServerCommandSetup.cs`
+- `src/AgentSmith.Host/Banner.cs`
+- `src/AgentSmith.Host/ServiceProviderFactory.cs`
+- `src/AgentSmith.Host/DryRunPrinter.cs`
+- `src/AgentSmith.Application/Models/PipelineRequest.cs`
+- `src/AgentSmith.Application/Services/LlmIntentParser.cs`
+
+## Files to Modify
+
+- `src/AgentSmith.Host/Program.cs` — shrink to ~40 lines
+- `src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` — PipelineRequest-based
+- `src/AgentSmith.Dispatcher/Services/Handlers/SlackMessageDispatcher.cs` — use LlmIntentParser
+- `src/AgentSmith.Contracts/Services/IIntentParser.cs` — return PipelineRequest
+
+## Files to Delete
+
+- `src/AgentSmith.Application/Services/RegexIntentParser.cs` (replaced)
+- `src/AgentSmith.Application/Services/ChatIntentParser.cs` (replaced)
+
+---
+
+## Definition of Done
+
+- [ ] `Program.cs` under 40 lines
+- [ ] Each command setup file under 120 lines
+- [ ] `ExecutePipelineUseCase` accepts `PipelineRequest`, no regex
+- [ ] `agent-smith run --ticket 42 --project my-api` works
+- [ ] `agent-smith run "fix #42 in my-api"` shows deprecation warning, still works
+- [ ] All verbs support `--dry-run` via `DryRunPrinter`
+- [ ] `LlmIntentParser` returns structured JSON via Haiku
+- [ ] Slack free text → Haiku → `PipelineRequest` → pipeline execution
+- [ ] No file over 120 lines in Host or Application layers
+- [ ] All existing tests green + new tests for PipelineRequest routing
+- [ ] Backward compatibility: positional arg still works with warning
