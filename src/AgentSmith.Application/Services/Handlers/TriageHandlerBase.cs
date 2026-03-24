@@ -15,8 +15,8 @@ namespace AgentSmith.Application.Services.Handlers;
 public abstract class TriageHandlerBase
 {
     protected abstract ILogger Logger { get; }
-
     protected abstract string BuildUserPrompt(PipelineContext pipeline);
+    protected virtual string SkillRoundCommandName => "SkillRoundCommand";
 
     protected async Task<CommandResult> TriageAsync(
         PipelineContext pipeline,
@@ -84,12 +84,12 @@ public abstract class TriageHandlerBase
         }
 
         var commandsToInsert = new List<string>();
-        commandsToInsert.Add($"SkillRoundCommand:{triageResult.Lead}:1");
+        commandsToInsert.Add($"{SkillRoundCommandName}:{triageResult.Lead}:1");
 
         foreach (var participant in triageResult.Participants
                      .Where(p => p != triageResult.Lead))
         {
-            commandsToInsert.Add($"SkillRoundCommand:{participant}:1");
+            commandsToInsert.Add($"{SkillRoundCommandName}:{participant}:1");
         }
 
         commandsToInsert.Add("ConvergenceCheckCommand");

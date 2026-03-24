@@ -40,6 +40,17 @@ public sealed class SkillRoundContextBuilder : IContextBuilder
     }
 }
 
+public sealed class SecuritySkillRoundContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    {
+        var parts = commandName.Split(':');
+        var skillName = parts.Length > 1 ? parts[1] : string.Empty;
+        var round = parts.Length > 2 && int.TryParse(parts[2], out var r) ? r : 1;
+        return new SecuritySkillRoundContext(skillName, round, project.Agent, pipeline);
+    }
+}
+
 public sealed class ConvergenceCheckContextBuilder : IContextBuilder
 {
     public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
