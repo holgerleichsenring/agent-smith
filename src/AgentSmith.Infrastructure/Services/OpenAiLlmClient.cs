@@ -51,6 +51,6 @@ public sealed class OpenAiLlmClient(
 
         logger.LogDebug("LLM response: {Chars} chars, {In}+{Out} tokens",
             text.Length, inputTokens, outputTokens);
-        return new LlmResponse(text, inputTokens, outputTokens);
+        return new LlmResponse(text, inputTokens, outputTokens, assignment.Model);
     }
 }
