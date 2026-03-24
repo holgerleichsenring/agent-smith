@@ -176,13 +176,25 @@ The discussion runs in rounds. Each round, every active role states its position
 ### Docker
 
 ```bash
+docker pull holgerleichsenring/agent-smith:latest
+
 docker run --rm \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e GITHUB_TOKEN=ghp_... \
   -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
   holgerleichsenring/agent-smith \
-  run --headless "fix #42 in my-project"
+  fix --ticket 42 --project my-project --headless
+```
+
+Security scan via Docker:
+
+```bash
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -v ./config:/app/config \
+  holgerleichsenring/agent-smith \
+  security-scan --repo /app/config/../repo --project my-project
 ```
 
 ### Docker Compose
