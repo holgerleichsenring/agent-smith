@@ -28,12 +28,15 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
 
             var sw = Stopwatch.StartNew();
 
+            var dockerTarget = RewriteLocalhostForDocker(targetUrl);
+
             var args = $"run --rm -v {tempDir}:/input {NucleiImage} " +
-                       $"-target {targetUrl} -jsonl " +
+                       $"-target {dockerTarget} -jsonl " +
                        $"-severity critical,high,medium " +
                        $"-tags api,owasp -exclude-tags dos";
 
-            logger.LogInformation("Starting Nuclei scan: {Target}", targetUrl);
+            logger.LogInformation("Starting Nuclei scan: {Target} (docker: {DockerTarget})",
+                targetUrl, dockerTarget);
             logger.LogDebug("Docker command: docker {Args}", args);
 
             var process = new Process
@@ -76,6 +79,10 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
                 Directory.Delete(tempDir, recursive: true);
         }
     }
+
+    internal static string RewriteLocalhostForDocker(string url) =>
+        url.Replace("://localhost", "://host.docker.internal")
+           .Replace("://127.0.0.1", "://host.docker.internal");
 
     internal static List<NucleiFinding> ParseJsonLines(string output)
     {
