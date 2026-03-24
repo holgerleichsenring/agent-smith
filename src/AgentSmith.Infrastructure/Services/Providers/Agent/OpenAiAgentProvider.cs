@@ -24,7 +24,8 @@ public sealed class OpenAiAgentProvider(
     RetryConfig retryConfig,
     IModelRegistry? modelRegistry,
     PricingConfig pricingConfig,
-    ILogger<OpenAiAgentProvider> logger) : IAgentProvider
+    ILogger<OpenAiAgentProvider> logger,
+    Uri? endpoint = null) : IAgentProvider
 {
     public string ProviderType => "OpenAI";
 
@@ -111,6 +112,8 @@ public sealed class OpenAiAgentProvider(
         var factory = new ResilientHttpClientFactory(retryConfig, logger);
         var httpClient = factory.Create();
         var clientOptions = new OpenAIClientOptions { Transport = new HttpClientPipelineTransport(httpClient) };
+        if (endpoint is not null)
+            clientOptions.Endpoint = endpoint;
         var openAiClient = new OpenAIClient(new ApiKeyCredential(apiKey), clientOptions);
         return openAiClient.GetChatClient(modelId);
     }
