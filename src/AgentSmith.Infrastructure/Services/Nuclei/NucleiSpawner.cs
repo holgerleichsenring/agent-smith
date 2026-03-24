@@ -30,7 +30,7 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
 
             var dockerTarget = RewriteLocalhostForDocker(targetUrl);
 
-            var args = $"run --rm -v {tempDir}:/input {NucleiImage} " +
+            var args = $"run --rm --add-host=host.docker.internal:host-gateway -v {tempDir}:/input {NucleiImage} " +
                        $"-target {dockerTarget} -jsonl " +
                        $"-severity critical,high,medium " +
                        $"-tags api,owasp -exclude-tags dos";
