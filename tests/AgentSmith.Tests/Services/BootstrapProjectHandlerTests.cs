@@ -72,7 +72,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         result.Message.Should().Contain("Existing");
         _generator.Verify(g => g.GenerateAsync(
             It.IsAny<DetectedProject>(), It.IsAny<string>(),
-            It.IsAny<RepoSnapshot?>(), It.IsAny<ILlmClient>(),
+            It.IsAny<RepoSnapshot>(), It.IsAny<ILlmClient>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -84,7 +84,7 @@ public class BootstrapProjectHandlerTests : IDisposable
 
         var yaml = "meta:\n  project: test\nstack:\n  runtime: Node.js\n  lang: TypeScript\narch:\n  style: [Layered]\n  layers: [src]\nquality:\n  lang: english-only\nstate:\n  done: {}\n  active: {}";
         _generator.Setup(g => g.GenerateAsync(
-                detected, _tempDir, It.IsAny<RepoSnapshot?>(),
+                detected, _tempDir, It.IsAny<RepoSnapshot>(),
                 It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(yaml);
         _validator.Setup(v => v.Validate(yaml))
@@ -109,7 +109,7 @@ public class BootstrapProjectHandlerTests : IDisposable
         var errors = new List<string> { "Missing section: meta" };
 
         _generator.Setup(g => g.GenerateAsync(
-                detected, _tempDir, It.IsAny<RepoSnapshot?>(),
+                detected, _tempDir, It.IsAny<RepoSnapshot>(),
                 It.IsAny<ILlmClient>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(badYaml);
         _generator.Setup(g => g.RetryWithErrorsAsync(
