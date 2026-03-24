@@ -32,6 +32,10 @@ public static class CommandNames
     public const string DeliverOutput = "DeliverOutputCommand";
     public const string SecurityTriage = "SecurityTriageCommand";
     public const string SecuritySkillRound = "SecuritySkillRoundCommand";
+    public const string LoadSwagger = "LoadSwaggerCommand";
+    public const string SpawnNuclei = "SpawnNucleiCommand";
+    public const string ApiSecurityTriage = "ApiSecurityTriageCommand";
+    public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -75,5 +79,9 @@ public static class CommandNames
         [DeliverOutput] = "Delivering output",
         [SecurityTriage] = "Triaging security scan",
         [SecuritySkillRound] = "Security skill round",
+        [LoadSwagger] = "Loading swagger spec",
+        [SpawnNuclei] = "Running Nuclei scan",
+        [ApiSecurityTriage] = "Triaging API security scan",
+        [ApiSecuritySkillRound] = "API security skill round",
     };
 }
