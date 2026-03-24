@@ -18,4 +18,5 @@ public interface ILlmClient
 public sealed record LlmResponse(
     string Text,
     int InputTokens,
-    int OutputTokens);
+    int OutputTokens,
+    string Model = "unknown");
