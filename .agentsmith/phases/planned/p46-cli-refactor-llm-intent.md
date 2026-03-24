@@ -50,24 +50,28 @@ agent-smith run "fix #42 in my-api"
 agent-smith run "fix #42 in my-api" --pipeline add-feature
 ```
 
-### After
+### After: One verb per pipeline
 ```bash
-agent-smith run --ticket 42 --project my-api                     # fix-bug (default)
-agent-smith run --ticket 42 --project my-api --pipeline add-feature
-agent-smith run --pipeline mad-discussion --ticket 42 --project my-api
-agent-smith run --pipeline init-project --project my-api
-agent-smith security-scan --repo . --project my-api              # unchanged
+agent-smith fix --ticket 42 --project my-api
+agent-smith feature --ticket 42 --project my-api
+agent-smith init --project my-api
+agent-smith mad --ticket 42 --project my-api
+agent-smith legal --source ./contract.pdf
+agent-smith security-scan --repo . --project my-api       # unchanged
 agent-smith api-scan --swagger ./spec.json --target https://...  # unchanged
+agent-smith server --port 8081                             # unchanged
 ```
+
+Pattern: `{program} {verb} {args}`. Each verb is a pipeline. No `run`, no
+`--pipeline`. Each verb knows exactly which flags it needs.
 
 All verbs support `--dry-run`, `--config`, `--verbose`.
 
-Breaking change: `agent-smith run "fix #42 in my-api"` no longer works.
-The positional `<input>` argument is replaced by `--ticket` and `--project`.
+Breaking change: `agent-smith run` is removed. `run` is not a verb.
 
 ### Backward compatibility
-Keep `<input>` as optional positional arg for one release. If provided, log a
-deprecation warning and parse it via the existing regex. Remove in next major.
+Keep `run` as hidden deprecated command for one release. If used, log a
+deprecation warning and delegate to the appropriate verb. Remove in next major.
 
 ---
 
@@ -79,18 +83,24 @@ Split into:
 
 ```
 src/AgentSmith.Host/
-  Program.cs                  ← ~40 lines: root command, sub-commands, return
+  Program.cs                    ← ~30 lines: root command, add verbs, return
   Commands/
-    RunCommandSetup.cs        ← run verb: options, handler, dry-run
-    SecurityScanCommandSetup.cs ← security-scan verb
-    ApiScanCommandSetup.cs    ← api-scan verb
-    ServerCommandSetup.cs     ← server verb
-  Banner.cs                   ← PrintBanner()
-  ServiceProviderFactory.cs   ← BuildServiceProvider()
+    FixCommand.cs               ← fix verb (fix-bug pipeline)
+    FeatureCommand.cs           ← feature verb (add-feature pipeline)
+    InitCommand.cs              ← init verb (init-project pipeline)
+    MadCommand.cs               ← mad verb (mad-discussion pipeline)
+    LegalCommand.cs             ← legal verb (legal-analysis pipeline)
+    SecurityScanCommand.cs      ← security-scan verb
+    ApiScanCommand.cs           ← api-scan verb
+    ServerCommand.cs            ← server verb
+    SharedOptions.cs            ← --config, --verbose, --dry-run, --project, --headless
+  Banner.cs                     ← PrintBanner()
+  ServiceProviderFactory.cs     ← BuildServiceProvider()
+  DryRunPrinter.cs              ← unified dry-run output
 ```
 
-Each `*CommandSetup` class: static `Configure(RootCommand)` method that adds
-the sub-command with its options and handler. Under 120 lines each.
+Each `*Command` class: static `Create()` returns a configured `Command`.
+Under 120 lines each. Shared options extracted to avoid duplication.
 
 ---
 
@@ -223,14 +233,17 @@ Rest: follow-up or parallel work.
 
 ## Definition of Done
 
-- [ ] `Program.cs` under 40 lines
-- [ ] Each command setup file under 120 lines
+- [ ] `Program.cs` under 30 lines
+- [ ] Each command file under 120 lines
 - [ ] `ExecutePipelineUseCase` accepts `PipelineRequest`, no regex
-- [ ] `agent-smith run --ticket 42 --project my-api` works
-- [ ] `agent-smith run "fix #42 in my-api"` shows deprecation warning, still works
+- [ ] `agent-smith fix --ticket 42 --project my-api` works
+- [ ] `agent-smith feature --ticket 42 --project my-api` works
+- [ ] `agent-smith init --project my-api` works
+- [ ] `agent-smith mad --ticket 42 --project my-api` works
+- [ ] `agent-smith legal --source ./contract.pdf` works
+- [ ] `agent-smith run` shows deprecation warning, delegates to correct verb
 - [ ] All verbs support `--dry-run` via `DryRunPrinter`
 - [ ] `LlmIntentParser` returns structured JSON via Haiku
 - [ ] Slack free text → Haiku → `PipelineRequest` → pipeline execution
 - [ ] No file over 120 lines in Host or Application layers
 - [ ] All existing tests green + new tests for PipelineRequest routing
-- [ ] Backward compatibility: positional arg still works with warning
