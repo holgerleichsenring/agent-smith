@@ -9,54 +9,67 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
 /// Creates the appropriate IAgentProvider based on configuration type.
+/// Provider creators are registered in a dictionary — no switch statement.
 /// </summary>
 public sealed class AgentProviderFactory(
     SecretsProvider secrets,
     ILoggerFactory loggerFactory) : IAgentProviderFactory
 {
+    private readonly Dictionary<string, Func<AgentConfig, IAgentProvider>> _creators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["claude"] = config => CreateClaude(config, secrets, loggerFactory),
+        ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory),
+        ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory),
+        ["gemini"] = config => CreateGemini(config, secrets, loggerFactory),
+        ["google"] = config => CreateGemini(config, secrets, loggerFactory),
+        ["ollama"] = config => CreateOllama(config, loggerFactory),
+    };
+
     public IAgentProvider Create(AgentConfig config)
     {
-        return config.Type.ToLowerInvariant() switch
-        {
-            "claude" or "anthropic" => CreateClaude(config),
-            "openai" => CreateOpenAi(config),
-            "gemini" or "google" => CreateGemini(config),
-            "ollama" => CreateOllama(config),
-            _ => throw new ConfigurationException(
-                $"Unknown agent provider type: '{config.Type}'. Supported: claude, openai, gemini, ollama")
-        };
+        var type = config.Type ?? "claude";
+
+        if (_creators.TryGetValue(type, out var creator))
+            return creator(config);
+
+        throw new ConfigurationException(
+            $"Unknown agent provider type: '{type}'. Supported: {string.Join(", ", _creators.Keys)}");
     }
 
-    private ClaudeAgentProvider CreateClaude(AgentConfig config)
+    private static ClaudeAgentProvider CreateClaude(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
-        var registry = CreateModelRegistry(config);
+        var registry = CreateModelRegistry(config, loggerFactory);
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
             registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>());
     }
 
-    private OpenAiAgentProvider CreateOpenAi(AgentConfig config)
+    private static OpenAiAgentProvider CreateOpenAi(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var secretName = config.ApiKeySecret ?? "OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
-        var registry = CreateModelRegistry(config);
+        var registry = CreateModelRegistry(config, loggerFactory);
         var endpoint = config.Endpoint is not null ? new Uri(config.Endpoint) : null;
         return new OpenAiAgentProvider(
             apiKey, config.Model, config.Retry,
             registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>(), endpoint);
     }
 
-    private GeminiAgentProvider CreateGemini(AgentConfig config)
+    private static GeminiAgentProvider CreateGemini(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var apiKey = secrets.GetRequired("GEMINI_API_KEY");
-        var registry = CreateModelRegistry(config);
+        var registry = CreateModelRegistry(config, loggerFactory);
         return new GeminiAgentProvider(
             apiKey, config.Model,
             registry, config.Pricing, loggerFactory.CreateLogger<GeminiAgentProvider>());
     }
 
-    private OllamaAgentProvider CreateOllama(AgentConfig config)
+    private static OllamaAgentProvider CreateOllama(
+        AgentConfig config, ILoggerFactory loggerFactory)
     {
         var endpoint = config.Endpoint ?? "http://localhost:11434";
         var ollamaLogger = loggerFactory.CreateLogger<OllamaAgentProvider>();
@@ -64,7 +77,7 @@ public sealed class AgentProviderFactory(
             endpoint + "/v1", null, loggerFactory.CreateLogger("Ollama"));
 
         var hasToolCalling = CheckOllamaCapabilities(client, config.Model, endpoint, ollamaLogger);
-        var registry = CreateModelRegistry(config);
+        var registry = CreateModelRegistry(config, loggerFactory);
 
         return new OllamaAgentProvider(
             config.Model, client, hasToolCalling,
@@ -92,7 +105,7 @@ public sealed class AgentProviderFactory(
         }
     }
 
-    private IModelRegistry? CreateModelRegistry(AgentConfig config)
+    private static IModelRegistry? CreateModelRegistry(AgentConfig config, ILoggerFactory loggerFactory)
     {
         if (config.Models is null)
             return null;
