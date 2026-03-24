@@ -154,16 +154,7 @@ public sealed class AgenticLoop(
         return compacted;
     }
 
-    private PromptCacheType ResolveCacheType()
-    {
-        if (!cacheConfig.IsEnabled) return PromptCacheType.None;
-        return cacheConfig.Strategy.ToLowerInvariant() switch
-        {
-            "automatic" => PromptCacheType.AutomaticToolsAndSystem,
-            "fine-grained" => PromptCacheType.FineGrained,
-            _ => PromptCacheType.None
-        };
-    }
+    private PromptCacheType ResolveCacheType() => CacheTypeResolver.Resolve(cacheConfig);
 
     private void ReportDetail(string text, CancellationToken cancellationToken)
     {
