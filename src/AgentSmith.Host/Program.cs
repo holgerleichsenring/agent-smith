@@ -123,9 +123,12 @@ var outputOption = new Option<string>(
 var projectOption = new Option<string>(
     "--project", () => string.Empty, "Project name from config (for multi-project configs)");
 
+var securityDryRunOption = new Option<bool>(
+    "--dry-run", "Show pipeline only, don't execute");
+
 var securityScanCommand = new Command("security-scan", "Analyze code for security vulnerabilities")
 {
-    repoOption, prOption, branchOption, outputOption, projectOption, configOption, verboseOption
+    repoOption, prOption, branchOption, outputOption, projectOption, configOption, verboseOption, securityDryRunOption
 };
 
 securityScanCommand.SetHandler(async (InvocationContext ctx) =>
@@ -137,13 +140,29 @@ securityScanCommand.SetHandler(async (InvocationContext ctx) =>
     var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
     var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
     var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
+    var isDryRun = ctx.ParseResult.GetValueForOption(securityDryRunOption);
+
+    var projectName = !string.IsNullOrWhiteSpace(project)
+        ? project
+        : Path.GetFileName(Path.GetFullPath(repo));
+
+    if (isDryRun)
+    {
+        RunTicketlessDryMode(configPath, projectName, "security-scan",
+            new Dictionary<string, string>
+            {
+                ["Repo"] = Path.GetFullPath(repo),
+                ["PR"] = string.IsNullOrWhiteSpace(pr) ? "(full repo)" : $"#{pr}",
+                ["Branch"] = string.IsNullOrWhiteSpace(branch) ? "(main)" : branch,
+                ["Output"] = output
+            });
+        return;
+    }
 
     var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
     var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
-    var input = !string.IsNullOrWhiteSpace(project)
-        ? $"security-scan in {project}"
-        : $"security-scan in {Path.GetFileName(Path.GetFullPath(repo))}";
+    var input = $"security-scan in {projectName}";
 
     var scanContext = new Dictionary<string, object>
     {
@@ -188,9 +207,12 @@ var apiOutputOption = new Option<string>(
 var apiProjectOption = new Option<string>(
     "--project", () => string.Empty, "Project name from config (for multi-project configs)");
 
+var apiDryRunOption = new Option<bool>(
+    "--dry-run", "Show pipeline only, don't execute");
+
 var apiScanCommand = new Command("api-scan", "Scan a running API against its OpenAPI spec")
 {
-    swaggerOption, targetOption, apiOutputOption, apiProjectOption, configOption, verboseOption
+    swaggerOption, targetOption, apiOutputOption, apiProjectOption, configOption, verboseOption, apiDryRunOption
 };
 
 apiScanCommand.SetHandler(async (InvocationContext ctx) =>
@@ -201,13 +223,26 @@ apiScanCommand.SetHandler(async (InvocationContext ctx) =>
     var project = ctx.ParseResult.GetValueForOption(apiProjectOption) ?? string.Empty;
     var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
     var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
+    var isDryRun = ctx.ParseResult.GetValueForOption(apiDryRunOption);
+
+    var projectName = !string.IsNullOrWhiteSpace(project) ? project : "api-security";
+
+    if (isDryRun)
+    {
+        RunTicketlessDryMode(configPath, projectName, "api-security-scan",
+            new Dictionary<string, string>
+            {
+                ["Swagger"] = swagger,
+                ["Target"] = target,
+                ["Output"] = output
+            });
+        return;
+    }
 
     var provider = BuildServiceProvider(verbose, headless: true, jobId: string.Empty, redisUrl: string.Empty);
     var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
-    var input = !string.IsNullOrWhiteSpace(project)
-        ? $"api-scan in {project}"
-        : $"api-scan in api-security";
+    var input = $"api-scan in {projectName}";
 
     var swaggerPath = swagger.StartsWith("http", StringComparison.OrdinalIgnoreCase)
         ? swagger
@@ -370,19 +405,52 @@ static async Task RunDryMode(ServiceProvider provider, string input, string conf
     }
 
     var pipelineName = string.IsNullOrWhiteSpace(pipelineOverride) ? projectConfig.Pipeline : pipelineOverride;
+
+    PrintDryRun(projectName, pipelineName, $"#{intent.TicketId}");
+}
+
+static void RunTicketlessDryMode(string configPath, string projectName, string pipelineName,
+    Dictionary<string, string>? extraInfo = null)
+{
     var commands = PipelinePresets.TryResolve(pipelineName);
     if (commands is null)
     {
-        Console.Error.WriteLine($"Pipeline '{projectConfig.Pipeline}' not found in presets.");
+        Console.Error.WriteLine($"Pipeline '{pipelineName}' not found in presets.");
         Environment.ExitCode = 1;
         return;
     }
 
-    Console.WriteLine($"Dry run - would execute:");
+    Console.WriteLine("Dry run - would execute:");
     Console.WriteLine($"  Project:  {projectName}");
-    Console.WriteLine($"  Ticket:   #{intent.TicketId}");
     Console.WriteLine($"  Pipeline: {pipelineName}");
-    Console.WriteLine($"  Commands:");
+
+    if (extraInfo is not null)
+    {
+        foreach (var (key, value) in extraInfo)
+            Console.WriteLine($"  {key}: {value}");
+    }
+
+    Console.WriteLine("  Commands:");
+    foreach (var cmd in commands)
+        Console.WriteLine($"    - {cmd}");
+}
+
+static void PrintDryRun(string projectName, string pipelineName, string? ticketInfo)
+{
+    var commands = PipelinePresets.TryResolve(pipelineName);
+    if (commands is null)
+    {
+        Console.Error.WriteLine($"Pipeline '{pipelineName}' not found in presets.");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    Console.WriteLine("Dry run - would execute:");
+    Console.WriteLine($"  Project:  {projectName}");
+    if (ticketInfo is not null)
+        Console.WriteLine($"  Ticket:   {ticketInfo}");
+    Console.WriteLine($"  Pipeline: {pipelineName}");
+    Console.WriteLine("  Commands:");
     foreach (var cmd in commands)
         Console.WriteLine($"    - {cmd}");
 }
