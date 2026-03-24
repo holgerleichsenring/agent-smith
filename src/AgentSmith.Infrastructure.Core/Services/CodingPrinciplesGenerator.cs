@@ -24,11 +24,11 @@ public sealed class CodingPrinciplesGenerator(
             project.Language, repoPath);
 
         var userPrompt = BuildUserPrompt(project, snapshot);
-        var markdown = await llmClient.CompleteAsync(
+        var llmResponse = await llmClient.CompleteAsync(
             SystemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
 
-        logger.LogInformation("Generated coding-principles.md ({Chars} chars)", markdown.Length);
-        return markdown;
+        logger.LogInformation("Generated coding-principles.md ({Chars} chars)", llmResponse.Text.Length);
+        return llmResponse.Text;
     }
 
     internal static string BuildUserPrompt(DetectedProject project, RepoSnapshot snapshot)

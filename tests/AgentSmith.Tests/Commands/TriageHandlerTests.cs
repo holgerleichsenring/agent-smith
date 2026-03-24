@@ -48,7 +48,7 @@ public sealed class TriageHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{"lead": "architect", "participants": ["architect"]}""");
+            .ReturnsAsync(new LlmResponse("""{"lead": "architect", "participants": ["architect"]}""", 0, 0));
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -66,7 +66,7 @@ public sealed class TriageHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{"lead": "architect", "participants": ["architect", "tester"]}""");
+            .ReturnsAsync(new LlmResponse("""{"lead": "architect", "participants": ["architect", "tester"]}""", 0, 0));
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -86,7 +86,7 @@ public sealed class TriageHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{"lead": "tester", "participants": ["architect", "tester"]}""");
+            .ReturnsAsync(new LlmResponse("""{"lead": "tester", "participants": ["architect", "tester"]}""", 0, 0));
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -102,7 +102,7 @@ public sealed class TriageHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{"lead": "architect", "participants": ["architect", "nonexistent"]}""");
+            .ReturnsAsync(new LlmResponse("""{"lead": "architect", "participants": ["architect", "nonexistent"]}""", 0, 0));
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -137,7 +137,7 @@ public sealed class TriageHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("this is not json at all");
+            .ReturnsAsync(new LlmResponse("this is not json at all", 0, 0));
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 

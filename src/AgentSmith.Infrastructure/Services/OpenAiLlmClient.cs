@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// OpenAI-compatible ILlmClient for bootstrap tasks (context.yaml, code-map, coding-principles).
+/// OpenAI-compatible ILlmClient for bootstrap tasks and pipeline LLM calls.
 /// Works with OpenAI, Groq, Together AI, and any OpenAI-compatible endpoint.
 /// </summary>
 public sealed class OpenAiLlmClient(
@@ -16,7 +16,7 @@ public sealed class OpenAiLlmClient(
     IModelRegistry modelRegistry,
     ILogger<OpenAiLlmClient> logger) : ILlmClient
 {
-    public async Task<string> CompleteAsync(
+    public async Task<LlmResponse> CompleteAsync(
         string systemPrompt,
         string userPrompt,
         TaskType taskType,
@@ -41,7 +41,16 @@ public sealed class OpenAiLlmClient(
             .GetProperty("content")
             .GetString()?.Trim() ?? "";
 
-        logger.LogDebug("LLM response: {Chars} chars", text.Length);
-        return text;
+        var inputTokens = 0;
+        var outputTokens = 0;
+        if (response.TryGetProperty("usage", out var usage))
+        {
+            inputTokens = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
+            outputTokens = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
+        }
+
+        logger.LogDebug("LLM response: {Chars} chars, {In}+{Out} tokens",
+            text.Length, inputTokens, outputTokens);
+        return new LlmResponse(text, inputTokens, outputTokens);
     }
 }
