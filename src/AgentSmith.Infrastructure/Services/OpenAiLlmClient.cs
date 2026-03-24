@@ -13,7 +13,6 @@ namespace AgentSmith.Infrastructure.Services;
 /// </summary>
 public sealed class OpenAiLlmClient(
     OpenAiCompatibleClient client,
-    string model,
     IModelRegistry modelRegistry,
     ILogger<OpenAiLlmClient> logger) : ILlmClient
 {

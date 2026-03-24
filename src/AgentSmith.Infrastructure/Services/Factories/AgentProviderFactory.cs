@@ -68,7 +68,7 @@ public sealed class AgentProviderFactory(
 
         return new OllamaAgentProvider(
             config.Model, client, hasToolCalling,
-            registry, config.Pricing, ollamaLogger);
+            registry, ollamaLogger);
     }
 
     private static bool CheckOllamaCapabilities(
