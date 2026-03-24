@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -5,6 +6,7 @@ namespace AgentSmith.Infrastructure.Services.Output;
 
 /// <summary>
 /// Writes findings summary to stdout. Default strategy for --output console.
+/// Handles both structured findings and free-text consolidated output.
 /// </summary>
 public sealed class ConsoleOutputStrategy(
     ILogger<ConsoleOutputStrategy> logger) : IOutputStrategy
@@ -13,26 +15,59 @@ public sealed class ConsoleOutputStrategy(
 
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        if (context.Findings.Count == 0)
+        var output = BuildOutput(context);
+
+        if (string.IsNullOrWhiteSpace(output))
         {
-            logger.LogInformation("No findings.");
+            Console.WriteLine("No findings to deliver.");
             return Task.CompletedTask;
         }
 
-        var summary = FindingSummary.From(context.Findings);
+        Console.WriteLine();
+        Console.WriteLine("═══════════════════════════════════════════════════");
+        Console.WriteLine("  Agent Smith Review");
+        Console.WriteLine("═══════════════════════════════════════════════════");
+        Console.WriteLine();
+        Console.WriteLine(output);
+        Console.WriteLine();
+        Console.WriteLine("═══════════════════════════════════════════════════");
 
-        logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW)",
-            summary.Total, summary.High, summary.Medium, summary.Low);
+        logger.LogInformation("Delivered to console ({Chars} chars)", output.Length);
+        return Task.CompletedTask;
+    }
+
+    private static string? BuildOutput(OutputContext context)
+    {
+        if (context.ReportMarkdown is not null)
+            return context.ReportMarkdown;
+
+        if (context.Findings.Count > 0)
+            return FormatFindings(context);
+
+        context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
+        if (!string.IsNullOrWhiteSpace(consolidated))
+            return consolidated;
+
+        // DiscussionLog is compiled into ConsolidatedPlan by ConvergenceCheckHandler.
+        // If neither exists, there's nothing to show.
+
+        return null;
+    }
+
+    private static string FormatFindings(OutputContext context)
+    {
+        var summary = FindingSummary.From(context.Findings);
+        var lines = new List<string>
+        {
+            $"Found {summary.Total} issues ({summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW)",
+            ""
+        };
 
         foreach (var finding in context.Findings)
         {
-            logger.LogInformation("[{Severity}] {File}:{Line} — {Title}",
-                finding.Severity.ToUpperInvariant(), finding.File, finding.StartLine, finding.Title);
+            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.File}:{finding.StartLine} — {finding.Title}");
         }
 
-        if (context.ReportMarkdown is not null)
-            logger.LogDebug("Full report:\n{Report}", context.ReportMarkdown);
-
-        return Task.CompletedTask;
+        return string.Join("\n", lines);
     }
 }

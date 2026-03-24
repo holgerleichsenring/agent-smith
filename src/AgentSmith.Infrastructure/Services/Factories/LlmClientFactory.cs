@@ -9,48 +9,55 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
 /// Creates per-project ILlmClient instances based on agent configuration.
-/// Mirrors AgentProviderFactory: resolves API key by provider type,
-/// builds model registry from project config, applies project retry policy.
+/// Provider creators are registered in a dictionary — no switch statement.
 /// </summary>
 public sealed class LlmClientFactory(
     SecretsProvider secrets,
     ILoggerFactory loggerFactory) : ILlmClientFactory
 {
+    private readonly Dictionary<string, Func<AgentConfig, ILlmClient>> _creators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["claude"] = config => CreateAnthropic(config, secrets, loggerFactory),
+        ["anthropic"] = config => CreateAnthropic(config, secrets, loggerFactory),
+        ["openai"] = config => CreateOpenAiCompatible(config, secrets, loggerFactory),
+        ["ollama"] = config => CreateOpenAiCompatible(config, secrets, loggerFactory),
+    };
+
     public ILlmClient Create(AgentConfig config)
     {
         var type = string.IsNullOrEmpty(config.Type) ? "claude" : config.Type;
 
-        return type.ToLowerInvariant() switch
-        {
-            "claude" or "anthropic" => CreateAnthropic(config),
-            "openai" or "ollama" => CreateOpenAiCompatible(config),
-            _ => throw new NotSupportedException(
-                $"LLM client for provider '{config.Type}' is not yet supported. " +
-                $"Supported: claude, anthropic, openai, ollama.")
-        };
+        if (_creators.TryGetValue(type, out var creator))
+            return creator(config);
+
+        throw new NotSupportedException(
+            $"LLM client for provider '{config.Type}' is not yet supported. " +
+            $"Supported: {string.Join(", ", _creators.Keys)}");
     }
 
-    private AnthropicLlmClient CreateAnthropic(AgentConfig config)
+    private static AnthropicLlmClient CreateAnthropic(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
-        var registry = CreateModelRegistry(config);
-        var logger = loggerFactory.CreateLogger<AnthropicLlmClient>();
-        return new AnthropicLlmClient(apiKey, config.Retry, registry, logger);
+        var registry = CreateModelRegistry(config, loggerFactory);
+        return new AnthropicLlmClient(apiKey, config.Retry, registry,
+            loggerFactory.CreateLogger<AnthropicLlmClient>());
     }
 
-    private OpenAiLlmClient CreateOpenAiCompatible(AgentConfig config)
+    private static OpenAiLlmClient CreateOpenAiCompatible(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var secretName = config.ApiKeySecret ?? "OPENAI_API_KEY";
         var apiKey = secrets.GetOptional(secretName);
         var endpoint = config.Endpoint ?? "https://api.openai.com";
         var client = new OpenAiCompatibleClient(
             endpoint + "/v1", apiKey, loggerFactory.CreateLogger("OpenAiLlmClient"));
-        var registry = CreateModelRegistry(config);
-        return new OpenAiLlmClient(
-            client, registry, loggerFactory.CreateLogger<OpenAiLlmClient>());
+        var registry = CreateModelRegistry(config, loggerFactory);
+        return new OpenAiLlmClient(client, registry,
+            loggerFactory.CreateLogger<OpenAiLlmClient>());
     }
 
-    private IModelRegistry CreateModelRegistry(AgentConfig config)
+    private static IModelRegistry CreateModelRegistry(AgentConfig config, ILoggerFactory loggerFactory)
     {
         var registryConfig = config.Models ?? new ModelRegistryConfig();
         return new ConfigBasedModelRegistry(
