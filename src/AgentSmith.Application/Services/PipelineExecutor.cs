@@ -35,7 +35,8 @@ public sealed class PipelineExecutor(
         await PostTicketStatusAsync(projectConfig, context,
             "Agent Smith is working on this issue...", cancellationToken);
 
-        var commands = new LinkedList<string>(commandNames);
+        var commands = new LinkedList<PipelineCommand>(
+            commandNames.Select(PipelineCommand.Simple));
         var current = commands.First;
         var executionCount = 0;
 
@@ -48,9 +49,10 @@ public sealed class PipelineExecutor(
                     "Possible infinite loop in command insertion.");
             }
 
-            var commandName = current.Value;
+            var cmd = current.Value;
+            var commandName = cmd.DisplayName;
             var total = commands.Count;
-            var label = CommandNames.GetLabel(commandName);
+            var label = CommandNames.GetLabel(cmd.Name);
 
             logger.LogInformation(
                 "[{Step}/{Total}] Executing {Command}...",
@@ -64,7 +66,7 @@ public sealed class PipelineExecutor(
             try
             {
                 var commandContext = contextFactory.Create(
-                    commandName, projectConfig, context);
+                    cmd, projectConfig, context);
 
                 result = await ExecuteCommandAsync(commandContext, cancellationToken);
             }
@@ -82,7 +84,7 @@ public sealed class PipelineExecutor(
                 sw.Stop();
             }
 
-            context.TrackCommand(commandName, result.IsSuccess, result.Message,
+            context.TrackCommand(cmd.DisplayName, result.IsSuccess, result.Message,
                 sw.Elapsed, result.InsertNext?.Count);
 
             if (!result.IsSuccess)
@@ -120,7 +122,7 @@ public sealed class PipelineExecutor(
             }
 
             // Post skill-related detail to Slack/progress reporter
-            await PostSkillDetailAsync(commandName, result, cancellationToken);
+            await PostSkillDetailAsync(cmd, result, cancellationToken);
 
             logger.LogInformation(
                 "[{Step}/{Total}] {Command} completed: {Message}",
@@ -138,18 +140,16 @@ public sealed class PipelineExecutor(
         => commandExecutor.ExecuteAsync(context, ct);
 
     private async Task PostSkillDetailAsync(
-        string commandName, CommandResult result, CancellationToken cancellationToken)
+        PipelineCommand cmd, CommandResult result, CancellationToken cancellationToken)
     {
         try
         {
-            var baseCommand = commandName.Contains(':')
-                ? commandName[..commandName.IndexOf(':')]
-                : commandName;
-
-            var detail = baseCommand switch
+            var detail = cmd.Name switch
             {
-                CommandNames.Triage => $"Triage: {result.Message}",
-                CommandNames.SkillRound => $"Skill Round: {result.Message}",
+                CommandNames.Triage or CommandNames.SecurityTriage or CommandNames.ApiSecurityTriage
+                    => $"Triage: {result.Message}",
+                CommandNames.SkillRound or CommandNames.SecuritySkillRound or CommandNames.ApiSecuritySkillRound
+                    => $"Skill Round: {result.Message}",
                 CommandNames.ConvergenceCheck => $"Convergence: {result.Message}",
                 CommandNames.SwitchSkill => $"Skill Switch: {result.Message}",
                 _ => null

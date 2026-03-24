@@ -38,8 +38,8 @@ public class PipelineExecutorTests
         var mockContext1 = new Mock<ICommandContext>().Object;
         var mockContext2 = new Mock<ICommandContext>().Object;
 
-        _factoryMock.Setup(f => f.Create("Cmd1", project, pipeline)).Returns(mockContext1);
-        _factoryMock.Setup(f => f.Create("Cmd2", project, pipeline)).Returns(mockContext2);
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("Cmd1"), project, pipeline)).Returns(mockContext1);
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("Cmd2"), project, pipeline)).Returns(mockContext2);
 
         // PipelineExecutor uses pattern matching, so we need real context types.
         // Use a simpler approach: mock the factory to return a known context type.
@@ -106,7 +106,7 @@ public class PipelineExecutorTests
         var project = new ProjectConfig();
         var pipeline = new PipelineContext();
 
-        _factoryMock.Setup(f => f.Create("BadCommand", project, pipeline))
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
             .Throws(new Exception("Unknown command: 'BadCommand'"));
 
         var result = await _sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
@@ -122,7 +122,7 @@ public class PipelineExecutorTests
         var project = new ProjectConfig();
         var pipeline = new PipelineContext();
 
-        _factoryMock.Setup(f => f.Create("CancelledCommand", project, pipeline))
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
             .Throws(new OperationCanceledException());
 
         var act = async () => await _sut.ExecuteAsync(

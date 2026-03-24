@@ -92,8 +92,8 @@ public sealed class ConvergenceCheckHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().NotBeNull();
-        result.InsertNext.Should().Contain("SkillRoundCommand:tester:2");
-        result.InsertNext.Should().Contain("ConvergenceCheckCommand");
+        result.InsertNext!.Select(c => c.DisplayName).Should().Contain("SkillRoundCommand:tester:2");
+        result.InsertNext.Select(c => c.DisplayName).Should().Contain("ConvergenceCheckCommand");
     }
 
     [Fact]

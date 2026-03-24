@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class AnalyzeCodeContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new AnalyzeCodeContext(repo, pipeline);
@@ -18,7 +18,7 @@ public sealed class AnalyzeCodeContextBuilder : IContextBuilder
 
 public sealed class GeneratePlanContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
         var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
@@ -31,7 +31,7 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
 
 public sealed class ApprovalContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         return new ApprovalContext(plan, pipeline);
@@ -40,7 +40,7 @@ public sealed class ApprovalContextBuilder : IContextBuilder
 
 public sealed class AgenticExecuteContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
@@ -53,7 +53,7 @@ public sealed class AgenticExecuteContextBuilder : IContextBuilder
 
 public sealed class TestContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
@@ -63,7 +63,7 @@ public sealed class TestContextBuilder : IContextBuilder
 
 public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
@@ -75,7 +75,7 @@ public sealed class WriteRunResultContextBuilder : IContextBuilder
 
 public sealed class CommitAndPRContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
@@ -86,7 +86,7 @@ public sealed class CommitAndPRContextBuilder : IContextBuilder
 
 public sealed class InitCommitContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new InitCommitContext(repo, project.Source, project.Tickets, pipeline);
@@ -95,7 +95,7 @@ public sealed class InitCommitContextBuilder : IContextBuilder
 
 public sealed class GenerateTestsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
@@ -108,7 +108,7 @@ public sealed class GenerateTestsContextBuilder : IContextBuilder
 
 public sealed class GenerateDocsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);

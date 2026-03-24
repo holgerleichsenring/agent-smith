@@ -73,17 +73,17 @@ public sealed class ConvergenceCheckHandler(
                 .Select(kv => kv.Key)
                 .ToList();
 
-            var commandsToInsert = new List<string>();
+            var commandsToInsert = new List<PipelineCommand>();
             var nextRound = currentMaxRound + 1;
-            var skillRoundCmd = context.Pipeline.Has(ContextKeys.Ticket)
-                ? "SkillRoundCommand" : "SecuritySkillRoundCommand";
+            context.Pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var skillRoundCmd);
+            var cmdName = skillRoundCmd ?? CommandNames.SkillRound;
 
             foreach (var objector in objectors)
             {
-                commandsToInsert.Add($"{skillRoundCmd}:{objector}:{nextRound}");
+                commandsToInsert.Add(PipelineCommand.SkillRound(cmdName, objector, nextRound));
             }
 
-            commandsToInsert.Add("ConvergenceCheckCommand");
+            commandsToInsert.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
 
             return CommandResult.OkAndContinueWith(
                 $"Unresolved objections from: {string.Join(", ", objectors)}. Round {nextRound}.",

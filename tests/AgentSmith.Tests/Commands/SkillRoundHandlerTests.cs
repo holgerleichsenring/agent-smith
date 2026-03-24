@@ -80,9 +80,9 @@ public sealed class SkillRoundHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().NotBeNull();
         result.InsertNext.Should().HaveCount(3);
-        result.InsertNext![0].Should().Be("SkillRoundCommand:tester:2");
-        result.InsertNext[1].Should().Be("SkillRoundCommand:architect:2");
-        result.InsertNext[2].Should().Be("ConvergenceCheckCommand");
+        result.InsertNext![0].DisplayName.Should().Be("SkillRoundCommand:tester:2");
+        result.InsertNext[1].DisplayName.Should().Be("SkillRoundCommand:architect:2");
+        result.InsertNext[2].DisplayName.Should().Be("ConvergenceCheckCommand");
     }
 
     [Fact]

@@ -40,13 +40,15 @@ public sealed class CommandResultTests
     public void OkAndContinueWith_SetsInsertNext()
     {
         var result = CommandResult.OkAndContinueWith(
-            "triaged", "SkillRoundCommand:architect:1", "ConvergenceCheckCommand");
+            "triaged",
+            PipelineCommand.SkillRound("SkillRoundCommand", "architect", 1),
+            PipelineCommand.Simple("ConvergenceCheckCommand"));
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Be("triaged");
         result.InsertNext.Should().HaveCount(2);
-        result.InsertNext![0].Should().Be("SkillRoundCommand:architect:1");
-        result.InsertNext[1].Should().Be("ConvergenceCheckCommand");
+        result.InsertNext![0].DisplayName.Should().Be("SkillRoundCommand:architect:1");
+        result.InsertNext[1].DisplayName.Should().Be("ConvergenceCheckCommand");
     }
 
     [Fact]

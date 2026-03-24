@@ -72,9 +72,9 @@ public sealed class TriageHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().NotBeNull();
-        result.InsertNext.Should().Contain("SkillRoundCommand:architect:1");
-        result.InsertNext.Should().Contain("SkillRoundCommand:tester:1");
-        result.InsertNext.Should().Contain("ConvergenceCheckCommand");
+        result.InsertNext!.Select(c => c.DisplayName).Should().Contain("SkillRoundCommand:architect:1");
+        result.InsertNext.Select(c => c.DisplayName).Should().Contain("SkillRoundCommand:tester:1");
+        result.InsertNext.Select(c => c.DisplayName).Should().Contain("ConvergenceCheckCommand");
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class TriageHandlerTests
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
-        result.InsertNext![0].Should().Be("SkillRoundCommand:tester:1");
+        result.InsertNext![0].DisplayName.Should().Be("SkillRoundCommand:tester:1");
     }
 
     [Fact]

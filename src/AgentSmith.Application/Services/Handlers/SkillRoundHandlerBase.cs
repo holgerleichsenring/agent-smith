@@ -73,9 +73,9 @@ public abstract class SkillRoundHandlerBase
                 var nextRound = round + 1;
                 return CommandResult.OkAndContinueWith(
                     $"{role.DisplayName} objects, requesting response from {targetRole}",
-                    $"{SkillRoundCommandName}:{targetRole}:{nextRound}",
-                    $"{SkillRoundCommandName}:{skillName}:{nextRound}",
-                    "ConvergenceCheckCommand");
+                    PipelineCommand.SkillRound(SkillRoundCommandName, targetRole, nextRound),
+                    PipelineCommand.SkillRound(SkillRoundCommandName, skillName, nextRound),
+                    PipelineCommand.Simple(CommandNames.ConvergenceCheck));
             }
         }
 
