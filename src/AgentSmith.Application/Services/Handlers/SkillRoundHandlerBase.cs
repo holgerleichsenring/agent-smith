@@ -48,13 +48,14 @@ public abstract class SkillRoundHandlerBase
         }
 
         var domainSection = BuildDomainSection(pipeline);
-        var response = await CallLlmAsync(
+        var llmResponse = await CallLlmAsync(
             role, domainSection, projectContext, domainRules, codeMap,
             discussionLog, round, llmClient, cancellationToken);
+        PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
 
         var entry = new DiscussionEntry(
             skillName, role.DisplayName, role.Emoji,
-            round, response);
+            round, llmResponse.Text);
         discussionLog.Add(entry);
         pipeline.Set(ContextKeys.DiscussionLog, discussionLog);
 
@@ -62,7 +63,7 @@ public abstract class SkillRoundHandlerBase
             "{Emoji} {DisplayName} (Round {Round}): contributed to discussion",
             role.Emoji, role.DisplayName, round);
 
-        var objectionMatch = ObjectionPattern.Match(response);
+        var objectionMatch = ObjectionPattern.Match(llmResponse.Text);
         if (objectionMatch.Success)
         {
             var targetRole = objectionMatch.Groups[1].Value.Trim();
@@ -82,7 +83,7 @@ public abstract class SkillRoundHandlerBase
         return CommandResult.Ok($"{role.DisplayName} (Round {round}): contributed");
     }
 
-    private static async Task<string> CallLlmAsync(
+    private static async Task<LlmResponse> CallLlmAsync(
         RoleSkillDefinition role,
         string domainSection,
         string? projectContext,

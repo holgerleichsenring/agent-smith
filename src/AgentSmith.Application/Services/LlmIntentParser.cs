@@ -54,10 +54,10 @@ public sealed class LlmIntentParser(
             """;
 
         var llmClient = llmClientFactory.Create(haikusConfig);
-        var response = await llmClient.CompleteAsync(
+        var llmResponse = await llmClient.CompleteAsync(
             SystemPrompt, userPrompt, TaskType.Planning, cancellationToken);
 
-        return ParseResponse(response, userInput);
+        return ParseResponse(llmResponse.Text, userInput);
     }
 
     /// <summary>

@@ -59,9 +59,10 @@ public abstract class TriageHandlerBase
         TriageResult? triageResult;
         try
         {
-            var response = await llmClient.CompleteAsync(
+            var llmResponse = await llmClient.CompleteAsync(
                 systemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
-            triageResult = ParseTriageResponse(response, roles);
+            PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
+            triageResult = ParseTriageResponse(llmResponse.Text, roles);
         }
         catch (Exception ex)
         {

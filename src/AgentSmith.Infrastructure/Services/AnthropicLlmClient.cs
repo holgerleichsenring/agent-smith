@@ -31,7 +31,7 @@ public sealed class AnthropicLlmClient : ILlmClient, IDisposable
         _httpClient = new ResilientHttpClientFactory(retryConfig, logger).Create();
     }
 
-    public async Task<string> CompleteAsync(
+    public async Task<LlmResponse> CompleteAsync(
         string systemPrompt,
         string userPrompt,
         TaskType taskType,
@@ -63,9 +63,12 @@ public sealed class AnthropicLlmClient : ILlmClient, IDisposable
             cancellationToken);
 
         var text = response.Content.OfType<TextContent>().FirstOrDefault()?.Text?.Trim() ?? "";
+        var inputTokens = response.Usage?.InputTokens ?? 0;
+        var outputTokens = response.Usage?.OutputTokens ?? 0;
 
-        _logger.LogDebug("LLM response: {Chars} chars", text.Length);
-        return text;
+        _logger.LogDebug("LLM response: {Chars} chars, {In}+{Out} tokens",
+            text.Length, inputTokens, outputTokens);
+        return new LlmResponse(text, inputTokens, outputTokens);
     }
 
     public void Dispose()
