@@ -158,7 +158,7 @@ public sealed class SkillRoundHandlerTests
         _llmClientMock.Setup(c => c.CompleteAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response);
+            .ReturnsAsync(new LlmResponse(response, 0, 0));
     }
 
     private static PipelineContext CreatePipeline()

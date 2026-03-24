@@ -25,10 +25,10 @@ public sealed class CodeMapGenerator(
             project.Language, repoPath);
 
         var userPrompt = BuildUserPrompt(project, snapshot);
-        var response = await llmClient.CompleteAsync(
+        var llmResponse = await llmClient.CompleteAsync(
             SystemPrompt, userPrompt, TaskType.CodeMapGeneration, cancellationToken);
 
-        var yaml = LlmResponseHelper.StripCodeFences(response);
+        var yaml = LlmResponseHelper.StripCodeFences(llmResponse.Text);
 
         if (!LlmResponseHelper.IsValidYaml(yaml))
         {

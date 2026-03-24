@@ -30,6 +30,10 @@ public sealed class ConsoleOutputStrategy(
         Console.WriteLine();
         Console.WriteLine(output);
         Console.WriteLine();
+
+        if (context.Pipeline.TryGet<object>("PipelineCostTracker", out var tracker))
+            Console.WriteLine($"  {tracker}");
+
         Console.WriteLine("═══════════════════════════════════════════════════");
 
         logger.LogInformation("Delivered to console ({Chars} chars)", output.Length);

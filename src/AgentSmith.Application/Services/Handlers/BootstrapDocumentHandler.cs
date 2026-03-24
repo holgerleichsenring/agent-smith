@@ -113,8 +113,8 @@ public sealed class BootstrapDocumentHandler(
 
         try
         {
-            var result = await llmClient.CompleteAsync(systemPrompt, snippet, TaskType.Scout, cancellationToken);
-            var contractType = result.Trim().ToLowerInvariant();
+            var llmResponse = await llmClient.CompleteAsync(systemPrompt, snippet, TaskType.Scout, cancellationToken);
+            var contractType = llmResponse.Text.Trim().ToLowerInvariant();
 
             string[] validTypes = ["nda", "werkvertrag", "dienstleistungsvertrag", "saas-agb", "kaufvertrag", "mietvertrag"];
             return validTypes.Contains(contractType) ? contractType : "unknown";

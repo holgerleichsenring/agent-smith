@@ -41,9 +41,9 @@ public sealed class LlmIntentParser(
     {
         try
         {
-            var json = await llmClient.CompleteAsync(
+            var llmResponse = await llmClient.CompleteAsync(
                 SystemPrompt, text, TaskType.Scout, cancellationToken);
-            return ParseJsonResponse(json, text, userId, channelId, platform);
+            return ParseJsonResponse(llmResponse.Text, text, userId, channelId, platform);
         }
         catch (Exception ex)
         {

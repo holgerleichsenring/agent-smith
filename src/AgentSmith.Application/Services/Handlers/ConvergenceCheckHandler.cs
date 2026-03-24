@@ -152,8 +152,10 @@ public sealed class ConvergenceCheckHandler(
 
         try
         {
-            var consolidatedPlan = await llmClient.CompleteAsync(
+            var llmResponse = await llmClient.CompleteAsync(
                 systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+            PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
+            var consolidatedPlan = llmResponse.Text;
 
             context.Pipeline.Set(ContextKeys.ConsolidatedPlan, consolidatedPlan);
 
