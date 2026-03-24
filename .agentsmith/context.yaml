@@ -116,7 +116,7 @@ state:
     p43e: "Webhook expansion: IWebhookHandler dispatch, GitHub/GitLab/AzDO signature verification (503 tests)"
     p44: "Rename ProcessTicketUseCase → ExecutePipelineUseCase, rebrand to AI orchestration framework (511 tests)"
     p45: "API security scan: Nuclei + swagger.json analysis, OWASP API Top 10 skills, LoadSwagger/SpawnNuclei handlers (517 tests)"
-    p46: "CLI refactor: PipelineCommand, PipelineRequest, Program.cs split (456→18), factory registries, LlmIntentParser, tell-don't-ask cleanup (517 tests)"
+    p46: "CLI refactor: PipelineCommand, PipelineRequest, Program.cs split (456→18), factory registries, LlmIntentParser, verb-per-pipeline, tell-don't-ask cleanup (517 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
