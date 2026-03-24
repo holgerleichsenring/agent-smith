@@ -42,12 +42,22 @@ public sealed class ExecutePipelineUseCase(
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
 
         if (request.IsInit)
+        {
             pipeline.Set(ContextKeys.InitMode, true);
+            pipeline.Set(ContextKeys.CheckoutBranch, "agentsmith/init");
+        }
 
         if (request.Context is not null)
         {
             foreach (var (key, value) in request.Context)
                 pipeline.Set(key, value);
+
+            // Map ScanBranch to CheckoutBranch if not already set
+            if (request.Context.ContainsKey(ContextKeys.ScanBranch)
+                && !pipeline.Has(ContextKeys.CheckoutBranch))
+            {
+                pipeline.Set(ContextKeys.CheckoutBranch, request.Context[ContextKeys.ScanBranch]);
+            }
         }
 
         var result = await pipelineExecutor.ExecuteAsync(
