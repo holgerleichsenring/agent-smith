@@ -39,7 +39,7 @@ public sealed class BootstrapProjectHandler(
         context.Pipeline.Set(ContextKeys.RepoSnapshot, snapshot);
 
         var llmClient = llmClientFactory.Create(context.Agent);
-        var sourceType = context.Pipeline.TryGet<string>("SourceType", out var st) ? st : "github";
+        var sourceType = context.Pipeline.TryGet<string>("SourceType", out var st) ? st ?? "github" : "github";
 
         if (File.Exists(contextFilePath))
         {

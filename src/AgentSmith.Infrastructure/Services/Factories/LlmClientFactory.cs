@@ -47,7 +47,7 @@ public sealed class LlmClientFactory(
             endpoint + "/v1", apiKey, loggerFactory.CreateLogger("OpenAiLlmClient"));
         var registry = CreateModelRegistry(config);
         return new OpenAiLlmClient(
-            client, config.Model, registry, loggerFactory.CreateLogger<OpenAiLlmClient>());
+            client, registry, loggerFactory.CreateLogger<OpenAiLlmClient>());
     }
 
     private IModelRegistry CreateModelRegistry(AgentConfig config)

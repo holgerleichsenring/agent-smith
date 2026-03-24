@@ -14,7 +14,7 @@ public sealed class OllamaAgentProviderTests
     {
         var sut = new OllamaAgentProvider(
             "qwen2.5-coder:32b", CreateClient(),
-            hasToolCalling: false, null, null,
+            hasToolCalling: false, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
         sut.ProviderType.Should().Be("ollama");
@@ -25,12 +25,12 @@ public sealed class OllamaAgentProviderTests
     {
         var withTools = new OllamaAgentProvider(
             "qwen2.5-coder:32b", CreateClient(),
-            hasToolCalling: true, null, null,
+            hasToolCalling: true, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
         var withoutTools = new OllamaAgentProvider(
             "mistral-small:3.1", CreateClient(),
-            hasToolCalling: false, null, null,
+            hasToolCalling: false, null,
             NullLogger<OllamaAgentProvider>.Instance);
 
         withTools.ProviderType.Should().Be("ollama");

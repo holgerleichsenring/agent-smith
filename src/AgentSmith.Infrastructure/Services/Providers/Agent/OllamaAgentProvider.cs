@@ -19,7 +19,6 @@ public sealed class OllamaAgentProvider(
     OpenAiCompatibleClient client,
     bool hasToolCalling,
     IModelRegistry? modelRegistry,
-    PricingConfig? pricing,
     ILogger<OllamaAgentProvider> logger) : IAgentProvider
 {
     public string ProviderType => "ollama";
