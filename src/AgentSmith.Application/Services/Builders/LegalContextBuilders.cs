@@ -26,6 +26,7 @@ public sealed class DeliverOutputContextBuilder : IContextBuilder
     public ICommandContext Build(string commandName, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new DeliverOutputContext(project.Source, repo, pipeline);
+        pipeline.TryGet<string>(ContextKeys.OutputFormat, out var outputFormat);
+        return new DeliverOutputContext(project.Source, repo, pipeline, outputFormat);
     }
 }
