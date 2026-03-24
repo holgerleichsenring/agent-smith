@@ -42,5 +42,6 @@ jobs:
           dotnet run --project src/AgentSmith.Host \
             --configuration Release \
             -- \
-            --headless \
-            "fix #${{ github.event.issue.number }} in ${{ github.event.repository.name }}"
+            fix --ticket ${{ github.event.issue.number }} \
+                --project ${{ github.event.repository.name }} \
+                --headless
