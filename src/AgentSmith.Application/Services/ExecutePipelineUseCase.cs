@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -10,10 +10,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Central entry point: takes user input, parses intent, loads config,
-/// resolves the project pipeline, and executes it end-to-end.
-/// Supports both ticket-based flows ("fix #123 in project") and
-/// init flows ("init in project").
+/// Central entry point: takes a PipelineRequest, loads config,
+/// resolves the pipeline, and executes it end-to-end.
+/// Also supports legacy string-based input for backward compatibility.
 /// </summary>
 public sealed class ExecutePipelineUseCase(
     IConfigurationLoader configLoader,
@@ -21,12 +20,50 @@ public sealed class ExecutePipelineUseCase(
     IPipelineExecutor pipelineExecutor,
     ILogger<ExecutePipelineUseCase> logger)
 {
-    private static readonly Regex InitPattern = new(
-        @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    public async Task<CommandResult> ExecuteAsync(
+        PipelineRequest request, string configPath, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Executing pipeline '{Pipeline}' for project '{Project}'",
+            request.PipelineName, request.ProjectName);
 
-    private static readonly Regex TicketlessPattern = new(
-        @"^(?:security-scan|legal-analysis|api-scan)\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        var config = configLoader.LoadConfig(configPath);
 
+        var projectName = request.ProjectName.ToLowerInvariant();
+        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
+            throw new ConfigurationException($"Project '{projectName}' not found in configuration.");
+
+        var commands = PipelinePresets.TryResolve(request.PipelineName)
+            ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Headless, request.Headless);
+
+        if (request.TicketId is not null)
+            pipeline.Set(ContextKeys.TicketId, request.TicketId);
+
+        if (request.IsInit)
+            pipeline.Set(ContextKeys.InitMode, true);
+
+        if (request.Context is not null)
+        {
+            foreach (var (key, value) in request.Context)
+                pipeline.Set(key, value);
+        }
+
+        var result = await pipelineExecutor.ExecuteAsync(
+            commands, projectConfig, pipeline, cancellationToken);
+
+        if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
+            result = result with { PrUrl = prUrl };
+
+        LogResult(result, projectName);
+        return result;
+    }
+
+    /// <summary>
+    /// Legacy entry point for backward compatibility with string-based input.
+    /// Parses intent from free text, builds a PipelineRequest, and delegates.
+    /// </summary>
     public async Task<CommandResult> ExecuteAsync(
         string userInput,
         string configPath,
@@ -37,142 +74,58 @@ public sealed class ExecutePipelineUseCase(
     {
         logger.LogInformation("Processing input: {Input}", userInput);
 
-        var initMatch = InitPattern.Match(userInput);
-        if (initMatch.Success)
-            return await ExecuteInitAsync(
-                initMatch.Groups[1].Value, configPath, pipelineOverride, headless, cancellationToken);
+        var request = await BuildRequestFromLegacyInput(
+            userInput, configPath, headless, pipelineOverride, initialContext, cancellationToken);
 
-        var ticketlessMatch = TicketlessPattern.Match(userInput);
-        if (ticketlessMatch.Success)
-            return await ExecuteTicketlessAsync(
-                ticketlessMatch.Groups[1].Value, configPath, pipelineOverride, headless,
-                cancellationToken, initialContext);
-
-        return await ExecuteTicketAsync(
-            userInput, configPath, pipelineOverride, headless, cancellationToken, initialContext);
+        return await ExecuteAsync(request, configPath, cancellationToken);
     }
 
-    private async Task<CommandResult> ExecuteTicketAsync(
-        string userInput,
-        string configPath,
-        string? pipelineOverride,
-        bool headless,
-        CancellationToken cancellationToken,
-        Dictionary<string, object>? initialContext = null)
-    {
-        var config = configLoader.LoadConfig(configPath);
-        var intent = await intentParser.ParseAsync(userInput, cancellationToken);
-
-        var projectName = intent.ProjectName.Value;
-        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
-            throw new ConfigurationException(
-                $"Project '{projectName}' not found in configuration.");
-
-        var pipelineName = pipelineOverride ?? projectConfig.Pipeline;
-        var commands = ResolvePipeline(pipelineName);
-
-        logger.LogInformation(
-            "Running pipeline '{Pipeline}' for project '{Project}', ticket {Ticket}",
-            pipelineName, projectName, intent.TicketId);
-
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.TicketId, intent.TicketId);
-        pipeline.Set(ContextKeys.Headless, headless);
-
-        if (initialContext is not null)
-        {
-            foreach (var (key, value) in initialContext)
-                pipeline.Set(key, value);
-        }
-
-        var result = await pipelineExecutor.ExecuteAsync(
-            commands, projectConfig, pipeline, cancellationToken);
-
-        if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
-            result = result with { PrUrl = prUrl };
-
-        LogResult(result, projectName);
-        return result;
-    }
-
-    private async Task<CommandResult> ExecuteTicketlessAsync(
-        string projectName,
-        string configPath,
-        string? pipelineOverride,
-        bool headless,
-        CancellationToken cancellationToken,
-        Dictionary<string, object>? initialContext = null)
-    {
-        var config = configLoader.LoadConfig(configPath);
-
-        projectName = projectName.ToLowerInvariant();
-        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
-            throw new ConfigurationException(
-                $"Project '{projectName}' not found in configuration.");
-
-        var pipelineName = pipelineOverride ?? projectConfig.Pipeline;
-        var commands = ResolvePipeline(pipelineName);
-
-        logger.LogInformation(
-            "Running ticketless pipeline '{Pipeline}' for project '{Project}'",
-            pipelineName, projectName);
-
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.Headless, headless);
-
-        if (initialContext is not null)
-        {
-            foreach (var (key, value) in initialContext)
-                pipeline.Set(key, value);
-        }
-
-        var result = await pipelineExecutor.ExecuteAsync(
-            commands, projectConfig, pipeline, cancellationToken);
-
-        LogResult(result, projectName);
-        return result;
-    }
-
-    private async Task<CommandResult> ExecuteInitAsync(
-        string projectName,
-        string configPath,
-        string? pipelineOverride,
-        bool headless,
+    private async Task<PipelineRequest> BuildRequestFromLegacyInput(
+        string userInput, string configPath, bool headless,
+        string? pipelineOverride, Dictionary<string, object>? initialContext,
         CancellationToken cancellationToken)
     {
-        var config = configLoader.LoadConfig(configPath);
+        var initMatch = Regex.Match(userInput, @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase);
+        if (initMatch.Success)
+        {
+            return new PipelineRequest(
+                initMatch.Groups[1].Value,
+                pipelineOverride ?? "init-project",
+                IsInit: true,
+                Headless: headless,
+                Context: initialContext);
+        }
 
-        projectName = projectName.ToLowerInvariant();
-        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
-            throw new ConfigurationException(
-                $"Project '{projectName}' not found in configuration.");
+        var ticketlessMatch = Regex.Match(userInput,
+            @"^(?:security-scan|legal-analysis|api-scan)\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase);
+        if (ticketlessMatch.Success)
+        {
+            var config = configLoader.LoadConfig(configPath);
+            var projectName = ticketlessMatch.Groups[1].Value.ToLowerInvariant();
+            var pipeline = pipelineOverride;
+            if (string.IsNullOrWhiteSpace(pipeline) && config.Projects.TryGetValue(projectName, out var pc))
+                pipeline = pc.Pipeline;
 
-        var pipelineName = pipelineOverride ?? "init-project";
-        var commands = ResolvePipeline(pipelineName);
+            return new PipelineRequest(
+                projectName,
+                pipeline ?? "security-scan",
+                Headless: headless,
+                Context: initialContext);
+        }
 
-        logger.LogInformation(
-            "Running init pipeline '{Pipeline}' for project '{Project}'",
-            pipelineName, projectName);
+        var intent = await intentParser.ParseAsync(userInput, cancellationToken);
+        var config2 = configLoader.LoadConfig(configPath);
+        var projName = intent.ProjectName.Value;
+        var pipelineName = pipelineOverride;
+        if (string.IsNullOrWhiteSpace(pipelineName) && config2.Projects.TryGetValue(projName, out var pc2))
+            pipelineName = pc2.Pipeline;
 
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.InitMode, true);
-        pipeline.Set(ContextKeys.Headless, headless);
-
-        var result = await pipelineExecutor.ExecuteAsync(
-            commands, projectConfig, pipeline, cancellationToken);
-
-        if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
-            result = result with { PrUrl = prUrl };
-
-        LogResult(result, projectName);
-        return result;
-    }
-
-    private static IReadOnlyList<string> ResolvePipeline(string pipelineName)
-    {
-        return PipelinePresets.TryResolve(pipelineName)
-            ?? throw new ConfigurationException(
-                $"Pipeline '{pipelineName}' not found in presets.");
+        return new PipelineRequest(
+            projName,
+            pipelineName ?? "fix-bug",
+            TicketId: intent.TicketId,
+            Headless: headless,
+            Context: initialContext);
     }
 
     private void LogResult(CommandResult result, string projectName)
