@@ -25,7 +25,7 @@ public sealed class ExecutePipelineUseCase(
         @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TicketlessPattern = new(
-        @"^(?:security-scan|legal-analysis)\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        @"^(?:security-scan|legal-analysis|api-scan)\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public async Task<CommandResult> ExecuteAsync(
         string userInput,
