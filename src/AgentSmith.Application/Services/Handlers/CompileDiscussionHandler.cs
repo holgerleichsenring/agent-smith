@@ -21,7 +21,8 @@ public sealed class CompileDiscussionHandler(
         if (!context.Pipeline.TryGet<List<DiscussionEntry>>(
                 ContextKeys.DiscussionLog, out var log) || log is null || log.Count == 0)
         {
-            return CommandResult.Fail("No discussion log to compile");
+            logger.LogInformation("No discussion log to compile, skipping");
+            return CommandResult.Ok("No discussion log, skipping compilation");
         }
 
         var ticket = context.Pipeline.Get<Ticket>(ContextKeys.Ticket);

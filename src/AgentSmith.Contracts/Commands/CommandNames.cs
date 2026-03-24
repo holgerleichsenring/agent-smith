@@ -31,6 +31,7 @@ public static class CommandNames
     public const string BootstrapDocument = "BootstrapDocumentCommand";
     public const string DeliverOutput = "DeliverOutputCommand";
     public const string SecurityTriage = "SecurityTriageCommand";
+    public const string SecuritySkillRound = "SecuritySkillRoundCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -73,5 +74,6 @@ public static class CommandNames
         [BootstrapDocument] = "Bootstrapping document",
         [DeliverOutput] = "Delivering output",
         [SecurityTriage] = "Triaging security scan",
+        [SecuritySkillRound] = "Security skill round",
     };
 }

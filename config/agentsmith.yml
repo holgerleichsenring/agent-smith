@@ -156,6 +156,18 @@ projects:
         primary:
           model: llama-3.3-70b-versatile
           max_tokens: 8192
+        planning:
+          model: llama-3.3-70b-versatile
+          max_tokens: 4096
+        scout:
+          model: llama-3.3-70b-versatile
+          max_tokens: 4096
+        code_map_generation:
+          model: llama-3.3-70b-versatile
+          max_tokens: 4096
+        summarization:
+          model: llama-3.3-70b-versatile
+          max_tokens: 2048
     pipeline: security-scan
     skills_path: skills/security
 
