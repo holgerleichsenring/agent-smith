@@ -38,11 +38,13 @@ public sealed class AgentProviderFactory(
 
     private OpenAiAgentProvider CreateOpenAi(AgentConfig config)
     {
-        var apiKey = secrets.GetRequired("OPENAI_API_KEY");
+        var secretName = config.ApiKeySecret ?? "OPENAI_API_KEY";
+        var apiKey = secrets.GetRequired(secretName);
         var registry = CreateModelRegistry(config);
+        var endpoint = config.Endpoint is not null ? new Uri(config.Endpoint) : null;
         return new OpenAiAgentProvider(
             apiKey, config.Model, config.Retry,
-            registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>());
+            registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>(), endpoint);
     }
 
     private GeminiAgentProvider CreateGemini(AgentConfig config)

@@ -31,6 +31,7 @@ public class CommandContextFactoryTests
         new(CommandNames.CommitAndPR, new CommitAndPRContextBuilder()),
         new(CommandNames.InitCommit, new InitCommitContextBuilder()),
         new(CommandNames.Triage, new TriageContextBuilder()),
+        new(CommandNames.SecurityTriage, new SecurityTriageContextBuilder()),
         new(CommandNames.SwitchSkill, new SwitchSkillContextBuilder()),
         new(CommandNames.SkillRound, new SkillRoundContextBuilder()),
         new(CommandNames.ConvergenceCheck, new ConvergenceCheckContextBuilder()),
