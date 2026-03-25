@@ -129,6 +129,15 @@ pipelines:
       - BootstrapProjectCommand
       - InitCommitCommand
 
+# Tool runner for security scanning tools (Nuclei, Spectral).
+# Type is auto-detected if not specified: docker socket → docker, else process.
+tool_runner:
+  type: auto  # auto | docker | podman | process
+  # socket: unix:///var/run/docker.sock  # override for custom socket path
+  images:
+    nuclei: projectdiscovery/nuclei:latest
+    spectral: stoplight/spectral:6
+
 secrets:
   github_token: ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}

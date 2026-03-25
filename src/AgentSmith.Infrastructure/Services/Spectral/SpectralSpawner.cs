@@ -2,78 +2,61 @@ using System.Reflection;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Infrastructure.Services.Nuclei;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Spectral;
 
 /// <summary>
-/// Runs a Spectral lint scan via IContainerRunner.
-/// Mounts swagger.json and .spectral.yaml into the container, parses JSON output.
+/// Runs a Spectral lint scan via IToolRunner.
+/// Mounts swagger.json and .spectral.yaml, parses JSON output.
 /// </summary>
 public sealed class SpectralSpawner(
-    IContainerRunner containerRunner,
+    IToolRunner toolRunner,
     ILogger<SpectralSpawner> logger) : ISpectralScanner
 {
-    private const string SpectralImage = "stoplight/spectral:6";
-
     public async Task<SpectralResult> LintAsync(
         string swaggerPath, CancellationToken cancellationToken)
     {
-        var tempDir = Path.Combine(NucleiSpawner.GetSharedTempPath(), $"spectral-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
+        logger.LogInformation("Starting Spectral lint: {SwaggerPath}", swaggerPath);
 
-        try
+        var rulesetSource = GetRulesetPath();
+
+        var inputFiles = new Dictionary<string, string>
         {
-            File.Copy(swaggerPath, Path.Combine(tempDir, "swagger.json"));
+            ["swagger.json"] = File.ReadAllText(swaggerPath),
+            [".spectral.yaml"] = File.ReadAllText(rulesetSource),
+        };
 
-            var rulesetSource = GetRulesetPath();
-            File.Copy(rulesetSource, Path.Combine(tempDir, ".spectral.yaml"));
-
-            logger.LogInformation("Starting Spectral lint: {SwaggerPath}", swaggerPath);
-
-            var command = new List<string>
-            {
-                "lint",
-                "/input/swagger.json",
-                "--ruleset", "/input/.spectral.yaml",
-                "--format", "json",
-                "--output", "/input/results.json",
-            };
-
-            var request = new ContainerRunRequest(
-                SpectralImage,
-                command,
-                VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
-                TimeoutSeconds: 120);
-
-            var result = await containerRunner.RunAsync(request, cancellationToken);
-
-            // Read from output file (survives timeout) with fallback to stdout
-            var resultsFile = Path.Combine(tempDir, "results.json");
-            var output = File.Exists(resultsFile)
-                ? await File.ReadAllTextAsync(resultsFile, cancellationToken)
-                : result.Stdout;
-
-            var findings = ParseJsonOutput(output);
-
-            var errorCount = findings.Count(f => f.Severity is "error");
-            var warnCount = findings.Count(f => f.Severity is "warn");
-
-            logger.LogInformation(
-                "Spectral lint completed: {Count} findings ({Errors} errors, {Warnings} warnings) in {Duration}s",
-                findings.Count, errorCount, warnCount, result.DurationSeconds);
-
-            if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
-                logger.LogWarning("Spectral stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
-
-            return new SpectralResult(findings, errorCount, warnCount, result.DurationSeconds);
-        }
-        finally
+        var arguments = new List<string>
         {
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
-        }
+            "lint",
+            "/input/swagger.json",
+            "--ruleset", "/input/.spectral.yaml",
+            "--format", "json",
+            "--output", "/input/results.json",
+        };
+
+        var request = new ToolRunRequest(
+            "spectral", arguments, inputFiles,
+            OutputFileName: "results.json",
+            TimeoutSeconds: 120);
+
+        var result = await toolRunner.RunAsync(request, cancellationToken);
+
+        var output = result.OutputFileContent ?? result.Stdout;
+        var findings = ParseJsonOutput(output);
+
+        var errorCount = findings.Count(f => f.Severity is "error");
+        var warnCount = findings.Count(f => f.Severity is "warn");
+
+        logger.LogInformation(
+            "Spectral lint completed: {Count} findings ({Errors} errors, {Warnings} warnings) in {Duration}s",
+            findings.Count, errorCount, warnCount, result.DurationSeconds);
+
+        if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
+            logger.LogWarning("Spectral stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
+
+        return new SpectralResult(findings, errorCount, warnCount, result.DurationSeconds);
     }
 
     internal static List<SpectralFinding> ParseJsonOutput(string output)
@@ -134,7 +117,6 @@ public sealed class SpectralSpawner(
         if (File.Exists(rulesetPath))
             return rulesetPath;
 
-        // Fallback: look relative to working directory
         var fallback = Path.Combine("config", "spectral.yaml");
         if (File.Exists(fallback))
             return fallback;
