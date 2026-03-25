@@ -1,0 +1,3 @@
+extends:
+  - "@stoplight/spectral-owasp"
+rules: {}

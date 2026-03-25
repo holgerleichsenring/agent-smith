@@ -9,6 +9,9 @@ public sealed record LoadSwaggerContext(
 public sealed record SpawnNucleiContext(
     PipelineContext Pipeline) : ICommandContext;
 
+public sealed record SpawnSpectralContext(
+    PipelineContext Pipeline) : ICommandContext;
+
 public sealed record ApiSecurityTriageContext(
     AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;
