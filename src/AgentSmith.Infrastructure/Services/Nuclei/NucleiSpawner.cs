@@ -31,23 +31,16 @@ public sealed class NucleiSpawner(
             logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
                 targetUrl, dockerTarget);
 
-            // Rewrite swagger.json target URLs for Docker network
-            var swaggerContent = await File.ReadAllTextAsync(
-                Path.Combine(tempDir, "swagger.json"), cancellationToken);
-            if (isLocal)
-            {
-                swaggerContent = swaggerContent
-                    .Replace("://localhost", "://host.docker.internal")
-                    .Replace("://127.0.0.1", "://host.docker.internal");
-                await File.WriteAllTextAsync(
-                    Path.Combine(tempDir, "swagger.json"), swaggerContent, cancellationToken);
-            }
+            // Extract endpoint URLs from swagger spec for Nuclei target list
+            var endpointUrls = BuildEndpointUrls(swaggerPath, dockerTarget);
+            var targetsFile = Path.Combine(tempDir, "targets.txt");
+            await File.WriteAllTextAsync(targetsFile, string.Join("\n", endpointUrls), cancellationToken);
+
+            logger.LogDebug("Generated {Count} target URLs from swagger spec", endpointUrls.Count);
 
             var command = new List<string>
             {
-                "-list", "/input/swagger.json",
-                "-input-mode", "openapi",
-                "-target", dockerTarget,
+                "-list", "/input/targets.txt",
                 "-jsonl",
                 "-severity", "critical,high,medium,low",
                 "-tags", "exposure,misconfig,token,auth,cors,header,ssl,api",
@@ -88,6 +81,37 @@ public sealed class NucleiSpawner(
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    internal static List<string> BuildEndpointUrls(string swaggerPath, string baseUrl)
+    {
+        var urls = new List<string> { baseUrl };
+
+        try
+        {
+            var json = File.ReadAllText(swaggerPath);
+            using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("paths", out var paths))
+            {
+                var trimmedBase = baseUrl.TrimEnd('/');
+                foreach (var path in paths.EnumerateObject())
+                {
+                    // Replace path parameters with sample values
+                    var endpointPath = path.Name
+                        .Replace("{id}", "1")
+                        .Replace("{Id}", "1");
+
+                    urls.Add($"{trimmedBase}{endpointPath}");
+                }
+            }
+        }
+        catch
+        {
+            // If swagger parsing fails, scan base URL only
+        }
+
+        return urls.Distinct().ToList();
     }
 
     internal static string RewriteLocalhostForDocker(string url) =>
