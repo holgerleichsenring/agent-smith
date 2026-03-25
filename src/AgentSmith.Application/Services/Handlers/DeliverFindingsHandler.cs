@@ -48,13 +48,23 @@ public sealed class DeliverFindingsHandler(
 
     internal static string ResolveOutputDir(string? requested)
     {
-        if (!string.IsNullOrWhiteSpace(requested))
-            return requested;
+        // Try requested path first, then /output (Docker), then local fallback
+        foreach (var candidate in new[] { requested, "/output", "./agentsmith-output" })
+        {
+            if (string.IsNullOrWhiteSpace(candidate)) continue;
 
-        // Docker: /output exists and is writable (created in Dockerfile)
-        if (Directory.Exists("/output"))
-            return "/output";
+            try
+            {
+                Directory.CreateDirectory(candidate);
+                var testFile = Path.Combine(candidate, ".write-test");
+                File.WriteAllText(testFile, "");
+                File.Delete(testFile);
+                return candidate;
+            }
+            catch { /* not writable, try next */ }
+        }
 
-        return "./agentsmith-output";
+        // Last resort — temp directory is always writable
+        return Path.GetTempPath();
     }
 }
