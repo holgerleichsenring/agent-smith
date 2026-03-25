@@ -35,8 +35,9 @@ RUN groupadd --gid 1000 agentsmith && \
 COPY --from=build /app/publish .
 COPY config/ ./config/
 
-# Temp directory for cloned repos
-RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
+# Temp directory for tool containers, output directory for reports
+RUN mkdir -p /tmp/agentsmith /output && \
+    chown agentsmith:agentsmith /tmp/agentsmith /output
 
 USER agentsmith
 
