@@ -45,11 +45,17 @@ public abstract class TriageHandlerBase
             Analyze the input and determine:
             1. Which roles are needed (select from available roles only)
             2. Who should lead the discussion (creates the initial analysis)
+            3. For EVERY available role, explain why it is included or excluded
 
             Respond in JSON:
             {
               "lead": "role-name",
-              "participants": ["role-name-1", "role-name-2"]
+              "participants": ["role-name-1", "role-name-2"],
+              "reasoning": {
+                "role-name-1": "why this role is needed",
+                "role-name-2": "why this role is needed",
+                "excluded-role": "why this role is not needed"
+              }
             }
             """;
 
@@ -103,6 +109,12 @@ public abstract class TriageHandlerBase
             triageResult.Lead,
             string.Join(", ", triageResult.Participants));
 
+        foreach (var (role, reason) in triageResult.Reasoning)
+        {
+            var included = triageResult.Participants.Contains(role) ? "INCLUDED" : "EXCLUDED";
+            Logger.LogInformation("  [{Status}] {Role}: {Reason}", included, role, reason);
+        }
+
         return CommandResult.OkAndContinueWith(
             $"Triage complete. Lead: {triageResult.Lead}. " +
             $"Participants: {string.Join(", ", triageResult.Participants)}",
@@ -149,5 +161,6 @@ public abstract class TriageHandlerBase
     {
         public string Lead { get; set; } = string.Empty;
         public List<string> Participants { get; set; } = [];
+        public Dictionary<string, string> Reasoning { get; set; } = new();
     }
 }
