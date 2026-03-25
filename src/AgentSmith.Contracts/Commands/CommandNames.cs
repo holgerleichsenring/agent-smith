@@ -34,6 +34,7 @@ public static class CommandNames
     public const string SecuritySkillRound = "SecuritySkillRoundCommand";
     public const string LoadSwagger = "LoadSwaggerCommand";
     public const string SpawnNuclei = "SpawnNucleiCommand";
+    public const string SpawnSpectral = "SpawnSpectralCommand";
     public const string ApiSecurityTriage = "ApiSecurityTriageCommand";
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
     public const string CompileFindings = "CompileFindingsCommand";
@@ -84,6 +85,7 @@ public static class CommandNames
         [SecuritySkillRound] = "Security skill round",
         [LoadSwagger] = "Loading swagger spec",
         [SpawnNuclei] = "Running Nuclei scan",
+        [SpawnSpectral] = "Running Spectral lint",
         [ApiSecurityTriage] = "Triaging API security scan",
         [ApiSecuritySkillRound] = "API security skill round",
         [CompileFindings] = "Compiling findings",
