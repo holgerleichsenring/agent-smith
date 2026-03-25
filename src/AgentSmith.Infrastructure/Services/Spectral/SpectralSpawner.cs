@@ -37,6 +37,7 @@ public sealed class SpectralSpawner(
                 "/input/swagger.json",
                 "--ruleset", "/input/.spectral.yaml",
                 "--format", "json",
+                "--output", "/input/results.json",
             };
 
             var request = new ContainerRunRequest(
@@ -47,7 +48,13 @@ public sealed class SpectralSpawner(
 
             var result = await containerRunner.RunAsync(request, cancellationToken);
 
-            var findings = ParseJsonOutput(result.Stdout);
+            // Read from output file (survives timeout) with fallback to stdout
+            var resultsFile = Path.Combine(tempDir, "results.json");
+            var output = File.Exists(resultsFile)
+                ? await File.ReadAllTextAsync(resultsFile, cancellationToken)
+                : result.Stdout;
+
+            var findings = ParseJsonOutput(output);
 
             var errorCount = findings.Count(f => f.Severity is "error");
             var warnCount = findings.Count(f => f.Severity is "warn");
