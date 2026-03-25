@@ -123,7 +123,8 @@ state:
     p50: "Multi-output strategy: --output console,summary,markdown,sarif + --output-dir + SummaryOutputStrategy (561 tests)"
     p51: "ToolRunner clean architecture: {work} placeholders, no hardcoded paths, OutputDir resolved once (567 tests)"
     p52: "Single executable release: self-contained binaries for 5 platforms, GitHub Releases, Release-Please, Docker entrypoint with gosu, config discovery (567 tests)"
-  active: {}
+  active:
+    p53: "Documentation site at code.agent-smith.org — MkDocs Material, GitHub Pages → .agentsmith/phases/active/p53-documentation-site.md"
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
