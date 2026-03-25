@@ -18,7 +18,11 @@ internal static class ServiceProviderFactory
         var services = new ServiceCollection();
         services.AddLogging(builder =>
         {
-            builder.AddConsole();
+            builder.AddSimpleConsole(options =>
+            {
+                options.SingleLine = true;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
             builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information);
         });
         services.AddAgentSmithInfrastructure();
