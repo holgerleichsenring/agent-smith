@@ -19,7 +19,7 @@ public sealed class ConsoleOutputStrategyTests
     [Fact]
     public async Task DeliverAsync_NoFindings_CompletesWithoutError()
     {
-        var context = new OutputContext("my-api", null, [], null, new PipelineContext());
+        var context = new OutputContext("my-api", null, [], null, "./test-output", new PipelineContext());
 
         var act = async () => await _sut.DeliverAsync(context);
 
@@ -36,7 +36,7 @@ public sealed class ConsoleOutputStrategyTests
             new("LOW", "src/Config/DbConfig.cs", 8, null, "Logged secret", "Connection string in log", 8),
         };
 
-        var context = new OutputContext("my-api", "42", findings, "# Report", new PipelineContext());
+        var context = new OutputContext("my-api", "42", findings, "# Report", "./test-output", new PipelineContext());
 
         var act = async () => await _sut.DeliverAsync(context);
 

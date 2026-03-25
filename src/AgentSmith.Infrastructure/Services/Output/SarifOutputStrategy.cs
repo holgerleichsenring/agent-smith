@@ -22,39 +22,12 @@ public sealed class SarifOutputStrategy(
         var sarif = BuildSarifDocument(context.Findings);
         var json = sarif.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
-        var outputDir = ResolveOutputDir(context);
-        Directory.CreateDirectory(outputDir);
-
-        var outputPath = Path.Combine(outputDir, "findings.sarif");
+        Directory.CreateDirectory(context.OutputDir);
+        var outputPath = Path.Combine(context.OutputDir, "findings.sarif");
         await File.WriteAllTextAsync(outputPath, json, cancellationToken);
         logger.LogInformation("SARIF report written to {Path}", outputPath);
 
         LogSummary(context.Findings);
-    }
-
-    private static string ResolveOutputDir(OutputContext context)
-    {
-        context.Pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir);
-        if (!string.IsNullOrWhiteSpace(dir) && IsWritable(dir))
-            return dir;
-
-        if (IsWritable("/output"))
-            return "/output";
-
-        return "./agentsmith-output";
-    }
-
-    private static bool IsWritable(string path)
-    {
-        try
-        {
-            Directory.CreateDirectory(path);
-            var testFile = Path.Combine(path, ".write-test");
-            File.WriteAllText(testFile, "");
-            File.Delete(testFile);
-            return true;
-        }
-        catch { return false; }
     }
 
     internal static JsonObject BuildSarifDocument(IReadOnlyList<Finding> findings)
