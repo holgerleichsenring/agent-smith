@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
@@ -7,72 +6,63 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Nuclei;
 
 /// <summary>
-/// Spawns a Nuclei Docker container to scan an API target.
-/// Parses JSON-lines output into NucleiResult.
+/// Runs a Nuclei scan via IContainerRunner.
+/// Works in any environment where containers can be spawned (local Docker, K8s, etc.).
 /// </summary>
-public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanner
+public sealed class NucleiSpawner(
+    IContainerRunner containerRunner,
+    ILogger<NucleiSpawner> logger) : INucleiScanner
 {
     private const string NucleiImage = "projectdiscovery/nuclei:latest";
-    private const int DefaultTimeoutSeconds = 300;
 
     public async Task<NucleiResult> ScanAsync(
         string targetUrl, string swaggerPath, CancellationToken cancellationToken)
     {
+        var dockerTarget = RewriteLocalhostForDocker(targetUrl);
+        var isLocal = dockerTarget.Contains("host.docker.internal");
+
         var tempDir = Path.Combine(Path.GetTempPath(), $"nuclei-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
 
         try
         {
-            var swaggerDest = Path.Combine(tempDir, "swagger.json");
-            File.Copy(swaggerPath, swaggerDest);
+            File.Copy(swaggerPath, Path.Combine(tempDir, "swagger.json"));
 
-            var sw = Stopwatch.StartNew();
-
-            var dockerTarget = RewriteLocalhostForDocker(targetUrl);
-
-            var args = $"run --rm --add-host=host.docker.internal:host-gateway -v {tempDir}:/input {NucleiImage} " +
-                       $"-target {dockerTarget} -jsonl " +
-                       $"-severity critical,high,medium,low " +
-                       $"-tags exposure,misconfig,token,auth,cors,header,ssl,api " +
-                       $"-exclude-tags dos,fuzz";
-
-            logger.LogInformation("Starting Nuclei scan: {Target} (docker: {DockerTarget})",
+            logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
                 targetUrl, dockerTarget);
-            logger.LogDebug("Docker command: docker {Args}", args);
 
-            var process = new Process
+            var command = new List<string>
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "docker",
-                    Arguments = args,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                "-target", dockerTarget,
+                "-jsonl",
+                "-severity", "critical,high,medium,low",
+                "-tags", "exposure,misconfig,token,auth,cors,header,ssl,api",
+                "-exclude-tags", "dos,fuzz"
             };
 
-            process.Start();
+            var extraHosts = isLocal
+                ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
+                : null;
 
-            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var error = await process.StandardError.ReadToEndAsync(cancellationToken);
+            var request = new ContainerRunRequest(
+                NucleiImage,
+                command,
+                VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
+                ExtraHosts: extraHosts,
+                TimeoutSeconds: 300);
 
-            await process.WaitForExitAsync(cancellationToken);
-            sw.Stop();
+            var result = await containerRunner.RunAsync(request, cancellationToken);
 
-            if (process.ExitCode != 0 && string.IsNullOrWhiteSpace(output))
-            {
-                logger.LogWarning("Nuclei exited with code {Code}: {Error}", process.ExitCode, error);
-            }
-
-            var findings = ParseJsonLines(output);
+            var findings = ParseJsonLines(result.Stdout);
 
             logger.LogInformation(
                 "Nuclei scan completed: {Count} findings in {Duration}s",
-                findings.Count, (int)sw.Elapsed.TotalSeconds);
+                findings.Count, result.DurationSeconds);
 
-            return new NucleiResult(findings, (int)sw.Elapsed.TotalSeconds, output);
+            if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
+                logger.LogWarning("Nuclei stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
+
+            return new NucleiResult(findings, result.DurationSeconds, result.Stdout);
         }
         finally
         {
@@ -114,7 +104,7 @@ public sealed class NucleiSpawner(ILogger<NucleiSpawner> logger) : INucleiScanne
             }
             catch
             {
-                // Skip non-JSON lines (Nuclei sometimes outputs status messages)
+                // Skip non-JSON lines (Nuclei status messages)
             }
         }
 
