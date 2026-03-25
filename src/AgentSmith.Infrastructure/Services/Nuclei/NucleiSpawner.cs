@@ -6,91 +6,73 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Nuclei;
 
 /// <summary>
-/// Runs a Nuclei scan via IContainerRunner.
+/// Runs a Nuclei scan via IToolRunner.
 /// Configuration loaded from config/nuclei.yaml.
 /// </summary>
 public sealed class NucleiSpawner(
-    IContainerRunner containerRunner,
+    IToolRunner toolRunner,
     NucleiConfig config,
     ILogger<NucleiSpawner> logger) : INucleiScanner
 {
-    private const string NucleiImage = "projectdiscovery/nuclei:latest";
-
     public async Task<NucleiResult> ScanAsync(
         string targetUrl, string swaggerPath, CancellationToken cancellationToken)
     {
         var dockerTarget = RewriteLocalhostForDocker(targetUrl);
         var isLocal = dockerTarget.Contains("host.docker.internal");
 
-        var tempDir = Path.Combine(GetSharedTempPath(), $"nuclei-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
+        logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
+            targetUrl, dockerTarget);
 
-        try
+        // Build target list from swagger endpoints
+        var endpointUrls = BuildEndpointUrls(swaggerPath, dockerTarget);
+        logger.LogDebug("Generated {Count} target URLs from swagger spec", endpointUrls.Count);
+
+        var inputFiles = new Dictionary<string, string>
         {
-            File.Copy(swaggerPath, Path.Combine(tempDir, "swagger.json"));
+            ["swagger.json"] = File.ReadAllText(swaggerPath),
+            ["targets.txt"] = string.Join("\n", endpointUrls),
+        };
 
-            logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
-                targetUrl, dockerTarget);
-
-            // Extract endpoint URLs from swagger spec for Nuclei target list
-            var endpointUrls = BuildEndpointUrls(swaggerPath, dockerTarget);
-            var targetsFile = Path.Combine(tempDir, "targets.txt");
-            await File.WriteAllTextAsync(targetsFile, string.Join("\n", endpointUrls), cancellationToken);
-
-            logger.LogDebug("Generated {Count} target URLs from swagger spec", endpointUrls.Count);
-
-            var command = new List<string>
-            {
-                "-list", "/input/targets.txt",
-                "-jsonl",
-                "-output", "/input/results.jsonl",
-                "-severity", config.Severity,
-                "-tags", config.Tags,
-                "-exclude-tags", config.ExcludeTags,
-                "-follow-redirects",
-                "-no-interactsh",
-                "-timeout", config.Timeout.ToString(),
-                "-retries", config.Retries.ToString(),
-                "-no-mhe",
-                "-concurrency", config.Concurrency.ToString(),
-                "-rate-limit", config.RateLimit.ToString(),
-            };
-
-            var extraHosts = isLocal
-                ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
-                : null;
-
-            var request = new ContainerRunRequest(
-                NucleiImage,
-                command,
-                VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
-                ExtraHosts: extraHosts,
-                TimeoutSeconds: config.ContainerTimeout);
-
-            var result = await containerRunner.RunAsync(request, cancellationToken);
-
-            // Read from output file (survives timeout) with fallback to stdout
-            var resultsFile = Path.Combine(tempDir, "results.jsonl");
-            var output = File.Exists(resultsFile)
-                ? await File.ReadAllTextAsync(resultsFile, cancellationToken)
-                : result.Stdout;
-
-            var findings = ParseJsonLines(output);
-
-            logger.LogInformation(
-                "Nuclei scan completed: {Count} findings in {Duration}s",
-                findings.Count, result.DurationSeconds);
-
-            if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
-                logger.LogWarning("Nuclei stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
-
-            return new NucleiResult(findings, result.DurationSeconds, result.Stdout);
-        }
-        finally
+        var arguments = new List<string>
         {
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
-        }
+            "-list", "/input/targets.txt",
+            "-jsonl",
+            "-output", "/input/results.jsonl",
+            "-severity", config.Severity,
+            "-tags", config.Tags,
+            "-exclude-tags", config.ExcludeTags,
+            "-follow-redirects",
+            "-no-interactsh",
+            "-timeout", config.Timeout.ToString(),
+            "-retries", config.Retries.ToString(),
+            "-no-mhe",
+            "-concurrency", config.Concurrency.ToString(),
+            "-rate-limit", config.RateLimit.ToString(),
+        };
+
+        var extraHosts = isLocal
+            ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
+            : null;
+
+        var request = new ToolRunRequest(
+            "nuclei", arguments, inputFiles,
+            OutputFileName: "results.jsonl",
+            ExtraHosts: extraHosts,
+            TimeoutSeconds: config.ContainerTimeout);
+
+        var result = await toolRunner.RunAsync(request, cancellationToken);
+
+        var output = result.OutputFileContent ?? result.Stdout;
+        var findings = ParseJsonLines(output);
+
+        logger.LogInformation(
+            "Nuclei scan completed: {Count} findings in {Duration}s",
+            findings.Count, result.DurationSeconds);
+
+        if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
+            logger.LogWarning("Nuclei stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
+
+        return new NucleiResult(findings, result.DurationSeconds, result.Stdout);
     }
 
     internal static List<string> BuildEndpointUrls(string swaggerPath, string baseUrl)
@@ -107,7 +89,6 @@ public sealed class NucleiSpawner(
                 var trimmedBase = baseUrl.TrimEnd('/');
                 foreach (var path in paths.EnumerateObject())
                 {
-                    // Replace path parameters with sample values
                     var endpointPath = path.Name
                         .Replace("{id}", "1")
                         .Replace("{Id}", "1");
@@ -162,19 +143,5 @@ public sealed class NucleiSpawner(
         }
 
         return findings;
-    }
-
-    /// <summary>
-    /// Returns a temp path that works for Docker-from-Docker scenarios.
-    /// When running inside a container with /tmp/agentsmith mounted from the host,
-    /// tool containers can see the same path because it exists on the host filesystem.
-    /// </summary>
-    internal static string GetSharedTempPath()
-    {
-        const string sharedPath = "/tmp/agentsmith";
-        if (Directory.Exists(sharedPath))
-            return sharedPath;
-
-        return Path.GetTempPath();
     }
 }
