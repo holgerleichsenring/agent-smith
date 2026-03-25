@@ -31,13 +31,32 @@ public sealed class NucleiSpawner(
             logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
                 targetUrl, dockerTarget);
 
+            // Rewrite swagger.json target URLs for Docker network
+            var swaggerContent = await File.ReadAllTextAsync(
+                Path.Combine(tempDir, "swagger.json"), cancellationToken);
+            if (isLocal)
+            {
+                swaggerContent = swaggerContent
+                    .Replace("://localhost", "://host.docker.internal")
+                    .Replace("://127.0.0.1", "://host.docker.internal");
+                await File.WriteAllTextAsync(
+                    Path.Combine(tempDir, "swagger.json"), swaggerContent, cancellationToken);
+            }
+
             var command = new List<string>
             {
+                "-list", "/input/swagger.json",
+                "-input-mode", "openapi",
                 "-target", dockerTarget,
                 "-jsonl",
                 "-severity", "critical,high,medium,low",
                 "-tags", "exposure,misconfig,token,auth,cors,header,ssl,api",
-                "-exclude-tags", "dos,fuzz"
+                "-exclude-tags", "dos,fuzz",
+                "-follow-redirects",
+                "-no-interactsh",
+                "-timeout", "10",
+                "-retries", "2",
+                "-no-mhe",
             };
 
             var extraHosts = isLocal
