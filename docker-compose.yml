@@ -20,7 +20,7 @@ services:
       - ./config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
       - /var/run/docker.sock:/var/run/docker.sock    # for Nuclei/Spectral tool containers
-      - /tmp/agentsmith:/tmp/agentsmith              # shared temp for tool container volume mounts
+      - agentsmith-tmp:/tmp/agentsmith              # shared temp for tool container volume mounts
 
   agentsmith-server:
     build: .
@@ -111,3 +111,4 @@ services:
 
 volumes:
   ollama-data:
+  agentsmith-tmp:
