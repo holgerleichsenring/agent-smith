@@ -118,8 +118,8 @@ public static class ServiceCollectionExtensions
 
     private static NucleiConfig LoadNucleiConfig()
     {
-        var path = Path.Combine("config", "nuclei.yaml");
-        if (!File.Exists(path))
+        var path = FindConfigFile("nuclei.yaml");
+        if (path is null)
             return new NucleiConfig();
 
         var yaml = File.ReadAllText(path);
@@ -129,6 +129,29 @@ public static class ServiceCollectionExtensions
             .Build();
 
         return deserializer.Deserialize<NucleiConfig>(yaml) ?? new NucleiConfig();
+    }
+
+    /// <summary>
+    /// Searches for a config file in standard locations:
+    /// AGENTSMITH_CONFIG_DIR, config/, working dir, binary dir.
+    /// </summary>
+    internal static string? FindConfigFile(string fileName)
+    {
+        var candidates = new List<string>
+        {
+            Path.Combine("config", fileName),
+            fileName,
+            Path.Combine(AppContext.BaseDirectory, "config", fileName),
+        };
+
+        var configDir = Environment.GetEnvironmentVariable("AGENTSMITH_CONFIG_DIR");
+        if (!string.IsNullOrEmpty(configDir))
+        {
+            candidates.Insert(0, Path.Combine(configDir, fileName));
+            candidates.Insert(1, Path.Combine(configDir, "config", fileName));
+        }
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     private sealed class ToolRunnerConfigWrapper

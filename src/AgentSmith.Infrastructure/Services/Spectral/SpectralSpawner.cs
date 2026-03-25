@@ -108,19 +108,13 @@ public sealed class SpectralSpawner(
         _ => "unknown",
     };
 
-    private static string GetRulesetPath()
+    internal static string GetRulesetPath()
     {
-        // AppContext.BaseDirectory works in single-file apps (Assembly.Location is empty)
-        var baseDir = AppContext.BaseDirectory;
-        var rulesetPath = Path.Combine(baseDir, "config", "spectral.yaml");
+        var path = ServiceCollectionExtensions.FindConfigFile("spectral.yaml");
+        if (path is not null)
+            return path;
 
-        if (File.Exists(rulesetPath))
-            return rulesetPath;
-
-        var fallback = Path.Combine("config", "spectral.yaml");
-        if (File.Exists(fallback))
-            return fallback;
-
-        throw new FileNotFoundException("Spectral ruleset not found. Expected at: " + rulesetPath);
+        throw new FileNotFoundException(
+            "Spectral ruleset not found. Place spectral.yaml next to agentsmith.yml or in config/.");
     }
 }
