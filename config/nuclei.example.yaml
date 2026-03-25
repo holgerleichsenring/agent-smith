@@ -1,0 +1,26 @@
+# Nuclei scan configuration
+# Controls which templates and how aggressively Nuclei scans.
+
+# Template tags to include (comma-separated)
+tags: "api,auth,token,cors,ssl"
+
+# Template tags to exclude (comma-separated)
+exclude_tags: "dos,fuzz"
+
+# Severity filter (comma-separated)
+severity: "critical,high,medium,low"
+
+# Per-request timeout in seconds
+timeout: 10
+
+# Number of retries per request
+retries: 1
+
+# Number of concurrent templates
+concurrency: 10
+
+# Max requests per second
+rate_limit: 50
+
+# Container-level timeout in seconds (kills the container after this)
+container_timeout: 180
