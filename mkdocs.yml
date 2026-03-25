@@ -1,0 +1,94 @@
+site_name: Agent Smith
+site_url: https://code.agent-smith.org
+site_description: Self-hosted AI orchestration — technical documentation
+repo_url: https://github.com/holgerleichsenring/agent-smith
+repo_name: holgerleichsenring/agent-smith
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - First Bug Fix: getting-started/first-bug-fix.md
+    - First API Scan: getting-started/first-api-scan.md
+  - Pipelines:
+    - pipelines/index.md
+    - Fix Bug / Add Feature: pipelines/fix-and-feature.md
+    - Security Scan: pipelines/security-scan.md
+    - API Scan: pipelines/api-scan.md
+    - Legal Analysis: pipelines/legal-analysis.md
+    - MAD Discussion: pipelines/mad-discussion.md
+  - Concepts:
+    - concepts/index.md
+    - Pipeline System: concepts/pipeline-system.md
+    - Phases & Runs: concepts/phases-and-runs.md
+    - Multi-Skill Architecture: concepts/multi-skill.md
+    - Decision Logging: concepts/decisions.md
+    - Cost Tracking: concepts/cost-tracking.md
+  - Configuration:
+    - configuration/index.md
+    - agentsmith.yml Reference: configuration/agentsmith-yml.md
+    - Skills Reference: configuration/skills.md
+    - Tool Configuration: configuration/tools.md
+  - AI Providers:
+    - providers/index.md
+    - Claude: providers/claude.md
+    - OpenAI: providers/openai.md
+    - Gemini: providers/gemini.md
+    - Ollama: providers/ollama.md
+    - OpenAI-Compatible: providers/openai-compatible.md
+  - CI/CD Integration:
+    - cicd/index.md
+    - Azure DevOps: cicd/azure-devops.md
+    - GitHub Actions: cicd/github-actions.md
+    - GitLab CI: cicd/gitlab-ci.md
+  - Deployment:
+    - deployment/index.md
+    - Single Binary: deployment/binary.md
+    - Docker: deployment/docker.md
+    - Kubernetes: deployment/kubernetes.md
+    - Chat Gateway: deployment/chat-gateway.md
+  - Architecture:
+    - architecture/index.md
+    - Clean Architecture: architecture/layers.md
+    - Project Structure: architecture/project-structure.md
