@@ -44,6 +44,271 @@ That's the standard bug fix pipeline. There are others.
 
 ---
 
+## Installation
+
+### Option 1: Download Binary (recommended for CI/CD)
+
+Self-contained single-file binaries. No .NET runtime required.
+
+**Linux (x64):**
+```bash
+curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64 \
+  -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+```
+
+**Linux (ARM64):**
+```bash
+curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-arm64 \
+  -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+```
+
+**macOS (Apple Silicon):**
+```bash
+curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-osx-arm64 \
+  -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+```
+
+**macOS (Intel):**
+```bash
+curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-osx-x64 \
+  -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+```
+
+**Windows (x64):**
+```powershell
+Invoke-WebRequest -Uri https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-win-x64.exe `
+  -OutFile agent-smith.exe
+```
+
+All binaries are available on the [Releases page](https://github.com/holgerleichsenring/agent-smith/releases).
+
+### Option 2: Docker
+
+```bash
+docker pull holgerleichsenring/agent-smith:latest
+```
+
+### Option 3: Build from Source
+
+```bash
+git clone https://github.com/holgerleichsenring/agent-smith.git
+cd agent-smith
+dotnet build
+dotnet run --project src/AgentSmith.Host -- --help
+```
+
+---
+
+## Quick Start
+
+### Binary
+
+```bash
+# Set your AI provider key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Fix a bug
+agent-smith fix --ticket 42 --project my-api --headless
+
+# Scan a live API
+agent-smith api-scan --swagger https://api.example.com/swagger.json \
+  --target https://api.example.com --output console,markdown
+
+# Security scan a codebase
+agent-smith security-scan --repo . --project my-api
+
+# Design discussion
+agent-smith mad --ticket 42 --project my-api
+```
+
+### Docker
+
+```bash
+# Fix a bug
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e GITHUB_TOKEN=ghp_... \
+  -v ~/.ssh:/home/agentsmith/.ssh:ro \
+  -v ./config:/app/config \
+  holgerleichsenring/agent-smith \
+  fix --ticket 42 --project my-project --headless
+
+# API security scan (needs Docker socket for Nuclei/Spectral tool containers)
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v ./config:/app/config \
+  -v ./output:/output \
+  holgerleichsenring/agent-smith \
+  api-scan --swagger https://api.example.com/swagger.json \
+  --target https://api.example.com --output console,markdown
+```
+
+The Docker image automatically fixes volume mount permissions — no manual `chmod` needed.
+
+---
+
+## CI/CD Integration
+
+### Azure DevOps — Binary (no Docker required)
+
+The simplest approach. Download the binary, run it, done.
+
+```yaml
+- task: Bash@3
+  displayName: "Run agent-smith API security scan"
+  continueOnError: true
+  env:
+    ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+  inputs:
+    targetType: "inline"
+    script: |
+      curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64 \
+        -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+      agent-smith api-scan \
+        --swagger https://your-api/swagger/v1/swagger.json \
+        --target https://your-api \
+        --config $(Build.SourcesDirectory)/.agentsmith/agentsmith.yml \
+        --output console,markdown \
+        --output-dir $(Build.ArtifactStagingDirectory)/security
+```
+
+### Azure DevOps — Docker Compose
+
+For pipelines that already have Docker. Create an `.agentsmith/` directory in your project:
+
+```
+.agentsmith/
+├── docker-compose.yml
+├── agentsmith.yml
+├── nuclei.yaml          # optional: custom Nuclei config
+├── spectral.yaml        # optional: custom Spectral config
+└── skills/api-security/ # optional: custom skill definitions
+    ├── api-design-auditor.yaml
+    ├── auth-tester.yaml
+    └── ...
+```
+
+The `docker-compose.yml`:
+
+```yaml
+services:
+  agent-smith:
+    image: holgerleichsenring/agent-smith:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app/config
+      - ${OUTPUT_DIR:-./output}:/output
+    environment:
+      - ANTHROPIC_API_KEY
+    group_add:
+      - ${DOCKER_GID:-999}
+```
+
+Pipeline step:
+
+```yaml
+- task: Bash@3
+  displayName: "Run agent-smith API security scan"
+  continueOnError: true
+  env:
+    ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+  inputs:
+    targetType: "inline"
+    script: |
+      export DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+      cd "$(Build.SourcesDirectory)/.agentsmith"
+      docker compose pull agent-smith
+      docker compose run --rm agent-smith \
+        api-scan \
+        --swagger https://your-api/swagger/v1/swagger.json \
+        --target https://your-api \
+        --project your-project-name \
+        --output console,markdown
+```
+
+### GitHub Actions
+
+```yaml
+- name: Run Agent Smith security scan
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  run: |
+    curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64 \
+      -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+    agent-smith api-scan \
+      --swagger https://your-api/swagger.json \
+      --target https://your-api \
+      --output console,sarif --output-dir ./security-results
+
+- name: Upload SARIF
+  if: always()
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: ./security-results/findings.sarif
+```
+
+### GitLab CI
+
+```yaml
+security-scan:
+  image: ubuntu:latest
+  script:
+    - curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
+        -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
+    - agent-smith api-scan
+        --swagger https://your-api/swagger.json
+        --target https://your-api
+        --output console,markdown --output-dir ./security-results
+  artifacts:
+    paths:
+      - security-results/
+  variables:
+    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+```
+
+### Requirements
+
+- `ANTHROPIC_API_KEY` (or other AI provider key) as pipeline secret
+- For Docker mode: Docker available on the build agent + socket access (for Nuclei/Spectral tool containers)
+- Network access to the target API and swagger endpoint
+
+---
+
+## Running with Docker Compose (full stack)
+
+For the full Agent Smith platform with Slack/Teams gateway, Redis, and job spawning:
+
+```bash
+git clone https://github.com/holgerleichsenring/agent-smith.git
+cd agent-smith
+cp .env.example .env   # add your API keys
+docker compose up -d
+```
+
+The compose file runs four services: the agent runner (one-shot), a webhook server, Redis, and the Dispatcher. Want local models? Add the Ollama profile:
+
+```bash
+docker compose --profile local-models up -d
+docker exec ollama ollama pull qwen2.5-coder:32b
+```
+
+---
+
+## Running on Kubernetes
+
+K8s manifests live in `k8s/`. Kustomize overlays for dev and prod. The Dispatcher spawns ephemeral Jobs for each ticket. Each Job clones the repo, runs the pipeline, and terminates. Progress streams back to Slack via Redis.
+
+```bash
+# Dev overlay with NodePort
+kubectl apply -k k8s/overlays/dev
+
+# Prod overlay
+kubectl apply -k k8s/overlays/prod
+```
+
+---
+
 ## Pipelines
 
 Agent Smith is not a one-trick pony. It ships with seven pipeline presets and you can define your own.
@@ -81,66 +346,6 @@ agent-smith api-scan --swagger https://api.example.com/swagger/v1/swagger.json -
 agent-smith api-scan --swagger ./swagger.json --target https://localhost:5000 --output sarif
 ```
 
-#### Integrating api-scan into CI/CD Pipelines
-
-You can run api-scan as a post-deployment step in any CI/CD pipeline. Create an `.agentsmith/` directory in your project root with the configuration and a `docker-compose.yml`:
-
-```
-.agentsmith/
-├── docker-compose.yml
-├── agentsmith.yml
-├── nuclei.yaml
-├── spectral.yaml
-└── skills/api-security/
-    ├── api-design-auditor.yaml
-    ├── api-vuln-analyst.yaml
-    ├── auth-tester.yaml
-    └── false-positive-filter.yaml
-```
-
-The `docker-compose.yml`:
-
-```yaml
-services:
-  agent-smith:
-    image: holgerleichsenring/agent-smith:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./:/app/config
-    environment:
-      - ANTHROPIC_API_KEY
-    group_add:
-      - ${DOCKER_GID:-999}
-```
-
-Then in your pipeline (Azure DevOps example):
-
-```yaml
-- task: Bash@3
-  displayName: "Run agent-smith API security scan"
-  continueOnError: true
-  env:
-    ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
-  inputs:
-    targetType: "inline"
-    script: |
-      export DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
-      cd "$(Build.SourcesDirectory)/.agentsmith"
-      docker compose pull agent-smith
-      docker compose run --rm agent-smith \
-        api-scan \
-        --swagger https://your-api/swagger/v1/swagger.json \
-        --target https://your-api \
-        --project your-project-name \
-        --output console
-```
-
-Requirements:
-- `ANTHROPIC_API_KEY` (or other AI provider key) as pipeline secret
-- Docker available on the build agent
-- Docker socket accessible (for Nuclei/Spectral tool containers)
-- Network access to the target API and swagger endpoint
-
 ### Legal Analysis
 
 **legal-analysis** has nothing to do with code. Drop a contract (PDF, DOCX, whatever) into the inbox folder and Agent Smith converts it to Markdown, detects the contract type, and sends it through a panel of five legal specialists: a Contract Analyst who reads every clause, a Compliance Checker who knows DSGVO and AGB-Recht by heart, a Risk Assessor who rates every clause from green to red, a Liability Analyst who deep-dives into the scary parts, and a Clause Negotiator who writes alternative formulations for the problematic bits. All output is in German legal language. This is not legal advice. It's a pre-review aid that saves your lawyer eight hours of reading.
@@ -150,6 +355,38 @@ The inbox folder is watched by a polling service. New documents get picked up au
 ### Discussion Pipelines
 
 **mad-discussion** stands for Multi-Agent Discussion. Instead of writing code immediately, Agent Smith assembles a panel of specialists (Architect, Tester, DevOps, DBA, Security Reviewer) who debate the approach in rounds. They raise objections, make suggestions, and argue until they converge on a plan. Think of it as a design review that happens in thirty seconds instead of three meetings.
+
+---
+
+## CLI
+
+Every pipeline is its own verb. Explicit flags, no free-text parsing.
+
+```
+agent-smith fix --ticket 42 --project my-api                   # fix a bug
+agent-smith feature --ticket 42 --project my-api               # add a feature
+agent-smith init --project my-api                              # bootstrap .agentsmith/
+agent-smith mad --ticket 42 --project my-api                   # design discussion
+agent-smith legal --source ./contract.pdf                      # analyze a document
+agent-smith security-scan --repo . --project my-api            # scan codebase
+agent-smith security-scan --repo . --branch feature/auth       # scan a branch
+agent-smith api-scan --swagger ./spec.json --target https://..  # scan a live API
+agent-smith server --port 8081                                 # webhook listener
+```
+
+All verbs support `--dry-run`, `--config`, and `--verbose`.
+
+### Config File Discovery
+
+When using the binary, Agent Smith looks for configuration in this order:
+
+1. `--config path/to/agentsmith.yml` (explicit path — always wins)
+2. `./.agentsmith/agentsmith.yml` (project root convention)
+3. `./config/agentsmith.yml` (current working directory)
+4. `~/.agentsmith/agentsmith.yml` (user home)
+
+For project-level use, put your config in `.agentsmith/` at the project root.
+
 ---
 
 ## AI Providers
@@ -228,78 +465,6 @@ For complex tickets, Agent Smith doesn't just throw one AI at the problem. A tri
 Roles are defined in YAML files under `config/skills/`. Each role has triggers (what activates it), rules (how it behaves), and convergence criteria (when it's satisfied). You can add your own roles. You can disable roles per project. You can add project-specific rules that override the defaults.
 
 The discussion runs in rounds. Each round, every active role states its position: agree, object with reason, or suggest an alternative. When all roles agree, the discussion converges and the consolidated plan goes to execution. There's a hard limit to prevent endless debates.
-
----
-
-## Deployment
-
-### Docker
-
-```bash
-docker pull holgerleichsenring/agent-smith:latest
-
-docker run --rm \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -e GITHUB_TOKEN=ghp_... \
-  -v ~/.ssh:/home/agentsmith/.ssh:ro \
-  -v ./config:/app/config \
-  holgerleichsenring/agent-smith \
-  fix --ticket 42 --project my-project --headless
-```
-
-Security scan via Docker:
-
-```bash
-docker run --rm \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -v ./config:/app/config \
-  holgerleichsenring/agent-smith \
-  security-scan --repo /app/config/../repo --project my-project
-```
-
-### Docker Compose
-
-```bash
-git clone https://github.com/holgerleichsenring/agent-smith.git
-cd agent-smith
-cp .env.example .env   # add your API keys
-docker compose up -d
-```
-
-The compose file runs four services: the agent runner (one-shot), a webhook server, Redis, and the Dispatcher. Want local models? Add the Ollama profile:
-
-```bash
-docker compose --profile local-models up -d
-docker exec ollama ollama pull qwen2.5-coder:32b
-```
-
-### Kubernetes
-
-K8s manifests live in `k8s/`. Kustomize overlays for dev and prod. The Dispatcher spawns ephemeral Jobs for each ticket. Each Job clones the repo, runs the pipeline, and terminates. Progress streams back to Slack via Redis.
-
-### CI/CD
-
-Every push to `main` builds both Docker images and publishes them to Docker Hub. Multi-arch (amd64 and arm64). Semver tags on git tags. PRs get a build-only check.
-
----
-
-## CLI
-
-Every pipeline is its own verb. Explicit flags, no free-text parsing.
-
-```
-agent-smith fix --ticket 42 --project my-api                   # fix a bug
-agent-smith feature --ticket 42 --project my-api               # add a feature
-agent-smith init --project my-api                              # bootstrap .agentsmith/
-agent-smith mad --ticket 42 --project my-api                   # design discussion
-agent-smith legal --source ./contract.pdf                      # analyze a document
-agent-smith security-scan --repo . --project my-api            # scan codebase
-agent-smith security-scan --repo . --branch feature/auth       # scan a branch
-agent-smith api-scan --swagger ./spec.json --target https://..  # scan a live API
-agent-smith server --port 8081                                 # webhook listener
-```
-
-All verbs support `--dry-run`, `--config`, and `--verbose`.
 
 ---
 
@@ -412,7 +577,7 @@ agent-smith/
 │   ├── coding-principles.md           # Detected coding conventions
 │   ├── phases/                        # Phase documentation (done, active, planned)
 │   └── runs/                          # Execution artifacts (plan.md + result.md)
-├── .github/workflows/                 # CI/CD: Docker build + publish
+├── .github/workflows/                 # CI/CD: Docker build, binary release
 ├── Dockerfile                         # Agent runner image
 ├── Dockerfile.dispatcher              # Dispatcher image
 └── docker-compose.yml                 # Full stack: agent, webhook, redis, dispatcher, ollama
@@ -424,7 +589,7 @@ agent-smith/
 
 Everything up to phase 48 is done. Here's what's next.
 
-**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama, Groq, any OpenAI-compatible endpoint). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. API security scanning with Nuclei, Spectral OWASP linting, and deep schema analysis. Swagger context compression for cost-efficient skill prompts. Externalized tool configuration (nuclei.yaml, spectral.yaml). CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing. Verb-per-pipeline CLI refactor. Tell-don't-ask architecture cleanup.
+**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama, Groq, any OpenAI-compatible endpoint). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. API security scanning with Nuclei, Spectral OWASP linting, and deep schema analysis. Swagger context compression for cost-efficient skill prompts. Externalized tool configuration (nuclei.yaml, spectral.yaml). CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing. Verb-per-pipeline CLI refactor. Tell-don't-ask architecture cleanup. Single-file executable releases for all platforms.
 
 **Planned:** Multi-repo support (p23). PR review iteration (p25). Podman-compatible container runtime (p49). Provider decomposition into independently deployable projects (p40b-d).
 
