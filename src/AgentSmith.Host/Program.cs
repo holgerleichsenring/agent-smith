@@ -4,7 +4,7 @@ using AgentSmith.Host.Commands;
 
 Banner.Print();
 
-var configOption = new Option<string>("--config", () => "config/agentsmith.yml", "Path to configuration file");
+var configOption = new Option<string>("--config", ConfigDiscovery.Resolve, "Path to configuration file");
 var verboseOption = new Option<bool>("--verbose", "Enable verbose logging");
 
 var runCommand = RunCommand.Create(configOption, verboseOption);

@@ -23,8 +23,8 @@ RUN dotnet publish src/AgentSmith.Host -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS runtime
 WORKDIR /app
 
-# Install git for LibGit2Sharp operations
-RUN apt-get update && apt-get install -y --no-install-recommends git libgit2-dev && rm -rf /var/lib/apt/lists/*
+# Install git for LibGit2Sharp operations, gosu for permission dropping
+RUN apt-get update && apt-get install -y --no-install-recommends git libgit2-dev gosu && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd --gid 1000 agentsmith && \
@@ -37,8 +37,11 @@ COPY config/ ./config/
 
 # Output directory for reports (markdown, sarif)
 RUN mkdir -p /output && chown agentsmith:agentsmith /output
+RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
 
-USER agentsmith
+# Entrypoint fixes volume mount permissions, then drops to agentsmith user
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Expose webhook listener port (--server mode)
 EXPOSE 8081
@@ -46,4 +49,4 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD dotnet AgentSmith.Host.dll --help || exit 1
 
-ENTRYPOINT ["dotnet", "AgentSmith.Host.dll"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
