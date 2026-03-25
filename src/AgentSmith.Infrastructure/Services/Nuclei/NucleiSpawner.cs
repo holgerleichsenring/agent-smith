@@ -44,7 +44,7 @@ public sealed class NucleiSpawner(
                 "-jsonl",
                 "-output", "/input/results.jsonl",
                 "-severity", "critical,high,medium,low",
-                "-tags", "exposure,misconfig,token,auth,cors,header,ssl,api",
+                "-tags", "api,auth,token,cors,ssl",
                 "-exclude-tags", "dos,fuzz",
                 "-follow-redirects",
                 "-no-interactsh",
@@ -64,7 +64,7 @@ public sealed class NucleiSpawner(
                 command,
                 VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
                 ExtraHosts: extraHosts,
-                TimeoutSeconds: 600);
+                TimeoutSeconds: 180);
 
             var result = await containerRunner.RunAsync(request, cancellationToken);
 
