@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Infrastructure.Services.Nuclei;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Spectral;
@@ -19,7 +20,7 @@ public sealed class SpectralSpawner(
     public async Task<SpectralResult> LintAsync(
         string swaggerPath, CancellationToken cancellationToken)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"spectral-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(NucleiSpawner.GetSharedTempPath(), $"spectral-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
 
         try
