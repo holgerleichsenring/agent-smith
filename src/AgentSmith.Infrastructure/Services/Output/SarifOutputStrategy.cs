@@ -35,10 +35,26 @@ public sealed class SarifOutputStrategy(
     private static string ResolveOutputDir(OutputContext context)
     {
         context.Pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir);
-        if (!string.IsNullOrWhiteSpace(dir))
+        if (!string.IsNullOrWhiteSpace(dir) && IsWritable(dir))
             return dir;
 
-        return Directory.Exists("/output") ? "/output" : "./agentsmith-output";
+        if (IsWritable("/output"))
+            return "/output";
+
+        return "./agentsmith-output";
+    }
+
+    private static bool IsWritable(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            var testFile = Path.Combine(path, ".write-test");
+            File.WriteAllText(testFile, "");
+            File.Delete(testFile);
+            return true;
+        }
+        catch { return false; }
     }
 
     internal static JsonObject BuildSarifDocument(IReadOnlyList<Finding> findings)
