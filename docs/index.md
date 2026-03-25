@@ -1,14 +1,8 @@
-<div align="center">
-  <img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="width: 100%; max-width: 800px;">
-</div>
+<img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="max-width: 600px;">
 
-# Agent Smith
+Open-source framework for AI-powered workflows. Define pipelines as chains of steps — each can spawn sub-agents, run multi-role discussions, call tools, or move files around. Orchestration, tool calling, cost tracking, and delivery included.
 
-**Your AI. Your infrastructure. Your rules.**
-
-Agent Smith is an open-source framework for building and running AI-powered workflows. Define a pipeline as a chain of steps, each with a handler. Steps can spawn sub-agents, run multi-role discussions, call tools, or just move files around. The framework handles orchestration, tool calling, cost tracking, and delivery.
-
-Everything runs on your infrastructure. Your API keys. Your data. Cloud models or local ones on your own GPU.
+Everything runs on your infrastructure. Your API keys. Your data. No SaaS in between.
 
 ---
 
