@@ -32,6 +32,10 @@ public sealed class PipelineExecutor(
         logger.LogInformation(
             "Starting pipeline with {Count} commands", commandNames.Count);
 
+        for (var i = 0; i < commandNames.Count; i++)
+            logger.LogInformation("  [{Index}/{Total}] {Command}",
+                i + 1, commandNames.Count, commandNames[i]);
+
         await PostTicketStatusAsync(projectConfig, context,
             "Agent Smith is working on this issue...", cancellationToken);
 
