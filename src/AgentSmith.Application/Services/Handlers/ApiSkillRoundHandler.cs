@@ -24,38 +24,40 @@ public sealed class ApiSkillRoundHandler(
     {
         pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
         pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);
+        pipeline.TryGet<SpectralResult>(ContextKeys.SpectralResult, out var spectral);
 
-        var endpointList = spec is not null
-            ? string.Join("\n", spec.Endpoints.Take(50).Select(e =>
-                $"  {e.Method} {e.Path} (auth: {e.RequiresAuth}, params: {e.Parameters.Count})"))
-            : "Not available";
-
-        var authSchemes = spec is not null
-            ? string.Join("\n", spec.SecuritySchemes.Select(s =>
-                $"  {s.Name}: {s.Type} (in: {s.In ?? "n/a"}, scheme: {s.Scheme ?? "n/a"})"))
-            : "Not available";
-
-        var findings = nuclei is not null && nuclei.Findings.Count > 0
+        var nucleiFindings = nuclei is not null && nuclei.Findings.Count > 0
             ? string.Join("\n", nuclei.Findings.Select(f =>
-                $"  [{f.Severity.ToUpperInvariant()}] {f.Name} — {f.MatchedUrl}"))
-            : "No findings from automated scan";
+                $"  [{f.Severity.ToUpperInvariant()}] {f.TemplateId}: {f.Name} — {f.MatchedUrl}"
+                + (f.Description is not null ? $"\n    {f.Description}" : "")))
+            : "No findings from Nuclei scan";
+
+        var spectralFindings = spectral is not null && spectral.Findings.Count > 0
+            ? string.Join("\n", spectral.Findings.Select(f =>
+                $"  [{f.Severity.ToUpperInvariant()}] {f.Code}: {f.Message} — {f.Path} (line {f.Line})"))
+            : "No findings from Spectral lint";
+
+        var swaggerJson = spec?.RawJson ?? "Not available";
 
         return $"""
             ## API Security Scan Target
             Title: {spec?.Title ?? "Unknown"}
             Version: {spec?.Version ?? "Unknown"}
 
-            ## Endpoints
-            {endpointList}
+            ## Full Swagger Specification (swagger.json)
+            ```json
+            {swaggerJson}
+            ```
 
-            ## Authentication Schemes
-            {authSchemes}
+            ## Nuclei Scan Findings ({nuclei?.Findings.Count ?? 0} total)
+            {nucleiFindings}
 
-            ## Nuclei Scan Findings
-            {findings}
+            ## Spectral Lint Findings ({spectral?.Findings.Count ?? 0} total, {spectral?.ErrorCount ?? 0} errors, {spectral?.WarnCount ?? 0} warnings)
+            {spectralFindings}
 
-            Focus on API-specific vulnerabilities (OWASP API Security Top 10 2023).
-            Evaluate both the automated scan results and the API design itself.
+            Analyze the full swagger.json schema for structural security issues.
+            Focus on response schema field combinations, enum definitions, REST semantics,
+            route consistency, missing constraints, and contextualize the Spectral findings.
             """;
     }
 
