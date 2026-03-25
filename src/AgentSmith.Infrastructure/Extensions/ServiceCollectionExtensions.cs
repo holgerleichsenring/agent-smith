@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IOutputStrategy, MarkdownOutputStrategy>("markdown");
 
         services.AddSingleton<ISwaggerProvider, SwaggerProvider>();
+        services.AddSingleton<IContainerRunner, AgentSmith.Infrastructure.Services.Containers.DockerContainerRunner>();
         services.AddSingleton<INucleiScanner, NucleiSpawner>();
 
         return services;
