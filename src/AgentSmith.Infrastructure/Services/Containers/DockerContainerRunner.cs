@@ -97,11 +97,12 @@ public sealed class DockerContainerRunner(
             new ContainerLogsParameters { ShowStdout = stdout, ShowStderr = !stdout },
             ct);
 
-        using var ms = new MemoryStream();
+        using var stdoutMs = new MemoryStream();
+        using var stderrMs = new MemoryStream();
         await logStream.CopyOutputToAsync(
-            stdout ? ms : Stream.Null,
-            stdout ? Stream.Null : ms,
-            default, ct);
+            Stream.Null, stdoutMs, stderrMs, ct);
+
+        var ms = stdout ? stdoutMs : stderrMs;
 
         return Encoding.UTF8.GetString(ms.ToArray());
     }
