@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
 
         // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
+        services.AddKeyedSingleton<IOutputStrategy, SummaryOutputStrategy>("summary");
         services.AddKeyedSingleton<IOutputStrategy, SarifOutputStrategy>("sarif");
         services.AddKeyedSingleton<IOutputStrategy, MarkdownOutputStrategy>("markdown");
 

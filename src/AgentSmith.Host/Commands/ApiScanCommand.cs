@@ -14,13 +14,14 @@ internal static class ApiScanCommand
     {
         var swaggerOption = new Option<string>("--swagger", "Path or URL to swagger.json") { IsRequired = true };
         var targetOption = new Option<string>("--target", "Base URL of the running API") { IsRequired = true };
-        var outputOption = new Option<string>("--output", () => "console", "Output format: sarif | markdown | console");
+        var outputOption = new Option<string>("--output", () => "console", "Output formats (comma-separated): console, summary, markdown, sarif");
+        var outputDirOption = new Option<string?>("--output-dir", "Directory for file-based output (markdown, sarif)");
         var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config");
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
 
         var cmd = new Command("api-scan", "Scan a running API against its OpenAPI spec")
         {
-            swaggerOption, targetOption, outputOption, projectOption, configOption, verboseOption, dryRunOption
+            swaggerOption, targetOption, outputOption, outputDirOption, projectOption, configOption, verboseOption, dryRunOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -28,6 +29,7 @@ internal static class ApiScanCommand
             var swagger = ctx.ParseResult.GetValueForOption(swaggerOption)!;
             var target = ctx.ParseResult.GetValueForOption(targetOption)!;
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
+            var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
             var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
@@ -37,13 +39,18 @@ internal static class ApiScanCommand
             var swaggerPath = swagger.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? swagger : Path.GetFullPath(swagger);
 
+            var contextData = new Dictionary<string, object>
+            {
+                [ContextKeys.SwaggerPath] = swaggerPath,
+                [ContextKeys.ApiTarget] = target,
+                [ContextKeys.OutputFormat] = output,
+            };
+
+            if (outputDir is not null)
+                contextData[ContextKeys.OutputDir] = outputDir;
+
             var request = new PipelineRequest(projectName, "api-security-scan", Headless: true,
-                Context: new Dictionary<string, object>
-                {
-                    [ContextKeys.SwaggerPath] = swaggerPath,
-                    [ContextKeys.ApiTarget] = target,
-                    [ContextKeys.OutputFormat] = output,
-                });
+                Context: contextData);
 
             if (isDryRun)
             {
@@ -51,7 +58,8 @@ internal static class ApiScanCommand
                 {
                     ["Swagger"] = swagger,
                     ["Target"] = target,
-                    ["Output"] = output
+                    ["Output"] = output,
+                    ["Output Dir"] = outputDir ?? "(default)"
                 });
                 return;
             }

@@ -22,11 +22,23 @@ public sealed class SarifOutputStrategy(
         var sarif = BuildSarifDocument(context.Findings);
         var json = sarif.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
-        var outputPath = Path.Combine(Directory.GetCurrentDirectory(), "findings.sarif");
+        var outputDir = ResolveOutputDir(context);
+        Directory.CreateDirectory(outputDir);
+
+        var outputPath = Path.Combine(outputDir, "findings.sarif");
         await File.WriteAllTextAsync(outputPath, json, cancellationToken);
         logger.LogInformation("SARIF report written to {Path}", outputPath);
 
         LogSummary(context.Findings);
+    }
+
+    private static string ResolveOutputDir(OutputContext context)
+    {
+        context.Pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir);
+        if (!string.IsNullOrWhiteSpace(dir))
+            return dir;
+
+        return Directory.Exists("/output") ? "/output" : "./agentsmith-output";
     }
 
     internal static JsonObject BuildSarifDocument(IReadOnlyList<Finding> findings)
