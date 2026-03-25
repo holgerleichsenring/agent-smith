@@ -17,7 +17,7 @@ public sealed class DockerToolRunner(
     ToolRunnerConfig config,
     ILogger<DockerToolRunner> logger) : IToolRunner
 {
-    private const string WorkDir = "/work";
+    private const string WorkDir = "/tmp";
 
     public async Task<ToolResult> RunAsync(
         ToolRunRequest request, CancellationToken cancellationToken)
