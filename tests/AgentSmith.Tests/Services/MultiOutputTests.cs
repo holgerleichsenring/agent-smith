@@ -71,22 +71,17 @@ public sealed class MultiOutputTests
     }
 
     [Fact]
-    public async Task DeliverFindingsHandler_OutputDir_PassedToPipeline()
+    public void ResolveOutputDir_ExplicitPath_ReturnsIt()
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
-        var sp = services.BuildServiceProvider();
+        var result = DeliverFindingsHandler.ResolveOutputDir("/tmp/test-output");
+        result.Should().Be("/tmp/test-output");
+    }
 
-        var handler = new DeliverFindingsHandler(sp, NullLogger<DeliverFindingsHandler>.Instance);
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ConsolidatedPlan, "test");
-        var context = new DeliverFindingsContext(["console"], "/tmp/test-output", pipeline);
-
-        await handler.ExecuteAsync(context, CancellationToken.None);
-
-        pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir).Should().BeTrue();
-        dir.Should().Be("/tmp/test-output");
+    [Fact]
+    public void ResolveOutputDir_Null_ReturnsFallback()
+    {
+        var result = DeliverFindingsHandler.ResolveOutputDir(null);
+        result.Should().NotBeNullOrEmpty();
     }
 }
 
