@@ -72,14 +72,74 @@ agent-smith security-scan --repo . --branch feature/auth --output console
 
 ### API Security Scanning
 
-**api-scan** is a different beast. Point it at a running API with its swagger.json and it runs a Nuclei container for automated vulnerability detection, then sends the results plus the full OpenAPI spec through a panel of API security specialists. The API Design Auditor checks for OWASP API Security Top 10 (2023): missing pagination, inconsistent auth, BOLA-prone endpoints, SSRF-eligible parameters, admin paths without elevated permissions. The Auth Tester reviews JWT, OAuth flows, and API key handling. The Vulnerability Analyst maps Nuclei findings to OWASP categories.
+**api-scan** is a different beast. Point it at a running API with its swagger.json and it runs two tool containers: **Nuclei** for automated vulnerability scanning and **Spectral** with the OWASP ruleset for structural OpenAPI linting. Both are configurable via `config/nuclei.yaml` and `config/spectral.yaml`. The results plus a compressed swagger schema feed into a panel of API security specialists. The API Design Auditor performs deep schema analysis across six categories: sensitive data bundling in response schemas, opaque integer enums, REST semantic violations, route inconsistencies, missing constraints, and Spectral findings interpretation. The Auth Tester reviews JWT, OAuth flows, and API key handling. The Vulnerability Analyst maps Nuclei findings to OWASP categories.
 
-In its first real scan, it analyzed a 33-endpoint .NET API and found that the Swagger spec declared OAuth2 but attached it to zero endpoints. Every endpoint showed `auth: False`. The Auth Reviewer correctly flagged this as a complete authentication bypass. Turned out the code had `[Authorize]` attributes but Swashbuckle wasn't reflecting them in the spec. A real finding, just not the one anyone expected.
+In a real scan against a 33-endpoint .NET API, it found that `OktaProcessInfoResponse` bundled `passwordCreationUrl` + `qrCode` + `passcode` + `pdf` in a single response, flagged integer enums with 31 unnamed values, identified missing PKCE protection, and caught OAuth2 declared but attached to zero endpoints.
 
 ```bash
 agent-smith api-scan --swagger https://api.example.com/swagger/v1/swagger.json --target https://api.example.com
 agent-smith api-scan --swagger ./swagger.json --target https://localhost:5000 --output sarif
 ```
+
+#### Integrating api-scan into CI/CD Pipelines
+
+You can run api-scan as a post-deployment step in any CI/CD pipeline. Create an `.agentsmith/` directory in your project root with the configuration and a `docker-compose.yml`:
+
+```
+.agentsmith/
+├── docker-compose.yml
+├── agentsmith.yml
+├── nuclei.yaml
+├── spectral.yaml
+└── skills/api-security/
+    ├── api-design-auditor.yaml
+    ├── api-vuln-analyst.yaml
+    ├── auth-tester.yaml
+    └── false-positive-filter.yaml
+```
+
+The `docker-compose.yml`:
+
+```yaml
+services:
+  agent-smith:
+    image: holgerleichsenring/agent-smith:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app/config
+    environment:
+      - ANTHROPIC_API_KEY
+    group_add:
+      - ${DOCKER_GID:-999}
+```
+
+Then in your pipeline (Azure DevOps example):
+
+```yaml
+- task: Bash@3
+  displayName: "Run agent-smith API security scan"
+  continueOnError: true
+  env:
+    ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+  inputs:
+    targetType: "inline"
+    script: |
+      export DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+      cd "$(Build.SourcesDirectory)/.agentsmith"
+      docker compose pull agent-smith
+      docker compose run --rm agent-smith \
+        api-scan \
+        --swagger https://your-api/swagger/v1/swagger.json \
+        --target https://your-api \
+        --project your-project-name \
+        --output console
+```
+
+Requirements:
+- `ANTHROPIC_API_KEY` (or other AI provider key) as pipeline secret
+- Docker available on the build agent
+- Docker socket accessible (for Nuclei/Spectral tool containers)
+- Network access to the target API and swagger endpoint
 
 ### Legal Analysis
 
@@ -310,7 +370,7 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
 │   Tickets: AzureDevOps / GitHub / Jira / GitLab      │
 │   Source:  AzureRepos / GitHub / GitLab / Local       │
 │   Output:  SARIF / Markdown / Console                 │
-│   Scan:    Nuclei / SwaggerProvider                   │
+│   Scan:    Nuclei / Spectral / SwaggerProvider          │
 └──────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────┐
@@ -321,7 +381,7 @@ Ollama tasks show `$0.00`. Because they're free. That's the point.
 └──────────────────────────────────────────────────────┘
 ```
 
-Clean Architecture. Every layer depends only inward. Every provider is behind an interface. 511 tests make sure it stays that way.
+Clean Architecture. Every layer depends only inward. Every provider is behind an interface. 545 tests make sure it stays that way.
 
 ---
 
@@ -338,7 +398,7 @@ agent-smith/
 │   ├── AgentSmith.Host/               # CLI entry point, Webhook listener
 │   └── AgentSmith.Dispatcher/         # Chat gateway (Slack, Teams, K8s/Docker Jobs)
 ├── tests/
-│   └── AgentSmith.Tests/              # 511 tests (xUnit, Moq, FluentAssertions)
+│   └── AgentSmith.Tests/              # 545 tests (xUnit, Moq, FluentAssertions)
 ├── config/
 │   ├── agentsmith.example.yml         # Config template
 │   └── skills/                        # Role definitions
@@ -362,11 +422,11 @@ agent-smith/
 
 ## Roadmap
 
-Everything up to phase 46 is done. That's 48 completed phases. Here's what's next.
+Everything up to phase 48 is done. Here's what's next.
 
-**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama, Groq, any OpenAI-compatible endpoint). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. API security scanning with Nuclei and OWASP API Top 10 skills. CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing. Verb-per-pipeline CLI refactor. Tell-don't-ask architecture cleanup.
+**Done:** Core pipeline. Retry and resilience. Prompt caching and context compaction. Model registry with Scout agent. Multi-provider support (Claude, OpenAI, Gemini, Ollama, Groq, any OpenAI-compatible endpoint). Cost tracking. Ticket writeback. Webhooks. Azure Repos, Jira, GitLab. Chat gateway with Slack and Teams. Auto-bootstrap. Code map generation. Coding principles detection. Multi-skill architecture. MAD discussions. Legal analysis pipeline. Decision logging. Security scanning with SARIF output. API security scanning with Nuclei, Spectral OWASP linting, and deep schema analysis. Swagger context compression for cost-efficient skill prompts. Externalized tool configuration (nuclei.yaml, spectral.yaml). CI/CD with Docker Hub publishing. Ollama for local models with hybrid routing. Verb-per-pipeline CLI refactor. Tell-don't-ask architecture cleanup.
 
-**Planned:** Multi-repo support (p23). PR review iteration (p25). Provider decomposition into independently deployable projects (p40b-d).
+**Planned:** Multi-repo support (p23). PR review iteration (p25). Podman-compatible container runtime (p49). Provider decomposition into independently deployable projects (p40b-d).
 
 ---
 
@@ -385,5 +445,5 @@ Use it. Modify it. Ship it. Just keep the license notice.
 ---
 
 <p align="center">
-  Built with Claude · Runs on .NET 8 · Ships via Docker · 517 tests and counting
+  Built with Claude · Runs on .NET 8 · Ships via Docker · 545 tests and counting
 </p>
