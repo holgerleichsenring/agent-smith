@@ -30,6 +30,22 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/holgerleichsenring/agent-smith
+    - icon: fontawesome/solid/blog
+      link: https://codingsoul.org
+      name: CodingSoul Blog
+    - icon: fontawesome/solid/comments
+      link: https://agent-smith.org
+      name: Community Forum
+
+copyright: >
+  Copyright &copy; 2026 Holger Leichsenring —
+  <a href="https://codingsoul.org">CodingSoul Blog</a> ·
+  <a href="https://agent-smith.org">Community</a>
+
 markdown_extensions:
   - admonition
   - pymdownx.details
@@ -92,3 +108,5 @@ nav:
     - architecture/index.md
     - Clean Architecture: architecture/layers.md
     - Project Structure: architecture/project-structure.md
+  - Blog: https://codingsoul.org
+  - Community: https://agent-smith.org
