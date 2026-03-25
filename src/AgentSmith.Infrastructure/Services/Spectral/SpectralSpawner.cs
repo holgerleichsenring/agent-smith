@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
@@ -111,8 +110,9 @@ public sealed class SpectralSpawner(
 
     private static string GetRulesetPath()
     {
-        var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-        var rulesetPath = Path.Combine(assemblyDir, "config", "spectral.yaml");
+        // AppContext.BaseDirectory works in single-file apps (Assembly.Location is empty)
+        var baseDir = AppContext.BaseDirectory;
+        var rulesetPath = Path.Combine(baseDir, "config", "spectral.yaml");
 
         if (File.Exists(rulesetPath))
             return rulesetPath;
