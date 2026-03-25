@@ -22,7 +22,7 @@ public sealed class NucleiSpawner(
         var dockerTarget = RewriteLocalhostForDocker(targetUrl);
         var isLocal = dockerTarget.Contains("host.docker.internal");
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"nuclei-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(GetSharedTempPath(), $"nuclei-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
 
         try
@@ -162,5 +162,19 @@ public sealed class NucleiSpawner(
         }
 
         return findings;
+    }
+
+    /// <summary>
+    /// Returns a temp path that works for Docker-from-Docker scenarios.
+    /// When running inside a container with /tmp/agentsmith mounted from the host,
+    /// tool containers can see the same path because it exists on the host filesystem.
+    /// </summary>
+    internal static string GetSharedTempPath()
+    {
+        const string sharedPath = "/tmp/agentsmith";
+        if (Directory.Exists(sharedPath))
+            return sharedPath;
+
+        return Path.GetTempPath();
     }
 }
