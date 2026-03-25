@@ -119,6 +119,7 @@ state:
     p46: "CLI refactor: PipelineCommand, PipelineRequest, Program.cs split (456→18), factory registries, LlmIntentParser, verb-per-pipeline, tell-don't-ask cleanup (517 tests)"
     p47: "Spectral OpenAPI linter + api-design-auditor rewrite with 6-category schema analysis (534 tests)"
     p48: "Swagger context compression — 85% token reduction in skill prompts (545 tests)"
+    p49: "IToolRunner abstraction — Docker, Podman, Process tool runners with auto-detection (553 tests)"
   active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
