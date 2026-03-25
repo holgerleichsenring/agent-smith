@@ -87,13 +87,6 @@ public sealed class ToolRunnerTests
     }
 
     [Fact]
-    public void DockerToolRunner_GetSharedTempPath_ReturnsValidPath()
-    {
-        var result = DockerToolRunner.GetSharedTempPath();
-        result.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
     public async Task ProcessToolRunner_InvalidBinary_ReturnsError()
     {
         var runner = new ProcessToolRunner(NullLogger<ProcessToolRunner>.Instance);
