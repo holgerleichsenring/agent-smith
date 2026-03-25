@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Delivers findings via one or more IOutputStrategy implementations.
-/// Supports comma-separated --output values and configurable --output-dir.
+/// Resolves the output directory once — strategies receive it as a concrete path.
 /// </summary>
 public sealed class DeliverFindingsHandler(
     IServiceProvider serviceProvider,
@@ -18,16 +18,10 @@ public sealed class DeliverFindingsHandler(
     public async Task<CommandResult> ExecuteAsync(
         DeliverFindingsContext context, CancellationToken cancellationToken)
     {
-        var outputContext = new OutputContext(
-            "api-scan",
-            null,
-            [],
-            null,
-            context.Pipeline);
+        var outputDir = ResolveOutputDir(context.OutputDir);
 
-        // Pass output dir to strategies via pipeline context
-        if (context.OutputDir is not null)
-            context.Pipeline.Set(ContextKeys.OutputDir, context.OutputDir);
+        var outputContext = new OutputContext(
+            "api-scan", null, [], null, outputDir, context.Pipeline);
 
         var delivered = new List<string>();
 
@@ -50,5 +44,17 @@ public sealed class DeliverFindingsHandler(
                 $"No valid output formats found in: {string.Join(",", context.OutputFormats)}");
 
         return CommandResult.Ok($"Delivered via {string.Join(", ", delivered)}");
+    }
+
+    internal static string ResolveOutputDir(string? requested)
+    {
+        if (!string.IsNullOrWhiteSpace(requested))
+            return requested;
+
+        // Docker: /output exists and is writable (created in Dockerfile)
+        if (Directory.Exists("/output"))
+            return "/output";
+
+        return "./agentsmith-output";
     }
 }

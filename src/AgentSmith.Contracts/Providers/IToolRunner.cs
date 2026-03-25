@@ -4,6 +4,11 @@ namespace AgentSmith.Contracts.Providers;
 /// Runs external security tools (Nuclei, Spectral, etc.) and returns their output.
 /// Implementations handle the execution environment: Docker containers, K8s Jobs,
 /// Podman, or local processes.
+///
+/// Arguments may contain the placeholder {work} which each runner resolves
+/// to its working directory (e.g. /work in Docker, a temp dir for processes).
+/// Input files are placed in {work}, output files are read from {work}.
+/// Spawners never reference container-internal paths directly.
 /// </summary>
 public interface IToolRunner
 {
@@ -12,7 +17,10 @@ public interface IToolRunner
 
 /// <summary>
 /// Request to run an external tool.
-/// The runner resolves the tool name to a container image or local binary.
+/// Arguments use {work} as placeholder for the working directory.
+/// The runner resolves {work} to its execution environment.
+/// InputFiles are written to {work}/ before the tool starts.
+/// OutputFileName is read from {work}/ after the tool finishes.
 /// </summary>
 public sealed record ToolRunRequest(
     string Tool,

@@ -35,9 +35,9 @@ public sealed class NucleiSpawner(
 
         var arguments = new List<string>
         {
-            "-list", "/tmp/targets.txt",
+            "-list", "{work}/targets.txt",
             "-jsonl",
-            "-output", "/tmp/results.jsonl",
+            "-output", "{work}/results.jsonl",
             "-severity", config.Severity,
             "-tags", config.Tags,
             "-exclude-tags", config.ExcludeTags,

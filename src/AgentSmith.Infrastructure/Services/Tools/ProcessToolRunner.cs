@@ -6,7 +6,8 @@ namespace AgentSmith.Infrastructure.Services.Tools;
 
 /// <summary>
 /// Runs tools as local processes. No container runtime needed.
-/// Tools must be installed and available in PATH or configured with explicit paths.
+/// {work} in arguments is resolved to a temp directory.
+/// Tools must be installed and available in PATH.
 /// </summary>
 public sealed class ProcessToolRunner(
     ILogger<ProcessToolRunner> logger) : IToolRunner
@@ -21,26 +22,20 @@ public sealed class ProcessToolRunner(
         ToolRunRequest request, CancellationToken cancellationToken)
     {
         var binary = DefaultBinaries.GetValueOrDefault(request.Tool, request.Tool);
-        var tempDir = Path.Combine(Path.GetTempPath(), $"{request.Tool}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
+        var workDir = Path.Combine(Path.GetTempPath(), $"{request.Tool}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
 
         try
         {
-            // Write input files to temp directory
+            // Write input files to working directory
             if (request.InputFiles is not null)
-            {
-                foreach (var (fileName, content) in request.InputFiles)
-                    await File.WriteAllTextAsync(
-                        Path.Combine(tempDir, fileName), content, cancellationToken);
-            }
+                foreach (var (name, content) in request.InputFiles)
+                    await File.WriteAllTextAsync(Path.Combine(workDir, name), content, cancellationToken);
 
-            // Rewrite /tmp/ references to local temp directory in arguments
-            var args = request.Arguments
-                .Select(a => a.Replace("/tmp/", $"{tempDir}/"))
-                .ToList();
+            var resolvedArgs = DockerToolRunner.ResolveArguments(request.Arguments, workDir);
 
             logger.LogInformation("Running {Tool}: {Binary} {Args}",
-                request.Tool, binary, string.Join(" ", args));
+                request.Tool, binary, string.Join(" ", resolvedArgs));
 
             var sw = Stopwatch.StartNew();
 
@@ -49,31 +44,24 @@ public sealed class ProcessToolRunner(
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = binary,
-                    Arguments = string.Join(" ", args),
+                    Arguments = string.Join(" ", resolvedArgs),
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WorkingDirectory = tempDir,
+                    WorkingDirectory = workDir,
                 }
             };
 
-            var stdoutBuilder = new System.Text.StringBuilder();
-            var stderrBuilder = new System.Text.StringBuilder();
+            var stdout = new System.Text.StringBuilder();
+            var stderr = new System.Text.StringBuilder();
 
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data is not null)
-                    stdoutBuilder.AppendLine(e.Data);
-            };
-
+            process.OutputDataReceived += (_, e) => { if (e.Data is not null) stdout.AppendLine(e.Data); };
             process.ErrorDataReceived += (_, e) =>
             {
-                if (e.Data is not null)
-                {
-                    stderrBuilder.AppendLine(e.Data);
-                    logger.LogInformation("[{Tool}] {Line}", request.Tool, e.Data);
-                }
+                if (e.Data is null) return;
+                stderr.AppendLine(e.Data);
+                logger.LogInformation("[{Tool}] {Line}", request.Tool, e.Data);
             };
 
             process.Start();
@@ -83,26 +71,20 @@ public sealed class ProcessToolRunner(
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(request.TimeoutSeconds));
 
-            try
-            {
-                await process.WaitForExitAsync(timeoutCts.Token);
-            }
+            try { await process.WaitForExitAsync(timeoutCts.Token); }
             catch (OperationCanceledException)
             {
                 logger.LogWarning("Process {Tool} timed out after {Timeout}s",
                     request.Tool, request.TimeoutSeconds);
-
-                try { process.Kill(entireProcessTree: true); }
-                catch { /* best effort */ }
+                try { process.Kill(entireProcessTree: true); } catch { }
             }
 
             sw.Stop();
 
-            // Read output file if requested
             string? outputContent = null;
             if (request.OutputFileName is not null)
             {
-                var outputPath = Path.Combine(tempDir, request.OutputFileName);
+                var outputPath = Path.Combine(workDir, request.OutputFileName);
                 if (File.Exists(outputPath))
                     outputContent = await File.ReadAllTextAsync(outputPath, CancellationToken.None);
             }
@@ -110,17 +92,13 @@ public sealed class ProcessToolRunner(
             logger.LogInformation("{Tool} exited with code {Code} in {Duration}s",
                 request.Tool, process.ExitCode, (int)sw.Elapsed.TotalSeconds);
 
-            return new ToolResult(
-                stdoutBuilder.ToString(),
-                stderrBuilder.ToString(),
-                outputContent,
-                process.ExitCode,
-                (int)sw.Elapsed.TotalSeconds);
+            return new ToolResult(stdout.ToString(), stderr.ToString(), outputContent,
+                process.ExitCode, (int)sw.Elapsed.TotalSeconds);
         }
         finally
         {
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
+            if (Directory.Exists(workDir))
+                Directory.Delete(workDir, recursive: true);
         }
     }
 }

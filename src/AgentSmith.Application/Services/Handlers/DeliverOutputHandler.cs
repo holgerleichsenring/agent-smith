@@ -37,6 +37,7 @@ public sealed class DeliverOutputHandler(
             null,
             [],
             null,
+            "./agentsmith-output",
             context.Pipeline);
 
         await strategy.DeliverAsync(outputContext, cancellationToken);

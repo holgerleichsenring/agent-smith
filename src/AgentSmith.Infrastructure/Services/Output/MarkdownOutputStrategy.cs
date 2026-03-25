@@ -6,8 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Output;
 
 /// <summary>
-/// Renders findings as a Markdown table. Used for --output markdown
-/// and as the PR/MR comment body.
+/// Renders findings as a Markdown report. Writes to OutputDir/findings.md.
 /// </summary>
 public sealed class MarkdownOutputStrategy(
     ILogger<MarkdownOutputStrategy> logger) : IOutputStrategy
@@ -16,15 +15,12 @@ public sealed class MarkdownOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        // Use consolidated plan/discussion as markdown if no structured findings
         var markdown = context.Findings.Count > 0
             ? BuildMarkdown(context.Findings)
             : BuildFromPipeline(context);
 
-        var outputDir = ResolveOutputDir(context);
-        Directory.CreateDirectory(outputDir);
-
-        var outputPath = Path.Combine(outputDir, "findings.md");
+        Directory.CreateDirectory(context.OutputDir);
+        var outputPath = Path.Combine(context.OutputDir, "findings.md");
         await File.WriteAllTextAsync(outputPath, markdown, cancellationToken);
         logger.LogInformation("Markdown report written to {Path}", outputPath);
     }
@@ -36,31 +32,6 @@ public sealed class MarkdownOutputStrategy(
 
         context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
         return consolidated ?? "No findings to report.";
-    }
-
-    private static string ResolveOutputDir(OutputContext context)
-    {
-        context.Pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir);
-        if (!string.IsNullOrWhiteSpace(dir) && IsWritable(dir))
-            return dir;
-
-        if (IsWritable("/output"))
-            return "/output";
-
-        return "./agentsmith-output";
-    }
-
-    private static bool IsWritable(string path)
-    {
-        try
-        {
-            Directory.CreateDirectory(path);
-            var testFile = Path.Combine(path, ".write-test");
-            File.WriteAllText(testFile, "");
-            File.Delete(testFile);
-            return true;
-        }
-        catch { return false; }
     }
 
     internal static string BuildMarkdown(IReadOnlyList<Finding> findings)
