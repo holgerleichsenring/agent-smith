@@ -56,8 +56,9 @@ public sealed class DockerToolRunner(
                 createParams, cancellationToken);
 
             // Copy input files into the container via docker cp (no volume mounts needed)
+            // Target is /tmp — guaranteed to exist and be writable in all container images
             if (request.InputFiles is { Count: > 0 })
-                await CopyFilesToContainerAsync(client, response.ID, "/input", request.InputFiles, cancellationToken);
+                await CopyFilesToContainerAsync(client, response.ID, "/tmp", request.InputFiles, cancellationToken);
 
             await client.Containers.StartContainerAsync(
                 response.ID, new ContainerStartParameters(), cancellationToken);
@@ -84,7 +85,7 @@ public sealed class DockerToolRunner(
             string? outputContent = null;
             if (request.OutputFileName is not null)
                 outputContent = await CopyFileFromContainerAsync(
-                    client, response.ID, $"/input/{request.OutputFileName}");
+                    client, response.ID, $"/tmp/{request.OutputFileName}");
 
             await client.Containers.RemoveContainerAsync(
                 response.ID, new ContainerRemoveParameters(), CancellationToken.None);
@@ -100,7 +101,7 @@ public sealed class DockerToolRunner(
             string? outputContent = null;
             if (request.OutputFileName is not null)
                 outputContent = await CopyFileFromContainerAsync(
-                    client, containerName, $"/input/{request.OutputFileName}");
+                    client, containerName, $"/tmp/{request.OutputFileName}");
 
             await TryRemoveContainer(client, containerName);
             return new ToolResult("", "Timeout", outputContent, 1, request.TimeoutSeconds);

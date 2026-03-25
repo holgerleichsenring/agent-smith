@@ -30,10 +30,10 @@ public sealed class SpectralSpawner(
         var arguments = new List<string>
         {
             "lint",
-            "/input/swagger.json",
-            "--ruleset", "/input/.spectral.yaml",
+            "/tmp/swagger.json",
+            "--ruleset", "/tmp/.spectral.yaml",
             "--format", "json",
-            "--output", "/input/results.json",
+            "--output", "/tmp/results.json",
         };
 
         var request = new ToolRunRequest(

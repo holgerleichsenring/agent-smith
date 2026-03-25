@@ -34,9 +34,9 @@ public sealed class ProcessToolRunner(
                         Path.Combine(tempDir, fileName), content, cancellationToken);
             }
 
-            // Rewrite /input/ references to temp directory in arguments
+            // Rewrite /tmp/ references to local temp directory in arguments
             var args = request.Arguments
-                .Select(a => a.Replace("/input/", $"{tempDir}/"))
+                .Select(a => a.Replace("/tmp/", $"{tempDir}/"))
                 .ToList();
 
             logger.LogInformation("Running {Tool}: {Binary} {Args}",
