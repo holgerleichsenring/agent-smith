@@ -39,6 +39,11 @@ internal static class ApiScanCommand
             var swaggerPath = swagger.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? swagger : Path.GetFullPath(swagger);
 
+            // Set config directory so tool spawners find their config files
+            if (!string.IsNullOrWhiteSpace(configPath))
+                Environment.SetEnvironmentVariable("AGENTSMITH_CONFIG_DIR",
+                    Path.GetDirectoryName(Path.GetFullPath(configPath)));
+
             var contextData = new Dictionary<string, object>
             {
                 [ContextKeys.SwaggerPath] = swaggerPath,
