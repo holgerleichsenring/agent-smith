@@ -214,8 +214,8 @@ projects:
             input_per_million: 0.80
             output_per_million: 4.0
             cache_read_per_million: 0.08
-    pipeline: security-scan
-    skills_path: skills/security
+    pipeline: api-security-scan
+    skills_path: skills/api-security
 
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}
