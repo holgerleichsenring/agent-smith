@@ -27,6 +27,8 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+  logo: agent-smith-title-green.png
+  favicon: agent-smith-title-green.png
   icon:
     repo: fontawesome/brands/github
 

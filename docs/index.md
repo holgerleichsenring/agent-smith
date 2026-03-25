@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="agent-smith-logo-large-green.png" alt="Agent Smith" width="400">
+</div>
+
 # Agent Smith
 
 **Your AI. Your infrastructure. Your rules.**
