@@ -36,18 +36,12 @@ That's the standard bug fix pipeline. There are [seven more](pipelines/index.md)
 
 ## Quick Links
 
-<div class="grid cards" markdown>
-
-- :material-download: **[Installation](getting-started/installation.md)** — Binary, Docker, or source
-- :material-rocket-launch: **[First Bug Fix](getting-started/first-bug-fix.md)** — From ticket to PR in 5 minutes
-- :material-shield-search: **[API Security Scan](getting-started/first-api-scan.md)** — Scan a live API
-- :material-pipe: **[Pipelines](pipelines/index.md)** — All seven pipeline presets
-- :material-cog: **[Configuration](configuration/agentsmith-yml.md)** — agentsmith.yml reference
-- :material-brain: **[AI Providers](providers/index.md)** — Claude, GPT-4, Gemini, Ollama, Groq
-- :material-pipe-wrench: **[CI/CD](cicd/index.md)** — Azure DevOps, GitHub Actions, GitLab
-- :material-layers: **[Architecture](architecture/index.md)** — Clean Architecture deep-dive
-
-</div>
+| | |
+|---|---|
+| **[Installation](getting-started/installation.md)** — Binary, Docker, or source | **[First Bug Fix](getting-started/first-bug-fix.md)** — From ticket to PR in 5 minutes |
+| **[API Security Scan](getting-started/first-api-scan.md)** — Scan a live API | **[Pipelines](pipelines/index.md)** — All seven pipeline presets |
+| **[Configuration](configuration/agentsmith-yml.md)** — agentsmith.yml reference | **[AI Providers](providers/index.md)** — Claude, GPT-4, Gemini, Ollama, Groq |
+| **[CI/CD Integration](cicd/index.md)** — Azure DevOps, GitHub Actions, GitLab | **[Architecture](architecture/index.md)** — Clean Architecture deep-dive |
 
 ---
 
