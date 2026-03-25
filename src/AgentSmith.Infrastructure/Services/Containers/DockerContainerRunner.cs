@@ -54,14 +54,21 @@ public sealed class DockerContainerRunner(
             await client.Containers.StartContainerAsync(
                 response.ID, new ContainerStartParameters(), cancellationToken);
 
+            // Stream stderr to console in background so user sees Nuclei progress
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(request.TimeoutSeconds));
+
+            var stderrTask = StreamLogsToConsoleAsync(client, response.ID, timeoutCts.Token);
 
             var waitResponse = await client.Containers.WaitContainerAsync(
                 response.ID, timeoutCts.Token);
 
-            var stdout = await ReadContainerLogs(client, response.ID, true, cancellationToken);
-            var stderr = await ReadContainerLogs(client, response.ID, false, cancellationToken);
+            // Give the log stream a moment to flush
+            try { await stderrTask.WaitAsync(TimeSpan.FromSeconds(2), CancellationToken.None); }
+            catch (TimeoutException) { /* best effort */ }
+
+            var stdout = await ReadContainerLogs(client, response.ID, true, CancellationToken.None);
+            var stderr = "";
 
             sw.Stop();
 
@@ -70,7 +77,7 @@ public sealed class DockerContainerRunner(
                 containerName, waitResponse.StatusCode, (int)sw.Elapsed.TotalSeconds);
 
             await client.Containers.RemoveContainerAsync(
-                response.ID, new ContainerRemoveParameters(), cancellationToken);
+                response.ID, new ContainerRemoveParameters(), CancellationToken.None);
 
             return new ContainerResult(stdout, stderr, (int)waitResponse.StatusCode, (int)sw.Elapsed.TotalSeconds);
         }
@@ -85,6 +92,27 @@ public sealed class DockerContainerRunner(
             logger.LogError(ex, "Container {Name} failed", containerName);
             await TryRemoveContainer(client, containerName);
             return new ContainerResult("", ex.Message, 1, (int)sw.Elapsed.TotalSeconds);
+        }
+    }
+
+    private async Task StreamLogsToConsoleAsync(
+        DockerClient client, string containerId, CancellationToken ct)
+    {
+        try
+        {
+            var logStream = await client.Containers.GetContainerLogsAsync(
+                containerId,
+                false,
+                new ContainerLogsParameters { ShowStderr = true, Follow = true },
+                ct);
+
+            using var stderrPipe = new LogStreamWriter(logger);
+            await logStream.CopyOutputToAsync(Stream.Null, Stream.Null, stderrPipe, ct);
+        }
+        catch (OperationCanceledException) { /* expected on container exit or timeout */ }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Log streaming stopped");
         }
     }
 
@@ -105,6 +133,41 @@ public sealed class DockerContainerRunner(
         var ms = stdout ? stdoutMs : stderrMs;
 
         return Encoding.UTF8.GetString(ms.ToArray());
+    }
+
+    /// <summary>
+    /// Stream adapter that writes each line to ILogger as it arrives.
+    /// </summary>
+    private sealed class LogStreamWriter(ILogger logger) : Stream
+    {
+        private readonly StringBuilder _buffer = new();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            var text = Encoding.UTF8.GetString(buffer, offset, count);
+            _buffer.Append(text);
+
+            while (_buffer.ToString().Contains('\n'))
+            {
+                var content = _buffer.ToString();
+                var newlineIndex = content.IndexOf('\n');
+                var line = content[..newlineIndex].TrimEnd('\r');
+                _buffer.Remove(0, newlineIndex + 1);
+
+                if (!string.IsNullOrWhiteSpace(line))
+                    logger.LogInformation("[nuclei] {Line}", line);
+            }
+        }
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => 0;
+        public override long Position { get => 0; set { } }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => 0;
+        public override long Seek(long offset, SeekOrigin origin) => 0;
+        public override void SetLength(long value) { }
     }
 
     private static async Task PullImageIfMissing(
