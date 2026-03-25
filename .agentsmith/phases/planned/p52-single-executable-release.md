@@ -143,14 +143,42 @@ Azure DevOps example — no Docker at all:
         --output-dir $(Build.ArtifactStagingDirectory)/security
 ```
 
+## Docker Entrypoint (permission fix)
+
+The Docker image uses an entrypoint script that starts as root, fixes
+volume mount permissions, then drops to `agentsmith` user. This is a
+standard pattern (used by Postgres, Redis, Nginx official images).
+
+```dockerfile
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+```
+
+```bash
+#!/bin/bash
+set -e
+# Fix permissions on mounted volumes (host mounts are owned by root)
+for dir in /output /tmp/agentsmith; do
+    [ -d "$dir" ] && chown agentsmith:agentsmith "$dir" 2>/dev/null || true
+done
+exec gosu agentsmith dotnet AgentSmith.Host.dll "$@"
+```
+
+This eliminates the need for `run.sh` wrapper scripts in consumer projects.
+The `run.sh` pattern remains as documentation/convenience but is no longer
+required for correct operation.
+
 ## Files to Create
 
 - `.github/workflows/release.yml` — multi-platform build + GitHub Release
+- `docker-entrypoint.sh` — permission fix + user switch
 - Update `README.md` — installation instructions
 
 ## Files to Modify
 
 - `src/AgentSmith.Host/AgentSmith.Host.csproj` — add PublishSingleFile properties
+- `Dockerfile` — install gosu, use entrypoint script
 
 ## Definition of Done
 
@@ -160,6 +188,8 @@ Azure DevOps example — no Docker at all:
 - [ ] Binary runs without .NET runtime installed
 - [ ] Binary finds config files in standard locations
 - [ ] LibGit2Sharp native libraries embedded correctly
+- [ ] Docker entrypoint fixes mount permissions automatically
+- [ ] No `run.sh` required for consumers
 - [ ] README documents installation via curl
 - [ ] README documents simplified pipeline integration
 - [ ] `dotnet build` + `dotnet test` clean
