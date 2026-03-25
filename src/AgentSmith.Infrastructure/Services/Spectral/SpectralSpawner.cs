@@ -26,7 +26,7 @@ public sealed class SpectralSpawner(
         {
             File.Copy(swaggerPath, Path.Combine(tempDir, "swagger.json"));
 
-            var rulesetSource = GetEmbeddedRulesetPath();
+            var rulesetSource = GetRulesetPath();
             File.Copy(rulesetSource, Path.Combine(tempDir, ".spectral.yaml"));
 
             logger.LogInformation("Starting Spectral lint: {SwaggerPath}", swaggerPath);
@@ -125,16 +125,16 @@ public sealed class SpectralSpawner(
         _ => "unknown",
     };
 
-    private static string GetEmbeddedRulesetPath()
+    private static string GetRulesetPath()
     {
         var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-        var rulesetPath = Path.Combine(assemblyDir, "config", "spectral", ".spectral.yaml");
+        var rulesetPath = Path.Combine(assemblyDir, "config", "spectral.yaml");
 
         if (File.Exists(rulesetPath))
             return rulesetPath;
 
         // Fallback: look relative to working directory
-        var fallback = Path.Combine("config", "spectral", ".spectral.yaml");
+        var fallback = Path.Combine("config", "spectral.yaml");
         if (File.Exists(fallback))
             return fallback;
 

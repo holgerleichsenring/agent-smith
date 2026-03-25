@@ -1,0 +1,9 @@
+# Nuclei scan configuration
+tags: "api,auth,token,cors,ssl"
+exclude_tags: "dos,fuzz"
+severity: "critical,high,medium,low"
+timeout: 10
+retries: 1
+concurrency: 10
+rate_limit: 50
+container_timeout: 180

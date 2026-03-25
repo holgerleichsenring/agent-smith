@@ -7,10 +7,11 @@ namespace AgentSmith.Infrastructure.Services.Nuclei;
 
 /// <summary>
 /// Runs a Nuclei scan via IContainerRunner.
-/// Works in any environment where containers can be spawned (local Docker, K8s, etc.).
+/// Configuration loaded from config/nuclei.yaml.
 /// </summary>
 public sealed class NucleiSpawner(
     IContainerRunner containerRunner,
+    NucleiConfig config,
     ILogger<NucleiSpawner> logger) : INucleiScanner
 {
     private const string NucleiImage = "projectdiscovery/nuclei:latest";
@@ -43,16 +44,16 @@ public sealed class NucleiSpawner(
                 "-list", "/input/targets.txt",
                 "-jsonl",
                 "-output", "/input/results.jsonl",
-                "-severity", "critical,high,medium,low",
-                "-tags", "api,auth,token,cors,ssl",
-                "-exclude-tags", "dos,fuzz",
+                "-severity", config.Severity,
+                "-tags", config.Tags,
+                "-exclude-tags", config.ExcludeTags,
                 "-follow-redirects",
                 "-no-interactsh",
-                "-timeout", "10",
-                "-retries", "1",
+                "-timeout", config.Timeout.ToString(),
+                "-retries", config.Retries.ToString(),
                 "-no-mhe",
-                "-concurrency", "10",
-                "-rate-limit", "50",
+                "-concurrency", config.Concurrency.ToString(),
+                "-rate-limit", config.RateLimit.ToString(),
             };
 
             var extraHosts = isLocal
@@ -64,7 +65,7 @@ public sealed class NucleiSpawner(
                 command,
                 VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
                 ExtraHosts: extraHosts,
-                TimeoutSeconds: 180);
+                TimeoutSeconds: config.ContainerTimeout);
 
             var result = await containerRunner.RunAsync(request, cancellationToken);
 
