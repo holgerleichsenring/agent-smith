@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="agent-smith-logo-large-green.png" alt="Agent Smith" width="400">
+  <img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="width: 100%; max-width: 800px;">
 </div>
 
 # Agent Smith
