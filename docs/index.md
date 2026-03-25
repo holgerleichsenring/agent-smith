@@ -68,3 +68,7 @@ That's the standard bug fix pipeline. There are [seven more](pipelines/index.md)
 ## License
 
 MIT License. Copyright (c) 2026 Holger Leichsenring.
+
+---
+
+**[CodingSoul Blog](https://codingsoul.org)** — Behind-the-scenes posts about building Agent Smith · **[Community Forum](https://agent-smith.org)** — Discuss, ask questions, share your setups
