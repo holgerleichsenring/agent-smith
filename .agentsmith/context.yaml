@@ -128,3 +128,4 @@ state:
     p40b: "Git provider extraction (GitHub, AzureDevOps, GitLab, Jira) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (Claude, OpenAI, Gemini) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
     p40d: "Storage providers & LoadAttachmentsCommand → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
+    p51: "ToolRunner clean architecture: placeholder-based I/O, no hardcoded paths → .agentsmith/phases/planned/p51-toolrunner-clean-architecture.md"
