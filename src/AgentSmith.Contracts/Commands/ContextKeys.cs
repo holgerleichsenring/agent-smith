@@ -40,6 +40,7 @@ public static class ContextKeys
     public const string ScanPrIdentifier = "ScanPrIdentifier";
     public const string ScanBranch = "ScanBranch";
     public const string OutputFormat = "OutputFormat";
+    public const string OutputDir = "OutputDir";
     public const string SwaggerSpec = "SwaggerSpec";
     public const string NucleiResult = "NucleiResult";
     public const string SpectralResult = "SpectralResult";

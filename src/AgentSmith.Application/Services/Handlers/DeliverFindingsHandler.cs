@@ -8,8 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Delivers findings via IOutputStrategy for repo-less pipelines.
-/// No repository, no file archiving — strategy only.
+/// Delivers findings via one or more IOutputStrategy implementations.
+/// Supports comma-separated --output values and configurable --output-dir.
 /// </summary>
 public sealed class DeliverFindingsHandler(
     IServiceProvider serviceProvider,
@@ -18,10 +18,6 @@ public sealed class DeliverFindingsHandler(
     public async Task<CommandResult> ExecuteAsync(
         DeliverFindingsContext context, CancellationToken cancellationToken)
     {
-        var strategy = serviceProvider.GetKeyedService<IOutputStrategy>(context.OutputFormat);
-        if (strategy is null)
-            return CommandResult.Fail($"Unknown output format: '{context.OutputFormat}'");
-
         var outputContext = new OutputContext(
             "api-scan",
             null,
@@ -29,9 +25,30 @@ public sealed class DeliverFindingsHandler(
             null,
             context.Pipeline);
 
-        await strategy.DeliverAsync(outputContext, cancellationToken);
+        // Pass output dir to strategies via pipeline context
+        if (context.OutputDir is not null)
+            context.Pipeline.Set(ContextKeys.OutputDir, context.OutputDir);
 
-        logger.LogInformation("Delivered findings via {Format} strategy", context.OutputFormat);
-        return CommandResult.Ok($"Delivered via {context.OutputFormat}");
+        var delivered = new List<string>();
+
+        foreach (var format in context.OutputFormats)
+        {
+            var strategy = serviceProvider.GetKeyedService<IOutputStrategy>(format);
+            if (strategy is null)
+            {
+                logger.LogWarning("Unknown output format: '{Format}', skipping", format);
+                continue;
+            }
+
+            await strategy.DeliverAsync(outputContext, cancellationToken);
+            delivered.Add(format);
+            logger.LogInformation("Delivered findings via {Format} strategy", format);
+        }
+
+        if (delivered.Count == 0)
+            return CommandResult.Fail(
+                $"No valid output formats found in: {string.Join(",", context.OutputFormats)}");
+
+        return CommandResult.Ok($"Delivered via {string.Join(", ", delivered)}");
     }
 }

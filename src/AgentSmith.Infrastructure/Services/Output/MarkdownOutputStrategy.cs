@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -15,13 +16,36 @@ public sealed class MarkdownOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var markdown = BuildMarkdown(context.Findings);
+        // Use consolidated plan/discussion as markdown if no structured findings
+        var markdown = context.Findings.Count > 0
+            ? BuildMarkdown(context.Findings)
+            : BuildFromPipeline(context);
 
-        var outputPath = Path.Combine(Directory.GetCurrentDirectory(), "findings.md");
+        var outputDir = ResolveOutputDir(context);
+        Directory.CreateDirectory(outputDir);
+
+        var outputPath = Path.Combine(outputDir, "findings.md");
         await File.WriteAllTextAsync(outputPath, markdown, cancellationToken);
         logger.LogInformation("Markdown report written to {Path}", outputPath);
+    }
 
-        logger.LogInformation("{Report}", markdown);
+    private static string BuildFromPipeline(OutputContext context)
+    {
+        if (context.ReportMarkdown is not null)
+            return context.ReportMarkdown;
+
+        context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
+        return consolidated ?? "No findings to report.";
+    }
+
+    private static string ResolveOutputDir(OutputContext context)
+    {
+        context.Pipeline.TryGet<string>(ContextKeys.OutputDir, out var dir);
+        if (!string.IsNullOrWhiteSpace(dir))
+            return dir;
+
+        // Default: /output/ in Docker, ./agentsmith-output/ locally
+        return Directory.Exists("/output") ? "/output" : "./agentsmith-output";
     }
 
     internal static string BuildMarkdown(IReadOnlyList<Finding> findings)
