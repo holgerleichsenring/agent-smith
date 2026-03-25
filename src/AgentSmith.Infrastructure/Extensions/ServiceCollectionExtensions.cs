@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Nuclei;
+using AgentSmith.Infrastructure.Services.Spectral;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISwaggerProvider, SwaggerProvider>();
         services.AddSingleton<IContainerRunner, AgentSmith.Infrastructure.Services.Containers.DockerContainerRunner>();
         services.AddSingleton<INucleiScanner, NucleiSpawner>();
+        services.AddSingleton<ISpectralScanner, SpectralSpawner>();
 
         return services;
     }

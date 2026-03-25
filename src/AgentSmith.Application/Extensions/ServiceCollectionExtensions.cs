@@ -52,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
+        services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<ApiSecurityTriageContext>, ApiSecurityTriageHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
@@ -91,6 +92,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
         AddBuilder<LoadSwaggerContextBuilder>(services, CommandNames.LoadSwagger);
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
+        AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<ApiSecurityTriageContextBuilder>(services, CommandNames.ApiSecurityTriage);
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
