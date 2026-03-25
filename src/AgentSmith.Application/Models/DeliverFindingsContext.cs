@@ -7,5 +7,6 @@ namespace AgentSmith.Application.Models;
 /// Used by api-security-scan and other repo-less pipelines.
 /// </summary>
 public sealed record DeliverFindingsContext(
-    string OutputFormat,
+    IReadOnlyList<string> OutputFormats,
+    string? OutputDir,
     PipelineContext Pipeline) : ICommandContext;

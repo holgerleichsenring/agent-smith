@@ -35,7 +35,13 @@ public sealed class DeliverFindingsContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         pipeline.TryGet<string>(ContextKeys.OutputFormat, out var format);
-        return new DeliverFindingsContext(format ?? "console", pipeline);
+        pipeline.TryGet<string>(ContextKeys.OutputDir, out var outputDir);
+
+        var formats = (format ?? "console")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        return new DeliverFindingsContext(formats, outputDir, pipeline);
     }
 }
 
