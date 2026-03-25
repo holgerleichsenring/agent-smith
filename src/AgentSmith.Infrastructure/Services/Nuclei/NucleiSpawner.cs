@@ -42,14 +42,17 @@ public sealed class NucleiSpawner(
             {
                 "-list", "/input/targets.txt",
                 "-jsonl",
+                "-output", "/input/results.jsonl",
                 "-severity", "critical,high,medium,low",
                 "-tags", "exposure,misconfig,token,auth,cors,header,ssl,api",
                 "-exclude-tags", "dos,fuzz",
                 "-follow-redirects",
                 "-no-interactsh",
                 "-timeout", "10",
-                "-retries", "2",
+                "-retries", "1",
                 "-no-mhe",
+                "-concurrency", "10",
+                "-rate-limit", "50",
             };
 
             var extraHosts = isLocal
@@ -61,11 +64,17 @@ public sealed class NucleiSpawner(
                 command,
                 VolumeMounts: new Dictionary<string, string> { [tempDir] = "/input" },
                 ExtraHosts: extraHosts,
-                TimeoutSeconds: 300);
+                TimeoutSeconds: 600);
 
             var result = await containerRunner.RunAsync(request, cancellationToken);
 
-            var findings = ParseJsonLines(result.Stdout);
+            // Read from output file (survives timeout) with fallback to stdout
+            var resultsFile = Path.Combine(tempDir, "results.jsonl");
+            var output = File.Exists(resultsFile)
+                ? await File.ReadAllTextAsync(resultsFile, cancellationToken)
+                : result.Stdout;
+
+            var findings = ParseJsonLines(output);
 
             logger.LogInformation(
                 "Nuclei scan completed: {Count} findings in {Duration}s",
