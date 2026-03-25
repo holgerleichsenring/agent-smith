@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
@@ -7,6 +8,8 @@ using AgentSmith.Infrastructure.Services.Spectral;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace AgentSmith.Infrastructure;
 
@@ -31,9 +34,25 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ISwaggerProvider, SwaggerProvider>();
         services.AddSingleton<IContainerRunner, AgentSmith.Infrastructure.Services.Containers.DockerContainerRunner>();
+        services.AddSingleton(_ => LoadNucleiConfig());
         services.AddSingleton<INucleiScanner, NucleiSpawner>();
         services.AddSingleton<ISpectralScanner, SpectralSpawner>();
 
         return services;
+    }
+
+    private static NucleiConfig LoadNucleiConfig()
+    {
+        var path = Path.Combine("config", "nuclei.yaml");
+        if (!File.Exists(path))
+            return new NucleiConfig();
+
+        var yaml = File.ReadAllText(path);
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+
+        return deserializer.Deserialize<NucleiConfig>(yaml) ?? new NucleiConfig();
     }
 }

@@ -1,0 +1,11 @@
+# Spectral ruleset configuration
+# Mounted into the Spectral container as .spectral.yaml
+# See: https://docs.stoplight.io/docs/spectral/
+
+extends:
+  - "https://unpkg.com/@stoplight/spectral-owasp-ruleset@2.0.1/dist/ruleset.mjs"
+
+rules:
+  # Override or disable specific rules:
+  # owasp:api3:2023-no-additionalProperties: off
+  # owasp:api4:2023-rate-limit: warn
