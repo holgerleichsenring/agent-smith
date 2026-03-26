@@ -5,6 +5,7 @@ using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Nuclei;
+using AgentSmith.Infrastructure.Services.Security;
 using AgentSmith.Infrastructure.Services.Spectral;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
@@ -49,6 +50,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => LoadNucleiConfig());
         services.AddSingleton<INucleiScanner, NucleiSpawner>();
         services.AddSingleton<ISpectralScanner, SpectralSpawner>();
+
+        // Security scanners (p54)
+        services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
+        services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
+        services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
 
         return services;
     }
