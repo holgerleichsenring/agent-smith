@@ -1,0 +1,16 @@
+<section class="deploy-section" id="deploy">
+  <div class="section-wrap">
+    <div class="section-label">Deployment</div>
+    <h2 class="section-title">Runs where you run.</h2>
+    <p class="section-sub">Single binary for quick starts. Docker for teams. Kubernetes for production. Chat gateway for Slack and Teams.</p>
+    <div class="deploy-grid">
+      {% for d in deploy %}
+      <div class="deploy-card">
+        <div class="deploy-icon">{{ d.icon | safe }}</div>
+        <div class="deploy-name">{{ d.name }}</div>
+        <div class="deploy-desc">{{ d.desc | safe }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
