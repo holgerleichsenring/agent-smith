@@ -154,7 +154,8 @@ h1 em { font-style: normal; color: var(--green); }
   transition: all .2s; cursor: default;
 }
 .pipeline-card:hover { border-color: var(--border2); box-shadow: var(--shadow); transform: translateY(-2px); }
-.pipeline-icon { font-size: 22px; margin-bottom: 10px; }
+.pipeline-icon { margin-bottom: 10px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.pipeline-icon svg { width: 28px; height: 28px; stroke: var(--text); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .pipeline-cmd { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--green); margin-bottom: 5px; letter-spacing: .02em; }
 .pipeline-name { font-size: 16px; font-weight: 700; margin-bottom: 7px; letter-spacing: -.01em; }
 .pipeline-desc { font-size: 13px; color: var(--text2); line-height: 1.55; margin-bottom: 14px; }
@@ -186,7 +187,8 @@ h1 em { font-style: normal; color: var(--green); }
 .skill-domains { display: flex; flex-direction: column; gap: 8px; }
 .skill-domain { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; transition: border-color .15s; }
 .skill-domain:hover { border-color: rgba(0,168,84,0.3); }
-.skill-domain-icon { font-size: 18px; }
+.skill-domain-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.skill-domain-icon svg { width: 22px; height: 22px; stroke: var(--text); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .skill-domain-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
 .skill-domain-roles { font-size: 11px; color: var(--text3); font-family: var(--mono); }
 .discussion-box { background: #111; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-lg); }
@@ -206,7 +208,8 @@ h1 em { font-style: normal; color: var(--green); }
 .deploy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 40px; }
 .deploy-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; transition: all .2s; }
 .deploy-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
-.deploy-icon { font-size: 26px; margin-bottom: 10px; }
+.deploy-icon { margin-bottom: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+.deploy-icon svg { width: 30px; height: 30px; stroke: var(--text); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .deploy-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; letter-spacing: -.01em; }
 .deploy-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
 
