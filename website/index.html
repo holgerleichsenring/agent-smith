@@ -255,70 +255,162 @@
   <div class="section-wrap">
     <div class="section-label">How it works</div>
     <h2 class="section-title">Intelligence at every step.</h2>
+
+    <div class="how-tabs">
+      <button class="how-tab active" data-how="coding">Coding</button>
+      <button class="how-tab" data-how="security">Security Scan</button>
+      <button class="how-tab" data-how="api">API Scan</button>
+      <button class="how-tab" data-how="legal">Legal</button>
+      <button class="how-tab" data-how="mad">MAD Discussion</button>
+    </div>
+
     <div class="how-grid">
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">01</div>
-          <div class="step-body">
-            <div class="step-title">Connect your tools</div>
-            <div class="step-desc">Point Agent Smith at your ticket tracker and repo. GitHub, GitLab, Azure DevOps, Jira &mdash; one config file.</div>
-          </div>
+      <!-- STEPS (left) -->
+      <div class="how-steps-wrap">
+
+        <div class="steps how-steps-panel active" data-how-panel="coding">
+          <div class="step"><div class="step-num">01</div><div class="step-body"><div class="step-title">Fetch the ticket</div><div class="step-desc">Agent Smith reads the issue from GitHub, GitLab, Azure DevOps, or Jira. Title, description, labels &mdash; everything becomes context.</div></div></div>
+          <div class="step"><div class="step-num">02</div><div class="step-body"><div class="step-title">Triage selects specialists</div><div class="step-desc">Based on what the bug touches &mdash; database, auth, API &mdash; Triage picks roles like backend-dev and tester. No hardcoding.</div></div></div>
+          <div class="step"><div class="step-num">03</div><div class="step-body"><div class="step-title">Roles plan until agreement</div><div class="step-desc">Each role can AGREE, OBJECT with an alternative, or SUGGEST an improvement. Rounds continue until consensus or human approval.</div></div></div>
+          <div class="step"><div class="step-num">04</div><div class="step-body"><div class="step-title">Agentic execution</div><div class="step-desc">The agent has file tools, bash, and your coding principles. It reads, writes, and iterates. Tests run automatically after every change.</div></div></div>
+          <div class="step"><div class="step-num">05</div><div class="step-body"><div class="step-title">PR opened. Ticket closed.</div><div class="step-desc">Code committed, PR created, ticket status updated. Token usage and dollar cost tracked in the result file.</div></div></div>
         </div>
-        <div class="step">
-          <div class="step-num">02</div>
-          <div class="step-body">
-            <div class="step-title">Triage selects specialists</div>
-            <div class="step-desc">Based on what the problem touches &mdash; database, auth, API design &mdash; Triage picks relevant roles from your skill files. No hardcoding.</div>
-          </div>
+
+        <div class="steps how-steps-panel" data-how-panel="security">
+          <div class="step"><div class="step-num">01</div><div class="step-body"><div class="step-title">Checkout the codebase</div><div class="step-desc">Clones or checks out the target repository. Builds the code map so specialists know what they're looking at.</div></div></div>
+          <div class="step"><div class="step-num">02</div><div class="step-body"><div class="step-title">Triage selects specialists</div><div class="step-desc">Picks vuln-analyst, auth-reviewer, injection-checker, secrets-detector, and the false-positive filter based on the tech stack.</div></div></div>
+          <div class="step"><div class="step-num">03</div><div class="step-body"><div class="step-title">Specialists review in rounds</div><div class="step-desc">Each specialist analyzes the code from their angle. They can OBJECT to each other's findings. Rounds continue until consensus.</div></div></div>
+          <div class="step"><div class="step-num">04</div><div class="step-body"><div class="step-title">False positive filter</div><div class="step-desc">Removes noise: confidence &lt; 7, infrastructure issues, duplicates, Nuclei false positives. Keeps only actionable findings.</div></div></div>
+          <div class="step"><div class="step-num">05</div><div class="step-body"><div class="step-title">SARIF + Markdown delivered.</div><div class="step-desc">Findings exported as SARIF for GitHub Security tab and Markdown for humans. Token usage and cost tracked.</div></div></div>
         </div>
-        <div class="step">
-          <div class="step-num">03</div>
-          <div class="step-body">
-            <div class="step-title">Roles discuss until agreement</div>
-            <div class="step-desc">Each role can AGREE, OBJECT with an alternative, or SUGGEST an improvement. Rounds continue until consensus or human escalation.</div>
-          </div>
+
+        <div class="steps how-steps-panel" data-how-panel="api">
+          <div class="step"><div class="step-num">01</div><div class="step-body"><div class="step-title">Load the OpenAPI spec</div><div class="step-desc">Reads your Swagger/OpenAPI JSON or YAML. Maps every endpoint, parameter, auth scheme, and response type.</div></div></div>
+          <div class="step"><div class="step-num">02</div><div class="step-body"><div class="step-title">Spawn scanners</div><div class="step-desc">Runs Nuclei and Spectral against the live target. Nuclei probes for vulnerabilities, Spectral checks the schema for design issues.</div></div></div>
+          <div class="step"><div class="step-num">03</div><div class="step-body"><div class="step-title">AI panel reviews findings</div><div class="step-desc">Four specialists &mdash; vuln-analyst, design-auditor, auth-tester, and FP filter &mdash; review all findings against the OWASP API Top 10.</div></div></div>
+          <div class="step"><div class="step-num">04</div><div class="step-body"><div class="step-title">Convergence in rounds</div><div class="step-desc">Specialists AGREE or OBJECT. The design-auditor might challenge a vuln-analyst finding. Rounds continue until the panel aligns.</div></div></div>
+          <div class="step"><div class="step-num">05</div><div class="step-body"><div class="step-title">Findings delivered.</div><div class="step-desc">Filtered results in Markdown and console output. OWASP-mapped, severity-rated, with remediation guidance. Cost tracked.</div></div></div>
         </div>
-        <div class="step">
-          <div class="step-num">04</div>
-          <div class="step-body">
-            <div class="step-title">Agentic execution</div>
-            <div class="step-desc">The agent has file tools, bash, and your coding principles. It reads, writes, and iterates until the plan is done. Tests run automatically.</div>
-          </div>
+
+        <div class="steps how-steps-panel" data-how-panel="legal">
+          <div class="step"><div class="step-num">01</div><div class="step-body"><div class="step-title">Acquire the document</div><div class="step-desc">Upload a contract, NDA, or terms of service as PDF. Agent Smith extracts the full text and clause structure.</div></div></div>
+          <div class="step"><div class="step-num">02</div><div class="step-body"><div class="step-title">Five legal specialists activate</div><div class="step-desc">Contract analyst, compliance checker, risk assessor, liability reviewer, and clause negotiator &mdash; each with their own lens.</div></div></div>
+          <div class="step"><div class="step-num">03</div><div class="step-body"><div class="step-title">Clause-by-clause analysis</div><div class="step-desc">Each specialist reviews every clause. Compliance checks GDPR and liability caps. Risk assessor flags unfavorable terms.</div></div></div>
+          <div class="step"><div class="step-num">04</div><div class="step-body"><div class="step-title">Negotiator suggests alternatives</div><div class="step-desc">For every high-risk finding, the clause negotiator drafts alternative language you can propose to the counterparty.</div></div></div>
+          <div class="step"><div class="step-num">05</div><div class="step-body"><div class="step-title">Analysis delivered.</div><div class="step-desc">Findings as Markdown with risk ratings, clause references, and suggested rewrites. Token usage and cost tracked.</div></div></div>
         </div>
-        <div class="step">
-          <div class="step-num">05</div>
-          <div class="step-body">
-            <div class="step-title">PR opened. Cost tracked.</div>
-            <div class="step-desc">Every run writes token usage and dollar cost to a result file. Nothing hidden.</div>
-          </div>
+
+        <div class="steps how-steps-panel" data-how-panel="mad">
+          <div class="step"><div class="step-num">01</div><div class="step-body"><div class="step-title">Frame the question</div><div class="step-desc">State any architectural or strategic decision. "Should we migrate to microservices?" "Rewrite in Rust or stay with Go?"</div></div></div>
+          <div class="step"><div class="step-num">02</div><div class="step-body"><div class="step-title">Five personas loaded</div><div class="step-desc">Philosopher (big picture), Dreamer (opportunities), Realist (constraints), Devil's Advocate (risks), and Silencer (noise filter).</div></div></div>
+          <div class="step"><div class="step-num">03</div><div class="step-body"><div class="step-title">Personas debate in rounds</div><div class="step-desc">Each persona argues from their perspective. They AGREE, OBJECT, or SUGGEST. Expect 2&ndash;4 rounds of heated but structured debate.</div></div></div>
+          <div class="step"><div class="step-num">04</div><div class="step-body"><div class="step-title">Convergence check</div><div class="step-desc">After each round, the system checks for consensus. The Silencer removes repetitive or low-value arguments. Debate tightens.</div></div></div>
+          <div class="step"><div class="step-num">05</div><div class="step-body"><div class="step-title">Decision delivered.</div><div class="step-desc">A structured verdict with pro/con arguments, conditions, and a clear recommendation. Token usage and cost tracked.</div></div></div>
         </div>
+
       </div>
+
+      <!-- TERMINALS (right) -->
       <div class="how-visual">
-        <div class="how-terminal">
-          <div class="how-terminal-bar">
-            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
-            <span class="how-terminal-title">security-scan &middot; agent-smith repo</span>
-          </div>
+
+        <div class="how-terminal how-term-panel active" data-how-panel="coding">
+          <div class="how-terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="how-terminal-title">fix &middot; my-api &middot; #54</span></div>
           <div class="how-terminal-body">
             <div><span class="ht-sep">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
             <div style="color:#555">Reviewing ticket + codebase...</div>
+            <div style="color:#555">Selected: <span style="color:#61afef">backend-dev, tester</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Plan &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#61afef">backend-dev:</span> <span style="color:#555">null check in UserService.GetById</span></div>
+            <div><span style="color:#98c379">tester:</span> <span style="color:#00d46a">AGREE</span> <span style="color:#555">&mdash; add regression test</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Execute &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div style="color:#555">Modified: <span style="color:#e5c07b">UserService.cs</span></div>
+            <div style="color:#555">Created:  <span style="color:#e5c07b">UserServiceTests.cs</span></div>
+            <div><span class="ht-ok">&#10003; 47 tests passed</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-ok">&#10003; PR #42 created &middot; #54 closed &middot; $0.018</span></div>
+          </div>
+        </div>
+
+        <div class="how-terminal how-term-panel" data-how-panel="security">
+          <div class="how-terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="how-terminal-title">security-scan &middot; agent-smith repo</span></div>
+          <div class="how-terminal-body">
+            <div><span class="ht-sep">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div style="color:#555">Analyzing 483 files...</div>
             <div style="color:#555">Selected: <span style="color:#61afef">vuln-analyst, auth-reviewer,</span></div>
             <div style="color:#555">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#61afef">injection-checker, fp-filter</span></div>
             <span class="ht-blank"></span>
             <div><span class="ht-sep">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
-            <div><span style="color:#61afef">&#128270; Vuln Analyst:</span> <span style="color:#555">contributed</span></div>
-            <div><span style="color:#e06c75">&#128269; Injection:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; webhook HMAC missing</span></div>
-            <div><span style="color:#98c379">&#128274; Auth Reviewer:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; token expiry</span></div>
-            <div><span style="color:#e5c07b">&#129529; FP Filter:</span> <span style="color:#555">filtered 93 of 102</span></div>
+            <div><span style="color:#61afef">vuln-analyst:</span> <span style="color:#555">contributed</span></div>
+            <div><span style="color:#e06c75">injection-checker:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; webhook HMAC missing</span></div>
+            <div><span style="color:#98c379">auth-reviewer:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; token expiry too long</span></div>
+            <div><span style="color:#e5c07b">fp-filter:</span> <span style="color:#555">filtered 93 of 102</span></div>
             <span class="ht-blank"></span>
             <div><span class="ht-sep">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
-            <div><span style="color:#e06c75">&#128269; Injection:</span> <span style="color:#00d46a">AGREE</span></div>
-            <div><span style="color:#98c379">&#128274; Auth Reviewer:</span> <span style="color:#00d46a">AGREE</span></div>
+            <div><span style="color:#e06c75">injection-checker:</span> <span style="color:#00d46a">AGREE</span></div>
+            <div><span style="color:#98c379">auth-reviewer:</span> <span style="color:#00d46a">AGREE</span></div>
             <span class="ht-blank"></span>
-            <div><span class="ht-ok">&#10003; Consensus after 2 rounds</span></div>
-            <div><span class="ht-ok">&#10003; 9 findings &middot; 6 calls &middot; $0.08</span></div>
+            <div><span class="ht-ok">&#10003; 9 findings &middot; 4 CRITICAL &middot; $0.08</span></div>
           </div>
         </div>
+
+        <div class="how-terminal how-term-panel" data-how-panel="api">
+          <div class="how-terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="how-terminal-title">api-scan &middot; api-staging.example.com</span></div>
+          <div class="how-terminal-body">
+            <div><span class="ht-sep">&mdash;&mdash; Scanners &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div style="color:#555">Nuclei:   <span style="color:#e5c07b">102 findings</span> in 75s</div>
+            <div style="color:#555">Spectral: <span style="color:#e5c07b">405 findings</span> in 2s</div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#61afef">vuln-analyst:</span> <span style="color:#555">contributed &mdash; BOLA on /users/{id}</span></div>
+            <div><span style="color:#e06c75">design-auditor:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; missing rate limit</span></div>
+            <div><span style="color:#98c379">auth-tester:</span> <span style="color:#555">contributed &mdash; JWT none alg</span></div>
+            <div><span style="color:#e5c07b">fp-filter:</span> <span style="color:#555">filtered 498 of 507</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#e06c75">design-auditor:</span> <span style="color:#00d46a">AGREE</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-ok">&#10003; 9 findings retained from 507 &middot; $0.11</span></div>
+          </div>
+        </div>
+
+        <div class="how-terminal how-term-panel" data-how-panel="legal">
+          <div class="how-terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="how-terminal-title">legal &middot; contract.pdf</span></div>
+          <div class="how-terminal-body">
+            <div><span class="ht-sep">&mdash;&mdash; Specialists &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div style="color:#555">All 5 activated: <span style="color:#61afef">contract-analyst,</span></div>
+            <div style="color:#555"><span style="color:#61afef">compliance, risk, liability, negotiator</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Analysis &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#61afef">contract-analyst:</span> <span style="color:#555">14 clauses reviewed</span></div>
+            <div><span style="color:#e06c75">compliance:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; GDPR gap in &sect;7.2</span></div>
+            <div><span style="color:#e06c75">risk:</span> <span style="color:#e06c75">HIGH</span> <span style="color:#555">&mdash; unlimited liability in &sect;12</span></div>
+            <div><span style="color:#98c379">liability:</span> <span style="color:#555">confirmed &mdash; cap missing</span></div>
+            <div><span style="color:#e5c07b">negotiator:</span> <span style="color:#555">3 alternative clauses drafted</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-ok">&#10003; 12 findings &middot; 3 HIGH &middot; $0.34</span></div>
+          </div>
+        </div>
+
+        <div class="how-terminal how-term-panel" data-how-panel="mad">
+          <div class="how-terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="how-terminal-title">mad &middot; microservices migration</span></div>
+          <div class="how-terminal-body">
+            <div><span class="ht-sep">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#61afef">philosopher:</span> <span style="color:#555">modularity enables team autonomy</span></div>
+            <div><span style="color:#98c379">dreamer:</span> <span style="color:#555">independent scaling, polyglot</span></div>
+            <div><span style="color:#e06c75">realist:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; team too small for micro</span></div>
+            <div><span style="color:#e06c75">devil's adv:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; distributed tracing cost</span></div>
+            <div><span style="color:#e5c07b">silencer:</span> <span style="color:#555">removed 2 circular arguments</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Round 3 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#e06c75">realist:</span> <span style="color:#00d46a">AGREE</span> <span style="color:#555">&mdash; start with 2 services</span></div>
+            <div><span style="color:#e06c75">devil's adv:</span> <span style="color:#00d46a">AGREE</span> <span style="color:#555">with conditions</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-ok">&#10003; Conditional yes &middot; 3 rounds &middot; $0.22</span></div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
