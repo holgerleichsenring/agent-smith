@@ -35,13 +35,40 @@ Agent Smith ships with seven presets defined in `PipelinePresets.cs`:
 | `add-feature` | 14 | Same + GenerateTests + GenerateDocs |
 | `fix-no-test` | 12 | Like fix-bug but skips test step |
 | `init-project` | 3 | Bootstrap .agentsmith/ directory |
-| `security-scan` | 11 | Multi-role code security review |
+| `security-scan` | 18 | Static patterns + git history + dependency audit + AI panel |
 | `api-security-scan` | 8 | Nuclei + Spectral + AI panel |
 | `mad-discussion` | 7 | Multi-agent design discussion |
 
 ## Dynamic Pipeline Expansion
 
-Some commands insert follow-up commands at runtime. For example, `ApiSecurityTriageCommand` determines which specialist roles are needed and inserts `SkillRoundCommand` instances for each:
+Some commands insert follow-up commands at runtime. For example, `SecurityTriageCommand` determines which specialist skills are needed and inserts `SkillRoundCommand` instances for each:
+
+```
+security-scan pipeline (before triage):
+  [ 1/18] CheckoutSourceCommand
+  [ 2/18] BootstrapProjectCommand
+  [ 3/18] LoadDomainRulesCommand
+  [ 4/18] StaticPatternScanCommand          ← 91 regex patterns in 6 categories
+  [ 5/18] GitHistoryScanCommand             ← last 500 commits for secrets
+  [ 6/18] DependencyAuditCommand            ← npm audit / pip-audit / dotnet audit
+  [ 7/18] CompressSecurityFindingsCommand   ← groups findings, ~74% token reduction
+  [ 8/18] LoadSkillsCommand
+  [ 9/18] AnalyzeCodeCommand
+  [10/18] SecurityTriageCommand
+  ...
+  [17/18] ExtractFindingsCommand            ← structured Finding records
+  [18/18] DeliverFindingsCommand
+
+After triage (3 skills selected):
+  [10/21] SecurityTriageCommand                    ✓
+  [11/21] SkillRoundCommand:vuln-analyst:1             ← inserted
+  [12/21] SkillRoundCommand:secrets-detector:1         ← inserted
+  [13/21] SkillRoundCommand:false-positive-filter:1    ← inserted
+  [14/21] ConvergenceCheckCommand                      ← inserted
+  ...
+```
+
+The same dynamic expansion applies to `ApiSecurityTriageCommand` in the api-security-scan pipeline:
 
 ```
 Before triage:

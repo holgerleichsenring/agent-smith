@@ -1,60 +1,117 @@
 # Security Scan
 
-The **security-scan** pipeline performs a multi-role AI code review for security vulnerabilities. It assembles a panel of specialist roles, runs a structured discussion with convergence checking, and delivers findings in SARIF, Markdown, or console format.
+The **security-scan** pipeline performs a multi-layered code security review combining static pattern matching, git history analysis, dependency auditing, and a multi-role AI specialist panel. It assembles 9 specialist skills, runs a structured discussion with convergence checking, and delivers findings in SARIF, Markdown, or console format.
 
 ## Pipeline Steps
+
+The pipeline has 13 base steps, with dynamic expansion during the skill rounds phase.
 
 | # | Command | What It Does |
 |---|---------|-------------|
 | 1 | CheckoutSource | Clones repo, optionally scopes to a PR diff or branch |
 | 2 | BootstrapProject | Detects language, framework, dependencies |
 | 3 | LoadDomainRules | Loads `security-principles.md` with exclusion rules |
-| 4 | AnalyzeCode | Scout agent maps file structure and dependency graph |
-| 5 | SecurityTriage | AI selects which specialist roles should participate |
-| 6 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
-| 7 | CompileDiscussion | Consolidates all findings into a final report |
-| 8 | DeliverOutput | Writes output in the requested format(s) |
+| 4 | StaticPatternScan | Runs 91 regex patterns across 6 categories against source files |
+| 5 | GitHistoryScan | Scans last 500 commits for secrets in git history via LibGit2Sharp |
+| 6 | DependencyAudit | Runs `npm audit` / `pip-audit` / `dotnet audit` + structural checks |
+| 7 | CompressSecurityFindings | Groups findings by category, creates skill-specific slices |
+| 8 | LoadSkills | Loads 9 security specialist skills from `config/skills/security/` |
+| 9 | AnalyzeCode | Scout agent maps file structure and dependency graph |
+| 10 | SecurityTriage | AI selects relevant specialists, mandatory false-positive-filter |
+| 11-15 | SkillRounds | Each specialist analyzes findings (rounds until convergence) |
+| 16 | CompileDiscussion | Consolidates all findings into a final report |
+| 17 | ExtractFindings | Converts discussion output to structured Finding records |
+| 18 | DeliverFindings | Writes output in the requested format(s) |
 
 !!! info "Dynamic expansion"
-    Steps 5-6 are dynamic. `SecurityTriage` inserts `SecuritySkillRound` commands for each selected role, plus a `ConvergenceCheck`. If roles disagree, `ConvergenceCheck` inserts additional rounds until consensus or the max round limit is reached (default: 3).
+    Steps 10-15 are dynamic. `SecurityTriage` inserts `SecuritySkillRound` commands for each selected specialist, plus a `ConvergenceCheck`. If specialists disagree, `ConvergenceCheck` inserts additional rounds until consensus or the max round limit is reached (default: 3).
 
-## The 5 Specialist Roles
+## Static Pattern Scan
 
-Each role is defined as a YAML skill file in `config/skills/security/`. The triage step selects roles based on the codebase's language, framework, and dependencies.
+The `StaticPatternScan` step runs 91 regex patterns organized into 6 categories. Patterns are loaded from YAML files under `config/patterns/`:
 
-| Role | Emoji | Focus Area |
-|------|-------|------------|
-| **Vulnerability Analyst** | :mag: | OWASP Top 10 across all code. Lead role — runs first. |
+| Category | Patterns | Examples |
+|----------|----------|----------|
+| **secrets** | 27 | AWS keys, GitHub tokens, private keys, connection strings |
+| **injection** | 16 | SQL injection, command injection, XPath, template injection |
+| **ssrf** | 12 | URL construction from user input, DNS rebinding vectors |
+| **config** | 15 | Debug mode enabled, permissive CORS, missing security headers |
+| **compliance** | 10 | PII logging, missing encryption, weak hashing algorithms |
+| **ai-security** | 11 | Prompt injection, unsafe deserialization of model output, API key in prompts |
+
+Pattern files are extensible -- add custom YAML files to `config/patterns/` and they are automatically picked up. See [Tool Configuration](../configuration/tools.md#pattern-definition-files) for the pattern file format.
+
+## Git History Scan
+
+The `GitHistoryScan` step uses LibGit2Sharp to scan the last 500 commits for secrets that may have been committed and later removed. Findings from git history are automatically marked as **CRITICAL** severity because the secret has been exposed in the repository history even if it no longer exists in the current codebase.
+
+When a secret is detected, the scanner identifies the secret provider (AWS, GitHub, Stripe, etc.) and includes a **revoke URL** in the finding so teams can immediately rotate the compromised credential.
+
+## Dependency Audit
+
+The `DependencyAudit` step runs language-specific audit tools and performs structural checks:
+
+- **npm audit** for Node.js projects
+- **pip-audit** for Python projects
+- **dotnet audit** for .NET projects
+- **Structural checks**: missing lockfiles, wildcard version ranges, deprecated packages
+
+## Finding Compression
+
+The `CompressSecurityFindings` step groups raw findings by category and creates skill-specific slices so each specialist only receives the findings relevant to their expertise. This achieves approximately **74% token reduction** compared to sending all findings to every specialist, significantly reducing API costs and improving response quality.
+
+## The 9 Specialist Skills
+
+Each skill is defined as a YAML skill file in `config/skills/security/`. The triage step selects skills based on the codebase's language, framework, and dependencies. The `false-positive-filter` is always included.
+
+| Skill | Emoji | Focus Area |
+|-------|-------|------------|
+| **Vulnerability Analyst** | :mag: | OWASP Top 10 across all code. Lead role -- runs first. |
 | **Auth Reviewer** | :locked_with_key: | OAuth flows, JWT validation, session handling, password storage |
 | **Injection Checker** | :syringe: | SQL, command, LDAP, XPath, NoSQL, template injection |
 | **Secrets Detector** | :key: | Hardcoded API keys, tokens, connection strings, credentials in source |
 | **False Positive Filter** | :broom: | Reviews all findings, removes confidence < 8 and invalid results |
+| **Config Auditor** | :gear: | Security misconfigurations, debug settings, permissive CORS, missing headers |
+| **Supply Chain Auditor** | :package: | Dependency vulnerabilities, lockfile integrity, typosquatting |
+| **Compliance Checker** | :scroll: | PII handling, encryption requirements, regulatory compliance patterns |
+| **AI Security Reviewer** | :robot: | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
 
-### How Roles Interact
+### How Skills Interact
 
-The roles run in a structured discussion pattern:
+The skills run in a structured discussion pattern:
 
-1. **Triage** selects relevant roles based on the codebase analysis
-2. **Round 1**: Each role reviews the code and produces findings
-3. **ConvergenceCheck**: If any role objects (e.g., the False Positive Filter disagrees with a finding), another round runs for objecting roles
-4. **Convergence**: Once all roles agree, findings are consolidated
+1. **Static analysis** (steps 4-6) produces raw findings from patterns, git history, and dependency audits
+2. **Compression** (step 7) groups and slices findings for each specialist
+3. **Triage** selects relevant skills based on the codebase and findings
+4. **Round 1**: Each skill reviews the code and its finding slice
+5. **ConvergenceCheck**: If any skill objects (e.g., the False Positive Filter disagrees with a finding), another round runs for objecting skills
+6. **Convergence**: Once all skills agree, findings are consolidated and extracted
 
 ```
-SecurityTriage → "This is a .NET API with EF Core and JWT auth"
+StaticPatternScan → 47 pattern matches across 6 categories
+GitHistoryScan → 2 secrets found in history (CRITICAL)
+DependencyAudit → 3 vulnerable packages, 1 missing lockfile
+CompressSecurityFindings → grouped into skill-specific slices (74% token reduction)
+
+SecurityTriage → "This is a .NET API with EF Core, JWT auth, and OpenAI integration"
   → vuln-analyst (round 1): 5 findings
   → auth-reviewer (round 1): 3 findings
   → injection-checker (round 1): 2 findings
-  → secrets-detector (round 1): 1 finding
+  → secrets-detector (round 1): 3 findings (2 from history)
+  → config-auditor (round 1): 2 findings
+  → ai-security-reviewer (round 1): 1 finding
   → false-positive-filter (round 1): "OBJECTION — finding #4 is in test code"
 ConvergenceCheck → unresolved objection → round 2
-  → false-positive-filter (round 2): "Retained 8 of 11 findings"
+  → false-positive-filter (round 2): "Retained 14 of 16 findings"
 ConvergenceCheck → consensus reached
 CompileDiscussion → final report
+ExtractFindings → 14 structured Finding records
+DeliverFindings → console + SARIF output
 ```
 
-### Customizing Roles
+### Customizing Skills
 
-Each role's behavior is controlled by its YAML skill file. For example, `config/skills/security/vuln-analyst.yaml`:
+Each skill's behavior is controlled by its YAML skill file. For example, `config/skills/security/vuln-analyst.yaml`:
 
 ```yaml
 name: vuln-analyst
@@ -90,6 +147,8 @@ The `--output` flag controls how findings are delivered:
     Findings printed to stdout with severity coloring:
 
     ```
+    [CRITICAL] AWS Access Key in git history — config/aws.json (commit a1b2c3d, 2025-11-03)
+              Provider: AWS | Revoke: https://console.aws.amazon.com/iam/home#/security_credentials
     [HIGH] SQL Injection in UserRepository.cs:47
            String concatenation in WHERE clause with user-supplied email parameter
     [MEDIUM] Missing HttpOnly flag on auth cookie — AuthController.cs:23
@@ -123,13 +182,18 @@ The `--output` flag controls how findings are delivered:
 
     ```markdown
     # Security Scan Results
-    **Date:** 2026-03-25
-    **Participants:** Vulnerability Analyst, Auth Reviewer, Injection Checker
+    **Date:** 2026-03-26
+    **Participants:** Vulnerability Analyst, Auth Reviewer, Injection Checker, Secrets Detector, Config Auditor, AI Security Reviewer
 
     ## Executive Summary
-    Retained 8 of 11 findings (3 filtered as false positives)
+    Retained 14 of 16 findings (2 filtered as false positives)
+    Static patterns: 47 matches | Git history: 2 secrets | Dependencies: 3 vulnerable
 
     ## Findings
+    ### [CRITICAL] AWS Access Key in Git History
+    **Source:** GitHistoryScan | **Commit:** a1b2c3d (2025-11-03)
+    **Provider:** AWS | **Revoke:** https://console.aws.amazon.com/iam/home#/security_credentials
+
     ### [HIGH] SQL Injection in UserRepository.cs
     **File:** src/Repositories/UserRepository.cs:47
     **Attack vector:** User-supplied email parameter concatenated into SQL WHERE clause...
@@ -139,10 +203,13 @@ The `--output` flag controls how findings are delivered:
 
 ```bash
 # Scan a local repo, console output
-agent-smith security-scan --repo ./my-project
+agent-smith security-scan --repo .
 
-# Scan a specific branch, SARIF output
-agent-smith security-scan --repo ./my-project --branch feature/auth --output sarif
+# Scan with SARIF output for CI integration
+agent-smith security-scan --repo . --output sarif --output-dir ./reports
+
+# Scan a specific branch, markdown output
+agent-smith security-scan --repo ./my-api --branch feature/auth --output markdown
 
 # Scan only the diff of a pull request
 agent-smith security-scan --repo ./my-project --pr 42 --output markdown
@@ -151,11 +218,11 @@ agent-smith security-scan --repo ./my-project --pr 42 --output markdown
 agent-smith security-scan --repo ./my-project --dry-run
 
 # Combine output formats
-agent-smith security-scan --repo ./my-project --output sarif,markdown,console
+agent-smith security-scan --repo ./my-project --output sarif,markdown,console --output-dir ./reports
 ```
 
 !!! tip "CI/CD integration"
-    Use `--output sarif` in your CI pipeline and upload the result to GitHub Advanced Security or Azure DevOps. The exit code is non-zero when HIGH severity findings are present.
+    Use `--output sarif` in your CI pipeline and upload the result to GitHub Advanced Security or Azure DevOps. The exit code is non-zero when HIGH or CRITICAL severity findings are present. See [GitHub Actions](../cicd/github-actions.md), [Azure DevOps](../cicd/azure-devops.md), and [GitLab CI](../cicd/gitlab-ci.md) for ready-to-use pipeline configurations.
 
 ## Exclusion Rules
 
