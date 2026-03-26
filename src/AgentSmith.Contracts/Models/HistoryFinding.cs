@@ -12,4 +12,6 @@ public sealed record HistoryFinding(
     string Title,
     string Description,
     string? MatchedText,
-    bool StillInWorkingTree);
+    bool StillInWorkingTree,
+    string? Provider = null,
+    string? RevokeUrl = null);

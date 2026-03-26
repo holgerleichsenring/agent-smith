@@ -38,7 +38,9 @@ api-scan:
 !!! info "SARIF as SAST Report"
     GitLab recognizes SARIF files under `reports:sast`. Findings appear in the **Security** dashboard and as inline annotations on merge requests.
 
-## Full Security Scan
+## Security Scan (Code Analysis)
+
+Run the full security-scan pipeline with static pattern matching, git history scanning, dependency auditing, and AI specialist panel. Results are published as SAST reports in the GitLab Security dashboard.
 
 ```yaml
 security-scan:
@@ -46,6 +48,7 @@ security-scan:
   image: debian:bookworm-slim
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+    GIT_DEPTH: 500  # Required for git history scanning
   before_script:
     - apt-get update -qq && apt-get install -y -qq curl > /dev/null
     - curl -fsSL -o /usr/local/bin/agent-smith
@@ -61,10 +64,16 @@ security-scan:
       - results/
     reports:
       sast:
-        - results/results.sarif
+        - results/findings.sarif
     when: always
     expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
+
+!!! tip "Git history scanning"
+    Set `GIT_DEPTH: 500` so the `GitHistoryScan` step can scan commit history for leaked secrets. The default shallow clone depth in GitLab CI may not include enough history.
 
 ## ARM64 Runners
 

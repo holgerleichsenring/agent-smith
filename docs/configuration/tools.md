@@ -109,6 +109,75 @@ rules:
   owasp:api2:2023-no-api-keys-in-url: off
 ```
 
+## Pattern Definition Files
+
+The **security-scan** pipeline uses regex pattern files to detect vulnerabilities before the AI panel reviews the code. Pattern files are YAML files stored in `config/patterns/` and are loaded automatically by the `StaticPatternScan` step.
+
+### Format
+
+```yaml
+# config/patterns/secrets.yaml
+name: secrets
+patterns:
+  - id: aws-access-key
+    regex: "AKIA[0-9A-Z]{16}"
+    severity: critical
+    confidence: 9
+    cwe: CWE-798
+    title: "AWS Access Key ID"
+    description: "Hardcoded AWS access key"
+
+  - id: github-token
+    regex: "gh[ps]_[A-Za-z0-9_]{36,255}"
+    severity: critical
+    confidence: 9
+    cwe: CWE-798
+    title: "GitHub Personal Access Token"
+    description: "Hardcoded GitHub token"
+```
+
+### Field Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Category name (used for grouping in reports) |
+| `patterns[].id` | Yes | Unique identifier for the pattern |
+| `patterns[].regex` | Yes | Regular expression to match against source files |
+| `patterns[].severity` | Yes | `critical`, `high`, `medium`, or `low` |
+| `patterns[].confidence` | Yes | Confidence score 1-10 (findings below 8 are filtered by the false-positive-filter skill) |
+| `patterns[].cwe` | No | CWE identifier for SARIF output (e.g., `CWE-798`) |
+| `patterns[].title` | Yes | Short description shown in findings |
+| `patterns[].description` | Yes | Detailed explanation of the vulnerability |
+
+### Shipped Categories
+
+Agent Smith ships with 91 patterns across 6 categories:
+
+| File | Category | Patterns | Examples |
+|------|----------|----------|----------|
+| `secrets.yaml` | Secrets | 27 | AWS keys, GitHub tokens, private keys, JWTs, connection strings |
+| `injection.yaml` | Injection | 16 | SQL injection, command injection, XPath, LDAP, template injection |
+| `ssrf.yaml` | SSRF | 12 | URL construction from user input, DNS rebinding vectors |
+| `config.yaml` | Configuration | 15 | Debug mode, permissive CORS, missing security headers |
+| `compliance.yaml` | Compliance | 10 | PII logging, missing encryption, weak hashing |
+| `ai-security.yaml` | AI Security | 11 | Prompt injection, unsafe model output deserialization, API keys in prompts |
+
+### Custom Patterns
+
+Add custom pattern files to `config/patterns/` and they are automatically loaded on the next scan. Use any filename ending in `.yaml`:
+
+```yaml
+# config/patterns/custom-internal.yaml
+name: internal-rules
+patterns:
+  - id: internal-api-endpoint
+    regex: "https?://internal\\.corp\\.example\\.com"
+    severity: high
+    confidence: 8
+    title: "Internal API endpoint in source"
+    description: "Internal API URLs should not be hardcoded in source code"
+```
+
 ## Container Runtime
 
 Both tools run inside containers managed by the `tool_runner` section in `agentsmith.yml`:

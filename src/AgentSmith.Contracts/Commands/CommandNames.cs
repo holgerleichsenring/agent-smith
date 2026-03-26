@@ -44,6 +44,7 @@ public static class CommandNames
     public const string GitHistoryScan = "GitHistoryScanCommand";
     public const string DependencyAudit = "DependencyAuditCommand";
     public const string CompressSecurityFindings = "CompressSecurityFindingsCommand";
+    public const string ExtractFindings = "ExtractFindingsCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -99,5 +100,6 @@ public static class CommandNames
         [GitHistoryScan] = "Scanning git history for secrets",
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
+        [ExtractFindings] = "Extracting findings for output",
     };
 }

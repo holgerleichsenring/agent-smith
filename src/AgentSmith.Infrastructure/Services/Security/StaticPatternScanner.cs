@@ -229,6 +229,8 @@ public sealed class StaticPatternScanner(
                             ? match.Value[..200] + "..."
                             : match.Value;
 
+                        var provider = SecretProviderRegistry.Lookup(pattern.Definition.Id);
+
                         findings.Add(new PatternFinding(
                             PatternId: pattern.Definition.Id,
                             Category: pattern.Definition.Category,
@@ -239,7 +241,9 @@ public sealed class StaticPatternScanner(
                             Title: pattern.Definition.Title,
                             Description: pattern.Definition.Description,
                             Cwe: pattern.Definition.Cwe,
-                            MatchedText: matchedText));
+                            MatchedText: matchedText,
+                            Provider: provider?.Name,
+                            RevokeUrl: provider?.RevokeUrl));
                     }
                 }
                 catch (RegexMatchTimeoutException)

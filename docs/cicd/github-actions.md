@@ -57,20 +57,64 @@ jobs:
 !!! tip "GitHub Security Tab"
     The `github/codeql-action/upload-sarif@v3` action uploads findings to the **Security** tab of your repository. Findings appear alongside CodeQL results, with full code location links and severity levels.
 
-## Full Security Scan
+## Security Scan with SARIF Upload
 
-For a broader security analysis beyond API scanning:
+Run the full security-scan pipeline (static patterns, git history, dependency audit, AI specialist panel) and upload SARIF results to the GitHub Security tab.
 
 ```yaml
-      - name: Run Security Scan
+# .github/workflows/security-scan.yml
+name: Agent Smith Code Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 500  # Required for git history scanning
+
+      - name: Download Agent Smith
+        run: |
+          curl -fsSL -o agent-smith \
+            https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
+          chmod +x agent-smith
+
+      - name: Run security scan
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           ./agent-smith security-scan \
-            --repo ${{ github.workspace }} \
-            --output console,sarif \
-            --output-dir ./results
+            --repo . \
+            --output sarif \
+            --output-dir ./security-results
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ./security-results/findings.sarif
+          category: agent-smith-security-scan
+
+      - name: Upload Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-report
+          path: ./security-results/
 ```
+
+!!! tip "Git history scanning"
+    Set `fetch-depth: 500` on the checkout step so the `GitHistoryScan` step can scan commit history for leaked secrets. Without sufficient history, only the current tree is scanned.
 
 ## PR Comment with Findings
 
