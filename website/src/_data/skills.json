@@ -1,0 +1,33 @@
+[
+  {
+    "name": "Coding",
+    "icon": "<svg viewBox=\"0 0 24 24\"><polyline points=\"16 18 22 12 16 6\"/><polyline points=\"8 6 2 12 8 18\"/></svg>",
+    "roles": "Architect &middot; Backend &middot; Frontend &middot; Tester &middot; DBA &middot; DevOps &middot; Security &middot; PO"
+  },
+  {
+    "name": "Security",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>",
+    "roles": "Vuln Analyst &middot; Auth Reviewer &middot; Injection Checker &middot; Secrets Detector &middot; FP Filter"
+  },
+  {
+    "name": "API Security",
+    "icon": "<svg viewBox=\"0 0 24 24\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"/></svg>",
+    "roles": "Design Auditor &middot; Auth Tester &middot; Vuln Analyst &middot; False Positive Filter"
+  },
+  {
+    "name": "Legal",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/></svg>",
+    "roles": "Contract Analyst &middot; Compliance &middot; Risk Assessor &middot; Liability &middot; Negotiator"
+  },
+  {
+    "name": "MAD Discussion",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/></svg>",
+    "roles": "Philosopher &middot; Dreamer &middot; Realist &middot; Devil's Advocate &middot; Silencer"
+  },
+  {
+    "name": "Your custom roles",
+    "icon": "<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"16\"/><line x1=\"8\" y1=\"12\" x2=\"16\" y2=\"12\"/></svg>",
+    "roles": "Add any specialist &mdash; performance, accessibility, domain-specific",
+    "dashed": true
+  }
+]
