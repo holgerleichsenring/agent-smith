@@ -12,33 +12,123 @@
           : count;
       }
     })
-    .catch(function () { /* silent — badge just stays hidden */ });
+    .catch(function () { /* silent */ });
 })();
 
-// Tab switching for pipeline demo
-var tabs = document.querySelectorAll('.demo-tab');
-var panels = document.querySelectorAll('.demo-panel');
-var autoTimer;
+// Animated pipeline demo
+(function () {
+  var tabs = document.querySelectorAll('.demo-tab');
+  var panels = document.querySelectorAll('.demo-panel');
+  var progressBar = document.querySelector('.demo-progress-bar');
+  var order = ['fix', 'api', 'legal', 'security', 'mad'];
+  var current = 0;
+  var autoTimer = null;
+  var revealTimer = null;
+  var progressTimer = null;
 
-function switchTo(id) {
-  tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.panel === id); });
-  panels.forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + id); });
-}
+  // Delay per line in ms (faster for blanks/separators)
+  var LINE_DELAY = 180;
+  var PAUSE_AFTER = 2200;
 
-tabs.forEach(function (tab) {
-  tab.addEventListener('click', function () {
-    clearInterval(autoTimer);
-    switchTo(tab.dataset.panel);
-    autoTimer = setInterval(autoAdvance, 4000);
+  function clearTimers() {
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+  }
+
+  function resetPanel(panel) {
+    var lines = panel.querySelectorAll(':scope > div, :scope > span');
+    lines.forEach(function (l) {
+      l.classList.remove('revealed', 'cursor-line');
+    });
+  }
+
+  function resetAllPanels() {
+    panels.forEach(function (p) { resetPanel(p); });
+  }
+
+  function animateProgress(totalMs) {
+    if (!progressBar) return;
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+    // force reflow
+    progressBar.offsetWidth;
+    progressBar.style.transition = 'width ' + totalMs + 'ms linear';
+    progressBar.style.width = '100%';
+  }
+
+  function revealLines(panel, onDone) {
+    var lines = Array.prototype.slice.call(
+      panel.querySelectorAll(':scope > div, :scope > span')
+    );
+    var i = 0;
+
+    var totalMs = lines.length * LINE_DELAY + PAUSE_AFTER;
+    animateProgress(totalMs);
+
+    function next() {
+      if (i > 0) {
+        lines[i - 1].classList.remove('cursor-line');
+      }
+      if (i >= lines.length) {
+        if (onDone) onDone();
+        return;
+      }
+      var line = lines[i];
+      line.classList.add('revealed');
+      // Only show cursor on content lines (not blanks)
+      if (line.tagName === 'DIV') {
+        line.classList.add('cursor-line');
+      }
+      i++;
+      // Blanks and separators are faster
+      var isBlank = line.classList.contains('dblank') ||
+                    line.querySelector('.dsep');
+      revealTimer = setTimeout(next, isBlank ? 60 : LINE_DELAY);
+    }
+
+    next();
+  }
+
+  function switchTo(id, animate) {
+    clearTimers();
+    resetAllPanels();
+
+    tabs.forEach(function (t) {
+      t.classList.toggle('active', t.dataset.panel === id);
+    });
+    panels.forEach(function (p) {
+      p.classList.toggle('active', p.id === 'panel-' + id);
+    });
+
+    var panel = document.getElementById('panel-' + id);
+    if (!panel) return;
+
+    if (animate !== false) {
+      revealLines(panel, function () {
+        autoTimer = setTimeout(autoAdvance, PAUSE_AFTER);
+      });
+    } else {
+      // Instant reveal (no animation)
+      var lines = panel.querySelectorAll(':scope > div, :scope > span');
+      lines.forEach(function (l) { l.classList.add('revealed'); });
+      autoTimer = setTimeout(autoAdvance, 3000);
+    }
+  }
+
+  function autoAdvance() {
+    current = (current + 1) % order.length;
+    switchTo(order[current], true);
+  }
+
+  // Tab click handlers
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      current = order.indexOf(tab.dataset.panel);
+      switchTo(tab.dataset.panel, true);
+    });
   });
-});
 
-var order = ['fix', 'api', 'legal', 'security', 'mad'];
-var current = 0;
-
-function autoAdvance() {
-  current = (current + 1) % order.length;
-  switchTo(order[current]);
-}
-
-autoTimer = setInterval(autoAdvance, 4000);
+  // Start first panel
+  switchTo(order[0], true);
+})();
