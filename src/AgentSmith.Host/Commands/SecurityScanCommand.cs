@@ -42,6 +42,7 @@ internal static class SecurityScanCommand
             {
                 [ContextKeys.ScanRepoPath] = Path.GetFullPath(repo),
                 [ContextKeys.OutputFormat] = output,
+                [ContextKeys.SkillsPathOverride] = "skills/security",
             };
             if (!string.IsNullOrWhiteSpace(pr))
                 scanContext[ContextKeys.ScanPrIdentifier] = pr;
