@@ -40,6 +40,9 @@ public static class CommandNames
     public const string CompileFindings = "CompileFindingsCommand";
     public const string LoadSkills = "LoadSkillsCommand";
     public const string DeliverFindings = "DeliverFindingsCommand";
+    public const string StaticPatternScan = "StaticPatternScanCommand";
+    public const string GitHistoryScan = "GitHistoryScanCommand";
+    public const string DependencyAudit = "DependencyAuditCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -91,5 +94,8 @@ public static class CommandNames
         [CompileFindings] = "Compiling findings",
         [LoadSkills] = "Loading skills",
         [DeliverFindings] = "Delivering findings",
+        [StaticPatternScan] = "Scanning for security patterns",
+        [GitHistoryScan] = "Scanning git history for secrets",
+        [DependencyAudit] = "Auditing dependencies",
     };
 }
