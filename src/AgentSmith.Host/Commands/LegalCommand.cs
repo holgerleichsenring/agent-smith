@@ -36,6 +36,7 @@ internal static class LegalCommand
                 {
                     [ContextKeys.SourceFilePath] = Path.GetFullPath(source),
                     [ContextKeys.OutputFormat] = output,
+                    [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("legal-analysis"),
                 });
 
             if (isDryRun)

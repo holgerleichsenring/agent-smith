@@ -49,6 +49,7 @@ internal static class ApiScanCommand
                 [ContextKeys.SwaggerPath] = swaggerPath,
                 [ContextKeys.ApiTarget] = target,
                 [ContextKeys.OutputFormat] = output,
+                [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("api-security-scan"),
             };
 
             if (outputDir is not null)
