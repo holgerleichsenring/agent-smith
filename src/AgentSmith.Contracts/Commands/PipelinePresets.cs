@@ -74,6 +74,7 @@ public static class PipelinePresets
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
+        CommandNames.CompressSecurityFindings,
         CommandNames.LoadSkills,
         CommandNames.AnalyzeCode,
         CommandNames.SecurityTriage,

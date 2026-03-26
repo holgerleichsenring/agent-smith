@@ -29,15 +29,18 @@ public sealed class StaticPatternScanHandler(
         var result = await scanner.ScanAsync(repo.LocalPath, cancellationToken);
         context.Pipeline.Set(ContextKeys.StaticScanResult, result);
 
-        var fileCount = result.FilesScanned;
-        var findingCount = result.Findings.Count;
-        var patternCount = result.PatternsApplied;
+        var findings = result.Findings;
+        var critical = findings.Count(f => f.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase));
+        var high = findings.Count(f => f.Severity.Equals("high", StringComparison.OrdinalIgnoreCase));
+        var medium = findings.Count(f => f.Severity.Equals("medium", StringComparison.OrdinalIgnoreCase));
+        var low = findings.Count - critical - high - medium;
 
         logger.LogInformation(
-            "Static scan complete: {Findings} findings in {Files} files ({Patterns} patterns) in {Duration}ms",
-            findingCount, fileCount, patternCount, result.DurationMilliseconds);
+            "Static scan complete: {Findings} findings in {Files} files ({Patterns} patterns) in {Duration}ms — {Critical}C/{High}H/{Medium}M/{Low}L",
+            findings.Count, result.FilesScanned, result.PatternsApplied, result.DurationMilliseconds,
+            critical, high, medium, low);
 
         return CommandResult.Ok(
-            $"Static scan: {findingCount} findings in {fileCount} files ({patternCount} patterns)");
+            $"Static scan: {findings.Count} findings ({critical}C/{high}H/{medium}M/{low}L) in {result.FilesScanned} files");
     }
 }

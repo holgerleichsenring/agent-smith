@@ -82,6 +82,16 @@ public abstract class TriageHandlerBase
             return CommandResult.Ok("Triage: no roles needed, skipping discussion");
         }
 
+        // Ensure roles with "always_include" trigger are present
+        foreach (var role in roles.Where(r => r.Triggers.Contains("always_include")))
+        {
+            if (!triageResult.Participants.Contains(role.Name))
+            {
+                triageResult.Participants.Add(role.Name);
+                Logger.LogInformation("Added mandatory role {Role} (always_include trigger)", role.Name);
+            }
+        }
+
         if (triageResult.Participants.Count == 1)
         {
             Logger.LogInformation("Single role needed: {Role}, skipping discussion",
