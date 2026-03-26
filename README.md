@@ -14,7 +14,7 @@ Agent Smith is an open-source framework for building and running AI-powered work
 
 Everything runs on your infrastructure. Your API keys. Your data. No SaaS platform in between.
 
-**[Documentation](https://code.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Community](https://agent-smith.org)**
+**[Documentation](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Community](https://agent-smith.org)**
 
 ---
 
@@ -40,7 +40,7 @@ You:           "fix #54 in todo-list"
 Agent Smith:   "Pull request created: https://github.com/.../pull/42"
 ```
 
-That's the standard bug fix pipeline. There are [seven more](https://code.agent-smith.org/pipelines/).
+That's the standard bug fix pipeline. There are [seven more](https://docs.agent-smith.org/pipelines/).
 
 ---
 
@@ -59,7 +59,7 @@ curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/downl
 docker pull holgerleichsenring/agent-smith:latest
 ```
 
-All platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows) on the [Releases page](https://github.com/holgerleichsenring/agent-smith/releases). Full [installation guide](https://code.agent-smith.org/getting-started/installation/).
+All platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows) on the [Releases page](https://github.com/holgerleichsenring/agent-smith/releases). Full [installation guide](https://docs.agent-smith.org/getting-started/installation/).
 
 ---
 
@@ -79,7 +79,7 @@ agent-smith api-scan --swagger https://api.example.com/swagger.json \
 agent-smith security-scan --repo . --project my-api
 ```
 
-See the [documentation](https://code.agent-smith.org) for configuration, CI/CD integration, AI provider setup, and more.
+See the [documentation](https://docs.agent-smith.org) for configuration, CI/CD integration, AI provider setup, and more.
 
 ---
 
