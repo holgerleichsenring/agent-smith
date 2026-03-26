@@ -28,11 +28,14 @@ public sealed class GitHistoryScanHandler(
         var result = await gitHistoryScanner.ScanAsync(repo.LocalPath, cancellationToken);
         context.Pipeline.Set(ContextKeys.GitHistoryScanResult, result);
 
+        var critical = result.Findings.Count(f => !f.StillInWorkingTree);
+        var high = result.Findings.Count(f => f.StillInWorkingTree);
+
         logger.LogInformation(
-            "Git history scan complete: {Secrets} secrets found in {Commits} commits ({Duration}ms)",
-            result.Findings.Count, result.CommitsScanned, result.DurationMilliseconds);
+            "Git history scan complete: {Secrets} secrets in {Commits} commits ({Duration}ms) — {Critical} critical (history-only), {High} high",
+            result.Findings.Count, result.CommitsScanned, result.DurationMilliseconds, critical, high);
 
         return CommandResult.Ok(
-            $"Git history scan: {result.Findings.Count} secrets found in {result.CommitsScanned} commits");
+            $"Git history scan: {result.Findings.Count} secrets ({critical} critical, {high} high) in {result.CommitsScanned} commits");
     }
 }
