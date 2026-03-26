@@ -110,4 +110,27 @@ public static class PipelinePresets
 
     public static IReadOnlyList<string>? TryResolve(string name) =>
         All.GetValueOrDefault(name);
+
+    /// <summary>
+    /// Default skills directory per pipeline preset.
+    /// Used when no explicit skills_path is configured in the project.
+    /// </summary>
+    private static readonly Dictionary<string, string> DefaultSkillsPaths = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fix-bug"] = "skills/coding",
+        ["fix-no-test"] = "skills/coding",
+        ["add-feature"] = "skills/coding",
+        ["init-project"] = "skills/coding",
+        ["security-scan"] = "skills/security",
+        ["api-security-scan"] = "skills/api-security",
+        ["legal-analysis"] = "skills/legal",
+        ["mad-discussion"] = "skills/mad",
+    };
+
+    /// <summary>
+    /// Returns the default skills path for a given pipeline name.
+    /// Falls back to "skills/coding" if the pipeline is not mapped.
+    /// </summary>
+    public static string GetDefaultSkillsPath(string pipelineName) =>
+        DefaultSkillsPaths.GetValueOrDefault(pipelineName, "skills/coding");
 }

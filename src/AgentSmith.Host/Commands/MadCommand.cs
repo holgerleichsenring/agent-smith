@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,7 +32,11 @@ internal static class MadCommand
             var headless = ctx.ParseResult.GetValueForOption(headlessOption);
 
             var request = new PipelineRequest(
-                project, "mad-discussion", new TicketId(ticket.ToString()), Headless: headless);
+                project, "mad-discussion", new TicketId(ticket.ToString()), Headless: headless,
+                Context: new Dictionary<string, object>
+                {
+                    [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("mad-discussion"),
+                });
 
             if (isDryRun)
             {
