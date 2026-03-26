@@ -48,7 +48,13 @@ public sealed class DeliverFindingsContextBuilder : IContextBuilder
 public sealed class LoadSkillsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new LoadSkillsContext(project.SkillsPath, pipeline);
+    {
+        // Allow pipeline-specific override (e.g. security-scan sets skills/security)
+        var skillsPath = pipeline.TryGet<string>(ContextKeys.SkillsPathOverride, out var overridePath)
+            ? overridePath!
+            : project.SkillsPath;
+        return new LoadSkillsContext(skillsPath, pipeline);
+    }
 }
 
 public sealed class CompileFindingsContextBuilder : IContextBuilder
