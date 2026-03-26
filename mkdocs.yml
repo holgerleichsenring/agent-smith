@@ -44,13 +44,13 @@ extra:
       link: https://sentinel.agent-smith.org
       name: Sentinel
     - icon: fontawesome/solid/comments
-      link: https://agent-smith.org
-      name: Community Forum
+      link: https://github.com/holgerleichsenring/agent-smith/issues
+      name: Community
 
 copyright: >
   Copyright &copy; 2026 Holger Leichsenring —
   <a href="https://codingsoul.org">CodingSoul Blog</a> ·
-  <a href="https://agent-smith.org">Community</a>
+  <a href="https://github.com/holgerleichsenring/agent-smith/issues">Community</a>
 
 markdown_extensions:
   - admonition
@@ -116,4 +116,4 @@ nav:
     - Project Structure: architecture/project-structure.md
   - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
-  - Community: https://agent-smith.org
+  - Community: https://github.com/holgerleichsenring/agent-smith/issues
