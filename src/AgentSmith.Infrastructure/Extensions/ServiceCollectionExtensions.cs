@@ -52,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISpectralScanner, SpectralSpawner>();
 
         // Security scanners (p54)
+        services.AddSingleton<PatternDefinitionLoader>();
         services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
