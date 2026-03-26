@@ -109,14 +109,39 @@
 }
 
 [data-md-color-scheme="default"] .md-typeset code {
-  background: #f0f0f0;
+  background: #f4f4f5;
   border: 1px solid #e8e8e8;
+  color: #1a1a2e;
 }
 
 [data-md-color-scheme="default"] .md-typeset pre > code {
-  background: #111111;
+  background: #1e1e2e;
   border: none;
+  color: #cdd6f4;
 }
+
+[data-md-color-scheme="default"] .highlight .hll { background: #2a2b3d; }
+[data-md-color-scheme="default"] .highlight .c,
+[data-md-color-scheme="default"] .highlight .cm,
+[data-md-color-scheme="default"] .highlight .c1,
+[data-md-color-scheme="default"] .highlight .cs { color: #6c7086; }
+[data-md-color-scheme="default"] .highlight .k,
+[data-md-color-scheme="default"] .highlight .kn,
+[data-md-color-scheme="default"] .highlight .kd { color: #cba6f7; }
+[data-md-color-scheme="default"] .highlight .s,
+[data-md-color-scheme="default"] .highlight .s1,
+[data-md-color-scheme="default"] .highlight .s2 { color: #a6e3a1; }
+[data-md-color-scheme="default"] .highlight .n,
+[data-md-color-scheme="default"] .highlight .nb { color: #cdd6f4; }
+[data-md-color-scheme="default"] .highlight .nf,
+[data-md-color-scheme="default"] .highlight .nx { color: #89b4fa; }
+[data-md-color-scheme="default"] .highlight .nn { color: #f9e2af; }
+[data-md-color-scheme="default"] .highlight .o,
+[data-md-color-scheme="default"] .highlight .p { color: #94e2d5; }
+[data-md-color-scheme="default"] .highlight .mi,
+[data-md-color-scheme="default"] .highlight .mf { color: #fab387; }
+[data-md-color-scheme="default"] .highlight .nt { color: #89b4fa; }
+[data-md-color-scheme="default"] .highlight .na { color: #f9e2af; }
 
 /* ── Navigation ── */
 
