@@ -140,3 +140,28 @@
 
   switchTo(order[0], true);
 })();
+
+// How-it-works carousel
+(function () {
+  var howTabs = document.querySelectorAll('.how-tab');
+  var stepPanels = document.querySelectorAll('.how-steps-panel');
+  var termPanels = document.querySelectorAll('.how-term-panel');
+
+  function switchHow(id) {
+    howTabs.forEach(function (t) {
+      t.classList.toggle('active', t.dataset.how === id);
+    });
+    stepPanels.forEach(function (p) {
+      p.classList.toggle('active', p.dataset.howPanel === id);
+    });
+    termPanels.forEach(function (p) {
+      p.classList.toggle('active', p.dataset.howPanel === id);
+    });
+  }
+
+  howTabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      switchHow(tab.dataset.how);
+    });
+  });
+})();

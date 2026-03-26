@@ -167,7 +167,21 @@ h1 em { font-style: normal; color: var(--green); }
 
 /* -- HOW IT WORKS -- */
 .how-section { padding: 100px 0; }
-.how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; margin-top: 48px; }
+.how-tabs { display: flex; gap: 6px; margin-top: 24px; flex-wrap: wrap; }
+.how-tab {
+  padding: 8px 18px; border-radius: 7px; border: 1px solid var(--border2);
+  background: transparent; color: var(--text2); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s; font-family: var(--sans);
+}
+.how-tab:hover { border-color: var(--text); color: var(--text); }
+.how-tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+.how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; margin-top: 32px; }
+.how-steps-wrap { position: relative; }
+.how-steps-panel { display: none; flex-direction: column; gap: 0; animation: howFadeIn .35s ease; }
+.how-steps-panel.active { display: flex; }
+.how-term-panel { display: none; animation: howFadeIn .35s ease; }
+.how-term-panel.active { display: block; }
+@keyframes howFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .steps { display: flex; flex-direction: column; gap: 0; }
 .step { display: flex; gap: 20px; padding: 24px 0; border-bottom: 1px solid var(--border); }
 .step:last-child { border-bottom: none; }
@@ -255,6 +269,8 @@ footer { padding: 28px 48px; border-top: 1px solid var(--border); display: flex;
   .section-wrap { padding: 0 20px; }
   .pipelines-section, .how-section, .skills-section, .providers-section, .deploy-section, .principles-section { padding: 60px 0; }
   .pipelines-grid { grid-template-columns: 1fr; }
+  .how-tabs { gap: 4px; }
+  .how-tab { padding: 6px 12px; font-size: 11px; }
   .how-grid, .skills-grid, .principles-grid { grid-template-columns: 1fr; }
   .how-visual { position: static; }
   .deploy-grid { grid-template-columns: 1fr; }
