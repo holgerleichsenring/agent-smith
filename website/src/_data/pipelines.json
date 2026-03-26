@@ -703,6 +703,24 @@
         "desc": "decision.md written"
       },
       {
+        "type": "step",
+        "num": "[7/9]",
+        "name": "ExtractActions   ",
+        "desc": "3 action items"
+      },
+      {
+        "type": "step",
+        "num": "[8/9]",
+        "name": "ReviewChecks     ",
+        "desc": "arguments validated"
+      },
+      {
+        "type": "step",
+        "num": "[9/9]",
+        "name": "Notify           ",
+        "desc": "Slack #architecture"
+      },
+      {
         "type": "blank"
       },
       {
