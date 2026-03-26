@@ -403,7 +403,7 @@
     "tabLabel": "security",
     "cmd": "agent-smith security-scan",
     "name": "Security Scan",
-    "desc": "Multi-role code review. Specialist roles converge on findings. SARIF output.",
+    "desc": "18-step pipeline with 9 specialist roles, pattern scanner, git history analysis, and SARIF output.",
     "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>",
     "tags": [
       {
@@ -415,13 +415,17 @@
         "green": true
       },
       {
-        "text": "8&ndash;11 steps"
+        "text": "9 skills",
+        "green": true
+      },
+      {
+        "text": "18 steps"
       }
     ],
     "demo": [
       {
         "type": "prompt",
-        "text": "agent-smith security-scan --repo ."
+        "text": "agent-smith security-scan --repo . --output sarif,markdown"
       },
       {
         "type": "blank"
@@ -431,107 +435,171 @@
       },
       {
         "type": "step",
-        "num": "[1/8]",
+        "num": " [1/18]",
         "name": "CheckoutSource   ",
-        "desc": "branch main"
+        "desc": "branch main, 483 files"
       },
       {
         "type": "step",
-        "num": "[2/8]",
+        "num": " [2/18]",
+        "name": "BootstrapProject ",
+        "desc": "C# .NET 8 detected"
+      },
+      {
+        "type": "step",
+        "num": " [3/18]",
+        "name": "LoadDomainRules  ",
+        "desc": "security-principles.md"
+      },
+      {
+        "type": "step",
+        "num": " [4/18]",
+        "name": "StaticPatternScan",
+        "desc": "91 patterns, 6 categories"
+      },
+      {
+        "type": "step",
+        "num": " [5/18]",
+        "name": "GitHistoryScan   ",
+        "desc": "500 commits, 3 secrets found"
+      },
+      {
+        "type": "step",
+        "num": " [6/18]",
+        "name": "DependencyAudit  ",
+        "desc": "dotnet audit, 2 CVEs"
+      },
+      {
+        "type": "step",
+        "num": " [7/18]",
+        "name": "CompressFindings ",
+        "desc": "74% token reduction"
+      },
+      {
+        "type": "step",
+        "num": " [8/18]",
+        "name": "LoadSkills       ",
+        "desc": "9 security specialists"
+      },
+      {
+        "type": "step",
+        "num": " [9/18]",
         "name": "AnalyzeCode      ",
-        "desc": "483 files"
+        "desc": "dependency graph mapped"
       },
       {
         "type": "step",
-        "num": "[3/8]",
-        "name": "Triage           ",
-        "desc": "5 specialists"
+        "num": "[10/18]",
+        "name": "SecurityTriage   ",
+        "desc": "7 of 9 skills selected"
       },
       {
         "type": "detail",
-        "text": "  &#128270; Vuln Analyst     &mdash; contributed"
+        "text": "  🔍 Vuln Analyst     — contributed"
       },
       {
         "type": "detail",
-        "text": "  &#128272; Secrets Detector &mdash; contributed"
+        "text": "  🔐 Auth Reviewer    — <span style=\"color:#e06c75\">OBJECT</span> — token expiry"
       },
       {
         "type": "detail",
-        "text": "  &#128269; Injection Checker&mdash; <span style=\"color:#e06c75\">OBJECT r1</span> &mdash; AGREE r2"
+        "text": "  💉 Injection Checker— contributed"
       },
       {
         "type": "detail",
-        "text": "  &#128274; Auth Reviewer    &mdash; <span style=\"color:#e06c75\">OBJECT r1</span> &mdash; AGREE r2"
+        "text": "  🔑 Secrets Detector — <span style=\"color:#e06c75\">OBJECT</span> — 3 in git history"
       },
       {
         "type": "detail",
-        "text": "  &#129529; FP Filter        &mdash; 93 filtered"
+        "text": "  ⚙️  Config Auditor   — contributed"
+      },
+      {
+        "type": "detail",
+        "text": "  📦 Supply Chain     — contributed"
+      },
+      {
+        "type": "detail",
+        "text": "  🧹 FP Filter        — filtered 84 of 102"
       },
       {
         "type": "step",
-        "num": "[4/8]",
+        "num": "[11/18]",
+        "name": "SkillRounds      ",
+        "desc": "round 1 complete"
+      },
+      {
+        "type": "step",
+        "num": "[12/18]",
         "name": "ConvergenceCheck ",
-        "desc": "round 2 consensus"
+        "desc": "2 objections, round 2"
+      },
+      {
+        "type": "detail",
+        "text": "  🔐 Auth Reviewer    — <span style=\"color:#00d46a\">AGREE</span>"
+      },
+      {
+        "type": "detail",
+        "text": "  🔑 Secrets Detector — <span style=\"color:#00d46a\">AGREE</span>"
       },
       {
         "type": "step",
-        "num": "[5/8]",
-        "name": "CompileFindings  ",
-        "desc": "SARIF + markdown"
+        "num": "[13/18]",
+        "name": "ConvergenceCheck ",
+        "desc": "<span class=\"dok\">consensus ✓</span>"
       },
       {
         "type": "step",
-        "num": "[6/8]",
-        "name": "DeliverOutput    ",
-        "desc": "findings.sarif"
+        "num": "[16/18]",
+        "name": "CompileDiscussion",
+        "desc": "findings consolidated"
       },
       {
         "type": "step",
-        "num": "[7/8]",
-        "name": "ReviewChecks     ",
-        "desc": "severity validated"
+        "num": "[17/18]",
+        "name": "ExtractFindings  ",
+        "desc": "18 structured findings"
       },
       {
         "type": "step",
-        "num": "[8/8]",
-        "name": "Notify           ",
-        "desc": "Slack #security"
+        "num": "[18/18]",
+        "name": "DeliverFindings  ",
+        "desc": "findings.sarif + report.md"
       },
       {
         "type": "blank"
       },
       {
         "type": "ok",
-        "text": "&#10003; 9 findings &middot; 4 CRITICAL &middot; $0.08"
+        "text": "✓ 18 findings · 4 CRITICAL · 9 skills · $0.12"
       }
     ],
     "how": {
       "tabLabel": "Security Scan",
       "steps": [
         {
-          "title": "Checkout the codebase",
-          "desc": "Clones or checks out the target repository. Builds the code map so specialists know what they're looking at."
+          "title": "Static analysis first",
+          "desc": "Three automated scanners run before any AI touches the code: 91 regex patterns across 6 categories, git history scan for leaked secrets in 500 commits, and dependency audit for known CVEs."
         },
         {
-          "title": "Triage selects specialists",
-          "desc": "Picks vuln-analyst, auth-reviewer, injection-checker, secrets-detector, and the false-positive filter based on the tech stack."
+          "title": "Compress and slice",
+          "desc": "Raw findings are grouped by category and compressed — 74% token reduction. Each specialist gets only the slice relevant to their expertise, not the full dump."
+        },
+        {
+          "title": "Triage selects from 9 specialists",
+          "desc": "Vuln analyst, auth reviewer, injection checker, secrets detector, config auditor, supply chain auditor, compliance checker, AI security reviewer, and the mandatory false-positive filter."
         },
         {
           "title": "Specialists review in rounds",
-          "desc": "Each specialist analyzes the code from their angle. They can OBJECT to each other's findings. Rounds continue until consensus."
-        },
-        {
-          "title": "False positive filter",
-          "desc": "Removes noise: confidence &lt; 7, infrastructure issues, duplicates, Nuclei false positives. Keeps only actionable findings."
+          "desc": "Each specialist analyzes the code and their finding slice. They can AGREE or OBJECT. Rounds continue until consensus or max rounds (default 3). The FP filter removes noise: confidence &lt; 8, infrastructure issues, duplicates."
         },
         {
           "title": "SARIF + Markdown delivered.",
-          "desc": "Findings exported as SARIF for GitHub Security tab and Markdown for humans. Token usage and cost tracked."
+          "desc": "Findings exported as SARIF 2.1 for GitHub Security tab, Azure DevOps, or any SARIF viewer. Markdown report for humans. Console output color-coded by severity. All formats combinable."
         }
       ],
       "terminal": {
-        "title": "security-scan &middot; agent-smith repo",
-        "html": "<div><span class=\"ht-sep\">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>\n<div style=\"color:#555\">Analyzing 483 files...</div>\n<div style=\"color:#555\">Selected: <span style=\"color:#61afef\">vuln-analyst, auth-reviewer,</span></div>\n<div style=\"color:#555\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style=\"color:#61afef\">injection-checker, fp-filter</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-sep\">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>\n<div><span style=\"color:#61afef\">vuln-analyst:</span> <span style=\"color:#555\">contributed</span></div>\n<div><span style=\"color:#e06c75\">injection-checker:</span> <span style=\"color:#e06c75\">OBJECT</span> <span style=\"color:#555\">&mdash; webhook HMAC missing</span></div>\n<div><span style=\"color:#98c379\">auth-reviewer:</span> <span style=\"color:#e06c75\">OBJECT</span> <span style=\"color:#555\">&mdash; token expiry too long</span></div>\n<div><span style=\"color:#e5c07b\">fp-filter:</span> <span style=\"color:#555\">filtered 93 of 102</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-sep\">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>\n<div><span style=\"color:#e06c75\">injection-checker:</span> <span style=\"color:#00d46a\">AGREE</span></div>\n<div><span style=\"color:#98c379\">auth-reviewer:</span> <span style=\"color:#00d46a\">AGREE</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-ok\">&#10003; 9 findings &middot; 4 CRITICAL &middot; $0.08</span></div>\n"
+        "title": "security-scan · agent-smith repo",
+        "html": "<div><span class=\"ht-sep\">—— Static Analysis —————————————————————————</span></div>\n<div style=\"color:#555\">Patterns: <span style=\"color:#e5c07b\">91 patterns</span>, 6 categories</div>\n<div style=\"color:#555\">Git scan: <span style=\"color:#e5c07b\">500 commits</span>, 3 secrets</div>\n<div style=\"color:#555\">Deps:     <span style=\"color:#e5c07b\">2 CVEs</span> in 1 package</div>\n<div style=\"color:#555\">Compress: <span style=\"color:#98c379\">74% token reduction</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-sep\">—— Triage ————————————————————————————————</span></div>\n<div style=\"color:#555\">Selected: <span style=\"color:#61afef\">7 of 9 specialists</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-sep\">—— Round 1 ———————————————————————————————</span></div>\n<div><span style=\"color:#61afef\">vuln-analyst:</span> <span style=\"color:#555\">contributed</span></div>\n<div><span style=\"color:#e06c75\">auth-reviewer:</span> <span style=\"color:#e06c75\">OBJECT</span> <span style=\"color:#555\">— token expiry too long</span></div>\n<div><span style=\"color:#e06c75\">secrets-detector:</span> <span style=\"color:#e06c75\">OBJECT</span> <span style=\"color:#555\">— 3 secrets in git history</span></div>\n<div><span style=\"color:#e5c07b\">fp-filter:</span> <span style=\"color:#555\">filtered 84 of 102</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-sep\">—— Round 2 ———————————————————————————————</span></div>\n<div><span style=\"color:#e06c75\">auth-reviewer:</span> <span style=\"color:#00d46a\">AGREE</span></div>\n<div><span style=\"color:#e06c75\">secrets-detector:</span> <span style=\"color:#00d46a\">AGREE</span></div>\n<span class=\"ht-blank\"></span>\n<div><span class=\"ht-ok\">✓ 18 findings · 4 CRITICAL · 9 skills · $0.12</span></div>\n"
       }
     }
   },
