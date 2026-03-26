@@ -24,16 +24,13 @@
   var current = 0;
   var autoTimer = null;
   var revealTimer = null;
-  var progressTimer = null;
 
-  // Delay per line in ms (faster for blanks/separators)
   var LINE_DELAY = 180;
   var PAUSE_AFTER = 2200;
 
   function clearTimers() {
     if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
     if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
-    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
   }
 
   function resetPanel(panel) {
@@ -41,6 +38,8 @@
     lines.forEach(function (l) {
       l.classList.remove('revealed', 'cursor-line');
     });
+    // Reset scroll position
+    panel.scrollTop = 0;
   }
 
   function resetAllPanels() {
@@ -51,10 +50,35 @@
     if (!progressBar) return;
     progressBar.style.transition = 'none';
     progressBar.style.width = '0%';
-    // force reflow
     progressBar.offsetWidth;
     progressBar.style.transition = 'width ' + totalMs + 'ms linear';
     progressBar.style.width = '100%';
+  }
+
+  function scrollToLine(panel, line) {
+    var panelHeight = panel.clientHeight;
+    var padding = 20; // top padding
+    var lineBottom = line.offsetTop + line.offsetHeight - padding;
+    var visibleBottom = panel.scrollTop + panelHeight - padding;
+
+    if (lineBottom > visibleBottom) {
+      var target = lineBottom - panelHeight + padding + 10;
+      // Smooth scroll via CSS-like easing
+      var start = panel.scrollTop;
+      var diff = target - start;
+      var duration = 200;
+      var startTime = null;
+
+      function step(ts) {
+        if (!startTime) startTime = ts;
+        var progress = Math.min((ts - startTime) / duration, 1);
+        // ease-out
+        var ease = 1 - Math.pow(1 - progress, 3);
+        panel.scrollTop = start + diff * ease;
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
   }
 
   function revealLines(panel, onDone) {
@@ -76,12 +100,12 @@
       }
       var line = lines[i];
       line.classList.add('revealed');
-      // Only show cursor on content lines (not blanks)
       if (line.tagName === 'DIV') {
         line.classList.add('cursor-line');
       }
+      // Auto-scroll to keep current line visible
+      scrollToLine(panel, line);
       i++;
-      // Blanks and separators are faster
       var isBlank = line.classList.contains('dblank') ||
                     line.querySelector('.dsep');
       revealTimer = setTimeout(next, isBlank ? 60 : LINE_DELAY);
@@ -109,9 +133,9 @@
         autoTimer = setTimeout(autoAdvance, PAUSE_AFTER);
       });
     } else {
-      // Instant reveal (no animation)
       var lines = panel.querySelectorAll(':scope > div, :scope > span');
       lines.forEach(function (l) { l.classList.add('revealed'); });
+      panel.scrollTop = panel.scrollHeight;
       autoTimer = setTimeout(autoAdvance, 3000);
     }
   }
@@ -121,7 +145,6 @@
     switchTo(order[current], true);
   }
 
-  // Tab click handlers
   tabs.forEach(function (tab) {
     tab.addEventListener('click', function () {
       current = order.indexOf(tab.dataset.panel);
@@ -129,6 +152,5 @@
     });
   });
 
-  // Start first panel
   switchTo(order[0], true);
 })();

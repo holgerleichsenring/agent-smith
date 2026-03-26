@@ -96,7 +96,7 @@ h1 em { font-style: normal; color: var(--green); }
 .demo-tab:last-child { border-right: none; }
 .demo-tab.active { color: var(--green); border-bottom-color: var(--green); background: var(--bg2); }
 
-.demo-panels { position: relative; height: 340px; }
+.demo-panels { position: relative; height: 340px; overflow: hidden; }
 .demo-panel {
   position: absolute; inset: 0;
   padding: 20px 22px;
@@ -105,7 +105,9 @@ h1 em { font-style: normal; color: var(--green); }
   transition: opacity .4s ease, transform .4s ease;
   overflow: hidden; pointer-events: none;
 }
-.demo-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.demo-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; overflow-y: auto; }
+.demo-panel::-webkit-scrollbar { display: none; }
+.demo-panel { scrollbar-width: none; }
 
 /* line-by-line reveal */
 .demo-panel > div, .demo-panel > span {
