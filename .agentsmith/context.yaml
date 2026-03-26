@@ -123,15 +123,14 @@ state:
     p50: "Multi-output strategy: --output console,summary,markdown,sarif + --output-dir + SummaryOutputStrategy (561 tests)"
     p51: "ToolRunner clean architecture: {work} placeholders, no hardcoded paths, OutputDir resolved once (567 tests)"
     p52: "Single executable release: self-contained binaries for 5 platforms, GitHub Releases, Release-Please, Docker entrypoint with gosu, config discovery (567 tests)"
-  active:
-    p53: "Documentation site at code.agent-smith.org — MkDocs Material, GitHub Pages → .agentsmith/phases/active/p53-documentation-site.md"
+    p53: "Documentation site at docs.agent-smith.org — MkDocs Material, GitHub Pages, 28 pages (567 tests)"
+    p54: "Security scan expansion: StaticPatternScan (91 patterns), GitHistoryScan, DependencyAudit, 4 new LLM skills, 9 security specialists (567 tests)"
+    p55: "Security findings compression: CompressSecurityFindingsHandler, category grouping, skill-specific slices, ~74% token reduction (567 tests)"
+    p56: "Security scan polish: SecretProviderRegistry (18 mappings), mandatory FP filter, severity logs, SARIF output, ExtractFindingsHandler, docs update (567 tests)"
+  active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
     p40b: "Git provider extraction (GitHub, AzureDevOps, GitLab, Jira) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (Claude, OpenAI, Gemini) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
     p40d: "Storage providers & LoadAttachmentsCommand → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
-    p53: "Documentation site at docs.agent-smith.org — MkDocs Material, GitHub Pages → .agentsmith/phases/planned/p53-documentation-site.md"
-    p54: "Security scan expansion: static pattern scanner, git history secrets, dependency audit, 4 new LLM skills → .agentsmith/phases/planned/p54-security-scan-expansion.md"
-    p55: "Security findings compression: category grouping, skill-specific slices, 74% token reduction → .agentsmith/phases/planned/p55-security-findings-compression.md"
-    p56: "Security scan polish: secret provider IDs, mandatory FP filter, severity logs, SARIF output, docs update → .agentsmith/phases/planned/p56-security-scan-polish.md"
