@@ -1,0 +1,49 @@
+{% set howPipelines = [] %}
+{% for p in pipelines %}{% if p.how %}{% set howPipelines = (howPipelines.push(p), howPipelines) %}{% endif %}{% endfor %}
+
+<section class="how-section" id="how">
+  <div class="section-wrap">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Intelligence at every step.</h2>
+
+    <div class="how-tabs">
+      {% for p in howPipelines %}
+      <button class="how-tab{% if loop.first %} active{% endif %}" data-how="{{ p.id }}">{{ p.how.tabLabel }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="how-grid">
+      <!-- Steps (left) -->
+      <div class="how-steps-wrap">
+        {% for p in howPipelines %}
+        <div class="steps how-steps-panel{% if loop.first %} active{% endif %}" data-how-panel="{{ p.id }}">
+          {% for step in p.how.steps %}
+          <div class="step">
+            <div class="step-num">{{ "0" if loop.index < 10 }}{{ loop.index }}</div>
+            <div class="step-body">
+              <div class="step-title">{{ step.title | safe }}</div>
+              <div class="step-desc">{{ step.desc | safe }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Terminals (right) -->
+      <div class="how-visual">
+        {% for p in howPipelines %}
+        <div class="how-terminal how-term-panel{% if loop.first %} active{% endif %}" data-how-panel="{{ p.id }}">
+          <div class="how-terminal-bar">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <span class="how-terminal-title">{{ p.how.terminal.title | safe }}</span>
+          </div>
+          <div class="how-terminal-body">
+            {{ p.how.terminal.html | safe }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>

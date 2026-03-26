@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site.title }} &mdash; {{ site.tagline }}</title>
+<meta name="description" content="{{ site.description }}">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    agent-smith
+  </a>
+  <ul class="nav-links">
+    <li><a href="#pipelines">Pipelines</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#deploy">Deploy</a></li>
+    <li><a href="{{ site.docsUrl }}">Docs</a></li>
+    <li><a href="{{ site.blogUrl }}">Blog</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="https://github.com/{{ site.githubRepo }}" class="btn-ghost">GitHub</a>
+    <a href="{{ site.docsUrl }}/getting-started/" class="btn-primary">Get started &rarr;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge"><div class="hero-badge-dot"></div>MIT &middot; Open Source &middot; Self-hosted</div>
+    <h1>AI-powered<br>pipeline <em>execution.</em></h1>
+    <p class="hero-sub">
+      Define pipelines as chains of steps. Each step can run an AI agent, spawn a multi-role discussion, call tools, or move files. Ticket to PR &mdash; fully automated.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ site.docsUrl }}/getting-started/" class="btn-hero">Get started free &rarr;</a>
+      <a href="{{ site.docsUrl }}" class="btn-hero-ghost">Read the docs</a>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <a href="https://github.com/{{ site.githubRepo }}" target="_blank" rel="noopener">
+          <svg class="gh-star-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"/></svg>
+          <span id="gh-stars">&mdash;</span> stars
+        </a>
+      </div>
+      <div class="hero-meta-item"><strong>{{ pipelines | length }}</strong> pipeline presets</div>
+      <div class="hero-meta-item"><strong>{{ providers | length }}</strong> AI providers</div>
+      <div class="hero-meta-item"><strong>$0</strong> SaaS fees</div>
+      <div class="hero-meta-item"><strong>MIT</strong> license</div>
+    </div>
+  </div>
+
+  {% include "partials/hero-demo.njk" %}
+</section>
+
+<hr class="section-divider">
+
+{% include "partials/pipeline-cards.njk" %}
+
+{% include "partials/how-it-works.njk" %}
+
+{% include "partials/skills.njk" %}
+
+{% include "partials/providers.njk" %}
+
+{% include "partials/deploy.njk" %}
+
+<!-- PRINCIPLES -->
+<section class="principles-section">
+  <div class="section-wrap">
+    <div class="principles-grid">
+      <div>
+        <div class="section-label">Philosophy</div>
+        <h2 class="section-title">Your AI.<br>Your infrastructure.<br>Your rules.</h2>
+        <div class="principle-list" style="margin-top:32px">
+          <div class="principle"><div class="principle-dot"></div><div><strong>No SaaS in between</strong><span>Your code and tickets never leave your infrastructure. Agent Smith calls your AI provider directly.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Cost transparent</strong><span>Every run records token usage and dollar cost. You always know what you spent and why.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Skills over prompts</strong><span>Specialist roles in YAML. Add your own domain experts. No prompt engineering required.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Human in the loop</strong><span>Approval step before execution. Run headless when you trust the pipeline. Your call.</span></div></div>
+        </div>
+      </div>
+      <div class="config-box">
+        <div class="config-bar">agentsmith.yml</div>
+        <div class="config-body">
+<span class="ck">projects</span>:<br>
+&nbsp;&nbsp;<span class="ck">my-api</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">ticket_provider</span>: <span class="cv">github</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">source_provider</span>: <span class="cv">github</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">repo</span>: <span class="cs">"org/my-api"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">api_security_scan</span>: <span class="cv">on_pr</span><br>
+<br>
+<span class="ck">agent</span>:<br>
+&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">claude</span><br>
+&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"claude-sonnet-4-20250514"</span><br>
+<br>
+<span class="cc"># Or run fully local:</span><br>
+<span class="ck">agent</span>:<br>
+&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">ollama</span><br>
+&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"llama3.3:70b"</span><br>
+&nbsp;&nbsp;<span class="ck">base_url</span>: <span class="cs">"http://localhost:11434"</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-title">From ticket to PR.<br>In minutes.</h2>
+  <p class="cta-sub">Open source. Self-hosted. Free forever.</p>
+  <div class="cta-actions">
+    <a href="{{ site.docsUrl }}/getting-started/" class="btn-hero">Get started &rarr;</a>
+    <a href="https://github.com/{{ site.githubRepo }}" class="btn-hero-ghost">View on GitHub</a>
+  </div>
+  <div class="cta-links">
+    <a href="{{ site.docsUrl }}">Documentation</a>
+    <a href="{{ site.docsUrl }}/pipelines/">Pipelines</a>
+    <a href="{{ site.docsUrl }}/concepts/multi-skill/">Skills</a>
+    <a href="{{ site.docsUrl }}/deployment/">Deploy</a>
+    <a href="{{ site.blogUrl }}">Blog</a>
+    <a href="{{ site.partnerUrl }}">45level</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-l"><span>agent-smith</span> &middot; MIT License &middot; &copy; 2026 Holger Leichsenring</div>
+  <div class="footer-r">
+    <a href="{{ site.docsUrl }}">Docs</a>
+    <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
+    <a href="{{ site.blogUrl }}">Blog</a>
+    <a href="{{ site.partnerUrl }}">45level</a>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

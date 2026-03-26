@@ -1,0 +1,9 @@
+{
+  "title": "Agent Smith",
+  "tagline": "AI-powered pipeline execution.",
+  "description": "Open-source, self-hosted AI agent that turns tickets into pull requests. Multi-role pipelines for coding, security, legal, and more.",
+  "githubRepo": "holgerleichsenring/agent-smith",
+  "docsUrl": "https://docs.agent-smith.org",
+  "blogUrl": "https://codingsoul.org",
+  "partnerUrl": "https://45level.com"
+}

@@ -1,0 +1,20 @@
+<section class="pipelines-section" id="pipelines">
+  <div class="section-wrap">
+    <div class="section-label">Pipelines</div>
+    <h2 class="section-title">Eight workflows. Ready to run.</h2>
+    <p class="section-sub">Pre-built pipeline presets for the most common AI orchestration tasks. Or define your own in <code style="font-family:var(--mono);font-size:13px;background:var(--bg3);padding:2px 6px;border-radius:4px">agentsmith.yml</code>.</p>
+    <div class="pipelines-grid">
+      {% for p in pipelines %}
+      <div class="pipeline-card"{% if p.dashed %} style="background:var(--bg2);border-style:dashed"{% endif %}>
+        <div class="pipeline-icon">{{ p.icon | safe }}</div>
+        <div class="pipeline-cmd">{{ p.cmd }}</div>
+        <div class="pipeline-name">{{ p.name }}</div>
+        <div class="pipeline-desc">{{ p.desc | safe }}</div>
+        <div class="pipeline-tags">
+          {% for tag in p.tags %}<span class="ptag{% if tag.green %} ptag-green{% endif %}">{{ tag.text | safe }}</span>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
