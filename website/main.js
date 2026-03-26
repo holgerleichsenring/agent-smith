@@ -38,7 +38,6 @@
     lines.forEach(function (l) {
       l.classList.remove('revealed', 'cursor-line');
     });
-    // Reset scroll position
     panel.scrollTop = 0;
   }
 
@@ -56,28 +55,16 @@
   }
 
   function scrollToLine(panel, line) {
+    // Calculate where the line sits relative to the panel
+    var lineRect = line.getBoundingClientRect();
+    var panelRect = panel.getBoundingClientRect();
+    var lineBottom = lineRect.bottom - panelRect.top + panel.scrollTop;
     var panelHeight = panel.clientHeight;
-    var padding = 20; // top padding
-    var lineBottom = line.offsetTop + line.offsetHeight - padding;
-    var visibleBottom = panel.scrollTop + panelHeight - padding;
 
-    if (lineBottom > visibleBottom) {
-      var target = lineBottom - panelHeight + padding + 10;
-      // Smooth scroll via CSS-like easing
-      var start = panel.scrollTop;
-      var diff = target - start;
-      var duration = 200;
-      var startTime = null;
-
-      function step(ts) {
-        if (!startTime) startTime = ts;
-        var progress = Math.min((ts - startTime) / duration, 1);
-        // ease-out
-        var ease = 1 - Math.pow(1 - progress, 3);
-        panel.scrollTop = start + diff * ease;
-        if (progress < 1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
+    if (lineBottom > panelHeight - 10) {
+      var target = lineBottom - panelHeight + 20;
+      // Smooth scroll
+      panel.scrollTo({ top: target, behavior: 'smooth' });
     }
   }
 
@@ -103,7 +90,6 @@
       if (line.tagName === 'DIV') {
         line.classList.add('cursor-line');
       }
-      // Auto-scroll to keep current line visible
       scrollToLine(panel, line);
       i++;
       var isBlank = line.classList.contains('dblank') ||
