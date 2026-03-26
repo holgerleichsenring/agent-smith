@@ -177,8 +177,8 @@ h1 em { font-style: normal; color: var(--green); }
 .how-tab.active { background: var(--text); color: #fff; border-color: var(--text); }
 .how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; margin-top: 32px; }
 .how-steps-wrap { position: relative; }
-.how-steps-panel { display: none; flex-direction: column; gap: 0; animation: howFadeIn .35s ease; }
-.how-steps-panel.active { display: flex; }
+.steps.how-steps-panel { display: none; flex-direction: column; gap: 0; animation: howFadeIn .35s ease; }
+.steps.how-steps-panel.active { display: flex; }
 .how-term-panel { display: none; animation: howFadeIn .35s ease; }
 .how-term-panel.active { display: block; }
 @keyframes howFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
