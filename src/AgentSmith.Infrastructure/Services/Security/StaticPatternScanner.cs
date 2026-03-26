@@ -29,23 +29,36 @@ public sealed class StaticPatternScanner(
         ".pdf", ".mp3", ".mp4", ".lock", ".min.js", ".min.css"
     };
 
-    private string _patternsDirectory = Path.Combine(AppContext.BaseDirectory, "config", "patterns");
-
     /// <summary>
-    /// Sets the directory where pattern YAML files are located.
-    /// Defaults to config/patterns relative to the application base directory.
+    /// Resolves the patterns directory from standard config locations.
     /// </summary>
-    public string PatternsDirectory
+    private static string ResolvePatternsDirectory()
     {
-        get => _patternsDirectory;
-        set => _patternsDirectory = value;
+        var candidates = new[]
+        {
+            Path.Combine("config", "patterns"),
+            Path.Combine(AppContext.BaseDirectory, "config", "patterns"),
+        };
+
+        var configDir = Environment.GetEnvironmentVariable("AGENTSMITH_CONFIG_DIR");
+        if (!string.IsNullOrEmpty(configDir))
+        {
+            return Directory.Exists(Path.Combine(configDir, "patterns"))
+                ? Path.Combine(configDir, "patterns")
+                : Directory.Exists(Path.Combine(configDir, "config", "patterns"))
+                    ? Path.Combine(configDir, "config", "patterns")
+                    : candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
+        }
+
+        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
     }
 
     public async Task<StaticScanResult> ScanAsync(string repoPath, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
 
-        var definitions = loader.LoadFromDirectory(_patternsDirectory);
+        var patternsDirectory = ResolvePatternsDirectory();
+        var definitions = loader.LoadFromDirectory(patternsDirectory);
         if (definitions.Count == 0)
         {
             logger.LogWarning("No pattern definitions loaded, returning empty result");
