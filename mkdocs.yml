@@ -6,30 +6,32 @@ repo_name: holgerleichsenring/agent-smith
 
 theme:
   name: material
+  font: false
   palette:
-    - scheme: slate
-      primary: green
-      accent: light green
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
     - scheme: default
-      primary: green
-      accent: light green
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
     - navigation.sections
     - navigation.expand
     - navigation.top
     - navigation.indexes
+    - navigation.instant
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.tabs.link
   favicon: agent-smith-title-green.png
   icon:
     repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/custom.css
 
 extra:
   social:
@@ -38,6 +40,9 @@ extra:
     - icon: fontawesome/solid/blog
       link: https://codingsoul.org
       name: CodingSoul Blog
+    - icon: fontawesome/solid/shield-halved
+      link: https://sentinel.agent-smith.org
+      name: Sentinel
     - icon: fontawesome/solid/comments
       link: https://agent-smith.org
       name: Community Forum
@@ -109,5 +114,6 @@ nav:
     - architecture/index.md
     - Clean Architecture: architecture/layers.md
     - Project Structure: architecture/project-structure.md
+  - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
   - Community: https://agent-smith.org

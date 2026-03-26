@@ -1,0 +1,167 @@
+/* ── Agent Smith docs — match landing page style ── */
+
+/* Fonts: DM Sans for body, JetBrains Mono for code */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --md-text-font: "DM Sans", sans-serif;
+  --md-code-font: "JetBrains Mono", monospace;
+}
+
+/* ── Green palette aligned with landing page #00a854 ── */
+
+/* Light mode */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #111111;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #00a854;
+  --md-typeset-a-color: #00a854;
+  --md-default-bg-color: #ffffff;
+}
+
+[data-md-color-scheme="default"] .md-header {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e8e8e8;
+  color: #111111;
+  box-shadow: none;
+}
+
+[data-md-color-scheme="default"] .md-header .md-header__title {
+  color: #111111;
+}
+
+[data-md-color-scheme="default"] .md-header .md-header__button,
+[data-md-color-scheme="default"] .md-header .md-search__input::placeholder,
+[data-md-color-scheme="default"] .md-header .md-search__icon {
+  color: #555555;
+}
+
+[data-md-color-scheme="default"] .md-tabs {
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link {
+  color: #555555;
+}
+
+[data-md-color-scheme="default"] .md-tabs__link--active,
+[data-md-color-scheme="default"] .md-tabs__link:hover {
+  color: #111111;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #111111;
+  --md-primary-bg-color: #1a1a1a;
+  --md-accent-fg-color: #00d46a;
+  --md-typeset-a-color: #00d46a;
+  --md-default-bg-color: #111111;
+  --md-default-fg-color: #e2e2e2;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background: rgba(17,17,17,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #2a2a2a;
+  box-shadow: none;
+}
+
+[data-md-color-scheme="slate"] .md-tabs {
+  background: #111111;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+/* ── Typography ── */
+
+.md-typeset {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.md-typeset h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ── Code blocks ── */
+
+.md-typeset code {
+  font-size: 0.82em;
+  border-radius: 4px;
+}
+
+.md-typeset pre {
+  border-radius: 10px;
+}
+
+[data-md-color-scheme="default"] .md-typeset code {
+  background: #f0f0f0;
+  border: 1px solid #e8e8e8;
+}
+
+[data-md-color-scheme="default"] .md-typeset pre > code {
+  background: #111111;
+  border: none;
+}
+
+/* ── Navigation ── */
+
+.md-nav__link {
+  font-size: 0.82rem;
+}
+
+.md-sidebar__scrollwrap {
+  scrollbar-width: none;
+}
+
+.md-sidebar__scrollwrap::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Admonitions ── */
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 8px;
+  border-left-width: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* ── Footer ── */
+
+.md-footer {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* ── Header logo dot (like landing page) ── */
+
+.md-header__button.md-logo::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00a854;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ── Active nav accent ── */
+
+.md-nav__link--active {
+  font-weight: 600;
+}
