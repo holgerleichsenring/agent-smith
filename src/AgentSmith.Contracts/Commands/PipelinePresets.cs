@@ -80,7 +80,8 @@ public static class PipelinePresets
         CommandNames.SecurityTriage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
-        CommandNames.DeliverOutput,
+        CommandNames.ExtractFindings,
+        CommandNames.DeliverFindings,
     ];
 
     public static readonly IReadOnlyList<string> ApiSecurityScan =

@@ -73,6 +73,7 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
 
                             var stillInTree = headContent.Contains(matchedText);
                             var severity = stillInTree ? "HIGH" : "CRITICAL";
+                            var provider = SecretProviderRegistry.Lookup(id);
 
                             findings.Add(new HistoryFinding(
                                 PatternId: id,
@@ -85,7 +86,9 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
                                     ? $"Secret found in commit history and still present in working tree"
                                     : $"Secret found in commit history but removed from working tree",
                                 MatchedText: MaskSecret(matchedText),
-                                StillInWorkingTree: stillInTree));
+                                StillInWorkingTree: stillInTree,
+                                Provider: provider?.Name,
+                                RevokeUrl: provider?.RevokeUrl));
                         }
                     }
                 }

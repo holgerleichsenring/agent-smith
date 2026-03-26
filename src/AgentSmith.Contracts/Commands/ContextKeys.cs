@@ -53,4 +53,5 @@ public static class ContextKeys
     public const string DependencyAuditResult = "DependencyAuditResult";
     public const string SecurityFindingsSummary = "SecurityFindingsSummary";
     public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
+    public const string ExtractedFindings = "ExtractedFindings";
 }

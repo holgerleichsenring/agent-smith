@@ -13,4 +13,6 @@ public sealed record PatternFinding(
     string Title,
     string Description,
     string? Cwe,
-    string? MatchedText);
+    string? MatchedText,
+    string? Provider = null,
+    string? RevokeUrl = null);
