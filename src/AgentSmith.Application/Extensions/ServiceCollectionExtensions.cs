@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();
         services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
+        services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -104,6 +105,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<StaticPatternScanContextBuilder>(services, CommandNames.StaticPatternScan);
         AddBuilder<GitHistoryScanContextBuilder>(services, CommandNames.GitHistoryScan);
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
+        AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)

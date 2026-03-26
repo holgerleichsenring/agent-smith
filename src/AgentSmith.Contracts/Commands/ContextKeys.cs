@@ -51,4 +51,6 @@ public static class ContextKeys
     public const string StaticScanResult = "StaticScanResult";
     public const string GitHistoryScanResult = "GitHistoryScanResult";
     public const string DependencyAuditResult = "DependencyAuditResult";
+    public const string SecurityFindingsSummary = "SecurityFindingsSummary";
+    public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
 }
