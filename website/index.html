@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Smith — AI-powered pipeline execution.</title>
+<meta name="description" content="Open-source, self-hosted AI agent that turns tickets into pull requests. Multi-role pipelines for coding, security, legal, and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    agent-smith
+  </a>
+  <ul class="nav-links">
+    <li><a href="#pipelines">Pipelines</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#deploy">Deploy</a></li>
+    <li><a href="https://docs.agent-smith.org">Docs</a></li>
+    <li><a href="https://codingsoul.org">Blog</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="https://github.com/holgerleichsenring/agent-smith" class="btn-ghost">GitHub</a>
+    <a href="https://docs.agent-smith.org/getting-started/" class="btn-primary">Get started &rarr;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge"><div class="hero-badge-dot"></div>MIT &middot; Open Source &middot; Self-hosted</div>
+    <h1>AI-powered<br>pipeline <em>execution.</em></h1>
+    <p class="hero-sub">
+      Define pipelines as chains of steps. Each step can run an AI agent, spawn a multi-role discussion, call tools, or move files. Ticket to PR &mdash; fully automated.
+    </p>
+    <div class="hero-actions">
+      <a href="https://docs.agent-smith.org/getting-started/" class="btn-hero">Get started free &rarr;</a>
+      <a href="https://docs.agent-smith.org" class="btn-hero-ghost">Read the docs</a>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <a href="https://github.com/holgerleichsenring/agent-smith" target="_blank" rel="noopener">
+          <svg class="gh-star-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z"/></svg>
+          <span id="gh-stars">&mdash;</span> stars
+        </a>
+      </div>
+      <div class="hero-meta-item"><strong>8</strong> pipeline presets</div>
+      <div class="hero-meta-item"><strong>5</strong> AI providers</div>
+      <div class="hero-meta-item"><strong>$0</strong> SaaS fees</div>
+      <div class="hero-meta-item"><strong>MIT</strong> license</div>
+    </div>
+  </div>
+
+  <!-- ANIMATED PIPELINE DEMO -->
+  <div class="pipeline-demo">
+    <div class="demo-tabs">
+      <div class="demo-tab active" data-panel="fix">fix-bug</div>
+      <div class="demo-tab" data-panel="api">api-scan</div>
+      <div class="demo-tab" data-panel="legal">legal</div>
+      <div class="demo-tab" data-panel="security">security</div>
+      <div class="demo-tab" data-panel="mad">mad</div>
+    </div>
+    <div class="demo-panels">
+
+      <!-- FIX BUG -->
+      <div class="demo-panel active" id="panel-fix">
+        <div><span class="dp">$ </span><span class="dc">agent-smith fix "#54 in my-api"</span></div>
+        <span class="dblank"></span>
+        <div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+        <div><span class="dn"> [1/13]</span> <span class="ds">FetchTicket      </span><span class="dd">&mdash; Null ref in UserService</span></div>
+        <div><span class="dn"> [2/13]</span> <span class="ds">CheckoutSource   </span><span class="dd">&mdash; Branch fix/54 created</span></div>
+        <div><span class="dn"> [3/13]</span> <span class="ds">BootstrapProject </span><span class="dd">&mdash; C# .NET 8 detected</span></div>
+        <div><span class="dn"> [4/13]</span> <span class="ds">LoadCodeMap      </span><span class="dd">&mdash; 483 files mapped</span></div>
+        <div><span class="dn"> [5/13]</span> <span class="ds">Triage           </span><span class="dd">&mdash; backend-dev, tester</span></div>
+        <div><span class="dn"> [6/13]</span> <span class="ds">GeneratePlan     </span><span class="dd">&mdash; Consensus after 1 round</span></div>
+        <div><span class="dn"> [7/13]</span> <span class="ds">Approval         </span><span class="dd">&mdash; <span class="dok">Approved &#10003;</span></span></div>
+        <div><span class="dn"> [8/13]</span> <span class="ds">AgenticExecute   </span><span class="dd">&mdash; UserService.cs modified</span></div>
+        <div><span class="dn"> [9/13]</span> <span class="ds">Test             </span><span class="dd">&mdash; <span class="dok">47 tests passed &#10003;</span></span></div>
+        <div><span class="dn">[10/13]</span> <span class="ds">CommitAndPR      </span><span class="dd">&mdash; <span class="durl">github.com/&hellip;/pull/42</span></span></div>
+        <span class="dblank"></span>
+        <div><span class="dok">&#10003; PR created &middot; Ticket closed &middot; $0.018</span></div>
+      </div>
+
+      <!-- API SCAN -->
+      <div class="demo-panel" id="panel-api">
+        <div><span class="dp">$ </span><span class="dc">agent-smith api-scan \</span></div>
+        <div><span class="dd">  --swagger https://api.example.com/swagger.json \</span></div>
+        <div><span class="dd">  --target https://api-staging.example.com</span></div>
+        <span class="dblank"></span>
+        <div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+        <div><span class="dn">[1/8]</span> <span class="ds">LoadSwagger      </span><span class="dd">&mdash; 33 endpoints, 1 scheme</span></div>
+        <div><span class="dn">[2/8]</span> <span class="ds">SpawnNuclei      </span><span class="dd">&mdash; 102 findings in 75s</span></div>
+        <div><span class="dn">[3/8]</span> <span class="ds">SpawnSpectral    </span><span class="dd">&mdash; 402 findings in 2s</span></div>
+        <div><span class="dn">[4/8]</span> <span class="ds">Triage           </span><span class="dd">&mdash; 4 specialists selected</span></div>
+        <div><span class="dn">[5/8]</span> <span class="ds">SkillRounds      </span><span class="dd">&mdash; 2 rounds, consensus</span></div>
+        <div><span class="dn">[6/8]</span> <span class="ds">CompileFindings  </span><span class="dd">&mdash; OWASP mapped</span></div>
+        <div><span class="dn">[7/8]</span> <span class="ds">DeliverFindings  </span><span class="dd">&mdash; console + markdown</span></div>
+        <span class="dblank"></span>
+        <div><span class="dok">&#10003; 9 findings retained from 507 &middot; $0.11</span></div>
+      </div>
+
+      <!-- LEGAL -->
+      <div class="demo-panel" id="panel-legal">
+        <div><span class="dp">$ </span><span class="dc">agent-smith legal --doc contract.pdf</span></div>
+        <span class="dblank"></span>
+        <div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+        <div><span class="dn">[1/7]</span> <span class="ds">AcquireDocument  </span><span class="dd">&mdash; contract.pdf loaded</span></div>
+        <div><span class="dn">[2/7]</span> <span class="ds">LoadSkills       </span><span class="dd">&mdash; 5 legal specialists</span></div>
+        <div><span class="dn">[3/7]</span> <span class="ds">Triage           </span><span class="dd">&mdash; all 5 activated</span></div>
+        <div><span class="dd">  &#9878;&#65039;  Contract Analyst   &mdash; clause review</span></div>
+        <div><span class="dd">  &#128203; Compliance Checker &mdash; GDPR, liability</span></div>
+        <div><span class="dd">  &#9888;&#65039;  Risk Assessor      &mdash; 3 HIGH risks found</span></div>
+        <div><span class="dd">  &#129309; Clause Negotiator  &mdash; alternatives</span></div>
+        <div><span class="dn">[4/7]</span> <span class="ds">ConvergenceCheck </span><span class="dd">&mdash; consensus round 1</span></div>
+        <div><span class="dn">[5/7]</span> <span class="ds">DeliverOutput    </span><span class="dd">&mdash; findings.md written</span></div>
+        <span class="dblank"></span>
+        <div><span class="dok">&#10003; 12 findings &middot; 3 HIGH &middot; $0.34</span></div>
+      </div>
+
+      <!-- SECURITY -->
+      <div class="demo-panel" id="panel-security">
+        <div><span class="dp">$ </span><span class="dc">agent-smith security-scan --repo .</span></div>
+        <span class="dblank"></span>
+        <div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+        <div><span class="dn">[1/8]</span> <span class="ds">CheckoutSource   </span><span class="dd">&mdash; branch main</span></div>
+        <div><span class="dn">[2/8]</span> <span class="ds">AnalyzeCode      </span><span class="dd">&mdash; 483 files</span></div>
+        <div><span class="dn">[3/8]</span> <span class="ds">Triage           </span><span class="dd">&mdash; 5 specialists</span></div>
+        <div><span class="dd">  &#128270; Vuln Analyst     &mdash; contributed</span></div>
+        <div><span class="dd">  &#128272; Secrets Detector &mdash; contributed</span></div>
+        <div><span class="dd">  &#128269; Injection Checker&mdash; <span style="color:#e06c75">OBJECT r1</span> &mdash; AGREE r2</span></div>
+        <div><span class="dd">  &#128274; Auth Reviewer    &mdash; <span style="color:#e06c75">OBJECT r1</span> &mdash; AGREE r2</span></div>
+        <div><span class="dd">  &#129529; FP Filter        &mdash; 93 filtered</span></div>
+        <div><span class="dn">[4/8]</span> <span class="ds">DeliverOutput    </span><span class="dd">&mdash; findings.sarif</span></div>
+        <span class="dblank"></span>
+        <div><span class="dok">&#10003; 9 findings &middot; 4 CRITICAL &middot; $0.08</span></div>
+      </div>
+
+      <!-- MAD -->
+      <div class="demo-panel" id="panel-mad">
+        <div><span class="dp">$ </span><span class="dc">agent-smith mad \</span></div>
+        <div><span class="dd">  "Should we migrate to microservices?"</span></div>
+        <span class="dblank"></span>
+        <div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+        <div><span class="dn">[1/9]</span> <span class="ds">LoadSkills       </span><span class="dd">&mdash; 5 personas</span></div>
+        <div><span class="dd">  &#129513; Philosopher  &mdash; big picture perspective</span></div>
+        <div><span class="dd">  &#128161; Dreamer      &mdash; opportunities, vision</span></div>
+        <div><span class="dd">  &#129529; Realist      &mdash; <span style="color:#e06c75">OBJECT</span> &mdash; complexity cost</span></div>
+        <div><span class="dd">  &#128520; Devil's Adv  &mdash; <span style="color:#e06c75">OBJECT</span> &mdash; team readiness</span></div>
+        <div><span class="dd">  &#129296; Silencer     &mdash; filtering noise</span></div>
+        <div><span class="dn">[2/9]</span> <span class="ds">ConvergenceCheck </span><span class="dd">&mdash; round 2 consensus</span></div>
+        <div><span class="dn">[3/9]</span> <span class="ds">CompileDiscussion</span><span class="dd">&mdash; decision.md</span></div>
+        <span class="dblank"></span>
+        <div><span class="dok">&#10003; Consensus &middot; 3 rounds &middot; $0.22</span></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- PIPELINES -->
+<section class="pipelines-section" id="pipelines">
+  <div class="section-wrap">
+    <div class="section-label">Pipelines</div>
+    <h2 class="section-title">Eight workflows. Ready to run.</h2>
+    <p class="section-sub">Pre-built pipeline presets for the most common AI orchestration tasks. Or define your own in <code style="font-family:var(--mono);font-size:13px;background:var(--bg3);padding:2px 6px;border-radius:4px">agentsmith.yml</code>.</p>
+    <div class="pipelines-grid">
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#128295;</div>
+        <div class="pipeline-cmd">agent-smith fix</div>
+        <div class="pipeline-name">Fix Bug</div>
+        <div class="pipeline-desc">Ticket &rarr; branch &rarr; code &rarr; tests &rarr; PR. Unattended, end-to-end.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">GitHub</span><span class="ptag-green ptag">GitLab</span><span class="ptag-green ptag">AzDO</span><span class="ptag">13 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#10024;</div>
+        <div class="pipeline-cmd">agent-smith feature</div>
+        <div class="pipeline-name">Add Feature</div>
+        <div class="pipeline-desc">Like fix-bug &mdash; plus generates tests and documentation automatically.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">Multi-role</span><span class="ptag">16 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#128274;</div>
+        <div class="pipeline-cmd">agent-smith security-scan</div>
+        <div class="pipeline-name">Security Scan</div>
+        <div class="pipeline-desc">Multi-role code review. Specialist roles converge on findings. SARIF output.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">SARIF</span><span class="ptag-green ptag">Markdown</span><span class="ptag">8&ndash;11 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#128269;</div>
+        <div class="pipeline-cmd">agent-smith api-scan</div>
+        <div class="pipeline-name">API Security Scan</div>
+        <div class="pipeline-desc">Nuclei + Spectral on a live API. AI panel reviews against OWASP API Top 10.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">Nuclei</span><span class="ptag-green ptag">Spectral</span><span class="ptag">8&ndash;11 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#9878;&#65039;</div>
+        <div class="pipeline-cmd">agent-smith legal</div>
+        <div class="pipeline-name">Legal Analysis</div>
+        <div class="pipeline-desc">Five legal specialist roles review contracts. Clause analysis, compliance, risk, liability.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">5 specialists</span><span class="ptag">7 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#129504;</div>
+        <div class="pipeline-cmd">agent-smith mad</div>
+        <div class="pipeline-name">MAD Discussion</div>
+        <div class="pipeline-desc">Multi-agent design debate. Five personas argue in rounds until consensus.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">Convergence</span><span class="ptag">9 steps</span></div>
+      </div>
+      <div class="pipeline-card">
+        <div class="pipeline-icon">&#128230;</div>
+        <div class="pipeline-cmd">agent-smith init</div>
+        <div class="pipeline-name">Init Project</div>
+        <div class="pipeline-desc">Bootstraps .agentsmith/ &mdash; detects language, framework, conventions.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">.NET</span><span class="ptag-green ptag">Python</span><span class="ptag-green ptag">TypeScript</span></div>
+      </div>
+      <div class="pipeline-card" style="background:var(--bg2);border-style:dashed">
+        <div class="pipeline-icon">&#9997;&#65039;</div>
+        <div class="pipeline-cmd">agentsmith.yml</div>
+        <div class="pipeline-name">Custom Pipelines</div>
+        <div class="pipeline-desc">Mix any command handlers. Add project-specific steps. Fully extensible.</div>
+        <div class="pipeline-tags"><span class="ptag-green ptag">Your rules</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how">
+  <div class="section-wrap">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Intelligence at every step.</h2>
+    <div class="how-grid">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <div class="step-title">Connect your tools</div>
+            <div class="step-desc">Point Agent Smith at your ticket tracker and repo. GitHub, GitLab, Azure DevOps, Jira &mdash; one config file.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <div class="step-title">Triage selects specialists</div>
+            <div class="step-desc">Based on what the problem touches &mdash; database, auth, API design &mdash; Triage picks relevant roles from your skill files. No hardcoding.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <div class="step-title">Roles discuss until agreement</div>
+            <div class="step-desc">Each role can AGREE, OBJECT with an alternative, or SUGGEST an improvement. Rounds continue until consensus or human escalation.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <div class="step-title">Agentic execution</div>
+            <div class="step-desc">The agent has file tools, bash, and your coding principles. It reads, writes, and iterates until the plan is done. Tests run automatically.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">05</div>
+          <div class="step-body">
+            <div class="step-title">PR opened. Cost tracked.</div>
+            <div class="step-desc">Every run writes token usage and dollar cost to a result file. Nothing hidden.</div>
+          </div>
+        </div>
+      </div>
+      <div class="how-visual">
+        <div class="how-terminal">
+          <div class="how-terminal-bar">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <span class="how-terminal-title">security-scan &middot; agent-smith repo</span>
+          </div>
+          <div class="how-terminal-body">
+            <div><span class="ht-sep">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div style="color:#555">Reviewing ticket + codebase...</div>
+            <div style="color:#555">Selected: <span style="color:#61afef">vuln-analyst, auth-reviewer,</span></div>
+            <div style="color:#555">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#61afef">injection-checker, fp-filter</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#61afef">&#128270; Vuln Analyst:</span> <span style="color:#555">contributed</span></div>
+            <div><span style="color:#e06c75">&#128269; Injection:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; webhook HMAC missing</span></div>
+            <div><span style="color:#98c379">&#128274; Auth Reviewer:</span> <span style="color:#e06c75">OBJECT</span> <span style="color:#555">&mdash; token expiry</span></div>
+            <div><span style="color:#e5c07b">&#129529; FP Filter:</span> <span style="color:#555">filtered 93 of 102</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-sep">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+            <div><span style="color:#e06c75">&#128269; Injection:</span> <span style="color:#00d46a">AGREE</span></div>
+            <div><span style="color:#98c379">&#128274; Auth Reviewer:</span> <span style="color:#00d46a">AGREE</span></div>
+            <span class="ht-blank"></span>
+            <div><span class="ht-ok">&#10003; Consensus after 2 rounds</span></div>
+            <div><span class="ht-ok">&#10003; 9 findings &middot; 6 calls &middot; $0.08</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section class="skills-section" id="skills">
+  <div class="section-wrap">
+    <div class="section-label">Multi-Skill Architecture</div>
+    <h2 class="section-title">Specialists, not generalists.</h2>
+    <p class="section-sub">Roles defined in YAML files. Each has its own perspective, rules, and convergence criteria. Triage selects who's relevant. Add your own in minutes.</p>
+    <div class="skills-grid">
+      <div class="skill-domains">
+        <div class="skill-domain"><div class="skill-domain-icon">&#128187;</div><div><div class="skill-domain-name">Coding</div><div class="skill-domain-roles">Architect &middot; Backend &middot; Frontend &middot; Tester &middot; DBA &middot; DevOps &middot; Security &middot; PO</div></div></div>
+        <div class="skill-domain"><div class="skill-domain-icon">&#128274;</div><div><div class="skill-domain-name">Security</div><div class="skill-domain-roles">Vuln Analyst &middot; Auth Reviewer &middot; Injection Checker &middot; Secrets Detector &middot; FP Filter</div></div></div>
+        <div class="skill-domain"><div class="skill-domain-icon">&#128269;</div><div><div class="skill-domain-name">API Security</div><div class="skill-domain-roles">Design Auditor &middot; Auth Tester &middot; Vuln Analyst &middot; False Positive Filter</div></div></div>
+        <div class="skill-domain"><div class="skill-domain-icon">&#9878;&#65039;</div><div><div class="skill-domain-name">Legal</div><div class="skill-domain-roles">Contract Analyst &middot; Compliance &middot; Risk Assessor &middot; Liability &middot; Negotiator</div></div></div>
+        <div class="skill-domain"><div class="skill-domain-icon">&#129504;</div><div><div class="skill-domain-name">MAD Discussion</div><div class="skill-domain-roles">Philosopher &middot; Dreamer &middot; Realist &middot; Devil's Advocate &middot; Silencer</div></div></div>
+        <div class="skill-domain" style="border-style:dashed"><div class="skill-domain-icon">&#65291;</div><div><div class="skill-domain-name">Your custom roles</div><div class="skill-domain-roles">Add any specialist &mdash; performance, accessibility, domain-specific</div></div></div>
+      </div>
+      <div class="discussion-box">
+        <div class="discussion-bar">Live &mdash; api-security-scan &middot; RHS.DigitalAccessPortal</div>
+        <div class="discussion-body">
+          <div style="color:#555">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div style="color:#555">Lead: <span style="color:#61afef">api-vuln-analyst</span></div>
+          <div style="color:#555">Participants: <span style="color:#61afef">4 selected from 4 available</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div><span style="color:#61afef">&#128270; API Vuln Analyst (r1):</span> <span style="color:#555">contributed</span></div>
+          <div><span style="color:#e06c75">&#128269; API Design Auditor (r1):</span> <span style="color:#e06c75">OBJECT</span></div>
+          <div><span style="color:#98c379">&#128274; Auth Tester (r1):</span> <span style="color:#555">contributed</span></div>
+          <div><span style="color:#e5c07b">&#129529; FP Filter (r1):</span> <span style="color:#555">contributed</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div><span style="color:#e06c75">&#128269; API Design Auditor (r2):</span> <span style="color:#00d46a">AGREE</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Result &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div style="color:#00d46a">&#10003; Consensus after 2 rounds</div>
+          <div style="color:#00d46a">&#10003; 9 findings retained from 507 analyzed</div>
+          <div style="color:#00d46a">&#10003; 6 LLM calls &middot; $0.11 &middot; claude-sonnet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROVIDERS -->
+<section class="providers-section">
+  <div class="section-wrap providers-inner">
+    <div class="section-label">AI Providers</div>
+    <h2 class="section-title">Your model. Your choice.</h2>
+    <p class="section-sub" style="margin:12px auto 0;max-width:480px;text-align:center">Works with any provider. Switch models per pipeline. Run fully local with Ollama &mdash; no API key required.</p>
+    <div class="providers-chips">
+      <div class="pchip">&#9670; Claude</div>
+      <div class="pchip">&#11044; OpenAI / GPT-4</div>
+      <div class="pchip">&#9733; Gemini</div>
+      <div class="pchip">&#129433; Ollama (local)</div>
+      <div class="pchip">&#9889; OpenAI-Compatible</div>
+    </div>
+    <p class="pnote">Groq, Azure OpenAI, LM Studio, and any OpenAI-compatible endpoint work out of the box.</p>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section class="deploy-section" id="deploy">
+  <div class="section-wrap">
+    <div class="section-label">Deployment</div>
+    <h2 class="section-title">Runs where you run.</h2>
+    <p class="section-sub">Single binary for quick starts. Docker for teams. Kubernetes for production. Chat gateway for Slack and Teams.</p>
+    <div class="deploy-grid">
+      <div class="deploy-card"><div class="deploy-icon">&#9889;</div><div class="deploy-name">Single Binary</div><div class="deploy-desc">Self-contained, no runtime dependencies. Drop onto any CI runner and go.</div></div>
+      <div class="deploy-card"><div class="deploy-icon">&#128051;</div><div class="deploy-name">Docker</div><div class="deploy-desc">Official image on Docker Hub. Mount config, pass API keys. Any container runtime.</div></div>
+      <div class="deploy-card"><div class="deploy-icon">&#9096;&#65039;</div><div class="deploy-name">Kubernetes</div><div class="deploy-desc">Helm chart included. Dispatcher as service, agents as Jobs. Scales cleanly.</div></div>
+      <div class="deploy-card"><div class="deploy-icon">&#128172;</div><div class="deploy-name">Chat Gateway</div><div class="deploy-desc">Connect Slack or Teams. Type "fix #42 in my-api" &mdash; Agent Smith does the rest.</div></div>
+      <div class="deploy-card"><div class="deploy-icon">&#9729;&#65039;</div><div class="deploy-name">Azure DevOps</div><div class="deploy-desc">Pipeline task in YAML. Security scans, API scans, bug fixes &mdash; all from AzDO.</div></div>
+      <div class="deploy-card"><div class="deploy-icon">&#128013;</div><div class="deploy-name">GitHub Actions</div><div class="deploy-desc">Trigger on PR events or schedules. SARIF output for GitHub Security tab.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRINCIPLES -->
+<section class="principles-section">
+  <div class="section-wrap">
+    <div class="principles-grid">
+      <div>
+        <div class="section-label">Philosophy</div>
+        <h2 class="section-title">Your AI.<br>Your infrastructure.<br>Your rules.</h2>
+        <div class="principle-list" style="margin-top:32px">
+          <div class="principle"><div class="principle-dot"></div><div><strong>No SaaS in between</strong><span>Your code and tickets never leave your infrastructure. Agent Smith calls your AI provider directly.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Cost transparent</strong><span>Every run records token usage and dollar cost. You always know what you spent and why.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Skills over prompts</strong><span>Specialist roles in YAML. Add your own domain experts. No prompt engineering required.</span></div></div>
+          <div class="principle"><div class="principle-dot"></div><div><strong>Human in the loop</strong><span>Approval step before execution. Run headless when you trust the pipeline. Your call.</span></div></div>
+        </div>
+      </div>
+      <div class="config-box">
+        <div class="config-bar">agentsmith.yml</div>
+        <div class="config-body">
+<span class="ck">projects</span>:<br>
+&nbsp;&nbsp;<span class="ck">my-api</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">ticket_provider</span>: <span class="cv">github</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">source_provider</span>: <span class="cv">github</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">repo</span>: <span class="cs">"org/my-api"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">api_security_scan</span>: <span class="cv">on_pr</span><br>
+<br>
+<span class="ck">agent</span>:<br>
+&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">claude</span><br>
+&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"claude-sonnet-4-20250514"</span><br>
+<br>
+<span class="cc"># Or run fully local:</span><br>
+<span class="ck">agent</span>:<br>
+&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">ollama</span><br>
+&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"llama3.3:70b"</span><br>
+&nbsp;&nbsp;<span class="ck">base_url</span>: <span class="cs">"http://localhost:11434"</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-title">From ticket to PR.<br>In minutes.</h2>
+  <p class="cta-sub">Open source. Self-hosted. Free forever.</p>
+  <div class="cta-actions">
+    <a href="https://docs.agent-smith.org/getting-started/" class="btn-hero">Get started &rarr;</a>
+    <a href="https://github.com/holgerleichsenring/agent-smith" class="btn-hero-ghost">View on GitHub</a>
+  </div>
+  <div class="cta-links">
+    <a href="https://docs.agent-smith.org">Documentation</a>
+    <a href="https://docs.agent-smith.org/pipelines/">Pipelines</a>
+    <a href="https://docs.agent-smith.org/concepts/multi-skill/">Skills</a>
+    <a href="https://docs.agent-smith.org/deployment/">Deploy</a>
+    <a href="https://codingsoul.org">Blog</a>
+    <a href="https://45level.com">45level</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-l"><span>agent-smith</span> &middot; MIT License &middot; &copy; 2026 Holger Leichsenring</div>
+  <div class="footer-r">
+    <a href="https://docs.agent-smith.org">Docs</a>
+    <a href="https://github.com/holgerleichsenring/agent-smith">GitHub</a>
+    <a href="https://codingsoul.org">Blog</a>
+    <a href="https://45level.com">45level</a>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
