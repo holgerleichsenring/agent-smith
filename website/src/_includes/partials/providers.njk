@@ -1,0 +1,13 @@
+<section class="providers-section">
+  <div class="section-wrap providers-inner">
+    <div class="section-label">AI Providers</div>
+    <h2 class="section-title">Your model. Your choice.</h2>
+    <p class="section-sub" style="margin:12px auto 0;max-width:480px;text-align:center">Works with any provider. Switch models per pipeline. Run fully local with Ollama &mdash; no API key required.</p>
+    <div class="providers-chips">
+      {% for p in providers %}
+      <div class="pchip">{{ p.icon | safe }} {{ p.name }}</div>
+      {% endfor %}
+    </div>
+    <p class="pnote">Groq, Azure OpenAI, LM Studio, and any OpenAI-compatible endpoint work out of the box.</p>
+  </div>
+</section>

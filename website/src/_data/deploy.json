@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Single Binary",
+    "icon": "<svg viewBox=\"0 0 24 24\"><polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"/></svg>",
+    "desc": "Self-contained, no runtime dependencies. Drop onto any CI runner and go."
+  },
+  {
+    "name": "Docker",
+    "icon": "<svg viewBox=\"0 0 24 24\"><rect x=\"2\" y=\"6\" width=\"20\" height=\"12\" rx=\"2\"/><line x1=\"6\" y1=\"10\" x2=\"6\" y2=\"10\"/><line x1=\"10\" y1=\"10\" x2=\"10\" y2=\"10\"/><line x1=\"6\" y1=\"14\" x2=\"18\" y2=\"14\"/></svg>",
+    "desc": "Official image on Docker Hub. Mount config, pass API keys. Any container runtime."
+  },
+  {
+    "name": "Kubernetes",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M12 2L2 7l10 5 10-5-10-5z\"/><path d=\"M2 17l10 5 10-5\"/><path d=\"M2 12l10 5 10-5\"/></svg>",
+    "desc": "Helm chart included. Dispatcher as service, agents as Jobs. Scales cleanly."
+  },
+  {
+    "name": "Chat Gateway",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/></svg>",
+    "desc": "Connect Slack or Teams. Type \"fix #42 in my-api\" &mdash; Agent Smith does the rest."
+  },
+  {
+    "name": "Azure DevOps",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z\"/></svg>",
+    "desc": "Pipeline task in YAML. Security scans, API scans, bug fixes &mdash; all from AzDO."
+  },
+  {
+    "name": "GitHub Actions",
+    "icon": "<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83\"/></svg>",
+    "desc": "Trigger on PR events or schedules. SARIF output for GitHub Security tab."
+  }
+]

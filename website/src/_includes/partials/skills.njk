@@ -1,0 +1,42 @@
+<section class="skills-section" id="skills">
+  <div class="section-wrap">
+    <div class="section-label">Multi-Skill Architecture</div>
+    <h2 class="section-title">Specialists, not generalists.</h2>
+    <p class="section-sub">Roles defined in YAML files. Each has its own perspective, rules, and convergence criteria. Triage selects who's relevant. Add your own in minutes.</p>
+    <div class="skills-grid">
+      <div class="skill-domains">
+        {% for s in skills %}
+        <div class="skill-domain"{% if s.dashed %} style="border-style:dashed"{% endif %}>
+          <div class="skill-domain-icon">{{ s.icon | safe }}</div>
+          <div>
+            <div class="skill-domain-name">{{ s.name }}</div>
+            <div class="skill-domain-roles">{{ s.roles | safe }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="discussion-box">
+        <div class="discussion-bar">Live &mdash; api-security-scan &middot; RHS.DigitalAccessPortal</div>
+        <div class="discussion-body">
+          <div style="color:#555">&mdash;&mdash; Triage &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div style="color:#555">Lead: <span style="color:#61afef">api-vuln-analyst</span></div>
+          <div style="color:#555">Participants: <span style="color:#61afef">4 selected from 4 available</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Round 1 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div><span style="color:#61afef">&#128270; API Vuln Analyst (r1):</span> <span style="color:#555">contributed</span></div>
+          <div><span style="color:#e06c75">&#128269; API Design Auditor (r1):</span> <span style="color:#e06c75">OBJECT</span></div>
+          <div><span style="color:#98c379">&#128274; Auth Tester (r1):</span> <span style="color:#555">contributed</span></div>
+          <div><span style="color:#e5c07b">&#129529; FP Filter (r1):</span> <span style="color:#555">contributed</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Round 2 &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div><span style="color:#e06c75">&#128269; API Design Auditor (r2):</span> <span style="color:#00d46a">AGREE</span></div>
+          <span class="dblank"></span>
+          <div style="color:#555">&mdash;&mdash; Result &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+          <div style="color:#00d46a">&#10003; Consensus after 2 rounds</div>
+          <div style="color:#00d46a">&#10003; 9 findings retained from 507 analyzed</div>
+          <div style="color:#00d46a">&#10003; 6 LLM calls &middot; $0.11 &middot; claude-sonnet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

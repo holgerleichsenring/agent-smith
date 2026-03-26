@@ -1,0 +1,37 @@
+{# Macro for rendering a single demo line by type #}
+{% macro demoLine(line) %}
+{%- if line.type == "prompt" -%}
+<div><span class="dp">$ </span><span class="dc">{{ line.text | safe }}</span></div>
+{%- elif line.type == "blank" -%}
+<span class="dblank"></span>
+{%- elif line.type == "sep" -%}
+<div><span class="dsep">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</span></div>
+{%- elif line.type == "step" -%}
+<div><span class="dn">{{ line.num }}</span> <span class="ds">{{ line.name }}</span><span class="dd">&mdash; {{ line.desc | safe }}</span></div>
+{%- elif line.type == "detail" -%}
+<div><span class="dd">{{ line.text | safe }}</span></div>
+{%- elif line.type == "ok" -%}
+<div><span class="dok">{{ line.text | safe }}</span></div>
+{%- endif -%}
+{% endmacro %}
+
+{% set demoPipelines = [] %}
+{% for p in pipelines %}{% if p.demo %}{% set demoPipelines = (demoPipelines.push(p), demoPipelines) %}{% endif %}{% endfor %}
+
+<div class="pipeline-demo">
+  <div class="demo-tabs">
+    {% for p in demoPipelines %}
+    <div class="demo-tab{% if loop.first %} active{% endif %}" data-panel="{{ p.id }}">{{ p.tabLabel }}</div>
+    {% endfor %}
+  </div>
+  <div class="demo-panels">
+    {% for p in demoPipelines %}
+    <div class="demo-panel{% if loop.first %} active{% endif %}" id="panel-{{ p.id }}">
+      {% for line in p.demo %}
+      {{ demoLine(line) }}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="demo-progress"><div class="demo-progress-bar"></div></div>
+</div>
