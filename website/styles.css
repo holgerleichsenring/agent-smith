@@ -101,10 +101,32 @@ h1 em { font-style: normal; color: var(--green); }
   position: absolute; inset: 0;
   padding: 20px 22px;
   font-family: var(--mono); font-size: 12px; line-height: 1.85;
-  opacity: 0; transition: opacity .35s ease;
-  overflow: hidden;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .4s ease, transform .4s ease;
+  overflow: hidden; pointer-events: none;
 }
-.demo-panel.active { opacity: 1; }
+.demo-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+/* line-by-line reveal */
+.demo-panel > div, .demo-panel > span {
+  opacity: 0; transform: translateX(-4px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.demo-panel > .revealed {
+  opacity: 1; transform: translateX(0);
+}
+
+/* blinking cursor on the latest revealed line */
+.demo-panel > .cursor-line::after {
+  content: '\2588'; color: var(--green); font-weight: 400;
+  animation: blink-cursor .7s step-end infinite;
+  margin-left: 2px;
+}
+@keyframes blink-cursor { 0%,100%{opacity:1}50%{opacity:0} }
+
+/* progress bar at bottom of demo */
+.demo-progress { height: 2px; background: var(--border); position: relative; overflow: hidden; }
+.demo-progress-bar { height: 100%; width: 0; background: var(--green); transition: width .15s linear; }
 
 .dp { color: var(--green); font-weight: 700; }
 .dc { color: var(--text); }
