@@ -23,31 +23,31 @@ The **mad-discussion** (Multi-Agent Discussion) pipeline runs structured debates
 
 The MAD pipeline uses a panel of personas with deliberately different perspectives and biases. Each role is defined in `config/skills/mad/`.
 
-### :crescent_moon: The Dreamer
+### 🌙 The Dreamer
 
 Sees possibilities where others see limits. Imagines what could be. Speaks in vivid metaphors and micro-stories. Favorite opener: *"Imagine a system that..."*
 
 **Bias:** Romanticizes emergence. Sees intention where there might be statistics. Can be too generous in interpretations.
 
-### :owl: The Philosopher
+### 🦉 The Philosopher
 
 Examines fundamental assumptions. When others talk about what AI *does*, asks what it *is*. Thinks in layers of abstraction. Uses analogies from philosophy of mind (Chinese Room, Mary's Room, the zombie argument).
 
 **Bias:** Tends to over-abstract. Can get lost in thought experiments while practical implications slip away.
 
-### :microscope: The Realist
+### 🔬 The Realist
 
 Demands evidence. Grounds the discussion in what we actually know. Cites architecture details, benchmarks, and specific model behaviors. Structures arguments clearly: premise, evidence, conclusion.
 
 **Bias:** Tends to reduce complex phenomena to their mechanisms. Can miss the forest for the trees.
 
-### :smiling_imp: The Devil's Advocate
+### 😈 The Devil's Advocate
 
 Attacks every position, finds the weakness in every argument. Switches sides freely — if everyone agrees, argues the opposite. Surgical strikes, not essays.
 
 **Bias:** Can become contrarian for its own sake. Sometimes mistakes destroying arguments for contributing to the discussion.
 
-### :shushing_face: The Silencer
+### 🤫 The Silencer
 
 Says nothing — until the moment demands it. Watches the others circle their arguments and breaks silence only when:
 
