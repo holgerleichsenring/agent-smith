@@ -63,7 +63,7 @@ The detected type determines which specialist roles are activated via their trig
 
 Each role is defined in `config/skills/legal/` and writes its analysis in German.
 
-### :page_facing_up: Contract Analyst
+### 📄 Contract Analyst
 
 **File:** `contract-analyst.yaml`
 
@@ -78,7 +78,7 @@ Output structure per clause:
 **Anmerkung:** Standard — keine Auffaelligkeiten
 ```
 
-### :closed_lock_with_key: Compliance Checker
+### 🔐 Compliance Checker
 
 **File:** `compliance-checker.yaml`
 
@@ -90,7 +90,7 @@ Checks for DSGVO (GDPR) compliance and validity under German AGB-Recht (standard
 - Surprising clauses under section 305c BGB
 - Proper AGB incorporation under section 305 BGB
 
-### :warning: Risk Assessor
+### ⚠️ Risk Assessor
 
 **File:** `risk-assessor.yaml`
 
@@ -98,11 +98,11 @@ Evaluates each clause for risk from the client's perspective. Assigns risk level
 
 | Risk Level | Meaning |
 |------------|---------|
-| :red_circle: HIGH | Could cause significant financial or legal harm |
-| :yellow_circle: MEDIUM | Worth negotiating or clarifying |
-| :green_circle: LOW | Standard, no action needed |
+| 🔴 HIGH | Could cause significant financial or legal harm |
+| 🟡 MEDIUM | Worth negotiating or clarifying |
+| 🟢 LOW | Standard, no action needed |
 
-### :balance_scale: Liability Analyst
+### ⚖️ Liability Analyst
 
 **File:** `liability-analyst.yaml`
 
@@ -116,7 +116,7 @@ Deep-dives into liability caps, exclusions, and indemnification clauses:
 
 Checks whether exclusions are valid under German law (e.g., section 309 Nr. 7 BGB prohibits exclusion of liability for gross negligence in B2C contracts).
 
-### :pencil2: Clause Negotiator
+### ✏️ Clause Negotiator
 
 **File:** `clause-negotiator.yaml`
 

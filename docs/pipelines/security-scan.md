@@ -66,15 +66,15 @@ Each skill is defined as a YAML skill file in `config/skills/security/`. The tri
 
 | Skill | Emoji | Focus Area |
 |-------|-------|------------|
-| **Vulnerability Analyst** | :mag: | OWASP Top 10 across all code. Lead role -- runs first. |
-| **Auth Reviewer** | :locked_with_key: | OAuth flows, JWT validation, session handling, password storage |
-| **Injection Checker** | :syringe: | SQL, command, LDAP, XPath, NoSQL, template injection |
-| **Secrets Detector** | :key: | Hardcoded API keys, tokens, connection strings, credentials in source |
-| **False Positive Filter** | :broom: | Reviews all findings, removes confidence < 8 and invalid results |
-| **Config Auditor** | :gear: | Security misconfigurations, debug settings, permissive CORS, missing headers |
-| **Supply Chain Auditor** | :package: | Dependency vulnerabilities, lockfile integrity, typosquatting |
-| **Compliance Checker** | :scroll: | PII handling, encryption requirements, regulatory compliance patterns |
-| **AI Security Reviewer** | :robot: | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
+| **Vulnerability Analyst** | 🔍 | OWASP Top 10 across all code. Lead role -- runs first. |
+| **Auth Reviewer** | 🔐 | OAuth flows, JWT validation, session handling, password storage |
+| **Injection Checker** | 💉 | SQL, command, LDAP, XPath, NoSQL, template injection |
+| **Secrets Detector** | 🔑 | Hardcoded API keys, tokens, connection strings, credentials in source |
+| **False Positive Filter** | 🧹 | Reviews all findings, removes confidence < 8 and invalid results |
+| **Config Auditor** | ⚙️ | Security misconfigurations, debug settings, permissive CORS, missing headers |
+| **Supply Chain Auditor** | 📦 | Dependency vulnerabilities, lockfile integrity, typosquatting |
+| **Compliance Checker** | 📜 | PII handling, encryption requirements, regulatory compliance patterns |
+| **AI Security Reviewer** | 🤖 | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
 
 ### How Skills Interact
 

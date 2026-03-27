@@ -54,10 +54,10 @@ After the automated scanners complete, the AI specialist panel reviews and inter
 
 | Role | Emoji | Focus Area |
 |------|-------|------------|
-| **API Vulnerability Analyst** | :mag: | Lead role. Maps Nuclei findings to OWASP API Security Top 10 (2023). Assesses exploitability and impact. |
-| **API Design Auditor** | :triangular_ruler: | Deep schema analysis — sensitive data in responses, enum opacity, REST semantic violations, missing constraints, Spectral findings interpretation |
-| **Auth Tester** | :locked_with_key: | JWT validation, OAuth flow security (PKCE, state), API key handling, missing auth on state-mutating endpoints, Bearer vs Cookie mixing |
-| **False Positive Filter** | :broom: | Nuclei-specific false positive filtering. Removes low-confidence findings, template artifacts, and duplicates. |
+| **API Vulnerability Analyst** | 🔍 | Lead role. Maps Nuclei findings to OWASP API Security Top 10 (2023). Assesses exploitability and impact. |
+| **API Design Auditor** | 📐 | Deep schema analysis — sensitive data in responses, enum opacity, REST semantic violations, missing constraints, Spectral findings interpretation |
+| **Auth Tester** | 🔐 | JWT validation, OAuth flow security (PKCE, state), API key handling, missing auth on state-mutating endpoints, Bearer vs Cookie mixing |
+| **False Positive Filter** | 🧹 | Nuclei-specific false positive filtering. Removes low-confidence findings, template artifacts, and duplicates. |
 
 ### Triage Signal Analysis
 
