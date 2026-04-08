@@ -19,6 +19,21 @@ public sealed class GitHubPrCommentWebhookHandler(
         "pull_request_review_comment",
     };
 
+    private static readonly HashSet<string> TrustedAssociations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "OWNER",
+        "MEMBER",
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+    };
+
+    private static readonly HashSet<string> AllowedPipelines = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fix-bug",
+        "security-scan",
+        "pr-review",
+    };
+
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && SupportedEventTypes.Contains(eventType);
 
@@ -34,10 +49,23 @@ public sealed class GitHubPrCommentWebhookHandler(
             if (root.GetProperty("action").GetString() != "created")
                 return Task.FromResult(new WebhookResult(false, null, null));
 
-            var commentBody = root.GetProperty("comment").GetProperty("body").GetString() ?? "";
-            var authorLogin = root.GetProperty("comment").GetProperty("user").GetProperty("login").GetString() ?? "";
-            var commentId = root.GetProperty("comment").GetProperty("id").GetInt64().ToString();
+            var comment = root.GetProperty("comment");
+            var commentBody = comment.GetProperty("body").GetString() ?? "";
+            var authorLogin = comment.GetProperty("user").GetProperty("login").GetString() ?? "";
+            var commentId = comment.GetProperty("id").GetInt64().ToString();
             var repoFullName = root.GetProperty("repository").GetProperty("full_name").GetString() ?? "";
+
+            var authorAssociation = comment.TryGetProperty("author_association", out var assocProp)
+                ? assocProp.GetString() ?? ""
+                : "";
+
+            if (!TrustedAssociations.Contains(authorAssociation))
+            {
+                logger.LogInformation(
+                    "Ignoring PR comment from {Author} on {Repo} — author_association={Association} is not trusted",
+                    authorLogin, repoFullName, authorAssociation);
+                return Task.FromResult(new WebhookResult(false, null, null));
+            }
 
             var prNumber = ExtractPrNumber(root);
             if (prNumber is null)
@@ -48,6 +76,14 @@ public sealed class GitHubPrCommentWebhookHandler(
             switch (intentType)
             {
                 case CommentIntentType.NewJob:
+                    if (pipeline is not null && !AllowedPipelines.Contains(pipeline))
+                    {
+                        logger.LogInformation(
+                            "Ignoring PR comment from {Author} on {Repo}#{Pr}: pipeline={Pipeline} is not allowed",
+                            authorLogin, repoFullName, prNumber.Value, pipeline);
+                        return Task.FromResult(new WebhookResult(false, null, null));
+                    }
+
                     var triggerInput = BuildTriggerInput(pipeline!, arguments, repoFullName, prNumber.Value);
                     logger.LogInformation(
                         "PR comment command from {Author} on {Repo}#{Pr}: pipeline={Pipeline}",

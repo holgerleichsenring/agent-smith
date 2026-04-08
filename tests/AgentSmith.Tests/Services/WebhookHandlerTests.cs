@@ -216,7 +216,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 100,
                 "body": "/agent-smith fix",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -244,7 +245,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 101,
                 "body": "/agent-smith fix #123 in my-api",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -272,7 +274,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 102,
                 "body": "/agent-smith security-scan",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 7,
@@ -300,7 +303,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 103,
                 "body": "/agent-smith help",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -326,7 +330,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 104,
                 "body": "/approve looks good",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -354,7 +359,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 105,
                 "body": "/agent-smith fix",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42
@@ -379,7 +385,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 106,
                 "body": "/agent-smith fix",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -405,7 +412,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 107,
                 "body": "/as fix",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "COLLABORATOR"
             },
             "pull_request": { "number": 10 },
             "repository": { "full_name": "org/my-api" }
@@ -430,7 +438,8 @@ public sealed class WebhookHandlerTests
             "comment": {
                 "id": 108,
                 "body": "Just a regular comment",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,

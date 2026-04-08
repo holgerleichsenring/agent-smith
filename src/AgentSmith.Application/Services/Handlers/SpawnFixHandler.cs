@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -16,12 +17,15 @@ namespace AgentSmith.Application.Services.Handlers;
 /// .agentsmith/security/fixes/ for pickup by a follow-up command.
 /// </summary>
 public sealed partial class SpawnFixHandler(
-    ILogger<SpawnFixHandler> logger)
+    ILogger<SpawnFixHandler> logger,
+    IDialogueTransport dialogueTransport,
+    IDialogueTrail dialogueTrail,
+    IProgressReporter progressReporter)
     : ICommandHandler<SpawnFixContext>
 {
     private const string FixesDir = ".agentsmith/security/fixes";
 
-    public Task<CommandResult> ExecuteAsync(
+    public async Task<CommandResult> ExecuteAsync(
         SpawnFixContext context, CancellationToken cancellationToken)
     {
         var config = context.Config;
@@ -29,14 +33,14 @@ public sealed partial class SpawnFixHandler(
         if (!config.Enabled)
         {
             logger.LogInformation("Auto-fix is disabled, skipping fix generation");
-            return Task.FromResult(CommandResult.Ok("Auto-fix disabled, skipping"));
+            return CommandResult.Ok("Auto-fix disabled, skipping");
         }
 
         if (!context.Pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo)
             || repo is null)
         {
             logger.LogInformation("No repository available, skipping fix generation");
-            return Task.FromResult(CommandResult.Ok("No repository, skipping fix generation"));
+            return CommandResult.Ok("No repository, skipping fix generation");
         }
 
         context.Pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var findings);
@@ -45,7 +49,7 @@ public sealed partial class SpawnFixHandler(
         if (findings.Count == 0)
         {
             logger.LogInformation("No findings to fix");
-            return Task.FromResult(CommandResult.Ok("No findings to fix"));
+            return CommandResult.Ok("No findings to fix");
         }
 
         var severities = GetIncludedSeverities(config.SeverityThreshold);
@@ -59,7 +63,7 @@ public sealed partial class SpawnFixHandler(
         if (fixable.Count == 0)
         {
             logger.LogInformation("No Critical/High findings with file paths to fix");
-            return Task.FromResult(CommandResult.Ok("No fixable findings above severity threshold"));
+            return CommandResult.Ok("No fixable findings above severity threshold");
         }
 
         var groups = fixable
@@ -80,6 +84,60 @@ public sealed partial class SpawnFixHandler(
                     Line: f.StartLine)).ToList().AsReadOnly()))
             .ToList();
 
+        if (config.ConfirmBeforeFix)
+        {
+            var distinctFiles = fixable.Select(f => f.File).Distinct().Count();
+            var categories = string.Join(", ", fixable
+                .GroupBy(f => ExtractCategory(f.Title))
+                .OrderByDescending(g => g.Count())
+                .Take(3)
+                .Select(g => g.Key));
+
+            var questionText = $"Found {fixable.Count} fixable findings in {distinctFiles} files.\n" +
+                               $"Top categories: {categories}\n" +
+                               $"Auto-fix will create {groups.Count} fix branches.\n" +
+                               "Proceed?";
+
+            var questionId = $"confirm-fix-{Guid.NewGuid():N}";
+            var jobId = progressReporter.JobId;
+
+            if (jobId is not null)
+            {
+                var question = new DialogQuestion(
+                    QuestionId: questionId,
+                    Type: QuestionType.Approval,
+                    Text: questionText,
+                    Context: null,
+                    Choices: null,
+                    DefaultAnswer: "yes",
+                    Timeout: TimeSpan.FromMinutes(10));
+
+                await dialogueTransport.PublishQuestionAsync(jobId, question, cancellationToken);
+                var answer = await dialogueTransport.WaitForAnswerAsync(
+                    jobId, questionId, question.Timeout, cancellationToken);
+
+                if (answer is not null)
+                    await dialogueTrail.RecordAsync(question, answer);
+
+                if (answer is not null && !answer.Answer.Equals("yes", StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogInformation("Auto-fix cancelled by human via dialogue");
+                    return CommandResult.Ok("Auto-fix cancelled by human");
+                }
+            }
+            else
+            {
+                var approved = await progressReporter.AskYesNoAsync(
+                    questionId, questionText, defaultAnswer: true, cancellationToken);
+
+                if (!approved)
+                {
+                    logger.LogInformation("Auto-fix cancelled by human via CLI");
+                    return CommandResult.Ok("Auto-fix cancelled by human");
+                }
+            }
+        }
+
         var fixesDir = Path.Combine(repo.LocalPath, FixesDir);
         Directory.CreateDirectory(fixesDir);
 
@@ -99,8 +157,8 @@ public sealed partial class SpawnFixHandler(
             "Written {RequestCount} fix requests for {FindingCount} findings to {Dir}",
             requests.Count, totalItems, fixesDir);
 
-        return Task.FromResult(CommandResult.Ok(
-            $"{requests.Count} fix requests written for {totalItems} findings"));
+        return CommandResult.Ok(
+            $"{requests.Count} fix requests written for {totalItems} findings");
     }
 
     internal static HashSet<string> GetIncludedSeverities(string threshold) =>

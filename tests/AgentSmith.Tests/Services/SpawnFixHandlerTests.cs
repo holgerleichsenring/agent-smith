@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -8,6 +9,7 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
@@ -18,7 +20,15 @@ public sealed class SpawnFixHandlerTests : IDisposable
 
     public SpawnFixHandlerTests()
     {
-        _sut = new SpawnFixHandler(NullLogger<SpawnFixHandler>.Instance);
+        var reporter = new Mock<IProgressReporter>();
+        reporter.Setup(r => r.AskYesNoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _sut = new SpawnFixHandler(
+            NullLogger<SpawnFixHandler>.Instance,
+            Mock.Of<IDialogueTransport>(),
+            Mock.Of<IDialogueTrail>(),
+            reporter.Object);
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-fix-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
     }
