@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// Definition of a role skill loaded from config/skills/*.yaml.
+/// Definition of a role skill loaded from config/skills/ directories (SKILL.md) or legacy YAML files.
 /// </summary>
 public sealed class RoleSkillDefinition
 {
@@ -12,4 +12,5 @@ public sealed class RoleSkillDefinition
     public List<string> Triggers { get; set; } = [];
     public string Rules { get; set; } = string.Empty;
     public List<string> ConvergenceCriteria { get; set; } = [];
+    public SkillSource? Source { get; set; }
 }
