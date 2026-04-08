@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -14,6 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Formatting is delegated to RunResultFormatter.
 /// </summary>
 public sealed class WriteRunResultHandler(
+    IDialogueTrail dialogueTrail,
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -43,10 +45,12 @@ public sealed class WriteRunResultHandler(
         context.Pipeline.TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var trail);
         context.Pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
         context.Pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var securityTrend);
+        var dialogueEntries = dialogueTrail.GetAll();
 
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket, context.Plan, context.Changes,
-            nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend);
+            nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
+            dialogueEntries.Count > 0 ? dialogueEntries : null);
         await File.WriteAllTextAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(contextPath, nextRunNumber, context.Ticket, cancellationToken);

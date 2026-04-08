@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Dispatcher.Services.Handlers;
 using AgentSmith.Dispatcher.Models;
@@ -76,6 +77,29 @@ public sealed class SlackInteractionHandler(
     private async Task HandleJobQuestionAsync(
         string channelId, string questionId, string answer, JsonNode payload, CancellationToken ct)
     {
+        // Try to complete a pending typed question first (new AskTypedQuestionAsync flow)
+        if (adapter.HasPendingTypedQuestion(questionId))
+        {
+            var userId = payload["user"]?["id"]?.GetValue<string>()
+                         ?? payload["user"]?["username"]?.GetValue<string>()
+                         ?? "unknown";
+
+            var dialogAnswer = new DialogAnswer(
+                questionId,
+                answer,
+                Comment: null,
+                DateTimeOffset.UtcNow,
+                userId);
+
+            adapter.TryCompleteTypedQuestion(questionId, dialogAnswer);
+            await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
+
+            logger.LogInformation("Typed question '{QuestionId}' answered with '{Answer}' by {User}",
+                questionId, answer, userId);
+            return;
+        }
+
+        // Legacy flow: route via message bus
         var state = await stateManager.GetAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
         if (state is null)
         {

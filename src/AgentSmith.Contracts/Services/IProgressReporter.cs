@@ -34,6 +34,12 @@ public interface IProgressReporter
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Optional job identifier used for dialogue transport routing.
+    /// Returns null when not running in job mode (e.g., CLI).
+    /// </summary>
+    string? JobId => null;
+
+    /// <summary>
     /// Reports a fine-grained detail event during agentic execution.
     /// In Slack mode, posted as a thread reply under the progress message.
     /// In CLI mode, logged at Debug level (visible with --verbose).

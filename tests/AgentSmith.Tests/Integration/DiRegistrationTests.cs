@@ -7,6 +7,8 @@ using AgentSmith.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Moq;
+using StackExchange.Redis;
 
 namespace AgentSmith.Tests.Integration;
 
@@ -18,6 +20,7 @@ public class DiRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole());
+        services.AddSingleton(new Mock<IConnectionMultiplexer>().Object);
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddSingleton<IProgressReporter>(sp =>
