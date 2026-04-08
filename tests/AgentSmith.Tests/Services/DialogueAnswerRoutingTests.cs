@@ -52,7 +52,8 @@ public sealed class DialogueAnswerRoutingTests
             "comment": {
                 "id": 104,
                 "body": "/approve looks good",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
@@ -86,7 +87,8 @@ public sealed class DialogueAnswerRoutingTests
             "comment": {
                 "id": 105,
                 "body": "/reject naming is wrong",
-                "user": { "login": "reviewer" }
+                "user": { "login": "reviewer" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 10,
@@ -118,7 +120,8 @@ public sealed class DialogueAnswerRoutingTests
             "comment": {
                 "id": 106,
                 "body": "/approve",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 5,
@@ -165,7 +168,8 @@ public sealed class DialogueAnswerRoutingTests
             "comment": {
                 "id": 200,
                 "body": "/agent-smith fix",
-                "user": { "login": "dev-user" }
+                "user": { "login": "dev-user" },
+                "author_association": "MEMBER"
             },
             "issue": {
                 "number": 42,
