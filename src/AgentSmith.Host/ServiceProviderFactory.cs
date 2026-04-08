@@ -1,5 +1,6 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Host.Services;
@@ -57,6 +58,13 @@ internal static class ServiceProviderFactory
             services.AddSingleton<IProgressReporter>(sp =>
                 new ConsoleProgressReporter(
                     sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless));
+
+            // Override the Infrastructure RedisDialogueTransport with interactive console I/O
+            services.AddSingleton<IDialogueTransport>(sp =>
+                new ConsoleDialogueTransport(
+                    Console.In,
+                    Console.Out,
+                    sp.GetRequiredService<ILogger<ConsoleDialogueTransport>>()));
         }
     }
 }
