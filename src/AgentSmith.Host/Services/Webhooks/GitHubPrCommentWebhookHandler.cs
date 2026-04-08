@@ -62,11 +62,19 @@ public sealed class GitHubPrCommentWebhookHandler(
 
                 case CommentIntentType.DialogueApprove:
                 case CommentIntentType.DialogueReject:
-                    // Dialogue answers are handled by CommentIntentRouter (Step 6)
-                    logger.LogDebug(
-                        "PR comment dialogue {Intent} from {Author} on {Repo}#{Pr} — deferred to router",
+                    var answer = intentType == CommentIntentType.DialogueApprove ? "yes" : "no";
+                    var dialogueComment = CommentIntentParser.Parse(commentBody, out _, out _, out var parsedComment);
+                    var dialogueData = new DialogueAnswerData(
+                        Platform: "github",
+                        RepoFullName: repoFullName,
+                        PrIdentifier: prNumber.Value.ToString(),
+                        Answer: answer,
+                        Comment: parsedComment,
+                        AuthorLogin: authorLogin);
+                    logger.LogInformation(
+                        "PR comment dialogue {Intent} from {Author} on {Repo}#{Pr}",
                         intentType, authorLogin, repoFullName, prNumber.Value);
-                    return Task.FromResult(new WebhookResult(false, null, null));
+                    return Task.FromResult(new WebhookResult(true, null, null, dialogueData));
 
                 default:
                     return Task.FromResult(new WebhookResult(false, null, null));
