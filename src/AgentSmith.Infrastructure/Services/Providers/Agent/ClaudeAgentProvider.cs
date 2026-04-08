@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -25,7 +26,9 @@ public sealed class ClaudeAgentProvider(
     CompactionConfig compactionConfig,
     IModelRegistry? modelRegistry,
     PricingConfig pricingConfig,
-    ILogger<ClaudeAgentProvider> logger) : IAgentProvider
+    ILogger<ClaudeAgentProvider> logger,
+    IDialogueTransport dialogueTransport,
+    IDialogueTrail dialogueTrail) : IAgentProvider
 {
     public string ProviderType => "Claude";
 
@@ -92,7 +95,8 @@ public sealed class ClaudeAgentProvider(
 
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
-            repository.LocalPath, logger, fileReadTracker, progressReporter);
+            repository.LocalPath, logger, fileReadTracker, progressReporter,
+            dialogueTransport, dialogueTrail, progressReporter.JobId);
         var compactor = CreateCompactor(tracker, costTracker);
         var loop = new AgenticLoop(
             client, primaryModel.Model, toolExecutor, logger,

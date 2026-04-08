@@ -56,4 +56,6 @@ public static class ContextKeys
     public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
     public const string ExtractedFindings = "ExtractedFindings";
     public const string SecurityTrend = "SecurityTrend";
+    public const string DialogueAnswer = "DialogueAnswer";
+    public const string DialogueQuestion = "DialogueQuestion";
 }

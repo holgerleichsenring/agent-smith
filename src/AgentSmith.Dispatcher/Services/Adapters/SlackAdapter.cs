@@ -1,4 +1,6 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Dispatcher.Contracts;
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -24,8 +26,12 @@ public sealed class SlackAdapter(
     };
 
     // Tracks the progress message ts per channel so we can update instead of re-post
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>
+    private readonly ConcurrentDictionary<string, string>
         _progressMessageTs = new();
+
+    // Pending typed question completions, keyed by questionId
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<DialogAnswer?>>
+        _pendingTypedQuestions = new();
 
     private static readonly Dictionary<string, string> StepEmojis = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -228,6 +234,276 @@ public sealed class SlackAdapter(
         };
 
         await PostAsync("chat.postMessage", payload, cancellationToken);
+    }
+
+    public async Task<DialogAnswer?> AskTypedQuestionAsync(
+        string channelId,
+        DialogQuestion question,
+        CancellationToken cancellationToken)
+    {
+        if (question.Type == QuestionType.Info)
+        {
+            await SendInfoAsync(channelId, question.Text, question.Context ?? "", cancellationToken);
+            return null;
+        }
+
+        var blocks = BuildTypedQuestionBlocks(question);
+        var fallbackText = $":thought_balloon: *Question:* {question.Text}";
+
+        var payload = new { channel = channelId, text = fallbackText, blocks };
+        await PostAsync("chat.postMessage", payload, cancellationToken);
+
+        // Register a TCS and wait for the interaction handler to complete it
+        var tcs = new TaskCompletionSource<DialogAnswer?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingTypedQuestions[question.QuestionId] = tcs;
+
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(question.Timeout);
+
+            return await tcs.Task.WaitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Typed question {QuestionId} timed out after {Timeout}",
+                question.QuestionId, question.Timeout);
+            return null;
+        }
+        finally
+        {
+            _pendingTypedQuestions.TryRemove(question.QuestionId, out _);
+        }
+    }
+
+    public async Task SendInfoAsync(string channelId, string title, string text,
+        CancellationToken cancellationToken)
+    {
+        var blocks = new object[]
+        {
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text = $":information_source: *{title}*" }
+            },
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text }
+            }
+        };
+
+        var payload = new
+        {
+            channel = channelId,
+            text = $":information_source: {title}: {text}",
+            blocks
+        };
+
+        await PostAsync("chat.postMessage", payload, cancellationToken);
+    }
+
+    /// <summary>
+    /// Completes a pending typed question with the given answer.
+    /// Called by <see cref="SlackInteractionHandler"/> when a button click arrives.
+    /// </summary>
+    internal bool TryCompleteTypedQuestion(string questionId, DialogAnswer answer)
+    {
+        if (_pendingTypedQuestions.TryRemove(questionId, out var tcs))
+        {
+            tcs.TrySetResult(answer);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether a typed question is currently pending for the given questionId.
+    /// </summary>
+    internal bool HasPendingTypedQuestion(string questionId) =>
+        _pendingTypedQuestions.ContainsKey(questionId);
+
+    // --- Block Kit builders for typed questions ---
+
+    internal static object[] BuildTypedQuestionBlocks(DialogQuestion question)
+    {
+        return question.Type switch
+        {
+            QuestionType.Confirmation => BuildConfirmationBlocks(question),
+            QuestionType.Choice => BuildChoiceBlocks(question),
+            QuestionType.Approval => BuildApprovalBlocks(question),
+            QuestionType.FreeText => BuildFreeTextBlocks(question),
+            _ => BuildConfirmationBlocks(question)
+        };
+    }
+
+    private static object[] BuildConfirmationBlocks(DialogQuestion question)
+    {
+        var blocks = new List<object>
+        {
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text = $":thought_balloon: *{question.Text}*" }
+            }
+        };
+
+        AddContextBlock(blocks, question.Context);
+
+        blocks.Add(new
+        {
+            type = "actions",
+            block_id = question.QuestionId,
+            elements = new object[]
+            {
+                new
+                {
+                    type = "button",
+                    text = new { type = "plain_text", text = "Yes \u2705" },
+                    style = "primary",
+                    value = "yes",
+                    action_id = $"{question.QuestionId}:yes"
+                },
+                new
+                {
+                    type = "button",
+                    text = new { type = "plain_text", text = "No \u274c" },
+                    style = "danger",
+                    value = "no",
+                    action_id = $"{question.QuestionId}:no"
+                }
+            }
+        });
+
+        return blocks.ToArray();
+    }
+
+    private static object[] BuildChoiceBlocks(DialogQuestion question)
+    {
+        var blocks = new List<object>
+        {
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text = $":thought_balloon: *{question.Text}*" }
+            }
+        };
+
+        AddContextBlock(blocks, question.Context);
+
+        var buttons = new List<object>();
+        if (question.Choices is not null)
+        {
+            for (var i = 0; i < question.Choices.Count; i++)
+            {
+                buttons.Add(new
+                {
+                    type = "button",
+                    text = new { type = "plain_text", text = question.Choices[i] },
+                    value = question.Choices[i],
+                    action_id = $"{question.QuestionId}:{i}"
+                });
+            }
+        }
+
+        blocks.Add(new
+        {
+            type = "actions",
+            block_id = question.QuestionId,
+            elements = buttons.ToArray()
+        });
+
+        return blocks.ToArray();
+    }
+
+    private static object[] BuildApprovalBlocks(DialogQuestion question)
+    {
+        var blocks = new List<object>
+        {
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text = $":clipboard: *{question.Text}*" }
+            }
+        };
+
+        AddContextBlock(blocks, question.Context);
+
+        blocks.Add(new
+        {
+            type = "actions",
+            block_id = question.QuestionId,
+            elements = new object[]
+            {
+                new
+                {
+                    type = "button",
+                    text = new { type = "plain_text", text = "Approve \u2705" },
+                    style = "primary",
+                    value = "approve",
+                    action_id = $"{question.QuestionId}:approve"
+                },
+                new
+                {
+                    type = "button",
+                    text = new { type = "plain_text", text = "Reject \u274c" },
+                    style = "danger",
+                    value = "reject",
+                    action_id = $"{question.QuestionId}:reject"
+                }
+            }
+        });
+
+        blocks.Add(new
+        {
+            type = "context",
+            elements = new object[]
+            {
+                new { type = "mrkdwn", text = "_You can reply with an optional comment as the next message._" }
+            }
+        });
+
+        return blocks.ToArray();
+    }
+
+    private static object[] BuildFreeTextBlocks(DialogQuestion question)
+    {
+        var blocks = new List<object>
+        {
+            new
+            {
+                type = "section",
+                text = new { type = "mrkdwn", text = $":pencil: *{question.Text}*" }
+            }
+        };
+
+        AddContextBlock(blocks, question.Context);
+
+        blocks.Add(new
+        {
+            type = "context",
+            elements = new object[]
+            {
+                new { type = "mrkdwn", text = "_Please type your answer as the next message in this channel._" }
+            }
+        });
+
+        return blocks.ToArray();
+    }
+
+    private static void AddContextBlock(List<object> blocks, string? context)
+    {
+        if (string.IsNullOrWhiteSpace(context)) return;
+
+        blocks.Add(new
+        {
+            type = "context",
+            elements = new object[]
+            {
+                new { type = "mrkdwn", text = context }
+            }
+        });
     }
 
     // --- Modal helpers ---

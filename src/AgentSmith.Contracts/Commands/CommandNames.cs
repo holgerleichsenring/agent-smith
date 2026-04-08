@@ -48,6 +48,7 @@ public static class CommandNames
     public const string ExtractFindings = "ExtractFindingsCommand";
     public const string SecurityTrend = "SecurityTrendCommand";
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
+    public const string Ask = "AskCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -107,5 +108,6 @@ public static class CommandNames
         [ExtractFindings] = "Extracting findings for output",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
+        [Ask] = "Asking human",
     };
 }

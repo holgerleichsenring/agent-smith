@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
@@ -13,12 +14,14 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// </summary>
 public sealed class AgentProviderFactory(
     SecretsProvider secrets,
-    ILoggerFactory loggerFactory) : IAgentProviderFactory
+    ILoggerFactory loggerFactory,
+    IDialogueTransport dialogueTransport,
+    IDialogueTrail dialogueTrail) : IAgentProviderFactory
 {
     private readonly Dictionary<string, Func<AgentConfig, IAgentProvider>> _creators = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["claude"] = config => CreateClaude(config, secrets, loggerFactory),
-        ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory),
+        ["claude"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
+        ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
         ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory),
         ["gemini"] = config => CreateGemini(config, secrets, loggerFactory),
         ["google"] = config => CreateGemini(config, secrets, loggerFactory),
@@ -37,13 +40,15 @@ public sealed class AgentProviderFactory(
     }
 
     private static ClaudeAgentProvider CreateClaude(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory,
+        IDialogueTransport dialogueTransport, IDialogueTrail dialogueTrail)
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
         var registry = CreateModelRegistry(config, loggerFactory);
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
-            registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>());
+            registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>(),
+            dialogueTransport, dialogueTrail);
     }
 
     private static OpenAiAgentProvider CreateOpenAi(
