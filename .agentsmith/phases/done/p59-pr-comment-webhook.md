@@ -607,20 +607,20 @@ projects:
 
 ## Definition of Done
 
-- [ ] `CommentIntent` / `CommentIntentType` / `PrJobRequest` in Contracts
-- [ ] `CommentIntentParser` with all command variants (unit tests)
-- [ ] `WebhookVerifier`: GitHub HMAC-SHA256
-- [ ] GitHub: PR comment starts new job (Scenario A)
-- [ ] GitHub: `/approve` and `/reject` reach running job (Scenario B)
-- [ ] `GitHubPrCommentReplyService` implemented
-- [ ] Agent posts questions as PR comment (Phase 58 integration)
-- [ ] Existing GitHub Issues webhook logic: zero regression
-- [ ] `require_member` guard: only allowed users can issue commands
-- [ ] `allowed_pipelines` guard: only configured pipelines can be started
-- [ ] Duplicate job protection: second `/agent-smith` call while job running is rejected
-- [ ] Dialogue trail in PR: question-answer visible as PR comments
-- [ ] Unit tests: parser, verifier, router (all scenarios)
-- [ ] Integration test: webhook → Redis → job start (GitHub mocked)
+- [x] `CommentIntent` / `CommentIntentType` / `PrJobRequest` in Contracts
+- [x] `CommentIntentParser` with all command variants (unit tests)
+- [x] `WebhookVerifier`: GitHub HMAC-SHA256 (existing WebhookSignatureValidator)
+- [x] GitHub: PR comment starts new job (Scenario A)
+- [x] GitHub: `/approve` and `/reject` reach running job (Scenario B)
+- [x] `GitHubPrCommentReplyService` implemented
+- [x] Agent posts questions as PR comment (Phase 58 integration)
+- [x] Existing GitHub Issues webhook logic: zero regression
+- [x] `require_member` guard: only allowed users can issue commands (`author_association` check)
+- [x] `allowed_pipelines` guard: only configured pipelines can be started
+- [x] Duplicate job protection: second `/agent-smith` call while job running is rejected
+- [x] Dialogue trail in PR: question-answer visible as PR comments
+- [x] Unit tests: parser, verifier, router (all scenarios)
+- [x] Integration test: webhook → Redis → job start (GitHub mocked)
 
 ---
 
