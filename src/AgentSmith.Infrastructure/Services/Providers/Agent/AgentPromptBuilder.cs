@@ -91,6 +91,24 @@ public static class AgentPromptBuilder
             - Before each tool call, briefly state what you are doing and why (e.g. "Reading Program.cs to understand the current endpoint structure").
             - When you deviate from the plan or make a non-trivial implementation decision, call the log_decision tool immediately. One sentence. Why, not what. Format: "**Decision name**: reason in one sentence"
             - When done, stop calling tools and summarize what you did.
+
+            ## Human Interaction Rules
+            - Ask ONLY when genuinely ambiguous and the wrong choice would cause significant rework.
+            - Never ask about implementation details you can decide yourself.
+            - Never ask more than once per pipeline stage.
+            - Always provide a sensible default_answer so the pipeline can continue on timeout.
+            - Prefer logging a decision in log_decision over asking the human.
+
+            Good reasons to ask:
+              - Naming that requires domain knowledge (branch name, class name)
+              - Ambiguous acceptance criteria in the ticket
+              - Destructive operations (delete, rename, breaking change)
+              - Multiple equally valid architectural options
+
+            Bad reasons to ask:
+              - "Should I add tests?" (always yes)
+              - "Which file should I create?" (you decide)
+              - "Is this approach okay?" (decide and log in decisions.md)
             """;
     }
 

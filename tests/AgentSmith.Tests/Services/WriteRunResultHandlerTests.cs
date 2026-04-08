@@ -2,9 +2,11 @@ using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Dialogue;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -13,11 +15,12 @@ namespace AgentSmith.Tests.Services;
 public sealed class WriteRunResultHandlerTests : IDisposable
 {
     private readonly WriteRunResultHandler _sut;
+    private readonly InMemoryDialogueTrail _dialogueTrail = new();
     private readonly string _tempDir;
 
     public WriteRunResultHandlerTests()
     {
-        _sut = new WriteRunResultHandler(NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(_dialogueTrail, NullLogger<WriteRunResultHandler>.Instance);
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-runresult-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
         Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));

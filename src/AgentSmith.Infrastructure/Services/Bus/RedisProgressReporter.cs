@@ -17,6 +17,8 @@ public sealed class RedisProgressReporter(
 {
     private static readonly TimeSpan AnswerTimeout = TimeSpan.FromMinutes(5);
 
+    public string? JobId => jobId;
+
     public async Task ReportProgressAsync(int step, int total, string commandName,
         CancellationToken cancellationToken)
     {

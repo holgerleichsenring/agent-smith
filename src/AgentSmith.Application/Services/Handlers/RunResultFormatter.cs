@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -36,7 +37,8 @@ public static class RunResultFormatter
         Ticket ticket, Plan plan, IReadOnlyList<CodeChange> changes,
         int runNumber, int durationSeconds, RunCostSummary? costSummary,
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
-        SecurityTrend? securityTrend = null)
+        SecurityTrend? securityTrend = null,
+        IReadOnlyList<DialogTrailEntry>? dialogueTrail = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -56,6 +58,7 @@ public static class RunResultFormatter
         sb.AppendLine(plan.Summary);
 
         AppendDecisions(sb, decisions);
+        AppendDialogueTrail(sb, dialogueTrail);
         AppendSecurityTrend(sb, securityTrend);
         AppendExecutionTrail(sb, trail);
 
@@ -136,6 +139,33 @@ public static class RunResultFormatter
             sb.AppendLine($"### {group.Key}");
             foreach (var d in group)
                 sb.AppendLine($"- {d.Decision}");
+        }
+    }
+
+    internal static void AppendDialogueTrail(StringBuilder sb, IReadOnlyList<DialogTrailEntry>? dialogueTrail)
+    {
+        if (dialogueTrail is null || dialogueTrail.Count == 0) return;
+
+        sb.AppendLine();
+        sb.AppendLine("## Dialogue Trail");
+        sb.AppendLine();
+        sb.AppendLine("| Time | Question | Type | Answer | By | Timeout? |");
+        sb.AppendLine("|------|----------|------|--------|-----|----------|");
+
+        foreach (var entry in dialogueTrail)
+        {
+            var time = entry.Answer.AnsweredAt.ToString("HH:mm:ss");
+            var question = entry.Question.Text.Length > 60
+                ? entry.Question.Text[..60] + "..."
+                : entry.Question.Text;
+            var type = entry.Question.Type.ToString();
+            var answer = entry.Answer.Answer.Length > 40
+                ? entry.Answer.Answer[..40] + "..."
+                : entry.Answer.Answer;
+            var by = entry.Answer.AnsweredBy;
+            var timedOut = entry.Answer.Comment == "timeout" ? "Yes" : "No";
+
+            sb.AppendLine($"| {time} | {question} | {type} | {answer} | {by} | {timedOut} |");
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -14,9 +15,13 @@ public sealed class ToolExecutor(
     string repositoryPath,
     ILogger logger,
     FileReadTracker? fileReadTracker = null,
-    IProgressReporter? progressReporter = null)
+    IProgressReporter? progressReporter = null,
+    IDialogueTransport? dialogueTransport = null,
+    IDialogueTrail? dialogueTrail = null,
+    string? jobId = null)
 {
     private const int MaxFileSizeBytes = 100 * 1024;
+    private static readonly TimeSpan DefaultQuestionTimeout = TimeSpan.FromMinutes(5);
 
     private readonly CommandRunner _commandRunner = new(repositoryPath, logger, progressReporter);
     private readonly List<CodeChange> _changes = new();
@@ -36,6 +41,7 @@ public sealed class ToolExecutor(
                 "list_files" => ListFiles(input),
                 "run_command" => await _commandRunner.RunAsync(input),
                 "log_decision" => LogDecision(input),
+                "ask_human" => await AskHumanAsync(input),
                 _ => $"Error: Unknown tool '{toolName}'."
             };
         }
@@ -133,6 +139,58 @@ public sealed class ToolExecutor(
         _decisions.Add(new PlanDecision(category, decision));
         logger.LogDebug("Decision logged [{Category}]: {Decision}", category, decision);
         return $"Decision logged: [{category}] {decision}";
+    }
+
+    private async Task<string> AskHumanAsync(JsonNode? input)
+    {
+        if (dialogueTransport is null || jobId is null)
+            return "Error: Dialogue transport not configured. Cannot ask human.";
+
+        var questionTypeStr = GetStringParam(input, "question_type");
+        var text = GetStringParam(input, "text");
+        var context = GetStringParam(input, "context");
+        var defaultAnswer = GetStringParam(input, "default_answer");
+        var choicesNode = input?["choices"];
+
+        var normalizedType = questionTypeStr.Replace("_", "");
+        if (!Enum.TryParse<QuestionType>(normalizedType, ignoreCase: true, out var questionType))
+            return $"Error: Invalid question_type '{questionTypeStr}'.";
+
+        List<string>? choices = null;
+        if (choicesNode is JsonArray arr)
+            choices = arr.Select(c => c?.GetValue<string>() ?? "").Where(c => c.Length > 0).ToList();
+
+        var questionId = Guid.NewGuid().ToString("N");
+        var question = new DialogQuestion(
+            questionId, questionType, text, context, choices?.AsReadOnly(),
+            defaultAnswer, DefaultQuestionTimeout);
+
+        ReportDetail($"\u2753 Asking human: {text}");
+        await dialogueTransport.PublishQuestionAsync(jobId, question, CancellationToken.None);
+
+        var answer = await dialogueTransport.WaitForAnswerAsync(
+            jobId, questionId, DefaultQuestionTimeout, CancellationToken.None);
+
+        string answerText;
+        if (answer is null)
+        {
+            answerText = defaultAnswer;
+            answer = new DialogAnswer(questionId, defaultAnswer, "timeout", DateTimeOffset.UtcNow, "system");
+            logger.LogWarning("Question '{QuestionId}' timed out, using default answer: {Default}", questionId, defaultAnswer);
+        }
+        else
+        {
+            answerText = answer.Answer;
+            logger.LogInformation("Received answer for '{QuestionId}': {Answer}", questionId, answerText);
+        }
+
+        if (dialogueTrail is not null)
+            await dialogueTrail.RecordAsync(question, answer);
+
+        var timedOut = answer.Comment == "timeout";
+        return timedOut
+            ? $"Answer (timeout, used default): {answerText}"
+            : $"Answer: {answerText}";
     }
 
     private static void ValidatePath(string path)

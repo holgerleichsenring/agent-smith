@@ -13,6 +13,7 @@ using AgentSmith.Infrastructure.Services.Zap;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
 using AgentSmith.Infrastructure.Services.Tools;
+using AgentSmith.Infrastructure.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -66,6 +67,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
+
+        // PR comment reply (p59)
+        services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
 
         return services;
     }

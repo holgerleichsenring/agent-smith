@@ -1,6 +1,8 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -82,7 +84,8 @@ public class FactoryTests
     public void AgentProviderFactory_UnknownType_ThrowsConfigurationException()
     {
         var secrets = new SecretsProvider();
-        var factory = new AgentProviderFactory(secrets, NullLoggerFactory.Instance);
+        var factory = new AgentProviderFactory(secrets, NullLoggerFactory.Instance,
+            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail());
         var config = new AgentConfig { Type = "unknown" };
 
         var act = () => factory.Create(config);

@@ -10,7 +10,7 @@ public static class ToolDefinitions
 {
     public static IList<Tool> All => new List<Tool>
     {
-        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
+        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision, AskHuman
     };
 
     public static IList<Tool> ScoutTools => new List<Tool>
@@ -113,6 +113,45 @@ public static class ToolDefinitions
                 }
             },
             ["required"] = new JsonArray("category", "decision")
+        });
+
+    public static Tool AskHuman => CreateTool(
+        "ask_human",
+        "Ask the human a question when clarification is needed. Use sparingly — only when genuinely ambiguous and the wrong choice would cause significant rework.",
+        new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["question_type"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray("confirmation", "choice", "free_text", "approval"),
+                    ["description"] = "Type of question."
+                },
+                ["text"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "The question to ask."
+                },
+                ["context"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Why are you asking? Max 300 chars."
+                },
+                ["choices"] = new JsonObject
+                {
+                    ["type"] = "array",
+                    ["items"] = new JsonObject { ["type"] = "string" },
+                    ["description"] = "Only for type=choice."
+                },
+                ["default_answer"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Used on timeout."
+                }
+            },
+            ["required"] = new JsonArray("question_type", "text", "context", "default_answer")
         });
 
     private static Tool CreateTool(string name, string description, JsonObject parameters)

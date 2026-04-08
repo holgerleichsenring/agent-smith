@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Dispatcher.Models;
 
 namespace AgentSmith.Dispatcher.Contracts;
@@ -30,7 +31,23 @@ public interface IPlatformAdapter
     /// Asks a yes/no question in the channel with interactive buttons.
     /// Returns the message ID so it can be updated after the user responds.
     /// </summary>
+    [Obsolete("Use AskTypedQuestionAsync instead")]
     Task<string> AskQuestionAsync(string channelId, string questionId, string text,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Asks a typed question. Blocks until answer or timeout.
+    /// Returns null on timeout (agent uses DefaultAnswer).
+    /// </summary>
+    Task<DialogAnswer?> AskTypedQuestionAsync(
+        string channelId,
+        DialogQuestion question,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends an informational message with acknowledge indication (no waiting).
+    /// </summary>
+    Task SendInfoAsync(string channelId, string title, string text,
         CancellationToken cancellationToken);
 
     /// <summary>
