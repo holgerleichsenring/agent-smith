@@ -316,7 +316,7 @@ public sealed class WebhookHandlerTests
     }
 
     [Fact]
-    public async Task GitHubPrComment_Approve_ReturnsDeferredNotHandled()
+    public async Task GitHubPrComment_Approve_ReturnsHandledWithDialogueAnswer()
     {
         var sut = new GitHubPrCommentWebhookHandler(
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
@@ -338,7 +338,9 @@ public sealed class WebhookHandlerTests
 
         var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
 
-        result.Handled.Should().BeFalse();
+        result.Handled.Should().BeTrue();
+        result.DialogueAnswer.Should().NotBeNull();
+        result.DialogueAnswer!.Answer.Should().Be("yes");
     }
 
     [Fact]

@@ -16,4 +16,20 @@ public interface IWebhookHandler
 /// <summary>
 /// Result of processing a webhook event.
 /// </summary>
-public sealed record WebhookResult(bool Handled, string? TriggerInput, string? Pipeline);
+public sealed record WebhookResult(
+    bool Handled,
+    string? TriggerInput,
+    string? Pipeline,
+    DialogueAnswerData? DialogueAnswer = null);
+
+/// <summary>
+/// Carries dialogue answer data extracted from a PR comment (/approve or /reject).
+/// Used by WebhookListener to route the answer to the waiting agent job via IDialogueTransport.
+/// </summary>
+public sealed record DialogueAnswerData(
+    string Platform,
+    string RepoFullName,
+    string PrIdentifier,
+    string Answer,
+    string? Comment,
+    string AuthorLogin);
