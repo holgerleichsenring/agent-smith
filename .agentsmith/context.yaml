@@ -127,10 +127,10 @@ state:
     p54: "Security scan expansion: StaticPatternScan (91 patterns), GitHistoryScan, DependencyAudit, 4 new LLM skills, 9 security specialists (567 tests)"
     p55: "Security findings compression: CompressSecurityFindingsHandler, category grouping, skill-specific slices, ~74% token reduction (567 tests)"
     p56: "Security scan polish: SecretProviderRegistry (18 mappings), mandatory FP filter, severity logs, SARIF output, ExtractFindingsHandler, docs update (567 tests)"
-  active:
-    p58: "Interactive dialogue: contracts (DialogQuestion, IDialogueTransport, IDialogueTrail), RedisDialogueTransport, InMemoryDialogueTrail — Steps 1-2 done, Steps 3-7 in progress"
-    p59: "PR comment webhook: contracts (CommentIntent, PrJobRequest, IPrCommentReplyService), CommentIntentParser — Steps 1-3 done, Steps 4-10 in progress"
-    p60: "Security enhancements: SecurityTrend, SecuritySnapshotWriter, ZapSpawner, SpawnZapHandler — Steps 1-6 done, Step 7 pending (needs p58)"
+    p58: "Interactive dialogue: DialogQuestion/DialogAnswer contracts, RedisDialogueTransport, SlackAdapter Block Kit (5 QuestionTypes), ask_human tool, AskCommandHandler, dialogue trail in result.md (734 tests)"
+    p59: "PR comment webhook: CommentIntentParser, GitHubPrCommentWebhookHandler (Scenario A+B), GitHubPrCommentReplyService, IConversationLookup, dialogue answer routing via WebhookListener (734 tests)"
+    p60: "Security enhancements: ZapSpawner (docker cp), SecurityTrendHandler (git-based), SecuritySnapshotWriter, SpawnFixHandler (auto-fix YAML requests), AutoFixConfig (734 tests)"
+  active: {}
   planned:
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
