@@ -132,16 +132,20 @@ state:
     p60: "Security enhancements: ZapSpawner (docker cp), SecurityTrendHandler (git-based + CLI subcommand), SecuritySnapshotWriter, SpawnFixHandler (auto-fix with confirm_before_fix dialogue), dast-analyst + dast-fp-filter skills (749 tests)"
   active: {}
   planned:
+    # --- next up (feature roadmap) ---
+    p57a: "Skill standard: SKILL.md format migration → .agentsmith/phases/planned/p57a-skill-standard.md"
+    p57b: "Skill manager: autonomous skill discovery + installation (needs p57a + p58) → .agentsmith/phases/planned/p57b-skill-manager.md"
+    p61: "Project knowledge base: Karpathy pattern, wiki compilation, QueryIntent (needs p58 + p60) → .agentsmith/phases/planned/p61-project-knowledge-base.md"
+    p57c: "Autonomous pipeline: agent writes tickets (needs p61) → .agentsmith/phases/planned/p57c-autonomous-pipeline.md"
+    p62: "Docs update: new pages for all features → .agentsmith/phases/planned/p62-docs-update.md"
+    # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
-    p40b: "Git provider extraction (GitHub, AzureDevOps, GitLab, Jira) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
-    p40c: "AI provider extraction (Claude, OpenAI, Gemini) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
-    p40d: "Storage providers & LoadAttachmentsCommand → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
-    p57a: "Skill standard: SKILL.md format migration → .agentsmith/phases/planned/p57a-skill-standard.md"
-    p57b: "Skill manager: autonomous skill discovery + installation → .agentsmith/phases/planned/p57b-skill-manager.md"
-    p57c: "Autonomous pipeline: agent writes tickets → .agentsmith/phases/planned/p57c-autonomous-pipeline.md"
-    p58b: "Teams integration: TeamsAdapter, Adaptive Cards, JWT verification → .agentsmith/phases/planned/p58b-teams-integration.md"
+    # --- deferred (platform expansion, no new features) ---
+    p58b: "Teams integration: TeamsAdapter, Adaptive Cards, JWT → .agentsmith/phases/planned/p58b-teams-integration.md"
     p59b: "GitLab MR comment webhook → .agentsmith/phases/planned/p59b-gitlab-pr-comments.md"
     p59c: "Azure DevOps PR comment webhook → .agentsmith/phases/planned/p59c-azdo-pr-comments.md"
-    p61: "Project knowledge base: Karpathy pattern, wiki compilation, QueryIntent → .agentsmith/phases/planned/p61-project-knowledge-base.md"
-    p62: "Docs update: new pages for p58-p61 features → .agentsmith/phases/planned/p62-docs-update.md"
+    # --- deferred (refactoring, no new features) ---
+    p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
+    p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
+    p40d: "Storage providers & LoadAttachments (refactoring) → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
