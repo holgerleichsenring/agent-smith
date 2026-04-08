@@ -67,6 +67,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         services.AddTransient<ICommandHandler<AskContext>, AskCommandHandler>();
+        services.AddTransient<ICommandHandler<SpawnFixContext>, SpawnFixHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -116,6 +117,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
+        AddBuilder<SpawnFixContextBuilder>(services, CommandNames.SpawnFix);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
