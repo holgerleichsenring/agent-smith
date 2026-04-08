@@ -1,12 +1,15 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Containers;
+using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Nuclei;
 using AgentSmith.Infrastructure.Services.Security;
 using AgentSmith.Infrastructure.Services.Spectral;
+using AgentSmith.Infrastructure.Services.Zap;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
 using AgentSmith.Infrastructure.Services.Tools;
@@ -50,6 +53,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => LoadNucleiConfig());
         services.AddSingleton<INucleiScanner, NucleiSpawner>();
         services.AddSingleton<ISpectralScanner, SpectralSpawner>();
+
+        services.AddSingleton(_ => LoadZapConfig());
+        services.AddSingleton<IZapScanner, ZapSpawner>();
+
+        // Dialogue (p58)
+        services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
+        services.AddScoped<IDialogueTrail, InMemoryDialogueTrail>();
 
         // Security scanners (p54)
         services.AddSingleton<PatternDefinitionLoader>();
@@ -136,6 +146,21 @@ public static class ServiceCollectionExtensions
             .Build();
 
         return deserializer.Deserialize<NucleiConfig>(yaml) ?? new NucleiConfig();
+    }
+
+    private static ZapConfig LoadZapConfig()
+    {
+        var path = FindConfigFile("zap.yaml");
+        if (path is null)
+            return new ZapConfig();
+
+        var yaml = File.ReadAllText(path);
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+
+        return deserializer.Deserialize<ZapConfig>(yaml) ?? new ZapConfig();
     }
 
     /// <summary>
