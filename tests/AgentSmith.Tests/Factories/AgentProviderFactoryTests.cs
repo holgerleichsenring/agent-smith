@@ -1,8 +1,11 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
+using Moq;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -18,7 +21,8 @@ public class AgentProviderFactoryTests : IDisposable
         Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
-        _sut = new AgentProviderFactory(_secrets, NullLoggerFactory.Instance);
+        _sut = new AgentProviderFactory(_secrets, NullLoggerFactory.Instance,
+            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail());
     }
 
     public void Dispose()

@@ -1,9 +1,12 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Factories;
 
@@ -14,7 +17,9 @@ public sealed class AgentProviderFactoryOllamaTests
     {
         var factory = new AgentProviderFactory(
             new SecretsProvider(),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            Mock.Of<IDialogueTransport>(),
+            new InMemoryDialogueTrail());
 
         var config = new AgentConfig
         {
@@ -34,7 +39,9 @@ public sealed class AgentProviderFactoryOllamaTests
     {
         var factory = new AgentProviderFactory(
             new SecretsProvider(),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            Mock.Of<IDialogueTransport>(),
+            new InMemoryDialogueTrail());
 
         var config = new AgentConfig
         {
