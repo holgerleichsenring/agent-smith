@@ -130,10 +130,10 @@ state:
     p58: "Interactive dialogue: DialogQuestion/DialogAnswer contracts, RedisDialogueTransport, ConsoleDialogueTransport (CLI), SlackAdapter Block Kit (5 QuestionTypes), ask_human tool, AskCommandHandler, dialogue trail in result.md (749 tests)"
     p59: "PR comment webhook: CommentIntentParser, GitHubPrCommentWebhookHandler (Scenario A+B), GitHubPrCommentReplyService, IConversationLookup, dialogue answer routing, require_member + allowed_pipelines guards (749 tests)"
     p60: "Security enhancements: ZapSpawner (docker cp), SecurityTrendHandler (git-based + CLI subcommand), SecuritySnapshotWriter, SpawnFixHandler (auto-fix with confirm_before_fix dialogue), dast-analyst + dast-fp-filter skills (749 tests)"
+    p57a: "Skill standard: SKILL.md + agentsmith.md format, SkillLoader dual-format support, 33 skills migrated, SkillSource provenance model (755 tests)"
   active: {}
   planned:
     # --- next up (feature roadmap) ---
-    p57a: "Skill standard: SKILL.md format migration → .agentsmith/phases/planned/p57a-skill-standard.md"
     p57b: "Skill manager: autonomous skill discovery + installation (needs p57a + p58) → .agentsmith/phases/planned/p57b-skill-manager.md"
     p61: "Project knowledge base: Karpathy pattern, wiki compilation, QueryIntent (needs p58 + p60) → .agentsmith/phases/planned/p61-project-knowledge-base.md"
     p57c: "Autonomous pipeline: agent writes tickets (needs p61) → .agentsmith/phases/planned/p57c-autonomous-pipeline.md"
