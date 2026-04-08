@@ -74,6 +74,8 @@ public static class PipelinePresets
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
+        CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
+        CommandNames.SecurityTrend,         // p60: git-based trend analysis
         CommandNames.CompressSecurityFindings,
         CommandNames.LoadSkills,
         CommandNames.AnalyzeCode,
@@ -82,6 +84,8 @@ public static class PipelinePresets
         CommandNames.CompileDiscussion,
         CommandNames.ExtractFindings,
         CommandNames.DeliverFindings,
+        CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history
+        CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
     ];
 
     public static readonly IReadOnlyList<string> ApiSecurityScan =
@@ -89,6 +93,7 @@ public static class PipelinePresets
         CommandNames.LoadSwagger,
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,
+        CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
         CommandNames.LoadSkills,
         CommandNames.ApiSecurityTriage,
         CommandNames.ConvergenceCheck,
