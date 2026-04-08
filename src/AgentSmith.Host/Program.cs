@@ -19,6 +19,7 @@ var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration"
     LegalCommand.Create(configOption, verboseOption),
     SecurityScanCommand.Create(configOption, verboseOption),
     ApiScanCommand.Create(configOption, verboseOption),
+    SecurityTrendCommand.Create(configOption, verboseOption),
     ServerCommand.Create(configOption, verboseOption),
     runCommand,
 };

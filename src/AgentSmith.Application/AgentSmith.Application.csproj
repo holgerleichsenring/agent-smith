@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="AgentSmith.Tests" />
+    <InternalsVisibleTo Include="AgentSmith.Host" />
   </ItemGroup>
 
 </Project>
