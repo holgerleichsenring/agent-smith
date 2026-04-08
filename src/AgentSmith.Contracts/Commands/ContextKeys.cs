@@ -43,6 +43,7 @@ public static class ContextKeys
     public const string OutputDir = "OutputDir";
     public const string SwaggerSpec = "SwaggerSpec";
     public const string NucleiResult = "NucleiResult";
+    public const string ZapResult = "ZapResult";
     public const string SpectralResult = "SpectralResult";
     public const string ApiTarget = "ApiTarget";
     public const string SwaggerPath = "SwaggerPath";
@@ -54,4 +55,5 @@ public static class ContextKeys
     public const string SecurityFindingsSummary = "SecurityFindingsSummary";
     public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
     public const string ExtractedFindings = "ExtractedFindings";
+    public const string SecurityTrend = "SecurityTrend";
 }

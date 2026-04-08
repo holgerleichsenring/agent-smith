@@ -35,6 +35,7 @@ public static class CommandNames
     public const string LoadSwagger = "LoadSwaggerCommand";
     public const string SpawnNuclei = "SpawnNucleiCommand";
     public const string SpawnSpectral = "SpawnSpectralCommand";
+    public const string SpawnZap = "SpawnZapCommand";
     public const string ApiSecurityTriage = "ApiSecurityTriageCommand";
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
     public const string CompileFindings = "CompileFindingsCommand";
@@ -45,6 +46,8 @@ public static class CommandNames
     public const string DependencyAudit = "DependencyAuditCommand";
     public const string CompressSecurityFindings = "CompressSecurityFindingsCommand";
     public const string ExtractFindings = "ExtractFindingsCommand";
+    public const string SecurityTrend = "SecurityTrendCommand";
+    public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -91,6 +94,7 @@ public static class CommandNames
         [LoadSwagger] = "Loading swagger spec",
         [SpawnNuclei] = "Running Nuclei scan",
         [SpawnSpectral] = "Running Spectral lint",
+        [SpawnZap] = "Running ZAP scan",
         [ApiSecurityTriage] = "Triaging API security scan",
         [ApiSecuritySkillRound] = "API security skill round",
         [CompileFindings] = "Compiling findings",
@@ -101,5 +105,7 @@ public static class CommandNames
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
         [ExtractFindings] = "Extracting findings for output",
+        [SecurityTrend] = "Analyzing security trends",
+        [SecuritySnapshotWrite] = "Writing security snapshot",
     };
 }

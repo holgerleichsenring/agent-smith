@@ -12,6 +12,9 @@ public sealed record SpawnNucleiContext(
 public sealed record SpawnSpectralContext(
     PipelineContext Pipeline) : ICommandContext;
 
+public sealed record SpawnZapContext(
+    PipelineContext Pipeline) : ICommandContext;
+
 public sealed record ApiSecurityTriageContext(
     AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;

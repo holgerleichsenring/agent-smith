@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
+        services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
         services.AddTransient<ICommandHandler<ApiSecurityTriageContext>, ApiSecurityTriageHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
@@ -63,6 +64,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
         services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
         services.AddTransient<ICommandHandler<ExtractFindingsContext>, ExtractFindingsHandler>();
+        services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
+        services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -98,6 +101,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<LoadSwaggerContextBuilder>(services, CommandNames.LoadSwagger);
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
+        AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
         AddBuilder<ApiSecurityTriageContextBuilder>(services, CommandNames.ApiSecurityTriage);
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
@@ -108,6 +112,8 @@ public static class ServiceCollectionExtensions
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
         AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
         AddBuilder<ExtractFindingsContextBuilder>(services, CommandNames.ExtractFindings);
+        AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
+        AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
