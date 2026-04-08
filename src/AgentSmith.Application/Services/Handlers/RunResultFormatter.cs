@@ -35,7 +35,8 @@ public static class RunResultFormatter
     public static string FormatResult(
         Ticket ticket, Plan plan, IReadOnlyList<CodeChange> changes,
         int runNumber, int durationSeconds, RunCostSummary? costSummary,
-        List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null)
+        List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
+        SecurityTrend? securityTrend = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -55,6 +56,7 @@ public static class RunResultFormatter
         sb.AppendLine(plan.Summary);
 
         AppendDecisions(sb, decisions);
+        AppendSecurityTrend(sb, securityTrend);
         AppendExecutionTrail(sb, trail);
 
         return sb.ToString();
@@ -135,6 +137,36 @@ public static class RunResultFormatter
             foreach (var d in group)
                 sb.AppendLine($"- {d.Decision}");
         }
+    }
+
+    internal static void AppendSecurityTrend(StringBuilder sb, SecurityTrend? trend)
+    {
+        if (trend is null) return;
+
+        sb.AppendLine();
+        sb.AppendLine("## Security Trend");
+        sb.AppendLine();
+        sb.AppendLine("| Metric | Last Scan | This Scan | Delta |");
+        sb.AppendLine("|--------|-----------|-----------|-------|");
+
+        var prev = trend.Previous;
+        AppendTrendRow(sb, "Critical", prev?.FindingsCritical, trend.Current.FindingsCritical, trend.CriticalDelta);
+        AppendTrendRow(sb, "High", prev?.FindingsHigh, trend.Current.FindingsHigh, trend.HighDelta);
+        AppendTrendRow(sb, "Medium", prev?.FindingsMedium, trend.Current.FindingsMedium,
+            trend.Current.FindingsMedium - (prev?.FindingsMedium ?? 0));
+        AppendTrendRow(sb, "Total", prev?.FindingsRetained, trend.Current.FindingsRetained,
+            trend.Current.FindingsRetained - (prev?.FindingsRetained ?? 0));
+
+        sb.AppendLine();
+        sb.AppendLine($"**New findings:** {trend.NewFindings} | **Resolved:** {trend.ResolvedFindings} | **Scans:** {trend.TotalScans}");
+    }
+
+    private static void AppendTrendRow(
+        StringBuilder sb, string metric, int? lastValue, int currentValue, int delta)
+    {
+        var last = lastValue.HasValue ? lastValue.Value.ToString() : "-";
+        var deltaStr = delta > 0 ? $"+{delta}" : delta.ToString();
+        sb.AppendLine($"| {metric} | {last} | {currentValue} | {deltaStr} |");
     }
 
     private static void AppendExecutionTrail(StringBuilder sb, List<ExecutionTrailEntry>? trail)
