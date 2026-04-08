@@ -410,18 +410,18 @@ Pipeline command + trail accumulation + result.md section.
 
 ## Definition of Done
 
-- [ ] `DialogQuestion` / `DialogAnswer` / `QuestionType` in Contracts
-- [ ] `IDialogueTransport` + `RedisDialogueTransport` implemented
-- [ ] `IDialogueTrail` + `InMemoryDialogueTrail` implemented
-- [ ] CLI: all 5 QuestionTypes interactive with timeout
-- [ ] Slack: all 5 QuestionTypes as Block Kit
-- [ ] PR comment: question + `/approve` `/reject` webhook handler (GitHub only)
-- [ ] `ask_human` tool in AgenticLoop + system prompt rules
-- [ ] `AskCommandHandler` usable in pipeline
-- [ ] Dialogue trail in `result.md` always present
-- [ ] Existing `AskQuestion` marked `[Obsolete]`
-- [ ] All existing tests green (no regression)
-- [ ] `dotnet build` zero warnings
+- [x] `DialogQuestion` / `DialogAnswer` / `QuestionType` in Contracts
+- [x] `IDialogueTransport` + `RedisDialogueTransport` implemented
+- [x] `IDialogueTrail` + `InMemoryDialogueTrail` implemented
+- [x] CLI: all 5 QuestionTypes interactive with timeout (`ConsoleDialogueTransport`)
+- [x] Slack: all 5 QuestionTypes as Block Kit
+- [x] PR comment: question + `/approve` `/reject` webhook handler (GitHub only)
+- [x] `ask_human` tool in AgenticLoop + system prompt rules
+- [x] `AskCommandHandler` usable in pipeline
+- [x] Dialogue trail in `result.md` always present
+- [x] Existing `AskQuestion` marked `[Obsolete]`
+- [x] All existing tests green (no regression)
+- [x] `dotnet build` zero warnings
 
 ---
 

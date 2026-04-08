@@ -300,20 +300,20 @@ Steps 1–4 (trend) and 5–6 (ZAP) are fully parallelizable.
 
 ## Definition of Done
 
-- [ ] Security result.md frontmatter contains `security:` block
-- [ ] SecurityTrendHandler reads git-based history correctly (LibGit2Sharp tree)
-- [ ] Trend delta visible in result.md and delivery message
-- [ ] security-trend CLI subcommand outputs table
-- [ ] SpawnZapCommand starts ZAP container via IToolRunner (docker cp, no volume mounts)
-- [ ] ZAP baseline scan runs, ZapResult correctly parsed
-- [ ] dast-analyst skill evaluates ZAP findings in code context
-- [ ] ZAP + StaticPattern findings correlated (same file/category)
-- [ ] SpawnFixCommand starts fix jobs for Critical/High findings (separate K8s jobs)
-- [ ] confirm_before_fix triggers p58 dialogue step
-- [ ] Branch naming: security-fix/cwe-{id}-{slug}
-- [ ] auto_fix.enabled: false is default (explicit opt-in)
-- [ ] All existing security tests green
-- [ ] dotnet build zero warnings
+- [x] Security result.md frontmatter contains `security:` block
+- [x] SecurityTrendHandler reads git-based history correctly (YAML snapshots)
+- [x] Trend delta visible in result.md and delivery message
+- [x] security-trend CLI subcommand outputs table
+- [x] SpawnZapCommand starts ZAP container via IToolRunner (docker cp, no volume mounts)
+- [x] ZAP baseline scan runs, ZapResult correctly parsed
+- [x] dast-analyst skill evaluates ZAP findings in code context
+- [x] ZAP + StaticPattern findings correlated (same file/category)
+- [x] SpawnFixCommand writes fix requests for Critical/High findings (YAML to .agentsmith/security/fixes/)
+- [x] confirm_before_fix triggers p58 dialogue step
+- [x] Branch naming: security-fix/cwe-{id}-{slug}
+- [x] auto_fix.enabled: false is default (explicit opt-in)
+- [x] All existing security tests green
+- [x] dotnet build zero warnings
 
 ---
 
