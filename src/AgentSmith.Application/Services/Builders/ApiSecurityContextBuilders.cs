@@ -24,6 +24,12 @@ public sealed class SpawnSpectralContextBuilder : IContextBuilder
         => new SpawnSpectralContext(pipeline);
 }
 
+public sealed class SpawnZapContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new SpawnZapContext(pipeline);
+}
+
 public sealed class ApiSecurityTriageContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
