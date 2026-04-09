@@ -20,8 +20,11 @@ public sealed class DeliverFindingsHandler(
     {
         var outputDir = ResolveOutputDir(context.OutputDir);
 
+        context.Pipeline.TryGet<IReadOnlyList<Finding>>(
+            ContextKeys.ExtractedFindings, out var findings);
+
         var outputContext = new OutputContext(
-            "api-scan", null, [], null, outputDir, context.Pipeline);
+            "api-scan", null, findings ?? [], null, outputDir, context.Pipeline);
 
         var delivered = new List<string>();
 

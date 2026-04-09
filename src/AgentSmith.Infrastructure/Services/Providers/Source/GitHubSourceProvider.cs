@@ -93,6 +93,13 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
             return;
         }
 
+        if (Directory.Exists(localPath))
+        {
+            _logger.LogWarning(
+                "Path {Path} exists but is not a valid repository, removing it", localPath);
+            Directory.Delete(localPath, recursive: true);
+        }
+
         _logger.LogInformation("Cloning {Url} to {Path}", _cloneUrl, localPath);
         var options = new CloneOptions
         {

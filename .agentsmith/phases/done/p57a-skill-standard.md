@@ -76,8 +76,21 @@ Only activated by Triage when auth-related files are in diff.
 False positives below confidence 7 are discarded downstream.
 ```
 
-## source.md Format (Provenance, External Skills Only)
+## source.md Format (Provenance, Required)
 
+Every skill has a `source.md`. Origin is always explicit — never implicit.
+
+Local skill:
+```markdown
+# Skill Source
+
+origin: local
+version: v1.0.0
+reviewed: 2026-04-09
+reviewed-by: Holger
+```
+
+External skill (from git):
 ```markdown
 # Skill Source
 
@@ -91,6 +104,12 @@ notes: >
   convergence_criteria added in agentsmith.md.
   Triggers verified: match Agent Smith security pipeline use case.
 ```
+
+Fields:
+- `origin` — required. `local` or URL (git, website, any source)
+- `version` — required. Semver for local, upstream version for external
+- `commit` — optional. Only relevant for git-based origins
+- `reviewed` / `reviewed-by` — optional. Recommended for external skills
 
 ## SkillLoader Changes
 
