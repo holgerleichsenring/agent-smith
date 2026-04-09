@@ -118,6 +118,23 @@ public abstract class SkillRoundHandlerBase
             _ => "" // Contributors get domain section only
         };
 
+        // Debug: log what this skill receives as input
+        if (orch.Role != SkillRole.Contributor)
+        {
+            Logger.LogDebug(
+                "[{SkillName}] {Role} input — {UpstreamCount} upstream outputs, {UpstreamChars} chars",
+                skillName, orch.Role, skillOutputs.Count, upstreamContext.Length);
+            foreach (var (name, output) in skillOutputs)
+                Logger.LogDebug("[{SkillName}] ← upstream [{Source}]: {Chars} chars",
+                    skillName, name, output.Length);
+        }
+        else if (orch.InputCategories.Count > 0)
+        {
+            Logger.LogDebug(
+                "[{SkillName}] Contributor input categories: {Categories}",
+                skillName, string.Join(", ", orch.InputCategories));
+        }
+
         var outputInstruction = orch.Role switch
         {
             SkillRole.Contributor => "Respond with a JSON array of findings. Each finding: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\" }. Max 50 items.",
@@ -156,6 +173,11 @@ public abstract class SkillRoundHandlerBase
         Logger.LogInformation(
             "{Emoji} {DisplayName} [{Role}]: structured round complete",
             role.Emoji, role.DisplayName, orch.Role);
+
+        // Debug: log the full LLM output for traceability
+        Logger.LogDebug(
+            "[{SkillName}] {Role} output ({Chars} chars):\n{Output}",
+            skillName, orch.Role, llmResponse.Text.Length, llmResponse.Text);
 
         // Store output
         skillOutputs[skillName] = llmResponse.Text;
@@ -201,7 +223,7 @@ public abstract class SkillRoundHandlerBase
         return sb.ToString();
     }
 
-    private static CommandResult HandleGateOutput(
+    private CommandResult HandleGateOutput(
         RoleSkillDefinition role, SkillOrchestration orch, string responseText,
         PipelineContext pipeline)
     {
@@ -234,8 +256,20 @@ public abstract class SkillRoundHandlerBase
                 if (count == 0)
                     return CommandResult.Fail($"Gate veto ({role.DisplayName}): no findings confirmed");
 
+                var rejected = doc.RootElement.TryGetProperty("rejected", out var rej)
+                    ? rej.GetArrayLength() : 0;
+
                 var findings = ParseGateFindings(confirmed);
                 pipeline.Set(ContextKeys.ExtractedFindings, findings.AsReadOnly());
+
+                // Debug: log gate filtering breakdown
+                foreach (var finding in findings)
+                    Logger.LogDebug(
+                        "[{Gate}] confirmed: {Severity} {File}:{Line} — {Title}",
+                        role.Name, finding.Severity, finding.File, finding.StartLine, finding.Title);
+                Logger.LogDebug(
+                    "[{Gate}] Gate result: {Confirmed} confirmed, {Rejected} rejected",
+                    role.Name, count, rejected);
 
                 return CommandResult.Ok($"Gate {role.DisplayName}: {count} findings confirmed");
             }

@@ -3,6 +3,7 @@ using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,28 @@ public sealed class SecuritySnapshotWriter(
         }
 
         var snapshot = trend.Current;
+
+        // If a gate produced filtered findings, update the snapshot counts
+        if (context.Pipeline.TryGet<IReadOnlyList<Finding>>(
+                ContextKeys.ExtractedFindings, out var gateFindings) && gateFindings is { Count: > 0 })
+        {
+            var critical = gateFindings.Count(f => f.Severity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase));
+            var high = gateFindings.Count(f => f.Severity.Equals("HIGH", StringComparison.OrdinalIgnoreCase));
+            var medium = gateFindings.Count(f => f.Severity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase));
+
+            snapshot = snapshot with
+            {
+                FindingsCritical = critical,
+                FindingsHigh = high,
+                FindingsMedium = medium,
+                FindingsRetained = gateFindings.Count,
+            };
+
+            logger.LogDebug(
+                "Snapshot updated with gate-filtered findings: {Critical}C/{High}H/{Medium}M ({Total} total)",
+                critical, high, medium, gateFindings.Count);
+        }
+
         var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
         Directory.CreateDirectory(securityDir);
 
