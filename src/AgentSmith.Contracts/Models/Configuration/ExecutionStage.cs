@@ -7,4 +7,8 @@ namespace AgentSmith.Contracts.Models.Configuration;
 public sealed record ExecutionStage(
     IReadOnlyList<string> Skills,
     bool IsGate,
-    bool IsLead);
+    bool IsLead,
+    bool IsExecutor = false)
+{
+    public string RoleLabel => IsLead ? "lead" : IsGate ? "gate" : IsExecutor ? "executor" : "contributors";
+}

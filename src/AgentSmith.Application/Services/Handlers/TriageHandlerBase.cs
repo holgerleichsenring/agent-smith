@@ -164,14 +164,21 @@ public abstract class TriageHandlerBase
             stageIndex++;
         }
 
-        var skillNames = graph.Stages.SelectMany(s => s.Skills).ToList();
+        var totalSkills = graph.Stages.Sum(s => s.Skills.Count);
+        var stageDescriptions = graph.Stages.Select((s, i) =>
+            $"  Stage {i + 1} ({s.RoleLabel}): {string.Join(", ", s.Skills)}");
+
         Logger.LogInformation(
-            "Deterministic triage: {StageCount} stages, {SkillCount} skills: {Skills}",
-            graph.Stages.Count, skillNames.Count, string.Join(", ", skillNames));
+            "Deterministic triage: {StageCount} stages, {SkillCount} skills",
+            graph.Stages.Count, totalSkills);
+        foreach (var desc in stageDescriptions)
+            Logger.LogInformation("{StageDescription}", desc);
+
+        var summary = string.Join(" → ",
+            graph.Stages.Select(s => $"[{s.RoleLabel}: {string.Join(", ", s.Skills)}]"));
 
         return CommandResult.OkAndContinueWith(
-            $"Deterministic triage: {graph.Stages.Count} stages, " +
-            $"{skillNames.Count} skills ({string.Join(", ", skillNames)})",
+            $"Deterministic triage: {graph.Stages.Count} stages, {totalSkills} skills — {summary}",
             commands.ToArray());
     }
 
