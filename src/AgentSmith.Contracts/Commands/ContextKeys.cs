@@ -69,4 +69,5 @@ public static class ContextKeys
     public const string RunHistory = "RunHistory";
     public const string AutonomousFindings = "AutonomousFindings";
     public const string WrittenTickets = "WrittenTickets";
+    public const string FindingAssessments = "FindingAssessments";
 }
