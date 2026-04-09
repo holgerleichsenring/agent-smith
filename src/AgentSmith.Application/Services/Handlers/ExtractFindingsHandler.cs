@@ -20,6 +20,18 @@ public sealed class ExtractFindingsHandler(
         ExtractFindingsContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
+
+        // If a gate already produced typed findings (structured pipeline), skip raw extraction
+        if (pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var gateFindings)
+            && gateFindings is { Count: > 0 })
+        {
+            logger.LogInformation(
+                "Gate already produced {Count} typed findings, skipping raw extraction",
+                gateFindings.Count);
+            return Task.FromResult(CommandResult.Ok(
+                $"Skipped — {gateFindings.Count} findings already extracted by gate"));
+        }
+
         var findings = new List<Finding>();
 
         if (pipeline.TryGet<StaticScanResult>(ContextKeys.StaticScanResult, out var staticResult))

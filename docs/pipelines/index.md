@@ -81,15 +81,37 @@ projects:
     pipeline: my-custom-pipeline
 ```
 
-## Pipeline Categories
+## Pipeline Types
 
-Agent Smith's pipelines fall into three categories:
+Since Phase 64, Agent Smith classifies every pipeline into one of three **orchestration types**. The type determines how skills are selected, how they communicate, and whether convergence rounds apply.
 
-**Coding pipelines** — fix-bug, fix-no-test, add-feature. These clone a repo, understand the code, write changes, test, and open a PR. They use an agentic loop with file I/O tools.
+| Type | Triage | Skill Runs | Handoffs | Convergence |
+|------|--------|------------|----------|-------------|
+| **discussion** | LLM selects skills | Multiple rounds possible | Free-text accumulation | Yes -- rounds until consensus |
+| **structured** | Deterministic graph (`SkillGraphBuilder`) | Single call per skill | Typed JSON (`SkillOutputs`) | No -- skipped |
+| **hierarchical** | Deterministic graph (`SkillGraphBuilder`) | Lead then contributors then gates | Typed JSON | No -- gate veto instead |
 
-**Analysis pipelines** — security-scan, api-security-scan, legal-analysis. These assemble a panel of specialist roles, run multiple discussion rounds with convergence checking, and deliver structured output (SARIF, Markdown, console).
+### Discussion pipelines
 
-**Discussion pipelines** — mad-discussion. Multi-agent debates where specialist personas discuss a topic in rounds, converge on a position, and produce a compiled document.
+**mad-discussion**, **legal-analysis**. LLM-based triage selects relevant skills. Skills run in rounds with free-text accumulation. `ConvergenceCheck` evaluates whether all skills agree; if not, objecting skills re-run until consensus or the max round limit. Skills without an orchestration block default to contributor role in discussion mode.
+
+### Structured pipelines
+
+**security-scan**, **api-security-scan**. `SkillGraphBuilder` builds a deterministic execution graph from `runs_after`/`runs_before` declarations in skill metadata. No LLM triage. Skills are topologically sorted into stages: contributors (parallel, category-sliced) run first, then a gate (e.g., false-positive-filter) that can veto findings, then an executor. Each skill runs exactly once with typed JSON handoffs. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction. This achieves approximately 80% token reduction compared to discussion mode.
+
+### Hierarchical pipelines
+
+**fix-bug**, **add-feature**, **fix-no-test**. A lead skill drives the workflow, delegating to contributor skills and validating through gate skills. The execution graph is deterministic (built by `SkillGraphBuilder`), but the lead has authority to direct contributors. No convergence rounds -- gates provide pass/fail verdicts.
+
+### Context keys
+
+The pipeline type is stored in `PipelineContext` under the `PipelineType` key. Additional context keys introduced in Phase 64:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `PipelineType` | `string` | `discussion`, `structured`, or `hierarchical` |
+| `SkillGraph` | `ExecutionGraph` | The topologically sorted skill graph |
+| `SkillOutputs` | `Dictionary<string, object>` | Typed outputs from each skill, keyed by skill name |
 
 ## Next Steps
 

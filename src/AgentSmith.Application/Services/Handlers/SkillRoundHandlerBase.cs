@@ -161,10 +161,10 @@ public abstract class SkillRoundHandlerBase
         skillOutputs[skillName] = llmResponse.Text;
         pipeline.Set(ContextKeys.SkillOutputs, skillOutputs);
 
-        // Handle gate veto
+        // Handle gate veto + extract findings for list gates
         if (orch.Role == SkillRole.Gate)
         {
-            return HandleGateOutput(role, orch, llmResponse.Text);
+            return HandleGateOutput(role, orch, llmResponse.Text, pipeline);
         }
 
         // Lead stores plan in context for downstream
@@ -202,11 +202,11 @@ public abstract class SkillRoundHandlerBase
     }
 
     private static CommandResult HandleGateOutput(
-        RoleSkillDefinition role, SkillOrchestration orch, string responseText)
+        RoleSkillDefinition role, SkillOrchestration orch, string responseText,
+        PipelineContext pipeline)
     {
         if (orch.Output == SkillOutputType.Verdict)
         {
-            // Parse verdict JSON: { "pass": true/false, "reason": "..." }
             try
             {
                 var json = ExtractJson(responseText);
@@ -223,7 +223,7 @@ public abstract class SkillRoundHandlerBase
             return CommandResult.Ok($"Gate {role.DisplayName}: passed");
         }
 
-        // List gate: empty confirmed list = veto
+        // List gate: parse confirmed findings, write typed Finding records to ExtractedFindings
         try
         {
             var json = ExtractJson(responseText);
@@ -233,15 +233,45 @@ public abstract class SkillRoundHandlerBase
                 var count = confirmed.GetArrayLength();
                 if (count == 0)
                     return CommandResult.Fail($"Gate veto ({role.DisplayName}): no findings confirmed");
+
+                var findings = ParseGateFindings(confirmed);
+                pipeline.Set(ContextKeys.ExtractedFindings, findings.AsReadOnly());
+
                 return CommandResult.Ok($"Gate {role.DisplayName}: {count} findings confirmed");
             }
         }
         catch
         {
-            // If we can't parse, assume pass
+            // If we can't parse, assume pass — ExtractFindings will handle raw data
         }
 
         return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+    }
+
+    private static List<Contracts.Services.Finding> ParseGateFindings(JsonElement confirmedArray)
+    {
+        var findings = new List<Contracts.Services.Finding>();
+
+        foreach (var item in confirmedArray.EnumerateArray())
+        {
+            var file = item.TryGetProperty("file", out var f) ? f.GetString() ?? "" : "";
+            var line = item.TryGetProperty("line", out var l) ? l.GetInt32() : 0;
+            var title = item.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+            var severity = item.TryGetProperty("severity", out var s) ? s.GetString() ?? "MEDIUM" : "MEDIUM";
+            var reason = item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+
+            findings.Add(new Contracts.Services.Finding(
+                Severity: severity.ToUpperInvariant(),
+                File: file,
+                StartLine: line,
+                EndLine: null,
+                Title: title,
+                Description: reason,
+                Confidence: 8,
+                ReviewStatus: "confirmed"));
+        }
+
+        return findings;
     }
 
     private static string ExtractJson(string text)

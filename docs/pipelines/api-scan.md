@@ -2,6 +2,9 @@
 
 The **api-security-scan** pipeline scans a running API against its OpenAPI spec. It combines automated scanner tools (Nuclei, Spectral) running in Docker containers with an AI specialist panel that interprets, contextualizes, and filters the results.
 
+!!! info "Pipeline type: structured"
+    Since Phase 64, api-security-scan uses the **structured** pipeline type. `SkillGraphBuilder` builds a deterministic execution graph from skill metadata -- no LLM triage, no convergence rounds. Skills run in staged order with typed JSON handoffs between stages.
+
 ## Pipeline Steps
 
 | # | Command | What It Does |
@@ -11,9 +14,9 @@ The **api-security-scan** pipeline scans a running API against its OpenAPI spec.
 | 3 | SpawnSpectral | Runs Spectral OWASP linter in a Docker container |
 | 4 | SpawnZap | Runs OWASP ZAP DAST scan against the target (skips if `dast.enabled: false`) |
 | 5 | LoadSkills | Loads API security skill definitions from YAML |
-| 6 | ApiSecurityTriage | AI selects specialist roles based on swagger + scanner signals |
-| 7 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
-| 8 | CompileFindings | Consolidates all findings into a structured report |
+| 6 | ApiSecurityTriage | Builds deterministic skill graph via `SkillGraphBuilder` (no LLM) |
+| 7 | SkillRounds | Runs skills in staged order: contributors (parallel) then gate then executor |
+| 8 | CompileFindings | Consolidates typed findings into a structured report |
 | 9 | DeliverFindings | Writes output in the requested format(s) |
 
 ## Automated Scanners
@@ -60,17 +63,22 @@ After the automated scanners complete, the AI specialist panel reviews and inter
 | **Auth Tester** | 🔐 | JWT validation, OAuth flow security (PKCE, state), API key handling, missing auth on state-mutating endpoints, Bearer vs Cookie mixing |
 | **False Positive Filter** | 🧹 | Nuclei-specific false positive filtering. Removes low-confidence findings, template artifacts, and duplicates. |
 
-### Triage Signal Analysis
+### Deterministic Skill Graph
 
-The `ApiSecurityTriage` step analyzes the swagger spec and Nuclei findings to determine which roles are needed. It evaluates signals like:
+Since Phase 64, the `ApiSecurityTriage` step uses `SkillGraphBuilder` to construct a deterministic execution graph from skill metadata (`runs_after`/`runs_before` declarations). There is no LLM call during triage. Skills are topologically sorted into execution stages:
+
+1. **Stage 1 -- Contributors** (parallel): API Design Auditor, Auth Tester, and API Vulnerability Analyst each analyze their respective findings in a single call with typed JSON output.
+2. **Stage 2 -- Gate**: The False Positive Filter reviews all contributor output and produces a typed `List<Finding>`, vetoing low-confidence results.
+
+Each skill runs exactly once. ConvergenceCheck is skipped for structured pipelines.
+
+The swagger spec and scanner signals are still used to populate context for each skill, but skill *selection* is determined by the graph, not by LLM analysis:
 
 - **ID-based paths** (BOLA risk): `/api/users/{id}`, `/api/orders/{orderId}`
 - **Auth scheme declared**: Bearer, OAuth2, API key
 - **Unprotected endpoints**: state-mutating routes with no security requirement
 - **Query parameters**: potential injection vectors
 - **Bulk operation endpoints**: `/api/users/batch`, `/api/export`
-
-Based on these signals, the triage step selects all roles whose triggers match.
 
 ### OWASP API Security Top 10 (2023) Mapping
 

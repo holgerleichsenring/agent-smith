@@ -1,6 +1,9 @@
 # Security Scan
 
-The **security-scan** pipeline performs a multi-layered code security review combining static pattern matching, git history analysis, dependency auditing, and a multi-role AI specialist panel. It assembles 9 specialist skills, runs a structured discussion with convergence checking, and delivers findings in SARIF, Markdown, or console format.
+The **security-scan** pipeline performs a multi-layered code security review combining static pattern matching, git history analysis, dependency auditing, and a multi-role AI specialist panel. It assembles 9 specialist skills and runs them through a **structured** (deterministic) execution graph -- no LLM triage, no convergence rounds. Skills are organized into stages (contributors, gate, executor) derived from skill metadata, and findings flow as typed JSON between stages. The pipeline delivers findings in SARIF, Markdown, or console format.
+
+!!! info "Pipeline type: structured"
+    Since Phase 64, security-scan uses the **structured** pipeline type. `SkillGraphBuilder` builds a deterministic execution graph from `runs_after`/`runs_before` declarations in skill metadata. There is no LLM-based triage and no convergence checking, resulting in approximately **80% token reduction** compared to the previous discussion-based approach.
 
 ## Pipeline Steps
 
@@ -19,16 +22,16 @@ The pipeline has 18 base steps, with dynamic expansion during the skill rounds p
 | 9 | CompressSecurityFindings | Groups findings by category, creates skill-specific slices |
 | 10 | LoadSkills | Loads 9 security specialist skills from `config/skills/security/` |
 | 11 | AnalyzeCode | Scout agent maps file structure and dependency graph |
-| 12 | SecurityTriage | AI selects relevant specialists, mandatory false-positive-filter |
-| 13 | ConvergenceCheck | Runs skill rounds until consensus (dynamic expansion) |
+| 12 | SecurityTriage | Builds deterministic skill graph via `SkillGraphBuilder` (no LLM) |
+| 13 | SkillRounds | Runs skills in staged order: contributors (parallel) then gate then executor |
 | 14 | CompileDiscussion | Consolidates all findings into a final report |
-| 15 | ExtractFindings | Converts discussion output to structured Finding records |
+| 15 | ExtractFindings | Gate produces typed `List<Finding>` -- bypasses raw extraction |
 | 16 | DeliverFindings | Writes output in the requested format(s) |
 | 17 | SecuritySnapshotWrite | Persists SARIF snapshot for trend history |
 | 18 | SpawnFix | Spawns fix jobs for Critical/High findings (skips if `auto_fix.enabled: false`) |
 
-!!! info "Dynamic expansion"
-    Step 12-13 are dynamic. `SecurityTriage` inserts `SecuritySkillRound` commands for each selected specialist, plus a `ConvergenceCheck`. If specialists disagree, `ConvergenceCheck` inserts additional rounds until consensus or the max round limit is reached (default: 3).
+!!! info "Deterministic execution graph"
+    Step 12 uses `SkillGraphBuilder` to build an execution graph from skill metadata (`runs_after`/`runs_before` declarations). Skills are topologically sorted into stages: **contributors** run in parallel with category-sliced findings, the **gate** (false-positive-filter) runs next and can veto findings, and the **executor** (vuln-analyst) runs last. There is no LLM triage and no convergence checking. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction.
 
 ## Static Pattern Scan
 
@@ -82,14 +85,16 @@ Each skill is defined as a YAML skill file in `config/skills/security/`. The tri
 
 ### How Skills Interact
 
-The skills run in a structured discussion pattern:
+Skills run in a **deterministic staged graph** built by `SkillGraphBuilder`:
 
 1. **Static analysis** (steps 4-6) produces raw findings from patterns, git history, and dependency audits
-2. **Compression** (step 7) groups and slices findings for each specialist
-3. **Triage** selects relevant skills based on the codebase and findings
-4. **Round 1**: Each skill reviews the code and its finding slice
-5. **ConvergenceCheck**: If any skill objects (e.g., the False Positive Filter disagrees with a finding), another round runs for objecting skills
-6. **Convergence**: Once all skills agree, findings are consolidated and extracted
+2. **Compression** (step 9) groups and slices findings for each specialist
+3. **Triage** builds a skill execution graph from `runs_after`/`runs_before` metadata (no LLM call)
+4. **Stage 1 -- Contributors** (parallel): Each specialist reviews its category-sliced findings in a single call
+5. **Stage 2 -- Gate**: The false-positive-filter reviews all contributor output, produces typed `List<Finding>`, and can veto findings
+6. **Stage 3 -- Executor**: The vuln-analyst synthesizes the filtered findings into the final assessment
+
+Each skill runs exactly once. There are no convergence rounds and no re-runs.
 
 ```
 StaticPatternScan → 47 pattern matches across 6 categories
@@ -97,20 +102,18 @@ GitHistoryScan → 2 secrets found in history (CRITICAL)
 DependencyAudit → 3 vulnerable packages, 1 missing lockfile
 CompressSecurityFindings → grouped into skill-specific slices (74% token reduction)
 
-SecurityTriage → "This is a .NET API with EF Core, JWT auth, and OpenAI integration"
-  → vuln-analyst (round 1): 5 findings
-  → auth-reviewer (round 1): 3 findings
-  → injection-checker (round 1): 2 findings
-  → secrets-detector (round 1): 3 findings (2 from history)
-  → config-auditor (round 1): 2 findings
-  → ai-security-reviewer (round 1): 1 finding
-  → false-positive-filter (round 1): "OBJECTION — finding #4 is in test code"
-ConvergenceCheck → unresolved objection → round 2
-  → false-positive-filter (round 2): "Retained 14 of 16 findings"
-ConvergenceCheck → consensus reached
-CompileDiscussion → final report
-ExtractFindings → 14 structured Finding records
-DeliverFindings → console + SARIF output
+SecurityTriage → SkillGraphBuilder builds execution graph (deterministic, no LLM)
+  Stage 1 (contributors, parallel):
+    → auth-reviewer: 3 findings (typed JSON)
+    → injection-checker: 2 findings (typed JSON)
+    → secrets-detector: 3 findings (typed JSON)
+    → config-auditor: 2 findings (typed JSON)
+    → ai-security-reviewer: 1 finding (typed JSON)
+  Stage 2 (gate):
+    → false-positive-filter: vetoes 2 findings → typed List<Finding> (14 retained)
+  Stage 3 (executor):
+    → vuln-analyst: synthesizes final assessment
+DeliverFindings → console + SARIF output (typed findings, no raw extraction needed)
 ```
 
 ### Customizing Skills
