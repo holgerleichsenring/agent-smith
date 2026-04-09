@@ -75,6 +75,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<InstallSkillsContext>, InstallSkillsHandler>();
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
+        services.AddTransient<ICommandHandler<LoadVisionContext>, LoadVisionHandler>();
+        services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
+        services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -132,6 +135,9 @@ public static class ServiceCollectionExtensions
         AddBuilder<InstallSkillsContextBuilder>(services, CommandNames.InstallSkills);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
+        AddBuilder<LoadVisionContextBuilder>(services, CommandNames.LoadVision);
+        AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
+        AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
