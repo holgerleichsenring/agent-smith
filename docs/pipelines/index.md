@@ -13,6 +13,8 @@ Agent Smith ships with **8 pipeline presets** — pre-built sequences of command
 | **api-security-scan** | `agent-smith api-scan` | 8 | Nuclei + Spectral + AI specialist panel on live APIs |
 | **legal-analysis** | `agent-smith legal` | 7 | Contract review with 5 legal specialist roles |
 | **mad-discussion** | `agent-smith mad` | 9 | Multi-agent design discussion with convergence |
+| **skill-manager** | `agent-smith skill-manager` | 6 | Discover, evaluate, and install skills |
+| **autonomous** | `agent-smith autonomous` | 9 | Observe project, write tickets autonomously |
 | **init-project** | `agent-smith init` | 3 | Bootstrap `.agentsmith/` directory in a repo |
 
 ## How Pipelines Work
@@ -94,3 +96,5 @@ Agent Smith's pipelines fall into three categories:
 - [API Scan](api-scan.md) — live API scanning
 - [Legal Analysis](legal-analysis.md) — contract review
 - [MAD Discussion](mad-discussion.md) — multi-agent design debate
+- [Skill Manager](skill-manager.md) — autonomous skill discovery and installation
+- [Autonomous](autonomous.md) — agent-driven project improvement tickets

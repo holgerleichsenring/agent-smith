@@ -134,6 +134,7 @@ state:
     p57b: "Skill manager: skill-manager pipeline, DiscoverSkills/EvaluateSkills/DraftSkillFiles/ApproveSkills/InstallSkills handlers, LLM-based fit+safety evaluation, human approval via dialogue (815 tests)"
     p61: "Knowledge base: CompileKnowledgeHandler (incremental wiki from runs), QueryKnowledgeHandler (LLM Q&A against wiki), compile-wiki CLI, .last-compiled tracking, KnowledgeBaseConfig (815 tests)"
     p57c: "Autonomous pipeline: LoadVision/LoadRuns/WriteTickets handlers, autonomous CLI command, project-vision.md template, AutonomousConfig, agent-smith-autonomous label (831 tests)"
+    p62: "Docs update: 8 new pages (dialogue, knowledge base, PR comments, webhooks, security config, phase workflow, skill manager, autonomous), 8 updated pages, mkdocs.yml navigation (831 tests)"
   active: {}
   planned:
     p62: "Docs update: new pages for all features → .agentsmith/phases/planned/p62-docs-update.md"
