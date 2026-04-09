@@ -169,7 +169,8 @@ public sealed class SkillGraphBuilder : ISkillGraphBuilder
         {
             var isGate = group.Key == SkillRole.Gate;
             var isLead = group.Key == SkillRole.Lead;
-            yield return new ExecutionStage(group.ToList(), isGate, isLead);
+            var isExecutor = group.Key == SkillRole.Executor;
+            yield return new ExecutionStage(group.ToList(), isGate, isLead, isExecutor);
         }
     }
 
