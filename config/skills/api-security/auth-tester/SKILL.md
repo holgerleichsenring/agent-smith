@@ -1,14 +1,6 @@
 ---
 name: auth-tester
-display-name: "Auth Tester"
-emoji: "🔐"
 description: "Specializes in API authentication testing: JWT, OAuth, API keys, missing auth, Bearer vs Cookie, OAuth without PKCE"
-triggers:
-  - auth
-  - jwt
-  - oauth
-  - bearer
-  - api-key
 version: 1.0.0
 ---
 

@@ -1,15 +1,6 @@
 ---
 name: risk-assessor
-display-name: "Risk Assessor"
-emoji: "⚠️"
 description: "Evaluates each clause for risk from the client's perspective"
-triggers:
-  - nda
-  - werkvertrag
-  - dienstleistungsvertrag
-  - saas-agb
-  - kaufvertrag
-  - unknown
 version: 1.0.0
 ---
 

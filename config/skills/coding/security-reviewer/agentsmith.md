@@ -1,5 +1,19 @@
 # Agent Smith Configuration
 
+## display-name
+Security Reviewer
+
+## emoji
+🔒
+
+## triggers
+- authentication
+- authorization
+- input-validation
+- secrets-management
+- encryption
+- security-vulnerability
+
 ## convergence_criteria
 
 - "No critical or high security vulnerabilities"

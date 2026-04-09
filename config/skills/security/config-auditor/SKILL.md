@@ -1,17 +1,6 @@
 ---
 name: config-auditor
-display-name: "Config Auditor"
-emoji: "⚙️"
 description: "Evaluates infrastructure and configuration security: Docker, Kubernetes, Terraform, CI/CD pipelines"
-triggers:
-  - dockerfile
-  - kubernetes
-  - terraform
-  - ci-cd
-  - configuration
-  - docker-compose
-  - nginx
-  - github-actions
 version: 1.0.0
 ---
 

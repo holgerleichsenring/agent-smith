@@ -1,16 +1,6 @@
 ---
 name: architect
-display-name: "Architect"
-emoji: "🏗️"
 description: "Evaluates architectural impact, defines component boundaries and patterns"
-triggers:
-  - new-component
-  - cross-cutting-concern
-  - api-design
-  - data-model-change
-  - pattern-decision
-  - integration
-  - breaking-change
 version: 1.0.0
 ---
 

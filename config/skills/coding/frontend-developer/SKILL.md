@@ -1,15 +1,6 @@
 ---
 name: frontend-developer
-display-name: "Frontend Developer"
-emoji: "🎨"
 description: "Evaluates UI/UX impact, component structure, state management"
-triggers:
-  - ui-component
-  - user-interface
-  - state-management
-  - styling
-  - accessibility
-  - responsive-design
 version: 1.0.0
 ---
 

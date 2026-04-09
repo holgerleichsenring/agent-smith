@@ -1,5 +1,18 @@
 # Agent Smith Configuration
 
+## display-name
+Auth Tester
+
+## emoji
+🔐
+
+## triggers
+- auth
+- jwt
+- oauth
+- bearer
+- api-key
+
 ## convergence_criteria
 
 - "All JWT findings reviewed for signature and claim validation"

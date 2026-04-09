@@ -1,16 +1,6 @@
 ---
 name: philosopher
-display-name: "The Philosopher"
-emoji: "🦉"
 description: "Examines fundamental assumptions, asks the questions nobody else asks"
-triggers:
-  - consciousness
-  - intelligence
-  - creativity
-  - meaning
-  - understanding
-  - epistemology
-  - ethics
 version: 1.0.0
 ---
 

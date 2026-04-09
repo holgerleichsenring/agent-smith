@@ -1,5 +1,17 @@
 # Agent Smith Configuration
 
+## display-name
+Vulnerability Analyst
+
+## emoji
+🔍
+
+## triggers
+- security-scan
+- code-change
+- api-endpoint
+- user-input
+
 ## convergence_criteria
 
 - "All changed files have been reviewed"

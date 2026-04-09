@@ -1,13 +1,6 @@
 ---
 name: liability-analyst
-display-name: "Liability Analyst"
-emoji: "⚖️"
 description: "Deep-dives into liability caps, exclusions, and indemnification clauses"
-triggers:
-  - werkvertrag
-  - dienstleistungsvertrag
-  - saas-agb
-  - high-value-contract
 version: 1.0.0
 ---
 

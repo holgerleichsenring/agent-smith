@@ -1,12 +1,6 @@
 ---
 name: api-vuln-analyst
-display-name: "API Vulnerability Analyst"
-emoji: "🔍"
 description: "Lead role. Evaluates Nuclei findings in API context and maps them to OWASP API Security Top 10 (2023)"
-triggers:
-  - nuclei-findings
-  - vulnerability
-  - exploit
 version: 1.0.0
 ---
 

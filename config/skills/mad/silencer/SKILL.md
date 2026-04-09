@@ -1,14 +1,6 @@
 ---
 name: silencer
-display-name: "The Silencer"
-emoji: "🤫"
 description: "Says nothing — until the moment demands it"
-triggers:
-  - consensus-premature
-  - circular-argument
-  - missed-point
-  - false-equivalence
-  - intellectual-dishonesty
 version: 1.0.0
 ---
 

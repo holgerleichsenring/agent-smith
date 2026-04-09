@@ -1,15 +1,6 @@
 ---
 name: supply-chain-auditor
-display-name: "Supply Chain Auditor"
-emoji: "📦"
 description: "Evaluates dependency security: known CVEs, typosquatting, lockfile integrity, suspicious install scripts"
-triggers:
-  - dependencies
-  - package-json
-  - requirements
-  - supply-chain
-  - csproj
-  - go-mod
 version: 1.0.0
 ---
 

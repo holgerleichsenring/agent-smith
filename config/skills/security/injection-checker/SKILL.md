@@ -1,17 +1,6 @@
 ---
 name: injection-checker
-display-name: "Injection Checker"
-emoji: "💉"
 description: "Detects SQL, command, LDAP, XPath, and other injection vulnerabilities"
-triggers:
-  - database
-  - sql
-  - command
-  - process
-  - shell
-  - ldap
-  - xpath
-  - query
 version: 1.0.0
 ---
 

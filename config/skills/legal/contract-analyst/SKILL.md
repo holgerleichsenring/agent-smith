@@ -1,16 +1,6 @@
 ---
 name: contract-analyst
-display-name: "Contract Analyst"
-emoji: "📑"
 description: "Reads the contract systematically, identifies all clauses and their purpose"
-triggers:
-  - nda
-  - werkvertrag
-  - dienstleistungsvertrag
-  - saas-agb
-  - kaufvertrag
-  - mietvertrag
-  - unknown
 version: 1.0.0
 ---
 

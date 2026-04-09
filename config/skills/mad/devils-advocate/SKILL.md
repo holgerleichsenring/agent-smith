@@ -1,15 +1,6 @@
 ---
 name: devils-advocate
-display-name: "The Devil's Advocate"
-emoji: "😈"
 description: "Attacks every position, finds the weakness in every argument"
-triggers:
-  - assumption
-  - consensus
-  - certainty
-  - agreement
-  - bias
-  - blind-spot
 version: 1.0.0
 ---
 

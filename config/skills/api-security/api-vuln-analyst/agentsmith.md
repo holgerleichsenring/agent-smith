@@ -1,5 +1,16 @@
 # Agent Smith Configuration
 
+## display-name
+API Vulnerability Analyst
+
+## emoji
+🔍
+
+## triggers
+- nuclei-findings
+- vulnerability
+- exploit
+
 ## convergence_criteria
 
 - "All Nuclei findings have been evaluated against the API context"

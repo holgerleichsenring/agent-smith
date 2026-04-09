@@ -1,15 +1,6 @@
 ---
 name: tester
-display-name: "Tester"
-emoji: "🧪"
 description: "Evaluates test coverage, test strategy, edge cases"
-triggers:
-  - testing
-  - test-coverage
-  - edge-cases
-  - regression
-  - integration-test
-  - quality
 version: 1.0.0
 ---
 

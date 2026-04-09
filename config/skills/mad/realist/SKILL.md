@@ -1,16 +1,6 @@
 ---
 name: realist
-display-name: "The Realist"
-emoji: "🔬"
 description: "Demands evidence, grounds the discussion in what we actually know"
-triggers:
-  - evidence
-  - data
-  - benchmarks
-  - architecture
-  - training
-  - capability
-  - limitation
 version: 1.0.0
 ---
 
