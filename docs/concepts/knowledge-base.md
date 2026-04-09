@@ -42,6 +42,9 @@ agent-smith compile-wiki --project my-api
 
 # Full rebuild from all runs
 agent-smith compile-wiki --project my-api --full
+
+# Dry run -- show what would be compiled without executing
+agent-smith compile-wiki --project my-api --dry-run
 ```
 
 ### Automatic Compilation
