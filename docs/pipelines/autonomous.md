@@ -15,13 +15,16 @@ Autonomous:  Agent observes --> Agent writes tickets --> Human reviews
 
 | # | Command | What It Does |
 |---|---------|--------------|
-| 1 | LoadContext | Loads context.yaml, code-map, coding-principles |
-| 2 | LoadRuns | Reads last N runs: results, decisions, costs, findings |
-| 3 | LoadVision | Reads project-vision.md (what matters for this project) |
-| 4 | Triage | Selects which specialist roles are relevant |
-| 5-7 | SkillRounds | Multi-agent analysis with convergence checking |
-| 8 | WriteTickets | Creates tickets in the ticket provider |
-| 9 | WriteRunResult | Logs the autonomous run |
+| 1 | CheckoutSource | Clones repo, creates working copy |
+| 2 | BootstrapProject | Detects language, framework, build system |
+| 3 | LoadContext | Loads context.yaml, code-map, coding-principles |
+| 4 | LoadCodeMap | Generates LLM-navigable code map |
+| 5 | LoadVision | Reads project-vision.md (what matters for this project) |
+| 6 | LoadRuns | Reads last N runs: results, decisions, costs, findings |
+| 7 | Triage | Selects which specialist roles are relevant |
+| 8-10 | SkillRounds | Multi-agent analysis with convergence checking |
+| 11 | WriteTickets | Creates tickets in the ticket provider |
+| 12 | WriteRunResult | Logs the autonomous run |
 
 ## Specialist Roles
 

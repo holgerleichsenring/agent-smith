@@ -106,6 +106,9 @@ The trend appears in `result.md`, Slack notifications, and PR comments:
 ```bash
 # View trend for a project
 agent-smith security-trend --project my-api
+
+# Dry run -- show what would be analyzed without executing
+agent-smith security-trend --project my-api --dry-run
 ```
 
 See also: [Security Scan Pipeline](../pipelines/security-scan.md) for the full pipeline documentation.
