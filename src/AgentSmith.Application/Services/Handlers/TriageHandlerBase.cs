@@ -18,6 +18,12 @@ public abstract class TriageHandlerBase
     protected abstract string BuildUserPrompt(PipelineContext pipeline);
     protected virtual string SkillRoundCommandName => "SkillRoundCommand";
 
+    /// <summary>
+    /// Optional graph builder for structured/hierarchical pipelines.
+    /// Subclasses inject this for pipelines that support deterministic triage.
+    /// </summary>
+    protected virtual ISkillGraphBuilder? GraphBuilder => null;
+
     protected async Task<CommandResult> TriageAsync(
         PipelineContext pipeline,
         ILlmClient llmClient,
@@ -28,6 +34,14 @@ public abstract class TriageHandlerBase
         {
             Logger.LogInformation("No available roles for triage, skipping discussion");
             return CommandResult.Ok("No roles available, skipping triage");
+        }
+
+        // Structured/hierarchical pipelines: deterministic graph, no LLM triage
+        if (pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
+            && pipelineType is PipelineType.Structured or PipelineType.Hierarchical
+            && GraphBuilder is not null)
+        {
+            return BuildDeterministicCommands(pipeline, roles);
         }
 
         var userPrompt = BuildUserPrompt(pipeline);
@@ -129,6 +143,36 @@ public abstract class TriageHandlerBase
             $"Triage complete. Lead: {triageResult.Lead}. " +
             $"Participants: {string.Join(", ", triageResult.Participants)}",
             commandsToInsert.ToArray());
+    }
+
+    private CommandResult BuildDeterministicCommands(
+        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> roles)
+    {
+        var graph = GraphBuilder!.Build(roles);
+        pipeline.Set(ContextKeys.SkillGraph, graph);
+        pipeline.Set(ContextKeys.ActiveSkill, SkillRoundCommandName);
+
+        var commands = new List<PipelineCommand>();
+        var stageIndex = 1;
+
+        foreach (var stage in graph.Stages)
+        {
+            foreach (var skillName in stage.Skills)
+            {
+                commands.Add(PipelineCommand.SkillRound(SkillRoundCommandName, skillName, stageIndex));
+            }
+            stageIndex++;
+        }
+
+        var skillNames = graph.Stages.SelectMany(s => s.Skills).ToList();
+        Logger.LogInformation(
+            "Deterministic triage: {StageCount} stages, {SkillCount} skills: {Skills}",
+            graph.Stages.Count, skillNames.Count, string.Join(", ", skillNames));
+
+        return CommandResult.OkAndContinueWith(
+            $"Deterministic triage: {graph.Stages.Count} stages, " +
+            $"{skillNames.Count} skills ({string.Join(", ", skillNames)})",
+            commands.ToArray());
     }
 
     private TriageResult? ParseTriageResponse(
