@@ -1,10 +1,6 @@
 ---
 name: false-positive-filter
-display-name: "False Positive Filter"
-emoji: "🧹"
 description: "Reviews findings from other security skills and removes low-confidence or invalid results"
-triggers:
-  - security-scan
 version: 1.0.0
 ---
 

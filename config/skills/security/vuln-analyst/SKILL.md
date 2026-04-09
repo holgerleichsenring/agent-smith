@@ -1,13 +1,6 @@
 ---
 name: vuln-analyst
-display-name: "Vulnerability Analyst"
-emoji: "🔍"
 description: "Identifies high-confidence security vulnerabilities across all changed code"
-triggers:
-  - security-scan
-  - code-change
-  - api-endpoint
-  - user-input
 version: 1.0.0
 ---
 

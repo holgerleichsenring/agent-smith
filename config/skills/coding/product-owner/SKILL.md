@@ -1,14 +1,6 @@
 ---
 name: product-owner
-display-name: "Product Owner"
-emoji: "📋"
 description: "Evaluates scope, acceptance criteria, user impact"
-triggers:
-  - scope-clarification
-  - acceptance-criteria
-  - user-impact
-  - feature-priority
-  - requirements
 version: 1.0.0
 ---
 

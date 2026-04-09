@@ -1,5 +1,20 @@
 # Agent Smith Configuration
 
+## display-name
+The Dreamer
+
+## emoji
+🌙
+
+## triggers
+- creativity
+- imagination
+- future
+- potential
+- emergence
+- art
+- beauty
+
 ## convergence_criteria
 
 - "At least one genuinely novel perspective has been introduced"

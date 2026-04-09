@@ -1,16 +1,6 @@
 ---
 name: secrets-detector
-display-name: "Secrets Detector"
-emoji: "🔑"
 description: "Finds hardcoded API keys, tokens, connection strings, and credentials"
-triggers:
-  - config
-  - environment
-  - connection-string
-  - api-key
-  - secret
-  - credential
-  - password
 version: 1.0.0
 ---
 

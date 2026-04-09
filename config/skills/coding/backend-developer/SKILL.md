@@ -1,15 +1,6 @@
 ---
 name: backend-developer
-display-name: "Backend Developer"
-emoji: "👨‍💻"
 description: "Evaluates implementation feasibility, estimates effort, proposes code structure"
-triggers:
-  - implementation
-  - bug-fix
-  - refactoring
-  - performance
-  - api-endpoint
-  - business-logic
 version: 1.0.0
 ---
 
