@@ -18,6 +18,8 @@ Agent Smith is configured through a single YAML file and optional skill/tool def
 - :material-file-cog: **[agentsmith.yml Reference](agentsmith-yml.md)** -- Full configuration reference with annotated examples
 - :material-account-group: **[Skills Reference](skills.md)** -- Skill YAML format for multi-role agent discussions
 - :material-wrench: **[Tool Configuration](tools.md)** -- Nuclei and Spectral config for the api-scan pipeline
+- :material-webhook: **[Webhooks](webhooks.md)** -- GitHub webhook setup, signature verification, PR comment commands
+- :material-shield-check: **[Security Scan Config](security-scan.md)** -- DAST (ZAP), auto-fix, and trend analysis configuration
 
 </div>
 
