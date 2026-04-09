@@ -14,17 +14,21 @@ The pipeline has 18 base steps, with dynamic expansion during the skill rounds p
 | 4 | StaticPatternScan | Runs 91 regex patterns across 6 categories against source files |
 | 5 | GitHistoryScan | Scans last 500 commits for secrets in git history via LibGit2Sharp |
 | 6 | DependencyAudit | Runs `npm audit` / `pip-audit` / `dotnet audit` + structural checks |
-| 7 | CompressSecurityFindings | Groups findings by category, creates skill-specific slices |
-| 8 | LoadSkills | Loads 9 security specialist skills from `config/skills/security/` |
-| 9 | AnalyzeCode | Scout agent maps file structure and dependency graph |
-| 10 | SecurityTriage | AI selects relevant specialists, mandatory false-positive-filter |
-| 11-15 | SkillRounds | Each specialist analyzes findings (rounds until convergence) |
-| 16 | CompileDiscussion | Consolidates all findings into a final report |
-| 17 | ExtractFindings | Converts discussion output to structured Finding records |
-| 18 | DeliverFindings | Writes output in the requested format(s) |
+| 7 | SpawnZap | Runs OWASP ZAP DAST scan (skips if `dast.enabled: false`) |
+| 8 | SecurityTrend | Computes trend from previous SARIF snapshots |
+| 9 | CompressSecurityFindings | Groups findings by category, creates skill-specific slices |
+| 10 | LoadSkills | Loads 9 security specialist skills from `config/skills/security/` |
+| 11 | AnalyzeCode | Scout agent maps file structure and dependency graph |
+| 12 | SecurityTriage | AI selects relevant specialists, mandatory false-positive-filter |
+| 13 | ConvergenceCheck | Runs skill rounds until consensus (dynamic expansion) |
+| 14 | CompileDiscussion | Consolidates all findings into a final report |
+| 15 | ExtractFindings | Converts discussion output to structured Finding records |
+| 16 | DeliverFindings | Writes output in the requested format(s) |
+| 17 | SecuritySnapshotWrite | Persists SARIF snapshot for trend history |
+| 18 | SpawnFix | Spawns fix jobs for Critical/High findings (skips if `auto_fix.enabled: false`) |
 
 !!! info "Dynamic expansion"
-    Steps 10-15 are dynamic. `SecurityTriage` inserts `SecuritySkillRound` commands for each selected specialist, plus a `ConvergenceCheck`. If specialists disagree, `ConvergenceCheck` inserts additional rounds until consensus or the max round limit is reached (default: 3).
+    Step 12-13 are dynamic. `SecurityTriage` inserts `SecuritySkillRound` commands for each selected specialist, plus a `ConvergenceCheck`. If specialists disagree, `ConvergenceCheck` inserts additional rounds until consensus or the max round limit is reached (default: 3).
 
 ## Static Pattern Scan
 
