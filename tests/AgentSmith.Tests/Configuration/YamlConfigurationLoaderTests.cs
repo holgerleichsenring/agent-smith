@@ -45,13 +45,13 @@ public class YamlConfigurationLoaderTests
     [Fact]
     public void LoadConfig_WithEnvVars_ResolvesPlaceholders()
     {
-        Environment.SetEnvironmentVariable("GITHUB_TOKEN", "test-token-123");
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_GH_TOKEN", "test-token-123");
 
         var config = _loader.LoadConfig(TestDataPath("valid-config.yml"));
 
         config.Secrets["github_token"].Should().Be("test-token-123");
 
-        Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_GH_TOKEN", null);
     }
 
     [Fact]
