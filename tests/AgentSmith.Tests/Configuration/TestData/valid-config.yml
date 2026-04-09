@@ -16,5 +16,5 @@ projects:
     coding_principles_path: ./config/coding-principles.md
 
 secrets:
-  github_token: ${GITHUB_TOKEN}
+  github_token: ${AGENTSMITH_TEST_GH_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
