@@ -13,10 +13,11 @@ internal static class AutonomousCommand
     public static Command Create(Option<string> configOption, Option<bool> verboseOption)
     {
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
+        var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
 
         var cmd = new Command("autonomous", "Observe a project and write improvement tickets")
         {
-            projectOption, configOption, verboseOption
+            projectOption, configOption, verboseOption, dryRunOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -25,12 +26,20 @@ internal static class AutonomousCommand
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
 
+            var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
+
             var request = new PipelineRequest(
                 project, "autonomous", Headless: true,
                 Context: new Dictionary<string, object>
                 {
                     [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("autonomous"),
                 });
+
+            if (isDryRun)
+            {
+                DryRunPrinter.Print(request);
+                return;
+            }
 
             var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
             var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
