@@ -1,9 +1,6 @@
 ---
 name: dast-analyst
-display-name: "DAST Analyst"
-emoji: "\U0001F578"
 description: "Correlates OWASP ZAP dynamic findings with static analysis results, filters auth-protected false positives, maps to OWASP Top 10"
-triggers: [zap, dast, dynamic, runtime]
 version: 1.0.0
 ---
 

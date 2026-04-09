@@ -1,13 +1,6 @@
 ---
 name: api-design-auditor
-display-name: "API Design Auditor"
-emoji: "📐"
 description: "Deep schema analysis of swagger.json — structural security, data exposure, REST semantics, and Spectral findings interpretation"
-triggers:
-  - swagger
-  - openapi
-  - schema
-  - design
 version: 1.0.0
 ---
 

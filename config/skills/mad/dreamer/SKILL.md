@@ -1,16 +1,6 @@
 ---
 name: dreamer
-display-name: "The Dreamer"
-emoji: "🌙"
 description: "Sees possibilities where others see limits, imagines what could be"
-triggers:
-  - creativity
-  - imagination
-  - future
-  - potential
-  - emergence
-  - art
-  - beauty
 version: 1.0.0
 ---
 

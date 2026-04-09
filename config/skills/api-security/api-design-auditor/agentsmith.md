@@ -1,5 +1,17 @@
 # Agent Smith Configuration
 
+## display-name
+API Design Auditor
+
+## emoji
+📐
+
+## triggers
+- swagger
+- openapi
+- schema
+- design
+
 ## convergence_criteria
 
 - "All response schemas checked for sensitive data bundling"

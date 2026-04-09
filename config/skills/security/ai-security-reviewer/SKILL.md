@@ -1,19 +1,6 @@
 ---
 name: ai-security-reviewer
-display-name: "AI Security Reviewer"
-emoji: "🤖"
 description: "Evaluates AI/LLM security: OWASP LLM Top 10, Agentic Top 10, MCP security, prompt injection"
-triggers:
-  - llm
-  - ai
-  - agent
-  - mcp
-  - rag
-  - prompt
-  - langchain
-  - openai
-  - anthropic
-  - ollama
 version: 1.0.0
 ---
 

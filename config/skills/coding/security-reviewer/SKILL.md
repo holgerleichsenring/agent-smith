@@ -1,15 +1,6 @@
 ---
 name: security-reviewer
-display-name: "Security Reviewer"
-emoji: "🔒"
 description: "Evaluates security implications, vulnerabilities, auth/authz concerns"
-triggers:
-  - authentication
-  - authorization
-  - input-validation
-  - secrets-management
-  - encryption
-  - security-vulnerability
 version: 1.0.0
 ---
 
