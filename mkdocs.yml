@@ -80,6 +80,8 @@ nav:
     - API Scan: pipelines/api-scan.md
     - Legal Analysis: pipelines/legal-analysis.md
     - MAD Discussion: pipelines/mad-discussion.md
+    - Skill Manager: pipelines/skill-manager.md
+    - Autonomous: pipelines/autonomous.md
   - Concepts:
     - concepts/index.md
     - Pipeline System: concepts/pipeline-system.md
@@ -87,11 +89,15 @@ nav:
     - Multi-Skill Architecture: concepts/multi-skill.md
     - Decision Logging: concepts/decisions.md
     - Cost Tracking: concepts/cost-tracking.md
+    - Interactive Dialogue: concepts/interactive-dialogue.md
+    - Knowledge Base: concepts/knowledge-base.md
   - Configuration:
     - configuration/index.md
     - agentsmith.yml Reference: configuration/agentsmith-yml.md
     - Skills Reference: configuration/skills.md
     - Tool Configuration: configuration/tools.md
+    - Webhooks: configuration/webhooks.md
+    - Security Scan Config: configuration/security-scan.md
   - AI Providers:
     - providers/index.md
     - Claude: providers/claude.md
@@ -110,10 +116,13 @@ nav:
     - Docker: deployment/docker.md
     - Kubernetes: deployment/kubernetes.md
     - Chat Gateway: deployment/chat-gateway.md
+  - Integrations:
+    - PR Comments: integrations/pr-comments.md
   - Architecture:
     - architecture/index.md
     - Clean Architecture: architecture/layers.md
     - Project Structure: architecture/project-structure.md
+    - Phase Workflow: architecture/phase-workflow.md
   - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
   - Community: https://github.com/holgerleichsenring/agent-smith/issues

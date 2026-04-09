@@ -58,3 +58,7 @@ result: success
 When the agent's code breaks six months later, you need to know what it was thinking. Was the decision a shortcut that should be revisited? Or a deliberate trade-off with good reasoning?
 
 Decisions turn AI-generated code from a black box into something a team can maintain.
+
+## Decisions in the Knowledge Base
+
+When the [Project Knowledge Base](knowledge-base.md) is enabled, decisions from all runs are compiled into `.agentsmith/wiki/decisions.md` -- a structured, cross-referenced wiki article. The compiler identifies patterns (e.g., three independent runs choosing the same architectural pattern) and warns when a previous decision was reversed.

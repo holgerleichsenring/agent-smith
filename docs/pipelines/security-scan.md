@@ -235,3 +235,27 @@ The `security-principles.md` file (loaded by `LoadDomainRules`) controls what th
 - Race conditions without reproducible evidence
 
 Place `security-principles.md` in your repo's `config/skills/security/` directory to customize exclusions per project.
+
+## DAST (OWASP ZAP)
+
+When enabled, the pipeline includes a ZAP scan step that tests the running application for runtime vulnerabilities -- XSS, CSRF, auth bypass, header misconfiguration. ZAP runs as a Docker container using the same `docker cp` pattern as Nuclei.
+
+Three scan types are available: `baseline` (~2 min, passive), `full-scan` (~10 min, active injection), and `api-scan` (~5 min, OpenAPI-aware). Two dedicated skills (`dast-analyst` and `dast-false-positive-filter`) process ZAP findings alongside static analysis results.
+
+See [Security Scan Configuration](../configuration/security-scan.md#dast-owasp-zap) for setup.
+
+## Auto-Fix
+
+Critical and High findings can be automatically submitted as fix PRs. After the scan completes, findings are grouped by file and category, and separate fix jobs are spawned. Each fix job runs the fix-bug pipeline with a security-specific system prompt.
+
+Auto-fix is opt-in (`auto_fix.enabled: false` by default) and supports confirmation via [Interactive Dialogue](../concepts/interactive-dialogue.md) before spawning fixes.
+
+See [Security Scan Configuration](../configuration/security-scan.md#auto-fix) for setup.
+
+## Trend Analysis
+
+Git-based security trend analysis tracks findings over time without any external database. Each scan writes structured data to `result.md` frontmatter, and the `SecurityTrend` command reads SARIF snapshots from Git history to compute deltas.
+
+Use `agent-smith security-trend --project my-api` to view the trend from the CLI.
+
+See [Security Scan Configuration](../configuration/security-scan.md#trend-analysis) for setup.

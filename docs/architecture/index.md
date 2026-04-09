@@ -91,3 +91,4 @@ The model registry allows per-task model assignment (e.g., Haiku for intent pars
 
 - [Layer Details](layers.md) — what each layer contains and why
 - [Project Structure](project-structure.md) — full directory tree
+- [Phase Workflow](phase-workflow.md) — how phases are planned, executed, and tracked

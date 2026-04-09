@@ -7,3 +7,5 @@ The core ideas behind Agent Smith.
 - **[Multi-Skill Architecture](multi-skill.md)** — Role-based triage, skill rounds, and convergence
 - **[Decision Logging](decisions.md)** — Why the agent made each choice, not just what it did
 - **[Cost Tracking](cost-tracking.md)** — Token usage, pricing, and result.md frontmatter
+- **[Interactive Dialogue](interactive-dialogue.md)** — Structured Q&A between agent and human across all channels
+- **[Knowledge Base](knowledge-base.md)** — LLM-compiled project wiki from accumulated run data

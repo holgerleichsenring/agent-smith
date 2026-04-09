@@ -16,6 +16,13 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 │   ├── done/             # Completed phase documents
 │   ├── active/           # Currently executing (max 1)
 │   └── planned/          # Upcoming phases
+├── wiki/                 # LLM-compiled knowledge base
+│   ├── index.md          # Master index with backlinks
+│   ├── decisions.md      # Compiled decisions across runs
+│   ├── known-issues.md   # Recurring problems and solutions
+│   ├── patterns.md       # Detected code patterns
+│   └── concepts/         # Domain-specific articles
+├── security/             # SARIF snapshots for trend analysis
 └── runs/
     ├── r01-fix-login-bug/
     │   ├── plan.md       # Execution plan
@@ -24,6 +31,8 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
         ├── plan.md
         └── result.md
 ```
+
+The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki that accumulates knowledge from all runs, decisions, and security scans.
 
 ## Phases
 
