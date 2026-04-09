@@ -25,6 +25,13 @@ public interface ITicketProvider : ITypedProvider
         => throw new NotSupportedException($"CreateAsync is not supported by {nameof(ITicketProvider)}");
 
     /// <summary>
+    /// Creates a new ticket with the given title, description, and labels.
+    /// Returns the ID of the newly created ticket.
+    /// </summary>
+    Task<int> CreateAsync(string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        => CreateAsync(title, description, cancellationToken);
+
+    /// <summary>
     /// Posts a status comment to the ticket.
     /// </summary>
     Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)

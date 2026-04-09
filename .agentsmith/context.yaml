@@ -133,10 +133,9 @@ state:
     p57a: "Skill standard: SKILL.md + agentsmith.md format, SkillLoader dual-format support, 33 skills migrated, SkillSource provenance model (755 tests)"
     p57b: "Skill manager: skill-manager pipeline, DiscoverSkills/EvaluateSkills/DraftSkillFiles/ApproveSkills/InstallSkills handlers, LLM-based fit+safety evaluation, human approval via dialogue (815 tests)"
     p61: "Knowledge base: CompileKnowledgeHandler (incremental wiki from runs), QueryKnowledgeHandler (LLM Q&A against wiki), compile-wiki CLI, .last-compiled tracking, KnowledgeBaseConfig (815 tests)"
+    p57c: "Autonomous pipeline: LoadVision/LoadRuns/WriteTickets handlers, autonomous CLI command, project-vision.md template, AutonomousConfig, agent-smith-autonomous label (831 tests)"
   active: {}
   planned:
-    # --- next up (feature roadmap) ---
-    p57c: "Autonomous pipeline: agent writes tickets (needs p61) → .agentsmith/phases/planned/p57c-autonomous-pipeline.md"
     p62: "Docs update: new pages for all features → .agentsmith/phases/planned/p62-docs-update.md"
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"

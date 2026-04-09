@@ -65,4 +65,8 @@ public static class ContextKeys
     public const string ApprovedSkills = "ApprovedSkills";
     public const string WikiUpdates = "WikiUpdates";
     public const string QueryAnswer = "QueryAnswer";
+    public const string ProjectVision = "ProjectVision";
+    public const string RunHistory = "RunHistory";
+    public const string AutonomousFindings = "AutonomousFindings";
+    public const string WrittenTickets = "WrittenTickets";
 }
