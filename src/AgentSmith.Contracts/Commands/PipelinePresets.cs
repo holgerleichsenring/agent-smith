@@ -101,6 +101,16 @@ public static class PipelinePresets
         CommandNames.DeliverFindings,
     ];
 
+    public static readonly IReadOnlyList<string> SkillManager =
+    [
+        CommandNames.DiscoverSkills,
+        CommandNames.EvaluateSkills,
+        CommandNames.DraftSkillFiles,
+        CommandNames.ApproveSkills,
+        CommandNames.InstallSkills,
+        CommandNames.WriteRunResult,
+    ];
+
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
     {
         ["fix-bug"] = FixBug,
@@ -111,6 +121,7 @@ public static class PipelinePresets
         ["legal-analysis"] = LegalAnalysis,
         ["security-scan"] = SecurityScan,
         ["api-security-scan"] = ApiSecurityScan,
+        ["skill-manager"] = SkillManager,
     };
 
     public static IReadOnlyList<string> Names { get; } = All.Keys.ToList();
@@ -132,6 +143,7 @@ public static class PipelinePresets
         ["api-security-scan"] = "skills/api-security",
         ["legal-analysis"] = "skills/legal",
         ["mad-discussion"] = "skills/mad",
+        ["skill-manager"] = "skills/coding",
     };
 
     /// <summary>
