@@ -74,7 +74,6 @@ public static class PipelinePresets
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
-        CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
         CommandNames.SecurityTrend,         // p60: git-based trend analysis
         CommandNames.CompressSecurityFindings,
         CommandNames.LoadSkills,
