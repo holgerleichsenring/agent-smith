@@ -1,9 +1,6 @@
 ---
 name: dast-false-positive-filter
-display-name: "DAST False Positive Filter"
-emoji: "\U0001F6AB"
 description: "ZAP-specific false positive filtering based on known FP patterns, confidence thresholds, and scan context"
-triggers: [zap-filter, dast-fp, false-positive]
 version: 1.0.0
 ---
 

@@ -1,16 +1,6 @@
 ---
 name: auth-reviewer
-display-name: "Auth Reviewer"
-emoji: "🔐"
 description: "Specializes in authentication and authorization: OAuth, JWT, session handling"
-triggers:
-  - authentication
-  - authorization
-  - oauth
-  - jwt
-  - session
-  - login
-  - token
 version: 1.0.0
 ---
 

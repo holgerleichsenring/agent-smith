@@ -168,12 +168,25 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
             Rules = body.Trim()
         };
 
-        // Load agentsmith.md (convergence criteria)
+        // Load agentsmith.md (AS-specific extensions: display-name, emoji, triggers, convergence)
         var agentSmithPath = Path.Combine(skillDirectory, "agentsmith.md");
         if (File.Exists(agentSmithPath))
         {
             var agentSmithContent = File.ReadAllText(agentSmithPath);
             role.ConvergenceCriteria = ParseConvergenceCriteria(agentSmithContent);
+
+            // AS-specific fields override SKILL.md frontmatter when present
+            var displayName = ParseSingleField(agentSmithContent, "display-name");
+            if (!string.IsNullOrEmpty(displayName))
+                role.DisplayName = displayName;
+
+            var emoji = ParseSingleField(agentSmithContent, "emoji");
+            if (!string.IsNullOrEmpty(emoji))
+                role.Emoji = emoji;
+
+            var triggers = ParseListSection(agentSmithContent, "triggers");
+            if (triggers.Count > 0)
+                role.Triggers = triggers;
         }
 
         // Load source.md (provenance)
@@ -198,6 +211,63 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
         var frontmatter = content[4..endIndex].Trim();
         var body = content[(endIndex + 4)..];
         return (frontmatter, body);
+    }
+
+    private static string ParseSingleField(string content, string sectionName)
+    {
+        var header = $"## {sectionName}";
+        foreach (var line in content.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Equals(header, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Return the first non-empty line after the header
+            if (!string.IsNullOrWhiteSpace(trimmed) && !trimmed.StartsWith('#'))
+            {
+                // Check if we're past the header
+                var headerIndex = content.IndexOf(header, StringComparison.OrdinalIgnoreCase);
+                if (headerIndex < 0) return string.Empty;
+                var afterHeader = content[(headerIndex + header.Length)..];
+                foreach (var valueLine in afterHeader.Split('\n'))
+                {
+                    var val = valueLine.Trim();
+                    if (!string.IsNullOrWhiteSpace(val) && !val.StartsWith('#'))
+                        return val;
+                }
+            }
+        }
+        return string.Empty;
+    }
+
+    private static List<string> ParseListSection(string content, string sectionName)
+    {
+        var items = new List<string>();
+        var inSection = false;
+        var header = $"## {sectionName}";
+
+        foreach (var line in content.Split('\n'))
+        {
+            var trimmed = line.Trim();
+
+            if (trimmed.Equals(header, StringComparison.OrdinalIgnoreCase))
+            {
+                inSection = true;
+                continue;
+            }
+
+            if (inSection && trimmed.StartsWith("## "))
+                break;
+
+            if (inSection && trimmed.StartsWith("- "))
+            {
+                var value = trimmed[2..].Trim().Trim('"');
+                if (!string.IsNullOrEmpty(value))
+                    items.Add(value);
+            }
+        }
+
+        return items;
     }
 
     private static List<string> ParseConvergenceCriteria(string content)

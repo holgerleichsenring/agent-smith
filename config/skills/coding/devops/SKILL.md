@@ -1,17 +1,6 @@
 ---
 name: devops
-display-name: "DevOps"
-emoji: "⚙️"
 description: "Evaluates infrastructure impact, CI/CD changes, deployment concerns"
-triggers:
-  - infrastructure
-  - ci-cd
-  - deployment
-  - configuration
-  - environment
-  - docker
-  - kubernetes
-  - monitoring
 version: 1.0.0
 ---
 

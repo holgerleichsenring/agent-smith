@@ -1,5 +1,19 @@
 # Agent Smith Configuration
 
+## display-name
+The Devil's Advocate
+
+## emoji
+😈
+
+## triggers
+- assumption
+- consensus
+- certainty
+- agreement
+- bias
+- blind-spot
+
 ## convergence_criteria
 
 - "Every major claim has been stress-tested"

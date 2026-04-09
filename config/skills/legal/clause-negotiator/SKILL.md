@@ -1,12 +1,6 @@
 ---
 name: clause-negotiator
-display-name: "Clause Negotiator"
-emoji: "✏️"
 description: "Proposes concrete alternative formulations for problematic clauses"
-triggers:
-  - werkvertrag
-  - saas-agb
-  - negotiation-requested
 version: 1.0.0
 ---
 

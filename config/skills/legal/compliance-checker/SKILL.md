@@ -1,13 +1,6 @@
 ---
 name: compliance-checker
-display-name: "Compliance Checker"
-emoji: "🔏"
 description: "Checks for DSGVO compliance and AGB-Recht validity (§305-310 BGB)"
-triggers:
-  - saas-agb
-  - werkvertrag
-  - dienstleistungsvertrag
-  - b2c-contract
 version: 1.0.0
 ---
 

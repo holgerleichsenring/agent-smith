@@ -1,16 +1,6 @@
 ---
 name: compliance-checker
-display-name: "Compliance Checker"
-emoji: "📋"
 description: "Evaluates PII handling, privacy compliance (GDPR/DSGVO), and data protection practices"
-triggers:
-  - logging
-  - pii
-  - gdpr
-  - compliance
-  - privacy
-  - analytics
-  - error-handling
 version: 1.0.0
 ---
 

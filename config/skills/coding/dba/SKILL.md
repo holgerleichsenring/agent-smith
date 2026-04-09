@@ -1,15 +1,6 @@
 ---
 name: dba
-display-name: "DBA"
-emoji: "🗄️"
 description: "Evaluates database schema changes, query performance, data integrity"
-triggers:
-  - database
-  - schema-change
-  - migration
-  - query-performance
-  - data-integrity
-  - indexing
 version: 1.0.0
 ---
 
