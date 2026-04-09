@@ -68,6 +68,13 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         services.AddTransient<ICommandHandler<AskContext>, AskCommandHandler>();
         services.AddTransient<ICommandHandler<SpawnFixContext>, SpawnFixHandler>();
+        services.AddTransient<ICommandHandler<DiscoverSkillsContext>, DiscoverSkillsHandler>();
+        services.AddTransient<ICommandHandler<EvaluateSkillsContext>, EvaluateSkillsHandler>();
+        services.AddTransient<ICommandHandler<DraftSkillFilesContext>, DraftSkillFilesHandler>();
+        services.AddTransient<ICommandHandler<ApproveSkillsContext>, ApproveSkillsHandler>();
+        services.AddTransient<ICommandHandler<InstallSkillsContext>, InstallSkillsHandler>();
+        services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
+        services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddTransient<MetaFileBootstrapper>();
     }
 
@@ -118,6 +125,13 @@ public static class ServiceCollectionExtensions
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
         AddBuilder<SpawnFixContextBuilder>(services, CommandNames.SpawnFix);
+        AddBuilder<DiscoverSkillsContextBuilder>(services, CommandNames.DiscoverSkills);
+        AddBuilder<EvaluateSkillsContextBuilder>(services, CommandNames.EvaluateSkills);
+        AddBuilder<DraftSkillFilesContextBuilder>(services, CommandNames.DraftSkillFiles);
+        AddBuilder<ApproveSkillsContextBuilder>(services, CommandNames.ApproveSkills);
+        AddBuilder<InstallSkillsContextBuilder>(services, CommandNames.InstallSkills);
+        AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
+        AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
