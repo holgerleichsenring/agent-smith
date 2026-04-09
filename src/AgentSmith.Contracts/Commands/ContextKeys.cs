@@ -59,4 +59,10 @@ public static class ContextKeys
     public const string DialogueAnswer = "DialogueAnswer";
     public const string DialogueQuestion = "DialogueQuestion";
     public const string SecurityFixRequests = "SecurityFixRequests";
+    public const string SkillCandidates = "SkillCandidates";
+    public const string SkillEvaluations = "SkillEvaluations";
+    public const string SkillInstallPath = "SkillInstallPath";
+    public const string ApprovedSkills = "ApprovedSkills";
+    public const string WikiUpdates = "WikiUpdates";
+    public const string QueryAnswer = "QueryAnswer";
 }

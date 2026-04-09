@@ -50,6 +50,13 @@ public static class CommandNames
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
     public const string Ask = "AskCommand";
     public const string SpawnFix = "SpawnFixCommand";
+    public const string DiscoverSkills = "DiscoverSkillsCommand";
+    public const string EvaluateSkills = "EvaluateSkillsCommand";
+    public const string DraftSkillFiles = "DraftSkillFilesCommand";
+    public const string ApproveSkills = "ApproveSkillsCommand";
+    public const string InstallSkills = "InstallSkillsCommand";
+    public const string CompileKnowledge = "CompileKnowledgeCommand";
+    public const string QueryKnowledge = "QueryKnowledgeCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -111,5 +118,12 @@ public static class CommandNames
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
         [SpawnFix] = "Generating security fix requests",
+        [DiscoverSkills] = "Discovering skill candidates",
+        [EvaluateSkills] = "Evaluating skill candidates",
+        [DraftSkillFiles] = "Drafting skill files",
+        [ApproveSkills] = "Awaiting skill approval",
+        [InstallSkills] = "Installing approved skills",
+        [CompileKnowledge] = "Compiling knowledge base",
+        [QueryKnowledge] = "Querying knowledge base",
     };
 }
