@@ -20,7 +20,7 @@
         "green": true
       },
       {
-        "text": "13 steps"
+        "text": "14 steps"
       }
     ],
     "demo": [
@@ -36,79 +36,79 @@
       },
       {
         "type": "step",
-        "num": " [1/13]",
+        "num": " [1/14]",
         "name": "FetchTicket      ",
         "desc": "Null ref in UserService"
       },
       {
         "type": "step",
-        "num": " [2/13]",
+        "num": " [2/14]",
         "name": "CheckoutSource   ",
         "desc": "Branch fix/54 created"
       },
       {
         "type": "step",
-        "num": " [3/13]",
+        "num": " [3/14]",
         "name": "BootstrapProject ",
         "desc": "C# .NET 8 detected"
       },
       {
         "type": "step",
-        "num": " [4/13]",
+        "num": " [4/14]",
         "name": "LoadCodeMap      ",
         "desc": "483 files mapped"
       },
       {
         "type": "step",
-        "num": " [5/13]",
+        "num": " [5/14]",
         "name": "Triage           ",
         "desc": "backend-dev, tester"
       },
       {
         "type": "step",
-        "num": " [6/13]",
+        "num": " [6/14]",
         "name": "GeneratePlan     ",
         "desc": "Consensus after 1 round"
       },
       {
         "type": "step",
-        "num": " [7/13]",
+        "num": " [7/14]",
         "name": "Approval         ",
         "desc": "<span class=\"dok\">Approved &#10003;</span>"
       },
       {
         "type": "step",
-        "num": " [8/13]",
+        "num": " [8/14]",
         "name": "AgenticExecute   ",
         "desc": "UserService.cs modified"
       },
       {
         "type": "step",
-        "num": " [9/13]",
+        "num": " [9/14]",
         "name": "Test             ",
         "desc": "<span class=\"dok\">47 tests passed &#10003;</span>"
       },
       {
         "type": "step",
-        "num": "[10/13]",
+        "num": "[10/14]",
         "name": "CommitAndPR      ",
         "desc": "<span class=\"durl\">github.com/&hellip;/pull/42</span>"
       },
       {
         "type": "step",
-        "num": "[11/13]",
+        "num": "[11/14]",
         "name": "ReviewChecks     ",
         "desc": "<span class=\"dok\">CI passed &#10003;</span>"
       },
       {
         "type": "step",
-        "num": "[12/13]",
+        "num": "[12/14]",
         "name": "UpdateTicket     ",
         "desc": "#54 &rarr; Done"
       },
       {
         "type": "step",
-        "num": "[13/13]",
+        "num": "[13/14]",
         "name": "Notify           ",
         "desc": "Slack #dev-ops"
       },
@@ -167,7 +167,7 @@
         "green": true
       },
       {
-        "text": "8&ndash;11 steps"
+        "text": "9 steps"
       }
     ],
     "demo": [
@@ -792,6 +792,38 @@
       {
         "text": "TypeScript",
         "green": true
+      }
+    ]
+  },
+  {
+    "id": "autonomous",
+    "cmd": "agent-smith autonomous",
+    "name": "Autonomous",
+    "desc": "Observes a project, identifies improvements, and writes tickets autonomously.",
+    "icon": "<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83\"/></svg>",
+    "tags": [
+      {
+        "text": "Multi-role",
+        "green": true
+      },
+      {
+        "text": "11 steps"
+      }
+    ]
+  },
+  {
+    "id": "skill-manager",
+    "cmd": "agent-smith skill-manager",
+    "name": "Skill Manager",
+    "desc": "Discovers, evaluates, and installs specialist skills from registries.",
+    "icon": "<svg viewBox=\"0 0 24 24\"><path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"/></svg>",
+    "tags": [
+      {
+        "text": "Registry",
+        "green": true
+      },
+      {
+        "text": "6 steps"
       }
     ]
   },

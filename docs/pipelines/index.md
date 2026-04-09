@@ -1,6 +1,6 @@
 # Pipelines
 
-Agent Smith ships with **8 pipeline presets** — pre-built sequences of command handlers that cover the most common AI orchestration workflows.
+Agent Smith ships with **10 pipeline presets** — pre-built sequences of command handlers that cover the most common AI orchestration workflows.
 
 ## Pipeline Overview
 
