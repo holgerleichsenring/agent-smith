@@ -760,6 +760,7 @@
   },
   {
     "id": "feature",
+    "tabLabel": "feature",
     "cmd": "agent-smith feature",
     "name": "Add Feature",
     "desc": "Like fix-bug &mdash; plus generates tests and documentation automatically.",
@@ -772,10 +773,30 @@
       {
         "text": "16 steps"
       }
+    ],
+    "demo": [
+      { "type": "prompt", "text": "agent-smith feature --ticket 12 --project my-api" },
+      { "type": "blank" },
+      { "type": "sep" },
+      { "type": "step", "num": " [1/16]", "name": "FetchTicket      ", "desc": "Add pagination to /orders" },
+      { "type": "step", "num": " [2/16]", "name": "CheckoutSource   ", "desc": "Branch feat/12 created" },
+      { "type": "step", "num": " [3/16]", "name": "BootstrapProject ", "desc": "C# .NET 8 detected" },
+      { "type": "step", "num": " [4/16]", "name": "LoadCodeMap      ", "desc": "483 files mapped" },
+      { "type": "step", "num": " [5/16]", "name": "Triage           ", "desc": "backend-dev, api-designer" },
+      { "type": "step", "num": " [6/16]", "name": "GeneratePlan     ", "desc": "Consensus after 2 rounds" },
+      { "type": "step", "num": " [7/16]", "name": "Approval         ", "desc": "<span class=\"dok\">Approved &#10003;</span>" },
+      { "type": "step", "num": " [8/16]", "name": "AgenticExecute   ", "desc": "OrderController.cs + OrderQuery.cs" },
+      { "type": "step", "num": " [9/16]", "name": "GenerateTests    ", "desc": "3 test classes created" },
+      { "type": "step", "num": "[10/16]", "name": "Test             ", "desc": "<span class=\"dok\">62 tests passed &#10003;</span>" },
+      { "type": "step", "num": "[11/16]", "name": "GenerateDocs     ", "desc": "API docs updated" },
+      { "type": "step", "num": "[12/16]", "name": "CommitAndPR      ", "desc": "<span class=\"durl\">github.com/&hellip;/pull/55</span>" },
+      { "type": "blank" },
+      { "type": "ok", "text": "&#10003; PR created &middot; Tests generated &middot; Docs updated &middot; $0.032" }
     ]
   },
   {
     "id": "init",
+    "tabLabel": "init",
     "cmd": "agent-smith init",
     "name": "Init Project",
     "desc": "Bootstraps .agentsmith/ &mdash; detects language, framework, conventions.",
@@ -793,10 +814,21 @@
         "text": "TypeScript",
         "green": true
       }
+    ],
+    "demo": [
+      { "type": "prompt", "text": "agent-smith init --project my-api" },
+      { "type": "blank" },
+      { "type": "sep" },
+      { "type": "step", "num": "[1/3]", "name": "CheckoutSource   ", "desc": "Cloned to /tmp/my-api" },
+      { "type": "step", "num": "[2/3]", "name": "BootstrapProject ", "desc": "C# .NET 8, xUnit, EF Core" },
+      { "type": "step", "num": "[3/3]", "name": "InitCommit       ", "desc": "context.yaml + code-map.yaml + coding-principles.md" },
+      { "type": "blank" },
+      { "type": "ok", "text": "&#10003; .agentsmith/ bootstrapped &middot; $0.004" }
     ]
   },
   {
     "id": "autonomous",
+    "tabLabel": "autonomous",
     "cmd": "agent-smith autonomous",
     "name": "Autonomous",
     "desc": "Observes a project, identifies improvements, and writes tickets autonomously.",
@@ -809,10 +841,29 @@
       {
         "text": "11 steps"
       }
+    ],
+    "demo": [
+      { "type": "prompt", "text": "agent-smith autonomous --project my-api" },
+      { "type": "blank" },
+      { "type": "sep" },
+      { "type": "step", "num": " [1/11]", "name": "CheckoutSource   ", "desc": "Cloned my-api" },
+      { "type": "step", "num": " [2/11]", "name": "BootstrapProject ", "desc": "C# .NET 8 detected" },
+      { "type": "step", "num": " [3/11]", "name": "LoadContext       ", "desc": "12 phases, 47 runs loaded" },
+      { "type": "step", "num": " [4/11]", "name": "LoadCodeMap      ", "desc": "483 files mapped" },
+      { "type": "step", "num": " [5/11]", "name": "LoadVision       ", "desc": "Reliability &amp; zero data loss" },
+      { "type": "step", "num": " [6/11]", "name": "LoadRuns         ", "desc": "Last 10 runs analyzed" },
+      { "type": "step", "num": " [7/11]", "name": "Triage           ", "desc": "architect, developer, security" },
+      { "type": "step", "num": " [8/11]", "name": "SkillRounds      ", "desc": "Consensus after 2 rounds" },
+      { "type": "step", "num": " [9/11]", "name": "CompileDiscussion", "desc": "Top 3 improvements ranked" },
+      { "type": "step", "num": "[10/11]", "name": "WriteTickets     ", "desc": "<span class=\"dok\">3 tickets created &#10003;</span>" },
+      { "type": "step", "num": "[11/11]", "name": "WriteRunResult   ", "desc": "r48-autonomous logged" },
+      { "type": "blank" },
+      { "type": "ok", "text": "&#10003; 3 tickets written &middot; Confidence &ge; 8 &middot; $0.026" }
     ]
   },
   {
     "id": "skill-manager",
+    "tabLabel": "skills",
     "cmd": "agent-smith skill-manager",
     "name": "Skill Manager",
     "desc": "Discovers, evaluates, and installs specialist skills from registries.",
@@ -825,6 +876,19 @@
       {
         "text": "6 steps"
       }
+    ],
+    "demo": [
+      { "type": "prompt", "text": "agent-smith skill-manager --project my-api --topic api-security" },
+      { "type": "blank" },
+      { "type": "sep" },
+      { "type": "step", "num": "[1/6]", "name": "DiscoverSkills   ", "desc": "Searching registries&hellip;" },
+      { "type": "step", "num": "[2/6]", "name": "EvaluateSkills   ", "desc": "7 candidates, 3 relevant" },
+      { "type": "step", "num": "[3/6]", "name": "DraftSkillFiles  ", "desc": "3 SKILL.md files drafted" },
+      { "type": "step", "num": "[4/6]", "name": "ApproveSkills    ", "desc": "<span class=\"dok\">Approved &#10003;</span>" },
+      { "type": "step", "num": "[5/6]", "name": "InstallSkills    ", "desc": "Installed to config/skills/" },
+      { "type": "step", "num": "[6/6]", "name": "WriteRunResult   ", "desc": "r49-skill-manager logged" },
+      { "type": "blank" },
+      { "type": "ok", "text": "&#10003; 3 skills installed &middot; $0.008" }
     ]
   },
   {
