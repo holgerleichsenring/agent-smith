@@ -1,6 +1,7 @@
-# Agent Smith Extensions
+# Agent Smith Configuration
 
 ## convergence_criteria
+
 - "Every finding has been reviewed for false positive indicators"
 - "No finding with confidence < 7 remains"
 - "Nuclei-specific heuristics applied to all scanner findings"
