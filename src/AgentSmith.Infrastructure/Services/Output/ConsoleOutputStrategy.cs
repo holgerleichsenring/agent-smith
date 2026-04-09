@@ -61,15 +61,19 @@ public sealed class ConsoleOutputStrategy(
     private static string FormatFindings(OutputContext context)
     {
         var summary = FindingSummary.From(context.Findings);
+        var reviewInfo = summary.Confirmed > 0 || summary.NotReviewed < summary.Total
+            ? $" — {summary.Confirmed} confirmed, {summary.NotReviewed} not reviewed"
+            : "";
         var lines = new List<string>
         {
-            $"Found {summary.Total} issues ({summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW)",
+            $"Found {summary.Total} issues ({summary.Critical} CRITICAL, {summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW){reviewInfo}",
             ""
         };
 
         foreach (var finding in context.Findings)
         {
-            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.File}:{finding.StartLine} — {finding.Title}");
+            var status = finding.ReviewStatus == "confirmed" ? " ✓" : "";
+            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.File}:{finding.StartLine} — {finding.Title}{status}");
         }
 
         return string.Join("\n", lines);
