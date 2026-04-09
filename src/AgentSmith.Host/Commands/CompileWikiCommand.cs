@@ -16,10 +16,11 @@ internal static class CompileWikiCommand
     {
         var projectOption = new Option<string>("--project", "Project directory containing .agentsmith/runs/") { IsRequired = true };
         var fullOption = new Option<bool>("--full", "Ignore .last-compiled and recompile all runs");
+        var dryRunOption = new Option<bool>("--dry-run", "Show what would be compiled without executing");
 
         var cmd = new Command("compile-wiki", "Compile run history into a project knowledge base wiki")
         {
-            projectOption, configOption, verboseOption, fullOption
+            projectOption, configOption, verboseOption, fullOption, dryRunOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -27,8 +28,22 @@ internal static class CompileWikiCommand
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var fullRecompile = ctx.ParseResult.GetValueForOption(fullOption);
+            var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
 
             var projectPath = Path.GetFullPath(project);
+
+            if (isDryRun)
+            {
+                Console.WriteLine("Dry run - would execute:");
+                Console.WriteLine($"  Command:  compile-wiki");
+                Console.WriteLine($"  Project:  {projectPath}");
+                Console.WriteLine($"  Full:     {fullRecompile}");
+                Console.WriteLine("  Steps:");
+                Console.WriteLine("    - Scan .agentsmith/runs/ for new runs");
+                Console.WriteLine("    - Compile run results into knowledge base wiki");
+                Console.WriteLine("    - Update .last-compiled marker");
+                return;
+            }
 
             if (!Directory.Exists(projectPath))
             {
