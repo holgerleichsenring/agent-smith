@@ -111,6 +111,21 @@ public static class PipelinePresets
         CommandNames.WriteRunResult,
     ];
 
+    public static readonly IReadOnlyList<string> Autonomous =
+    [
+        CommandNames.CheckoutSource,
+        CommandNames.BootstrapProject,
+        CommandNames.LoadContext,
+        CommandNames.LoadCodeMap,
+        CommandNames.LoadVision,
+        CommandNames.LoadRuns,
+        CommandNames.Triage,
+        CommandNames.ConvergenceCheck,
+        CommandNames.CompileDiscussion,
+        CommandNames.WriteTickets,
+        CommandNames.WriteRunResult,
+    ];
+
     private static readonly Dictionary<string, IReadOnlyList<string>> All = new(StringComparer.OrdinalIgnoreCase)
     {
         ["fix-bug"] = FixBug,
@@ -122,6 +137,7 @@ public static class PipelinePresets
         ["security-scan"] = SecurityScan,
         ["api-security-scan"] = ApiSecurityScan,
         ["skill-manager"] = SkillManager,
+        ["autonomous"] = Autonomous,
     };
 
     public static IReadOnlyList<string> Names { get; } = All.Keys.ToList();
@@ -144,6 +160,7 @@ public static class PipelinePresets
         ["legal-analysis"] = "skills/legal",
         ["mad-discussion"] = "skills/mad",
         ["skill-manager"] = "skills/coding",
+        ["autonomous"] = "skills/coding",
     };
 
     /// <summary>
