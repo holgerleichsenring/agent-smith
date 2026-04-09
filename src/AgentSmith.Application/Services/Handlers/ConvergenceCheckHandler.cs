@@ -35,6 +35,13 @@ public sealed class ConvergenceCheckHandler(
     public async Task<CommandResult> ExecuteAsync(
         ConvergenceCheckContext context, CancellationToken cancellationToken)
     {
+        // Structured/hierarchical pipelines don't use convergence — single call per skill
+        if (context.Pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
+            && pipelineType is not PipelineType.Discussion)
+        {
+            return CommandResult.Ok("Structured pipeline — no convergence check needed");
+        }
+
         if (!context.Pipeline.TryGet<List<DiscussionEntry>>(
                 ContextKeys.DiscussionLog, out var discussionLog) || discussionLog is null)
         {

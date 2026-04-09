@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -32,15 +33,21 @@ public sealed class SecuritySkillRoundHandler(
               $"Dependencies: {string.Join(", ", codeAnalysis.Dependencies.Take(20))}"
             : "Code analysis not available";
 
-        // Get skill-specific findings slice (set by triage via SkillName in command)
+        // Get skill-specific findings slice using ActiveSkill (set by SkillRoundHandlerBase)
         var skillFindings = "";
         if (categorySlices is not null)
         {
-            // SkillName is accessible via the current execution context
-            // We inject it via the pipeline's ActiveSkill key
             pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var activeSkill);
             if (activeSkill is not null)
-                skillFindings = SecurityFindingsCompressor.GetSliceForSkill(activeSkill, categorySlices);
+            {
+                // Prefer orchestration-declared input categories over hardcoded mapping
+                var roles = pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+                    ContextKeys.AvailableRoles, out var r) ? r : null;
+                var inputCategories = roles?.FirstOrDefault(x => x.Name == activeSkill)
+                    ?.Orchestration?.InputCategories;
+                skillFindings = SecurityFindingsCompressor.GetSliceForSkill(
+                    activeSkill, categorySlices, inputCategories);
+            }
         }
 
         return $"""
