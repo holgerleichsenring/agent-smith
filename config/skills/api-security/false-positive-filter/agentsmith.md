@@ -16,3 +16,11 @@ False Positive Filter
 - "Nuclei-specific heuristics applied to all scanner findings"
 - "Duplicate findings deduplicated, highest confidence entry retained"
 - "Filtered count and reasons documented"
+
+## orchestration
+role: gate
+output: list
+runs_after: contributor
+runs_before: executor
+parallel_with: dast-false-positive-filter
+input_categories: 

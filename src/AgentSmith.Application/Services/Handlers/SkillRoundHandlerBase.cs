@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
@@ -36,6 +37,18 @@ public abstract class SkillRoundHandlerBase
         var role = roles.FirstOrDefault(r => r.Name == skillName);
         if (role is null)
             return CommandResult.Fail($"Role '{skillName}' not found");
+
+        // Fix: set ActiveSkill to current skill name for BuildDomainSection
+        pipeline.Set(ContextKeys.ActiveSkill, skillName);
+
+        // Structured/hierarchical pipelines: single typed call per skill, no discussion
+        if (role.Orchestration is not null
+            && pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
+            && pipelineType is not PipelineType.Discussion)
+        {
+            return await ExecuteStructuredRoundAsync(
+                skillName, role, pipeline, llmClient, cancellationToken);
+        }
 
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
         pipeline.TryGet<string>(ContextKeys.DomainRules, out var domainRules);
@@ -81,6 +94,163 @@ public abstract class SkillRoundHandlerBase
         }
 
         return CommandResult.Ok($"{role.DisplayName} (Round {round}): contributed");
+    }
+
+    private async Task<CommandResult> ExecuteStructuredRoundAsync(
+        string skillName, RoleSkillDefinition role, PipelineContext pipeline,
+        ILlmClient llmClient, CancellationToken cancellationToken)
+    {
+        var orch = role.Orchestration!;
+        var domainSection = BuildDomainSection(pipeline);
+
+        // Collect upstream outputs for gate/lead/executor roles
+        if (!pipeline.TryGet<Dictionary<string, string>>(
+                ContextKeys.SkillOutputs, out var skillOutputs) || skillOutputs is null)
+        {
+            skillOutputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var upstreamContext = orch.Role switch
+        {
+            SkillRole.Gate => BuildGateInput(skillOutputs),
+            SkillRole.Lead => BuildLeadInput(skillOutputs),
+            SkillRole.Executor => BuildExecutorInput(pipeline, skillOutputs),
+            _ => "" // Contributors get domain section only
+        };
+
+        var outputInstruction = orch.Role switch
+        {
+            SkillRole.Contributor => "Respond with a JSON array of findings. Each finding: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\" }. Max 50 items.",
+            SkillRole.Gate when orch.Output == SkillOutputType.List =>
+                "Review all findings. Respond with JSON: { \"confirmed\": [...], \"rejected\": [...] }. Each item: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"reason\": \"\" }.",
+            SkillRole.Gate when orch.Output == SkillOutputType.Verdict =>
+                "Review the analysis. Respond with JSON: { \"pass\": true/false, \"reason\": \"\" }.",
+            SkillRole.Lead =>
+                "Synthesize the findings into a structured assessment. Respond with a clear, numbered summary.",
+            SkillRole.Executor =>
+                "Based on the plan/assessment, produce your output.",
+            _ => "Respond concisely."
+        };
+
+        var systemPrompt = $"""
+            ## Your Role
+            {role.DisplayName}: {role.Description}
+
+            ## Role-Specific Rules
+            {role.Rules}
+            """;
+
+        var userPrompt = $"""
+            {domainSection}
+
+            {(string.IsNullOrEmpty(upstreamContext) ? "" : $"## Upstream Analysis\n{upstreamContext}\n")}
+
+            ## Output Format
+            {outputInstruction}
+            """;
+
+        var llmResponse = await llmClient.CompleteAsync(
+            systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+        PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
+
+        Logger.LogInformation(
+            "{Emoji} {DisplayName} [{Role}]: structured round complete",
+            role.Emoji, role.DisplayName, orch.Role);
+
+        // Store output
+        skillOutputs[skillName] = llmResponse.Text;
+        pipeline.Set(ContextKeys.SkillOutputs, skillOutputs);
+
+        // Handle gate veto
+        if (orch.Role == SkillRole.Gate)
+        {
+            return HandleGateOutput(role, orch, llmResponse.Text);
+        }
+
+        // Lead stores plan in context for downstream
+        if (orch.Role == SkillRole.Lead)
+        {
+            pipeline.Set(ContextKeys.ConsolidatedPlan, llmResponse.Text);
+        }
+
+        return CommandResult.Ok($"{role.DisplayName} [{orch.Role}]: complete");
+    }
+
+    private static string BuildGateInput(Dictionary<string, string> skillOutputs)
+    {
+        if (skillOutputs.Count == 0) return "No upstream findings.";
+        return string.Join("\n\n---\n\n",
+            skillOutputs.Select(kv => $"### {kv.Key}\n{kv.Value}"));
+    }
+
+    private static string BuildLeadInput(Dictionary<string, string> skillOutputs)
+    {
+        if (skillOutputs.Count == 0) return "No upstream findings.";
+        return string.Join("\n\n---\n\n",
+            skillOutputs.Select(kv => $"### {kv.Key}\n{kv.Value}"));
+    }
+
+    private static string BuildExecutorInput(PipelineContext pipeline, Dictionary<string, string> skillOutputs)
+    {
+        pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var plan);
+        var sb = new System.Text.StringBuilder();
+        if (!string.IsNullOrEmpty(plan))
+            sb.AppendLine($"## Plan\n{plan}\n");
+        if (skillOutputs.Count > 0)
+            sb.AppendLine($"## Prior Outputs\n{BuildGateInput(skillOutputs)}");
+        return sb.ToString();
+    }
+
+    private static CommandResult HandleGateOutput(
+        RoleSkillDefinition role, SkillOrchestration orch, string responseText)
+    {
+        if (orch.Output == SkillOutputType.Verdict)
+        {
+            // Parse verdict JSON: { "pass": true/false, "reason": "..." }
+            try
+            {
+                var json = ExtractJson(responseText);
+                using var doc = JsonDocument.Parse(json);
+                var pass = doc.RootElement.GetProperty("pass").GetBoolean();
+                var reason = doc.RootElement.TryGetProperty("reason", out var r) ? r.GetString() : "";
+                if (!pass)
+                    return CommandResult.Fail($"Gate veto ({role.DisplayName}): {reason}");
+            }
+            catch
+            {
+                // If we can't parse, assume pass
+            }
+            return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+        }
+
+        // List gate: empty confirmed list = veto
+        try
+        {
+            var json = ExtractJson(responseText);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("confirmed", out var confirmed))
+            {
+                var count = confirmed.GetArrayLength();
+                if (count == 0)
+                    return CommandResult.Fail($"Gate veto ({role.DisplayName}): no findings confirmed");
+                return CommandResult.Ok($"Gate {role.DisplayName}: {count} findings confirmed");
+            }
+        }
+        catch
+        {
+            // If we can't parse, assume pass
+        }
+
+        return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+    }
+
+    private static string ExtractJson(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start >= 0 && end > start)
+            return text[start..(end + 1)];
+        return text;
     }
 
     private static async Task<LlmResponse> CallLlmAsync(

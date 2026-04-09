@@ -19,3 +19,11 @@ Security Reviewer
 - "No critical or high security vulnerabilities"
 - "Input validation covers all external data"
 - "Secrets are not exposed in code or configuration"
+
+## orchestration
+role: gate
+output: verdict
+runs_after: contributor
+runs_before: executor
+parallel_with: 
+input_categories: 

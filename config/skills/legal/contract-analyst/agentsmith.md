@@ -19,3 +19,11 @@ Contract Analyst
 
 - "All clauses have been identified and described"
 - "No section of the contract is left unanalyzed"
+
+## orchestration
+role: lead
+output: plan
+runs_after: 
+runs_before: contributor
+parallel_with: 
+input_categories: 

@@ -13,4 +13,5 @@ public sealed class RoleSkillDefinition
     public string Rules { get; set; } = string.Empty;
     public List<string> ConvergenceCriteria { get; set; } = [];
     public SkillSource? Source { get; set; }
+    public SkillOrchestration? Orchestration { get; set; }
 }

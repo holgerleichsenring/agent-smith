@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
@@ -143,6 +145,26 @@ public static class PipelinePresets
 
     public static IReadOnlyList<string>? TryResolve(string name) =>
         All.GetValueOrDefault(name);
+
+    private static readonly Dictionary<string, PipelineType> PipelineTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fix-bug"] = PipelineType.Hierarchical,
+        ["fix-no-test"] = PipelineType.Hierarchical,
+        ["add-feature"] = PipelineType.Hierarchical,
+        ["init-project"] = PipelineType.Discussion,
+        ["security-scan"] = PipelineType.Structured,
+        ["api-security-scan"] = PipelineType.Structured,
+        ["mad-discussion"] = PipelineType.Discussion,
+        ["legal-analysis"] = PipelineType.Discussion,
+        ["skill-manager"] = PipelineType.Discussion,
+        ["autonomous"] = PipelineType.Discussion,
+    };
+
+    /// <summary>
+    /// Returns the pipeline interaction type. Defaults to Discussion for unknown pipelines.
+    /// </summary>
+    public static PipelineType GetPipelineType(string pipelineName) =>
+        PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
 
     /// <summary>
     /// Default skills directory per pipeline preset.

@@ -20,3 +20,11 @@ Auth Tester
 - "All API key transmission patterns checked"
 - "All state-mutating endpoints verified to have an auth requirement"
 - "Bearer vs Cookie mixing assessed for CSRF exposure"
+
+## orchestration
+role: contributor
+output: list
+runs_after: 
+runs_before: gate
+parallel_with: api-design-auditor, dast-analyst
+input_categories: 

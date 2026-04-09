@@ -18,3 +18,11 @@ Product Owner
 - "Acceptance criteria are fully addressed"
 - "No scope creep beyond ticket requirements"
 - "User-facing behavior is clearly defined"
+
+## orchestration
+role: contributor
+output: artifact
+runs_after: lead
+runs_before: gate
+parallel_with: backend-developer, frontend-developer, dba, devops
+input_categories: 
