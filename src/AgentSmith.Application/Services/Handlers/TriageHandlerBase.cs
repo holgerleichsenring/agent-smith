@@ -164,6 +164,16 @@ public abstract class TriageHandlerBase
             stageIndex++;
         }
 
+        // Debug: log orchestration metadata per skill
+        foreach (var role in roles.Where(r => r.Orchestration is not null))
+        {
+            var o = role.Orchestration!;
+            Logger.LogDebug(
+                "[graph] {Skill}: role={Role}, output={Output}, runs_after=[{After}], runs_before=[{Before}]",
+                role.Name, o.Role, o.Output,
+                string.Join(", ", o.RunsAfter), string.Join(", ", o.RunsBefore));
+        }
+
         var totalSkills = graph.Stages.Sum(s => s.Skills.Count);
         var stageDescriptions = graph.Stages.Select((s, i) =>
             $"  Stage {i + 1} ({s.RoleLabel}): {string.Join(", ", s.Skills)}");
