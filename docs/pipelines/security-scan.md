@@ -4,7 +4,7 @@ The **security-scan** pipeline performs a multi-layered code security review com
 
 ## Pipeline Steps
 
-The pipeline has 13 base steps, with dynamic expansion during the skill rounds phase.
+The pipeline has 18 base steps, with dynamic expansion during the skill rounds phase.
 
 | # | Command | What It Does |
 |---|---------|-------------|

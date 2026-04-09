@@ -9,13 +9,15 @@ Agent Smith ships with **8 pipeline presets** — pre-built sequences of command
 | **fix-bug** | `agent-smith fix` | 14 | Ticket → branch → code → test → PR |
 | **fix-no-test** | `agent-smith fix --no-test` | 13 | Like fix-bug, skips the test step |
 | **add-feature** | `agent-smith feature` | 16 | fix-bug + generate tests + generate docs |
-| **security-scan** | `agent-smith security-scan` | 8 | Multi-role code security review with SARIF output |
-| **api-security-scan** | `agent-smith api-scan` | 8 | Nuclei + Spectral + AI specialist panel on live APIs |
+| **security-scan** | `agent-smith security-scan` | 18 | Multi-role code security review with SARIF output |
+| **api-security-scan** | `agent-smith api-scan` | 9 | Nuclei + Spectral + AI specialist panel on live APIs |
 | **legal-analysis** | `agent-smith legal` | 7 | Contract review with 5 legal specialist roles |
 | **mad-discussion** | `agent-smith mad` | 9 | Multi-agent design discussion with convergence |
 | **skill-manager** | `agent-smith skill-manager` | 6 | Discover, evaluate, and install skills |
-| **autonomous** | `agent-smith autonomous` | 9 | Observe project, write tickets autonomously |
+| **autonomous** | `agent-smith autonomous` | 11 | Observe project, write tickets autonomously |
 | **init-project** | `agent-smith init` | 3 | Bootstrap `.agentsmith/` directory in a repo |
+
+All pipeline commands support `--dry-run` to preview the execution plan without running it. Utility commands (`compile-wiki`, `security-trend`) also support `--dry-run`.
 
 ## How Pipelines Work
 
