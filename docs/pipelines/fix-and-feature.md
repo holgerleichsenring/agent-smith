@@ -141,6 +141,10 @@ agent-smith feature --ticket 12 --project my-project --headless
 
 # Fix without running tests
 agent-smith fix --ticket 54 --project my-project --no-test
+
+# Dry run -- show pipeline steps without executing
+agent-smith fix --ticket 54 --project my-project --dry-run
+agent-smith feature --ticket 12 --project my-project --dry-run
 ```
 
 !!! note "Headless mode"
