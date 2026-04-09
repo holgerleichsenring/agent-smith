@@ -9,11 +9,12 @@ The **api-security-scan** pipeline scans a running API against its OpenAPI spec.
 | 1 | LoadSwagger | Loads and parses the swagger.json / OpenAPI spec |
 | 2 | SpawnNuclei | Runs Nuclei vulnerability scanner in a Docker container |
 | 3 | SpawnSpectral | Runs Spectral OWASP linter in a Docker container |
-| 4 | LoadSkills | Loads API security skill definitions from YAML |
-| 5 | ApiSecurityTriage | AI selects specialist roles based on swagger + Nuclei signals |
-| 6 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
-| 7 | CompileFindings | Consolidates all findings into a structured report |
-| 8 | DeliverFindings | Writes output in the requested format(s) |
+| 4 | SpawnZap | Runs OWASP ZAP DAST scan against the target (skips if `dast.enabled: false`) |
+| 5 | LoadSkills | Loads API security skill definitions from YAML |
+| 6 | ApiSecurityTriage | AI selects specialist roles based on swagger + scanner signals |
+| 7 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
+| 8 | CompileFindings | Consolidates all findings into a structured report |
+| 9 | DeliverFindings | Writes output in the requested format(s) |
 
 ## Automated Scanners
 
