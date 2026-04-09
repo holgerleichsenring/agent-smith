@@ -14,11 +14,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SecurityTriageHandler(
     ILlmClientFactory llmClientFactory,
+    ISkillGraphBuilder skillGraphBuilder,
     ILogger<SecurityTriageHandler> logger)
     : TriageHandlerBase, ICommandHandler<SecurityTriageContext>
 {
     protected override ILogger Logger => logger;
     protected override string SkillRoundCommandName => "SecuritySkillRoundCommand";
+    protected override ISkillGraphBuilder? GraphBuilder => skillGraphBuilder;
 
     protected override string BuildUserPrompt(PipelineContext pipeline)
     {

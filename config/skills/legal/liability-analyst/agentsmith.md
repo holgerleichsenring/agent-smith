@@ -16,3 +16,11 @@ Liability Analyst
 
 - "All liability-related clauses identified"
 - "Legal validity assessed for each exclusion clause"
+
+## orchestration
+role: contributor
+output: artifact
+runs_after: lead
+runs_before: executor
+parallel_with: compliance-checker, risk-assessor
+input_categories: 

@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
+        services.AddTransient<ISkillGraphBuilder, SkillGraphBuilder>();
     }
 
     private static void RegisterContextBuilders(IServiceCollection services)

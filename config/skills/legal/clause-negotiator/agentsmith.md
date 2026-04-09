@@ -15,3 +15,11 @@ Clause Negotiator
 
 - "Every HIGH-risk clause has a proposed alternative"
 - "Alternatives are in proper German legal language"
+
+## orchestration
+role: executor
+output: artifact
+runs_after: contributor
+runs_before: 
+parallel_with: 
+input_categories: 

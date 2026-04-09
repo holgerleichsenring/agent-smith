@@ -124,10 +124,18 @@ public static class SecurityFindingsCompressor
 
     /// <summary>
     /// Returns the relevant finding slice for a specific skill.
+    /// Prefers orchestration-declared input categories; falls back to hardcoded mapping.
     /// </summary>
-    public static string GetSliceForSkill(string skillName, Dictionary<string, string> categorySlices)
+    public static string GetSliceForSkill(
+        string skillName,
+        Dictionary<string, string> categorySlices,
+        IReadOnlyList<string>? inputCategories = null)
     {
-        if (!SkillCategories.TryGetValue(skillName, out var categories))
+        var categories = inputCategories is { Count: > 0 }
+            ? inputCategories
+            : SkillCategories.TryGetValue(skillName, out var legacy) ? legacy : null;
+
+        if (categories is null)
             return string.Empty;
 
         var sb = new StringBuilder();

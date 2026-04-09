@@ -130,7 +130,8 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
                     Triggers = role.Triggers,
                     Rules = $"{role.Rules}\n\n## Project-Specific Rules\n{projectConfig.ExtraRules}",
                     ConvergenceCriteria = role.ConvergenceCriteria,
-                    Source = role.Source
+                    Source = role.Source,
+                    Orchestration = role.Orchestration
                 });
             }
             else
@@ -187,6 +188,8 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
             var triggers = ParseListSection(agentSmithContent, "triggers");
             if (triggers.Count > 0)
                 role.Triggers = triggers;
+
+            role.Orchestration = ParseOrchestration(agentSmithContent);
         }
 
         // Load source.md (provenance)
@@ -297,6 +300,68 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
         }
 
         return criteria;
+    }
+
+    private static SkillOrchestration? ParseOrchestration(string content)
+    {
+        var inSection = false;
+        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in content.Split('\n'))
+        {
+            var trimmed = line.Trim();
+
+            if (trimmed.StartsWith("## orchestration", StringComparison.OrdinalIgnoreCase))
+            {
+                inSection = true;
+                continue;
+            }
+
+            if (inSection && trimmed.StartsWith("## "))
+                break;
+
+            if (inSection && trimmed.Contains(':'))
+            {
+                var colonIndex = trimmed.IndexOf(':');
+                var key = trimmed[..colonIndex].Trim();
+                var value = trimmed[(colonIndex + 1)..].Trim();
+                if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(value))
+                    fields[key] = value;
+            }
+        }
+
+        if (fields.Count == 0)
+            return null;
+
+        if (!fields.TryGetValue("role", out var roleStr) ||
+            !Enum.TryParse<SkillRole>(roleStr, ignoreCase: true, out var role))
+        {
+            role = SkillRole.Contributor;
+        }
+
+        if (!fields.TryGetValue("output", out var outputStr) ||
+            !Enum.TryParse<SkillOutputType>(outputStr, ignoreCase: true, out var output))
+        {
+            output = SkillOutputType.Artifact;
+        }
+
+        return new SkillOrchestration(
+            role,
+            output,
+            ParseCommaSeparated(fields.GetValueOrDefault("runs_after", "")),
+            ParseCommaSeparated(fields.GetValueOrDefault("runs_before", "")),
+            ParseCommaSeparated(fields.GetValueOrDefault("parallel_with", "")),
+            ParseCommaSeparated(fields.GetValueOrDefault("input_categories", "")));
+    }
+
+    private static IReadOnlyList<string> ParseCommaSeparated(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Array.Empty<string>();
+
+        return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
     }
 
     private SkillSource? ParseSource(string sourcePath)
