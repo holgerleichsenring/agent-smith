@@ -68,17 +68,49 @@ public sealed class ExtractFindingsHandler(
             }
         }
 
+        var totalRaw = findings.Count;
+
+        // Apply LLM assessments: mark findings as confirmed/false_positive
+        if (pipeline.TryGet<List<FindingAssessment>>(
+                ContextKeys.FindingAssessments, out var assessments) && assessments.Count > 0)
+        {
+            findings = ApplyAssessments(findings, assessments);
+
+            var falsePositives = findings.Count(f => f.ReviewStatus == "false_positive");
+            findings = findings.Where(f => f.ReviewStatus != "false_positive").ToList();
+
+            logger.LogInformation(
+                "Applied {AssessmentCount} assessments: {FP} false positives removed, {Remaining} findings remain",
+                assessments.Count, falsePositives, findings.Count);
+        }
+
         pipeline.Set(ContextKeys.ExtractedFindings, findings.AsReadOnly());
 
         logger.LogInformation(
-            "Extracted {Count} unified findings (static={Static}, history={History}, deps={Deps})",
-            findings.Count,
+            "Extracted {Count} findings from {Raw} raw (static={Static}, history={History}, deps={Deps})",
+            findings.Count, totalRaw,
             staticResult?.Findings.Count ?? 0,
             historyResult?.Findings.Count ?? 0,
             depResult?.Findings.Count ?? 0);
 
         return Task.FromResult(CommandResult.Ok(
-            $"Extracted {findings.Count} findings for output"));
+            $"Extracted {findings.Count} findings from {totalRaw} raw for output"));
+    }
+
+    private static List<Finding> ApplyAssessments(
+        List<Finding> findings, List<FindingAssessment> assessments)
+    {
+        return findings.Select(f =>
+        {
+            var match = assessments.FirstOrDefault(a =>
+                a.File.Equals(f.File, StringComparison.OrdinalIgnoreCase)
+                && (a.Line == f.StartLine
+                    || a.Title.Equals(f.Title, StringComparison.OrdinalIgnoreCase)));
+
+            return match is not null
+                ? f with { ReviewStatus = match.Status }
+                : f;
+        }).ToList();
     }
 
     private static string MapEcosystemToManifest(string ecosystem) =>

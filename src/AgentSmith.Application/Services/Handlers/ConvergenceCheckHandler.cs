@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
@@ -20,6 +21,9 @@ public sealed class ConvergenceCheckHandler(
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
 {
+    private const string AssessmentJsonExample =
+        """{ "summary": "1. ...", "assessments": [{ "file": "src/Foo.cs", "line": 42, "title": "...", "status": "confirmed", "reason": "..." }] }""";
+
     private static readonly Regex ObjectionPattern = new(
         @"OBJECTION",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -111,6 +115,55 @@ public sealed class ConvergenceCheckHandler(
         return CommandResult.Ok($"Consensus reached after {currentMaxRound} round(s)");
     }
 
+    internal static (string Summary, List<FindingAssessment> Assessments) ParseConsolidationResponse(string response)
+    {
+        try
+        {
+            var jsonStart = response.IndexOf('{');
+            var jsonEnd = response.LastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart)
+            {
+                var json = response[jsonStart..(jsonEnd + 1)];
+                var parsed = JsonSerializer.Deserialize<ConsolidationResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (parsed is not null)
+                {
+                    var assessments = (parsed.Assessments ?? [])
+                        .Where(a => a.Status is "confirmed" or "false_positive")
+                        .Select(a => new FindingAssessment(
+                            a.File ?? "", a.Line, a.Title ?? "", a.Status ?? "confirmed", a.Reason ?? ""))
+                        .ToList();
+
+                    return (parsed.Summary ?? response, assessments);
+                }
+            }
+        }
+        catch
+        {
+            // JSON parsing failed — fall back to raw text as summary
+        }
+
+        return (response, []);
+    }
+
+    private sealed class ConsolidationResponse
+    {
+        public string? Summary { get; set; }
+        public List<AssessmentEntry>? Assessments { get; set; }
+    }
+
+    private sealed class AssessmentEntry
+    {
+        public string? File { get; set; }
+        public int Line { get; set; }
+        public string? Title { get; set; }
+        public string? Status { get; set; }
+        public string? Reason { get; set; }
+    }
+
     private async Task ConsolidatePlanAsync(
         ConvergenceCheckContext context,
         List<DiscussionEntry> discussionLog,
@@ -147,7 +200,18 @@ public sealed class ConvergenceCheckHandler(
 
             ## Task
             Create a consolidated summary that incorporates all findings and agreed-upon decisions.
-            Format as a numbered list of concrete items.
+
+            Respond with a JSON object containing:
+            1. "summary" — a numbered list of concrete findings and recommendations (string)
+            2. "assessments" — an array of finding assessments, one per finding discussed.
+               Each assessment has: "file" (string), "line" (int), "title" (string),
+               "status" ("confirmed" or "false_positive"), "reason" (brief explanation).
+
+            Only include findings that were explicitly discussed. Findings not listed
+            are treated as not_reviewed (they are NOT filtered out).
+
+            Example:
+            {AssessmentJsonExample}
             """;
 
         try
@@ -155,9 +219,20 @@ public sealed class ConvergenceCheckHandler(
             var llmResponse = await llmClient.CompleteAsync(
                 systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
             PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
-            var consolidatedPlan = llmResponse.Text;
+
+            var (consolidatedPlan, assessments) = ParseConsolidationResponse(llmResponse.Text);
 
             context.Pipeline.Set(ContextKeys.ConsolidatedPlan, consolidatedPlan);
+
+            if (assessments.Count > 0)
+            {
+                context.Pipeline.Set(ContextKeys.FindingAssessments, assessments);
+                logger.LogInformation(
+                    "Parsed {Count} finding assessments ({Confirmed} confirmed, {FP} false_positive)",
+                    assessments.Count,
+                    assessments.Count(a => a.Status == "confirmed"),
+                    assessments.Count(a => a.Status == "false_positive"));
+            }
 
             // Also set as the Plan so GeneratePlan can be skipped
             var steps = consolidatedPlan.Split('\n')

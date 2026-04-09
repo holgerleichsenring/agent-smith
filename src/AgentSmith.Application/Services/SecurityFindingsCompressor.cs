@@ -10,7 +10,6 @@ namespace AgentSmith.Application.Services;
 public static class SecurityFindingsCompressor
 {
     private const int DetailThreshold = 15;
-    private const int TopNPerCategory = 10;
     private const int MaxMatchedTextLength = 80;
 
     private static readonly Dictionary<string, string[]> SkillCategories = new(StringComparer.OrdinalIgnoreCase)
@@ -149,32 +148,24 @@ public static class SecurityFindingsCompressor
         var sb = new StringBuilder();
         sb.AppendLine($"### {category} findings ({findings.Count})");
 
-        if (findings.Count <= DetailThreshold)
+        var sorted = findings.OrderByDescending(x => SeverityOrder(x.Severity)).ToList();
+
+        // Full detail for small categories, compact one-liners for larger ones
+        if (sorted.Count <= DetailThreshold)
         {
-            foreach (var f in findings.OrderByDescending(x => SeverityOrder(x.Severity)))
+            foreach (var f in sorted)
             {
                 var matched = TruncateMatch(f.MatchedText);
                 sb.AppendLine($"- **{f.Severity.ToUpperInvariant()}** `{f.File}:{f.Line}` — {f.Title} [{matched}]");
             }
-
-            return sb.ToString();
         }
-
-        // Top-N with full detail
-        var sorted = findings.OrderByDescending(x => SeverityOrder(x.Severity)).ToList();
-        var topN = sorted.Take(TopNPerCategory).ToList();
-        var rest = sorted.Skip(TopNPerCategory).ToList();
-
-        foreach (var f in topN)
+        else
         {
-            var matched = TruncateMatch(f.MatchedText);
-            sb.AppendLine($"- **{f.Severity.ToUpperInvariant()}** `{f.File}:{f.Line}` — {f.Title} [{matched}]");
+            foreach (var f in sorted)
+            {
+                sb.AppendLine($"- **{f.Severity.ToUpperInvariant()}** `{f.File}:{f.Line}` — {f.Title}");
+            }
         }
-
-        // Remainder as compact file list
-        var restByFile = rest.GroupBy(f => f.File).OrderByDescending(g => g.Count());
-        sb.AppendLine();
-        sb.AppendLine($"+ {rest.Count} more in: {string.Join(", ", restByFile.Select(g => $"{g.Key} ({g.Count()})").Take(20))}");
 
         return sb.ToString();
     }

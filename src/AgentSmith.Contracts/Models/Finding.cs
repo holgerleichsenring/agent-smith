@@ -10,4 +10,5 @@ public sealed record Finding(
     int? EndLine,
     string Title,
     string Description,
-    int Confidence);
+    int Confidence,
+    string ReviewStatus = "not_reviewed");  // confirmed | false_positive | not_reviewed
