@@ -39,49 +39,64 @@ Agent Smith ships with seven presets defined in `PipelinePresets.cs`:
 | `api-security-scan` | 8 | Nuclei + Spectral + AI panel |
 | `mad-discussion` | 7 | Multi-agent design discussion |
 
-## Dynamic Pipeline Expansion
+## Pipeline Types and Triage
 
-Some commands insert follow-up commands at runtime. For example, `SecurityTriageCommand` determines which specialist skills are needed and inserts `SkillRoundCommand` instances for each:
+Since Phase 64, every pipeline has a **type** that determines how skills are selected and orchestrated. The type is stored in `PipelineContext` under the `PipelineType` key.
 
-```
-security-scan pipeline (before triage):
-  [ 1/18] CheckoutSourceCommand
-  [ 2/18] BootstrapProjectCommand
-  [ 3/18] LoadDomainRulesCommand
-  [ 4/18] StaticPatternScanCommand          ← 91 regex patterns in 6 categories
-  [ 5/18] GitHistoryScanCommand             ← last 500 commits for secrets
-  [ 6/18] DependencyAuditCommand            ← npm audit / pip-audit / dotnet audit
-  [ 7/18] CompressSecurityFindingsCommand   ← groups findings, ~74% token reduction
-  [ 8/18] LoadSkillsCommand
-  [ 9/18] AnalyzeCodeCommand
-  [10/18] SecurityTriageCommand
-  ...
-  [17/18] ExtractFindingsCommand            ← structured Finding records
-  [18/18] DeliverFindingsCommand
+| Type | Triage Method | Convergence | Handoffs |
+|------|--------------|-------------|----------|
+| **discussion** | LLM selects skills | Yes -- rounds until consensus | Free-text accumulation |
+| **structured** | `SkillGraphBuilder` (deterministic) | No -- skipped | Typed JSON via `SkillOutputs` |
+| **hierarchical** | `SkillGraphBuilder` (deterministic) | No -- gate veto | Typed JSON via `SkillOutputs` |
 
-After triage (3 skills selected):
-  [10/21] SecurityTriageCommand                    ✓
-  [11/21] SkillRoundCommand:vuln-analyst:1             ← inserted
-  [12/21] SkillRoundCommand:secrets-detector:1         ← inserted
-  [13/21] SkillRoundCommand:false-positive-filter:1    ← inserted
-  [14/21] ConvergenceCheckCommand                      ← inserted
-  ...
-```
+### SkillGraphBuilder
 
-The same dynamic expansion applies to `ApiSecurityTriageCommand` in the api-security-scan pipeline:
+For **structured** and **hierarchical** pipelines, `SkillGraphBuilder` constructs a deterministic execution graph from skill metadata. Each skill declares `runs_after` and/or `runs_before` in its YAML definition. The builder performs a topological sort to produce an ordered list of `ExecutionStage` objects. Skills within the same stage run in parallel.
 
 ```
-Before triage:
-  [5/8] ApiSecurityTriageCommand
-  [6/8] ConvergenceCheckCommand
+SkillGraphBuilder reads skill metadata:
+  vuln-analyst:       role: executor,    runs_after: [false-positive-filter]
+  auth-reviewer:      role: contributor
+  injection-checker:  role: contributor
+  secrets-detector:   role: contributor
+  false-positive-filter: role: gate,     runs_after: [auth-reviewer, injection-checker, secrets-detector]
 
-After triage (2 roles selected):
-  [5/11] ApiSecurityTriageCommand          ✓
-  [6/11] SkillRoundCommand:auth-tester:1       ← inserted
-  [7/11] SkillRoundCommand:api-design-auditor:1 ← inserted
-  [8/11] ConvergenceCheckCommand               ← inserted
-  [9/11] ConvergenceCheckCommand
-  ...
+Topological sort produces:
+  Stage 1 (contributors): auth-reviewer, injection-checker, secrets-detector  [parallel]
+  Stage 2 (gate):         false-positive-filter                               [single]
+  Stage 3 (executor):     vuln-analyst                                        [single]
+```
+
+A gate skill with `output: list` writes typed `List<Finding>` directly to `ExtractedFindings` in the pipeline context, bypassing raw text extraction.
+
+### Discussion pipelines (LLM triage)
+
+For **discussion** pipelines (mad-discussion, legal-analysis), triage still uses an LLM call to select relevant skills. Dynamic expansion and convergence checking work as before:
+
+```
+After LLM triage (3 skills selected):
+  → SkillRoundCommand:analyst:1        ← inserted
+  → SkillRoundCommand:critic:1         ← inserted
+  → SkillRoundCommand:synthesizer:1    ← inserted
+  → ConvergenceCheckCommand            ← inserted
+  → (additional rounds if objections)
+```
+
+Skills without an `orchestration` block in their metadata default to the contributor role in discussion mode.
+
+### Structured pipelines (deterministic graph)
+
+For **structured** pipelines (security-scan, api-security-scan), the triage handler detects the pipeline type and delegates to `SkillGraphBuilder` instead of calling the LLM. Each skill runs exactly once. `ConvergenceCheck` is skipped entirely.
+
+```
+security-scan (structured):
+  SecurityTriageCommand → SkillGraphBuilder
+    Stage 1: SkillRoundCommand:auth-reviewer      ← parallel
+             SkillRoundCommand:injection-checker   ← parallel
+             SkillRoundCommand:secrets-detector    ← parallel
+    Stage 2: SkillRoundCommand:false-positive-filter (gate → typed List<Finding>)
+    Stage 3: SkillRoundCommand:vuln-analyst (executor)
+  DeliverFindingsCommand ← reads typed findings directly
 ```
 
 ## PipelineContext
@@ -97,6 +112,14 @@ pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var plan);
 ```
 
 This is how data flows between steps without tight coupling.
+
+Since Phase 64, the following context keys support typed orchestration:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `PipelineType` | `string` | `discussion`, `structured`, or `hierarchical` |
+| `SkillGraph` | `ExecutionGraph` | Topologically sorted skill graph from `SkillGraphBuilder` |
+| `SkillOutputs` | `Dictionary<string, object>` | Typed outputs from each completed skill |
 
 ## Custom Pipelines
 

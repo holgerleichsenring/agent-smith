@@ -25,6 +25,7 @@ Agent Smith is built on Clean Architecture principles with a strict dependency r
 ├─────────────────────────────────────────────────────────┤
 │                     Application                         │
 │        Pipeline executor, command handlers,             │
+│        SkillGraphBuilder, typed orchestration,          │
 │        use cases, intent parsing, cost tracking         │
 ├─────────────────────────────────────────────────────────┤
 │                      Contracts                          │
@@ -59,6 +60,8 @@ Domain ← Contracts ← Application ← Infrastructure.Core ← Infrastructure 
 |---------|-------|---------|
 | Command/Handler | Application | Each pipeline step is a command with a handler |
 | Pipeline | Application | Ordered sequence of commands per use case |
+| Skill Graph | Application | `SkillGraphBuilder` builds deterministic execution graphs from skill metadata for structured/hierarchical pipelines |
+| Typed Orchestration | Application | Skills produce typed JSON outputs (`SkillOutputs`); gates write typed `List<Finding>` directly to context |
 | Factory | Infrastructure | Create providers based on config (AI, Git, tickets) |
 | Strategy | Infrastructure | Output formats (console, SARIF, markdown, summary) |
 | Adapter | Dispatcher | Platform-specific chat integration (Slack, Teams) |
@@ -66,15 +69,15 @@ Domain ← Contracts ← Application ← Infrastructure.Core ← Infrastructure 
 
 ## Pipelines
 
-Agent Smith supports four pipeline types, each composed of different handler sequences:
+Agent Smith supports multiple pipelines, each classified by orchestration type (see [Pipeline Types](../pipelines/index.md#pipeline-types)):
 
-| Pipeline | Steps | Trigger |
-|----------|-------|---------|
-| **fix-bug** | FetchTicket → CheckoutSource → BootstrapProject → LoadCodeMap → LoadDomainRules → LoadContext → AnalyzeCode → Triage → GeneratePlan → Approve → AgenticExecute → Test → WriteRunResult → CommitAndPR | CLI, Slack, webhook |
-| **security-scan** | CheckoutSource → BootstrapProject → LoadDomainRules → AnalyzeCode → Triage → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, webhook |
-| **api-scan** | CheckoutSource → BootstrapProject → LoadSwagger → SpawnNuclei → SpawnSpectral → SecurityTriage → ApiSkillRound → CompileFindings → DeliverFindings | CLI, Slack, webhook |
-| **legal-analysis** | AcquireSource → BootstrapDocument → LoadDomainRules → Triage → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, inbox |
-| **mad-discussion** | FetchTicket → CheckoutSource → BootstrapProject → LoadContext → Triage → ConvergenceCheck → CompileDiscussion → WriteRunResult → CommitAndPR | CLI, Slack |
+| Pipeline | Type | Steps | Trigger |
+|----------|------|-------|---------|
+| **fix-bug** | hierarchical | FetchTicket → CheckoutSource → BootstrapProject → LoadCodeMap → LoadDomainRules → LoadContext → AnalyzeCode → Triage → GeneratePlan → Approve → AgenticExecute → Test → WriteRunResult → CommitAndPR | CLI, Slack, webhook |
+| **security-scan** | structured | CheckoutSource → BootstrapProject → LoadDomainRules → AnalyzeCode → SecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → DeliverFindings | CLI, Slack, webhook |
+| **api-scan** | structured | LoadSwagger → SpawnNuclei → SpawnSpectral → SpawnZap → LoadSkills → ApiSecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → CompileFindings → DeliverFindings | CLI, Slack, webhook |
+| **legal-analysis** | discussion | AcquireSource → BootstrapDocument → LoadDomainRules → Triage (LLM) → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, inbox |
+| **mad-discussion** | discussion | FetchTicket → CheckoutSource → BootstrapProject → LoadContext → Triage (LLM) → ConvergenceCheck → CompileDiscussion → WriteRunResult → CommitAndPR | CLI, Slack |
 
 ## AI Provider Support
 

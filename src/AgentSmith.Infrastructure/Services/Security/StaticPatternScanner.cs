@@ -26,7 +26,8 @@ public sealed class StaticPatternScanner(
     {
         ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".ttf", ".eot",
         ".svg", ".zip", ".tar", ".gz", ".exe", ".dll", ".so", ".dylib",
-        ".pdf", ".mp3", ".mp4", ".lock", ".min.js", ".min.css"
+        ".pdf", ".mp3", ".mp4", ".lock", ".min.js", ".min.css",
+        ".md"
     };
 
     /// <summary>
