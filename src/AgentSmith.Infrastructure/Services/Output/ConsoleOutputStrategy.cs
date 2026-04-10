@@ -73,7 +73,7 @@ public sealed class ConsoleOutputStrategy(
         foreach (var finding in context.Findings)
         {
             var status = finding.ReviewStatus == "confirmed" ? " ✓" : "";
-            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.File}:{finding.StartLine} — {finding.Title}{status}");
+            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.DisplayLocation} — {finding.Title}{status}");
         }
 
         return string.Join("\n", lines);

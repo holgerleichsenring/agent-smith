@@ -51,8 +51,8 @@ public sealed class MarkdownOutputStrategy(
         sb.AppendLine($"Found {s.Total} issues ({s.High} HIGH, {s.Medium} MEDIUM, {s.Low} LOW)");
         sb.AppendLine();
 
-        sb.AppendLine("| Severity | File | Line | Issue |");
-        sb.AppendLine("|----------|------|------|-------|");
+        sb.AppendLine("| Severity | Location | Issue |");
+        sb.AppendLine("|----------|----------|-------|");
 
         foreach (var f in findings)
         {
@@ -64,7 +64,7 @@ public sealed class MarkdownOutputStrategy(
                 _ => f.Severity
             };
 
-            sb.AppendLine($"| {icon} | {f.File} | {f.StartLine} | {f.Title} |");
+            sb.AppendLine($"| {icon} | {f.DisplayLocation} | {f.Title} |");
         }
 
         return sb.ToString();
