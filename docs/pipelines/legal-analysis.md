@@ -133,6 +133,27 @@ Proposes concrete alternative formulations for HIGH and MEDIUM risk clauses. Alt
 **Wirkung:** Ausgewogener Schutz beider Parteien bei vorhersehbaren Schaeden
 ```
 
+## How Skills Collaborate
+
+Legal analysis uses the **discussion pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
+
+```mermaid
+graph LR
+    Document --> Triage
+    Triage -->|selects roles| CA[contract-analyst]
+    Triage --> CC[compliance-checker]
+    Triage --> RA[risk-assessor]
+    Triage --> LA[liability-analyst]
+    Triage --> CN[clause-negotiator]
+    CA & CC & RA & LA & CN --> Convergence
+    Convergence --> Output[Legal Analysis]
+
+    style Triage fill:#4a4a4a,color:#fff
+    style Convergence fill:#4a4a4a,color:#fff
+```
+
+Each role analyzes the contract from its perspective. The convergence check evaluates whether roles agree — if they disagree, another round runs with the objecting roles.
+
 ## Convergence
 
 The discussion follows the standard convergence pattern:
