@@ -293,8 +293,8 @@ public abstract class SkillRoundHandlerBase
             var title = item.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
             var severity = item.TryGetProperty("severity", out var s) ? s.GetString() ?? "MEDIUM" : "MEDIUM";
             var reason = item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
-            var apiPath = item.TryGetProperty("apiPath", out var ap) ? ap.GetString() : null;
-            var schemaName = item.TryGetProperty("schemaName", out var sn) ? sn.GetString() : null;
+            var apiPath = item.TryGetProperty("apiPath", out var ap) ? NullIfEmpty(ap.GetString()) : null;
+            var schemaName = item.TryGetProperty("schemaName", out var sn) ? NullIfEmpty(sn.GetString()) : null;
 
             findings.Add(new Contracts.Services.Finding(
                 Severity: severity.ToUpperInvariant(),
@@ -311,6 +311,9 @@ public abstract class SkillRoundHandlerBase
 
         return findings;
     }
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static string ExtractJson(string text)
     {
