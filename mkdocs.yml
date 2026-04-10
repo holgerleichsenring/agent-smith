@@ -32,6 +32,7 @@ theme:
 
 extra_css:
   - stylesheets/custom.css
+  - overrides/stylesheets/linear.css
 
 extra:
   social:
@@ -55,7 +56,11 @@ copyright: >
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -86,6 +91,8 @@ nav:
     - concepts/index.md
     - Pipeline System: concepts/pipeline-system.md
     - Phases & Runs: concepts/phases-and-runs.md
+    - Self-Documentation: concepts/self-documentation.md
+    - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
     - Multi-Skill Architecture: concepts/multi-skill.md
     - Decision Logging: concepts/decisions.md
     - Cost Tracking: concepts/cost-tracking.md
