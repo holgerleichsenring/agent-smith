@@ -22,4 +22,4 @@ output: list
 runs_after: contributor
 runs_before: executor
 parallel_with: false-positive-filter
-input_categories: 
+input_categories: runtime

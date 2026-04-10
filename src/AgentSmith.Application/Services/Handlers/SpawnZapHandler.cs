@@ -38,6 +38,17 @@ public sealed class SpawnZapHandler(
             var result = await zapScanner.ScanAsync(request, cancellationToken);
             context.Pipeline.Set(ContextKeys.ZapResult, result);
 
+            if (result.ExitCode != 0)
+            {
+                context.Pipeline.Set(ContextKeys.ZapFailed, true);
+                logger.LogWarning(
+                    "ZAP {ScanType} scan failed with exit code {ExitCode} in {Duration}s — DAST skills will be skipped",
+                    scanType, result.ExitCode, result.DurationSeconds);
+
+                return CommandResult.Ok(
+                    $"ZAP: failed (exit code {result.ExitCode}) in {result.DurationSeconds}s — DAST skills will be skipped");
+            }
+
             var high = result.Findings.Count(f => f.RiskDescription.Equals("High", StringComparison.OrdinalIgnoreCase));
             var medium = result.Findings.Count(f => f.RiskDescription.Equals("Medium", StringComparison.OrdinalIgnoreCase));
             var low = result.Findings.Count(f => f.RiskDescription.Equals("Low", StringComparison.OrdinalIgnoreCase));

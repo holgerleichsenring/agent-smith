@@ -6,7 +6,8 @@ namespace AgentSmith.Contracts.Models;
 public sealed record ZapResult(
     IReadOnlyList<ZapFinding> Findings,
     int DurationSeconds,
-    string ScanType);
+    string ScanType,
+    int ExitCode = 0);
 
 public sealed record ZapFinding(
     string AlertRef,

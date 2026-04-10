@@ -3,6 +3,7 @@ using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -25,6 +26,65 @@ public sealed class ApiSkillRoundHandler(
     protected override string BuildDomainSection(PipelineContext pipeline)
     {
         pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
+
+        var compressedSpec = spec is not null
+            ? CompressSwaggerSpec(spec)
+            : "Not available";
+
+        // Use category slices if available (p67), fall back to raw findings
+        var findingsSection = BuildFindingsFromSlices(pipeline);
+        if (string.IsNullOrWhiteSpace(findingsSection))
+            findingsSection = BuildFindingsRaw(pipeline);
+
+        return $"""
+            ## API Security Scan Target
+            Title: {spec?.Title ?? "Unknown"}
+            Version: {spec?.Version ?? "Unknown"}
+
+            ## Swagger Specification (compressed)
+            {compressedSpec}
+
+            {findingsSection}
+
+            Analyze the findings relevant to your role.
+            Focus on response schema field combinations, enum definitions, REST semantics,
+            route consistency, missing constraints, and contextualize the scanner findings.
+            """;
+    }
+
+    private static string BuildFindingsFromSlices(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.ApiScanFindingsSummary, out var summary))
+            return string.Empty;
+
+        pipeline.TryGet<Dictionary<string, string>>(ContextKeys.ApiScanFindingsByCategory, out var slices);
+        if (slices is null || slices.Count == 0)
+            return summary;
+
+        // Get active skill name to retrieve the right slice
+        pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var activeSkill);
+        pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, out var roles);
+
+        var inputCategories = roles?.FirstOrDefault(r =>
+            r.Name.Equals(activeSkill, StringComparison.OrdinalIgnoreCase))
+            ?.Orchestration?.InputCategories;
+
+        var skillFindings = ApiScanFindingsCompressor.GetSliceForSkill(
+            activeSkill ?? "", slices, inputCategories);
+
+        if (string.IsNullOrWhiteSpace(skillFindings))
+            return summary;
+
+        return $"""
+            {summary}
+
+            ## Relevant Findings for This Skill
+            {skillFindings}
+            """;
+    }
+
+    private static string BuildFindingsRaw(PipelineContext pipeline)
+    {
         pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);
         pipeline.TryGet<SpectralResult>(ContextKeys.SpectralResult, out var spectral);
 
@@ -39,27 +99,12 @@ public sealed class ApiSkillRoundHandler(
                 $"  [{f.Severity.ToUpperInvariant()}] {f.Code}: {f.Message} — {f.Path} (line {f.Line})"))
             : "No findings from Spectral lint";
 
-        var compressedSpec = spec is not null
-            ? CompressSwaggerSpec(spec)
-            : "Not available";
-
         return $"""
-            ## API Security Scan Target
-            Title: {spec?.Title ?? "Unknown"}
-            Version: {spec?.Version ?? "Unknown"}
-
-            ## Swagger Specification (compressed)
-            {compressedSpec}
-
             ## Nuclei Scan Findings ({nuclei?.Findings.Count ?? 0} total)
             {nucleiFindings}
 
             ## Spectral Lint Findings ({spectral?.Findings.Count ?? 0} total, {spectral?.ErrorCount ?? 0} errors, {spectral?.WarnCount ?? 0} warnings)
             {spectralFindings}
-
-            Analyze the swagger schema for structural security issues.
-            Focus on response schema field combinations, enum definitions, REST semantics,
-            route consistency, missing constraints, and contextualize the Spectral findings.
             """;
     }
 

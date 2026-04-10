@@ -27,4 +27,4 @@ output: list
 runs_after: 
 runs_before: gate
 parallel_with: api-design-auditor, dast-analyst
-input_categories: 
+input_categories: auth
