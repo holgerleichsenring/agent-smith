@@ -17,13 +17,14 @@ public sealed class DockerToolRunner(
     ToolRunnerConfig config,
     ILogger<DockerToolRunner> logger) : IToolRunner
 {
-    private const string WorkDir = "/tmp";
+    private const string DefaultWorkDir = "/tmp";
 
     public async Task<ToolResult> RunAsync(
         ToolRunRequest request, CancellationToken cancellationToken)
     {
+        var workDir = request.WorkDir ?? DefaultWorkDir;
         var image = config.Images.GetValueOrDefault(request.Tool, request.Tool);
-        var resolvedArgs = ResolveArguments(request.Arguments, WorkDir);
+        var resolvedArgs = ResolveArguments(request.Arguments, workDir);
 
         var socketUri = config.Socket is not null
             ? new Uri(config.Socket)
@@ -59,7 +60,7 @@ public sealed class DockerToolRunner(
                 createParams, cancellationToken);
 
             if (request.InputFiles is { Count: > 0 })
-                await CopyFilesToContainer(client, response.ID, request.InputFiles, cancellationToken);
+                await CopyFilesToContainer(client, response.ID, request.InputFiles, workDir, cancellationToken);
 
             await client.Containers.StartContainerAsync(
                 response.ID, new ContainerStartParameters(), cancellationToken);
@@ -75,7 +76,7 @@ public sealed class DockerToolRunner(
 
             var stdout = await ReadStdout(client, response.ID);
             var outputContent = request.OutputFileName is not null
-                ? await CopyFileFromContainer(client, response.ID, $"{WorkDir}/{request.OutputFileName}")
+                ? await CopyFileFromContainer(client, response.ID, $"{workDir}/{request.OutputFileName}")
                 : null;
 
             sw.Stop();
@@ -94,7 +95,7 @@ public sealed class DockerToolRunner(
                 containerName, request.TimeoutSeconds);
 
             var outputContent = request.OutputFileName is not null
-                ? await CopyFileFromContainer(client, containerName, $"{WorkDir}/{request.OutputFileName}")
+                ? await CopyFileFromContainer(client, containerName, $"{workDir}/{request.OutputFileName}")
                 : null;
 
             await TryRemove(client, containerName);
@@ -117,7 +118,7 @@ public sealed class DockerToolRunner(
 
     private static async Task CopyFilesToContainer(
         DockerClient client, string containerId,
-        Dictionary<string, string> files, CancellationToken ct)
+        Dictionary<string, string> files, string workDir, CancellationToken ct)
     {
         using var tar = new MemoryStream();
         foreach (var (name, content) in files)
@@ -127,7 +128,7 @@ public sealed class DockerToolRunner(
 
         await client.Containers.ExtractArchiveToContainerAsync(
             containerId,
-            new ContainerPathStatParameters { Path = WorkDir },
+            new ContainerPathStatParameters { Path = workDir },
             tar, ct);
     }
 
