@@ -34,7 +34,8 @@ public sealed class ZapSpawner(
             "ghcr.io/zaproxy/zaproxy:stable", arguments, inputFiles,
             OutputFileName: "zap-report.json",
             ExtraHosts: extraHosts,
-            TimeoutSeconds: request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout);
+            TimeoutSeconds: request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout,
+            WorkDir: "/zap/wrk");
 
         var result = await toolRunner.RunAsync(toolRequest, cancellationToken);
 

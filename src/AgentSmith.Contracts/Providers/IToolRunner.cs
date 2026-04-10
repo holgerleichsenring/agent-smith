@@ -28,7 +28,8 @@ public sealed record ToolRunRequest(
     Dictionary<string, string>? InputFiles = null,
     string? OutputFileName = null,
     Dictionary<string, string>? ExtraHosts = null,
-    int TimeoutSeconds = 300);
+    int TimeoutSeconds = 300,
+    string? WorkDir = null);
 
 public sealed record ToolResult(
     string Stdout,
