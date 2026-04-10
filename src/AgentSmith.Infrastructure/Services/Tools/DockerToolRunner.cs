@@ -121,15 +121,40 @@ public sealed class DockerToolRunner(
         Dictionary<string, string> files, string workDir, CancellationToken ct)
     {
         using var tar = new MemoryStream();
+
+        // Create the work directory entry so docker cp succeeds even if the path doesn't exist yet
+        WriteTarDirectoryEntry(tar, workDir.TrimStart('/') + "/");
+
         foreach (var (name, content) in files)
-            WriteTarEntry(tar, name, Encoding.UTF8.GetBytes(content));
+            WriteTarEntry(tar, workDir.TrimStart('/') + "/" + name, Encoding.UTF8.GetBytes(content));
         tar.Write(new byte[1024]); // end-of-archive marker
         tar.Position = 0;
 
         await client.Containers.ExtractArchiveToContainerAsync(
             containerId,
-            new ContainerPathStatParameters { Path = workDir },
+            new ContainerPathStatParameters { Path = "/" },
             tar, ct);
+    }
+
+    private static void WriteTarDirectoryEntry(Stream stream, string dirName)
+    {
+        var header = new byte[512];
+        Encoding.ASCII.GetBytes(dirName).AsSpan().CopyTo(header.AsSpan(0, 100));
+        Encoding.ASCII.GetBytes("0000755\0").CopyTo(header, 100);   // mode (dir)
+        Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 108);   // uid
+        Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 116);   // gid
+        Encoding.ASCII.GetBytes("00000000000\0").CopyTo(header, 124); // size = 0
+        Encoding.ASCII.GetBytes(Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 8).PadLeft(11, '0') + "\0").CopyTo(header, 136);
+        header[156] = (byte)'5'; // directory type
+        Encoding.ASCII.GetBytes("ustar\0").CopyTo(header, 257);
+        Encoding.ASCII.GetBytes("00").CopyTo(header, 263);
+
+        Encoding.ASCII.GetBytes("        ").CopyTo(header, 148);
+        var checksum = 0;
+        for (var i = 0; i < 512; i++) checksum += header[i];
+        Encoding.ASCII.GetBytes(Convert.ToString(checksum, 8).PadLeft(6, '0') + "\0 ").CopyTo(header, 148);
+
+        stream.Write(header);
     }
 
     private static void WriteTarEntry(Stream stream, string fileName, byte[] content)
