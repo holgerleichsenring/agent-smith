@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
@@ -79,12 +80,70 @@ public sealed class ZapSpawner(
     {
         if (!string.IsNullOrWhiteSpace(swaggerPath) && File.Exists(swaggerPath))
         {
-            inputFiles["swagger.json"] = File.ReadAllText(swaggerPath);
+            var specContent = InjectServerUrl(File.ReadAllText(swaggerPath), target);
+            inputFiles["swagger.json"] = specContent;
             return ["zap-api-scan.py", "-t", "{work}/swagger.json", "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
         }
 
         // Fallback: use target URL directly for api-scan
         return ["zap-api-scan.py", "-t", target, "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
+    }
+
+    /// <summary>
+    /// Ensures the OpenAPI spec has a servers entry with the target URL.
+    /// ZAP fails with "Unable to obtain any server URL" if servers is missing or relative ("/").
+    /// </summary>
+    internal static string InjectServerUrl(string specJson, string targetUrl)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(specJson);
+            var root = doc.RootElement;
+
+            // Check if servers array exists and has a valid absolute URL
+            if (root.TryGetProperty("servers", out var servers) && servers.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var server in servers.EnumerateArray())
+                {
+                    if (server.TryGetProperty("url", out var url)
+                        && url.GetString() is { } urlStr
+                        && urlStr.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return specJson; // Already has a valid absolute server URL
+                    }
+                }
+            }
+
+            // Inject the target URL as the server
+            using var ms = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(ms))
+            {
+                writer.WriteStartObject();
+
+                // Write servers first
+                writer.WritePropertyName("servers");
+                writer.WriteStartArray();
+                writer.WriteStartObject();
+                writer.WriteString("url", targetUrl);
+                writer.WriteEndObject();
+                writer.WriteEndArray();
+
+                // Copy all existing properties
+                foreach (var prop in root.EnumerateObject())
+                {
+                    if (prop.Name == "servers") continue; // Skip original servers
+                    prop.WriteTo(writer);
+                }
+
+                writer.WriteEndObject();
+            }
+
+            return Encoding.UTF8.GetString(ms.ToArray());
+        }
+        catch
+        {
+            return specJson; // If anything goes wrong, return original
+        }
     }
 
     internal static string RewriteLocalhostForDocker(string url) =>
