@@ -95,6 +95,7 @@ public static class PipelinePresets
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,
         CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
+        CommandNames.CompressApiScanFindings, // p67: category slices for skill-specific findings
         CommandNames.LoadSkills,
         CommandNames.ApiSecurityTriage,
         CommandNames.ConvergenceCheck,

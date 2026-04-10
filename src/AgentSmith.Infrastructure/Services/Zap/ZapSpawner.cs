@@ -48,7 +48,7 @@ public sealed class ZapSpawner(
         if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
             logger.LogWarning("ZAP stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
 
-        return new ZapResult(findings, result.DurationSeconds, request.ScanType);
+        return new ZapResult(findings, result.DurationSeconds, request.ScanType, result.ExitCode);
     }
 
     internal static List<string> BuildArguments(
@@ -65,12 +65,12 @@ public sealed class ZapSpawner(
 
     private static List<string> BuildBaselineArgs(string target)
     {
-        return ["zap-baseline.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN", "--auto"];
+        return ["zap-baseline.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN"];
     }
 
     private static List<string> BuildFullScanArgs(string target)
     {
-        return ["zap-full-scan.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN", "--auto"];
+        return ["zap-full-scan.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN"];
     }
 
     private static List<string> BuildApiScanArgs(
@@ -79,11 +79,11 @@ public sealed class ZapSpawner(
         if (!string.IsNullOrWhiteSpace(swaggerPath) && File.Exists(swaggerPath))
         {
             inputFiles["swagger.json"] = File.ReadAllText(swaggerPath);
-            return ["zap-api-scan.py", "-t", "{work}/swagger.json", "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN", "--auto"];
+            return ["zap-api-scan.py", "-t", "{work}/swagger.json", "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
         }
 
         // Fallback: use target URL directly for api-scan
-        return ["zap-api-scan.py", "-t", target, "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN", "--auto"];
+        return ["zap-api-scan.py", "-t", target, "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
     }
 
     internal static string RewriteLocalhostForDocker(string url) =>
