@@ -19,5 +19,8 @@ public sealed record Finding(
     /// Returns the best available location string for display.
     /// Prefers ApiPath, then SchemaName, then File:StartLine.
     /// </summary>
-    public string DisplayLocation => ApiPath ?? SchemaName ?? $"{File}:{StartLine}";
+    public string DisplayLocation =>
+        !string.IsNullOrWhiteSpace(ApiPath) ? ApiPath :
+        !string.IsNullOrWhiteSpace(SchemaName) ? SchemaName :
+        $"{File}:{StartLine}";
 }
