@@ -137,9 +137,9 @@ public abstract class SkillRoundHandlerBase
 
         var outputInstruction = orch.Role switch
         {
-            SkillRole.Contributor => "Respond with a JSON array of findings. Each finding: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\" }. Max 50 items.",
+            SkillRole.Contributor => "Respond with a JSON array of findings. Each finding: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\", \"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. Use apiPath for endpoint-level findings (e.g. \"POST /api/auth/login\") and schemaName for schema-level findings (e.g. \"OktaProcessInfoResponse\"). Omit both for file-based findings. Max 50 items.",
             SkillRole.Gate when orch.Output == SkillOutputType.List =>
-                "Review all findings. Respond with JSON: { \"confirmed\": [...], \"rejected\": [...] }. Each item: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"reason\": \"\" }.",
+                "Review all findings. Respond with JSON: { \"confirmed\": [...], \"rejected\": [...] }. Each item: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"reason\": \"\", \"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. Preserve apiPath/schemaName from contributor findings when present.",
             SkillRole.Gate when orch.Output == SkillOutputType.Verdict =>
                 "Review the analysis. Respond with JSON: { \"pass\": true/false, \"reason\": \"\" }.",
             SkillRole.Lead =>
@@ -293,6 +293,8 @@ public abstract class SkillRoundHandlerBase
             var title = item.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
             var severity = item.TryGetProperty("severity", out var s) ? s.GetString() ?? "MEDIUM" : "MEDIUM";
             var reason = item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+            var apiPath = item.TryGetProperty("apiPath", out var ap) ? ap.GetString() : null;
+            var schemaName = item.TryGetProperty("schemaName", out var sn) ? sn.GetString() : null;
 
             findings.Add(new Contracts.Services.Finding(
                 Severity: severity.ToUpperInvariant(),
@@ -302,7 +304,9 @@ public abstract class SkillRoundHandlerBase
                 Title: title,
                 Description: reason,
                 Confidence: 8,
-                ReviewStatus: "confirmed"));
+                ReviewStatus: "confirmed",
+                ApiPath: apiPath,
+                SchemaName: schemaName));
         }
 
         return findings;

@@ -86,26 +86,44 @@ public sealed class SarifOutputStrategy(
 
     private static JsonObject BuildResult(Finding finding, string ruleId)
     {
-        var region = new JsonObject { ["startLine"] = finding.StartLine };
+        var region = new JsonObject { ["startLine"] = Math.Max(1, finding.StartLine) };
         if (finding.EndLine.HasValue)
             region["endLine"] = finding.EndLine.Value;
+
+        var location = new JsonObject
+        {
+            ["physicalLocation"] = new JsonObject
+            {
+                ["artifactLocation"] = new JsonObject { ["uri"] = finding.File },
+                ["region"] = region
+            }
+        };
+
+        // Add logicalLocation for API findings (endpoint/schema-level)
+        if (finding.ApiPath is not null || finding.SchemaName is not null)
+        {
+            var logicalLocations = new JsonArray();
+            if (finding.ApiPath is not null)
+                logicalLocations.Add(new JsonObject
+                {
+                    ["name"] = finding.ApiPath,
+                    ["kind"] = "endpoint"
+                });
+            if (finding.SchemaName is not null)
+                logicalLocations.Add(new JsonObject
+                {
+                    ["name"] = finding.SchemaName,
+                    ["kind"] = "type"
+                });
+            location["logicalLocations"] = logicalLocations;
+        }
 
         return new JsonObject
         {
             ["ruleId"] = ruleId,
             ["level"] = MapSeverity(finding.Severity),
             ["message"] = new JsonObject { ["text"] = finding.Description },
-            ["locations"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["physicalLocation"] = new JsonObject
-                    {
-                        ["artifactLocation"] = new JsonObject { ["uri"] = finding.File },
-                        ["region"] = region
-                    }
-                }
-            }
+            ["locations"] = new JsonArray { location }
         };
     }
 
