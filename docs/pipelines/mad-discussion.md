@@ -59,6 +59,27 @@ Says nothing — until the moment demands it. Watches the others circle their ar
 
 If none of these conditions are met, responds with `[SILENCE]`.
 
+## How Skills Collaborate
+
+MAD uses the **discussion pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
+
+```mermaid
+graph LR
+    Ticket --> Triage
+    Triage -->|selects personas| D[devils-advocate]
+    Triage --> Ph[philosopher]
+    Triage --> R[realist]
+    Triage --> Dr[dreamer]
+    Triage --> S[silencer]
+    D & Ph & R & Dr & S --> Convergence
+    Convergence --> Output[Discussion Document]
+
+    style Triage fill:#4a4a4a,color:#fff
+    style Convergence fill:#4a4a4a,color:#fff
+```
+
+Each persona responds with AGREE, OBJECTION, SUGGESTION, or SILENCE. If objections remain after a round, the convergence check inserts another round with the disagreeing personas. Maximum 3 rounds by default.
+
 ## How the Discussion Works
 
 ### Round Structure
