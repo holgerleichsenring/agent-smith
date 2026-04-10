@@ -63,6 +63,28 @@ After the automated scanners complete, the AI specialist panel reviews and inter
 | **Auth Tester** | 🔐 | JWT validation, OAuth flow security (PKCE, state), API key handling, missing auth on state-mutating endpoints, Bearer vs Cookie mixing |
 | **False Positive Filter** | 🧹 | Nuclei-specific false positive filtering. Removes low-confidence findings, template artifacts, and duplicates. |
 
+### How Skills Collaborate
+
+API scan uses the **structured pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
+
+```mermaid
+graph LR
+    Tools["Tool Steps<br/>(Nuclei, Spectral, ZAP)"] --> Contributors
+
+    subgraph Stage 1 - Contributors
+        C1[api-vulnerability-analyst]
+        C2[api-design-auditor]
+        C3[auth-tester]
+    end
+
+    Contributors --> Gate["false-positive-filter<br/>[Gate]"]
+    Gate -->|"confirmed findings only"| Output[Findings Report]
+
+    style Gate fill:#c0392b,color:#fff
+```
+
+Stage 1 contributors run in parallel, each receiving scanner output relevant to their expertise. The gate filters low-confidence findings and Nuclei template artifacts.
+
 ### Deterministic Skill Graph
 
 Since Phase 64, the `ApiSecurityTriage` step uses `SkillGraphBuilder` to construct a deterministic execution graph from skill metadata (`runs_after`/`runs_before` declarations). There is no LLM call during triage. Skills are topologically sorted into execution stages:

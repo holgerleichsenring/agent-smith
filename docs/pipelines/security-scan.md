@@ -83,7 +83,9 @@ Each skill is defined as a YAML skill file in `config/skills/security/`. The tri
 | **Compliance Checker** | 📜 | PII handling, encryption requirements, regulatory compliance patterns |
 | **AI Security Reviewer** | 🤖 | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
 
-### How Skills Interact
+### How Skills Collaborate
+
+Security scan uses the **structured pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
 
 Skills run in a **deterministic staged graph** built by `SkillGraphBuilder`:
 

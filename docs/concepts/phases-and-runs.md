@@ -159,6 +159,45 @@ runs/
 └── r04-fix-null-reference/
 ```
 
+## Agent Smith Evolution
+
+Agent Smith itself is built using this phase workflow. The timeline below shows how the project grew from core infrastructure to a full multi-agent orchestration system:
+
+```mermaid
+timeline
+    title Agent Smith Evolution
+    section Foundation
+        p01 : Core Infrastructure
+        p06 : Retry & Resilience
+        p11 : Multi-Provider (Claude, OpenAI, Ollama)
+    section Skill System
+        p34 : Multi-Skill Architecture
+        p37 : Strategy Pattern
+        p38 : MAD Discussion Pipeline
+    section Security
+        p43b : Security Pipeline
+        p54  : 91 Pattern Scanner
+        p55  : Findings Compression
+        p64  : Typed Skill Orchestration
+```
+
+Every one of these phases has a document in `.agentsmith/phases/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.
+
+## Pipeline Cost Reference
+
+Real numbers from actual pipeline runs. Costs depend on model choice, codebase size, and finding density.
+
+| Pipeline | LLM Calls | Avg. Cost | Tokens (in/out) | Output |
+|---|---|---|---|---|
+| security-scan | 9 | $0.35 | 52k / 13k | 16 confirmed findings |
+| api-scan | ~12 | ~$0.45 | ~60k / 15k | SARIF + findings report |
+| fix-bug | 8--12 | $0.07--0.40 | varies | PR with code change |
+| legal-analysis | ~6 | ~$0.25 | ~35k / 10k | German legal analysis |
+| mad-discussion | ~15 | ~$0.55 | ~80k / 20k | Discussion document + PR |
+
+!!! note "Real vs. estimated"
+    The security-scan row reflects a verified run (2026-04-09, agent-smith repo, claude-sonnet-4). Other rows are estimates based on typical runs. See [Cost Tracking](cost-tracking.md) for querying your own cost history.
+
 ## The Complete Workflow
 
 When Agent Smith processes a ticket:
