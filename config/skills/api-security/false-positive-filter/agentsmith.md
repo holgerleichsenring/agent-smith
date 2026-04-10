@@ -23,4 +23,4 @@ output: list
 runs_after: contributor
 runs_before: executor
 parallel_with: dast-false-positive-filter
-input_categories: 
+input_categories: auth, design, runtime

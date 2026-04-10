@@ -45,6 +45,7 @@ public static class CommandNames
     public const string GitHistoryScan = "GitHistoryScanCommand";
     public const string DependencyAudit = "DependencyAuditCommand";
     public const string CompressSecurityFindings = "CompressSecurityFindingsCommand";
+    public const string CompressApiScanFindings = "CompressApiScanFindingsCommand";
     public const string ExtractFindings = "ExtractFindingsCommand";
     public const string SecurityTrend = "SecurityTrendCommand";
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
@@ -116,6 +117,7 @@ public static class CommandNames
         [GitHistoryScan] = "Scanning git history for secrets",
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
+        [CompressApiScanFindings] = "Compressing API scan findings",
         [ExtractFindings] = "Extracting findings for output",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",

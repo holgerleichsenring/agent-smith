@@ -46,6 +46,9 @@ public static class ContextKeys
     public const string ZapResult = "ZapResult";
     public const string SpectralResult = "SpectralResult";
     public const string ApiTarget = "ApiTarget";
+    public const string ZapFailed = "ZapFailed";
+    public const string ApiScanFindingsSummary = "ApiScanFindingsSummary";
+    public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
     public const string SwaggerPath = "SwaggerPath";
     public const string CheckoutBranch = "CheckoutBranch";
     public const string SkillsPathOverride = "SkillsPathOverride";

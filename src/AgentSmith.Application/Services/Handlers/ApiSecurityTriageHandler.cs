@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -94,9 +95,30 @@ public sealed class ApiSecurityTriageHandler(
             """;
     }
 
+    private static readonly HashSet<string> DastSkills = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dast-analyst", "dast-false-positive-filter"
+    };
+
     public async Task<CommandResult> ExecuteAsync(
         ApiSecurityTriageContext context, CancellationToken cancellationToken)
     {
+        // Skip DAST skills if ZAP failed (exit code != 0)
+        if (context.Pipeline.TryGet<bool>(ContextKeys.ZapFailed, out var zapFailed) && zapFailed)
+        {
+            if (context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+                    ContextKeys.AvailableRoles, out var roles) && roles is not null)
+            {
+                var filtered = roles.Where(r => !DastSkills.Contains(r.Name)).ToList();
+                context.Pipeline.Set(ContextKeys.AvailableRoles, (IReadOnlyList<RoleSkillDefinition>)filtered);
+
+                logger.LogInformation(
+                    "ZAP failed — excluded {Count} DAST skills: {Skills}",
+                    roles.Count - filtered.Count,
+                    string.Join(", ", DastSkills));
+            }
+        }
+
         var llmClient = llmClientFactory.Create(context.AgentConfig);
         return await TriageAsync(context.Pipeline, llmClient, cancellationToken);
     }
