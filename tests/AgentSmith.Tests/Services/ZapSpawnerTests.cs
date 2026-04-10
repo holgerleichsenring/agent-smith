@@ -165,7 +165,7 @@ public sealed class ZapSpawnerTests
 
         args.Should().StartWith(["zap-baseline.py", "-t", "https://example.com"]);
         args.Should().Contain("-J");
-        args.Should().Contain("--auto");
+        args.Should().NotContain("--auto");
         inputFiles.Should().BeEmpty();
     }
 
@@ -176,7 +176,7 @@ public sealed class ZapSpawnerTests
         var args = ZapSpawner.BuildArguments("full-scan", "https://example.com", null, inputFiles);
 
         args.Should().StartWith(["zap-full-scan.py", "-t", "https://example.com"]);
-        args.Should().Contain("--auto");
+        args.Should().NotContain("--auto");
     }
 
     [Fact]

@@ -24,4 +24,4 @@ output: list
 runs_after: 
 runs_before: gate
 parallel_with: api-design-auditor, auth-tester
-input_categories: 
+input_categories: runtime
