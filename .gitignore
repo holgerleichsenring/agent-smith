@@ -44,4 +44,5 @@ deploy/k8s/secret-local.yaml
 
 ## Generated output
 site/
+docs/site/
 agentsmith-output/
