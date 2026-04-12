@@ -130,11 +130,11 @@ public sealed class AgenticExecuteHandlerTests
         _decisionLoggerMock.Verify(d => d.LogAsync(
             "/tmp", DecisionCategory.Architecture,
             "**Sealed classes**: prevents accidental inheritance",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
         _decisionLoggerMock.Verify(d => d.LogAsync(
             "/tmp", DecisionCategory.TradeOff,
             "**No local Dynamics**: dev always against real environment",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
