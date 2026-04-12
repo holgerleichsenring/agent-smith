@@ -1,4 +1,4 @@
-using AgentSmith.Host.Services.Webhooks;
+using AgentSmith.Cli.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -446,6 +446,399 @@ public sealed class WebhookHandlerTests
                 "pull_request": { "url": "https://api.github.com/repos/org/my-api/pulls/42" }
             },
             "repository": { "full_name": "org/my-api" }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeFalse();
+    }
+
+    // --- GitLab MR Comment Webhook Handler Tests (p59b) ---
+
+    [Fact]
+    public void GitLabMrComment_CanHandle_CorrectEventTypes()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+
+        sut.CanHandle("gitlab", "note hook").Should().BeTrue();
+        sut.CanHandle("gitlab", "merge_request").Should().BeFalse();
+        sut.CanHandle("github", "note hook").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_FixCommand_ReturnsPipeline()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 200,
+                "note": "/agent-smith fix",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 15 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("fix-bug mr:org/my-api!15");
+        result.Pipeline.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_FixWithArguments_ReturnsArguments()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 201,
+                "note": "/agent-smith fix #99 in core",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 15 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("fix-bug #99 in core");
+        result.Pipeline.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_SecurityScan_ReturnsSecurityPipeline()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 202,
+                "note": "/agent-smith security-scan",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 3 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("security-scan mr:org/my-api!3");
+        result.Pipeline.Should().Be("security-scan");
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_Approve_ReturnsDialogueAnswer()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 203,
+                "note": "/approve looks good",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 15 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.DialogueAnswer.Should().NotBeNull();
+        result.DialogueAnswer!.Platform.Should().Be("gitlab");
+        result.DialogueAnswer.Answer.Should().Be("yes");
+        result.DialogueAnswer.PrIdentifier.Should().Be("15");
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_NoteOnIssue_ReturnsNotHandled()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 204,
+                "note": "/agent-smith fix",
+                "noteable_type": "Issue"
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_Help_ReturnsNotHandled()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 205,
+                "note": "/agent-smith help",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 15 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GitLabMrComment_RegularComment_ReturnsNotHandled()
+    {
+        var sut = new GitLabMrCommentWebhookHandler(
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "object_kind": "note",
+            "user": { "username": "dev-user" },
+            "project": { "path_with_namespace": "org/my-api" },
+            "object_attributes": {
+                "id": 206,
+                "note": "Just a regular comment",
+                "noteable_type": "MergeRequest"
+            },
+            "merge_request": { "iid": 15 }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeFalse();
+    }
+
+    // --- Azure DevOps PR Comment Webhook Handler Tests (p59c) ---
+
+    [Fact]
+    public void AzureDevOpsPrComment_CanHandle_CorrectEventTypes()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+
+        sut.CanHandle("azuredevops", "ms.vss-code.git-pullrequest-comment-event").Should().BeTrue();
+        sut.CanHandle("azuredevops", "workitem.updated").Should().BeFalse();
+        sut.CanHandle("github", "ms.vss-code.git-pullrequest-comment-event").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_FixCommand_ReturnsPipeline()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 300,
+                    "content": "/agent-smith fix",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 58,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("fix-bug pr:MyProject/my-api#58");
+        result.Pipeline.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_FixWithArguments_ReturnsArguments()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 301,
+                    "content": "/agent-smith fix #77 in payments",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 58,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("fix-bug #77 in payments");
+        result.Pipeline.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_SecurityScan_ReturnsSecurityPipeline()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 302,
+                    "content": "/agent-smith security-scan",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 12,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("security-scan pr:MyProject/my-api#12");
+        result.Pipeline.Should().Be("security-scan");
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_Approve_ReturnsDialogueAnswer()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 303,
+                    "content": "/approve ship it",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 58,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeTrue();
+        result.DialogueAnswer.Should().NotBeNull();
+        result.DialogueAnswer!.Platform.Should().Be("azuredevops");
+        result.DialogueAnswer.Answer.Should().Be("yes");
+        result.DialogueAnswer.PrIdentifier.Should().Be("58");
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_Help_ReturnsNotHandled()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 304,
+                    "content": "/agent-smith help",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 58,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
+        }
+        """;
+
+        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+
+        result.Handled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPrComment_RegularComment_ReturnsNotHandled()
+    {
+        var sut = new AzureDevOpsPrCommentWebhookHandler(
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var payload = """
+        {
+            "eventType": "ms.vss-code.git-pullrequest-comment-event",
+            "resource": {
+                "comment": {
+                    "id": 305,
+                    "content": "Just a regular comment",
+                    "author": { "uniqueName": "dev@org.com" }
+                },
+                "pullRequest": {
+                    "pullRequestId": 58,
+                    "repository": {
+                        "name": "my-api",
+                        "project": { "name": "MyProject" }
+                    }
+                }
+            }
         }
         """;
 
