@@ -3,14 +3,14 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Models;
-using AgentSmith.Host.Services;
+using AgentSmith.Cli.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Services.Bus;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace AgentSmith.Host;
+namespace AgentSmith.Cli;
 
 internal static class ServiceProviderFactory
 {
@@ -37,6 +37,8 @@ internal static class ServiceProviderFactory
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrLabelWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsWorkItemWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubPrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsPrCommentWebhookHandler>();
     }
 
     private static void RegisterProgressReporter(
