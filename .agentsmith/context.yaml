@@ -20,8 +20,8 @@ arch:
     - Contracts   # interfaces, DTOs, config models
     - Application   # handlers, pipeline executor, use cases
     - Infrastructure # AI providers, git, tickets, Redis bus
-    - Host          # CLI entry point, DI wiring
-    - Dispatcher    # Slack gateway, job spawning, intent routing
+    - Cli           # CLI entry point, DI wiring
+    - Server        # Slack gateway, job spawning, intent routing
 
 behavior:
   pipelines:
@@ -129,22 +129,21 @@ state:
     p56: "Security scan polish: SecretProviderRegistry (18 mappings), mandatory FP filter, severity logs, SARIF output, ExtractFindingsHandler, docs update (567 tests)"
     p58: "Interactive dialogue: DialogQuestion/DialogAnswer contracts, RedisDialogueTransport, ConsoleDialogueTransport (CLI), SlackAdapter Block Kit (5 QuestionTypes), ask_human tool, AskCommandHandler, dialogue trail in result.md (749 tests)"
     p59: "PR comment webhook: CommentIntentParser, GitHubPrCommentWebhookHandler (Scenario A+B), GitHubPrCommentReplyService, IConversationLookup, dialogue answer routing, require_member + allowed_pipelines guards (749 tests)"
+    p59b: "GitLab MR comment webhook: GitLabMrCommentWebhookHandler (Note Hook, Scenario A+B), GitLabMrCommentReplyService, keyed DI (852 tests)"
+    p59c: "Azure DevOps PR comment webhook: AzureDevOpsPrCommentWebhookHandler (Scenario A+B), AzureDevOpsPrCommentReplyService, Basic Auth validation (852 tests)"
     p60: "Security enhancements: ZapSpawner (docker cp), SecurityTrendHandler (git-based + CLI subcommand), SecuritySnapshotWriter, SpawnFixHandler (auto-fix with confirm_before_fix dialogue), dast-analyst + dast-fp-filter skills (749 tests)"
     p57a: "Skill standard: SKILL.md + agentsmith.md format, SkillLoader dual-format support, 33 skills migrated, SkillSource provenance model (755 tests)"
     p57b: "Skill manager: skill-manager pipeline, DiscoverSkills/EvaluateSkills/DraftSkillFiles/ApproveSkills/InstallSkills handlers, LLM-based fit+safety evaluation, human approval via dialogue (815 tests)"
     p61: "Knowledge base: CompileKnowledgeHandler (incremental wiki from runs), QueryKnowledgeHandler (LLM Q&A against wiki), compile-wiki CLI, .last-compiled tracking, KnowledgeBaseConfig (815 tests)"
     p57c: "Autonomous pipeline: LoadVision/LoadRuns/WriteTickets handlers, autonomous CLI command, project-vision.md template, AutonomousConfig, agent-smith-autonomous label (831 tests)"
     p62: "Docs update: 8 new pages (dialogue, knowledge base, PR comments, webhooks, security config, phase workflow, skill manager, autonomous), 8 updated pages, mkdocs.yml navigation (831 tests)"
+    p69: "Project rename: Host → Cli, Dispatcher → Server — directories, namespaces, csproj, sln, Docker, K8s, CI/CD, docs (852 tests)"
+    p58b: "Teams integration: TeamsAdapter (IPlatformAdapter), TeamsCardBuilder (5 Adaptive Cards), TeamsJwtValidator (Bot Framework OpenID), TeamsInteractionHandler, removed obsolete AskQuestion (864 tests)"
   active: {}
   planned:
-    p62: "Docs update: new pages for all features → .agentsmith/phases/planned/p62-docs-update.md"
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
-    # --- deferred (platform expansion, no new features) ---
-    p58b: "Teams integration: TeamsAdapter, Adaptive Cards, JWT → .agentsmith/phases/planned/p58b-teams-integration.md"
-    p59b: "GitLab MR comment webhook → .agentsmith/phases/planned/p59b-gitlab-pr-comments.md"
-    p59c: "Azure DevOps PR comment webhook → .agentsmith/phases/planned/p59c-azdo-pr-comments.md"
     # --- deferred (refactoring, no new features) ---
     p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
