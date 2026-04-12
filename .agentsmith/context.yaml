@@ -139,6 +139,7 @@ state:
     p62: "Docs update: 8 new pages (dialogue, knowledge base, PR comments, webhooks, security config, phase workflow, skill manager, autonomous), 8 updated pages, mkdocs.yml navigation (831 tests)"
     p69: "Project rename: Host → Cli, Dispatcher → Server — directories, namespaces, csproj, sln, Docker, K8s, CI/CD, docs (852 tests)"
     p58b: "Teams integration: TeamsAdapter (IPlatformAdapter), TeamsCardBuilder (5 Adaptive Cards), TeamsJwtValidator (Bot Framework OpenID), TeamsInteractionHandler, removed obsolete AskQuestion (864 tests)"
+    p71: "Root cleanup: Dockerfiles to src/Cli+Server, deploy/ for compose+k8s, mkdocs.yml into docs/, removed site+agentsmith-output+prompts, ProjectDetector recursive search (873 tests)"
   active: {}
   planned:
     # --- backlog (new features) ---

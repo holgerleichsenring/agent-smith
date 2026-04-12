@@ -36,9 +36,12 @@ Thumbs.db
 
 ## Secrets
 .env
-k8s/secret-local.yaml
+deploy/k8s/secret-local.yaml
 
 ## Claude Code
 .claude/
 !.claude/prompt.md
+
+## Generated output
 site/
+agentsmith-output/
