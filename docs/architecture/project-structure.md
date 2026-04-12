@@ -113,10 +113,11 @@ agent-smith/
 │
 ├── docs/                           # MkDocs documentation site
 │
-├── Dockerfile                      # Agent image (multi-stage, gosu entrypoint)
-├── Dockerfile.dispatcher           # Dispatcher image
-├── docker-compose.yml              # Full stack: agent, server, redis, dispatcher, ollama
-├── docker-entrypoint.sh            # Permission handling via gosu
+├── deploy/                         # Deployment orchestration
+│   ├── docker-compose.yml          # Full stack: agent, server, redis, ollama
+│   ├── k8s/                        # Kubernetes manifests (base + overlays)
+│   └── apply-k8s-secret.sh         # K8s secret setup script
+│
 ├── AgentSmith.sln                  # Solution file
 ├── release-please-config.json      # Automated release configuration
 └── version.txt                     # Current version

@@ -37,9 +37,9 @@ jobs:
       matrix:
         include:
           - image: agent-smith
-            dockerfile: Dockerfile
+            dockerfile: src/AgentSmith.Cli/Dockerfile
           - image: agent-smith-server
-            dockerfile: Dockerfile.server
+            dockerfile: src/AgentSmith.Server/Dockerfile
     permissions:
       contents: read
       packages: write
@@ -96,7 +96,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith
-          readme-filepath: DOCKERHUB_DESCRIPTION.md
+          readme-filepath: deploy/DOCKERHUB_DESCRIPTION.md
 
       - name: Update server description
         uses: peter-evans/dockerhub-description@v4
@@ -104,4 +104,4 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith-server
-          readme-filepath: DOCKERHUB_DESCRIPTION.md
+          readme-filepath: deploy/DOCKERHUB_DESCRIPTION.md

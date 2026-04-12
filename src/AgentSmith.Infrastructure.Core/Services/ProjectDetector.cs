@@ -53,12 +53,14 @@ public sealed class ProjectDetector(
     {
         var infra = new List<string>();
 
-        if (File.Exists(Path.Combine(repoPath, "Dockerfile")))
+        if (File.Exists(Path.Combine(repoPath, "Dockerfile"))
+            || Directory.GetFiles(repoPath, "Dockerfile", SearchOption.AllDirectories).Length > 0)
             infra.Add("Docker");
-        if (Directory.GetFiles(repoPath, "docker-compose*.yml", SearchOption.TopDirectoryOnly).Length > 0
-            || Directory.GetFiles(repoPath, "docker-compose*.yaml", SearchOption.TopDirectoryOnly).Length > 0)
+        if (Directory.GetFiles(repoPath, "docker-compose*.yml", SearchOption.AllDirectories).Length > 0
+            || Directory.GetFiles(repoPath, "docker-compose*.yaml", SearchOption.AllDirectories).Length > 0)
             infra.Add("Docker-Compose");
         if (Directory.Exists(Path.Combine(repoPath, "k8s"))
+            || Directory.Exists(Path.Combine(repoPath, "deploy", "k8s"))
             || File.Exists(Path.Combine(repoPath, "kustomization.yaml")))
             infra.Add("K8s");
         if (Directory.Exists(Path.Combine(repoPath, "terraform"))
