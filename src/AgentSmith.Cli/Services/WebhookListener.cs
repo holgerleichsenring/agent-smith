@@ -1,6 +1,8 @@
 using System.Net;
+using System.Text.Json;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Cli.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +54,10 @@ public sealed class WebhookListener(
                 return;
             }
 
-            if (context.Request.HttpMethod != "POST" || context.Request.Url?.AbsolutePath != "/webhook")
+            var path = context.Request.Url?.AbsolutePath;
+            if (context.Request.HttpMethod != "POST" ||
+                (path != "/webhook" && path != "/webhook/jira" &&
+                 path != "/webhook/github" && path != "/webhook/gitlab"))
             {
                 await RespondAsync(context, 404, "Not found");
                 return;
@@ -61,7 +66,7 @@ public sealed class WebhookListener(
             using var reader = new StreamReader(context.Request.InputStream);
             var body = await reader.ReadToEndAsync();
             var headers = ExtractHeaders(context.Request.Headers);
-            var (platform, eventType) = DetectPlatform(headers);
+            var (platform, eventType) = DetectPlatform(path!, body, headers);
 
             if (platform is null)
             {
@@ -124,6 +129,21 @@ public sealed class WebhookListener(
     }
 
     private static (string? platform, string? eventType) DetectPlatform(
+        string path, string body, IDictionary<string, string> headers)
+    {
+        // Platform-specific endpoints take precedence
+        if (path == "/webhook/jira")
+            return ("jira", ExtractJiraEventType(body));
+        if (path == "/webhook/github")
+            return DetectFromHeaders(headers);
+        if (path == "/webhook/gitlab")
+            return DetectFromHeaders(headers);
+
+        // Legacy /webhook — detect from headers
+        return DetectFromHeaders(headers);
+    }
+
+    private static (string? platform, string? eventType) DetectFromHeaders(
         IDictionary<string, string> headers)
     {
         if (headers.TryGetValue("X-GitHub-Event", out var ghEvent))
@@ -135,7 +155,25 @@ public sealed class WebhookListener(
         return (null, null);
     }
 
-    private static bool ValidateSignature(
+    private static string? ExtractJiraEventType(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("webhookEvent", out var evt))
+            {
+                var value = evt.GetString() ?? "";
+                // Strip "jira:" prefix (e.g. "jira:issue_updated" -> "issue_updated")
+                return value.StartsWith("jira:", StringComparison.OrdinalIgnoreCase)
+                    ? value["jira:".Length..]
+                    : value;
+            }
+        }
+        catch { /* payload parse failure handled downstream */ }
+        return null;
+    }
+
+    private bool ValidateSignature(
         string platform, string body, IDictionary<string, string> headers)
     {
         return platform switch
@@ -149,8 +187,39 @@ public sealed class WebhookListener(
             "azuredevops" => !headers.TryGetValue("Authorization", out var auth)
                         || WebhookSignatureValidator.ValidateAzureDevOps(auth,
                             Environment.GetEnvironmentVariable("AZDO_WEBHOOK_SECRET") ?? ""),
+            "jira" => ValidateJiraSignature(body, headers),
             _ => true
         };
+    }
+
+    private bool ValidateJiraSignature(string body, IDictionary<string, string> headers)
+    {
+        try
+        {
+            var configLoader = services.GetService<IConfigurationLoader>();
+            var serverCtx = services.GetService<ServerContext>();
+            if (configLoader is null || serverCtx is null)
+                return true; // no config available — skip validation
+
+            var config = configLoader.LoadConfig(serverCtx.ConfigPath);
+
+            // Find any project with a Jira trigger that has a secret configured
+            foreach (var (_, project) in config.Projects)
+            {
+                var secret = project.JiraTrigger?.Secret;
+                if (string.IsNullOrEmpty(secret)) continue;
+
+                headers.TryGetValue("x-hub-signature", out var sig);
+                return WebhookSignatureValidator.ValidateJira(body, sig, secret);
+            }
+
+            return true; // no secret configured on any project
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to validate Jira webhook signature");
+            return false;
+        }
     }
 
     private async Task HandleDialogueAnswerAsync(DialogueAnswerData data)

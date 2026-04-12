@@ -405,3 +405,12 @@
 - [Architecture] sourceLabel as section header instead of category — the real lookup key is "which phase made this decision", not "what kind of decision was it". Category preserved as inline tag.
 - [TradeOff] Optional parameter instead of new overload — keeps backward compat, callers that don't know their phase context still work with category-only sections.
 - [Implementation] Ticket ID as sourceLabel in pipeline handlers — GeneratePlanHandler and AgenticExecuteHandler pass #{ticketId} so run decisions land under their ticket.
+
+## p71: Jira Assignee Webhook Trigger
+- [Architecture] Handler returns WebhookResult(TriggerInput, Pipeline) instead of enqueueing jobs directly — follows existing dispatch pattern where WebhookListener calls ExecutePipelineUseCase. Phase doc proposed IJobEnqueuer; actual codebase delegates execution to the Listener.
+- [Architecture] ServerContext record for config path DI — handler needs config for assignee matching and label→pipeline resolution, but IWebhookHandler.HandleAsync has no configPath parameter. Introduced ServerContext(ConfigPath) registered at server startup, injected into handler. Minimal surface, no interface changes.
+- [Security] Secret configured + signature header missing → reject — phase doc originally returned true (skip), which would let attackers bypass verification by omitting the header. Fixed to return false.
+- [Implementation] Config-order priority for label→pipeline resolution — iterate PipelineFromLabel keys (user-defined order) instead of payload labels (Jira-side order is undocumented and non-deterministic). Gives users explicit control over priority.
+- [Implementation] WebhookListener extracts webhookEvent from Jira payload, strips "jira:" prefix → eventType for CanHandle — Jira has no event-type header unlike GitHub/GitLab. Listener parses once before dispatch.
+- [TradeOff] Jira signature validation loads config per request instead of caching — keeps validation consistent with runtime config changes. Acceptable cost for webhook traffic volume.
+- [Scope] Unassign scenario (Agent Smith removed from ticket) explicitly out of scope — handler returns Ignored correctly, but cancelling a running job requires Job Cancellation feature that doesn't exist yet.

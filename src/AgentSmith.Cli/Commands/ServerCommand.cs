@@ -23,7 +23,7 @@ internal static class ServerCommand
             var port = ctx.ParseResult.GetValueForOption(portOption);
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
 
-            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty, configPath);
             var logger = provider.GetRequiredService<ILogger<WebhookListener>>();
             var listener = new WebhookListener(provider, configPath, logger);
 
