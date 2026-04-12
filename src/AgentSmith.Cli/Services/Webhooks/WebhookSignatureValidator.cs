@@ -69,4 +69,29 @@ public static class WebhookSignatureValidator
             Encoding.UTF8.GetBytes(password),
             Encoding.UTF8.GetBytes(secret));
     }
+
+    public static bool ValidateJira(string payload, string? signatureHeader, string secret)
+    {
+        if (string.IsNullOrEmpty(secret))
+            return true;
+
+        // Secret configured but header missing → reject
+        if (string.IsNullOrEmpty(signatureHeader))
+            return false;
+
+        if (!signatureHeader.StartsWith("sha256="))
+            return false;
+
+        var expected = signatureHeader["sha256=".Length..];
+        var keyBytes = Encoding.UTF8.GetBytes(secret);
+        var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+        using var hmac = new HMACSHA256(keyBytes);
+        var hash = hmac.ComputeHash(payloadBytes);
+        var computed = Convert.ToHexString(hash).ToLowerInvariant();
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(computed),
+            Encoding.UTF8.GetBytes(expected));
+    }
 }

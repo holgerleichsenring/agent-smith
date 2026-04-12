@@ -1,6 +1,7 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Cli.Services;
@@ -14,7 +15,9 @@ namespace AgentSmith.Cli;
 
 internal static class ServiceProviderFactory
 {
-    public static ServiceProvider Build(bool verbose, bool headless, string jobId, string redisUrl)
+    public static ServiceProvider Build(
+        bool verbose, bool headless, string jobId, string redisUrl,
+        string? configPath = null)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder =>
@@ -27,6 +30,10 @@ internal static class ServiceProviderFactory
         services.AddAgentSmithCommands();
         RegisterWebhookHandlers(services);
         RegisterProgressReporter(services, headless, jobId, redisUrl);
+
+        if (configPath is not null)
+            services.AddSingleton(new ServerContext(configPath));
+
         return services.BuildServiceProvider();
     }
 
@@ -39,6 +46,7 @@ internal static class ServiceProviderFactory
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubPrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsPrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.JiraAssigneeWebhookHandler>();
     }
 
     private static void RegisterProgressReporter(
