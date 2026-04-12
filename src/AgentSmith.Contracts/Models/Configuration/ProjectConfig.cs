@@ -11,4 +11,5 @@ public sealed class ProjectConfig
     public string Pipeline { get; set; } = string.Empty;
     public string? CodingPrinciplesPath { get; set; }
     public string SkillsPath { get; set; } = "skills/coding";
+    public JiraTriggerConfig? JiraTrigger { get; set; }
 }

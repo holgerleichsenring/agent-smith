@@ -217,6 +217,29 @@ projects:
     pipeline: api-security-scan
     skills_path: skills/api-security
 
+  # Example: Jira-triggered project (assign an issue to Agent Smith to start a pipeline)
+  # my-jira-project:
+  #   source:
+  #     type: GitHub
+  #     url: https://github.com/mycompany/my-project
+  #     auth: token
+  #   tickets:
+  #     type: Jira
+  #     url: https://mycompany.atlassian.net
+  #     auth: token
+  #   agent:
+  #     type: Claude
+  #     model: claude-sonnet-4-20250514
+  #   pipeline: fix-bug
+  #   jira_trigger:
+  #     assignee_name: "Agent Smith"
+  #     secret: ${JIRA_WEBHOOK_SECRET}
+  #     pipeline_from_label:
+  #       security-review: security-scan
+  #       mad-discussion: mad-discussion
+  #       legal: legal-analysis
+  #     default_pipeline: fix-bug
+
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}
   github_token: ${GITHUB_TOKEN}
@@ -226,3 +249,4 @@ secrets:
   groq_api_key: ${GROQ_API_KEY}
   jira_token: ${JIRA_TOKEN}
   jira_email: ${JIRA_EMAIL}
+  # jira_webhook_secret: ${JIRA_WEBHOOK_SECRET}
