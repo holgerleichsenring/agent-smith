@@ -39,7 +39,7 @@ jobs:
 
       - name: Publish
         run: >-
-          dotnet publish src/AgentSmith.Host -c Release
+          dotnet publish src/AgentSmith.Cli -c Release
           -r ${{ matrix.rid }} --self-contained
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
@@ -47,11 +47,11 @@ jobs:
 
       - name: Rename binary (Linux/macOS)
         if: runner.os != 'Windows'
-        run: mv ./publish/AgentSmith.Host ./publish/${{ matrix.binary }}
+        run: mv ./publish/AgentSmith.Cli ./publish/${{ matrix.binary }}
 
       - name: Rename binary (Windows)
         if: runner.os == 'Windows'
-        run: mv ./publish/AgentSmith.Host.exe ./publish/${{ matrix.binary }}
+        run: mv ./publish/AgentSmith.Cli.exe ./publish/${{ matrix.binary }}
 
       - uses: actions/upload-artifact@v4
         with:

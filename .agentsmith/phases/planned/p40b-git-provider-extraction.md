@@ -109,8 +109,8 @@ src/providers/AgentSmith.Providers.{Name}/
 ## Files to Modify
 
 - `AgentSmith.sln` — add 4 provider projects
-- `src/AgentSmith.Host/AgentSmith.Host.csproj` — reference provider projects
-- `src/AgentSmith.Host/Program.cs` — call `Add{Name}Providers()` methods
+- `src/AgentSmith.Cli/AgentSmith.Cli.csproj` — reference provider projects
+- `src/AgentSmith.Cli/Program.cs` — call `Add{Name}Providers()` methods
 
 ---
 

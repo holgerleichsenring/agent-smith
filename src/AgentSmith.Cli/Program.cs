@@ -1,6 +1,6 @@
 using System.CommandLine;
-using AgentSmith.Host;
-using AgentSmith.Host.Commands;
+using AgentSmith.Cli;
+using AgentSmith.Cli.Commands;
 
 Banner.Print();
 

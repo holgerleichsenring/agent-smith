@@ -7,7 +7,8 @@ namespace AgentSmith.Contracts.Decisions;
 public interface IDecisionLogger
 {
     Task LogAsync(string? repoPath, DecisionCategory category, string decision,
-                  CancellationToken cancellationToken = default);
+                  CancellationToken cancellationToken = default,
+                  string? sourceLabel = null);
 }
 
 public enum DecisionCategory

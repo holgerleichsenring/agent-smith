@@ -8,13 +8,13 @@ COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj src/AgentSmith.Contrac
 COPY src/AgentSmith.Application/AgentSmith.Application.csproj src/AgentSmith.Application/
 COPY src/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/AgentSmith.Infrastructure.Core/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/AgentSmith.Infrastructure/
-COPY src/AgentSmith.Host/AgentSmith.Host.csproj src/AgentSmith.Host/
+COPY src/AgentSmith.Cli/AgentSmith.Cli.csproj src/AgentSmith.Cli/
 
-RUN dotnet restore src/AgentSmith.Host/AgentSmith.Host.csproj
+RUN dotnet restore src/AgentSmith.Cli/AgentSmith.Cli.csproj
 
 # Copy source and publish
 COPY src/ src/
-RUN dotnet publish src/AgentSmith.Host -c Release -o /app/publish --no-restore
+RUN dotnet publish src/AgentSmith.Cli -c Release -o /app/publish --no-restore
 
 # Stage 2: Runtime
 # TODO p4x: dotnet SDK required until TestCommand spawns ephemeral job containers.
@@ -47,6 +47,6 @@ RUN chmod +x /app/docker-entrypoint.sh
 EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD dotnet AgentSmith.Host.dll --help || exit 1
+    CMD dotnet AgentSmith.Cli.dll --help || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

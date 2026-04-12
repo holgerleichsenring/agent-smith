@@ -1,6 +1,6 @@
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 
-namespace AgentSmith.Dispatcher.Contracts;
+namespace AgentSmith.Server.Contracts;
 
 /// <summary>
 /// Resolves which configured project contains a given ticket.

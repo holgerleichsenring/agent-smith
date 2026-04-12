@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Host.Services;
+namespace AgentSmith.Cli.Services;
 
 /// <summary>
 /// Interactive console-based dialogue transport for local CLI mode.

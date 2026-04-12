@@ -21,7 +21,7 @@ Additional fix: docker-compose.yml missing explicit `image:` tag on agentsmith s
 ## Scope
 
 ### New files
-- `src/AgentSmith.Dispatcher/Services/OrphanJobDetector.cs` — BackgroundService for orphan detection
+- `src/AgentSmith.Server/Services/OrphanJobDetector.cs` — BackgroundService for orphan detection
 - `tests/AgentSmith.Tests/Dispatcher/OrphanJobDetectorTests.cs`
 
 ### Modified files (~110 total)

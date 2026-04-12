@@ -12,7 +12,7 @@ Depends on p43b (security pipeline) and p43c (SARIF output) being in place.
 
 ## Current State
 
-`WebhookListener` (p14) in `AgentSmith.Host/Services/WebhookListener.cs`:
+`WebhookListener` (p14) in `AgentSmith.Cli/Services/WebhookListener.cs`:
 - Uses `System.Net.HttpListener` on port 8081
 - Handles only GitHub Issues events (`X-GitHub-Event: issues`, action `labeled`)
 - Hard-coded label `agent-smith`
@@ -130,16 +130,16 @@ projects:
 ## Files to Create
 
 - `src/AgentSmith.Contracts/Services/IWebhookHandler.cs` — interface + WebhookResult
-- `src/AgentSmith.Host/Services/Webhooks/GitHubPrLabelWebhookHandler.cs`
-- `src/AgentSmith.Host/Services/Webhooks/GitLabMrLabelWebhookHandler.cs`
-- `src/AgentSmith.Host/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs`
-- `src/AgentSmith.Host/Services/Webhooks/GitHubIssueWebhookHandler.cs` — extracted from WebhookListener
+- `src/AgentSmith.Cli/Services/Webhooks/GitHubPrLabelWebhookHandler.cs`
+- `src/AgentSmith.Cli/Services/Webhooks/GitLabMrLabelWebhookHandler.cs`
+- `src/AgentSmith.Cli/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs`
+- `src/AgentSmith.Cli/Services/Webhooks/GitHubIssueWebhookHandler.cs` — extracted from WebhookListener
 - Tests: each handler with sample payloads, signature verification
 
 ## Files to Modify
 
-- `src/AgentSmith.Host/Services/WebhookListener.cs` — refactor to dispatch pattern
-- `src/AgentSmith.Dispatcher/` — Slack/Teams intent for `/security-review`
+- `src/AgentSmith.Cli/Services/WebhookListener.cs` — refactor to dispatch pattern
+- `src/AgentSmith.Server/` — Slack/Teams intent for `/security-review`
 
 ---
 

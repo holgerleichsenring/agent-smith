@@ -1,12 +1,12 @@
-using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Infrastructure.Models;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Background service that subscribes to Redis Streams for all active jobs
@@ -195,19 +195,25 @@ public sealed class MessageBusListener(
             return;
         }
 
-        var messageId = await adapter.AskQuestionAsync(
-            state.ChannelId,
+        var question = new AgentSmith.Contracts.Dialogue.DialogQuestion(
             message.QuestionId,
+            AgentSmith.Contracts.Dialogue.QuestionType.Confirmation,
             message.Text,
-            cancellationToken);
+            Context: null,
+            Choices: null,
+            DefaultAnswer: null,
+            Timeout: TimeSpan.FromMinutes(5));
+
+        // Fire-and-forget: the adapter blocks until the user answers or times out
+        _ = adapter.AskTypedQuestionAsync(state.ChannelId, question, cancellationToken);
 
         // Store the pending question so the interaction endpoint can route the answer
         await stateManager.SetPendingQuestionAsync(
             state.Platform, state.ChannelId, message.QuestionId, cancellationToken);
 
         logger.LogInformation(
-            "Question '{QuestionId}' posted to channel {ChannelId} (messageId={MessageId})",
-            message.QuestionId, state.ChannelId, messageId);
+            "Question '{QuestionId}' posted to channel {ChannelId}",
+            message.QuestionId, state.ChannelId);
     }
 
     private async Task HandleDoneAsync(IPlatformAdapter adapter, ConversationState state,

@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Tracks an active agent job linked to a specific chat channel.

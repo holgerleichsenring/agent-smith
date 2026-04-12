@@ -49,7 +49,7 @@ modules:
       ITicketProvider: [FetchAsync, UpdateStatusAsync, CloseAsync]
 
 entry-points:
-  - src/AgentSmith.Host/Program.cs: "CLI + DI wiring"
+  - src/AgentSmith.Cli/Program.cs: "CLI + DI wiring"
 
 dependency-graph: "Domain ← Contracts ← Application ← Host"
 ```
