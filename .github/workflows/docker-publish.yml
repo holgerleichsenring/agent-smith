@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - image: agent-smith
+          - image: agent-smith-cli
             dockerfile: src/AgentSmith.Cli/Dockerfile
           - image: agent-smith-server
             dockerfile: src/AgentSmith.Server/Dockerfile
@@ -95,7 +95,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith
+          repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith-cli
           readme-filepath: deploy/DOCKERHUB_DESCRIPTION.md
 
       - name: Update server description

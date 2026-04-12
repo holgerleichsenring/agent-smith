@@ -56,7 +56,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: AGENTSMITH_IMAGE
-              value: "agentsmith:latest"
+              value: "agentsmith-cli:latest"
             - name: IMAGE_PULL_POLICY
               value: "IfNotPresent"
             - name: K8S_SECRET_NAME
