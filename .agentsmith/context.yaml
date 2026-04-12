@@ -63,7 +63,7 @@ integrations:
   GitHub: { type: bidirectional, does: "Issues + PRs via Octokit" }
   GitLab: { type: bidirectional, does: "Issues + MRs via REST" }
   Azure:  { type: bidirectional, does: "Work items + Repos via DevOps SDK" }
-  Jira:   { type: inbound, does: "Tickets via REST v3" }
+  Jira:   { type: bidirectional, does: "Tickets via REST v3, assignee webhook trigger" }
   Slack:  { type: bidirectional, does: "Chat commands + progress via Events API" }
   Redis:  { type: bidirectional, does: "Job queue + progress pub/sub" }
 
