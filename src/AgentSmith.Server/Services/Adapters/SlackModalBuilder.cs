@@ -1,7 +1,7 @@
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 
-namespace AgentSmith.Dispatcher.Services.Adapters;
+namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Builds Slack Block Kit modal views for the structured command UI.

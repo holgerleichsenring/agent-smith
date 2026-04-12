@@ -1,6 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Server.Services.Adapters;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Dispatcher;
@@ -220,7 +220,7 @@ public sealed class SlackTypedQuestionTests
     {
         handler ??= new MockHttpMessageHandler(SlackOkResponse());
         var httpClient = new HttpClient(handler);
-        var options = new AgentSmith.Dispatcher.Models.SlackAdapterOptions
+        var options = new AgentSmith.Server.Models.SlackAdapterOptions
         {
             BotToken = "xoxb-test-token",
             SigningSecret = "test-secret"

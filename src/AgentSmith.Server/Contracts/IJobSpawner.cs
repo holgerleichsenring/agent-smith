@@ -1,6 +1,6 @@
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 
-namespace AgentSmith.Dispatcher.Contracts;
+namespace AgentSmith.Server.Contracts;
 
 /// <summary>
 /// Abstraction over the mechanism used to spawn ephemeral agent jobs.

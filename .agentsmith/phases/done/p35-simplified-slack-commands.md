@@ -28,11 +28,11 @@ Each maps implicitly to its pipeline preset.
 - `using AgentSmith.Contracts.Commands` removed from WebApplicationExtensions
 
 ## Files Modified
-1. `src/AgentSmith.Dispatcher/Models/ModalCommandType.cs`
-2. `src/AgentSmith.Dispatcher/Services/Adapters/SlackModalBuilder.cs`
-3. `src/AgentSmith.Dispatcher/Services/Handlers/SlackModalSubmissionHandler.cs`
-4. `src/AgentSmith.Dispatcher/Extensions/WebApplicationExtensions.cs`
-5. `src/AgentSmith.Dispatcher/Services/DispatcherDefaults.cs`
+1. `src/AgentSmith.Server/Models/ModalCommandType.cs`
+2. `src/AgentSmith.Server/Services/Adapters/SlackModalBuilder.cs`
+3. `src/AgentSmith.Server/Services/Handlers/SlackModalSubmissionHandler.cs`
+4. `src/AgentSmith.Server/Extensions/WebApplicationExtensions.cs`
+5. `src/AgentSmith.Server/Services/DispatcherDefaults.cs`
 6. `tests/AgentSmith.Tests/Dispatcher/SlackModalBuilderTests.cs`
 7. `tests/AgentSmith.Tests/Dispatcher/SlackModalSubmissionHandlerTests.cs`
 

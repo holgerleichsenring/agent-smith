@@ -23,7 +23,7 @@ The channel stays clean — details are in the thread, not flooding the main vie
 ```
 🔍 Scout: analyzing 8 files...
 📄 Reading: src/AgentSmith.Application/Services/PipelineExecutor.cs
-📄 Reading: src/AgentSmith.Host/Program.cs
+📄 Reading: src/AgentSmith.Cli/Program.cs
 ✏️  Writing: src/AgentSmith.Application/Services/PipelineExecutor.cs
 ▶️  Running: dotnet build
 ✅  Build succeeded

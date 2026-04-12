@@ -1,9 +1,9 @@
-using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Three-stage intent engine: Regex (free) -> Haiku (cheap) -> Project Resolution (deterministic).

@@ -78,7 +78,7 @@ export GITHUB_TOKEN=$(gh auth token)
 First a dry run to verify intent parsing and config resolution:
 
 ```bash
-$ dotnet run --project src/AgentSmith.Host -- --dry-run "fix #1 in agent-smith"
+$ dotnet run --project src/AgentSmith.Cli -- --dry-run "fix #1 in agent-smith"
 
 info: AgentSmith.Application.Services.RegexIntentParser[0]
       Parsed intent: Ticket=1, Project=agent-smith
@@ -105,7 +105,7 @@ Input `"fix #1 in agent-smith"` correctly parsed to TicketId=`1`, Project=`agent
 ## 3. First Real Run - JSON Parse Error
 
 ```bash
-$ dotnet run --project src/AgentSmith.Host -- --verbose "fix #1 in agent-smith"
+$ dotnet run --project src/AgentSmith.Cli -- --verbose "fix #1 in agent-smith"
 ```
 
 ### What worked (steps 1-4):
@@ -193,7 +193,7 @@ ApprovalContext failed: Plan rejected by user
 Piped `"y"` into stdin:
 
 ```bash
-$ echo "y" | dotnet run --project src/AgentSmith.Host -- --verbose "fix #1 in agent-smith"
+$ echo "y" | dotnet run --project src/AgentSmith.Cli -- --verbose "fix #1 in agent-smith"
 ```
 
 ---

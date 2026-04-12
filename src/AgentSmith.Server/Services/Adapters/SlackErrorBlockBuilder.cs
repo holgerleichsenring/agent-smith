@@ -1,6 +1,6 @@
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 
-namespace AgentSmith.Dispatcher.Services.Adapters;
+namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Builds Slack Block Kit blocks for structured error messages.

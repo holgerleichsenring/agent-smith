@@ -273,16 +273,16 @@ Generators become truly stateless (only `ILogger` in constructor).
 
 ### 4g: Dispatcher uses default `ILlmClient` for intent parsing
 
-**EDIT: [ServiceCollectionExtensions.cs (Dispatcher)](src/AgentSmith.Dispatcher/Extensions/ServiceCollectionExtensions.cs)**
+**EDIT: [ServiceCollectionExtensions.cs (Dispatcher)](src/AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs)**
 - `AddIntentEngine`: create default `ILlmClient` via `ILlmClientFactory.Create(new AgentConfig { Type = "claude" })`
 - Intent parsing is a global operation (pre-project), so defaults are correct here
 
 ### 4h: Rename `IHaikuIntentParser` → `ILlmIntentParser`
 
-**NEW: [ILlmIntentParser.cs](src/AgentSmith.Dispatcher/Contracts/ILlmIntentParser.cs)** — provider-agnostic name
-**NEW: [LlmIntentParser.cs](src/AgentSmith.Dispatcher/Services/LlmIntentParser.cs)** — uses `ILlmClient` with `TaskType.Scout`
+**NEW: [ILlmIntentParser.cs](src/AgentSmith.Server/Contracts/ILlmIntentParser.cs)** — provider-agnostic name
+**NEW: [LlmIntentParser.cs](src/AgentSmith.Server/Services/LlmIntentParser.cs)** — uses `ILlmClient` with `TaskType.Scout`
 **DELETE**: `IHaikuIntentParser.cs`, `HaikuIntentParser.cs` (direct Anthropic SDK coupling removed)
-**EDIT: [IntentEngine.cs](src/AgentSmith.Dispatcher/Services/IntentEngine.cs)** — `IHaikuIntentParser` → `ILlmIntentParser`
+**EDIT: [IntentEngine.cs](src/AgentSmith.Server/Services/IntentEngine.cs)** — `IHaikuIntentParser` → `ILlmIntentParser`
 
 ### 4i: Blocked command patterns in ToolExecutor
 

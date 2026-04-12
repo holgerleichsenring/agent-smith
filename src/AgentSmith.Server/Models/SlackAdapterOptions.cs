@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Configuration for SlackAdapter, bound from environment variables or appsettings.

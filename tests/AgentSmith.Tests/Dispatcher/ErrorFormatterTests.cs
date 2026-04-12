@@ -1,4 +1,4 @@
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Services;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Dispatcher;

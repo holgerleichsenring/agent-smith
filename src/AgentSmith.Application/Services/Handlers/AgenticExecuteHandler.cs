@@ -41,11 +41,14 @@ public sealed class AgenticExecuteHandler(
 
         if (result.Decisions is { Count: > 0 })
         {
+            context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
+            var sourceLabel = ticketId is not null ? $"#{ticketId}" : null;
+
             foreach (var d in result.Decisions)
             {
                 if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
                     await decisionLogger.LogAsync(
-                        context.Repository.LocalPath, cat, d.Decision, cancellationToken);
+                        context.Repository.LocalPath, cat, d.Decision, cancellationToken, sourceLabel);
             }
 
             context.Pipeline.AppendDecisions(result.Decisions);

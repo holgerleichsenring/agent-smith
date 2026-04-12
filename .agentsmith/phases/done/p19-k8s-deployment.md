@@ -92,10 +92,10 @@ COPY src/AgentSmith.Domain/AgentSmith.Domain.csproj           src/AgentSmith.Dom
 COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj     src/AgentSmith.Contracts/
 COPY src/AgentSmith.Application/AgentSmith.Application.csproj src/AgentSmith.Application/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/AgentSmith.Infrastructure/
-COPY src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj   src/AgentSmith.Dispatcher/
-RUN dotnet restore src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj
+COPY src/AgentSmith.Server/AgentSmith.Server.csproj   src/AgentSmith.Server/
+RUN dotnet restore src/AgentSmith.Server/AgentSmith.Server.csproj
 COPY src/ src/
-RUN dotnet publish src/AgentSmith.Dispatcher -c Release -o /app/publish
+RUN dotnet publish src/AgentSmith.Server -c Release -o /app/publish
 
 # Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
@@ -109,7 +109,7 @@ USER dispatcher
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
-ENTRYPOINT ["dotnet", "AgentSmith.Dispatcher.dll"]
+ENTRYPOINT ["dotnet", "AgentSmith.Server.dll"]
 ```
 
 ---
@@ -557,7 +557,7 @@ kubectl rollout restart deployment/agentsmith-dispatcher -n agentsmith
 
 ## Goal
 
-Deploy the `AgentSmith.Dispatcher` as a long-running Kubernetes `Deployment`
+Deploy the `AgentSmith.Server` as a long-running Kubernetes `Deployment`
 with a `ClusterIP` Service, liveness/readiness probes, and full secret injection.
 
 ---
@@ -764,7 +764,7 @@ an emptyDir at `/tmp`, but `false` is simpler and acceptable for this workload.
 
 ## Goal
 
-Create a production-ready multi-stage Dockerfile for the `AgentSmith.Dispatcher`
+Create a production-ready multi-stage Dockerfile for the `AgentSmith.Server`
 ASP.NET Core web application. Separate from the existing `Dockerfile` which builds
 the CLI agent container.
 
@@ -784,10 +784,10 @@ Located at the repository root, alongside `Dockerfile`.
   - `AgentSmith.Contracts`
   - `AgentSmith.Application`
   - `AgentSmith.Infrastructure`
-  - `AgentSmith.Dispatcher`
-- `dotnet restore src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj`
+  - `AgentSmith.Server`
+- `dotnet restore src/AgentSmith.Server/AgentSmith.Server.csproj`
 - Copy all source
-- `dotnet publish src/AgentSmith.Dispatcher -c Release -o /app/publish --no-restore`
+- `dotnet publish src/AgentSmith.Server -c Release -o /app/publish --no-restore`
 
 **Stage 2: Runtime (`mcr.microsoft.com/dotnet/aspnet:8.0`)**
 
@@ -801,7 +801,7 @@ Located at the repository root, alongside `Dockerfile`.
 - `EXPOSE 8080`
 - Set `ASPNETCORE_URLS=http://+:8080` and `ASPNETCORE_ENVIRONMENT=Production`
 - `HEALTHCHECK` using `curl -f http://localhost:8080/health`
-- `ENTRYPOINT ["dotnet", "AgentSmith.Dispatcher.dll"]`
+- `ENTRYPOINT ["dotnet", "AgentSmith.Server.dll"]`
 
 ### Full Dockerfile
 
@@ -815,13 +815,13 @@ COPY src/AgentSmith.Domain/AgentSmith.Domain.csproj                   src/AgentS
 COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj             src/AgentSmith.Contracts/
 COPY src/AgentSmith.Application/AgentSmith.Application.csproj         src/AgentSmith.Application/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   src/AgentSmith.Infrastructure/
-COPY src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj           src/AgentSmith.Dispatcher/
+COPY src/AgentSmith.Server/AgentSmith.Server.csproj           src/AgentSmith.Server/
 
-RUN dotnet restore src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj
+RUN dotnet restore src/AgentSmith.Server/AgentSmith.Server.csproj
 
 # Copy all source and publish
 COPY src/ src/
-RUN dotnet publish src/AgentSmith.Dispatcher -c Release -o /app/publish --no-restore
+RUN dotnet publish src/AgentSmith.Server -c Release -o /app/publish --no-restore
 
 # ---
 
@@ -852,7 +852,7 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["dotnet", "AgentSmith.Dispatcher.dll"]
+ENTRYPOINT ["dotnet", "AgentSmith.Server.dll"]
 ```
 
 ---
@@ -862,11 +862,11 @@ ENTRYPOINT ["dotnet", "AgentSmith.Dispatcher.dll"]
 | Aspect | `Dockerfile` (agent) | `Dockerfile.dispatcher` |
 |--------|---------------------|------------------------|
 | Base runtime | `dotnet/runtime:8.0` | `dotnet/aspnet:8.0` |
-| Entry project | `AgentSmith.Host` | `AgentSmith.Dispatcher` |
+| Entry project | `AgentSmith.Cli` | `AgentSmith.Server` |
 | User | `agentsmith` (uid 1000) | `dispatcher` (uid 1000) |
 | SSH mount | Yes (`~/.ssh`) | No |
 | Port | 8080 (webhook mode) | 8080 (always) |
-| ENTRYPOINT | `AgentSmith.Host.dll` | `AgentSmith.Dispatcher.dll` |
+| ENTRYPOINT | `AgentSmith.Cli.dll` | `AgentSmith.Server.dll` |
 | curl install | No | Yes (for HEALTHCHECK) |
 
 ---

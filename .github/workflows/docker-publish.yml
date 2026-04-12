@@ -38,8 +38,8 @@ jobs:
         include:
           - image: agent-smith
             dockerfile: Dockerfile
-          - image: agent-smith-dispatcher
-            dockerfile: Dockerfile.dispatcher
+          - image: agent-smith-server
+            dockerfile: Dockerfile.server
     permissions:
       contents: read
       packages: write
@@ -98,10 +98,10 @@ jobs:
           repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith
           readme-filepath: DOCKERHUB_DESCRIPTION.md
 
-      - name: Update dispatcher description
+      - name: Update server description
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith-dispatcher
+          repository: ${{ env.DOCKER_NAMESPACE }}/agent-smith-server
           readme-filepath: DOCKERHUB_DESCRIPTION.md

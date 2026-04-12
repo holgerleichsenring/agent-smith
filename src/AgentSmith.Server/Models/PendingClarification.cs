@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Stored in Redis when IntentEngine returns ClarificationNeeded.
