@@ -68,8 +68,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
 
-        // PR comment reply and conversation lookup (p59)
+        // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
+        services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
+        services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
+        services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
 
         return services;

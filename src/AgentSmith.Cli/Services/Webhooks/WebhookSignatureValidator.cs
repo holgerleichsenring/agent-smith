@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AgentSmith.Host.Services.Webhooks;
+namespace AgentSmith.Cli.Services.Webhooks;
 
 /// <summary>
 /// Validates webhook payload signatures for GitHub, GitLab, and Azure DevOps.
@@ -36,6 +36,37 @@ public static class WebhookSignatureValidator
 
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(tokenHeader),
+            Encoding.UTF8.GetBytes(secret));
+    }
+
+    public static bool ValidateAzureDevOps(string authorizationHeader, string secret)
+    {
+        if (string.IsNullOrEmpty(secret))
+            return true;
+
+        // Azure DevOps service hooks use Basic Auth with username:password
+        if (!authorizationHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var encoded = authorizationHeader["Basic ".Length..];
+        string decoded;
+        try
+        {
+            decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+        }
+        catch
+        {
+            return false;
+        }
+
+        // The secret is sent as the password (username can be anything)
+        var colonIndex = decoded.IndexOf(':');
+        if (colonIndex < 0)
+            return false;
+
+        var password = decoded[(colonIndex + 1)..];
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(password),
             Encoding.UTF8.GetBytes(secret));
     }
 }

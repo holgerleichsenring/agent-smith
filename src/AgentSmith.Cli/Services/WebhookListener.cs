@@ -2,11 +2,11 @@ using System.Net;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Host.Services.Webhooks;
+using AgentSmith.Cli.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Host.Services;
+namespace AgentSmith.Cli.Services;
 
 /// <summary>
 /// Thin HTTP server that dispatches webhook events to IWebhookHandler implementations.
@@ -146,6 +146,9 @@ public sealed class WebhookListener(
             "gitlab" => !headers.TryGetValue("X-Gitlab-Token", out var token)
                         || WebhookSignatureValidator.ValidateGitLab(token,
                             Environment.GetEnvironmentVariable("GITLAB_WEBHOOK_TOKEN") ?? ""),
+            "azuredevops" => !headers.TryGetValue("Authorization", out var auth)
+                        || WebhookSignatureValidator.ValidateAzureDevOps(auth,
+                            Environment.GetEnvironmentVariable("AZDO_WEBHOOK_SECRET") ?? ""),
             _ => true
         };
     }

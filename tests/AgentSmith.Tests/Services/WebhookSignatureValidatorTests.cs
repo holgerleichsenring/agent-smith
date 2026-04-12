@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using AgentSmith.Host.Services.Webhooks;
+using AgentSmith.Cli.Services.Webhooks;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -58,6 +58,56 @@ public sealed class WebhookSignatureValidatorTests
     public void ValidateGitLab_EmptySecret_ReturnsTrue()
     {
         WebhookSignatureValidator.ValidateGitLab("any-token", "")
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_CorrectPassword_ReturnsTrue()
+    {
+        var secret = "my-azdo-secret";
+        var header = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"user:{secret}"));
+
+        WebhookSignatureValidator.ValidateAzureDevOps(header, secret)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_WrongPassword_ReturnsFalse()
+    {
+        var header = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("user:wrong-password"));
+
+        WebhookSignatureValidator.ValidateAzureDevOps(header, "correct-password")
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_EmptySecret_ReturnsTrue()
+    {
+        WebhookSignatureValidator.ValidateAzureDevOps("Basic anything", "")
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_MissingBasicPrefix_ReturnsFalse()
+    {
+        WebhookSignatureValidator.ValidateAzureDevOps("Bearer token", "secret")
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_InvalidBase64_ReturnsFalse()
+    {
+        WebhookSignatureValidator.ValidateAzureDevOps("Basic !!!invalid!!!", "secret")
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ValidateAzureDevOps_EmptyUsername_CorrectPassword_ReturnsTrue()
+    {
+        var secret = "my-secret";
+        var header = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($":{secret}"));
+
+        WebhookSignatureValidator.ValidateAzureDevOps(header, secret)
             .Should().BeTrue();
     }
 
