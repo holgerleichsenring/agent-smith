@@ -12,7 +12,7 @@ docker run --rm \
   -e GITHUB_TOKEN=ghp_... \
   -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
-  holgerleichsenring/agent-smith \
+  holgerleichsenring/agent-smith-cli \
   "fix #42 in my-api"
 
 # Server mode: webhook listener
@@ -22,14 +22,14 @@ docker run -d \
   -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
   -p 8081:8081 \
-  holgerleichsenring/agent-smith \
+  holgerleichsenring/agent-smith-cli \
   --server --port 8081
 ```
 
 ## Docker Compose
 
 ```bash
-git clone https://github.com/holgerleichsenring/agent-smith.git
+git clone https://github.com/holgerleichsenring/agent-smith-cli.git
 cd agent-smith
 cp .env.example .env  # add your API keys
 docker compose up -d
@@ -39,8 +39,8 @@ docker compose up -d
 
 | Image | Description |
 |-------|-------------|
-| `holgerleichsenring/agent-smith` | CLI runner + webhook server |
-| `holgerleichsenring/agent-smith-dispatcher` | Slack/Teams gateway, K8s/Docker job spawner |
+| `holgerleichsenring/agent-smith-cli` | CLI runner + webhook server |
+| `holgerleichsenring/agent-smith-server` | Slack/Teams gateway, K8s/Docker job spawner |
 
 ## Supported Platforms
 
@@ -63,5 +63,5 @@ docker compose up -d
 
 ## Links
 
-- [GitHub Repository](https://github.com/holgerleichsenring/agent-smith)
-- [Configuration Guide](https://github.com/holgerleichsenring/agent-smith/blob/main/config/)
+- [GitHub Repository](https://github.com/holgerleichsenring/agent-smith-cli)
+- [Configuration Guide](https://github.com/holgerleichsenring/agent-smith-cli/blob/main/config/)
