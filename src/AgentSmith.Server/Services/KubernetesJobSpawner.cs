@@ -178,7 +178,7 @@ public sealed class JobSpawnerOptions
     public string Namespace { get; set; } = "default";
 
     /// <summary>Agent container image name.</summary>
-    public string Image { get; set; } = "agentsmith:latest";
+    public string Image { get; set; } = "agentsmith-cli:latest";
 
     /// <summary>Image pull policy. Use IfNotPresent locally, Always in prod.</summary>
     public string ImagePullPolicy { get; set; } = "IfNotPresent";

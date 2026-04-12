@@ -7,7 +7,7 @@ services:
     build:
       context: ..
       dockerfile: src/AgentSmith.Cli/Dockerfile
-    image: agentsmith:latest
+    image: agentsmith-cli:latest
     restart: "no"
     stdin_open: false
     env_file:
@@ -97,7 +97,7 @@ services:
       - ASPNETCORE_URLS=http://+:8081
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
-      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith:latest}
+      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:latest}
       - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
       - K8S_SECRET_NAME=${K8S_SECRET_NAME:-agentsmith-secrets}
     ports:
