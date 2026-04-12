@@ -145,11 +145,11 @@ public sealed class GeneratePlanHandlerTests
         _decisionLoggerMock.Verify(d => d.LogAsync(
             "/tmp/repo", DecisionCategory.Architecture,
             "**Redis Streams**: fan-out required",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
         _decisionLoggerMock.Verify(d => d.LogAsync(
             "/tmp/repo", DecisionCategory.Tooling,
             "**DuckDB**: reads Parquet natively",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public sealed class GeneratePlanHandlerTests
         _decisionLoggerMock.Verify(d => d.LogAsync(
             null, DecisionCategory.Architecture,
             "**Redis**: reason",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
