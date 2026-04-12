@@ -15,7 +15,7 @@ internal static class DispatcherDefaults
     public const string SpawnerTypeDocker = "docker";
 
     // --- Agent image ---
-    public const string AgentImage = "agentsmith:latest";
+    public const string AgentImage = "agentsmith-cli:latest";
     public const string ImagePullPolicy = "IfNotPresent";
 
     // --- Kubernetes ---
