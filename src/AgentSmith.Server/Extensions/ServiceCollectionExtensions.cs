@@ -1,16 +1,16 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Services.Handlers;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Services;
 using AgentSmith.Infrastructure;
 using Docker.DotNet;
 using k8s;
 using StackExchange.Redis;
 
-namespace AgentSmith.Dispatcher.Extensions;
+namespace AgentSmith.Server.Extensions;
 
 internal static class ServiceCollectionExtensions
 {
@@ -61,6 +61,23 @@ internal static class ServiceCollectionExtensions
         services.AddScoped<SlackModalSubmissionHandler>();
         services.AddSingleton<CachedTicketSearch>();
         services.AddMemoryCache();
+        return services;
+    }
+
+    internal static IServiceCollection AddTeamsAdapter(this IServiceCollection services)
+    {
+        services.AddHttpClient();
+        var options = new TeamsAdapterOptions
+        {
+            AppId = Environment.GetEnvironmentVariable("TEAMS_APP_ID") ?? string.Empty,
+            AppPassword = Environment.GetEnvironmentVariable("TEAMS_APP_PASSWORD") ?? string.Empty,
+            TenantId = Environment.GetEnvironmentVariable("TEAMS_TENANT_ID") ?? string.Empty,
+        };
+        services.AddSingleton(options);
+        services.AddSingleton(new TeamsJwtValidator(options.AppId));
+        services.AddSingleton<TeamsAdapter>();
+        services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
+        services.AddScoped<TeamsInteractionHandler>();
         return services;
     }
 
