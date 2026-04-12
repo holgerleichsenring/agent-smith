@@ -103,7 +103,9 @@ h1 {
   margin-bottom: 20px; color: var(--text);
 }
 h1 em { font-style: normal; color: var(--text2); }
-.hero-sub { font-size: 20px; color: var(--text2); line-height: 1.8; margin-bottom: 36px; max-width: 460px; font-weight: 400; }
+.hero-examples { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+.hero-examples span { font-family: var(--mono); font-size: 14px; color: var(--text2); background: var(--bg2); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
+.hero-sub { font-size: 20px; color: var(--text2); line-height: 1.8; margin-bottom: 36px; max-width: 520px; font-weight: 400; }
 .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
 .btn-hero {
   padding: 12px 24px; border-radius: 6px;
