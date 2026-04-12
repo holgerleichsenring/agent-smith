@@ -82,7 +82,7 @@ Document this as the recommended pipeline configuration in README.
 
 ## Files to Modify
 
-- `src/AgentSmith.Host/Commands/ApiScanCommand.cs` — parse `--output` as
+- `src/AgentSmith.Cli/Commands/ApiScanCommand.cs` — parse `--output` as
   comma-separated, add `--output-dir` option
 - `src/AgentSmith.Contracts/Commands/ContextKeys.cs` — add `OutputDir`
 - `src/AgentSmith.Application/Services/Handlers/DeliverFindingsHandler.cs` —

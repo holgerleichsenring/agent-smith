@@ -1,4 +1,4 @@
-namespace AgentSmith.Host;
+namespace AgentSmith.Cli;
 
 internal static class Banner
 {

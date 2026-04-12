@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Translates raw exception messages into user-friendly reasons.

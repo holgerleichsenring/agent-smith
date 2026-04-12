@@ -198,7 +198,7 @@ projects:
 
 - `src/AgentSmith.Application/Services/Handlers/BootstrapProjectHandler.cs`
   — prompt for project-vision.md during setup
-- `src/AgentSmith.Host/Commands/PipelineCommand.cs`
+- `src/AgentSmith.Cli/Commands/PipelineCommand.cs`
   — add `autonomous` verb
 - `config/agentsmith.yml` — add autonomous example project
 

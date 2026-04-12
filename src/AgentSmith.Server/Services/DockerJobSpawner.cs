@@ -1,10 +1,10 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Spawns ephemeral agent containers via the Docker Engine API (Docker socket).

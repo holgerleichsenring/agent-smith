@@ -100,7 +100,7 @@ Extend `AddAgentSmithCommands()` with:
 ## Host Program.cs
 
 ```
-File: src/AgentSmith.Host/Program.cs
+File: src/AgentSmith.Cli/Program.cs
 ```
 
 Minimal CLI without CommandLineParser (that comes in Phase 5):

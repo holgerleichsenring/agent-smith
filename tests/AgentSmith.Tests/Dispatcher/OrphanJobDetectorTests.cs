@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using FluentAssertions;

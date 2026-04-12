@@ -1,11 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: agentsmith-dispatcher
+  name: agentsmith-server
   namespace: agentsmith
   labels:
-    app: agentsmith-dispatcher
-    app.kubernetes.io/name: agentsmith-dispatcher
+    app: agentsmith-server
+    app.kubernetes.io/name: agentsmith-server
     app.kubernetes.io/component: ingress
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
@@ -25,6 +25,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: agentsmith-dispatcher
+                name: agentsmith-server
                 port:
                   name: http

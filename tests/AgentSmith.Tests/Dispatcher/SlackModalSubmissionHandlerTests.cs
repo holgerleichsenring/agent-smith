@@ -1,10 +1,10 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Services.Handlers;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Infrastructure.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

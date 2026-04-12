@@ -55,7 +55,7 @@ The Docker image automatically fixes volume mount permissions — no manual `chm
 git clone https://github.com/holgerleichsenring/agent-smith.git
 cd agent-smith
 dotnet build
-dotnet run --project src/AgentSmith.Host -- --help
+dotnet run --project src/AgentSmith.Cli -- --help
 ```
 
 Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).

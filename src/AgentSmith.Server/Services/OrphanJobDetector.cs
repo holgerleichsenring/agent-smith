@@ -1,10 +1,10 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Periodically scans for orphaned jobs (containers that crashed without

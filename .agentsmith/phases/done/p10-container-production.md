@@ -15,7 +15,7 @@ A `--headless` mode that skips interactive approval prompts for container/CI usa
 See: `prompts/phase10-headless.md`
 
 CLI option `--headless` that auto-approves plans without interactive stdin.
-Project: `AgentSmith.Host/`, `AgentSmith.Application/`, `AgentSmith.Contracts/`
+Project: `AgentSmith.Cli/`, `AgentSmith.Application/`, `AgentSmith.Contracts/`
 
 ### Step 2: Docker Production Setup
 See: `prompts/phase10-docker.md`
@@ -92,7 +92,7 @@ USER agentsmith
 ### Health check
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD dotnet AgentSmith.Host.dll --help || exit 1
+    CMD dotnet AgentSmith.Cli.dll --help || exit 1
 ```
 
 ### Temp directory for cloned repos

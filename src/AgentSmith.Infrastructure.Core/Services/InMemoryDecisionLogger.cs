@@ -11,9 +11,11 @@ namespace AgentSmith.Infrastructure.Core.Services;
 public sealed class InMemoryDecisionLogger(ILogger<InMemoryDecisionLogger> logger) : IDecisionLogger
 {
     public Task LogAsync(string? repoPath, DecisionCategory category,
-                         string decision, CancellationToken cancellationToken = default)
+                         string decision, CancellationToken cancellationToken = default,
+                         string? sourceLabel = null)
     {
-        logger.LogDebug("Decision logged in-memory [{Category}]: {Decision}", category, decision);
+        logger.LogDebug("Decision logged in-memory [{Source}/{Category}]: {Decision}",
+            sourceLabel ?? "global", category, decision);
         return Task.CompletedTask;
     }
 }

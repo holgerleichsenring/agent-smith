@@ -13,13 +13,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Application", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure", "src\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj", "{891B6E25-CA05-4B38-90C0-7BE5EB67CF96}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Host", "src\AgentSmith.Host\AgentSmith.Host.csproj", "{A5EC2B3E-68FD-42F2-A660-4B4728CCB744}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Cli", "src\AgentSmith.Cli\AgentSmith.Cli.csproj", "{A5EC2B3E-68FD-42F2-A660-4B4728CCB744}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Tests", "tests\AgentSmith.Tests\AgentSmith.Tests.csproj", "{12F4004F-05E8-48CB-98A4-EAE3F80C529A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Dispatcher", "src\AgentSmith.Dispatcher\AgentSmith.Dispatcher.csproj", "{B42A667B-B20E-46EF-AFF3-EC5C256F4622}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Server", "src\AgentSmith.Server\AgentSmith.Server.csproj", "{B42A667B-B20E-46EF-AFF3-EC5C256F4622}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Core", "src\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj", "{B65106CC-4CC3-4249-9803-A35BBFD46538}"
 EndProject

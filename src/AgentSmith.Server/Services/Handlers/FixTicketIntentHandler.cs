@@ -1,10 +1,10 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services.Handlers;
+namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
 /// Handles the FixTicketIntent: validates preconditions, spawns an agent job,

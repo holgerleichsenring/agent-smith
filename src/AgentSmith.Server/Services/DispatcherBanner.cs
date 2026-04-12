@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Prints the Agent Smith Dispatcher ASCII banner to the console on startup.

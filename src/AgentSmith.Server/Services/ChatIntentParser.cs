@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Parses chat messages into typed ChatIntent instances using regex.

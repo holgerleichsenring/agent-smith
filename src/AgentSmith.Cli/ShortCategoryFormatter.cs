@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 
-namespace AgentSmith.Host;
+namespace AgentSmith.Cli;
 
 public sealed class ShortCategoryFormatterOptions : ConsoleFormatterOptions
 {

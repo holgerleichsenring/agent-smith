@@ -1,8 +1,8 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Services.Adapters;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services.Handlers;
+namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
 /// Sends help, greeting, unknown, and clarification messages to the user.

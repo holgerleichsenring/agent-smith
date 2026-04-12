@@ -1,10 +1,10 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
 using k8s;
 using k8s.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Spawns a Kubernetes Job for each agent request.

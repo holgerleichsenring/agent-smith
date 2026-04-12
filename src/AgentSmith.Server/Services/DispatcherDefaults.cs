@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Central repository for all default values used across the Dispatcher.

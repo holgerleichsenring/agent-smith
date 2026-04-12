@@ -37,7 +37,7 @@ The current `JobSpawner.cs` is tightly coupled to Kubernetes.
 We extract a clean interface so the Dispatcher is spawner-agnostic:
 
 ```csharp
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 public interface IJobSpawner
 {
@@ -197,7 +197,7 @@ No magic strings scattered across the codebase.
 ## Structure
 
 ```
-AgentSmith.Dispatcher/
+AgentSmith.Server/
 ├── Program.cs                          ← ~30 lines
 ├── DispatcherBanner.cs
 ├── DispatcherDefaults.cs
@@ -351,7 +351,7 @@ between local and prod environments.
 
 | File | Change |
 |------|--------|
-| `AgentSmith.Dispatcher.csproj` | Add `Docker.DotNet` NuGet package |
+| `AgentSmith.Server.csproj` | Add `Docker.DotNet` NuGet package |
 | `Services/DockerJobSpawner.cs` | NEW — full implementation |
 | `docker-compose.yml` | Socket mount, `user: root`, `SPAWNER_TYPE=docker`, remove `K8S_REDIS_URL` |
 

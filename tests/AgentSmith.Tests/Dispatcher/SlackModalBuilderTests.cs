@@ -1,5 +1,5 @@
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Adapters;
 using FluentAssertions;
 using System.Text.Json;
 

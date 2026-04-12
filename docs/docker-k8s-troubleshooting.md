@@ -84,7 +84,7 @@ container. The YAML serializer registration fails at runtime.
 **Fix**
 
 Upgrade `KubernetesClient` to version 16.x in
-`src/AgentSmith.Dispatcher/AgentSmith.Dispatcher.csproj`:
+`src/AgentSmith.Server/AgentSmith.Server.csproj`:
 
 ```xml
 <PackageReference Include="KubernetesClient" Version="16.0.1" />

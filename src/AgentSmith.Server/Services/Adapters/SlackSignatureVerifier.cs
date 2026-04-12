@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AgentSmith.Dispatcher.Services.Adapters;
+namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Verifies Slack request signatures using HMAC-SHA256.

@@ -465,8 +465,8 @@ modules:
       AgentProviderFactory: "AgentConfig → IAgentProvider"
 
 entry-points:
-  - src/AgentSmith.Host/Program.cs: "CLI + DI wiring"
-  - src/AgentSmith.Dispatcher/Program.cs: "Slack gateway + Redis listener"
+  - src/AgentSmith.Cli/Program.cs: "CLI + DI wiring"
+  - src/AgentSmith.Server/Program.cs: "Slack gateway + Redis listener"
 
 dependency-graph: "Domain ← Contracts ← Application ← Host, Infrastructure ← Host"
 ```

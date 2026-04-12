@@ -7,11 +7,11 @@ bases:
   - ../../base
 
 patches:
-  - path: patch-dispatcher-dev.yaml
+  - path: patch-server-dev.yaml
     target:
       kind: Deployment
-      name: agentsmith-dispatcher
+      name: agentsmith-server
   - path: patch-service-nodeport.yaml
     target:
       kind: Service
-      name: agentsmith-dispatcher
+      name: agentsmith-server

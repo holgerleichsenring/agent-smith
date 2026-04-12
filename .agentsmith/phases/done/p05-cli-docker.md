@@ -43,7 +43,7 @@ User should be able to run `agentsmith "fix #123 in todo-list"` - locally or in 
 
 ## Goal
 Real CLI interface with argument parsing, --help, --config option.
-Project: `AgentSmith.Host/`
+Project: `AgentSmith.Cli/`
 
 ---
 
@@ -78,7 +78,7 @@ Options:
 ## Program.cs Refactoring
 
 ```
-File: src/AgentSmith.Host/Program.cs
+File: src/AgentSmith.Cli/Program.cs
 ```
 
 Instead of the simple `args[0]` parsing, `System.CommandLine` is used:
@@ -162,7 +162,7 @@ File: Dockerfile (project root)
 - Base: `mcr.microsoft.com/dotnet/runtime:8.0`
 - Copy published output
 - Copy `config/` as default config
-- ENTRYPOINT: `dotnet AgentSmith.Host.dll`
+- ENTRYPOINT: `dotnet AgentSmith.Cli.dll`
 
 ---
 

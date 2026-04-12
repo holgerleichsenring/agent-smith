@@ -291,7 +291,7 @@ Each provider has its own agentic loop implementation (`AgenticLoop`, `OpenAiAge
 
 ## Host
 
-**Project:** `AgentSmith.Host` | **Dependencies:** All layers (DI wiring)
+**Project:** `AgentSmith.Cli` | **Dependencies:** All layers (DI wiring)
 
 The CLI entry point and webhook server. Wires all dependencies, defines CLI commands, routes webhooks.
 
@@ -331,7 +331,7 @@ The CLI entry point and webhook server. Wires all dependencies, defines CLI comm
 
 ## Dispatcher
 
-**Project:** `AgentSmith.Dispatcher` | **Dependencies:** Own contracts, Redis, platform SDKs
+**Project:** `AgentSmith.Server` | **Dependencies:** Own contracts, Redis, platform SDKs
 
 A separate ASP.NET Core process that bridges chat platforms to Agent Smith via ephemeral containers.
 

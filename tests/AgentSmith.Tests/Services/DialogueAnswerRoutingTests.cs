@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Host.Services.Webhooks;
+using AgentSmith.Cli.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 

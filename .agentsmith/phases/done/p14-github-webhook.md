@@ -22,7 +22,7 @@ Project: `.github/workflows/`
 See: `prompts/phase14-webhook.md`
 
 `--server` mode with minimal HTTP endpoint for webhook events.
-Project: `AgentSmith.Host/`
+Project: `AgentSmith.Cli/`
 
 ### Step 3: Docker Compose Server Service
 Update docker-compose.yml with `agentsmith-server` service.

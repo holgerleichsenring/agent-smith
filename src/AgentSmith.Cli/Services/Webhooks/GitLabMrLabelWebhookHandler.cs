@@ -2,7 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Host.Services.Webhooks;
+namespace AgentSmith.Cli.Services.Webhooks;
 
 /// <summary>
 /// Handles GitLab Merge Request Hook events. Triggers security-scan pipeline

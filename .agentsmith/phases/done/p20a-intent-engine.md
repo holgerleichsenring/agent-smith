@@ -217,7 +217,7 @@ switch (intent)
 - Stage 2 (Haiku) is only called when Stage 1 fails — typical sessions cost near zero
 - Project resolution queries ticket providers — ensure providers handle "not found" gracefully
 - The old `RegexIntentParser` in `AgentSmith.Application` is kept for the CLI use case
-- `IntentEngine` lives in `AgentSmith.Dispatcher` — it is chat-specific logic
+- `IntentEngine` lives in `AgentSmith.Server` — it is chat-specific logic
 - Token usage from Haiku calls is tracked in the existing `TokenUsageTracker`
 
 ---
@@ -263,7 +263,7 @@ The old parser was fragile: it only handled exact regex patterns and failed sile
 
 ## Key decisions
 
-- **IntentEngine lives in AgentSmith.Dispatcher** — it is chat-specific logic, not core application logic. The CLI still uses the old `RegexIntentParser` in `AgentSmith.Application`.
+- **IntentEngine lives in AgentSmith.Server** — it is chat-specific logic, not core application logic. The CLI still uses the old `RegexIntentParser` in `AgentSmith.Application`.
 - **ChatIntent hierarchy as discriminated union** — `abstract record ChatIntent` with subtypes (`FixTicketIntent`, `ListTicketsIntent`, `CreateTicketIntent`, `HelpIntent`, `GreetingIntent`, `ErrorIntent`, `ClarificationNeeded`). The dispatcher switch-cases on these.
 - **Project resolver queries ticket providers in parallel** — if the user says "fix #58" without specifying a project, all configured providers are queried simultaneously. Single match = auto-resolve, multiple = ask user, none = error.
 - **SlackMessageDispatcher** routes intents to dedicated handlers (`FixTicketIntentHandler`, `ListTicketsIntentHandler`, `CreateTicketIntentHandler`, `HelpHandler`).

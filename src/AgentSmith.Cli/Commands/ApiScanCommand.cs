@@ -6,7 +6,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AgentSmith.Host.Commands;
+namespace AgentSmith.Cli.Commands;
 
 internal static class ApiScanCommand
 {
