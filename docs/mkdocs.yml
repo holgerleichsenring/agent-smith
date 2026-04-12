@@ -3,6 +3,7 @@ site_url: https://docs.agent-smith.org
 site_description: Self-hosted AI orchestration — technical documentation
 repo_url: https://github.com/holgerleichsenring/agent-smith
 repo_name: holgerleichsenring/agent-smith
+docs_dir: .
 
 theme:
   name: material

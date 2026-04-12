@@ -40,7 +40,7 @@ RUN mkdir -p /output && chown agentsmith:agentsmith /output
 RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
 
 # Entrypoint fixes volume mount permissions, then drops to agentsmith user
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY src/AgentSmith.Cli/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Expose webhook listener port (--server mode)
