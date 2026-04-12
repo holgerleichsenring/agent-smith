@@ -1,18 +1,24 @@
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Services.Handlers;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace AgentSmith.Dispatcher.Extensions;
+namespace AgentSmith.Server.Extensions;
 
 internal static class WebApplicationExtensions
 {
     internal static WebApplication MapHealthEndpoints(this WebApplication app)
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTimeOffset.UtcNow }));
+        return app;
+    }
+
+    internal static WebApplication MapTeamsEndpoints(this WebApplication app)
+    {
+        app.MapPost("/api/teams/messages", (Delegate)HandleTeamsActivityAsync);
         return app;
     }
 
@@ -30,7 +36,7 @@ internal static class WebApplicationExtensions
     private static async Task<IResult> HandleSlackEventsAsync(HttpContext ctx)
     {
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("AgentSmith.Dispatcher.SlackEvents");
+            .CreateLogger("AgentSmith.Server.SlackEvents");
 
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
@@ -126,7 +132,7 @@ internal static class WebApplicationExtensions
                 catch (Exception ex)
                 {
                     var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-                        .CreateLogger("AgentSmith.Dispatcher.SlackModal");
+                        .CreateLogger("AgentSmith.Server.SlackModal");
                     logger.LogError(ex, "Modal submission handling failed");
                 }
             });
@@ -164,7 +170,7 @@ internal static class WebApplicationExtensions
     private static async Task<IResult> HandleSlackCommandAsync(HttpContext ctx)
     {
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("AgentSmith.Dispatcher.SlackCommands");
+            .CreateLogger("AgentSmith.Server.SlackCommands");
 
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
@@ -206,7 +212,7 @@ internal static class WebApplicationExtensions
     private static async Task<IResult> HandleSlackOptionsAsync(HttpContext ctx)
     {
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("AgentSmith.Dispatcher.SlackOptions");
+            .CreateLogger("AgentSmith.Server.SlackOptions");
 
         var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
         var verifier = new SlackSignatureVerifier(options.SigningSecret);
@@ -258,7 +264,7 @@ internal static class WebApplicationExtensions
     private static async Task<IResult> HandleModalBlockActionAsync(JsonNode json, HttpContext ctx)
     {
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("AgentSmith.Dispatcher.SlackModal");
+            .CreateLogger("AgentSmith.Server.SlackModal");
 
         var actionId = json["actions"]?[0]?["action_id"]?.GetValue<string>() ?? string.Empty;
 
@@ -396,6 +402,115 @@ internal static class WebApplicationExtensions
 
         var end = trimmed.IndexOf('>', 2);
         return end >= 0 ? trimmed[(end + 1)..].TrimStart() : trimmed;
+    }
+
+    // --- Teams activity handler ---
+
+    private static async Task<IResult> HandleTeamsActivityAsync(HttpContext ctx)
+    {
+        var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("AgentSmith.Server.TeamsActivity");
+
+        var authHeader = ctx.Request.Headers.Authorization.ToString();
+        var validator = ctx.RequestServices.GetRequiredService<TeamsJwtValidator>();
+
+        if (!await validator.ValidateAsync(authHeader, ctx.RequestAborted))
+        {
+            logger.LogWarning("Teams JWT validation failed");
+            return Results.Unauthorized();
+        }
+
+        var body = await ReadBodyAsync(ctx.Request);
+        var json = JsonNode.Parse(body);
+        if (json is null) return Results.BadRequest();
+
+        var activityType = json["type"]?.GetValue<string>() ?? "";
+        var conversationId = json["conversation"]?["id"]?.GetValue<string>() ?? "";
+        var serviceUrl = json["serviceUrl"]?.GetValue<string>() ?? "";
+        var fromId = json["from"]?["id"]?.GetValue<string>() ?? "";
+
+        // Register the service URL for this conversation
+        var adapter = ctx.RequestServices.GetRequiredService<TeamsAdapter>();
+        if (!string.IsNullOrWhiteSpace(serviceUrl))
+            adapter.RegisterServiceUrl(conversationId, serviceUrl);
+
+        switch (activityType)
+        {
+            case "message":
+                var text = json["text"]?.GetValue<string>()?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(text)) return Results.Ok();
+
+                // Strip bot mention from message
+                text = StripTeamsMention(text, json);
+
+                logger.LogInformation("Teams message from {FromId} in {ConversationId}: {Text}",
+                    fromId, conversationId, text);
+
+                var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = scopeFactory.CreateScope();
+                        await scope.ServiceProvider
+                            .GetRequiredService<SlackMessageDispatcher>()
+                            .DispatchAsync(text, fromId, conversationId, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Teams fire-and-forget dispatch failed");
+                    }
+                });
+                return Results.Ok();
+
+            case "invoke":
+                // Adaptive Card Action.Submit sends invoke activities
+                var value = json["value"];
+                if (value is null) return Results.Ok();
+
+                logger.LogInformation("Teams invoke from {FromId} in {ConversationId}", fromId, conversationId);
+
+                var interactionScopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = interactionScopeFactory.CreateScope();
+                        await scope.ServiceProvider
+                            .GetRequiredService<TeamsInteractionHandler>()
+                            .HandleAsync(conversationId, fromId, value, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Teams interaction handling failed");
+                    }
+                });
+
+                // Return invoke response (required by Bot Framework)
+                return Results.Json(new { status = 200 });
+
+            default:
+                logger.LogDebug("Ignoring Teams activity type={Type}", activityType);
+                return Results.Ok();
+        }
+    }
+
+    private static string StripTeamsMention(string text, JsonNode activity)
+    {
+        // Teams wraps bot mentions in <at>BotName</at> tags
+        var entities = activity["entities"]?.AsArray();
+        if (entities is null) return text;
+
+        foreach (var entity in entities)
+        {
+            if (entity?["type"]?.GetValue<string>() != "mention") continue;
+
+            var mentioned = entity?["text"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(mentioned))
+                text = text.Replace(mentioned, "", StringComparison.OrdinalIgnoreCase).Trim();
+        }
+
+        return text;
     }
 
     private static async Task<string> ReadBodyAsync(HttpRequest request)

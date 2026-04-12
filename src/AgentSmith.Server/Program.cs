@@ -1,5 +1,5 @@
-using AgentSmith.Dispatcher.Services;
-using AgentSmith.Dispatcher.Extensions;
+using AgentSmith.Server.Services;
+using AgentSmith.Server.Extensions;
 
 DispatcherBanner.Print();
 
@@ -13,6 +13,7 @@ builder.Services
     .AddRedis()
     .AddCoreDispatcherServices()
     .AddSlackAdapter()
+    .AddTeamsAdapter()
     .AddIntentHandlers();
 
 await builder.Services.AddJobSpawnerAsync(
@@ -21,6 +22,7 @@ await builder.Services.AddJobSpawnerAsync(
 var app = builder.Build();
 
 app.MapHealthEndpoints()
-   .MapSlackEndpoints();
+   .MapSlackEndpoints()
+   .MapTeamsEndpoints();
 
 app.Run();
