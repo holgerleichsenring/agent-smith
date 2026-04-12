@@ -10,7 +10,7 @@ resources:
   - ingress.yaml
 
 patches:
-  - path: patch-dispatcher-prod.yaml
+  - path: patch-server-prod.yaml
     target:
       kind: Deployment
-      name: agentsmith-dispatcher
+      name: agentsmith-server

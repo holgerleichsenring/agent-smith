@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agentsmith-dispatcher
+  name: agentsmith-server
   namespace: agentsmith
   labels:
-    app: agentsmith-dispatcher
-    app.kubernetes.io/name: agentsmith-dispatcher
-    app.kubernetes.io/component: dispatcher
+    app: agentsmith-server
+    app.kubernetes.io/name: agentsmith-server
+    app.kubernetes.io/component: server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: agentsmith-dispatcher
+      app: agentsmith-server
   template:
     metadata:
       labels:
-        app: agentsmith-dispatcher
+        app: agentsmith-server
     spec:
       serviceAccountName: agentsmith
       securityContext:
@@ -24,8 +24,8 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       containers:
-        - name: dispatcher
-          image: agentsmith-dispatcher:latest
+        - name: server
+          image: agentsmith-server:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

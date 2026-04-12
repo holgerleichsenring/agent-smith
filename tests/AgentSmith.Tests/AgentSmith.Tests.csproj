@@ -39,8 +39,8 @@
     <ProjectReference Include="..\..\src\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj" />
     <ProjectReference Include="..\..\src\AgentSmith.Application\AgentSmith.Application.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Dispatcher\AgentSmith.Dispatcher.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Host\AgentSmith.Host.csproj" />
+    <ProjectReference Include="..\..\src\AgentSmith.Server\AgentSmith.Server.csproj" />
+    <ProjectReference Include="..\..\src\AgentSmith.Cli\AgentSmith.Cli.csproj" />
   </ItemGroup>
 
 </Project>

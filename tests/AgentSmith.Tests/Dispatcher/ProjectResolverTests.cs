@@ -1,8 +1,8 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;

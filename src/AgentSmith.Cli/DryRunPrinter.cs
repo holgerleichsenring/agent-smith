@@ -1,7 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 
-namespace AgentSmith.Host;
+namespace AgentSmith.Cli;
 
 /// <summary>
 /// Prints a dry-run summary for any pipeline type.

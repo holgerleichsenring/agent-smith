@@ -1,11 +1,11 @@
-using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Services.Adapters;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services.Handlers;
+namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
 /// Handles the ListTicketsIntent: loads open tickets from the configured provider

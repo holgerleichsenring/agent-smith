@@ -3,7 +3,7 @@ using System.CommandLine.Invocation;
 using System.Globalization;
 using AgentSmith.Application.Services.Handlers;
 
-namespace AgentSmith.Host.Commands;
+namespace AgentSmith.Cli.Commands;
 
 internal static class SecurityTrendCommand
 {

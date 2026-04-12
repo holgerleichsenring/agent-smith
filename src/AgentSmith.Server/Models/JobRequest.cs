@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Generic job request that abstracts over the intent type.

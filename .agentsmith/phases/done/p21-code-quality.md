@@ -82,7 +82,7 @@ Models/        ← BusMessage, IMessageBus, ScoutResult, RunCostSummary, TokenUs
 Extensions/    ← ServiceCollectionExtensions.cs
 ```
 
-### AgentSmith.Dispatcher
+### AgentSmith.Server
 ```
 Contracts/     ← IPlatformAdapter, IJobSpawner, IHaikuIntentParser, IProjectResolver, IMessageBus (project-internal interfaces)
 Services/
@@ -94,7 +94,7 @@ Extensions/    ← ServiceCollectionExtensions, WebApplicationExtensions
 Services/      ← DispatcherBanner, DispatcherDefaults, ErrorFormatter, etc.
 ```
 
-### AgentSmith.Host
+### AgentSmith.Cli
 ```
 Program.cs
 Services/      ← WebhookListener

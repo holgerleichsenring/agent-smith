@@ -182,7 +182,7 @@ projects:
 
 ## Files to Modify
 
-- `src/AgentSmith.Host/Program.cs` — refactor to subcommands (**breaking change**)
+- `src/AgentSmith.Cli/Program.cs` — refactor to subcommands (**breaking change**)
 - `src/AgentSmith.Contracts/Commands/PipelinePresets.cs` — add `security-scan`
 - `src/AgentSmith.Contracts/Commands/CommandNames.cs` — verify AcquireSource, DeliverOutput exist
 - `src/AgentSmith.Application/Services/Handlers/DeliverOutputHandler.cs` — refactor to use IOutputStrategy

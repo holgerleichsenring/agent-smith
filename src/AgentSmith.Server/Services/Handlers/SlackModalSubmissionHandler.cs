@@ -1,11 +1,11 @@
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services.Adapters;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Adapters;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace AgentSmith.Dispatcher.Services.Handlers;
+namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
 /// Handles Slack modal view_submission events.

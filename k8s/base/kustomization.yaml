@@ -7,8 +7,8 @@ resources:
   - namespace.yaml
   - redis/deployment.yaml
   - redis/service.yaml
-  - dispatcher/deployment.yaml
-  - dispatcher/service.yaml
+  - server/deployment.yaml
+  - server/service.yaml
   - rbac/serviceaccount.yaml
   - rbac/role.yaml
   - rbac/rolebinding.yaml

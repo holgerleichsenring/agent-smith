@@ -387,7 +387,7 @@ Bad reasons to ask:
 Extends existing `job:{id}:in` / `job:{id}:out` schema.
 
 ### Step 3: CLI Adapter — AskTypedQuestionAsync
-`AgentSmith.Host/Adapters/CliAdapter.cs` — interactive + timeout support.
+`AgentSmith.Cli/Adapters/CliAdapter.cs` — interactive + timeout support.
 
 ### Step 4: Slack Adapter — Extension
 `SlackAdapter.AskTypedQuestionAsync` — Block Kit for all 5 QuestionTypes.

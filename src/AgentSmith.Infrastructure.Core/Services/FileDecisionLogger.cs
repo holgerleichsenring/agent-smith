@@ -14,7 +14,8 @@ public sealed class FileDecisionLogger(ILogger<FileDecisionLogger> logger) : IDe
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     public async Task LogAsync(string? repoPath, DecisionCategory category,
-                               string decision, CancellationToken cancellationToken = default)
+                               string decision, CancellationToken cancellationToken = default,
+                               string? sourceLabel = null)
     {
         if (string.IsNullOrEmpty(repoPath))
         {
@@ -32,8 +33,11 @@ public sealed class FileDecisionLogger(ILogger<FileDecisionLogger> logger) : IDe
                 ? await File.ReadAllTextAsync(decisionsPath, cancellationToken)
                 : "# Decision Log\n";
 
-            var sectionHeader = $"## {category}";
-            var line = $"- {decision}";
+            // Use sourceLabel (phase/run) as section header when available, fall back to category
+            var sectionHeader = sourceLabel is not null ? $"## {sourceLabel}" : $"## {category}";
+            var line = sourceLabel is not null
+                ? $"- [{category}] {decision}"
+                : $"- {decision}";
 
             content = content.Contains(sectionHeader)
                 ? InsertUnderSection(content, sectionHeader, line)
@@ -44,7 +48,8 @@ public sealed class FileDecisionLogger(ILogger<FileDecisionLogger> logger) : IDe
                 Directory.CreateDirectory(directory);
 
             await File.WriteAllTextAsync(decisionsPath, content, cancellationToken);
-            logger.LogDebug("Logged decision [{Category}]: {Decision}", category, decision);
+            logger.LogDebug("Logged decision [{Source}/{Category}]: {Decision}",
+                sourceLabel ?? "global", category, decision);
         }
         finally
         {

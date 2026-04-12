@@ -1,10 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
-using AgentSmith.Host.Services;
+using AgentSmith.Cli.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Host.Commands;
+namespace AgentSmith.Cli.Commands;
 
 internal static class ServerCommand
 {

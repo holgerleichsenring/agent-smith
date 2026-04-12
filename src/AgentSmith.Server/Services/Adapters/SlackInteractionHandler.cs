@@ -1,12 +1,12 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Infrastructure.Models;
-using AgentSmith.Dispatcher.Services.Handlers;
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using Microsoft.Extensions.Logging;
 using System.Text.Json.Nodes;
 
-namespace AgentSmith.Dispatcher.Services.Adapters;
+namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Handles Slack interactive component callbacks (button clicks).

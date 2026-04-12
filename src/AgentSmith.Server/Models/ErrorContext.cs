@@ -1,4 +1,4 @@
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Carries structured error context from the agent to the dispatcher.

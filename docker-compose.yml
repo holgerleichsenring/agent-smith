@@ -1,7 +1,7 @@
 # One-shot mode:    docker compose run --rm agentsmith run --headless "fix #1 in my-project"
 # Security scan:    docker compose run --rm agentsmith security-scan --repo /app/repo --output console
 # Server mode:      docker compose up -d agentsmith-server
-# Dispatcher mode:  docker compose up -d dispatcher
+# Server mode:      docker compose up -d server
 services:
   agentsmith:
     build: .
@@ -72,10 +72,10 @@ services:
       retries: 3
       start_period: 5s
 
-  dispatcher:
+  server:
     build:
       context: .
-      dockerfile: Dockerfile.dispatcher
+      dockerfile: Dockerfile.server
     restart: unless-stopped
     user: root # needed for Docker socket write access in local dev (SPAWNER_TYPE=docker)
     extra_hosts:

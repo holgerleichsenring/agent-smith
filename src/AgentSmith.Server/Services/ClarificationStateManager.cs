@@ -1,9 +1,9 @@
 using System.Text.Json;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Manages pending clarifications in Redis. Separate from ConversationStateManager

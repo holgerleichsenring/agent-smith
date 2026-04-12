@@ -73,7 +73,7 @@ AgentSmith.Domain          → (no dependencies)
 AgentSmith.Contracts       → AgentSmith.Domain
 AgentSmith.Application     → AgentSmith.Contracts, AgentSmith.Domain
 AgentSmith.Infrastructure  → AgentSmith.Contracts, AgentSmith.Domain
-AgentSmith.Host            → AgentSmith.Application, AgentSmith.Infrastructure
+AgentSmith.Cli            → AgentSmith.Application, AgentSmith.Infrastructure
 AgentSmith.Tests           → AgentSmith.Domain, AgentSmith.Contracts, AgentSmith.Infrastructure
 ```
 
@@ -84,8 +84,8 @@ AgentSmith.Tests           → AgentSmith.Domain, AgentSmith.Contracts, AgentSmi
 | Project | Package | Purpose |
 |---------|---------|---------|
 | AgentSmith.Infrastructure | YamlDotNet | Load YAML config |
-| AgentSmith.Host | Microsoft.Extensions.DependencyInjection | DI Container |
-| AgentSmith.Host | Microsoft.Extensions.Logging.Console | Logging |
+| AgentSmith.Cli | Microsoft.Extensions.DependencyInjection | DI Container |
+| AgentSmith.Cli | Microsoft.Extensions.Logging.Console | Logging |
 | AgentSmith.Tests | xunit | Test Framework |
 | AgentSmith.Tests | xunit.runner.visualstudio | Test Runner |
 | AgentSmith.Tests | Microsoft.NET.Test.Sdk | Test Infrastructure |
@@ -864,7 +864,7 @@ dotnet new classlib -n AgentSmith.Domain -o src/AgentSmith.Domain -f net8.0
 dotnet new classlib -n AgentSmith.Contracts -o src/AgentSmith.Contracts -f net8.0
 dotnet new classlib -n AgentSmith.Application -o src/AgentSmith.Application -f net8.0
 dotnet new classlib -n AgentSmith.Infrastructure -o src/AgentSmith.Infrastructure -f net8.0
-dotnet new console -n AgentSmith.Host -o src/AgentSmith.Host -f net8.0
+dotnet new console -n AgentSmith.Cli -o src/AgentSmith.Cli -f net8.0
 dotnet new xunit -n AgentSmith.Tests -o tests/AgentSmith.Tests -f net8.0
 
 # Zur Solution hinzufügen
@@ -872,7 +872,7 @@ dotnet sln add src/AgentSmith.Domain
 dotnet sln add src/AgentSmith.Contracts
 dotnet sln add src/AgentSmith.Application
 dotnet sln add src/AgentSmith.Infrastructure
-dotnet sln add src/AgentSmith.Host
+dotnet sln add src/AgentSmith.Cli
 dotnet sln add tests/AgentSmith.Tests
 
 # Projekt-Referenzen
@@ -881,16 +881,16 @@ dotnet add src/AgentSmith.Application reference src/AgentSmith.Contracts
 dotnet add src/AgentSmith.Application reference src/AgentSmith.Domain
 dotnet add src/AgentSmith.Infrastructure reference src/AgentSmith.Contracts
 dotnet add src/AgentSmith.Infrastructure reference src/AgentSmith.Domain
-dotnet add src/AgentSmith.Host reference src/AgentSmith.Application
-dotnet add src/AgentSmith.Host reference src/AgentSmith.Infrastructure
+dotnet add src/AgentSmith.Cli reference src/AgentSmith.Application
+dotnet add src/AgentSmith.Cli reference src/AgentSmith.Infrastructure
 dotnet add tests/AgentSmith.Tests reference src/AgentSmith.Domain
 dotnet add tests/AgentSmith.Tests reference src/AgentSmith.Contracts
 dotnet add tests/AgentSmith.Tests reference src/AgentSmith.Infrastructure
 
 # NuGet Packages
 dotnet add src/AgentSmith.Infrastructure package YamlDotNet
-dotnet add src/AgentSmith.Host package Microsoft.Extensions.DependencyInjection
-dotnet add src/AgentSmith.Host package Microsoft.Extensions.Logging.Console
+dotnet add src/AgentSmith.Cli package Microsoft.Extensions.DependencyInjection
+dotnet add src/AgentSmith.Cli package Microsoft.Extensions.Logging.Console
 dotnet add tests/AgentSmith.Tests package Moq
 dotnet add tests/AgentSmith.Tests package FluentAssertions
 ```
@@ -908,8 +908,8 @@ AgentSmith.sln
 │   │   └── AgentSmith.Application.csproj
 │   ├── AgentSmith.Infrastructure/
 │   │   └── AgentSmith.Infrastructure.csproj
-│   └── AgentSmith.Host/
-│       ├── AgentSmith.Host.csproj
+│   └── AgentSmith.Cli/
+│       ├── AgentSmith.Cli.csproj
 │       └── Program.cs
 ├── tests/
 │   └── AgentSmith.Tests/

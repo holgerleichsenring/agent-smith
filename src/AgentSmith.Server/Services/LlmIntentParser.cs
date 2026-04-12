@@ -1,11 +1,11 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Dispatcher.Contracts;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Uses an LLM (via ILlmClient with Scout task type) to classify free-form user input

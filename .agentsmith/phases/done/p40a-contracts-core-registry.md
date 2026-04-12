@@ -210,7 +210,7 @@ public static IServiceCollection AddAgentSmithCore(this IServiceCollection servi
 - `src/AgentSmith.Contracts/Providers/ISourceProvider.cs` — extend ITypedProvider
 - `src/AgentSmith.Contracts/Providers/IAgentProvider.cs` — extend ITypedProvider
 - `src/AgentSmith.Contracts/Commands/ContextKeys.cs` — add Attachments
-- `src/AgentSmith.Host/` — reference Infrastructure.Core instead of Infrastructure
+- `src/AgentSmith.Cli/` — reference Infrastructure.Core instead of Infrastructure
 - `AgentSmith.sln` — add Infrastructure.Core project
 
 ## Files to Move (Infrastructure -> Infrastructure.Core)

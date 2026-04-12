@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Cached ticket search that loads all open tickets per project (cached 60s)

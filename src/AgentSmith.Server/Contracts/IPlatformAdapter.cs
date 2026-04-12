@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 
-namespace AgentSmith.Dispatcher.Contracts;
+namespace AgentSmith.Server.Contracts;
 
 /// <summary>
 /// Common contract for all chat platform adapters (Slack, Teams, WhatsApp).
@@ -25,14 +25,6 @@ public interface IPlatformAdapter
     /// Implementations may update an existing message instead of posting a new one.
     /// </summary>
     Task SendProgressAsync(string channelId, int step, int total, string commandName,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Asks a yes/no question in the channel with interactive buttons.
-    /// Returns the message ID so it can be updated after the user responds.
-    /// </summary>
-    [Obsolete("Use AskTypedQuestionAsync instead")]
-    Task<string> AskQuestionAsync(string channelId, string questionId, string text,
         CancellationToken cancellationToken);
 
     /// <summary>

@@ -85,12 +85,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet publish src/AgentSmith.Host -c Release
+      - run: dotnet publish src/AgentSmith.Cli -c Release
               -r ${{ matrix.rid }} --self-contained
               -p:PublishSingleFile=true
               -p:IncludeNativeLibrariesForSelfExtract=true
               -o ./publish
-      - run: mv ./publish/AgentSmith.Host ./publish/agent-smith-${{ matrix.rid }}
+      - run: mv ./publish/AgentSmith.Cli ./publish/agent-smith-${{ matrix.rid }}
       - uses: actions/upload-artifact@v4
         with:
           name: agent-smith-${{ matrix.rid }}
@@ -162,7 +162,7 @@ set -e
 for dir in /output /tmp/agentsmith; do
     [ -d "$dir" ] && chown agentsmith:agentsmith "$dir" 2>/dev/null || true
 done
-exec gosu agentsmith dotnet AgentSmith.Host.dll "$@"
+exec gosu agentsmith dotnet AgentSmith.Cli.dll "$@"
 ```
 
 This eliminates the need for `run.sh` wrapper scripts in consumer projects.
@@ -177,7 +177,7 @@ required for correct operation.
 
 ## Files to Modify
 
-- `src/AgentSmith.Host/AgentSmith.Host.csproj` — add PublishSingleFile properties
+- `src/AgentSmith.Cli/AgentSmith.Cli.csproj` — add PublishSingleFile properties
 - `Dockerfile` — install gosu, use entrypoint script
 
 ## Definition of Done

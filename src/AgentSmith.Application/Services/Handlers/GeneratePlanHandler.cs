@@ -40,7 +40,8 @@ public sealed class GeneratePlanHandler(
         if (plan.Decisions.Count > 0)
         {
             context.Pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo);
-            await WriteDecisionsAsync(repo?.LocalPath, plan.Decisions, cancellationToken);
+            var sourceLabel = $"#{context.Ticket.Id}";
+            await WriteDecisionsAsync(repo?.LocalPath, plan.Decisions, sourceLabel, cancellationToken);
             context.Pipeline.AppendDecisions(plan.Decisions);
         }
 
@@ -53,12 +54,12 @@ public sealed class GeneratePlanHandler(
 
     private async Task WriteDecisionsAsync(
         string? repoPath, IReadOnlyList<PlanDecision> decisions,
-        CancellationToken cancellationToken)
+        string? sourceLabel, CancellationToken cancellationToken)
     {
         foreach (var d in decisions)
         {
             if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
-                await decisionLogger.LogAsync(repoPath, cat, d.Decision, cancellationToken);
+                await decisionLogger.LogAsync(repoPath, cat, d.Decision, cancellationToken, sourceLabel);
             else
                 logger.LogWarning("Unknown decision category '{Category}', skipping", d.Category);
         }

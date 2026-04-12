@@ -82,7 +82,7 @@ Current: 456 lines, everything in one file.
 Split into:
 
 ```
-src/AgentSmith.Host/
+src/AgentSmith.Cli/
   Program.cs                    ← ~30 lines: root command, add verbs, return
   Commands/
     FixCommand.cs               ← fix verb (fix-bug pipeline)
@@ -207,21 +207,21 @@ Rest: follow-up or parallel work.
 
 ## Files to Create
 
-- `src/AgentSmith.Host/Commands/RunCommandSetup.cs`
-- `src/AgentSmith.Host/Commands/SecurityScanCommandSetup.cs`
-- `src/AgentSmith.Host/Commands/ApiScanCommandSetup.cs`
-- `src/AgentSmith.Host/Commands/ServerCommandSetup.cs`
-- `src/AgentSmith.Host/Banner.cs`
-- `src/AgentSmith.Host/ServiceProviderFactory.cs`
-- `src/AgentSmith.Host/DryRunPrinter.cs`
+- `src/AgentSmith.Cli/Commands/RunCommandSetup.cs`
+- `src/AgentSmith.Cli/Commands/SecurityScanCommandSetup.cs`
+- `src/AgentSmith.Cli/Commands/ApiScanCommandSetup.cs`
+- `src/AgentSmith.Cli/Commands/ServerCommandSetup.cs`
+- `src/AgentSmith.Cli/Banner.cs`
+- `src/AgentSmith.Cli/ServiceProviderFactory.cs`
+- `src/AgentSmith.Cli/DryRunPrinter.cs`
 - `src/AgentSmith.Application/Models/PipelineRequest.cs`
 - `src/AgentSmith.Application/Services/LlmIntentParser.cs`
 
 ## Files to Modify
 
-- `src/AgentSmith.Host/Program.cs` — shrink to ~40 lines
+- `src/AgentSmith.Cli/Program.cs` — shrink to ~40 lines
 - `src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` — PipelineRequest-based
-- `src/AgentSmith.Dispatcher/Services/Handlers/SlackMessageDispatcher.cs` — use LlmIntentParser
+- `src/AgentSmith.Server/Services/Handlers/SlackMessageDispatcher.cs` — use LlmIntentParser
 - `src/AgentSmith.Contracts/Services/IIntentParser.cs` — return PipelineRequest
 
 ## Files to Delete

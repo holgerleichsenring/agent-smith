@@ -174,10 +174,10 @@ Without `--job-id`: existing behavior (Console only, interactive stdin).
 
 ## Dispatcher Service
 
-New project: `src/AgentSmith.Dispatcher`
+New project: `src/AgentSmith.Server`
 
 ```
-AgentSmith.Dispatcher/
+AgentSmith.Server/
   Program.cs                    # ASP.NET Core Minimal API entry point
   Services/
     ChatIntentParser.cs         # "fix #65 in todo-list" → FixTicketIntent
@@ -301,15 +301,15 @@ channel, and to prevent duplicate jobs from being spawned.
 
 ## Files
 
-- `src/AgentSmith.Dispatcher/Models/ConversationState.cs`
-- `src/AgentSmith.Dispatcher/Services/ConversationStateManager.cs`
+- `src/AgentSmith.Server/Models/ConversationState.cs`
+- `src/AgentSmith.Server/Services/ConversationStateManager.cs`
 
 ---
 
 ## ConversationState (Model)
 
 ```csharp
-namespace AgentSmith.Dispatcher.Models;
+namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Tracks an active agent job linked to a specific chat channel.
@@ -346,11 +346,11 @@ public sealed record ConversationState
 
 ```csharp
 using System.Text.Json;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace AgentSmith.Dispatcher.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Manages active conversation state in Redis.
@@ -573,10 +573,10 @@ builder.Services.AddSingleton<ConversationStateManager>();
 
 ## What This Step Builds
 
-The `AgentSmith.Dispatcher` project: a long-running ASP.NET Core Minimal API that acts as the
+The `AgentSmith.Server` project: a long-running ASP.NET Core Minimal API that acts as the
 bridge between chat platforms (Slack, Teams) and ephemeral agent K8s Jobs.
 
-New project: `src/AgentSmith.Dispatcher/`
+New project: `src/AgentSmith.Server/`
 
 ---
 
@@ -667,7 +667,7 @@ Parses natural-language messages into typed `ChatIntent` instances using compile
 No LLM call. Runs in microseconds.
 
 ```
-src/AgentSmith.Dispatcher/Services/ChatIntentParser.cs
+src/AgentSmith.Server/Services/ChatIntentParser.cs
 ```
 
 ### Supported Patterns
@@ -717,7 +717,7 @@ private static readonly Regex CreateWithDescPattern = new(
 Creates K8s `batch/v1 Job` objects for each `FixTicketIntent`.
 
 ```
-src/AgentSmith.Dispatcher/Services/JobSpawner.cs
+src/AgentSmith.Server/Services/JobSpawner.cs
 ```
 
 ### Job ID Generation
@@ -795,7 +795,7 @@ Background service (`IHostedService`) that subscribes to Redis Streams for activ
 relays messages to the appropriate platform adapter.
 
 ```
-src/AgentSmith.Dispatcher/Services/MessageBusListener.cs
+src/AgentSmith.Server/Services/MessageBusListener.cs
 ```
 
 ### Subscription Model
@@ -936,7 +936,7 @@ The interface already defines:
 
 ## New File: `RedisProgressReporter`
 
-**Location:** `src/AgentSmith.Dispatcher/Services/RedisProgressReporter.cs`
+**Location:** `src/AgentSmith.Server/Services/RedisProgressReporter.cs`
 
 ### Behaviour
 
@@ -1010,7 +1010,7 @@ public sealed class RedisProgressReporter(
 
 ---
 
-## DI Wiring (AgentSmith.Host)
+## DI Wiring (AgentSmith.Cli)
 
 In `Program.cs` (Host project), after parsing CLI args:
 
@@ -1041,8 +1041,8 @@ via stdout even in K8s, and adding a second sink would double-write every messag
 
 | File | Change |
 |------|--------|
-| `src/AgentSmith.Dispatcher/Services/RedisProgressReporter.cs` | **New** |
-| `src/AgentSmith.Host/Program.cs` | Add Redis branch in DI wiring |
+| `src/AgentSmith.Server/Services/RedisProgressReporter.cs` | **New** |
+| `src/AgentSmith.Cli/Program.cs` | Add Redis branch in DI wiring |
 
 ---
 
@@ -1069,7 +1069,7 @@ progress update, question, answer and completion message flows through this bus.
 
 ## Files to Create
 
-### `src/AgentSmith.Dispatcher/Models/BusMessage.cs`
+### `src/AgentSmith.Server/Models/BusMessage.cs`
 
 Discriminated union record for all message types exchanged over Redis Streams.
 
@@ -1114,7 +1114,7 @@ public sealed record BusMessage
 
 ---
 
-### `src/AgentSmith.Dispatcher/Services/IMessageBus.cs`
+### `src/AgentSmith.Server/Services/IMessageBus.cs`
 
 Interface for all Redis Streams operations.
 
@@ -1145,7 +1145,7 @@ public interface IMessageBus
 
 ---
 
-### `src/AgentSmith.Dispatcher/Services/RedisMessageBus.cs`
+### `src/AgentSmith.Server/Services/RedisMessageBus.cs`
 
 `StackExchange.Redis` implementation of `IMessageBus`.
 
@@ -1193,7 +1193,7 @@ Malformed messages are silently skipped (swallow `Exception` in deserializer).
 <PackageReference Include="StackExchange.Redis" Version="2.*" />
 ```
 
-Already referenced in `AgentSmith.Dispatcher.csproj`.
+Already referenced in `AgentSmith.Server.csproj`.
 
 ---
 
@@ -1239,12 +1239,12 @@ into Slack Web API calls. No Slack SDK — raw HTTP only.
 
 ## Files
 
-### `src/AgentSmith.Dispatcher/Adapters/IPlatformAdapter.cs`
+### `src/AgentSmith.Server/Adapters/IPlatformAdapter.cs`
 
 Common contract for all chat platform adapters:
 
 ```csharp
-namespace AgentSmith.Dispatcher.Adapters;
+namespace AgentSmith.Server.Adapters;
 
 public interface IPlatformAdapter
 {
@@ -1272,7 +1272,7 @@ public interface IPlatformAdapter
 
 ---
 
-### `src/AgentSmith.Dispatcher/Adapters/SlackAdapter.cs`
+### `src/AgentSmith.Server/Adapters/SlackAdapter.cs`
 
 - `Platform` returns `"slack"`
 - All API calls POST JSON to `https://slack.com/api/{method}`

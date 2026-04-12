@@ -1,5 +1,5 @@
-using AgentSmith.Dispatcher.Models;
-using AgentSmith.Dispatcher.Services;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

@@ -1,14 +1,14 @@
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Dispatcher.Contracts;
+using AgentSmith.Server.Contracts;
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentSmith.Dispatcher.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Dispatcher.Services.Adapters;
+namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Slack Web API implementation of IPlatformAdapter.
@@ -80,51 +80,6 @@ public sealed class SlackAdapter(
         var ts = ExtractTimestamp(response);
         if (ts is not null)
             _progressMessageTs[channelId] = ts;
-    }
-
-    public async Task<string> AskQuestionAsync(string channelId, string questionId, string text,
-        CancellationToken cancellationToken)
-    {
-        var payload = new
-        {
-            channel = channelId,
-            text = $":thought_balloon: *Question:* {text}",
-            blocks = new object[]
-            {
-                new
-                {
-                    type = "section",
-                    text = new { type = "mrkdwn", text = $":thought_balloon: *{text}*" }
-                },
-                new
-                {
-                    type = "actions",
-                    block_id = questionId,
-                    elements = new object[]
-                    {
-                        new
-                        {
-                            type = "button",
-                            text = new { type = "plain_text", text = "Yes :white_check_mark:" },
-                            style = "primary",
-                            value = "yes",
-                            action_id = $"{questionId}:yes"
-                        },
-                        new
-                        {
-                            type = "button",
-                            text = new { type = "plain_text", text = "No :x:" },
-                            style = "danger",
-                            value = "no",
-                            action_id = $"{questionId}:no"
-                        }
-                    }
-                }
-            }
-        };
-
-        var response = await PostAsync("chat.postMessage", payload, cancellationToken);
-        return ExtractTimestamp(response) ?? string.Empty;
     }
 
     public async Task SendDoneAsync(string channelId, string summary, string? prUrl,

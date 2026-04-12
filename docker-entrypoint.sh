@@ -6,4 +6,4 @@ for dir in /output /tmp/agentsmith; do
     [ -d "$dir" ] && chown agentsmith:agentsmith "$dir" 2>/dev/null || true
 done
 
-exec gosu agentsmith dotnet AgentSmith.Host.dll "$@"
+exec gosu agentsmith dotnet AgentSmith.Cli.dll "$@"
