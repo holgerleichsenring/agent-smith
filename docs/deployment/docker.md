@@ -43,7 +43,7 @@ docker run --rm \
 
 ## Docker Compose — Full Stack
 
-The `docker-compose.yml` provides the complete setup:
+The `deploy/docker-compose.yml` provides the complete setup:
 
 ```yaml
 services:
@@ -89,7 +89,7 @@ services:
   dispatcher:
     build:
       context: .
-      dockerfile: Dockerfile.dispatcher
+      dockerfile: src/AgentSmith.Server/Dockerfile
     restart: unless-stopped
     depends_on:
       redis:
