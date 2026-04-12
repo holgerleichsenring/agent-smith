@@ -406,7 +406,7 @@
 - [TradeOff] Optional parameter instead of new overload — keeps backward compat, callers that don't know their phase context still work with category-only sections.
 - [Implementation] Ticket ID as sourceLabel in pipeline handlers — GeneratePlanHandler and AgenticExecuteHandler pass #{ticketId} so run decisions land under their ticket.
 
-## p71: Jira Assignee Webhook Trigger
+## p72: Jira Assignee Webhook Trigger
 - [Architecture] Handler returns WebhookResult(TriggerInput, Pipeline) instead of enqueueing jobs directly — follows existing dispatch pattern where WebhookListener calls ExecutePipelineUseCase. Phase doc proposed IJobEnqueuer; actual codebase delegates execution to the Listener.
 - [Architecture] ServerContext record for config path DI — handler needs config for assignee matching and label→pipeline resolution, but IWebhookHandler.HandleAsync has no configPath parameter. Introduced ServerContext(ConfigPath) registered at server startup, injected into handler. Minimal surface, no interface changes.
 - [Security] Secret configured + signature header missing → reject — phase doc originally returned true (skip), which would let attackers bypass verification by omitting the header. Fixed to return false.
