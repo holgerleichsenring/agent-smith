@@ -15,13 +15,14 @@ internal static class SecurityScanCommand
         var repoOption = new Option<string>("--repo", "Path or URL of repository to scan") { IsRequired = true };
         var prOption = new Option<string>("--pr", () => string.Empty, "PR/MR number (diff only)");
         var branchOption = new Option<string>("--branch", () => string.Empty, "Branch to scan (diff against main)");
-        var outputOption = new Option<string>("--output", () => "console", "Output format: sarif | markdown | console");
+        var outputOption = new Option<string>("--output", () => "console", "Output formats (comma-separated): console, summary, markdown, sarif");
+        var outputDirOption = new Option<string?>("--output-dir", "Directory for file-based output (markdown, sarif)");
         var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config");
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
 
         var cmd = new Command("security-scan", "Analyze code for security vulnerabilities")
         {
-            repoOption, prOption, branchOption, outputOption, projectOption, configOption, verboseOption, dryRunOption
+            repoOption, prOption, branchOption, outputOption, outputDirOption, projectOption, configOption, verboseOption, dryRunOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -30,6 +31,7 @@ internal static class SecurityScanCommand
             var pr = ctx.ParseResult.GetValueForOption(prOption) ?? string.Empty;
             var branch = ctx.ParseResult.GetValueForOption(branchOption) ?? string.Empty;
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
+            var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
             var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
@@ -48,6 +50,8 @@ internal static class SecurityScanCommand
                 scanContext[ContextKeys.ScanPrIdentifier] = pr;
             if (!string.IsNullOrWhiteSpace(branch))
                 scanContext[ContextKeys.ScanBranch] = branch;
+            if (outputDir is not null)
+                scanContext[ContextKeys.OutputDir] = outputDir;
 
             var request = new PipelineRequest(projectName, "security-scan", Headless: true, Context: scanContext);
 
