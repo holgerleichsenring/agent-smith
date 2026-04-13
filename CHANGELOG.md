@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.10.0...v0.10.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* add missing --output-dir option to security-scan command ([a789a5c](https://github.com/holgerleichsenring/agent-smith/commit/a789a5cde5cc5b080eaec4daebd8df8d92789b5f))
+
 ## [0.10.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.9.0...v0.10.0) (2026-04-12)
 
 
