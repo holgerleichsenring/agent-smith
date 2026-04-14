@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p14
 goal: "Automatic trigger — GitHub Action on issue label + self-hosted webhook listener"
 requires: ["p10", "p13"]

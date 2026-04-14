@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p12
 goal: "Per-run cost tracking — prices from config, phase-aware breakdown"
 requires: ["p10"]

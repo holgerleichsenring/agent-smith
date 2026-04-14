@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p57b
 goal: "Autonomous skill-manager pipeline — discovers, evaluates, drafts, and installs external skills with mandatory human approval"
 requires: ["p57a", "p58"]

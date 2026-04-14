@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p20b
 goal: "Help command, greeting detection, unknown-input handling, and clarification flow"
 requires: ["p20a"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p10
 goal: "Production-ready container — --headless mode, non-root Docker, .env support"
 requires: ["p09"]

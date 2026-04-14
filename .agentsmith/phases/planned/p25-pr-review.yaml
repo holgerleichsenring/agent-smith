@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p25
 goal: "Read PR review comments, make changes, push new commits — PR becomes a conversation, not one-shot"
 steps:

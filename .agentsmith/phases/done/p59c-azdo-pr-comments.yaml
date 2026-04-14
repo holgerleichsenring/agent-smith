@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p59c
 goal: "Extend PR comment support to Azure DevOps PR comments — same CommentIntent model and router, AzDO-specific handler"
 requires: ["p59", "p43e"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p04
 goal: "End-to-end pipeline — user input → intent → config → pipeline → result"
 requires: ["p03"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p40b
 goal: "Extract ticket and source providers from Infrastructure into dedicated deployable projects — GitHub, AzureDevOps, GitLab, Jira"
 steps:

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p71
 goal: "Reduce root directory from 20 to 13 entries — move Dockerfiles to projects, group deployment files, remove generated dirs"
 steps:

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p39
 goal: "Legal document analysis via skill-based discussion — PDF input, structured markdown report output"
 requires: ["p37", "p38"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p31
 goal: "Extend OrphanJobDetector to scan all Redis conversation states — catch pre-restart orphans"
 requires: ["p30"]

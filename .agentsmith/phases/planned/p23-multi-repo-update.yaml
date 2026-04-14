@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p23
 goal: "Handle tickets spanning multiple repositories — one ticket, multiple PRs, coordinated dialogue, monorepo support"
 requires: ["p58", "p22"]

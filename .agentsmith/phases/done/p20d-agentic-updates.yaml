@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p20d
 goal: "Real-time detail events from agentic loop as Slack thread replies under progress message"
 requires: ["p20c"]

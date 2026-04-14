@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p43d
 goal: "Ollama as IAgentProvider for local LLMs, hybrid per-task routing between cloud and local models"
 decisions:

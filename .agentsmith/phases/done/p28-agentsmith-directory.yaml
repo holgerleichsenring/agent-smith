@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p28
 goal: "Unified .agentsmith/ directory for all agent meta-files + run tracking + context loading"
 decisions:

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p58
 goal: "Structured interactive dialogue across Slack, CLI, and PR comments — typed questions, timeout handling, complete audit trail in result.md"
 decisions:

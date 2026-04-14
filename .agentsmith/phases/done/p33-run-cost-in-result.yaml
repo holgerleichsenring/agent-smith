@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p33
 goal: "Persist token usage and cost data in result.md as YAML frontmatter — human-readable and machine-parseable"
 decisions:

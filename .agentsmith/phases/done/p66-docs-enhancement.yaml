@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p66
 goal: "Add self-documentation pitch and multi-agent orchestration diagrams to docs site, apply Linear.app DESIGN.md theme"
 requires: ["p64", "p53"]

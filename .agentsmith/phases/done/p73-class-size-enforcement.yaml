@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p73
 goal: "Bring all production src/ files under 120-line limit and add CI enforcement"
 decisions:
