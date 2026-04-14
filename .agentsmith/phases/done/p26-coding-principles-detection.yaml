@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p26
 goal: "Auto-detect and generate coding-principles.md for any repo during bootstrap"
 requires: ["p22"]

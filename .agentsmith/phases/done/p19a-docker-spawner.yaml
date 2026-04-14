@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p19a
 goal: "Docker Compose fully self-contained — DockerJobSpawner replaces K8s for local dev"
 requires: ["p18"]

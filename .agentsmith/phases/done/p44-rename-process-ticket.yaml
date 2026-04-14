@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p44
 goal: "Rename ProcessTicketUseCase to ExecutePipelineUseCase — Agent Smith orchestrates arbitrary AI workflows, not just tickets"
 decisions:

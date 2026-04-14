@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p18
 goal: "Multi-user chat gateway — Slack/Teams trigger agent runs via K8s Jobs + Redis Streams"
 requires: ["p10"]

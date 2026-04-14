@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p27
 goal: "Replace free-text Slack input with structured modals — dropdowns for commands, projects, tickets"
 decisions:

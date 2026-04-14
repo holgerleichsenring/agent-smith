@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p40a
 goal: "Contracts extensions, Infrastructure.Core project, and generic ProviderRegistry — foundation for provider decomposition"
 requires: ["p39"]

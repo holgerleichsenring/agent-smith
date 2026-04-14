@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p43a
 goal: "GitHub Action builds Docker images on push to main and publishes to Docker Hub — two images: agent-smith (CLI) and agent-smith-dispatcher (Server)"
 decisions:

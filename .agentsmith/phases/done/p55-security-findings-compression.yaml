@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p55
 goal: "CompressSecurityFindingsCommand — compress 271+ raw findings into compact skill-aware format, 74% token reduction"
 requires: ["p54"]

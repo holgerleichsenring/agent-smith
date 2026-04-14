@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p03
 goal: "Real provider implementations — tickets, source, agent with agentic loop"
 requires: ["p02"]

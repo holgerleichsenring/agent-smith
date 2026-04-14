@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p42
 goal: "Full legal analysis pipeline — document acquisition, Markdown conversion, contract type detection, legal skill roles, output delivery, inbox polling"
 requires: ["p39"]

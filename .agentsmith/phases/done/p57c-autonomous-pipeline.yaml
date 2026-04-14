@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p57c
 goal: "Autonomous pipeline — Agent Smith observes a project, decides what should be improved, writes tickets without being told"
 requires: ["p34", "p22", "p41"]

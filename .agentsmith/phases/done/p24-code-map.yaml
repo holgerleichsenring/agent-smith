@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p24
 goal: "Generate code-map.context.yaml mapping interfaces, implementations, dependencies — ~800 tokens vs reading all files"
 decisions:
