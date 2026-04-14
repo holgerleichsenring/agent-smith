@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.10.1...v0.11.0) (2026-04-14)
+
+
+### Features
+
+* **p73:** add static-vs-instance coding principle ([6236f9c](https://github.com/holgerleichsenring/agent-smith/commit/6236f9c73fec0156957953cdf88e1cf32b496875))
+
 ## [0.10.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.10.0...v0.10.1) (2026-04-13)
 
 
