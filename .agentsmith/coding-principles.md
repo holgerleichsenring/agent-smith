@@ -76,6 +76,13 @@ Rules:
 - The `CommandExecutor` resolves handlers via DI - no manual instantiation.
 - Cross-cutting concerns (logging, error handling) live in the `CommandExecutor`.
 
+## Static vs. Instance
+
+- **Statics only for `Map()` or extension methods.** No static service classes.
+- Implementation classes (builders, formatters, validators) are instance-based
+  and registered in DI as `Transient`. Static requires a compelling reason.
+- Pure mapping functions (`Map()`, `Parse()`, `Convert()`) are fine as static.
+
 ## Dependency Injection
 
 - No manual `new` for services, providers, or command handlers.
