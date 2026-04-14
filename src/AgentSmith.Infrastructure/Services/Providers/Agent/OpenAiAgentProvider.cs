@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// AI agent provider using the OpenAI Chat Completions API.
 /// Supports GPT-4.1, GPT-4.1-mini, and other OpenAI models with tool calling.
 /// </summary>
-public sealed class OpenAiAgentProvider(
+public class OpenAiAgentProvider(
     string apiKey,
     string model,
     RetryConfig retryConfig,
@@ -27,7 +27,7 @@ public sealed class OpenAiAgentProvider(
     ILogger<OpenAiAgentProvider> logger,
     Uri? endpoint = null) : IAgentProvider
 {
-    public string ProviderType => "OpenAI";
+    public virtual string ProviderType => "OpenAI";
 
     public async Task<Plan> GeneratePlanAsync(
         Ticket ticket,
@@ -107,7 +107,7 @@ public sealed class OpenAiAgentProvider(
         return new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
     }
 
-    private ChatClient CreateChatClient(string modelId)
+    protected virtual ChatClient CreateChatClient(string modelId)
     {
         var factory = new ResilientHttpClientFactory(retryConfig, logger);
         var httpClient = factory.Create();
