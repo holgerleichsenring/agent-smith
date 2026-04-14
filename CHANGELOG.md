@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.1...v0.13.2) (2026-04-14)
+
+
+### Bug Fixes
+
+* **p76:** register azure-openai in LlmClientFactory + add Azure auth to OpenAiCompatibleClient ([334f609](https://github.com/holgerleichsenring/agent-smith/commit/334f60940537c27aa409171bd5133182df2c7a3f))
+
 ## [0.13.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.0...v0.13.1) (2026-04-14)
 
 
