@@ -1,0 +1,36 @@
+phase: p43d
+goal: "Ollama as IAgentProvider for local LLMs, hybrid per-task routing between cloud and local models"
+decisions:
+  - key: "OpenAiCompatibleClient shared between OpenAI + Ollama — composition, not inheritance"
+  - key: "Tool calling auto-detected on startup via GET /api/show — structured text fallback if unavailable"
+  - key: "ModelAssignment extended with ProviderType + Endpoint — backward compatible (null = default)"
+  - key: "Local tasks show $0.00 (local) in cost tracking"
+  - key: "Ollama sidecar under optional 'local-models' Docker Compose profile"
+steps:
+  - id: client
+    action: "Create shared OpenAI-compatible HTTP client"
+    new:
+      - "OpenAiCompatibleClient: internal, CompleteAsync(ChatRequest)"
+    modify:
+      - "OpenAiAgentProvider: use OpenAiCompatibleClient"
+  - id: provider
+    action: "Implement Ollama agent provider"
+    new:
+      - "OllamaAgentProvider: IAgentProvider with tool calling + structured text fallback"
+      - "OllamaConfig: { Endpoint, Model, HasToolCalling }"
+    modify:
+      - "ModelAssignment: add ProviderType?, Endpoint?"
+      - "AgentProviderFactory: add 'ollama' case"
+  - id: compose
+    action: "Add Ollama sidecar to Docker Compose"
+    modify: ["docker-compose.yml: ollama service under local-models profile with GPU reservation"]
+config: |
+  model_registry:
+    triage: { type: Ollama, model: mistral-small:3.1, endpoint: http://ollama:11434 }
+    planning: { type: Claude, model: claude-sonnet-4-20250514 }
+    execution: { type: Ollama, model: qwen2.5-coder:32b, endpoint: http://ollama:11434 }
+done:
+  - "OllamaAgentProvider implements IAgentProvider"
+  - "Tool calling auto-detected, fallback to structured text"
+  - "Hybrid routing: mix Claude + Ollama per task in single config"
+  - "Startup validation: ping + model availability + tool calling detection"

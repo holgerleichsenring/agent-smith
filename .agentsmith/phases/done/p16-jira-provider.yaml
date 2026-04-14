@@ -1,0 +1,25 @@
+phase: p16
+goal: "Add Jira as ticket provider — read issues, post comments, transition to Done"
+requires: ["p10"]
+decisions:
+  - key: "No Atlassian SDK — pure HttpClient with REST API v3"
+  - key: "ADF (Atlassian Document Format) for comments, plain text extraction for reading"
+  - key: "Transition names vary by workflow — search flexibly for Done/Closed"
+steps:
+  - id: provider
+    action: "Implement JiraTicketProvider via REST API v3"
+    new:
+      - "JiraTicketProvider: ITicketProvider { baseUrl, email, apiToken, httpClient }"
+  - id: factory
+    action: "Update TicketProviderFactory for 'jira' type"
+    modify:
+      - "TicketProviderFactory: add jira case, read JIRA_URL/JIRA_EMAIL/JIRA_TOKEN from secrets"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Factory test for jira type"
+  - "GetTicketAsync with mocked HttpClient"
+  - "CloseTicketAsync finds transition by name"
+done:
+  - "JiraTicketProvider reads issues, posts ADF comments, transitions to Done"
+  - "TicketProviderFactory handles jira type"

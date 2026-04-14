@@ -1,0 +1,35 @@
+phase: p08
+goal: "Prevent unbounded context growth — summarize old tool results, deduplicate file reads"
+requires: ["p07"]
+decisions:
+  - key: "Haiku for summarization — $1/MT input, separate client from primary loop"
+  - key: "FileReadTracker returns short note on re-read, invalidates on write"
+  - key: "Compactor is nullable in AgenticLoop — backward-compatible"
+  - key: "Last N iterations always fully preserved (default 3)"
+steps:
+  - id: config-interface
+    action: "Add CompactionConfig, IContextCompactor, FileReadTracker"
+    new:
+      - "CompactionConfig: { Enabled:true, ThresholdIterations:8, MaxContextTokens:80000, KeepRecentIterations:3, SummaryModel }"
+      - "IContextCompactor: CompactAsync(messages, keepRecentMessages)"
+      - "FileReadTracker: HasBeenRead, TrackRead, InvalidateRead, case-insensitive"
+    modify:
+      - "AgentConfig: add Compaction property"
+  - id: compactor-integration
+    action: "Implement ClaudeContextCompactor and integrate into AgenticLoop + ToolExecutor"
+    new:
+      - "ClaudeContextCompactor: splits old/recent, summarizes old via Haiku"
+    modify:
+      - "AgenticLoop: trigger compaction at ThresholdIterations (periodic)"
+      - "ToolExecutor: accept FileReadTracker, return short note on re-read, invalidate on write"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "FileReadTrackerTests: HasBeenRead, TrackRead, InvalidateRead, CaseInsensitive"
+  - "ToolExecutor: ReadFile first/second read, after write invalidation"
+  - "ClaudeContextCompactor unit tests"
+done:
+  - "ClaudeContextCompactor summarizes old messages via Haiku"
+  - "FileReadTracker deduplicates file reads"
+  - "AgenticLoop triggers compaction periodically"
+  - "15+ iterations without context explosion"

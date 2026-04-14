@@ -1,0 +1,34 @@
+phase: p12
+goal: "Per-run cost tracking — prices from config, phase-aware breakdown"
+requires: ["p10"]
+decisions:
+  - key: "Prices in config, not hardcoded — providers change pricing frequently"
+  - key: "Phase tracking: each API call belongs to scout/planning/primary/compaction"
+  - key: "Missing model pricing defaults to zero with warning"
+steps:
+  - id: pricing-config
+    action: "Add PricingConfig and CostTracker"
+    new:
+      - "PricingConfig: { Models:Dict<string, ModelPricing> }"
+      - "ModelPricing: { InputPerMillion, OutputPerMillion, CacheReadPerMillion }"
+      - "CostTracker: SetPhaseModel, CalculateCost, LogCostSummary"
+      - "RunCostSummary: record { Phases:Dict<string,PhaseCost>, TotalCost }"
+      - "PhaseCost: record { Model, InputTokens, OutputTokens, CacheReadTokens, Iterations, Cost }"
+    modify:
+      - "AgentConfig: add Pricing property"
+  - id: phase-tracking
+    action: "Extend TokenUsageTracker with phase breakdown"
+    new:
+      - "PhaseUsage: { InputTokens, OutputTokens, CacheReadTokens, Iterations }"
+    modify:
+      - "TokenUsageTracker: add SetPhase(string), GetPhaseBreakdown(), accumulate per phase"
+      - "ClaudeAgentProvider: set phase before scout/primary/compaction"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "CostTracker calculates correct cost from token usage x pricing"
+  - "Phase breakdown tracks per-phase tokens"
+done:
+  - "PricingConfig in YAML with per-model prices"
+  - "TokenUsageTracker tracks per-phase usage"
+  - "CostTracker logs cost breakdown after each run"

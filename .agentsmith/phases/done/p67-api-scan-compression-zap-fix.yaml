@@ -1,0 +1,44 @@
+phase: p67
+goal: "Add finding compression to api-security-scan (504 findings unsliced) and fix ZAP --auto flag removed in recent zaproxy:stable"
+requires: ["p48", "p55", "p64"]
+decisions:
+  - Follow p55 category slicing pattern: "same approach as security-scan compression"
+  - Remove --auto flag entirely: "equivalent to -I (non-interactive) which is default in Docker"
+  - Skip DAST skills on ZAP failure: "saves 2 LLM calls when ZAP broken or disabled"
+steps:
+  - id: compressor
+    action: "Add ApiScanFindingsCompressor with category slices: auth, design, runtime, all"
+    new:
+      - "ApiScanFindingsCompressor: { BuildSummary(), BuildCategorySlices(), GetSliceForSkill() }"
+      - "CompressApiScanFindingsHandler"
+  - id: pipeline
+    action: "Insert CompressApiScanFindingsCommand between SpawnZap and LoadSkills"
+    modify: ["PipelineFactory.cs"]
+  - id: skill-round
+    action: "ApiSkillRoundHandler uses category slices instead of raw findings"
+    modify: ["ApiSkillRoundHandler.cs"]
+  - id: skill-configs
+    action: "Add input_categories to all 5 API skill agentsmith.md files"
+    modify:
+      - "auth-tester: auth"
+      - "api-design-auditor: design"
+      - "dast-analyst: runtime"
+      - "false-positive-filter: auth, design, runtime"
+      - "dast-false-positive-filter: runtime"
+  - id: zap-fix
+    action: "Remove --auto from ZapSpawner argument builders"
+    modify: ["ZapSpawner.cs"]
+  - id: zap-skip
+    action: "Set ZapFailed flag on non-zero exit, skip DAST skills in triage"
+    modify: ["SpawnZapHandler.cs", "ApiSecurityTriageHandler.cs"]
+tests:
+  - "ApiScanFindingsCompressorTests: categorization, slicing, edge cases"
+done:
+  - "--auto removed from ZAP spawner, ZAP runs without exit code 3"
+  - "ZapFailed flag set on non-zero exit, DAST skills skipped"
+  - "CompressApiScanFindingsCommand in pipeline between ZAP and LoadSkills"
+  - "ApiScanFindingsCompressor produces category slices"
+  - "ApiSkillRoundHandler uses category slices"
+  - "All 5 API skill configs have input_categories"
+  - "API scan run <150k input tokens (down from 233k)"
+  - "dotnet build + dotnet test pass"

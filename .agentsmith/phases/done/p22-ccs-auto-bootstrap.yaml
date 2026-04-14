@@ -1,0 +1,30 @@
+phase: p22
+goal: "Auto-generate .context.yaml for any repo by detecting language, stack, and structure"
+decisions:
+  - detector-no-llm: "ProjectDetector is pure file system analysis — zero LLM tokens"
+  - generator-one-call: "ContextGenerator uses one cheap LLM call (~3k input, ~800 output tokens)"
+  - schema-validation: "Generated YAML validated against context.schema.json; retry once on failure"
+steps:
+  - id: detector
+    action: "Implement ProjectDetector scanning repo root for language/stack/build/test markers"
+    new: ["IProjectDetector", "ProjectDetector", "DetectedProject { language, runtime, packageManager, buildCmd, testCmd, frameworks, keyFiles }"]
+  - id: generator
+    action: "Implement ContextGenerator with one LLM call using CCS template"
+    new: ["IContextGenerator", "ContextGenerator"]
+  - id: validation
+    action: "Validate generated YAML against schema, retry once with errors"
+    new: ["IContextValidator", "ContextValidator"]
+  - id: integration
+    action: "Pipeline uses detected build/test commands instead of hardcoded dotnet test"
+    new: ["BootstrapProjectHandler: orchestrates detect -> generate -> validate -> write"]
+detection-rules:
+  - ".NET: *.sln, *.csproj, global.json -> dotnet build/test"
+  - "Python: pyproject.toml, setup.py, requirements.txt, Pipfile -> poetry/pipenv/uv/pip, pytest/tox"
+  - "TypeScript: package.json, tsconfig.json, deno.json -> npm/pnpm/yarn/bun, vitest/jest/playwright"
+  - "General: CI files, Docker, K8s, Terraform, README first 300 words"
+done:
+  - "Detecting .NET, Python, TypeScript projects correctly"
+  - "Generating valid .context.yaml for each"
+  - "Build/test commands correctly detected and used in pipeline"
+  - "Schema validation passes"
+  - "Unit tests for detector (mock file system)"

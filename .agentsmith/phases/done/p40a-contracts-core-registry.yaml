@@ -1,0 +1,40 @@
+phase: p40a
+goal: "Contracts extensions, Infrastructure.Core project, and generic ProviderRegistry — foundation for provider decomposition"
+requires: ["p39"]
+decisions:
+  - key: "IStorageReader.CanHandle over SupportedSchemes — reader inspects scheme/host/path, registry does FirstOrDefault"
+  - key: "ProviderRegistry<T> over hardcoded factory switches — generic, no new code per provider"
+  - key: "No external vendor NuGet in Infrastructure.Core — keeps it provider-agnostic"
+  - key: "ITicketProvider.GetAttachmentRefsAsync default method returns empty — no existing provider breaks"
+steps:
+  - id: contracts
+    action: "Add new interfaces and records to Contracts"
+    new:
+      - "AttachmentRef: { Uri:string, FileName:string, MimeType:string, SizeBytes:long? }"
+      - "ITypedProvider: { ProviderType:string }"
+      - "IStorageReader: { CanHandle(AttachmentRef):bool, ReadAsync, ExistsAsync }"
+      - "IStorageWriter: ITypedProvider { WriteAsync, DeleteAsync }"
+    modify:
+      - "ITicketProvider: extend ITypedProvider, add GetAttachmentRefsAsync with default impl"
+      - "ISourceProvider: extend ITypedProvider"
+      - "IAgentProvider: extend ITypedProvider"
+      - "ContextKeys: add Attachments"
+  - id: infra-core
+    action: "Create Infrastructure.Core project with non-provider services"
+    new:
+      - "AgentSmith.Infrastructure.Core.csproj: refs Contracts+Domain, YamlDotNet, MS Extensions only"
+      - "StorageReaderRegistry: resolves IStorageReader via CanHandle"
+      - "ProviderRegistry<T>: dictionary lookup by ProviderType (case-insensitive)"
+      - "ServiceCollectionExtensions.AddAgentSmithCore: registers all core services + registries"
+    modify:
+      - "Move YamlConfigurationLoader, SecretsProvider, ContextValidator, ContextGenerator, CodeMapGenerator, CodingPrinciplesGenerator, YamlSkillLoader, ProjectDetector, RepoSnapshotCollector, language detectors from Infrastructure"
+      - "Factory classes become thin wrappers delegating to ProviderRegistry<T>"
+      - "AgentSmith.sln: add Infrastructure.Core project"
+      - "AgentSmith.Cli: reference Infrastructure.Core"
+tests:
+  - "ProviderRegistryTests — resolve by type, missing type throws"
+  - "StorageReaderRegistryTests — resolve by CanHandle, no match throws"
+  - "FactoryMigrationTests — factories delegate to registry"
+done:
+  - "All 426+ tests green"
+  - "~200 lines new, ~150 moved/refactored, no behavioral changes"

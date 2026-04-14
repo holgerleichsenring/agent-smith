@@ -1,0 +1,17 @@
+phase: p26
+goal: "Auto-detect and generate coding-principles.md for any repo during bootstrap"
+requires: ["p22"]
+decisions:
+  - llm-generates: "One cheap LLM call analyzes repo structure + existing docs to produce principles"
+  - committed-to-repo: "Generated file committed alongside context.yaml in .agentsmith/"
+steps:
+  - id: generator
+    action: "Implement CodingPrinciplesGenerator with LLM call using detected project info"
+    new: ["ICodingPrinciplesGenerator", "CodingPrinciplesGenerator"]
+  - id: bootstrap-integration
+    action: "BootstrapProjectHandler calls generator when no coding-principles.md exists"
+    modify: ["BootstrapProjectHandler: generate coding-principles.md if missing"]
+done:
+  - "Auto-generates coding-principles.md for .NET, Python, TypeScript repos"
+  - "Generated file reflects actual project conventions"
+  - "Committed to repo in .agentsmith/ directory"

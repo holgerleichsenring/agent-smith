@@ -1,0 +1,23 @@
+phase: p68
+goal: "Add ApiPath and SchemaName to Finding record so API scan output shows 'POST /api/auth/login' instead of 'swagger.json:0'"
+steps:
+  - id: finding-fields
+    action: "Add nullable ApiPath and SchemaName fields to Finding record"
+    modify:
+      - "Finding.cs: add ApiPath:string?, SchemaName:string?"
+  - id: parse
+    action: "Parse apiPath and schemaName from gate LLM JSON output"
+    modify: ["SkillRoundHandlerBase.cs"]
+  - id: output
+    action: "Format location as ApiPath ?? SchemaName ?? File:StartLine in all output strategies"
+    modify:
+      - "ConsoleOutputStrategy.cs"
+      - "MarkdownOutputStrategy.cs"
+      - "SarifOutputStrategy.cs"
+done:
+  - "Finding has ApiPath and SchemaName (nullable, no breaking change)"
+  - "ParseGateFindings extracts apiPath/schemaName from LLM JSON"
+  - "Console: [HIGH] POST /api/auth/login — Title"
+  - "Markdown: ApiPath/SchemaName column"
+  - "SARIF: logicalLocation with apiPath"
+  - "Security-scan pipeline unaffected (fields stay null)"

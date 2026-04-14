@@ -1,0 +1,44 @@
+phase: p32
+goal: "ILlmClient abstraction, generator simplification, command name constants, pipeline presets"
+decisions:
+  - ilm-client-factory: "Per-project LLM client via ILlmClientFactory.Create(AgentConfig) — mirrors IAgentProviderFactory pattern"
+  - generators-stateless: "Generators accept ILlmClient as method parameter, not constructor — truly stateless"
+  - command-names-constants: "Single source of truth for command name strings"
+  - pipeline-presets-in-code: "Pipelines are code-defined presets with optional YAML override"
+  - blocked-commands: "ToolExecutor hard-blocks 21 long-running server commands (dotnet run, npm start, etc.)"
+steps:
+  - id: llm-client
+    action: "Create ILlmClient + AnthropicLlmClient + LlmResponseHelper"
+    new: ["ILlmClient { CompleteAsync(systemPrompt, userPrompt, TaskType) }", "AnthropicLlmClient", "LlmResponseHelper { StripCodeFences, IsValidYaml }"]
+  - id: repo-snapshot
+    action: "Add DirectoryTree to RepoSnapshot, centralize tree generation in RepoSnapshotCollector"
+    modify: ["RepoSnapshot: add DirectoryTree", "RepoSnapshotCollector: GenerateTree + ExcludedDirs"]
+  - id: simplify-generators
+    action: "Rewrite all 3 generators as thin prompt-builders backed by ILlmClient"
+    modify: ["CodingPrinciplesGenerator: ~120->50 lines", "CodeMapGenerator: ~460->80 lines (delete CollectDotNet/TS/Python)", "ContextGenerator: ~340->150 lines"]
+  - id: command-names
+    action: "Create CommandNames + PipelinePresets static classes"
+    new: ["CommandNames: constants for all 16 command names + GetLabel()", "PipelinePresets: FixBug, FixNoTest, InitProject, AddFeature + TryResolve()"]
+  - id: llm-client-factory
+    action: "Create ILlmClientFactory for per-project LLM client creation"
+    new: ["ILlmClientFactory { Create(AgentConfig) }", "LlmClientFactory"]
+  - id: llm-intent-parser
+    action: "Rename IHaikuIntentParser -> ILlmIntentParser (provider-agnostic)"
+    new: ["ILlmIntentParser", "LlmIntentParser"]
+    modify: ["IntentEngine: use ILlmIntentParser"]
+  - id: tool-executor-blocklist
+    action: "Add hard blocklist for long-running server commands in ToolExecutor"
+    modify: ["ToolExecutor: IsBlockedCommand() with 21 patterns"]
+tests:
+  - "LlmResponseHelperTests (StripCodeFences, IsValidYaml)"
+  - "CommandNamesTests"
+  - "PipelinePresetsTests"
+  - "LlmClientFactoryTests"
+  - "ToolExecutorTests (37 new blocked command tests)"
+  - "339 total tests passing"
+done:
+  - "No direct Anthropic SDK coupling in generators"
+  - "No language-specific collection code in CodeMapGenerator"
+  - "No duplicated utilities across generators"
+  - "All command names from CommandNames constants"
+  - "Pipelines resolved from code presets, YAML fallback"

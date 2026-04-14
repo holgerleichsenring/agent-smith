@@ -1,0 +1,24 @@
+phase: p15
+goal: "Add Azure Repos as source provider — clone, branch, commit, push, create PR"
+requires: ["p10"]
+decisions:
+  - key: "LibGit2Sharp for git ops (same as GitHub provider), Azure DevOps REST for PRs"
+  - key: "PAT embedded in clone URL for HTTPS auth"
+steps:
+  - id: provider
+    action: "Implement AzureReposSourceProvider"
+    new:
+      - "AzureReposSourceProvider: ISourceProvider { organizationUrl, project, repoName, pat }"
+  - id: factory
+    action: "Update SourceProviderFactory for 'azurerepos' type"
+    modify:
+      - "SourceProviderFactory: add azurerepos case"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Factory test for azurerepos type"
+  - "URL parsing for dev.azure.com and visualstudio.com formats"
+done:
+  - "AzureReposSourceProvider implements ISourceProvider"
+  - "Clone, branch, commit, push, PR creation all work"
+  - "SourceProviderFactory handles azurerepos type"

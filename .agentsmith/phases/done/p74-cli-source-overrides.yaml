@@ -1,0 +1,26 @@
+phase: p74
+goal: "Make source config (type, url, auth) overridable via CLI arguments — replaces --repo with generic --source-type/--source-url/--source-auth"
+decisions:
+  - Three generic options replace --repo: "consistent across all source-using commands"
+  - Applied in ExecutePipelineUseCase: "transparent to all downstream builders and handlers"
+  - SecurityScanCommand drops --repo: "ScanRepoPath context key becomes obsolete"
+steps:
+  - id: contracts
+    action: "Add SourceType, SourceUrl, SourceAuth to ContextKeys and ISourceConfigOverrider interface"
+    new: ["ISourceConfigOverrider"]
+    modify: ["ContextKeys.cs"]
+  - id: service
+    action: "Add SourceConfigOverrider — field-by-field merge, CLI wins over config"
+    new: ["SourceConfigOverrider"]
+  - id: cli-options
+    action: "Add shared option helper, wire into fix, feature, mad, security-scan, autonomous, init commands"
+  - id: integration
+    action: "Call ISourceConfigOverrider.Apply() in ExecutePipelineUseCase, remove --repo and ScanRepoPath"
+    modify: ["ExecutePipelineUseCase", "SecurityScanCommand"]
+done:
+  - "--source-type, --source-url, --source-auth available on source-using commands"
+  - "CLI values override config values field-by-field"
+  - "--repo removed from SecurityScanCommand"
+  - "ScanRepoPath removed"
+  - "ISourceConfigOverrider with DI registration"
+  - "dotnet build + dotnet test clean"

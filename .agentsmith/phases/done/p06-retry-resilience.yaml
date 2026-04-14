@@ -1,0 +1,33 @@
+phase: p06
+goal: "Survive rate limits (429) and transient errors — Polly retry with exponential backoff"
+requires: ["p05"]
+decisions:
+  - key: "Polly via DelegatingHandler on HttpClient — SDK has no built-in retry"
+  - key: "Jitter +/-25% prevents thundering herd"
+  - key: "Defaults conservative for Tier 1 (30k ITPM)"
+steps:
+  - id: retry-config
+    action: "Add RetryConfig and resilient HttpClient factory"
+    new:
+      - "RetryConfig: { MaxRetries:5, InitialDelayMs:2000, BackoffMultiplier:2.0, MaxDelayMs:60000 }"
+      - "ResilientHttpClientFactory: Polly retry on 429/500/502/503/504"
+    modify:
+      - "AgentConfig: add Retry property"
+  - id: integration
+    action: "Wire resilient client into ClaudeAgentProvider + AgenticLoop"
+    modify:
+      - "ClaudeAgentProvider: accept RetryConfig, create client via ResilientHttpClientFactory"
+      - "AgenticLoop: log token usage per iteration"
+      - "AgentProviderFactory: pass config.Retry to provider"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Defaults_AreReasonable"
+  - "YamlDeserialization_Works"
+  - "Create_ReturnsHttpClient"
+  - "RetryPolicy_Retries429"
+done:
+  - "RetryConfig with sensible defaults"
+  - "Resilient HttpClient retries 429/5xx with exponential backoff + jitter"
+  - "AgenticLoop logs token usage per iteration"
+  - "YAML config supports retry: section (backward-compatible)"
