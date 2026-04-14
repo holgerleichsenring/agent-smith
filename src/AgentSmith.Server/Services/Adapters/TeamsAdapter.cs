@@ -18,6 +18,7 @@ namespace AgentSmith.Server.Services.Adapters;
 public sealed class TeamsAdapter(
     HttpClient httpClient,
     TeamsAdapterOptions options,
+    TeamsCardBuilder cardBuilder,
     ILogger<TeamsAdapter> logger) : IPlatformAdapter
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -65,7 +66,7 @@ public sealed class TeamsAdapter(
     public async Task SendProgressAsync(string channelId, int step, int total, string commandName,
         CancellationToken cancellationToken)
     {
-        var card = TeamsCardBuilder.BuildProgressCard(step, total, commandName);
+        var card = cardBuilder.BuildProgressCard(step, total, commandName);
         var activity = WrapCardInActivity(card);
 
         if (_progressActivityIds.TryGetValue(channelId, out var existingId))
@@ -90,7 +91,7 @@ public sealed class TeamsAdapter(
             return null;
         }
 
-        var card = TeamsCardBuilder.BuildQuestionCard(question);
+        var card = cardBuilder.BuildQuestionCard(question);
         var activity = WrapCardInActivity(card, $"\ud83d\udcad Question: {question.Text}");
         await SendActivityAsync(channelId, activity, cancellationToken);
 
@@ -119,7 +120,7 @@ public sealed class TeamsAdapter(
     public async Task SendInfoAsync(string channelId, string title, string text,
         CancellationToken cancellationToken)
     {
-        var card = TeamsCardBuilder.BuildInfoCard(title, text);
+        var card = cardBuilder.BuildInfoCard(title, text);
         var activity = WrapCardInActivity(card, $"\u2139\ufe0f {title}: {text}");
         await SendActivityAsync(channelId, activity, cancellationToken);
     }
@@ -129,7 +130,7 @@ public sealed class TeamsAdapter(
     {
         _progressActivityIds.TryRemove(channelId, out _);
 
-        var card = TeamsCardBuilder.BuildDoneCard(summary, prUrl);
+        var card = cardBuilder.BuildDoneCard(summary, prUrl);
         var activity = WrapCardInActivity(card, $"\u2705 Done! {summary}");
         await SendActivityAsync(channelId, activity, cancellationToken);
     }
@@ -139,7 +140,7 @@ public sealed class TeamsAdapter(
     {
         _progressActivityIds.TryRemove(channelId, out _);
 
-        var card = TeamsCardBuilder.BuildErrorCard(errorContext.FriendlyError, errorContext.LogUrl);
+        var card = cardBuilder.BuildErrorCard(errorContext.FriendlyError, errorContext.LogUrl);
         var activity = WrapCardInActivity(card, $"\u274c Error: {errorContext.FriendlyError}");
         await SendActivityAsync(channelId, activity, cancellationToken);
     }
@@ -147,7 +148,7 @@ public sealed class TeamsAdapter(
     public async Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken cancellationToken)
     {
-        var card = TeamsCardBuilder.BuildAnsweredCard(questionText, answer);
+        var card = cardBuilder.BuildAnsweredCard(questionText, answer);
         var activity = WrapCardInActivity(card);
 
         await UpdateActivityAsync(channelId, messageId, activity, cancellationToken);
@@ -170,7 +171,7 @@ public sealed class TeamsAdapter(
     public async Task SendClarificationAsync(string channelId, string suggestion,
         CancellationToken cancellationToken)
     {
-        var card = TeamsCardBuilder.BuildClarificationCard(suggestion);
+        var card = cardBuilder.BuildClarificationCard(suggestion);
         var activity = WrapCardInActivity(card, $"\ud83e\udd14 Did you mean: {suggestion}?");
         await SendActivityAsync(channelId, activity, cancellationToken);
     }

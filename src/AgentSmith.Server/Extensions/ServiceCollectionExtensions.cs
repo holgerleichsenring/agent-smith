@@ -75,6 +75,9 @@ internal static class ServiceCollectionExtensions
         };
         services.AddSingleton(options);
         services.AddSingleton(new TeamsJwtValidator(options.AppId));
+        services.AddTransient<TeamsQuestionCardBuilder>();
+        services.AddTransient<TeamsStatusCardBuilder>();
+        services.AddTransient<TeamsCardBuilder>();
         services.AddSingleton<TeamsAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
         services.AddScoped<TeamsInteractionHandler>();
