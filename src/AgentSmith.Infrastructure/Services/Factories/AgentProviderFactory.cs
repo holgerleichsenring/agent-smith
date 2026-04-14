@@ -23,6 +23,8 @@ public sealed class AgentProviderFactory(
         ["claude"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
         ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
         ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory),
+        ["azure-openai"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
+        ["azure"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
         ["gemini"] = config => CreateGemini(config, secrets, loggerFactory),
         ["google"] = config => CreateGemini(config, secrets, loggerFactory),
         ["ollama"] = config => CreateOllama(config, loggerFactory),
@@ -61,6 +63,23 @@ public sealed class AgentProviderFactory(
         return new OpenAiAgentProvider(
             apiKey, config.Model, config.Retry,
             registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>(), endpoint);
+    }
+
+    private static AzureOpenAiAgentProvider CreateAzureOpenAi(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+    {
+        var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_KEY";
+        var apiKey = secrets.GetRequired(secretName);
+        var endpoint = config.Endpoint
+                       ?? throw new ConfigurationException("Azure OpenAI requires 'endpoint' in agent config");
+        var deployment = config.Deployment
+                         ?? throw new ConfigurationException("Azure OpenAI requires 'deployment' in agent config");
+        var registry = CreateModelRegistry(config, loggerFactory);
+        return new AzureOpenAiAgentProvider(
+            apiKey, config.Model, deployment, new Uri(endpoint),
+            config.ApiVersion ?? "2025-01-01-preview",
+            config.Retry, registry, config.Pricing,
+            loggerFactory.CreateLogger<AzureOpenAiAgentProvider>());
     }
 
     private static GeminiAgentProvider CreateGemini(
