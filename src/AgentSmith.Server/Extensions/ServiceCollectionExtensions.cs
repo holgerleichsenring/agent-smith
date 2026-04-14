@@ -27,6 +27,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ConversationStateManager>();
         services.AddSingleton<ClarificationStateManager>();
         services.AddSingleton<ChatIntentParser>();
+        services.AddSingleton<IBusMessageRouter, BusMessageRouter>();
         services.AddSingleton<MessageBusListener>();
         services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
         services.AddHostedService<OrphanJobDetector>();
@@ -78,6 +79,9 @@ internal static class ServiceCollectionExtensions
         services.AddTransient<TeamsQuestionCardBuilder>();
         services.AddTransient<TeamsStatusCardBuilder>();
         services.AddTransient<TeamsCardBuilder>();
+        services.AddSingleton<BotFrameworkTokenProvider>();
+        services.AddSingleton<TeamsApiClient>();
+        services.AddSingleton<TeamsTypedQuestionTracker>();
         services.AddSingleton<TeamsAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
         services.AddScoped<TeamsInteractionHandler>();
