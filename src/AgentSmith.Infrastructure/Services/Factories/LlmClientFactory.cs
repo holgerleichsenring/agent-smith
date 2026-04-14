@@ -20,6 +20,8 @@ public sealed class LlmClientFactory(
         ["claude"] = config => CreateAnthropic(config, secrets, loggerFactory),
         ["anthropic"] = config => CreateAnthropic(config, secrets, loggerFactory),
         ["openai"] = config => CreateOpenAiCompatible(config, secrets, loggerFactory),
+        ["azure-openai"] = config => CreateAzureOpenAiCompatible(config, secrets, loggerFactory),
+        ["azure"] = config => CreateAzureOpenAiCompatible(config, secrets, loggerFactory),
         ["ollama"] = config => CreateOpenAiCompatible(config, secrets, loggerFactory),
     };
 
@@ -52,6 +54,25 @@ public sealed class LlmClientFactory(
         var endpoint = config.Endpoint ?? "https://api.openai.com";
         var client = new OpenAiCompatibleClient(
             endpoint + "/v1", apiKey, loggerFactory.CreateLogger("OpenAiLlmClient"));
+        var registry = CreateModelRegistry(config, loggerFactory);
+        return new OpenAiLlmClient(client, registry,
+            loggerFactory.CreateLogger<OpenAiLlmClient>());
+    }
+
+    private static OpenAiLlmClient CreateAzureOpenAiCompatible(
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+    {
+        var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
+        var apiKey = secrets.GetRequired(secretName);
+        var endpoint = config.Endpoint
+                       ?? throw new NotSupportedException("Azure OpenAI requires 'endpoint' in agent config");
+        var deployment = config.Deployment
+                         ?? throw new NotSupportedException("Azure OpenAI requires 'deployment' in agent config");
+        var apiVersion = config.ApiVersion ?? "2025-01-01-preview";
+        var baseUrl = $"{endpoint.TrimEnd('/')}/openai/deployments/{deployment}";
+        var client = new OpenAiCompatibleClient(
+            baseUrl, apiKey, loggerFactory.CreateLogger("AzureOpenAiLlmClient"),
+            useApiKeyHeader: true, apiVersionQueryParam: apiVersion);
         var registry = CreateModelRegistry(config, loggerFactory);
         return new OpenAiLlmClient(client, registry,
             loggerFactory.CreateLogger<OpenAiLlmClient>());
