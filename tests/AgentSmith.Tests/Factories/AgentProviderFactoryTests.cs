@@ -21,7 +21,7 @@ public class AgentProviderFactoryTests : IDisposable
         Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
-        Environment.SetEnvironmentVariable("AZURE_OPENAI_KEY", "test-key");
+        Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", "test-key");
         _sut = new AgentProviderFactory(_secrets, NullLoggerFactory.Instance,
             Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail());
     }
@@ -31,7 +31,7 @@ public class AgentProviderFactoryTests : IDisposable
         Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", null);
         Environment.SetEnvironmentVariable("GEMINI_API_KEY", null);
-        Environment.SetEnvironmentVariable("AZURE_OPENAI_KEY", null);
+        Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", null);
     }
 
     [Theory]

@@ -68,7 +68,7 @@ public sealed class AgentProviderFactory(
     private static AzureOpenAiAgentProvider CreateAzureOpenAi(
         AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
-        var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_KEY";
+        var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint
                        ?? throw new ConfigurationException("Azure OpenAI requires 'endpoint' in agent config");
