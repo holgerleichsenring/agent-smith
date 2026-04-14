@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
+        services.AddTransient<PlanConsolidator>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();

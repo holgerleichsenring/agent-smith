@@ -43,7 +43,7 @@ internal static class SecurityTrendCommand
                 return;
             }
 
-            var snapshots = SecurityTrendHandler.LoadSnapshots(securityDir);
+            var snapshots = SnapshotYamlParser.LoadSnapshots(securityDir);
 
             if (snapshots.Count == 0)
             {
