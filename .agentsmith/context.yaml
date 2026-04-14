@@ -145,6 +145,7 @@ state:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
+    p73: "Class size enforcement (refactoring) → .agentsmith/phases/planned/p73-class-size-enforcement.md"
     # --- deferred (refactoring, no new features) ---
     p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
