@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -18,10 +17,7 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
         .IgnoreUnmatchedProperties()
         .Build();
 
-    private static readonly IDeserializer FrontmatterDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(HyphenatedNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
-        .Build();
+    private readonly SkillMdParser _skillMdParser = new(logger);
 
     public SkillConfig? LoadProjectSkills(string agentSmithDirectory)
     {
@@ -58,48 +54,8 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
         }
 
         var roles = new List<RoleSkillDefinition>();
-
-        // Load from SKILL.md directories (new format)
-        foreach (var dir in Directory.GetDirectories(skillsDirectory).OrderBy(d => d))
-        {
-            var skillMdPath = Path.Combine(dir, "SKILL.md");
-            if (!File.Exists(skillMdPath))
-                continue;
-
-            try
-            {
-                var role = LoadFromSkillMd(dir);
-                if (role is not null && !string.IsNullOrEmpty(role.Name))
-                {
-                    roles.Add(role);
-                    logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to load role definition from {Dir}", dir);
-            }
-        }
-
-        // Load from legacy YAML files (backward compatibility)
-        foreach (var file in Directory.GetFiles(skillsDirectory, "*.yaml").OrderBy(f => f))
-        {
-            try
-            {
-                var yaml = File.ReadAllText(file);
-                var role = Deserializer.Deserialize<RoleSkillDefinition>(yaml);
-
-                if (role is not null && !string.IsNullOrEmpty(role.Name))
-                {
-                    roles.Add(role);
-                    logger.LogDebug("Loaded role definition from YAML: {Name}", role.Name);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to load role definition from {File}", file);
-            }
-        }
+        LoadFromSkillMdDirectories(skillsDirectory, roles);
+        LoadFromLegacyYaml(skillsDirectory, roles);
 
         logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, skillsDirectory);
         return roles;
@@ -143,269 +99,48 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
         return activeRoles;
     }
 
-    private RoleSkillDefinition? LoadFromSkillMd(string skillDirectory)
+    private void LoadFromSkillMdDirectories(string skillsDirectory, List<RoleSkillDefinition> roles)
     {
-        var skillMdPath = Path.Combine(skillDirectory, "SKILL.md");
-        var content = File.ReadAllText(skillMdPath);
-
-        var (frontmatter, body) = ParseFrontmatter(content);
-        if (string.IsNullOrWhiteSpace(frontmatter))
+        foreach (var dir in Directory.GetDirectories(skillsDirectory).OrderBy(d => d))
         {
-            logger.LogWarning("No frontmatter found in {Path}", skillMdPath);
-            return null;
-        }
-
-        var meta = FrontmatterDeserializer.Deserialize<SkillMdFrontmatter>(frontmatter);
-        if (meta is null || string.IsNullOrEmpty(meta.Name))
-            return null;
-
-        var role = new RoleSkillDefinition
-        {
-            Name = meta.Name,
-            DisplayName = meta.DisplayName ?? string.Empty,
-            Emoji = meta.Emoji ?? string.Empty,
-            Description = meta.Description ?? string.Empty,
-            Triggers = meta.Triggers ?? [],
-            Rules = body.Trim()
-        };
-
-        // Load agentsmith.md (AS-specific extensions: display-name, emoji, triggers, convergence)
-        var agentSmithPath = Path.Combine(skillDirectory, "agentsmith.md");
-        if (File.Exists(agentSmithPath))
-        {
-            var agentSmithContent = File.ReadAllText(agentSmithPath);
-            role.ConvergenceCriteria = ParseConvergenceCriteria(agentSmithContent);
-
-            // AS-specific fields override SKILL.md frontmatter when present
-            var displayName = ParseSingleField(agentSmithContent, "display-name");
-            if (!string.IsNullOrEmpty(displayName))
-                role.DisplayName = displayName;
-
-            var emoji = ParseSingleField(agentSmithContent, "emoji");
-            if (!string.IsNullOrEmpty(emoji))
-                role.Emoji = emoji;
-
-            var triggers = ParseListSection(agentSmithContent, "triggers");
-            if (triggers.Count > 0)
-                role.Triggers = triggers;
-
-            role.Orchestration = ParseOrchestration(agentSmithContent);
-        }
-
-        // Load source.md (provenance)
-        var sourcePath = Path.Combine(skillDirectory, "source.md");
-        if (File.Exists(sourcePath))
-        {
-            role.Source = ParseSource(sourcePath);
-        }
-
-        return role;
-    }
-
-    private static (string frontmatter, string body) ParseFrontmatter(string content)
-    {
-        if (!content.StartsWith("---"))
-            return (string.Empty, content);
-
-        var endIndex = content.IndexOf("\n---", 3, StringComparison.Ordinal);
-        if (endIndex < 0)
-            return (string.Empty, content);
-
-        var frontmatter = content[4..endIndex].Trim();
-        var body = content[(endIndex + 4)..];
-        return (frontmatter, body);
-    }
-
-    private static string ParseSingleField(string content, string sectionName)
-    {
-        var header = $"## {sectionName}";
-        foreach (var line in content.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Equals(header, StringComparison.OrdinalIgnoreCase))
+            if (!File.Exists(Path.Combine(dir, "SKILL.md")))
                 continue;
 
-            // Return the first non-empty line after the header
-            if (!string.IsNullOrWhiteSpace(trimmed) && !trimmed.StartsWith('#'))
+            try
             {
-                // Check if we're past the header
-                var headerIndex = content.IndexOf(header, StringComparison.OrdinalIgnoreCase);
-                if (headerIndex < 0) return string.Empty;
-                var afterHeader = content[(headerIndex + header.Length)..];
-                foreach (var valueLine in afterHeader.Split('\n'))
+                var role = _skillMdParser.Parse(dir);
+                if (role is not null && !string.IsNullOrEmpty(role.Name))
                 {
-                    var val = valueLine.Trim();
-                    if (!string.IsNullOrWhiteSpace(val) && !val.StartsWith('#'))
-                        return val;
+                    roles.Add(role);
+                    logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
                 }
             }
-        }
-        return string.Empty;
-    }
-
-    private static List<string> ParseListSection(string content, string sectionName)
-    {
-        var items = new List<string>();
-        var inSection = false;
-        var header = $"## {sectionName}";
-
-        foreach (var line in content.Split('\n'))
-        {
-            var trimmed = line.Trim();
-
-            if (trimmed.Equals(header, StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                inSection = true;
-                continue;
-            }
-
-            if (inSection && trimmed.StartsWith("## "))
-                break;
-
-            if (inSection && trimmed.StartsWith("- "))
-            {
-                var value = trimmed[2..].Trim().Trim('"');
-                if (!string.IsNullOrEmpty(value))
-                    items.Add(value);
+                logger.LogWarning(ex, "Failed to load role definition from {Dir}", dir);
             }
         }
-
-        return items;
     }
 
-    private static List<string> ParseConvergenceCriteria(string content)
+    private void LoadFromLegacyYaml(string skillsDirectory, List<RoleSkillDefinition> roles)
     {
-        var criteria = new List<string>();
-        var inSection = false;
-
-        foreach (var line in content.Split('\n'))
+        foreach (var file in Directory.GetFiles(skillsDirectory, "*.yaml").OrderBy(f => f))
         {
-            var trimmed = line.Trim();
-
-            if (trimmed.StartsWith("## convergence_criteria", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                inSection = true;
-                continue;
+                var yaml = File.ReadAllText(file);
+                var role = Deserializer.Deserialize<RoleSkillDefinition>(yaml);
+
+                if (role is not null && !string.IsNullOrEmpty(role.Name))
+                {
+                    roles.Add(role);
+                    logger.LogDebug("Loaded role definition from YAML: {Name}", role.Name);
+                }
             }
-
-            if (inSection && trimmed.StartsWith("## "))
-                break;
-
-            if (inSection && trimmed.StartsWith("- "))
+            catch (Exception ex)
             {
-                var value = trimmed[2..].Trim().Trim('"');
-                if (!string.IsNullOrEmpty(value))
-                    criteria.Add(value);
+                logger.LogWarning(ex, "Failed to load role definition from {File}", file);
             }
         }
-
-        return criteria;
-    }
-
-    private static SkillOrchestration? ParseOrchestration(string content)
-    {
-        var inSection = false;
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var line in content.Split('\n'))
-        {
-            var trimmed = line.Trim();
-
-            if (trimmed.StartsWith("## orchestration", StringComparison.OrdinalIgnoreCase))
-            {
-                inSection = true;
-                continue;
-            }
-
-            if (inSection && trimmed.StartsWith("## "))
-                break;
-
-            if (inSection && trimmed.Contains(':'))
-            {
-                var colonIndex = trimmed.IndexOf(':');
-                var key = trimmed[..colonIndex].Trim();
-                var value = trimmed[(colonIndex + 1)..].Trim();
-                if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(value))
-                    fields[key] = value;
-            }
-        }
-
-        if (fields.Count == 0)
-            return null;
-
-        if (!fields.TryGetValue("role", out var roleStr) ||
-            !Enum.TryParse<SkillRole>(roleStr, ignoreCase: true, out var role))
-        {
-            role = SkillRole.Contributor;
-        }
-
-        if (!fields.TryGetValue("output", out var outputStr) ||
-            !Enum.TryParse<SkillOutputType>(outputStr, ignoreCase: true, out var output))
-        {
-            output = SkillOutputType.Artifact;
-        }
-
-        return new SkillOrchestration(
-            role,
-            output,
-            ParseCommaSeparated(fields.GetValueOrDefault("runs_after", "")),
-            ParseCommaSeparated(fields.GetValueOrDefault("runs_before", "")),
-            ParseCommaSeparated(fields.GetValueOrDefault("parallel_with", "")),
-            ParseCommaSeparated(fields.GetValueOrDefault("input_categories", "")));
-    }
-
-    private static IReadOnlyList<string> ParseCommaSeparated(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return Array.Empty<string>();
-
-        return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToList();
-    }
-
-    private SkillSource? ParseSource(string sourcePath)
-    {
-        try
-        {
-            var content = File.ReadAllText(sourcePath);
-            var origin = ExtractField(content, "origin");
-            var version = ExtractField(content, "version");
-            var commit = ExtractField(content, "commit");
-            var reviewedStr = ExtractField(content, "reviewed");
-            var reviewedBy = ExtractField(content, "reviewed-by");
-
-            if (string.IsNullOrEmpty(origin))
-                return null;
-
-            var reviewed = DateOnly.TryParse(reviewedStr, out var date) ? date : DateOnly.MinValue;
-            return new SkillSource(origin, version, commit, reviewed, reviewedBy);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to parse source.md from {Path}", sourcePath);
-            return null;
-        }
-    }
-
-    private static string ExtractField(string content, string fieldName)
-    {
-        var pattern = $@"^{Regex.Escape(fieldName)}:\s*(.+)$";
-        var match = Regex.Match(content, pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
-    }
-
-    /// <summary>
-    /// Frontmatter model for SKILL.md files using hyphenated naming convention.
-    /// </summary>
-    private sealed class SkillMdFrontmatter
-    {
-        public string Name { get; set; } = string.Empty;
-        public string? DisplayName { get; set; }
-        public string? Emoji { get; set; }
-        public string? Description { get; set; }
-        public List<string>? Triggers { get; set; }
-        public string? Version { get; set; }
-        public string? AllowedTools { get; set; }
     }
 }
