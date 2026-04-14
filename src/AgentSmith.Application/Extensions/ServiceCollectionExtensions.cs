@@ -156,6 +156,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IIntentParser, RegexIntentParser>();
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
+        services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddTransient<ExecutePipelineUseCase>();
     }
 }

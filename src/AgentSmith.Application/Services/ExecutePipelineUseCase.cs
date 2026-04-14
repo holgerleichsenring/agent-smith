@@ -18,6 +18,7 @@ public sealed class ExecutePipelineUseCase(
     IConfigurationLoader configLoader,
     IIntentParser intentParser,
     IPipelineExecutor pipelineExecutor,
+    ISourceConfigOverrider sourceConfigOverrider,
     ILogger<ExecutePipelineUseCase> logger)
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -60,6 +61,8 @@ public sealed class ExecutePipelineUseCase(
                 pipeline.Set(ContextKeys.CheckoutBranch, request.Context[ContextKeys.ScanBranch]);
             }
         }
+
+        sourceConfigOverrider.Apply(projectConfig, pipeline);
 
         var result = await pipelineExecutor.ExecuteAsync(
             commands, projectConfig, pipeline, cancellationToken);
