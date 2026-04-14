@@ -1,0 +1,31 @@
+phase: p29
+goal: "Dedicated init-project command via Slack modal and chat — bootstrap .agentsmith/ without fixing a ticket"
+requires: ["p22", "p28"]
+decisions:
+  - jobspawner-generalized: "IJobSpawner takes generic JobRequest instead of FixTicketIntent — breaking change"
+  - pipeline-override: "Host CLI gets --pipeline option; JobRequest carries PipelineOverride"
+steps:
+  - id: init-commit-handler
+    action: "Create InitCommitHandler — branch agentsmith/init, commits .agentsmith/ files, creates PR"
+    new: ["InitCommitContext", "InitCommitHandler"]
+  - id: pipeline-support
+    action: "Detect 'init {project}' in ProcessTicketUseCase, run init-project pipeline"
+    modify: ["ProcessTicketUseCase", "CommandContextFactory", "PipelineExecutor", "Program.cs (--pipeline option)"]
+  - id: job-spawner
+    action: "Generalize IJobSpawner from FixTicketIntent to JobRequest"
+    new: ["JobRequest { InputCommand, Project, ChannelId, UserId, Platform, PipelineOverride }"]
+    modify: ["IJobSpawner", "DockerJobSpawner", "KubernetesJobSpawner"]
+  - id: dispatcher
+    action: "Add InitProjectIntent, handler, chat regex, modal entry"
+    new: ["InitProjectIntent (ChatIntent subtype)", "InitProjectIntentHandler"]
+    modify: ["ChatIntentParser: regex for init/initialize", "SlackModalBuilder: Init Project in dropdown", "ModalCommandType: add InitProject", "SlackModalSubmissionHandler", "SlackMessageDispatcher", "FixTicketIntentHandler: use JobRequest"]
+  - id: config
+    action: "Add init-project pipeline to agentsmith.yml"
+pipeline:
+  - "CheckoutSourceCommand"
+  - "BootstrapProjectCommand"
+  - "InitCommitCommand"
+done:
+  - "init {project} via chat initializes .agentsmith/ and creates PR"
+  - "Modal includes Init Project command"
+  - "IJobSpawner accepts generic JobRequest"

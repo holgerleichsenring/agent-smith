@@ -1,0 +1,35 @@
+phase: p73
+goal: "Bring all production src/ files under 120-line limit and add CI enforcement"
+decisions:
+  - CI gate starts non-blocking, flip to blocking after Tier 1+2: "prevents new violations while cleanup in progress"
+  - Pure refactoring only: "extract, rename, split — no behavior changes"
+steps:
+  - id: ci-gate
+    action: "Add scripts/check-class-size.sh — finds .cs files >120 lines, warn-only initially"
+    new: ["scripts/check-class-size.sh"]
+  - id: tier1
+    action: "Split 10 critical files (>300 lines) into focused classes"
+    modify:
+      - "SlackAdapter.cs (538): extract SlackEventRouter, SlackCommandHandler"
+      - "WebApplicationExtensions.cs (525): extract per-feature endpoint groups"
+      - "DependencyAuditor.cs (491): extract per-ecosystem parsers"
+      - "YamlSkillLoader.cs (411): extract SKILL.md parser, validation, migration"
+      - "ApiSkillRoundHandler.cs (390): extract prompt builder, response parser"
+      - "SkillRoundHandlerBase.cs (384): extract convergence logic, round result builder"
+      - "TeamsCardBuilder.cs (321): extract per-type card builders"
+      - "MessageBusListener.cs (315): extract message routing, job lifecycle"
+      - "WebhookListener.cs (313): extract platform detection, signature validation"
+      - "TeamsAdapter.cs (312): extract message formatter, interaction handler"
+  - id: tier2
+    action: "Extract/split 22 high files (200-300 lines) grouped by project"
+  - id: tier3
+    action: "Lightweight cleanup of 46 low files (121-200 lines) — re-measure after tier1+2"
+  - id: enforce
+    action: "Flip CI gate to blocking (exit 1)"
+done:
+  - "All src/ files <= 120 lines"
+  - "CI gate blocks files > 120 lines"
+  - "One type per file"
+  - "New abstractions have interfaces + DI registration"
+  - "No optional parameters in new/changed signatures"
+  - "dotnet build + dotnet test clean"

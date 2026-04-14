@@ -1,0 +1,37 @@
+phase: p40d
+goal: "Implement storage providers (Disk, SharePoint, Blob) and LoadAttachmentsCommand — enables legal pipeline document ingestion, completes Infrastructure emptying"
+steps:
+  - id: disk
+    action: "Create AgentSmith.Providers.Storage.Disk project"
+    new:
+      - "DiskStorageReader: IStorageReader (file:// or local path)"
+      - "DiskStorageWriter: IStorageWriter"
+      - "services.AddDiskStorage(configuration)"
+  - id: sharepoint
+    action: "Create AgentSmith.Providers.Storage.SharePoint project"
+    new:
+      - "SharePointStorageReader: IStorageReader (*.sharepoint.com)"
+      - "SharePointStorageWriter: IStorageWriter"
+      - "services.AddSharePointStorage(configuration)"
+  - id: blob
+    action: "Create AgentSmith.Providers.Storage.Blob project"
+    new:
+      - "BlobStorageReader: IStorageReader (blob:// or *.blob.core.windows.net)"
+      - "BlobStorageWriter: IStorageWriter"
+      - "services.AddBlobStorage(configuration)"
+  - id: load-attachments
+    action: "Add LoadAttachmentsCommand pipeline step — fetches attachment content via StorageReaderRegistry"
+    new:
+      - "LoadAttachmentsHandler: ICommandHandler<LoadAttachmentsContext>"
+      - "LoadAttachmentsContext: { Pipeline }"
+  - id: pipeline
+    action: "Insert LoadAttachments into legal-analysis pipeline after BootstrapDocument"
+  - id: cleanup
+    action: "Delete or convert AgentSmith.Infrastructure to meta-package after p40a-d complete"
+done:
+  - "3 storage provider projects created and building"
+  - "LoadAttachmentsCommand + handler implemented"
+  - "Legal analysis pipeline includes LoadAttachments"
+  - "Storage config in agentsmith.yml parsed and wired"
+  - "AgentSmith.Infrastructure is empty or deleted"
+  - "All tests pass"

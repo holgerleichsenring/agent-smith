@@ -1,0 +1,56 @@
+phase: p59
+goal: "PR comments as full input — /agent-smith fix starts a job, /approve /reject answers running dialogue — GitHub only (GitLab p59b, AzDO p59c)"
+requires: ["p43e", "p58"]
+decisions:
+  - key: "Shared entry point: WebhookListener -> IWebhookHandler -> CommentIntentRouter"
+  - key: "CommentIntentParser uses regex for structured commands, not LLM"
+  - key: "/agent-smith and /as as command prefixes"
+  - key: "PR channelId format: pr:{repoFullName}#{prIdentifier} — reuses existing ConversationStateManager"
+  - key: "Duplicate job protection: second /agent-smith while job running is rejected"
+  - key: "require_member guard via author_association check"
+steps:
+  - id: contracts
+    action: "Define comment intent model"
+    new:
+      - "CommentIntent: { Type, Platform, RepoFullName, PrIdentifier, CommentId, AuthorLogin, Pipeline?, RawArguments?, DialogueComment?, CommentBody }"
+      - "CommentIntentType: NewJob, DialogueApprove, DialogueReject, Help, Unknown"
+      - "PrJobRequest: { Pipeline, Platform, RepoFullName, PrIdentifier, Arguments?, RequestedBy, ChannelId }"
+      - "IWebhookVerifier: { Verify(platform, payload, headers) }"
+      - "IPrCommentReplyService: { ReplyAsync(CommentIntent, text) }"
+      - "WebhookSecrets config record"
+  - id: parser
+    action: "Implement comment intent parser"
+    new:
+      - "CommentIntentParser: regex for /agent-smith, /as, /approve, /reject commands"
+  - id: verifier
+    action: "Implement webhook signature verification"
+    new:
+      - "WebhookVerifier: GitHub HMAC-SHA256 (X-Hub-Signature-256), dev mode (no secret = accept)"
+  - id: handler
+    action: "Implement GitHub PR comment webhook handler"
+    new:
+      - "GitHubPrCommentWebhookHandler: handles issue_comment + pull_request_review_comment"
+      - "GitHubPrCommentReplyService: POST /repos/.../issues/{pr}/comments"
+  - id: router
+    action: "Implement comment intent routing"
+    new:
+      - "CommentIntentRouter: Scenario A (new job -> Redis enqueue) + Scenario B (dialogue answer -> Redis job:{id}:in)"
+    modify:
+      - "ConversationStateManager: add GetByPrAsync"
+      - "AgenticExecuteHandler: --pr-context loads PR description + comments as context"
+config: |
+  webhooks.github_secret: ${GITHUB_WEBHOOK_SECRET}
+  projects.*.pr_commands:
+    enabled: true
+    allowed_users: []
+    allowed_pipelines: [fix-bug, security-scan, pr-review]
+    require_member: true
+done:
+  - "CommentIntentParser handles all command variants"
+  - "WebhookVerifier: GitHub HMAC-SHA256"
+  - "GitHub PR comment starts new job (Scenario A)"
+  - "/approve and /reject reach running job (Scenario B)"
+  - "Existing GitHub Issues webhook: zero regression"
+  - "require_member + allowed_pipelines guards"
+  - "Duplicate job protection"
+  - "Dialogue trail visible as PR comments"

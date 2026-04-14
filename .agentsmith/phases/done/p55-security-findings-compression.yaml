@@ -1,0 +1,39 @@
+phase: p55
+goal: "CompressSecurityFindingsCommand — compress 271+ raw findings into compact skill-aware format, 74% token reduction"
+requires: ["p54"]
+decisions:
+  - key: "Same pattern as swagger compression (p48) — dedicated handler, not inline logic"
+  - key: "Two outputs: compressed summary (all skills) + skill-specific slices (per category)"
+  - key: "Top-10 detail per category, remainder as compact file:line list"
+  - key: "Categories <=15 findings pass through uncompressed"
+  - key: "Matched text capped at 80 chars"
+steps:
+  - id: handler
+    action: "Implement compression handler"
+    new:
+      - "CompressSecurityFindingsHandler: reads 3 scan results, produces summary + slices"
+      - "SecurityFindingsCompressor: grouping, dedup, top-N, remainder summary"
+      - "CompressSecurityFindingsContext + ContextBuilder"
+    modify:
+      - "ContextKeys: add SecurityFindingsSummary, SecurityFindingsByCategory"
+      - "PipelinePresets: insert after DependencyAudit, before LoadSkills"
+      - "ServiceCollectionExtensions: register handler"
+  - id: skill-injection
+    action: "Update SecuritySkillRoundHandler to inject compressed findings"
+    modify:
+      - "SecuritySkillRoundHandler: inject summary (always) + relevant slice per skill"
+    # Skill-to-category mapping:
+    # secrets-detector -> [secrets, history]
+    # injection-checker -> [injection, ssrf]
+    # config-auditor -> [config]
+    # supply-chain-auditor -> [dependencies]
+    # compliance-checker -> [compliance]
+    # ai-security-reviewer -> [ai-security]
+    # vuln-analyst -> [secrets, injection, ssrf, config, dependencies] (generalist)
+    # false-positive-filter -> all categories (generalist)
+done:
+  - "Summary produces severity-by-category table (~500 tokens vs ~5000)"
+  - "Skill-specific slices map skills to relevant categories only"
+  - "Token usage reduced 74% on findings context"
+  - "Small categories pass through uncompressed"
+  - "All existing tests pass"

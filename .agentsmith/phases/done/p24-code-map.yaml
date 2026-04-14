@@ -1,0 +1,24 @@
+phase: p24
+goal: "Generate code-map.context.yaml mapping interfaces, implementations, dependencies — ~800 tokens vs reading all files"
+decisions:
+  - llm-assisted: "Feed key project files to LLM instead of custom parsers per language; ~5k tokens per generation"
+  - generate-on-demand: "Generated during bootstrap or on request — not automatically every run"
+steps:
+  - id: generator
+    action: "Implement CodeMapGenerator with one LLM call per project"
+    new: ["ICodeMapGenerator", "CodeMapGenerator"]
+  - id: pipeline
+    action: "Agent reads code map at start of pipeline (new step or part of AnalyzeCode)"
+input-per-language:
+  - ".NET: *.csproj, *.cs listing, I*.cs interfaces, Program.cs/Startup.cs DI"
+  - "Python: *.py listing, __init__.py, *interface*/*abstract*/*protocol*, main.py"
+  - "TypeScript: package.json, *.ts/*.tsx listing, index.ts barrels, *service*/*controller*"
+output-format:
+  - "modules: { name, path, deps, key-types/interfaces }"
+  - "entry-points: [path: description]"
+  - "dependency-graph: text"
+done:
+  - "Code map generation for .NET, Python, TypeScript"
+  - "LLM prompt produces valid useful output"
+  - "Code map loaded in pipeline"
+  - "Integration tests: Agent Smith repo, sample Python, sample TypeScript"

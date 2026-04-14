@@ -1,0 +1,34 @@
+phase: p53
+goal: "Technical documentation site at code.agent-smith.org — MkDocs Material, GitHub Pages, README trimmed to landing page"
+decisions:
+  - key: "MkDocs with Material theme — Markdown source, no custom build"
+  - key: "README becomes landing page: logo, one-liner, 13-step diagram, install, one example, links to docs"
+  - key: "Custom domain via CNAME: code.agent-smith.org -> holgerleichsenring.github.io"
+steps:
+  - id: site
+    action: "Create documentation site structure"
+    new:
+      - "docs/ directory with all Markdown content"
+      - "mkdocs.yml: Material theme config"
+      - ".github/workflows/docs.yml: build + deploy on push to main"
+      - "docs/CNAME: custom domain"
+    modify:
+      - "README.md: radical reduction to landing page"
+  - id: content
+    action: "Write documentation sections"
+    # Getting Started (install, quick start fix, quick start api-scan)
+    # Pipelines (fix-bug, security-scan, api-scan, legal-analysis, mad-discussion)
+    # Concepts (pipeline system, phases & runs, multi-skill, decision logging, cost tracking)
+    # Configuration (agentsmith.yml ref, skills YAML ref, tool config, model registry)
+    # AI Providers (Claude, OpenAI, Gemini, Ollama, OpenAI-compatible)
+    # CI/CD (Azure DevOps, GitHub Actions, GitLab CI, generic)
+    # Deployment (binary, Docker, K8s, chat gateway)
+    # Architecture (clean arch layers, project structure, extending)
+    # Contributing (dev setup, coding principles, phase workflow)
+done:
+  - "MkDocs builds locally"
+  - "All pipeline workflows documented with examples"
+  - "GitHub Actions deploys to GitHub Pages"
+  - "code.agent-smith.org resolves with SSL"
+  - "README.md trimmed to landing page"
+  - "No broken internal links, search works"

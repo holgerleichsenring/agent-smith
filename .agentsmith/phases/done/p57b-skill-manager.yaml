@@ -1,0 +1,35 @@
+phase: p57b
+goal: "Autonomous skill-manager pipeline — discovers, evaluates, drafts, and installs external skills with mandatory human approval"
+requires: ["p57a", "p58"]
+decisions:
+  - key: "SKILL.md never modified — external content stays verbatim, AS extensions in agentsmith.md only"
+  - key: "Human approval mandatory — skills are prompts injected into agent context, no auto-install"
+  - key: "Pinned versions — source.md records exact commit, updates require new review cycle"
+  - key: "Evaluation is an agentic step — agent reads skill content and assesses fit + safety in natural language"
+steps:
+  - id: pipeline
+    action: "Implement skill-manager pipeline steps"
+    new:
+      - "DiscoverSkillsHandler: searches agentskills.io, GitHub repos, web search"
+      - "EvaluateSkillsHandler: fit score (1-10) + safety score (1-10) per candidate"
+      - "DraftSkillFilesHandler: writes SKILL.md (verbatim) + agentsmith.md + source.md"
+      - "ApproveSkillsHandler: sends Slack/Teams message with preview + Install/Skip buttons (WaitForHuman)"
+      - "InstallSkillsHandler: places files in config/skills/"
+      - "SkillCandidate, SkillEvaluation records"
+    modify:
+      - "CommandNames: add DiscoverSkills, EvaluateSkills, DraftSkillFiles, InstallSkills"
+      - "PipelinePresets: add skill-manager"
+config: |
+  projects.agent-smith-skills:
+    pipeline: skill-manager
+    skills_target: config/skills/security
+    trigger: { schedule: "0 9 * * 1", slack: true }
+    search: { topics: [security, api-scan, owasp], min_fit_score: 7, min_safety_score: 8 }
+done:
+  - "skill-manager pipeline preset resolves"
+  - "DiscoverSkillsHandler searches at least 3 sources"
+  - "EvaluateSkillsHandler produces fit + safety scores"
+  - "No skill installed without human approval"
+  - "source.md written for every external skill"
+  - "Schedule trigger works"
+  - "dotnet build + dotnet test clean"

@@ -1,0 +1,46 @@
+phase: p21
+goal: "Full codebase restructuring (6 projects) + code quality fixes + test coverage"
+decisions:
+  - content-coherence: "Split by responsibility, not line count — 25-line single-purpose method stays, 40-line multi-purpose method splits"
+  - folder-convention: "Top-level folders: Contracts/, Models/, Entities/, Services/, Extensions/, Exceptions/ — nothing else at root"
+  - factories-under-services: "Factories, Handlers, Configuration loaders live under Services/ — never at root level"
+steps:
+  - id: principles
+    action: "Update CODING-PRINCIPLES.md with folder structure rules"
+  - id: structure-domain
+    action: "Rename ValueObjects/ -> Models/, update namespaces"
+  - id: structure-contracts
+    action: "Move Configuration/ -> Models/Configuration/, move ParsedIntent"
+  - id: structure-application
+    action: "Merge Commands/+UseCases/ into Services/+Models/"
+  - id: structure-infrastructure
+    action: "Move Factories/, Configuration/, Bus/ under Services/"
+  - id: structure-dispatcher
+    action: "Extract Contracts/, move root files, reorganize Services/"
+  - id: refactor-classes
+    action: "Break up oversized classes (ClaudeAgentProvider 373->120, ToolExecutor 211->120, etc.)"
+  - id: code-quality
+    action: "Fix sealed, magic numbers, boolean naming, Console.Write, empty catch, HttpClient"
+  - id: tests
+    action: "Add 12+ new test classes for untested handlers, providers, dispatcher"
+namespace-changes:
+  - "Domain.ValueObjects -> Domain.Models"
+  - "Contracts.Configuration -> Contracts.Models.Configuration"
+  - "Application.Commands.Contexts -> Application.Models"
+  - "Application.Commands.Handlers -> Application.Services.Handlers"
+  - "Application.UseCases -> Application.Services"
+  - "Infrastructure.Factories -> Infrastructure.Services.Factories"
+  - "Infrastructure.Configuration -> Infrastructure.Services.Configuration"
+  - "Infrastructure.Bus -> Infrastructure.Services.Bus"
+quality-fixes:
+  - "sealed on all 14 config classes"
+  - "CommandResult.Success -> CommandResult.IsSuccess"
+  - "CompactionConfig.Enabled -> IsEnabled, CacheConfig.Enabled -> IsEnabled"
+  - "Magic numbers -> AgentConstants.*, RetryConstants.*, ProviderDefaults.*"
+  - "new HttpClient() -> IHttpClientFactory in SourceProviderFactory, TicketProviderFactory"
+  - "Empty catch -> logger.LogDebug"
+done:
+  - "dotnet build zero warnings"
+  - "dotnet test passes (161 tests)"
+  - "No unexpected folders at project root"
+  - "All namespaces match folder structure"
