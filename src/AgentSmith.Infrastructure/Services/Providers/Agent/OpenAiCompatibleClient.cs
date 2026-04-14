@@ -6,15 +6,17 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
-/// Shared HTTP client for OpenAI-compatible APIs (OpenAI, Ollama, etc.).
+/// Shared HTTP client for OpenAI-compatible APIs (OpenAI, Azure OpenAI, Ollama, Groq).
 /// Handles chat completions with optional tool calling support.
 /// </summary>
 public sealed class OpenAiCompatibleClient(
     string endpoint,
     string? apiKey,
-    ILogger logger)
+    ILogger logger,
+    bool useApiKeyHeader = false,
+    string? apiVersionQueryParam = null)
 {
-    private readonly HttpClient _httpClient = CreateHttpClient(endpoint, apiKey);
+    private readonly HttpClient _httpClient = CreateHttpClient(endpoint, apiKey, useApiKeyHeader);
     private readonly HttpClient _metadataClient = new();
 
     public async Task<JsonElement> ChatCompleteAsync(
@@ -31,10 +33,14 @@ public sealed class OpenAiCompatibleClient(
         if (tools is { Count: > 0 })
             request["tools"] = tools;
 
-        logger.LogDebug("Sending chat completion to {Endpoint} with model {Model}", endpoint, model);
+        var path = apiVersionQueryParam is not null
+            ? $"chat/completions?api-version={apiVersionQueryParam}"
+            : "chat/completions";
+
+        logger.LogDebug("Sending chat completion to {Endpoint}/{Path} with model {Model}", endpoint, path, model);
 
         var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync("chat/completions", content, cancellationToken);
+        var response = await _httpClient.PostAsync(path, content, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -82,11 +88,13 @@ public sealed class OpenAiCompatibleClient(
 
     private string BaseMetadataUrl() => endpoint.TrimEnd('/').Replace("/v1", "");
 
-    private static HttpClient CreateHttpClient(string endpoint, string? apiKey)
+    private static HttpClient CreateHttpClient(string endpoint, string? apiKey, bool useApiKeyHeader)
     {
         var client = new HttpClient { BaseAddress = new Uri(endpoint.TrimEnd('/') + "/") };
         if (!string.IsNullOrEmpty(apiKey))
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            client.DefaultRequestHeaders.Add(
+                useApiKeyHeader ? "api-key" : "Authorization",
+                useApiKeyHeader ? apiKey : $"Bearer {apiKey}");
         return client;
     }
 }
