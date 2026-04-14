@@ -24,6 +24,7 @@ public sealed class OrphanJobDetectorTests
     private readonly Mock<IServer> _server = new();
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<IMessageBus> _messageBus = new();
+    private readonly Mock<IBusMessageRouter> _messageRouter = new();
     private readonly Mock<IJobSpawner> _jobSpawner = new();
     private readonly ConversationStateManager _stateManager;
     private readonly MessageBusListener _listener;
@@ -45,8 +46,7 @@ public sealed class OrphanJobDetectorTests
 
         _listener = new MessageBusListener(
             _messageBus.Object,
-            _stateManager,
-            new[] { _adapter.Object },
+            _messageRouter.Object,
             NullLogger<MessageBusListener>.Instance);
 
         _sut = new OrphanJobDetector(
