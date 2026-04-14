@@ -41,6 +41,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<TriageContext>, TriageHandler>();
         services.AddTransient<ICommandHandler<SecurityTriageContext>, SecurityTriageHandler>();
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
+        services.AddTransient<ISkillPromptBuilder, SkillPromptBuilder>();
+        services.AddTransient<IGateOutputHandler, GateOutputHandler>();
+        services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
