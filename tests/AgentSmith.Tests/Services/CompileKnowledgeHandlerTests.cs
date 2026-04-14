@@ -164,7 +164,7 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
         Directory.CreateDirectory(Path.Combine(runsDir, "r02-second"));
         Directory.CreateDirectory(Path.Combine(runsDir, "not-a-run"));
 
-        var result = CompileKnowledgeHandler.GetRunDirectories(runsDir);
+        var result = RunDirectoryReader.GetRunDirectories(runsDir);
 
         result.Should().HaveCount(2);
         result[0].RunNumber.Should().Be(1);
@@ -174,7 +174,7 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
     [Fact]
     public void ReadLastCompiled_NoFile_Returns0()
     {
-        var result = CompileKnowledgeHandler.ReadLastCompiled(Path.Combine(_tempDir, "nonexistent"));
+        var result = RunDirectoryReader.ReadLastCompiled(Path.Combine(_tempDir, "nonexistent"));
         result.Should().Be(0);
     }
 
@@ -185,7 +185,7 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
         Directory.CreateDirectory(wikiDir);
         File.WriteAllText(Path.Combine(wikiDir, ".last-compiled"), "5");
 
-        var result = CompileKnowledgeHandler.ReadLastCompiled(wikiDir);
+        var result = RunDirectoryReader.ReadLastCompiled(wikiDir);
         result.Should().Be(5);
     }
 
@@ -194,7 +194,7 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
     {
         var json = """{"wiki_updates": {"index.md": "# Index", "patterns.md": "# Patterns"}}""";
 
-        var result = CompileKnowledgeHandler.ParseWikiUpdates(json);
+        var result = WikiUpdateParser.Parse(json);
 
         result.Should().HaveCount(2);
         result["index.md"].Should().Be("# Index");
@@ -210,26 +210,26 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
             ```
             """;
 
-        var result = CompileKnowledgeHandler.ParseWikiUpdates(json);
+        var result = WikiUpdateParser.Parse(json);
         result.Should().HaveCount(1);
     }
 
     [Fact]
     public void ParseWikiUpdates_InvalidJson_ReturnsEmpty()
     {
-        var result = CompileKnowledgeHandler.ParseWikiUpdates("not json at all");
+        var result = WikiUpdateParser.Parse("not json at all");
         result.Should().BeEmpty();
     }
 
     [Fact]
     public void BuildUserPrompt_IncludesExistingWikiAndRuns()
     {
-        var runs = new List<CompileKnowledgeHandler.RunData>
+        var runs = new List<RunDirectoryReader.RunData>
         {
             new(1, "r01-feature", "## Plan\nAdd auth", "## Result\nSuccess"),
         };
 
-        var prompt = CompileKnowledgeHandler.BuildUserPrompt("# Existing Wiki", runs);
+        var prompt = KnowledgePromptBuilder.BuildUserPrompt("# Existing Wiki", runs);
 
         prompt.Should().Contain("Existing Wiki");
         prompt.Should().Contain("r01");

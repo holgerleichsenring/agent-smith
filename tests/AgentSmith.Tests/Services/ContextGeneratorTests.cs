@@ -27,7 +27,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("C#");
         result.Should().Contain(".NET 8");
@@ -41,7 +41,7 @@ public class ContextGeneratorTests : IDisposable
             readmeExcerpt: "This is a Django web application.");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("README (excerpt)");
         result.Should().Contain("Django web application");
@@ -53,7 +53,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("TypeScript", "Node.js", "npm");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().NotContain("README (excerpt)");
     }
@@ -99,7 +99,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: [],
             DirectoryTree: "");
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("Config Files");
         result.Should().Contain(".editorconfig");
@@ -115,7 +115,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: ["### src/Program.cs\nusing System;\nConsole.WriteLine(\"Hello\");"],
             DirectoryTree: "");
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("Code Samples");
         result.Should().Contain("Program.cs");
@@ -131,7 +131,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: [],
             DirectoryTree: "src/\n  Program.cs\nREADME.md");
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("src/");
         result.Should().Contain("Program.cs");
@@ -144,7 +144,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextGenerator.BuildUserPrompt(project, "", snapshot);
+        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
 
         result.Should().Contain("detected-style");
         result.Should().Contain("architecture");
@@ -157,7 +157,7 @@ public class ContextGeneratorTests : IDisposable
     {
         var snapshot = CreateEmptySnapshot();
 
-        ContextGenerator.BuildSnapshotSection(snapshot).Should().BeEmpty();
+        ContextUserPromptBuilder.BuildSnapshotSection(snapshot).Should().BeEmpty();
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: ["### src/Main.cs\nclass Main {}"],
             DirectoryTree: "");
 
-        var result = ContextGenerator.BuildSnapshotSection(snapshot);
+        var result = ContextUserPromptBuilder.BuildSnapshotSection(snapshot);
 
         result.Should().Contain("Config Files");
         result.Should().Contain("Code Samples");

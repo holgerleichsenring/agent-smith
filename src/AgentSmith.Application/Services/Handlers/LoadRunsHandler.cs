@@ -29,7 +29,7 @@ public sealed class LoadRunsHandler(
 
         if (Directory.Exists(runsDir))
         {
-            var runDirs = CompileKnowledgeHandler.GetRunDirectories(runsDir);
+            var runDirs = RunDirectoryReader.GetRunDirectories(runsDir);
             var recentRuns = runDirs
                 .OrderByDescending(r => r.RunNumber)
                 .Take(context.LookbackRuns)

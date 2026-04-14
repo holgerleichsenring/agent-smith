@@ -11,7 +11,7 @@ public sealed class RunResultFormatterSecurityTrendTests
     public void AppendSecurityTrend_Null_WritesNothing()
     {
         var sb = new StringBuilder();
-        RunResultFormatter.AppendSecurityTrend(sb, null);
+        RunResultSectionWriter.AppendSecurityTrend(sb, null);
         sb.ToString().Should().BeEmpty();
     }
 
@@ -31,7 +31,7 @@ public sealed class RunResultFormatterSecurityTrendTests
             Current: current);
 
         var sb = new StringBuilder();
-        RunResultFormatter.AppendSecurityTrend(sb, trend);
+        RunResultSectionWriter.AppendSecurityTrend(sb, trend);
         var result = sb.ToString();
 
         result.Should().Contain("## Security Trend");
@@ -60,7 +60,7 @@ public sealed class RunResultFormatterSecurityTrendTests
             Current: current);
 
         var sb = new StringBuilder();
-        RunResultFormatter.AppendSecurityTrend(sb, trend);
+        RunResultSectionWriter.AppendSecurityTrend(sb, trend);
         var result = sb.ToString();
 
         result.Should().Contain("| Critical | - | 2 | +2 |");
@@ -83,7 +83,7 @@ public sealed class RunResultFormatterSecurityTrendTests
             Current: current);
 
         var sb = new StringBuilder();
-        RunResultFormatter.AppendSecurityTrend(sb, trend);
+        RunResultSectionWriter.AppendSecurityTrend(sb, trend);
         var result = sb.ToString();
 
         result.Should().Contain("| Critical | 3 | 3 | 0 |");

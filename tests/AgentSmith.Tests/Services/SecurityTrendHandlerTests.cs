@@ -185,7 +185,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         };
         pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
 
-        var snapshot = SecurityTrendHandler.BuildCurrentSnapshot(pipeline, repo);
+        var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
         snapshot.FindingsCritical.Should().Be(2);
         snapshot.FindingsHigh.Should().Be(1);
@@ -200,7 +200,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
 
-        var snapshot = SecurityTrendHandler.BuildCurrentSnapshot(pipeline, repo);
+        var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
         snapshot.FindingsCritical.Should().Be(0);
         snapshot.FindingsHigh.Should().Be(0);
@@ -216,7 +216,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         pipeline.Set(ContextKeys.StaticScanResult, new StaticScanResult([], 0, 0, 0));
         pipeline.Set(ContextKeys.DependencyAuditResult, new DependencyAuditResult([], "DOTNET", 0));
 
-        var snapshot = SecurityTrendHandler.BuildCurrentSnapshot(pipeline, repo);
+        var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
         snapshot.ScanTypes.Should().Contain("StaticPatternScan");
         snapshot.ScanTypes.Should().Contain("DependencyAudit");
@@ -229,7 +229,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         var dir = Path.Combine(_tempDir, "empty-security");
         Directory.CreateDirectory(dir);
 
-        var result = SecurityTrendHandler.LoadSnapshots(dir);
+        var result = SnapshotYamlParser.LoadSnapshots(dir);
 
         result.Should().BeEmpty();
     }
@@ -237,7 +237,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     [Fact]
     public void LoadSnapshots_NonExistentDirectory_ReturnsEmptyList()
     {
-        var result = SecurityTrendHandler.LoadSnapshots(Path.Combine(_tempDir, "nonexistent"));
+        var result = SnapshotYamlParser.LoadSnapshots(Path.Combine(_tempDir, "nonexistent"));
 
         result.Should().BeEmpty();
     }
@@ -268,7 +268,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
             """;
         File.WriteAllText(Path.Combine(dir, "2026-04-01-main.yaml"), yaml);
 
-        var result = SecurityTrendHandler.LoadSnapshots(dir);
+        var result = SnapshotYamlParser.LoadSnapshots(dir);
 
         result.Should().HaveCount(1);
         result[0].FindingsCritical.Should().Be(3);
@@ -291,7 +291,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         File.WriteAllText(Path.Combine(dir, "bad.yaml"), "this is not valid yaml at all: [[[");
         File.WriteAllText(Path.Combine(dir, "no-date.yaml"), "branch: main\nfindings_critical: 1");
 
-        var result = SecurityTrendHandler.LoadSnapshots(dir);
+        var result = SnapshotYamlParser.LoadSnapshots(dir);
 
         // no-date.yaml has no "date:" so returns null; bad.yaml should either parse partially or be skipped
         // The parser requires "date" key to be present
@@ -318,7 +318,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
             cost_usd: 0.0300
             """;
 
-        var result = SecurityTrendHandler.ParseSnapshotYaml(yaml);
+        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
 
         result.Should().NotBeNull();
         result!.Branch.Should().Be("develop");
@@ -333,7 +333,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     {
         var yaml = "branch: main\nfindings_critical: 1";
 
-        var result = SecurityTrendHandler.ParseSnapshotYaml(yaml);
+        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
 
         result.Should().BeNull();
     }
@@ -356,7 +356,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
             cost_usd: 0.0000
             """;
 
-        var result = SecurityTrendHandler.ParseSnapshotYaml(yaml);
+        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
 
         result.Should().NotBeNull();
         result!.ScanTypes.Should().BeEmpty();
