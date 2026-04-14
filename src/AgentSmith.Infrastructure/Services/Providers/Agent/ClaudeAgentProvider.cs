@@ -14,10 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
-/// <summary>
-/// AI agent provider using the Anthropic Claude API.
-/// Supports plan generation (single call) and agentic execution (tool-calling loop).
-/// </summary>
+/// <summary>AI agent provider using the Anthropic Claude API.</summary>
 public sealed class ClaudeAgentProvider(
     string apiKey,
     string model,
@@ -41,10 +38,8 @@ public sealed class ClaudeAgentProvider(
         CancellationToken cancellationToken)
     {
         using var client = CreateResilientClient();
-
         var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
-
         var planModel = ResolveModel(TaskType.Planning);
 
         var response = await client.Messages.GetClaudeMessageAsync(
@@ -62,155 +57,62 @@ public sealed class ClaudeAgentProvider(
                     }
                 },
                 Stream = false,
-                PromptCaching = ResolveCacheType()
+                PromptCaching = CacheTypeResolver.Resolve(cacheConfig)
             },
             cancellationToken);
 
-        var rawResponse = ExtractTextResponse(response);
-        return PlanParser.Parse("Claude", rawResponse);
+        return PlanParser.Parse("Claude", ExtractTextResponse(response));
     }
 
     public async Task<AgentExecutionResult> ExecutePlanAsync(
-        Plan plan,
-        Repository repository,
-        string codingPrinciples,
-        string? codeMap,
-        string? projectContext,
-        IProgressReporter progressReporter,
-        CancellationToken cancellationToken)
+        Plan plan, Repository repository,
+        string codingPrinciples, string? codeMap, string? projectContext,
+        IProgressReporter progressReporter, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        using var client = CreateResilientClient();
-
+        var ctxFactory = CreateContextFactory();
         var tracker = new TokenUsageTracker();
-        var costTracker = CreateCostTracker(tracker);
+        var costTracker = ctxFactory.CreateCostTracker(tracker);
 
-        var scoutResult = await TryRunScoutAsync(
-            plan, repository.LocalPath, tracker, costTracker,
-            progressReporter, cancellationToken);
+        var scoutResult = await ctxFactory.TryRunScoutAsync(
+            plan, repository.LocalPath, tracker, costTracker, progressReporter, cancellationToken);
 
         tracker.SetPhase("primary");
         var primaryModel = ResolveModel(TaskType.Primary);
         costTracker?.SetPhaseModel("primary", primaryModel.Model);
 
-        var fileReadTracker = new FileReadTracker();
-        var toolExecutor = new ToolExecutor(
-            repository.LocalPath, logger, fileReadTracker, progressReporter,
-            dialogueTransport, dialogueTrail, progressReporter.JobId);
-        var compactor = CreateCompactor(tracker, costTracker);
-        var loop = new AgenticLoop(
-            client, primaryModel.Model, toolExecutor, logger,
-            cacheConfig, tracker, compactionConfig, compactor, progressReporter, 25);
+        var toolExecutor = ctxFactory.CreateToolExecutor(
+            repository.LocalPath, new FileReadTracker(), progressReporter);
+        using var client = CreateResilientClient();
+        var loop = new AgenticLoop(client, primaryModel.Model, toolExecutor, logger,
+            cacheConfig, tracker, compactionConfig,
+            ctxFactory.CreateCompactor(tracker, costTracker), progressReporter, 25);
 
         var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(
-            plan, repository, scoutResult);
-
+        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository, scoutResult);
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
-        var decisions = toolExecutor.GetDecisions();
         sw.Stop();
-
         logger.LogInformation(
-            "Agentic execution completed with {Count} file changes and {Decisions} decisions in {Seconds}s",
-            changes.Count, decisions.Count, (int)sw.Elapsed.TotalSeconds);
-
-        var costSummary = LogCostSummary(costTracker, tracker);
-
+            "Agentic execution completed in {Seconds}s with {Count} changes, {Decisions} decisions",
+            (int)sw.Elapsed.TotalSeconds, changes.Count, toolExecutor.GetDecisions().Count);
+        var costSummary = ctxFactory.LogCostSummary(costTracker, tracker);
         return new AgentExecutionResult(
-            changes, costSummary, (int)sw.Elapsed.TotalSeconds, decisions);
+            changes, costSummary, (int)sw.Elapsed.TotalSeconds, toolExecutor.GetDecisions());
     }
 
-    private ModelAssignment ResolveModel(TaskType taskType)
-    {
-        if (modelRegistry is not null)
-            return modelRegistry.GetModel(taskType);
+    private AgentExecutionContextFactory CreateContextFactory() =>
+        new(compactionConfig, modelRegistry, pricingConfig,
+            dialogueTransport, dialogueTrail, logger,
+            () => ResolveModel(TaskType.Planning), CreateResilientClient);
 
-        return new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
-    }
+    private ModelAssignment ResolveModel(TaskType taskType) =>
+        modelRegistry?.GetModel(taskType)
+        ?? new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
 
-    private async Task<ScoutResult?> TryRunScoutAsync(
-        Plan plan, string repositoryPath,
-        TokenUsageTracker tracker, CostTracker? costTracker,
-        IProgressReporter? progressReporter,
-        CancellationToken cancellationToken)
-    {
-        if (modelRegistry is null)
-            return null;
+    private AnthropicClient CreateResilientClient() =>
+        new(apiKey, new ResilientHttpClientFactory(retryConfig, logger).Create());
 
-        var scoutModel = modelRegistry.GetModel(TaskType.Scout);
-        tracker.SetPhase("scout");
-        costTracker?.SetPhaseModel("scout", scoutModel.Model);
-
-        logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
-        ReportDetail(progressReporter, "\ud83d\udd0d Scout: analyzing codebase...", cancellationToken);
-
-        using var scoutClient = CreateResilientClient();
-        var scout = new ScoutAgent(
-            scoutClient, scoutModel.Model, scoutModel.MaxTokens, logger, tracker, progressReporter);
-        var result = await scout.DiscoverAsync(plan, repositoryPath, cancellationToken);
-
-        ReportDetail(progressReporter,
-            $"\ud83d\udd0d Scout: found {result.RelevantFiles.Count} relevant files", cancellationToken);
-
-        return result;
-    }
-
-    private void ReportDetail(IProgressReporter? reporter, string text, CancellationToken cancellationToken)
-    {
-        try { reporter?.ReportDetailAsync(text, cancellationToken).GetAwaiter().GetResult(); }
-        catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
-    }
-
-    private ClaudeContextCompactor? CreateCompactor(
-        TokenUsageTracker tracker, CostTracker? costTracker)
-    {
-        if (!compactionConfig.IsEnabled)
-            return null;
-
-        var summaryModel = modelRegistry is not null
-            ? modelRegistry.GetModel(TaskType.Summarization)
-            : new ModelAssignment { Model = compactionConfig.SummaryModel, MaxTokens = AgentDefaults.CompactionMaxTokens };
-
-        costTracker?.SetPhaseModel("compaction", summaryModel.Model);
-
-        var compactorClient = CreateResilientClient();
-        return new ClaudeContextCompactor(compactorClient, summaryModel.Model, logger, tracker);
-    }
-
-    private CostTracker? CreateCostTracker(TokenUsageTracker tracker)
-    {
-        if (pricingConfig.Models.Count == 0)
-            return null;
-
-        var costTracker = new CostTracker(pricingConfig, logger);
-        var planningModel = ResolveModel(TaskType.Planning);
-        costTracker.SetPhaseModel("planning", planningModel.Model);
-        return costTracker;
-    }
-
-    private RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
-    {
-        tracker.LogSummary(logger);
-        if (costTracker is null) return null;
-
-        var costSummary = costTracker.CalculateCost(tracker);
-        costTracker.LogCostSummary(costSummary);
-        return costSummary;
-    }
-
-    private PromptCacheType ResolveCacheType() => CacheTypeResolver.Resolve(cacheConfig);
-
-    private AnthropicClient CreateResilientClient()
-    {
-        var factory = new ResilientHttpClientFactory(retryConfig, logger);
-        var httpClient = factory.Create();
-        return new AnthropicClient(apiKey, httpClient);
-    }
-
-    private static string ExtractTextResponse(MessageResponse response)
-    {
-        var textContent = response.Content.OfType<TextContent>().FirstOrDefault();
-        return textContent?.Text
-            ?? throw new ProviderException("Claude", "Claude returned no text response.");
-    }
+    private static string ExtractTextResponse(MessageResponse response) =>
+        response.Content.OfType<TextContent>().FirstOrDefault()?.Text
+        ?? throw new ProviderException("Claude", "Claude returned no text response.");
 }

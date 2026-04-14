@@ -4,23 +4,10 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Compresses raw API scan findings (Nuclei, Spectral, ZAP) into compact summaries
-/// and skill-specific category slices. Reduces token usage by routing findings
-/// to the skills that need them instead of sending everything to every skill.
+/// Compresses raw API scan findings into compact summaries and skill-specific slices.
 /// </summary>
 public static class ApiScanFindingsCompressor
 {
-    private static readonly HashSet<string> AuthSpectralCodes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "owasp:api2", "owasp:api5", "oas3-schema-security",
-    };
-
-    private static readonly string[] AuthSpectralKeywords =
-        ["security", "auth", "bearer", "oauth", "api-key", "apikey", "jwt", "token"];
-
-    private static readonly string[] AuthNucleiKeywords =
-        ["auth", "jwt", "token", "session", "cookie", "oauth", "bearer"];
-
     private static readonly Dictionary<string, string[]> SkillCategories = new(StringComparer.OrdinalIgnoreCase)
     {
         ["auth-tester"] = ["auth"],
@@ -42,34 +29,13 @@ public static class ApiScanFindingsCompressor
         sb.AppendLine();
 
         if (nuclei is not null && nuclei.Findings.Count > 0)
-        {
-            var bySev = nuclei.Findings
-                .GroupBy(f => f.Severity, StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(g => SeverityOrder(g.Key));
-            sb.AppendLine($"### Nuclei ({nuclei.Findings.Count} findings)");
-            foreach (var g in bySev)
-                sb.AppendLine($"- {g.Key.ToUpperInvariant()}: {g.Count()}");
-            sb.AppendLine();
-        }
+            ApiScanFindingsFormatter.AppendNucleiSummary(sb, nuclei);
 
         if (spectral is not null && spectral.Findings.Count > 0)
-        {
-            sb.AppendLine($"### Spectral ({spectral.Findings.Count} findings — {spectral.ErrorCount} errors, {spectral.WarnCount} warnings)");
-            var byCode = spectral.Findings
-                .GroupBy(f => f.Code, StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(g => g.Count());
-            foreach (var g in byCode)
-                sb.AppendLine($"- {g.Key}: {g.Count()} ({g.First().Severity})");
-            sb.AppendLine();
-        }
+            ApiScanFindingsFormatter.AppendSpectralSummary(sb, spectral);
 
         if (zap is not null && zap.Findings.Count > 0)
-        {
-            sb.AppendLine($"### ZAP ({zap.Findings.Count} findings)");
-            foreach (var f in zap.Findings)
-                sb.AppendLine($"- [{f.RiskDescription}] {f.Name} ({f.Count} instances)");
-            sb.AppendLine();
-        }
+            ApiScanFindingsFormatter.AppendZapSummary(sb, zap);
 
         if (sb.Length < 50)
             sb.AppendLine("No findings from automated scanners.");
@@ -84,12 +50,10 @@ public static class ApiScanFindingsCompressor
         NucleiResult? nuclei, SpectralResult? spectral, ZapResult? zap)
     {
         var slices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var authParts = new StringBuilder();
+        var designParts = new StringBuilder();
+        var runtimeParts = new StringBuilder();
 
-        var authFindings = new StringBuilder();
-        var designFindings = new StringBuilder();
-        var runtimeFindings = new StringBuilder();
-
-        // Categorize Spectral findings
         if (spectral is not null && spectral.Findings.Count > 0)
         {
             var authSpectral = new List<SpectralFinding>();
@@ -97,77 +61,38 @@ public static class ApiScanFindingsCompressor
 
             foreach (var f in spectral.Findings)
             {
-                if (IsAuthSpectral(f))
+                if (ApiScanFindingsFormatter.IsAuthSpectral(f))
                     authSpectral.Add(f);
                 else
                     designSpectral.Add(f);
             }
 
             if (authSpectral.Count > 0)
-            {
-                authFindings.AppendLine($"### Spectral Auth Findings ({authSpectral.Count})");
-                foreach (var f in authSpectral)
-                    authFindings.AppendLine($"- [{f.Severity.ToUpperInvariant()}] {f.Code}: {f.Message} — {f.Path}");
-                authFindings.AppendLine();
-            }
-
+                authParts.Append(ApiScanFindingsFormatter.FormatSpectralFindings("Auth", authSpectral));
             if (designSpectral.Count > 0)
-            {
-                designFindings.AppendLine($"### Spectral Design Findings ({designSpectral.Count})");
-                foreach (var f in designSpectral)
-                    designFindings.AppendLine($"- [{f.Severity.ToUpperInvariant()}] {f.Code}: {f.Message} — {f.Path}");
-                designFindings.AppendLine();
-            }
+                designParts.Append(ApiScanFindingsFormatter.FormatSpectralFindings("Design", designSpectral));
         }
 
-        // Categorize Nuclei findings — all go to runtime, auth-relevant also go to auth
         if (nuclei is not null && nuclei.Findings.Count > 0)
         {
-            var authNuclei = new List<NucleiFinding>();
-
-            runtimeFindings.AppendLine($"### Nuclei Findings ({nuclei.Findings.Count})");
-            foreach (var f in nuclei.Findings)
-            {
-                runtimeFindings.AppendLine(
-                    $"- [{f.Severity.ToUpperInvariant()}] {f.TemplateId}: {f.Name} — {f.MatchedUrl}");
-
-                if (IsAuthNuclei(f))
-                    authNuclei.Add(f);
-            }
-            runtimeFindings.AppendLine();
-
+            runtimeParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings(nuclei.Findings));
+            var authNuclei = nuclei.Findings.Where(ApiScanFindingsFormatter.IsAuthNuclei).ToList();
             if (authNuclei.Count > 0)
-            {
-                authFindings.AppendLine($"### Nuclei Auth Findings ({authNuclei.Count})");
-                foreach (var f in authNuclei)
-                    authFindings.AppendLine(
-                        $"- [{f.Severity.ToUpperInvariant()}] {f.TemplateId}: {f.Name} — {f.MatchedUrl}");
-                authFindings.AppendLine();
-            }
+                authParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings("Auth", authNuclei));
         }
 
-        // ZAP findings go to runtime
         if (zap is not null && zap.Findings.Count > 0)
-        {
-            runtimeFindings.AppendLine($"### ZAP DAST Findings ({zap.Findings.Count})");
-            foreach (var f in zap.Findings)
-            {
-                runtimeFindings.AppendLine(
-                    $"- [{f.RiskDescription.ToUpperInvariant()}] {f.Name} — {f.Url} ({f.Count} instances)");
-            }
-            runtimeFindings.AppendLine();
-        }
+            runtimeParts.Append(ApiScanFindingsFormatter.FormatZapFindings(zap.Findings));
 
-        if (authFindings.Length > 0) slices["auth"] = authFindings.ToString();
-        if (designFindings.Length > 0) slices["design"] = designFindings.ToString();
-        if (runtimeFindings.Length > 0) slices["runtime"] = runtimeFindings.ToString();
+        if (authParts.Length > 0) slices["auth"] = authParts.ToString();
+        if (designParts.Length > 0) slices["design"] = designParts.ToString();
+        if (runtimeParts.Length > 0) slices["runtime"] = runtimeParts.ToString();
 
         return slices;
     }
 
     /// <summary>
     /// Returns the relevant finding slice for a specific skill.
-    /// Prefers orchestration-declared input_categories; falls back to hardcoded mapping.
     /// </summary>
     public static string GetSliceForSkill(
         string skillName,
@@ -192,30 +117,4 @@ public static class ApiScanFindingsCompressor
 
         return sb.ToString();
     }
-
-    private static bool IsAuthSpectral(SpectralFinding f)
-    {
-        if (AuthSpectralCodes.Contains(f.Code))
-            return true;
-
-        var codeLower = f.Code.ToLowerInvariant();
-        var messageLower = f.Message.ToLowerInvariant();
-        return AuthSpectralKeywords.Any(kw => codeLower.Contains(kw) || messageLower.Contains(kw));
-    }
-
-    private static bool IsAuthNuclei(NucleiFinding f)
-    {
-        var templateLower = f.TemplateId.ToLowerInvariant();
-        var nameLower = f.Name.ToLowerInvariant();
-        return AuthNucleiKeywords.Any(kw => templateLower.Contains(kw) || nameLower.Contains(kw));
-    }
-
-    private static int SeverityOrder(string severity) => severity.ToLowerInvariant() switch
-    {
-        "critical" => 4,
-        "high" => 3,
-        "medium" => 2,
-        "low" => 1,
-        _ => 0,
-    };
 }
