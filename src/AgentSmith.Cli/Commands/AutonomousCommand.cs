@@ -14,11 +14,13 @@ internal static class AutonomousCommand
     {
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
+        var sourceOptions = new SourceOptions();
 
         var cmd = new Command("autonomous", "Observe a project and write improvement tickets")
         {
             projectOption, configOption, verboseOption, dryRunOption
         };
+        sourceOptions.AddTo(cmd);
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
@@ -28,12 +30,15 @@ internal static class AutonomousCommand
 
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
 
+            var context = new Dictionary<string, object>
+            {
+                [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("autonomous"),
+            };
+            sourceOptions.ApplyTo(ctx, context);
+
             var request = new PipelineRequest(
                 project, "autonomous", Headless: true,
-                Context: new Dictionary<string, object>
-                {
-                    [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("autonomous"),
-                });
+                Context: context);
 
             if (isDryRun)
             {

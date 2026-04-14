@@ -16,11 +16,13 @@ internal static class MadCommand
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
         var headlessOption = new Option<bool>("--headless", "Run without interactive prompts");
+        var sourceOptions = new SourceOptions();
 
         var cmd = new Command("mad", "Multi-agent design discussion")
         {
             ticketOption, projectOption, dryRunOption, headlessOption, configOption, verboseOption
         };
+        sourceOptions.AddTo(cmd);
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
@@ -31,12 +33,15 @@ internal static class MadCommand
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
             var headless = ctx.ParseResult.GetValueForOption(headlessOption);
 
+            var context = new Dictionary<string, object>
+            {
+                [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("mad-discussion"),
+            };
+            sourceOptions.ApplyTo(ctx, context);
+
             var request = new PipelineRequest(
                 project, "mad-discussion", new TicketId(ticket.ToString()), Headless: headless,
-                Context: new Dictionary<string, object>
-                {
-                    [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("mad-discussion"),
-                });
+                Context: context);
 
             if (isDryRun)
             {

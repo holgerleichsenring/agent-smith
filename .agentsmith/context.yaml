@@ -142,7 +142,9 @@ state:
     p71: "Root cleanup: Dockerfiles to src/Cli+Server, deploy/ for compose+k8s, mkdocs.yml into docs/, removed site+agentsmith-output+prompts, ProjectDetector recursive search (873 tests)"
     p72: "Jira assignee webhook trigger: JiraAssigneeWebhookHandler, JiraTriggerConfig, /webhook/jira route, config-order label priority, ValidateJira signature (873 tests)"
   active:
-    p73: "Class size enforcement (refactoring) → .agentsmith/phases/planned/p73-class-size-enforcement.md"
+    p74: "CLI source overrides (refactoring) → .agentsmith/phases/active/p74-cli-source-overrides.md"
+  done-recently:
+    p73: "Class size enforcement: Tier 1 critical files split (873 tests)"
   planned:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
