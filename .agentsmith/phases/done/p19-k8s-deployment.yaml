@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p19
 goal: "Full Kubernetes deployment — Dispatcher, Redis, RBAC, Kustomize overlays"
 requires: ["p18"]

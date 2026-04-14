@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p46
 goal: "Replace free-text regex parsing with explicit CLI flags and LLM intent parsing for Slack — eliminate 'ticketless' concept, split oversized files"
 decisions:

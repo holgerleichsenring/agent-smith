@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p62
 goal: "Extend docs site with p58-p61 concepts — new pages for dialogue, knowledge base, PR comments, webhooks, security config, phase workflow"
 requires: ["p53", "p58", "p59", "p60", "p61"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p41
 goal: "Automatic decision logging — every architectural/tooling/implementation decision recorded at the moment it is made, in decisions.md"
 decisions:

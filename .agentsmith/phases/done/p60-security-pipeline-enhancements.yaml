@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p60
 goal: "Add DAST via ZAP, auto-fix pipeline for Critical/High findings, and git-based security trend analysis"
 requires: ["p54", "p55", "p56", "p58"]

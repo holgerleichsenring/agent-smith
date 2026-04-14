@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p59b
 goal: "Extend PR comment support to GitLab MR comments — same CommentIntent model and router, GitLab-specific handler"
 requires: ["p59", "p43e"]

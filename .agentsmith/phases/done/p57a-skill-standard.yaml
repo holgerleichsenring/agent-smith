@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p57a
 goal: "Migrate all skills from proprietary YAML to open SKILL.md standard (agentskills.io) — portable, auditable, updatable"
 decisions:

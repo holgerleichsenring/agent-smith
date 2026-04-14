@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p34
 goal: "Skill-based orchestration — cascading commands, role-based planning, triage + discussion convergence"
 decisions:

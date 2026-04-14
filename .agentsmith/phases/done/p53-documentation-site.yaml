@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p53
 goal: "Technical documentation site at code.agent-smith.org — MkDocs Material, GitHub Pages, README trimmed to landing page"
 decisions:

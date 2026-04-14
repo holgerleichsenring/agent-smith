@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p19b
 goal: "Helm Chart for fully self-contained K8s deployment — replace manual scripts"
 requires: ["p19a"]

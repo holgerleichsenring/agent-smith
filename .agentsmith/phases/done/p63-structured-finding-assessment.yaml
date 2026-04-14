@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p63
 goal: "Close the gap between LLM skill discussion and finding output — skills mark false positives, ExtractFindings applies those assessments"
 decisions:

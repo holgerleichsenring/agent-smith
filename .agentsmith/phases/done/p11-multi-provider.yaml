@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p11
 goal: "Multi-provider support — OpenAI + Gemini alongside Claude, selectable via config"
 requires: ["p10"]

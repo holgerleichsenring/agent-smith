@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p51
 goal: "Clean separation in IToolRunner — spawners define logical I/O, runners translate to execution model, no hardcoded container paths"
 requires: ["p49", "p50"]

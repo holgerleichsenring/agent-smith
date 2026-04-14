@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p17
 goal: "Add GitLab as source + ticket provider — issues, merge requests, git ops"
 requires: ["p10"]

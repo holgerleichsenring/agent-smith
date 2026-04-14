@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p48
 goal: "Compress swagger context from 99k chars to ~15k in BuildDomainSection — 85% token reduction, 15x cost saving per api-scan run"
 requires: ["p47"]

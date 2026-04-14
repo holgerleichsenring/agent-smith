@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p64
 goal: "Replace free-form discussion with typed orchestration — skills declare role/position/output, orchestrator builds deterministic execution graph"
 requires: ["p57a", "p55"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p09
 goal: "Task-specific model routing — Haiku scout for discovery, Sonnet for coding"
 requires: ["p08"]

@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/holgerleichsenring/specification-first-agentic-development/phase-spec.schema.json",
+  "title": "Phase Specification",
+  "description": "Compact YAML spec for a development phase. Used by AI agents to understand scope, deliverables, and completion criteria.",
+  "type": "object",
+  "required": ["phase", "goal"],
+  "additionalProperties": false,
+  "properties": {
+    "phase": {
+      "type": "string",
+      "description": "Phase identifier (e.g. p01, p42, p57a)",
+      "pattern": "^p\\d+[a-z]?$",
+      "examples": ["p01", "p42", "p57a"]
+    },
+    "goal": {
+      "type": "string",
+      "description": "One line: what is being built and why",
+      "maxLength": 200
+    },
+    "requires": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "Phase IDs or free-text preconditions",
+          "items": { "type": "string" }
+        },
+        {
+          "type": "string",
+          "description": "Single precondition"
+        }
+      ]
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Non-obvious choices made during this phase, with reasoning",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Decision summary with reason (format: 'what — why')"
+          }
+        },
+        "required": ["key"]
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "Implementation steps, each a named unit of work",
+      "items": {
+        "type": "object",
+        "required": ["id", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Short noun identifying this step",
+            "examples": ["domain", "contracts", "config", "verify"]
+          },
+          "action": {
+            "oneOf": [
+              { "type": "string", "description": "Single imperative line" },
+              {
+                "type": "array",
+                "description": "Multiple imperative lines",
+                "items": { "type": "string" }
+              }
+            ]
+          },
+          "new": {
+            "type": "array",
+            "description": "Types/files created in this step. Format: 'TypeName: description' or 'TypeName: { Field:type, ... }'",
+            "items": { "type": "string" }
+          },
+          "modify": {
+            "type": "array",
+            "description": "Types/files modified in this step. Format: 'TypeName: what changes'",
+            "items": { "type": "string" }
+          },
+          "rename": {
+            "type": "array",
+            "description": "Types/files renamed. Format: 'OldName → NewName'",
+            "items": { "type": "string" }
+          },
+          "delete": {
+            "type": "array",
+            "description": "Types/files removed",
+            "items": { "type": "string" }
+          },
+          "path": {
+            "type": "string",
+            "description": "Project or folder hint for this step"
+          }
+        }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "description": "NuGet/npm/pip packages added or updated",
+      "items": { "type": "string" }
+    },
+    "dep-graph": {
+      "type": "object",
+      "description": "Project/module dependency changes",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "pipeline-presets": {
+      "type": "object",
+      "description": "Pipeline command sequences added or modified",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "description": "Test method names, AAA naming convention: Method_Scenario_Expected",
+      "items": { "type": "string" }
+    },
+    "done": {
+      "type": "array",
+      "description": "Verifiable completion criteria",
+      "items": { "type": "string" }
+    }
+  }
+}

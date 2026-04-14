@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p56
 goal: "Close security scan gaps — secret provider identification, mandatory false-positive filter, severity logging, SARIF output for security-scan, docs"
 requires: ["p54"]

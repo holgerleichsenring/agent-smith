@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p50
 goal: "Multiple --output strategies per scan (comma-separated), configurable --output-dir, new summary output type"
 requires: ["p43c"]

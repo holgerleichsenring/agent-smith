@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p49
 goal: "IToolRunner abstraction replacing IContainerRunner for tools — supports Docker, Podman, K8s Jobs, and local process execution"
 decisions:

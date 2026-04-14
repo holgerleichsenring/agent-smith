@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p22
 goal: "Auto-generate .context.yaml for any repo by detecting language, stack, and structure"
 decisions:

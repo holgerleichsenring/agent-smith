@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p07
 goal: "Activate Anthropic prompt caching — cached tokens bypass ITPM rate limit"
 requires: ["p06"]

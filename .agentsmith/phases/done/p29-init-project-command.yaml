@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p29
 goal: "Dedicated init-project command via Slack modal and chat — bootstrap .agentsmith/ without fixing a ticket"
 requires: ["p22", "p28"]

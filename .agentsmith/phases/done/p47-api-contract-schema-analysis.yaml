@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p47
 goal: "Add Spectral as second static analyzer for api-security-scan and rewrite api-design-auditor skill with full schema analysis"
 requires: ["p45", "p19a"]
