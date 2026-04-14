@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.0...v0.13.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* LocalSourceProvider checkout existing branch instead of crashing ([47cb27a](https://github.com/holgerleichsenring/agent-smith/commit/47cb27a443630cd7b37680e4989711525d86c9cb))
+
 ## [0.13.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.12.1...v0.13.0) (2026-04-14)
 
 
