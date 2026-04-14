@@ -1,0 +1,48 @@
+phase: p19a
+goal: "Docker Compose fully self-contained — DockerJobSpawner replaces K8s for local dev"
+requires: ["p18"]
+decisions:
+  - key: "IJobSpawner interface — Dispatcher is spawner-agnostic"
+  - key: "SPAWNER_TYPE env var selects docker vs kubernetes"
+  - key: "Docker socket mount is local-dev only — not used in K8s prod"
+  - key: "AutoRemove=true replaces K8s TTL for container cleanup"
+  - key: "Secrets forwarded from Dispatcher env — no K8s Secret needed locally"
+  - key: "Network auto-detected from Dispatcher's own container"
+steps:
+  - id: interface
+    action: "Extract IJobSpawner, rename JobSpawner to KubernetesJobSpawner"
+    new:
+      - "IJobSpawner: SpawnAsync(FixTicketIntent) → Task<string>"
+    modify:
+      - "JobSpawner → KubernetesJobSpawner: implements IJobSpawner, remove K8S_REDIS_URL"
+  - id: docker-spawner
+    action: "Implement DockerJobSpawner via Docker.DotNet"
+    new:
+      - "DockerJobSpawner: Docker socket, same network, AutoRemove=true, resource limits 512Mi/1Gi"
+  - id: di-wiring
+    action: "Refactor Program.cs into focused classes, SPAWNER_TYPE-based DI"
+    new:
+      - "DispatcherDefaults: all magic strings/values"
+      - "DispatcherBanner: ASCII banner"
+      - "ServiceCollectionExtensions: AddRedis, AddCore, AddSlack, AddJobSpawner, AddIntentHandlers"
+      - "WebApplicationExtensions: MapHealthEndpoints, MapSlackEndpoints"
+      - "SlackMessageDispatcher: intent routing"
+      - "SlackInteractionHandler: button callback handling"
+      - "SlackSignatureVerifier: HMAC-SHA256 verification"
+      - "FixTicketIntentHandler, ListTicketsIntentHandler, CreateTicketIntentHandler"
+    modify:
+      - "Program.cs: rewritten to ~30 lines"
+  - id: compose
+    action: "Update docker-compose.yml — Docker socket mount, SPAWNER_TYPE=docker"
+    modify:
+      - "docker-compose.yml: add socket mount, user:root, SPAWNER_TYPE=docker, remove K8S_REDIS_URL"
+  - id: verify
+    action: "docker compose up → Slack message spawns Docker container"
+done:
+  - "docker compose up brings up redis + dispatcher without K8s"
+  - "Slack message spawns Docker container (not K8s Job)"
+  - "Container auto-removes after completion"
+  - "redis:6379 works natively (same Compose network)"
+  - "SPAWNER_TYPE=kubernetes still routes to KubernetesJobSpawner"
+  - "host.docker.internal and K8S_REDIS_URL removed from codebase"
+  - "Program.cs is <=30 lines, no class >120 lines"

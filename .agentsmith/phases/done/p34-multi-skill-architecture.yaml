@@ -1,0 +1,50 @@
+phase: p34
+goal: "Skill-based orchestration — cascading commands, role-based planning, triage + discussion convergence"
+decisions:
+  - cascading-not-hierarchical: "Commands insert follow-ups directly after themselves in flat LinkedList — no tree, no recursion"
+  - flat-list-transparent: "Every command visible in logs/Slack/execution trail; PipelineExecutor stays simple"
+  - max-command-limit: "Hard limit of 100 executions prevents infinite loops"
+  - domain-rules-generalized: "LoadCodingPrinciples renamed to LoadDomainRules — file path from skill.yaml, backward compatible"
+  - skill-yaml-per-role: "Each role is a YAML file with name, triggers, rules prompt, convergence_criteria"
+steps:
+  - id: command-result-extension
+    action: "Add InsertNext property + OkAndContinueWith factory to CommandResult"
+    modify: ["CommandResult: IReadOnlyList<string>? InsertNext"]
+  - id: pipeline-executor
+    action: "Refactor PipelineExecutor from index-based to LinkedList with runtime insertion"
+    modify: ["PipelineExecutor: LinkedList<string> iteration, MaxCommandExecutions=100"]
+  - id: domain-rules
+    action: "Rename LoadCodingPrinciples -> LoadDomainRules, add ActiveSkill/DiscussionLog/ConsolidatedPlan context keys"
+    modify: ["LoadDomainRulesContext", "LoadDomainRulesHandler", "ContextKeys", "CommandContextFactory"]
+  - id: skill-config
+    action: "Define SkillConfig, RoleConfig; ship 8 default role YAML files"
+    new: ["SkillConfig", "RoleConfig", "config/skills/{architect,backend-developer,frontend-developer,devops,tester,dba,product-owner,security-reviewer}.yaml"]
+  - id: init-enhancement
+    action: "Extend init project to generate skill.yaml alongside context.yaml"
+  - id: switch-skill
+    action: "Create SwitchSkillCommand to swap active domain rules and skill type"
+    new: ["SwitchSkillHandler"]
+  - id: triage
+    action: "Create TriageCommand — analyzes ticket + context, inserts SkillRound + ConvergenceCheck commands"
+    new: ["TriageHandler"]
+  - id: skill-round
+    action: "Create SkillRoundCommand (role-specific planning) + ConvergenceCheckCommand (consensus detection)"
+    new: ["SkillRoundHandler", "ConvergenceCheckHandler"]
+  - id: execution-trail
+    action: "Track every executed command with timestamp/skill/outcome in PipelineContext, write to result.md"
+  - id: slack-integration
+    action: "SkillRound posts Slack message with role emoji; Triage/ConvergenceCheck post summaries"
+skill-yaml-schema:
+  - "name, display_name, emoji, description"
+  - "triggers: [list of trigger keywords]"
+  - "rules: | (system prompt addition)"
+  - "convergence_criteria: [list]"
+project-skill-config:
+  - ".agentsmith/skill.yaml: input.type, output.type, context.rules, roles, triage settings"
+done:
+  - "Commands can insert follow-up commands at runtime"
+  - "PipelineExecutor handles cascading without recursion"
+  - "Triage selects roles dynamically from ticket context"
+  - "SkillRounds produce planning contributions per role"
+  - "ConvergenceCheck detects consensus or triggers more rounds"
+  - "Execution trail in result.md"

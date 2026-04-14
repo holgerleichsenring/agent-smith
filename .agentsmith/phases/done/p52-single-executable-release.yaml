@@ -1,0 +1,33 @@
+phase: p52
+goal: "Self-contained single-file executables for 5 platforms via GitHub Releases — eliminates Docker-in-Docker for CI/CD"
+decisions:
+  - key: "PublishSingleFile + SelfContained, NO trimming — trimming breaks YamlDotNet, Docker.DotNet, LibGit2Sharp, DI"
+  - key: "IncludeNativeLibrariesForSelfExtract needed for LibGit2Sharp native binaries"
+  - key: "~70-80 MB per platform — acceptable for CLI tool"
+  - key: "Docker entrypoint script: start as root, fix volume permissions, drop to agentsmith user (standard pattern)"
+steps:
+  - id: publish
+    action: "Configure single-file publishing"
+    modify:
+      - "AgentSmith.Cli.csproj: PublishSingleFile=true, SelfContained=true, PublishTrimmed=false, IncludeNativeLibrariesForSelfExtract=true"
+  - id: workflow
+    action: "Create GitHub release workflow"
+    new:
+      - ".github/workflows/release.yml: matrix build for linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64"
+    # Triggered on v* tags, builds per-platform, uploads to GitHub Release via softprops/action-gh-release
+  - id: docker
+    action: "Add Docker entrypoint for permission handling"
+    new:
+      - "docker-entrypoint.sh: fix volume permissions + gosu user switch"
+    modify:
+      - "Dockerfile: install gosu, use entrypoint script"
+  - id: config-discovery
+    action: "Document config file search order"
+    # 1. --config flag  2. ./.agentsmith/agentsmith.yml  3. ./config/agentsmith.yml  4. ~/.agentsmith/agentsmith.yml
+done:
+  - "dotnet publish produces working single-file binary for all 5 platforms"
+  - "GitHub Release contains all 5 binaries"
+  - "Binary runs without .NET runtime installed"
+  - "LibGit2Sharp native libraries embedded correctly"
+  - "Docker entrypoint fixes mount permissions automatically"
+  - "No run.sh required for consumers"

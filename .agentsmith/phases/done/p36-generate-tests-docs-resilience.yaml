@@ -1,0 +1,37 @@
+phase: p36
+goal: "Implement GenerateTests + GenerateDocs commands and add pipeline crash resilience"
+decisions:
+  - synthetic-plan: "Both handlers create a synthetic Plan with one step, reuse full agentic loop via IAgentProvider.ExecutePlanAsync"
+  - code-changes-merge: "Generated tests/docs merged into existing ContextKeys.CodeChanges list"
+  - per-command-try-catch: "PipelineExecutor catches exceptions per command -> CommandResult.Fail instead of crash"
+  - liveness-based-orphan: "OrphanJobDetector checks container/pod liveness via IJobSpawner.IsAliveAsync instead of time-based heuristics"
+steps:
+  - id: generate-tests
+    action: "Create GenerateTestsHandler — synthetic plan for test generation via agentic loop"
+    new: ["GenerateTestsContext", "GenerateTestsHandler"]
+  - id: generate-docs
+    action: "Create GenerateDocsHandler — synthetic plan for doc generation via agentic loop"
+    new: ["GenerateDocsContext", "GenerateDocsHandler"]
+  - id: factory-dispatch
+    action: "Add two new cases in CommandContextFactory and PipelineExecutor"
+    modify: ["CommandContextFactory", "PipelineExecutor"]
+  - id: di-registration
+    action: "Register handlers in ServiceCollectionExtensions"
+    modify: ["ServiceCollectionExtensions"]
+  - id: resilience
+    action: "Per-command try/catch in PipelineExecutor; top-level try/catch in Program.cs"
+    modify: ["PipelineExecutor", "Program.cs"]
+  - id: orphan-liveness
+    action: "Add IJobSpawner.IsAliveAsync; Docker inspects container, K8s checks pod status"
+    new: ["IJobSpawner.IsAliveAsync"]
+    modify: ["DockerJobSpawner", "KubernetesJobSpawner", "OrphanJobDetector"]
+pipeline-flow: "AgenticExecute -> GenerateTests -> Test -> GenerateDocs -> WriteRunResult -> CommitAndPR"
+tests:
+  - "GenerateTestsHandler (4 tests)"
+  - "GenerateDocsHandler (4 tests)"
+  - "PipelineExecutor exception handling (2 tests)"
+  - "OrphanJobDetector liveness (4 tests)"
+done:
+  - "add-feature pipeline generates tests and docs"
+  - "Command exceptions produce Fail result, not process crash"
+  - "Orphan detection based on container liveness, not time heuristics"

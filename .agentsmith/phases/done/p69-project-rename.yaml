@@ -1,0 +1,22 @@
+phase: p69
+goal: "Rename AgentSmith.Host → AgentSmith.Cli and AgentSmith.Dispatcher → AgentSmith.Server to reflect actual roles"
+decisions:
+  - Host → Cli: "'Host' suggests ASP.NET Generic Host, but it's the CLI tool"
+  - Dispatcher → Server: "'Dispatcher' sounds like internal pattern, but it's the long-running server"
+steps:
+  - id: rename-cli
+    action: "Rename directory, csproj, namespaces, AssemblyName for Host → Cli"
+  - id: rename-server
+    action: "Rename directory, csproj, namespaces, AssemblyName for Dispatcher → Server"
+  - id: references
+    action: "Update sln, ProjectReference, using directives, docker-compose, Dockerfiles, Kustomize, CI workflows"
+  - id: docs
+    action: "Update MkDocs architecture pages, README, context.yaml layer descriptions"
+done:
+  - "AgentSmith.Host renamed to AgentSmith.Cli"
+  - "AgentSmith.Dispatcher renamed to AgentSmith.Server"
+  - "Solution file updated"
+  - "All ProjectReference and using directives updated"
+  - "Docker, K8s, CI/CD manifests updated"
+  - "MkDocs site updated"
+  - "README updated"

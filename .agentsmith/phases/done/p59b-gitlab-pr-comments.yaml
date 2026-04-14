@@ -1,0 +1,26 @@
+phase: p59b
+goal: "Extend PR comment support to GitLab MR comments — same CommentIntent model and router, GitLab-specific handler"
+requires: ["p59", "p43e"]
+steps:
+  - id: handler
+    action: "Implement GitLab MR comment webhook handler"
+    new:
+      - "GitLabMrCommentWebhookHandler: handles Note Hook where noteable_type=MergeRequest"
+      - "GitLabMrCommentReplyService: POST /projects/{id}/merge_requests/{iid}/notes"
+    modify:
+      - "WebhookVerifier: add GitLab token verification (X-Gitlab-Token header)"
+  - id: json-paths
+    action: "Map GitLab JSON structure"
+    # object_attributes.note -> comment body
+    # user.username -> author login
+    # project.path_with_namespace -> repo full name
+    # merge_request.iid -> MR identifier
+config: |
+  webhooks.gitlab_token: ${GITLAB_WEBHOOK_TOKEN}
+done:
+  - "GitLabMrCommentWebhookHandler handles Note Hook events"
+  - "GitLabMrCommentReplyService posts replies to MR"
+  - "GitLab token verification works"
+  - "Scenario A (new job) + Scenario B (dialogue) work via GitLab MR comments"
+  - "Unit tests for GitLab payload parsing (8 tests)"
+  - "All 852 tests green"

@@ -1,0 +1,21 @@
+phase: p30
+goal: "Fix PR URL propagation, orphan job cleanup, and eliminate optional parameters"
+requires: ["p29"]
+steps:
+  - id: pr-url
+    action: "Propagate PR URLs from handlers through PipelineExecutor to Slack"
+    modify: ["CommandResult", "ProcessTicketUseCase", "Program.cs", "docker-compose.yml (add image tag)"]
+  - id: orphan-detector
+    action: "Create OrphanJobDetector BackgroundService for stuck container cleanup"
+    new: ["OrphanJobDetector: BackgroundService scanning ConversationState"]
+    modify: ["ConversationState", "ConversationStateManager", "MessageBusListener"]
+  - id: optional-params
+    action: "Remove CancellationToken = default everywhere; make all optional params required"
+    modify: ["~110 files: all Contracts interfaces, Infrastructure+Application+Dispatcher implementations"]
+tests:
+  - "OrphanJobDetector detects and cleans stuck jobs"
+  - "288 total tests passing"
+done:
+  - "PR URL shown in Slack after successful run"
+  - "Orphan detector cleans up crashed containers within ~2 minutes"
+  - "No optional CancellationToken parameters anywhere"

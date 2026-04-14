@@ -1,0 +1,47 @@
+phase: p43b
+goal: "New security-scan pipeline — CLI verb, PR diff providers, IOutputStrategy, security skills, and breaking CLI refactor to subcommands"
+requires: ["p40a"]
+decisions:
+  - key: "Breaking change: 'agent-smith run' replaces root command — all verbs become subcommands"
+  - key: "IPrDiffProvider per platform — GitHub, GitLab, AzDO via REST APIs"
+  - key: "IOutputStrategy with keyed services (.NET 8) — ConsoleOutputStrategy only in this phase"
+  - key: "Confidence < 8 discarded by false-positive-filter skill"
+  - key: "Triage selects skill subset based on diff content (auth files, DB access, config/env)"
+steps:
+  - id: cli
+    action: "Refactor CLI to subcommands"
+    modify:
+      - "Program.cs: root command -> System.CommandLine subcommands (run, security-scan, server)"
+      - "docker-compose.yml: update command entries"
+  - id: contracts
+    action: "Add new interfaces"
+    new:
+      - "IPrDiffProvider: { GetDiffAsync } + PrDiff, ChangedFile, ChangeKind records"
+      - "IOutputStrategy: { StrategyType, DeliverAsync } + OutputContext record"
+    modify:
+      - "PipelinePresets: add security-scan preset"
+  - id: providers
+    action: "Implement PR diff providers and output strategy"
+    new:
+      - "GitHubPrDiffProvider, GitLabPrDiffProvider, AzureDevOpsPrDiffProvider"
+      - "ConsoleOutputStrategy"
+    modify:
+      - "DeliverOutputHandler: refactor to use IOutputStrategy"
+  - id: skills
+    action: "Create security skills"
+    new:
+      - "config/skills/security/security-principles.md"
+      - "config/skills/security/vuln-analyst.yaml"
+      - "config/skills/security/false-positive-filter.yaml"
+      - "config/skills/security/auth-reviewer.yaml"
+      - "config/skills/security/injection-checker.yaml"
+      - "config/skills/security/secrets-detector.yaml"
+config: |
+  projects.*.security_scan: on_label | on_pr | never | scheduled
+  projects.*.security_scan_schedule: cron expression
+done:
+  - "agent-smith security-scan CLI verb works locally"
+  - "agent-smith run replaces root command (breaking change documented)"
+  - "IPrDiffProvider implementations for GitHub, GitLab, AzDO"
+  - "Full repo scan when no --pr specified"
+  - "Security skills loaded, Triage selects relevant subset"

@@ -1,0 +1,38 @@
+phase: p66
+goal: "Add self-documentation pitch and multi-agent orchestration diagrams to docs site, apply Linear.app DESIGN.md theme"
+requires: ["p64", "p53"]
+decisions:
+  - Use Linear.app DESIGN.md from awesome-design-md: "dark, precise, developer-focused aesthetic"
+steps:
+  - id: design
+    action: "Fetch Linear.app DESIGN.md, rebuild MkDocs Material theme overrides"
+    new: ["DESIGN.md", "docs/overrides/"]
+  - id: self-docs
+    action: "Create self-documentation concept page — three layers: phases, runs, decisions"
+    new: ["docs/concepts/self-documentation.md"]
+  - id: phases-runs
+    action: "Extend phases-runs.md with Mermaid timeline diagram and cost table"
+    modify: ["docs/concepts/phases-runs.md"]
+  - id: orchestration
+    action: "Create multi-agent orchestration concept page — pipeline type diagrams, role reference, output flow"
+    new: ["docs/concepts/multi-agent-orchestration.md"]
+  - id: pipeline-pages
+    action: "Add 'How Skills Collaborate' section with diagram to all 5 pipeline pages"
+    modify:
+      - "docs/pipelines/security-scan.md"
+      - "docs/pipelines/fix-bug.md"
+      - "docs/pipelines/api-scan.md"
+      - "docs/pipelines/legal-analysis.md"
+      - "docs/pipelines/mad-discussion.md"
+  - id: nav
+    action: "Add new concept pages to mkdocs.yml navigation"
+    modify: ["mkdocs.yml"]
+done:
+  - "self-documentation.md created with three-layer explanation"
+  - "phases-runs.md has Mermaid timeline + cost table"
+  - "multi-agent-orchestration.md has all three pipeline type diagrams"
+  - "Role reference table complete (contributor/lead/gate/executor)"
+  - "All 5 pipeline pages have collaboration section with diagram"
+  - "DESIGN.md in project root"
+  - "MkDocs theme overrides applied"
+  - "mkdocs build --strict passes"

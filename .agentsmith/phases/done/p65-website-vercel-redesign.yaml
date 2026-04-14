@@ -1,0 +1,30 @@
+phase: p65
+goal: "Redesign agent-smith.org to Vercel/Geist aesthetic — monochrome palette, shadow-as-border, negative letter-spacing"
+decisions:
+  - Shadow-as-border replaces all CSS borders: "Vercel pattern — rgba(0,0,0,0.08) 0px 0px 0px 1px"
+  - Pipeline-specific accent colors not global: "Coding #0a72ef, Security #ff5b4f, Legal #de1d8d"
+  - Keep Eleventy + Nunjucks: "visual redesign only, no tooling change"
+steps:
+  - id: fonts
+    action: "Replace DM Sans/JetBrains Mono with Geist/Geist Mono, negative letter-spacing at display sizes"
+  - id: palette
+    action: "Switch to monochrome palette — primary #171717, bg #ffffff, secondary #666666"
+  - id: shadows
+    action: "Replace CSS borders with multi-layer shadow stacks on cards/containers"
+  - id: components
+    action: "Update buttons (6px radius), cards (8px radius), badges (pill), nav (sticky white)"
+  - id: layout
+    action: "Apply 8px base spacing, ~1200px max width, gallery-level section spacing"
+modify:
+  - "website/src/index.njk"
+  - "website/src/static/styles.css"
+  - "website/src/static/favicon.svg"
+done:
+  - "Geist + Geist Mono fonts loaded"
+  - "CSS variables updated to Vercel palette"
+  - "Shadow-as-border replaces all CSS borders"
+  - "Negative letter-spacing at display sizes"
+  - "Cards use multi-layer shadow stacks"
+  - "Responsive breakpoints maintained"
+  - "All animations still work"
+  - "npm run build succeeds"

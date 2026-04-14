@@ -1,0 +1,32 @@
+phase: p40c
+goal: "Extract AI/LLM providers from Infrastructure into dedicated projects — Claude, OpenAI, Gemini"
+decisions:
+  - IContextCompactor stays with Claude provider: "only provider that implements compaction, interface in Contracts for future use"
+steps:
+  - id: claude
+    action: "Create AgentSmith.Providers.Claude project"
+    new:
+      - "ClaudeAgentProvider: IAgentProvider"
+      - "ClaudeContextCompactor: IContextCompactor"
+      - "ClaudeLlmClient: ILlmClient"
+      - "ClaudeProviderOptions: { ApiKey, DefaultModel, MaxRetries }"
+      - "services.AddClaudeProvider(configuration)"
+  - id: openai
+    action: "Create AgentSmith.Providers.OpenAI project"
+    new:
+      - "OpenAiAgentProvider: IAgentProvider"
+      - "OpenAiLlmClient: ILlmClient"
+      - "services.AddOpenAiProvider(configuration)"
+  - id: gemini
+    action: "Create AgentSmith.Providers.Gemini project"
+    new:
+      - "GeminiAgentProvider: IAgentProvider"
+      - "services.AddGeminiProvider(configuration)"
+  - id: cleanup
+    action: "Remove AI provider classes from Infrastructure, update references"
+done:
+  - "3 AI provider projects created and building"
+  - "Zero AI provider classes remain in Infrastructure"
+  - "IContextCompactor implementation in Claude provider"
+  - "Each provider has Add{Name}Provider() extension"
+  - "All existing tests pass"
