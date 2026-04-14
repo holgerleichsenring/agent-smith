@@ -140,12 +140,13 @@ state:
     p69: "Project rename: Host → Cli, Dispatcher → Server — directories, namespaces, csproj, sln, Docker, K8s, CI/CD, docs (852 tests)"
     p58b: "Teams integration: TeamsAdapter (IPlatformAdapter), TeamsCardBuilder (5 Adaptive Cards), TeamsJwtValidator (Bot Framework OpenID), TeamsInteractionHandler, removed obsolete AskQuestion (864 tests)"
     p71: "Root cleanup: Dockerfiles to src/Cli+Server, deploy/ for compose+k8s, mkdocs.yml into docs/, removed site+agentsmith-output+prompts, ProjectDetector recursive search (873 tests)"
-  active: {}
+    p72: "Jira assignee webhook trigger: JiraAssigneeWebhookHandler, JiraTriggerConfig, /webhook/jira route, config-order label priority, ValidateJira signature (873 tests)"
+  active:
+    p73: "Class size enforcement (refactoring) → .agentsmith/phases/planned/p73-class-size-enforcement.md"
   planned:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
-    p73: "Class size enforcement (refactoring) → .agentsmith/phases/planned/p73-class-size-enforcement.md"
     # --- deferred (refactoring, no new features) ---
     p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
     p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
