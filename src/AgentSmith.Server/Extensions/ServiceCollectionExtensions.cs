@@ -89,6 +89,7 @@ internal static class ServiceCollectionExtensions
             BotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN") ?? string.Empty,
             SigningSecret = Environment.GetEnvironmentVariable("SLACK_SIGNING_SECRET") ?? string.Empty
         });
+        services.AddSingleton<SlackApiClient>();
         services.AddSingleton<SlackAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<SlackAdapter>());
         return services;
