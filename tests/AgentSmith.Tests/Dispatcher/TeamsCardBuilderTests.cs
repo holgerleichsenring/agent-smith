@@ -20,7 +20,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void Confirmation_ContainsYesAndNoActions()
     {
-        var card = TeamsCardBuilder.BuildQuestionCard(CreateQuestion(QuestionType.Confirmation));
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(CreateQuestion(QuestionType.Confirmation));
         var json = card.ToJsonString();
 
         json.Should().Contain("\"answer\":\"yes\"");
@@ -35,7 +35,7 @@ public sealed class TeamsCardBuilderTests
         var question = CreateQuestion(QuestionType.Choice,
             choices: new[] { "Option A", "Option B", "Option C" });
 
-        var card = TeamsCardBuilder.BuildQuestionCard(question);
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(question);
         var json = card.ToJsonString();
 
         json.Should().Contain("Option A");
@@ -47,7 +47,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void Approval_ContainsApproveRejectAndCommentInput()
     {
-        var card = TeamsCardBuilder.BuildQuestionCard(CreateQuestion(QuestionType.Approval));
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(CreateQuestion(QuestionType.Approval));
         var json = card.ToJsonString();
 
         json.Should().Contain("\"answer\":\"approve\"");
@@ -59,7 +59,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void FreeText_ContainsInputFieldAndSubmit()
     {
-        var card = TeamsCardBuilder.BuildQuestionCard(CreateQuestion(QuestionType.FreeText));
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(CreateQuestion(QuestionType.FreeText));
         var json = card.ToJsonString();
 
         json.Should().Contain("Input.Text");
@@ -71,7 +71,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void Info_ContainsAcknowledgeButton()
     {
-        var card = TeamsCardBuilder.BuildQuestionCard(CreateQuestion(QuestionType.Info));
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(CreateQuestion(QuestionType.Info));
         var json = card.ToJsonString();
 
         json.Should().Contain("Acknowledge");
@@ -82,7 +82,7 @@ public sealed class TeamsCardBuilderTests
     public void Context_IncludedWhenProvided()
     {
         var question = CreateQuestion(QuestionType.Confirmation, context: "Extra context here");
-        var card = TeamsCardBuilder.BuildQuestionCard(question);
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(question);
         var json = card.ToJsonString();
 
         json.Should().Contain("Extra context here");
@@ -91,7 +91,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void ProgressCard_ContainsStepInfo()
     {
-        var card = TeamsCardBuilder.BuildProgressCard(3, 10, "fix-bug");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildProgressCard(3, 10, "fix-bug");
         var json = card.ToJsonString();
 
         json.Should().Contain("[3/10]");
@@ -102,7 +102,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void DoneCard_ContainsSummaryAndPrLink()
     {
-        var card = TeamsCardBuilder.BuildDoneCard("All tests pass", "https://github.com/org/repo/pull/1");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildDoneCard("All tests pass", "https://github.com/org/repo/pull/1");
         var json = card.ToJsonString();
 
         json.Should().Contain("All tests pass");
@@ -113,7 +113,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void ErrorCard_ContainsErrorAndLogLink()
     {
-        var card = TeamsCardBuilder.BuildErrorCard("Build failed", "https://logs.example.com/123");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildErrorCard("Build failed", "https://logs.example.com/123");
         var json = card.ToJsonString();
 
         json.Should().Contain("Build failed");
@@ -123,7 +123,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void ClarificationCard_ContainsConfirmAndHelpActions()
     {
-        var card = TeamsCardBuilder.BuildClarificationCard("fix ticket #42");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildClarificationCard("fix ticket #42");
         var json = card.ToJsonString();
 
         json.Should().Contain("fix ticket #42");
@@ -134,7 +134,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void AnsweredCard_ShowsAnswerWithEmoji()
     {
-        var card = TeamsCardBuilder.BuildAnsweredCard("Approve deployment?", "yes");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildAnsweredCard("Approve deployment?", "yes");
         var json = card.ToJsonString();
 
         json.Should().Contain("Approve deployment?");
@@ -145,7 +145,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void AllCards_HaveCorrectSchema()
     {
-        var card = TeamsCardBuilder.BuildQuestionCard(CreateQuestion(QuestionType.Confirmation));
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildQuestionCard(CreateQuestion(QuestionType.Confirmation));
         var json = card.ToJsonString();
 
         json.Should().Contain("adaptivecards.io/schemas/adaptive-card.json");
