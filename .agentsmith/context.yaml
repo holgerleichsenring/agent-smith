@@ -141,9 +141,10 @@ state:
     p58b: "Teams integration: TeamsAdapter (IPlatformAdapter), TeamsCardBuilder (5 Adaptive Cards), TeamsJwtValidator (Bot Framework OpenID), TeamsInteractionHandler, removed obsolete AskQuestion (864 tests)"
     p71: "Root cleanup: Dockerfiles to src/Cli+Server, deploy/ for compose+k8s, mkdocs.yml into docs/, removed site+agentsmith-output+prompts, ProjectDetector recursive search (873 tests)"
     p72: "Jira assignee webhook trigger: JiraAssigneeWebhookHandler, JiraTriggerConfig, /webhook/jira route, config-order label priority, ValidateJira signature (873 tests)"
-  active:
-    p74: "CLI source overrides (refactoring) → .agentsmith/phases/active/p74-cli-source-overrides.md"
+  active: {}
   done-recently:
+    p74: "CLI source overrides: --source-type, --source-path, --source-url, --source-auth (873 tests)"
+    p75: "Phase docs markdown → YAML: 96k → 19k words, 93 files converted"
     p73: "Class size enforcement: Tier 1 critical files split (873 tests)"
   planned:
     # --- backlog (new features) ---
