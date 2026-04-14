@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.12.0...v0.12.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* bump Microsoft.Extensions packages 10.0.5 → 10.0.6 ([f435ace](https://github.com/holgerleichsenring/agent-smith/commit/f435aceec32ea997f3ff806ba2f0101234eb7d6f))
+
 ## [0.12.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.11.0...v0.12.0) (2026-04-14)
 
 
