@@ -20,8 +20,17 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         ValidateRepositoryPath();
 
         using var repo = new LibGit2Sharp.Repository(basePath);
-        var newBranch = repo.CreateBranch(branch.Value);
-        Commands.Checkout(repo, newBranch);
+
+        var existing = repo.Branches[branch.Value];
+        if (existing is not null)
+        {
+            Commands.Checkout(repo, existing);
+        }
+        else
+        {
+            var newBranch = repo.CreateBranch(branch.Value);
+            Commands.Checkout(repo, newBranch);
+        }
 
         var remoteUrl = GetRemoteUrl(repo);
         var result = new Repository(basePath, branch, remoteUrl);
