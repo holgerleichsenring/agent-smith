@@ -16,6 +16,7 @@ public class ExecutePipelineUseCaseTests
     private readonly Mock<IConfigurationLoader> _configMock = new();
     private readonly Mock<IIntentParser> _intentMock = new();
     private readonly Mock<IPipelineExecutor> _pipelineMock = new();
+    private readonly Mock<ISourceConfigOverrider> _sourceOverriderMock = new();
     private readonly ExecutePipelineUseCase _sut;
 
     public ExecutePipelineUseCaseTests()
@@ -24,6 +25,7 @@ public class ExecutePipelineUseCaseTests
             _configMock.Object,
             _intentMock.Object,
             _pipelineMock.Object,
+            _sourceOverriderMock.Object,
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

@@ -13,11 +13,13 @@ internal static class InitCommand
     {
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
+        var sourceOptions = new SourceOptions();
 
         var cmd = new Command("init", "Bootstrap a new project (.agentsmith/ directory)")
         {
             projectOption, dryRunOption, configOption, verboseOption
         };
+        sourceOptions.AddTo(cmd);
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
@@ -26,7 +28,11 @@ internal static class InitCommand
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
 
-            var request = new PipelineRequest(project, "init-project", IsInit: true, Headless: true);
+            var context = new Dictionary<string, object>();
+            sourceOptions.ApplyTo(ctx, context);
+
+            var request = new PipelineRequest(project, "init-project", IsInit: true, Headless: true,
+                Context: context.Count > 0 ? context : null);
 
             if (isDryRun)
             {

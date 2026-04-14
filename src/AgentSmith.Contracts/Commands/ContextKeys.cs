@@ -36,7 +36,11 @@ public static class ContextKeys
     public const string ContractType = "ContractType";
     public const string Attachments = "Attachments";
     public const string Decisions = "Decisions";
-    public const string ScanRepoPath = "ScanRepoPath";
+    public const string SourceType = "SourceType";
+    public const string SourcePath = "SourcePath";
+    public const string SourceUrl = "SourceUrl";
+    public const string SourceAuth = "SourceAuth";
+
     public const string ScanPrIdentifier = "ScanPrIdentifier";
     public const string ScanBranch = "ScanBranch";
     public const string OutputFormat = "OutputFormat";
