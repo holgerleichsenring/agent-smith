@@ -11,8 +11,67 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: rp
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+            binary: agent-smith-linux-x64
+          - rid: linux-arm64
+            os: ubuntu-latest
+            binary: agent-smith-linux-arm64
+          - rid: osx-x64
+            os: macos-latest
+            binary: agent-smith-osx-x64
+          - rid: osx-arm64
+            os: macos-latest
+            binary: agent-smith-osx-arm64
+          - rid: win-x64
+            os: windows-latest
+            binary: agent-smith-win-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish
+        run: >-
+          dotnet publish src/AgentSmith.Cli -c Release
+          -r ${{ matrix.rid }} --self-contained
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o ./publish
+
+      - name: Rename binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: mv ./publish/AgentSmith.Cli ./publish/${{ matrix.binary }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: mv ./publish/AgentSmith.Cli.exe ./publish/${{ matrix.binary }}
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ./publish/${{ matrix.binary }} --clobber
+        shell: bash
