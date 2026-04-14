@@ -22,8 +22,11 @@ public sealed class ConvergenceCheckHandlerTests
     {
         _llmFactoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(_llmClientMock.Object);
-        _handler = new ConvergenceCheckHandler(
+        var planConsolidator = new PlanConsolidator(
             _llmFactoryMock.Object,
+            NullLogger<PlanConsolidator>.Instance);
+        _handler = new ConvergenceCheckHandler(
+            planConsolidator,
             NullLogger<ConvergenceCheckHandler>.Instance);
     }
 

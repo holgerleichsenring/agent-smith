@@ -139,7 +139,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         var ticket = new Ticket(new TicketId("1"), "Test", "Desc", null, "Open", "github");
 
         var sb = new StringBuilder();
-        RunResultFormatter.AppendFrontmatter(sb, ticket, "feat", 60, costSummary);
+        RunCostSectionWriter.AppendFrontmatter(sb, ticket, "feat", 60, costSummary);
         var result = sb.ToString();
 
         result.Should().Contain("0.1234");
@@ -263,7 +263,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
             new("Architecture", "**Second**: reason")
         };
 
-        RunResultFormatter.AppendDecisions(sb, decisions);
+        RunResultSectionWriter.AppendDecisions(sb, decisions);
         var result = sb.ToString();
 
         result.Should().Contain("## Decisions");
@@ -282,11 +282,11 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     public void AppendDecisions_NullOrEmpty_WritesNothing()
     {
         var sb = new StringBuilder();
-        RunResultFormatter.AppendDecisions(sb, null);
+        RunResultSectionWriter.AppendDecisions(sb, null);
         sb.ToString().Should().BeEmpty();
 
         sb.Clear();
-        RunResultFormatter.AppendDecisions(sb, new List<PlanDecision>());
+        RunResultSectionWriter.AppendDecisions(sb, new List<PlanDecision>());
         sb.ToString().Should().BeEmpty();
     }
 
