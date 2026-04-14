@@ -1,9 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Server.Contracts;
 using System.Collections.Concurrent;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -12,18 +9,13 @@ namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Slack Web API implementation of IPlatformAdapter.
-/// Uses raw HTTP calls to the Slack API - no SDK dependency.
+/// Delegates HTTP calls to <see cref="SlackApiClient"/>.
 /// Requires SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET environment variables.
 /// </summary>
 public sealed class SlackAdapter(
-    HttpClient httpClient,
-    SlackAdapterOptions options,
+    SlackApiClient api,
     ILogger<SlackAdapter> logger) : IPlatformAdapter
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
 
     // Tracks the progress message ts per channel so we can update instead of re-post
     private readonly ConcurrentDictionary<string, string>
@@ -33,41 +25,25 @@ public sealed class SlackAdapter(
     private readonly ConcurrentDictionary<string, TaskCompletionSource<DialogAnswer?>>
         _pendingTypedQuestions = new();
 
-    private static readonly Dictionary<string, string> StepEmojis = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Fetching ticket"] = ":ticket:",
-        ["Checking out source"] = ":file_folder:",
-        ["Loading coding principles"] = ":books:",
-        ["Analyzing codebase"] = ":mag:",
-        ["Generating plan"] = ":bulb:",
-        ["Awaiting approval"] = ":white_check_mark:",
-        ["Executing plan"] = ":zap:",
-        ["Generating tests"] = ":test_tube:",
-        ["Running tests"] = ":rotating_light:",
-        ["Generating docs"] = ":memo:",
-        ["Creating pull request"] = ":rocket:",
-    };
-
     public string Platform => "slack";
 
     public async Task SendMessageAsync(string channelId, string text,
         CancellationToken cancellationToken)
     {
         var payload = new { channel = channelId, text };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task SendProgressAsync(string channelId, int step, int total, string commandName,
         CancellationToken cancellationToken)
     {
-        var bar = BuildProgressBar(step, total);
-        var text = $"*[{step}/{total}]* {commandName}\n{bar}";
+        var text = SlackProgressFormatter.FormatProgress(step, total, commandName);
 
         if (_progressMessageTs.TryGetValue(channelId, out var existingTs))
         {
             // Update the existing progress message instead of flooding the channel
             var updatePayload = new { channel = channelId, ts = existingTs, text };
-            var updateResponse = await PostAsync("chat.update", updatePayload, cancellationToken);
+            var updateResponse = await api.PostAsync("chat.update", updatePayload, cancellationToken);
 
             // If update fails for any reason, fall back to a new message
             var ok = updateResponse?["ok"]?.GetValue<bool>() ?? false;
@@ -76,8 +52,8 @@ public sealed class SlackAdapter(
 
         // First step or fallback: post a new message and remember its ts
         var postPayload = new { channel = channelId, text };
-        var response = await PostAsync("chat.postMessage", postPayload, cancellationToken);
-        var ts = ExtractTimestamp(response);
+        var response = await api.PostAsync("chat.postMessage", postPayload, cancellationToken);
+        var ts = SlackApiClient.ExtractTimestamp(response);
         if (ts is not null)
             _progressMessageTs[channelId] = ts;
     }
@@ -93,7 +69,7 @@ public sealed class SlackAdapter(
             : $":rocket: *Done!* {summary}\n:link: <{prUrl}|View Pull Request>";
 
         var payload = new { channel = channelId, text };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task SendErrorAsync(string channelId, ErrorContext errorContext,
@@ -103,36 +79,15 @@ public sealed class SlackAdapter(
 
         var (fallbackText, blocks) = SlackErrorBlockBuilder.Build(errorContext);
         var payload = new { channel = channelId, text = fallbackText, blocks };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken cancellationToken)
     {
-        var emoji = answer.Equals("yes", StringComparison.OrdinalIgnoreCase)
-            ? ":white_check_mark:"
-            : ":x:";
-
-        var payload = new
-        {
-            channel = channelId,
-            ts = messageId,
-            text = $":thought_balloon: *{questionText}*\n{emoji} Answered: *{answer}*",
-            blocks = new object[]
-            {
-                new
-                {
-                    type = "section",
-                    text = new
-                    {
-                        type = "mrkdwn",
-                        text = $":thought_balloon: *{questionText}*\n{emoji} Answered: *{answer}*"
-                    }
-                }
-            }
-        };
-
-        await PostAsync("chat.update", payload, cancellationToken);
+        var (text, blocks) = SlackMessageBlockBuilder.BuildQuestionAnswered(questionText, answer);
+        var payload = new { channel = channelId, ts = messageId, text, blocks };
+        await api.PostAsync("chat.update", payload, cancellationToken);
     }
 
     public async Task SendDetailAsync(string channelId, string text,
@@ -145,50 +100,15 @@ public sealed class SlackAdapter(
         }
 
         var payload = new { channel = channelId, text, thread_ts = threadTs };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task SendClarificationAsync(string channelId, string suggestion,
         CancellationToken cancellationToken)
     {
-        var payload = new
-        {
-            channel = channelId,
-            text = $":thinking_face: Did you mean: *{suggestion}*?",
-            blocks = new object[]
-            {
-                new
-                {
-                    type = "section",
-                    text = new { type = "mrkdwn", text = $":thinking_face: Did you mean: *{suggestion}*?" }
-                },
-                new
-                {
-                    type = "actions",
-                    block_id = "clarification",
-                    elements = new object[]
-                    {
-                        new
-                        {
-                            type = "button",
-                            text = new { type = "plain_text", text = "Yes, do it" },
-                            style = "primary",
-                            value = "confirm",
-                            action_id = "clarification:confirm"
-                        },
-                        new
-                        {
-                            type = "button",
-                            text = new { type = "plain_text", text = "Show help" },
-                            value = "help",
-                            action_id = "clarification:help"
-                        }
-                    }
-                }
-            }
-        };
-
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        var (text, blocks) = SlackMessageBlockBuilder.BuildClarification(suggestion);
+        var payload = new { channel = channelId, text, blocks };
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     public async Task<DialogAnswer?> AskTypedQuestionAsync(
@@ -202,11 +122,11 @@ public sealed class SlackAdapter(
             return null;
         }
 
-        var blocks = BuildTypedQuestionBlocks(question);
+        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
         var fallbackText = $":thought_balloon: *Question:* {question.Text}";
 
         var payload = new { channel = channelId, text = fallbackText, blocks };
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
 
         // Register a TCS and wait for the interaction handler to complete it
         var tcs = new TaskCompletionSource<DialogAnswer?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -234,28 +154,9 @@ public sealed class SlackAdapter(
     public async Task SendInfoAsync(string channelId, string title, string text,
         CancellationToken cancellationToken)
     {
-        var blocks = new object[]
-        {
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = $":information_source: *{title}*" }
-            },
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text }
-            }
-        };
-
-        var payload = new
-        {
-            channel = channelId,
-            text = $":information_source: {title}: {text}",
-            blocks
-        };
-
-        await PostAsync("chat.postMessage", payload, cancellationToken);
+        var (fallback, blocks) = SlackMessageBlockBuilder.BuildInfo(title, text);
+        var payload = new { channel = channelId, text = fallback, blocks };
+        await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
 
     /// <summary>
@@ -279,260 +180,20 @@ public sealed class SlackAdapter(
     internal bool HasPendingTypedQuestion(string questionId) =>
         _pendingTypedQuestions.ContainsKey(questionId);
 
-    // --- Block Kit builders for typed questions ---
-
-    internal static object[] BuildTypedQuestionBlocks(DialogQuestion question)
-    {
-        return question.Type switch
-        {
-            QuestionType.Confirmation => BuildConfirmationBlocks(question),
-            QuestionType.Choice => BuildChoiceBlocks(question),
-            QuestionType.Approval => BuildApprovalBlocks(question),
-            QuestionType.FreeText => BuildFreeTextBlocks(question),
-            _ => BuildConfirmationBlocks(question)
-        };
-    }
-
-    private static object[] BuildConfirmationBlocks(DialogQuestion question)
-    {
-        var blocks = new List<object>
-        {
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = $":thought_balloon: *{question.Text}*" }
-            }
-        };
-
-        AddContextBlock(blocks, question.Context);
-
-        blocks.Add(new
-        {
-            type = "actions",
-            block_id = question.QuestionId,
-            elements = new object[]
-            {
-                new
-                {
-                    type = "button",
-                    text = new { type = "plain_text", text = "Yes \u2705" },
-                    style = "primary",
-                    value = "yes",
-                    action_id = $"{question.QuestionId}:yes"
-                },
-                new
-                {
-                    type = "button",
-                    text = new { type = "plain_text", text = "No \u274c" },
-                    style = "danger",
-                    value = "no",
-                    action_id = $"{question.QuestionId}:no"
-                }
-            }
-        });
-
-        return blocks.ToArray();
-    }
-
-    private static object[] BuildChoiceBlocks(DialogQuestion question)
-    {
-        var blocks = new List<object>
-        {
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = $":thought_balloon: *{question.Text}*" }
-            }
-        };
-
-        AddContextBlock(blocks, question.Context);
-
-        var buttons = new List<object>();
-        if (question.Choices is not null)
-        {
-            for (var i = 0; i < question.Choices.Count; i++)
-            {
-                buttons.Add(new
-                {
-                    type = "button",
-                    text = new { type = "plain_text", text = question.Choices[i] },
-                    value = question.Choices[i],
-                    action_id = $"{question.QuestionId}:{i}"
-                });
-            }
-        }
-
-        blocks.Add(new
-        {
-            type = "actions",
-            block_id = question.QuestionId,
-            elements = buttons.ToArray()
-        });
-
-        return blocks.ToArray();
-    }
-
-    private static object[] BuildApprovalBlocks(DialogQuestion question)
-    {
-        var blocks = new List<object>
-        {
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = $":clipboard: *{question.Text}*" }
-            }
-        };
-
-        AddContextBlock(blocks, question.Context);
-
-        blocks.Add(new
-        {
-            type = "actions",
-            block_id = question.QuestionId,
-            elements = new object[]
-            {
-                new
-                {
-                    type = "button",
-                    text = new { type = "plain_text", text = "Approve \u2705" },
-                    style = "primary",
-                    value = "approve",
-                    action_id = $"{question.QuestionId}:approve"
-                },
-                new
-                {
-                    type = "button",
-                    text = new { type = "plain_text", text = "Reject \u274c" },
-                    style = "danger",
-                    value = "reject",
-                    action_id = $"{question.QuestionId}:reject"
-                }
-            }
-        });
-
-        blocks.Add(new
-        {
-            type = "context",
-            elements = new object[]
-            {
-                new { type = "mrkdwn", text = "_You can reply with an optional comment as the next message._" }
-            }
-        });
-
-        return blocks.ToArray();
-    }
-
-    private static object[] BuildFreeTextBlocks(DialogQuestion question)
-    {
-        var blocks = new List<object>
-        {
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = $":pencil: *{question.Text}*" }
-            }
-        };
-
-        AddContextBlock(blocks, question.Context);
-
-        blocks.Add(new
-        {
-            type = "context",
-            elements = new object[]
-            {
-                new { type = "mrkdwn", text = "_Please type your answer as the next message in this channel._" }
-            }
-        });
-
-        return blocks.ToArray();
-    }
-
-    private static void AddContextBlock(List<object> blocks, string? context)
-    {
-        if (string.IsNullOrWhiteSpace(context)) return;
-
-        blocks.Add(new
-        {
-            type = "context",
-            elements = new object[]
-            {
-                new { type = "mrkdwn", text = context }
-            }
-        });
-    }
-
     // --- Modal helpers ---
 
     internal async Task<JsonNode?> OpenViewAsync(
         string triggerId, object view, CancellationToken ct)
     {
         var payload = new { trigger_id = triggerId, view };
-        return await PostAsync("views.open", payload, ct);
+        return await api.PostAsync("views.open", payload, ct);
     }
 
     internal async Task<JsonNode?> UpdateViewAsync(
         string viewId, object view, CancellationToken ct)
     {
         var payload = new { view_id = viewId, view };
-        return await PostAsync("views.update", payload, ct);
+        return await api.PostAsync("views.update", payload, ct);
     }
 
-    // --- Internal HTTP helpers ---
-
-    private async Task<JsonNode?> PostAsync(string method, object payload,
-        CancellationToken cancellationToken)
-    {
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        using var request = new HttpRequestMessage(HttpMethod.Post,
-            $"https://slack.com/api/{method}");
-
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue("Bearer", options.BotToken);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-        }
-        catch (HttpRequestException ex)
-        {
-            logger.LogError(ex, "Slack API call failed: {Method}", method);
-            return null;
-        }
-
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        JsonNode? node = null;
-        try
-        {
-            node = JsonNode.Parse(body);
-        }
-        catch (JsonException)
-        {
-            logger.LogWarning("Failed to parse Slack response for {Method}", method);
-            return null;
-        }
-
-        var ok = node?["ok"]?.GetValue<bool>() ?? false;
-        if (!ok)
-        {
-            var error = node?["error"]?.GetValue<string>() ?? "unknown";
-            logger.LogWarning("Slack API {Method} returned ok=false: {Error}", method, error);
-        }
-
-        return node;
-    }
-
-    private static string? ExtractTimestamp(JsonNode? response) =>
-        response?["ts"]?.GetValue<string>();
-
-    private static string BuildProgressBar(int step, int total)
-    {
-        const int barLength = 10;
-        var filled = (int)Math.Round((double)step / total * barLength);
-        var empty = barLength - filled;
-        return $"`[{new string('█', filled)}{new string('░', empty)}]` {step}/{total}";
-    }
 }
