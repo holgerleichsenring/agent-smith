@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p75
 goal: "Convert all done+planned phase docs from chatty markdown to compact YAML spec format. ~10x token reduction."
 

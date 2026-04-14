@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p13
 goal: "Write results back to tickets — status updates, PR link, close on completion"
 requires: ["p10"]

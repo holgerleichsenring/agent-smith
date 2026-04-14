@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p30
 goal: "Fix PR URL propagation, orphan job cleanup, and eliminate optional parameters"
 requires: ["p29"]

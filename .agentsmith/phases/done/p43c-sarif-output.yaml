@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p43c
 goal: "SARIF 2.1.0 output strategy, Markdown output, platform-specific upload (GitHub Security tab, GitLab artifact, AzDO Work Item), PR/MR summary comments"
 requires: ["p43b"]

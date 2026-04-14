@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p74
 goal: "Make source config (type, url, auth) overridable via CLI arguments — replaces --repo with generic --source-type/--source-url/--source-auth"
 decisions:

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p37
 goal: "Type-driven pipeline via strategy interfaces — same engine for coding, discussion, data pipelines"
 decisions:

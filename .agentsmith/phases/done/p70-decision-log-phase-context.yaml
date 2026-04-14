@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p70
 goal: "Group decisions.md by phase/run context instead of category — add sourceLabel to IDecisionLogger, add workflow step to .claude/prompt.md"
 steps:

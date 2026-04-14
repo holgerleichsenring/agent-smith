@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p32
 goal: "ILlmClient abstraction, generator simplification, command name constants, pipeline presets"
 decisions:

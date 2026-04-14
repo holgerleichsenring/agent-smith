@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p68
 goal: "Add ApiPath and SchemaName to Finding record so API scan output shows 'POST /api/auth/login' instead of 'swagger.json:0'"
 steps:

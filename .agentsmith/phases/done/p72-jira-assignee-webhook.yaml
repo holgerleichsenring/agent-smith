@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p72
 goal: "Auto-start pipeline when Jira issue assigned to Agent Smith — pipeline resolved from issue labels with configurable default"
 requires: ["p16", "p43e"]

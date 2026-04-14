@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p54
 goal: "Expand security-scan with static pattern matching, git history scanning, dependency auditing, and 4 new LLM specialist skills"
 decisions:

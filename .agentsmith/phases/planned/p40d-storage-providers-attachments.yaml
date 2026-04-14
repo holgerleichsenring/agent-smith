@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p40d
 goal: "Implement storage providers (Disk, SharePoint, Blob) and LoadAttachmentsCommand — enables legal pipeline document ingestion, completes Infrastructure emptying"
 steps:

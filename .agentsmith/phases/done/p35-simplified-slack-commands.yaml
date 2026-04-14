@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p35
 goal: "Split FixTicket modal command into FixBug/FixBugNoTests/AddFeature — hide pipeline implementation detail"
 requires: ["p34"]

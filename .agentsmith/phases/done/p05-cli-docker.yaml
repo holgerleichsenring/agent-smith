@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p05
 goal: "Deliverable CLI tool and Docker image — agentsmith 'fix #123 in todo-list'"
 requires: ["p04"]

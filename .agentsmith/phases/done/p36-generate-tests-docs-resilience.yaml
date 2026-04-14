@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p36
 goal: "Implement GenerateTests + GenerateDocs commands and add pipeline crash resilience"
 decisions:

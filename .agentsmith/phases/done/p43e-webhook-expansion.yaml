@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p43e
 goal: "Extend WebhookListener with IWebhookHandler dispatch pattern — PR/MR label events from GitHub, GitLab, AzDO trigger security-scan pipeline"
 requires: ["p43b", "p43c"]

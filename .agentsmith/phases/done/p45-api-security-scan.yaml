@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p45
 goal: "New api-security-scan pipeline — scans running API via swagger.json + Nuclei Docker container + LLM skills for OWASP API Top 10"
 requires: ["p19a", "p43b", "p43c", "p34"]

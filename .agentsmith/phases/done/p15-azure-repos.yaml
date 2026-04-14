@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p15
 goal: "Add Azure Repos as source provider — clone, branch, commit, push, create PR"
 requires: ["p10"]

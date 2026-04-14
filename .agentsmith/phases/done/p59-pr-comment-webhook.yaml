@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p59
 goal: "PR comments as full input — /agent-smith fix starts a job, /approve /reject answers running dialogue — GitHub only (GitLab p59b, AzDO p59c)"
 requires: ["p43e", "p58"]

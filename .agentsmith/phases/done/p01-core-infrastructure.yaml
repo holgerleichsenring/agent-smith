@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p01
 goal: "Foundation — solution structure, domain entities, contracts (interfaces only), config loader"
 decisions:

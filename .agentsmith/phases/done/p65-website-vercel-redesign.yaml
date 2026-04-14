@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p65
 goal: "Redesign agent-smith.org to Vercel/Geist aesthetic — monochrome palette, shadow-as-border, negative letter-spacing"
 decisions:

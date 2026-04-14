@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p61
 goal: "Apply Karpathy knowledge-base pattern to codebases — compile runs into queryable wiki, add Q&A intent, wiki linting"
 requires: ["p41", "p22", "p58", "p60"]

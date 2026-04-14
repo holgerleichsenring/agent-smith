@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p16
 goal: "Add Jira as ticket provider — read issues, post comments, transition to Done"
 requires: ["p10"]

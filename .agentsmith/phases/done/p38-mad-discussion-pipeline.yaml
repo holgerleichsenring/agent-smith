@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p38
 goal: "Multi-agent discussion (MAD) pipeline — Claude personas debate a topic, produce markdown PR"
 requires: ["p34"]

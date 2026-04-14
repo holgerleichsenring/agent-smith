@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p69
 goal: "Rename AgentSmith.Host → AgentSmith.Cli and AgentSmith.Dispatcher → AgentSmith.Server to reflect actual roles"
 decisions:

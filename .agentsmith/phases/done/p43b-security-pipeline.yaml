@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p43b
 goal: "New security-scan pipeline — CLI verb, PR diff providers, IOutputStrategy, security skills, and breaking CLI refactor to subcommands"
 requires: ["p40a"]

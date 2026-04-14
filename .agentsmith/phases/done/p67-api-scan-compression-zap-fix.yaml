@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p67
 goal: "Add finding compression to api-security-scan (504 findings unsliced) and fix ZAP --auto flag removed in recent zaproxy:stable"
 requires: ["p48", "p55", "p64"]

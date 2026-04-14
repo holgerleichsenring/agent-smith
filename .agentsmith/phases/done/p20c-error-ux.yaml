@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p20c
 goal: "Transform raw exceptions into actionable Slack error messages with retry/logs/contact buttons"
 requires: ["p20a", "p20b"]

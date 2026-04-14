@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p21
 goal: "Full codebase restructuring (6 projects) + code quality fixes + test coverage"
 decisions:

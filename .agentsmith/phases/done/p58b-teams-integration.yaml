@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p58b
 goal: "Full Teams adapter with Adaptive Cards for all 5 QuestionTypes, JWT verification, removal of deprecated AskQuestion"
 requires: ["p58"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p02
 goal: "Wire up pipeline — CommandExecutor + 9 command contexts/handlers as stubs"
 requires: ["p01"]

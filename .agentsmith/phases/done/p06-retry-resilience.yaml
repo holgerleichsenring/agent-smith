@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p06
 goal: "Survive rate limits (429) and transient errors — Polly retry with exponential backoff"
 requires: ["p05"]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p52
 goal: "Self-contained single-file executables for 5 platforms via GitHub Releases — eliminates Docker-in-Docker for CI/CD"
 decisions:
