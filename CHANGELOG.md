@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.12.1...v0.13.0) (2026-04-14)
+
+
+### Features
+
+* **p76:** Azure OpenAI agent provider ([87956ba](https://github.com/holgerleichsenring/agent-smith/commit/87956ba9c39122c7d332dca0444113c45526e373))
+
+
+### Bug Fixes
+
+* **p76:** use AZURE_OPENAI_API_KEY as default secret name ([7a199e0](https://github.com/holgerleichsenring/agent-smith/commit/7a199e0722abbc47f2b2f04fafb2f832136c0c91))
+
 ## [0.12.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.12.0...v0.12.1) (2026-04-14)
 
 
