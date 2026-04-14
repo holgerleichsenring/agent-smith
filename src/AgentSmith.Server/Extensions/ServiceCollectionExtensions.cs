@@ -90,6 +90,9 @@ internal static class ServiceCollectionExtensions
             SigningSecret = Environment.GetEnvironmentVariable("SLACK_SIGNING_SECRET") ?? string.Empty
         });
         services.AddSingleton<SlackApiClient>();
+        services.AddTransient<SlackTypedQuestionBlockBuilder>();
+        services.AddTransient<SlackMessageBlockBuilder>();
+        services.AddTransient<SlackProgressFormatter>();
         services.AddSingleton<SlackAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<SlackAdapter>());
         return services;

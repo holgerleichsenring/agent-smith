@@ -4,11 +4,11 @@ namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Builds Slack Block Kit payloads for typed dialogue questions.
-/// Pure static builder — no state, no dependencies.
+/// Registered as Transient in DI.
 /// </summary>
-internal static class SlackTypedQuestionBlockBuilder
+public sealed class SlackTypedQuestionBlockBuilder
 {
-    internal static object[] Build(DialogQuestion question)
+    internal object[] Build(DialogQuestion question)
     {
         return question.Type switch
         {
