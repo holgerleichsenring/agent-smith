@@ -14,6 +14,9 @@ namespace AgentSmith.Server.Services.Adapters;
 /// </summary>
 public sealed class SlackAdapter(
     SlackApiClient api,
+    SlackTypedQuestionBlockBuilder typedQuestionBlockBuilder,
+    SlackMessageBlockBuilder messageBlockBuilder,
+    SlackProgressFormatter progressFormatter,
     ILogger<SlackAdapter> logger) : IPlatformAdapter
 {
 
@@ -37,7 +40,7 @@ public sealed class SlackAdapter(
     public async Task SendProgressAsync(string channelId, int step, int total, string commandName,
         CancellationToken cancellationToken)
     {
-        var text = SlackProgressFormatter.FormatProgress(step, total, commandName);
+        var text = progressFormatter.FormatProgress(step, total, commandName);
 
         if (_progressMessageTs.TryGetValue(channelId, out var existingTs))
         {
@@ -85,7 +88,7 @@ public sealed class SlackAdapter(
     public async Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken cancellationToken)
     {
-        var (text, blocks) = SlackMessageBlockBuilder.BuildQuestionAnswered(questionText, answer);
+        var (text, blocks) = messageBlockBuilder.BuildQuestionAnswered(questionText, answer);
         var payload = new { channel = channelId, ts = messageId, text, blocks };
         await api.PostAsync("chat.update", payload, cancellationToken);
     }
@@ -106,7 +109,7 @@ public sealed class SlackAdapter(
     public async Task SendClarificationAsync(string channelId, string suggestion,
         CancellationToken cancellationToken)
     {
-        var (text, blocks) = SlackMessageBlockBuilder.BuildClarification(suggestion);
+        var (text, blocks) = messageBlockBuilder.BuildClarification(suggestion);
         var payload = new { channel = channelId, text, blocks };
         await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
@@ -122,7 +125,7 @@ public sealed class SlackAdapter(
             return null;
         }
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = typedQuestionBlockBuilder.Build(question);
         var fallbackText = $":thought_balloon: *Question:* {question.Text}";
 
         var payload = new { channel = channelId, text = fallbackText, blocks };
@@ -154,7 +157,7 @@ public sealed class SlackAdapter(
     public async Task SendInfoAsync(string channelId, string title, string text,
         CancellationToken cancellationToken)
     {
-        var (fallback, blocks) = SlackMessageBlockBuilder.BuildInfo(title, text);
+        var (fallback, blocks) = messageBlockBuilder.BuildInfo(title, text);
         var payload = new { channel = channelId, text = fallback, blocks };
         await api.PostAsync("chat.postMessage", payload, cancellationToken);
     }
