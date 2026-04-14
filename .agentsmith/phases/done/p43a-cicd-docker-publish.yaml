@@ -1,0 +1,28 @@
+phase: p43a
+goal: "GitHub Action builds Docker images on push to main and publishes to Docker Hub — two images: agent-smith (CLI) and agent-smith-dispatcher (Server)"
+decisions:
+  - key: "Host Dockerfile stays on sdk:8.0 — agentic loop runs dotnet build/test on cloned repos"
+  - key: "Multi-arch linux/amd64 + linux/arm64 via QEMU + Buildx"
+  - key: "DOCKER_NAMESPACE as workflow variable, not hardcoded"
+  - key: "Tests run before Docker build — fail fast"
+steps:
+  - id: workflow
+    action: "Create GitHub Action for Docker build + publish"
+    new:
+      - ".github/workflows/docker-publish.yml"
+      - "DOCKERHUB_DESCRIPTION.md"
+    modify:
+      - "Dockerfile: add libgit2-dev, add Infrastructure.Core csproj to restore layer"
+      - "Dockerfile.dispatcher: add Infrastructure.Core csproj to restore layer"
+  - id: versioning
+    action: "Configure tag-based versioning"
+    # Push main -> latest; tag v1.2.0 -> 1.2.0, 1.2, latest; PR -> build only
+secrets:
+  - "DOCKERHUB_USERNAME"
+  - "DOCKERHUB_TOKEN"
+done:
+  - "Push to main -> both images on Docker Hub as latest"
+  - "Git tag v* -> semver tags published"
+  - "PR -> build-only, no push"
+  - "Multi-arch amd64 + arm64"
+  - "DockerHub description updated on push"

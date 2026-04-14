@@ -1,0 +1,25 @@
+phase: p71
+goal: "Reduce root directory from 20 to 13 entries — move Dockerfiles to projects, group deployment files, remove generated dirs"
+steps:
+  - id: dockerfiles
+    action: "Move Dockerfiles to their projects"
+    modify:
+      - "Dockerfile → src/AgentSmith.Cli/Dockerfile"
+      - "Dockerfile.server → src/AgentSmith.Server/Dockerfile"
+      - "docker-entrypoint.sh → src/AgentSmith.Cli/docker-entrypoint.sh"
+  - id: deploy-dir
+    action: "Create deploy/ and move docker-compose, k8s/, apply-k8s-secret.sh, DOCKERHUB_DESCRIPTION.md"
+  - id: mkdocs
+    action: "Move mkdocs.yml into docs/, update docs_dir"
+  - id: remove-generated
+    action: "Delete site/, agentsmith-output/, prompts/ and add to .gitignore"
+  - id: update-refs
+    action: "Update GitHub Actions, docker-compose build contexts, docker-publish, release workflows"
+done:
+  - "Dockerfiles live next to their projects"
+  - "deploy/ contains docker-compose, k8s, scripts"
+  - "mkdocs.yml lives inside docs/"
+  - "site/, agentsmith-output/, prompts/ removed and gitignored"
+  - "CI/CD workflows updated for new paths"
+  - "docker-compose build contexts work from deploy/"
+  - "Root has 13 entries or fewer"

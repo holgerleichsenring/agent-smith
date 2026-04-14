@@ -1,0 +1,34 @@
+phase: p07
+goal: "Activate Anthropic prompt caching — cached tokens bypass ITPM rate limit"
+requires: ["p06"]
+decisions:
+  - key: "AutomaticToolsAndSystem mode — SDK handles cache control automatically"
+  - key: "System prompt order: Coding Principles first (largest stable prefix) then instructions"
+  - key: "TokenUsageTracker accumulates across all API calls for observability"
+steps:
+  - id: cache-config
+    action: "Add CacheConfig and TokenUsageTracker"
+    new:
+      - "CacheConfig: { Enabled:true, Strategy:'automatic' }"
+      - "TokenUsageSummary: record { TotalInput, TotalOutput, CacheCreate, CacheRead, Iterations, CacheHitRate }"
+      - "TokenUsageTracker: Track(response), GetSummary(), LogSummary()"
+    modify:
+      - "AgentConfig: add Cache property"
+  - id: activate-caching
+    action: "Set PromptCaching on all API calls, restructure system prompt"
+    modify:
+      - "AgenticLoop: add CacheConfig + TokenUsageTracker params, set PromptCaching, track usage"
+      - "ClaudeAgentProvider: reorder system prompt (principles first), set PromptCaching on GeneratePlanAsync"
+      - "AgentProviderFactory: pass config.Cache"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Track_AccumulatesTokens"
+  - "GetSummary_ReturnsCorrectTotals"
+  - "CacheHitRate_CalculatesCorrectly"
+  - "CacheHitRate_ZeroTokens_ReturnsZero"
+done:
+  - "PromptCaching = AutomaticToolsAndSystem on all API calls"
+  - "System prompt structured for optimal cache prefix"
+  - "TokenUsageTracker logs cache hit rate"
+  - "Cache hits visible from iteration 2 onwards"

@@ -1,0 +1,55 @@
+phase: p28
+goal: "Unified .agentsmith/ directory for all agent meta-files + run tracking + context loading"
+decisions:
+  - agentsmith-not-agent: "Clearly branded, no conflict with other tools"
+  - run-counter-rNN: "Unique, simple, never collides — agent reads and increments"
+  - failed-runs-not-in-done: "Failed runs recorded in runs/ only, not in state.done"
+  - context-in-prompts: "context.yaml injected into agent prompts for project awareness"
+  - write-before-commit: "WriteRunResult runs before CommitAndPR so artifacts are committed with code"
+steps:
+  - id: migrate-files
+    action: "Move prompts/*.yaml -> .agentsmith/, delete prompts/"
+    modify: ["prompts/.context.yaml -> .agentsmith/context.yaml", "prompts/coding-principles.md -> .agentsmith/coding-principles.md", "prompts/template.context.yaml -> .agentsmith/template.context.yaml"]
+  - id: bootstrap-paths
+    action: "Update BootstrapProjectHandler to write to .agentsmith/"
+    modify: ["BootstrapProjectHandler: AgentSmithDir constant"]
+  - id: codemap-path
+    action: "Update LoadCodeMapHandler path to .agentsmith/code-map.yaml"
+    modify: ["LoadCodeMapHandler"]
+  - id: principles-path
+    action: "Update default coding_principles_path to .agentsmith/coding-principles.md"
+    modify: ["CommandContextFactory"]
+  - id: load-context
+    action: "Create LoadContextCommand to read .agentsmith/context.yaml into pipeline"
+    new: ["LoadContextContext", "LoadContextHandler"]
+  - id: write-run-result
+    action: "Create WriteRunResultCommand to write runs/ + update context.yaml state.done"
+    new: ["WriteRunResultContext", "WriteRunResultHandler"]
+  - id: wire-pipeline
+    action: "Wire new commands into CommandContextFactory, PipelineExecutor, DI, pipeline configs"
+    modify: ["CommandContextFactory", "PipelineExecutor", "ServiceCollectionExtensions", "agentsmith.yml"]
+  - id: inject-context
+    action: "Add projectContext parameter to AgentPromptBuilder and all AI providers"
+    modify: ["AgentPromptBuilder", "ClaudeAgentProvider", "OpenAIAgentProvider", "GeminiAgentProvider"]
+new-context-keys:
+  - "ContextKeys.ProjectContext"
+  - "ContextKeys.RunResult"
+directory-structure:
+  - ".agentsmith/context.yaml"
+  - ".agentsmith/code-map.yaml"
+  - ".agentsmith/coding-principles.md"
+  - ".agentsmith/template.context.yaml"
+  - ".agentsmith/phases/"
+  - ".agentsmith/runs/r{NN}-{slug}/plan.md + result.md"
+tests:
+  - "LoadContextHandler_FileExists_LoadsContent"
+  - "LoadContextHandler_FileNotFound_ReturnsOk"
+  - "WriteRunResultHandler_FirstRun_CreatesR01"
+  - "WriteRunResultHandler_ExistingRuns_IncrementsNumber"
+  - "WriteRunResultHandler_WritesPlanAndResultFiles"
+  - "WriteRunResultHandler_UpdatesContextYaml"
+done:
+  - "All meta-files in .agentsmith/"
+  - "Run tracking creates r{NN} entries"
+  - "Context loaded into pipeline and agent prompts"
+  - "Pipeline configs updated with new commands"
