@@ -14,7 +14,7 @@ public sealed class ToolRunnerTests
     [Fact]
     public void DetectToolRunnerType_FallsBackToProcess()
     {
-        var result = ServiceCollectionExtensions.DetectToolRunnerType();
+        var result = ToolRunnerSetup.DetectToolRunnerType();
         result.Should().BeOneOf("docker", "podman", "process");
     }
 
@@ -26,7 +26,7 @@ public sealed class ToolRunnerTests
         services.AddLogging();
         var sp = services.BuildServiceProvider();
 
-        var runner = ServiceCollectionExtensions.CreateToolRunner(config, sp);
+        var runner = ToolRunnerSetup.CreateToolRunner(config, sp);
         runner.Should().BeOfType<DockerToolRunner>();
     }
 
@@ -38,7 +38,7 @@ public sealed class ToolRunnerTests
         services.AddLogging();
         var sp = services.BuildServiceProvider();
 
-        var runner = ServiceCollectionExtensions.CreateToolRunner(config, sp);
+        var runner = ToolRunnerSetup.CreateToolRunner(config, sp);
         runner.Should().BeOfType<ProcessToolRunner>();
     }
 
@@ -54,7 +54,7 @@ public sealed class ToolRunnerTests
         services.AddLogging();
         var sp = services.BuildServiceProvider();
 
-        var runner = ServiceCollectionExtensions.CreateToolRunner(config, sp);
+        var runner = ToolRunnerSetup.CreateToolRunner(config, sp);
         runner.Should().BeOfType<DockerToolRunner>();
     }
 
