@@ -24,6 +24,9 @@ public sealed class SkillRoundHandlerTests
             .Returns(_llmClientMock.Object);
         _handler = new SkillRoundHandler(
             _llmFactoryMock.Object,
+            new SkillPromptBuilder(),
+            new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
+            new UpstreamContextBuilder(),
             NullLogger<SkillRoundHandler>.Instance);
     }
 

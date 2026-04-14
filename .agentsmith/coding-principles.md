@@ -37,9 +37,12 @@ just extract methods into helper files. Ask: "What are the distinct responsibili
 here?" Each responsibility becomes its own type with its own interface, registered
 in DI, and injectable wherever needed.
 
-**Composition over inheritance.** Orchestrate behavior by injecting small,
-focused services — not by building fat base classes. Base classes must be thin
-(max 30 lines) and contain only template method scaffolding, never business logic.
+**Composition over inheritance (NON-NEGOTIABLE).** Orchestrate behavior by
+injecting small, focused services — not by building fat base classes. Prefer
+interfaces + DI injection over abstract base classes. When inheritance is
+unavoidable (e.g. template method), the base class must be thin (max 30 lines)
+and contain only the execution skeleton, never business logic. If a base class
+needs to do something complex, inject a service that does it.
 
 **Small classes are non-negotiable.** Most service classes should be 20-60 lines.
 A class reaching 80 lines is a warning. A class reaching 120 lines must be split

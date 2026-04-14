@@ -13,8 +13,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SkillRoundHandler(
     ILlmClientFactory llmClientFactory,
+    ISkillPromptBuilder promptBuilder,
+    IGateOutputHandler gateOutputHandler,
+    IUpstreamContextBuilder upstreamContextBuilder,
     ILogger<SkillRoundHandler> logger)
-    : SkillRoundHandlerBase, ICommandHandler<SkillRoundContext>
+    : SkillRoundHandlerBase(promptBuilder, gateOutputHandler, upstreamContextBuilder),
+      ICommandHandler<SkillRoundContext>
 {
     protected override ILogger Logger => logger;
 
@@ -36,13 +40,3 @@ public sealed class SkillRoundHandler(
             context.SkillName, context.Round, context.Pipeline, llmClient, cancellationToken);
     }
 }
-
-/// <summary>
-/// A single entry in the multi-role plan discussion log.
-/// </summary>
-public sealed record DiscussionEntry(
-    string RoleName,
-    string DisplayName,
-    string Emoji,
-    int Round,
-    string Content);
