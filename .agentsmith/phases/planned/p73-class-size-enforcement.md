@@ -114,13 +114,26 @@ PR can merge with a file exceeding 120 lines.
 
 ---
 
+## Coding Principles (apply throughout)
+
+- **SOLID** — SRP drives the splits. ISP/DIP: extract interfaces where
+  a class gains a new collaborator. One reason to change per class.
+- **DRY** — if splitting reveals duplication, extract it.
+- **Tell Don't Ask** — extracted classes own their data and behavior.
+  Callers tell, don't reach in.
+- **One type per file** — every new class, interface, enum, record gets
+  its own file. No exceptions.
+- **No optional parameters** — use overloads or builder patterns.
+- **Clean abstractions with interfaces** — new interfaces are expected
+  and encouraged when extracting responsibilities. Register in DI.
+- **Preserve conventions** — file-scoped namespaces, sealed default,
+  primary constructors, records for DTOs.
+
 ## Constraints
 
 - **No behavior changes.** This is pure refactoring — extract, rename, split.
-- **No test changes** unless a class was renamed and the test references it by name.
-- **No new abstractions.** Splitting a 400-line class into 3×130-line classes
-  is fine. Introducing a new interface "for future flexibility" is not.
-- **Preserve file-scoped namespaces, sealed default, primary constructors.**
+- **Tests may change** when classes are renamed or split, but test coverage
+  must not decrease.
 
 ---
 
@@ -128,6 +141,7 @@ PR can merge with a file exceeding 120 lines.
 
 - [ ] All `src/` files ≤ 120 lines
 - [ ] CI gate blocks files > 120 lines
+- [ ] One type per file — no multi-type files
+- [ ] New abstractions have interfaces + DI registration
+- [ ] No optional parameters in new/changed signatures
 - [ ] `dotnet build` + `dotnet test` clean
-- [ ] No public API changes (callers unchanged)
-- [ ] No new interfaces or abstractions introduced
