@@ -36,10 +36,10 @@ public sealed class SlackModalSubmissionHandlerTests
             NullLogger<ConversationStateManager>.Instance);
 
         var messageBus = new Mock<IMessageBus>();
+        var messageRouter = new Mock<IBusMessageRouter>();
         var listener = new MessageBusListener(
             messageBus.Object,
-            stateManager,
-            new[] { _adapter.Object },
+            messageRouter.Object,
             NullLogger<MessageBusListener>.Instance);
 
         var fixHandler = new FixTicketIntentHandler(

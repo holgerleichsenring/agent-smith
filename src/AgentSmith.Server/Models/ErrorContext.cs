@@ -1,3 +1,6 @@
+using AgentSmith.Infrastructure.Models;
+using AgentSmith.Server.Services;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -14,4 +17,18 @@ public sealed record ErrorContext(
     string StepName,
     string RawError,
     string FriendlyError,
-    string? LogUrl);
+    string? LogUrl)
+{
+    public static ErrorContext FromBusMessage(ConversationState state, BusMessage message) =>
+        new(
+            JobId: message.JobId,
+            ChannelId: state.ChannelId,
+            TicketId: state.TicketId,
+            Project: state.Project,
+            FailedStep: message.Step ?? 0,
+            TotalSteps: message.Total ?? 0,
+            StepName: message.StepName ?? string.Empty,
+            RawError: message.Text,
+            FriendlyError: ErrorFormatter.Humanize(message.Text),
+            LogUrl: null);
+}
