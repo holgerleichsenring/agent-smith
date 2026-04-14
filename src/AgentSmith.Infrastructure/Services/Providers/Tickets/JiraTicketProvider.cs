@@ -61,7 +61,7 @@ public sealed class JiraTicketProvider : ITicketProvider
 
         var description = fields.TryGetProperty("description", out var descEl)
             && descEl.ValueKind != JsonValueKind.Null
-            ? ExtractTextFromAdf(descEl)
+            ? JiraAdfParser.ExtractText(descEl)
             : "";
 
         var status = fields.TryGetProperty("status", out var statusEl)
@@ -175,49 +175,4 @@ public sealed class JiraTicketProvider : ITicketProvider
         return null;
     }
 
-    /// <summary>
-    /// Recursively walks an Atlassian Document Format (ADF) tree and extracts all text node values.
-    /// </summary>
-    private static string ExtractTextFromAdf(JsonElement element)
-    {
-        var builder = new StringBuilder();
-        CollectTextNodes(element, builder);
-        return builder.ToString().Trim();
-    }
-
-    private static void CollectTextNodes(JsonElement element, StringBuilder builder)
-    {
-        if (element.ValueKind != JsonValueKind.Object)
-            return;
-
-        // If this node is a text node, grab its text value.
-        if (element.TryGetProperty("type", out var typeEl)
-            && typeEl.GetString() == "text"
-            && element.TryGetProperty("text", out var textEl))
-        {
-            builder.Append(textEl.GetString());
-        }
-
-        // Recurse into the content array if present.
-        if (element.TryGetProperty("content", out var contentEl)
-            && contentEl.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var child in contentEl.EnumerateArray())
-            {
-                CollectTextNodes(child, builder);
-            }
-
-            // Add a newline after block-level nodes (paragraphs, headings, etc.)
-            // but only if we actually collected text from children.
-            if (typeEl.ValueKind == JsonValueKind.String)
-            {
-                var nodeType = typeEl.GetString();
-                if (nodeType is "paragraph" or "heading" or "blockquote"
-                    or "codeBlock" or "bulletList" or "orderedList" or "listItem")
-                {
-                    builder.AppendLine();
-                }
-            }
-        }
-    }
 }

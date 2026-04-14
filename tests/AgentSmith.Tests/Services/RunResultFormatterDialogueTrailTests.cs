@@ -25,7 +25,7 @@ public sealed class RunResultFormatterDialogueTrailTests
                     new DateTimeOffset(2025, 3, 15, 14, 10, 0, TimeSpan.Zero), "@dev"))
         };
 
-        RunResultFormatter.AppendDialogueTrail(sb, entries);
+        RunResultSectionWriter.AppendDialogueTrail(sb, entries);
         var result = sb.ToString();
 
         result.Should().Contain("## Dialogue Trail");
@@ -52,7 +52,7 @@ public sealed class RunResultFormatterDialogueTrailTests
                     DateTimeOffset.UtcNow, "system"))
         };
 
-        RunResultFormatter.AppendDialogueTrail(sb, entries);
+        RunResultSectionWriter.AppendDialogueTrail(sb, entries);
         var result = sb.ToString();
 
         result.Should().Contain("| Yes |");
@@ -62,11 +62,11 @@ public sealed class RunResultFormatterDialogueTrailTests
     public void AppendDialogueTrail_NullOrEmpty_WritesNothing()
     {
         var sb = new StringBuilder();
-        RunResultFormatter.AppendDialogueTrail(sb, null);
+        RunResultSectionWriter.AppendDialogueTrail(sb, null);
         sb.ToString().Should().BeEmpty();
 
         sb.Clear();
-        RunResultFormatter.AppendDialogueTrail(sb, new List<DialogTrailEntry>());
+        RunResultSectionWriter.AppendDialogueTrail(sb, new List<DialogTrailEntry>());
         sb.ToString().Should().BeEmpty();
     }
 
@@ -83,7 +83,7 @@ public sealed class RunResultFormatterDialogueTrailTests
                 new DialogAnswer("q1", "answer", null, DateTimeOffset.UtcNow, "@user"))
         };
 
-        RunResultFormatter.AppendDialogueTrail(sb, entries);
+        RunResultSectionWriter.AppendDialogueTrail(sb, entries);
         var result = sb.ToString();
 
         result.Should().Contain("...");

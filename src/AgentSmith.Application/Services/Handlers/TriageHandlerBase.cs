@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -10,24 +9,16 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Shared triage logic: roles check, LLM call, JSON parsing, SkillRound insertion.
-/// Subclasses provide the domain-specific prompt (ticket vs code analysis).
 /// </summary>
 public abstract class TriageHandlerBase
 {
     protected abstract ILogger Logger { get; }
     protected abstract string BuildUserPrompt(PipelineContext pipeline);
     protected virtual string SkillRoundCommandName => "SkillRoundCommand";
-
-    /// <summary>
-    /// Optional graph builder for structured/hierarchical pipelines.
-    /// Subclasses inject this for pipelines that support deterministic triage.
-    /// </summary>
     protected virtual ISkillGraphBuilder? GraphBuilder => null;
 
     protected async Task<CommandResult> TriageAsync(
-        PipelineContext pipeline,
-        ILlmClient llmClient,
-        CancellationToken cancellationToken)
+        PipelineContext pipeline, ILlmClient llmClient, CancellationToken cancellationToken)
     {
         if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var roles) || roles is null || roles.Count == 0)
@@ -36,202 +27,92 @@ public abstract class TriageHandlerBase
             return CommandResult.Ok("No roles available, skipping triage");
         }
 
-        // Structured/hierarchical pipelines: deterministic graph, no LLM triage
         if (pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
             && pipelineType is PipelineType.Structured or PipelineType.Hierarchical
             && GraphBuilder is not null)
         {
-            return BuildDeterministicCommands(pipeline, roles);
+            return DeterministicTriageBuilder.Build(
+                pipeline, roles, GraphBuilder, SkillRoundCommandName, Logger);
         }
 
-        var userPrompt = BuildUserPrompt(pipeline);
-
-        var rolesDescription = string.Join("\n", roles.Select(r =>
-            $"- {r.Name}: {r.Description} (triggers: {string.Join(", ", r.Triggers)})"));
-
-        var fullPrompt = $$"""
-            {{userPrompt}}
-
-            ## Available Roles
-            {{rolesDescription}}
-
-            ## Instructions
-            Analyze the input and determine:
-            1. Which roles are needed (select from available roles only)
-            2. Who should lead the discussion (creates the initial analysis)
-            3. For EVERY available role, explain why it is included or excluded
-
-            Respond in JSON:
-            {
-              "lead": "role-name",
-              "participants": ["role-name-1", "role-name-2"],
-              "reasoning": {
-                "role-name-1": "why this role is needed",
-                "role-name-2": "why this role is needed",
-                "excluded-role": "why this role is not needed"
-              }
-            }
-            """;
-
-        var systemPrompt = "You are triaging work to determine which specialist roles " +
-                           "should participate. Respond with valid JSON only, no markdown.";
-
-        TriageResult? triageResult;
-        try
-        {
-            var llmResponse = await llmClient.CompleteAsync(
-                systemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
-            PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
-            triageResult = ParseTriageResponse(llmResponse.Text, roles);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Triage LLM call failed, skipping discussion");
-            return CommandResult.Ok("Triage: no roles needed, skipping discussion");
-        }
-
+        var triageResult = await CallLlmTriageAsync(pipeline, roles, llmClient, cancellationToken);
         if (triageResult is null || triageResult.Participants.Count == 0)
         {
             Logger.LogInformation("Triage returned no participants, skipping discussion");
             return CommandResult.Ok("Triage: no roles needed, skipping discussion");
         }
 
-        // Ensure roles with "always_include" trigger are present
-        foreach (var role in roles.Where(r => r.Triggers.Contains("always_include")))
-        {
-            if (!triageResult.Participants.Contains(role.Name))
-            {
-                triageResult.Participants.Add(role.Name);
-                Logger.LogInformation("Added mandatory role {Role} (always_include trigger)", role.Name);
-            }
-        }
+        EnsureMandatoryRoles(roles, triageResult);
 
         if (triageResult.Participants.Count == 1)
         {
-            Logger.LogInformation("Single role needed: {Role}, skipping discussion",
-                triageResult.Participants[0]);
+            Logger.LogInformation("Single role needed: {Role}", triageResult.Participants[0]);
             return CommandResult.Ok(
                 $"Triage: single role ({triageResult.Participants[0]}), no discussion needed");
         }
 
-        // Store the skill round command name so ConvergenceCheck can use it for re-insertion
-        pipeline.Set(ContextKeys.ActiveSkill, SkillRoundCommandName);
-
-        var commandsToInsert = new List<PipelineCommand>();
-        commandsToInsert.Add(PipelineCommand.SkillRound(SkillRoundCommandName, triageResult.Lead, 1));
-
-        foreach (var participant in triageResult.Participants
-                     .Where(p => p != triageResult.Lead))
-        {
-            commandsToInsert.Add(PipelineCommand.SkillRound(SkillRoundCommandName, participant, 1));
-        }
-
-        commandsToInsert.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
-
-        Logger.LogInformation(
-            "Triage complete. Lead: {Lead}, Participants: {Participants}",
-            triageResult.Lead,
-            string.Join(", ", triageResult.Participants));
-
-        foreach (var (role, reason) in triageResult.Reasoning)
-        {
-            var included = triageResult.Participants.Contains(role) ? "INCLUDED" : "EXCLUDED";
-            Logger.LogInformation("  [{Status}] {Role}: {Reason}", included, role, reason);
-        }
-
-        return CommandResult.OkAndContinueWith(
-            $"Triage complete. Lead: {triageResult.Lead}. " +
-            $"Participants: {string.Join(", ", triageResult.Participants)}",
-            commandsToInsert.ToArray());
+        return BuildSkillRoundCommands(pipeline, triageResult);
     }
 
-    private CommandResult BuildDeterministicCommands(
-        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> roles)
+    private async Task<TriageResult?> CallLlmTriageAsync(
+        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> roles,
+        ILlmClient llmClient, CancellationToken cancellationToken)
     {
-        var graph = GraphBuilder!.Build(roles);
-        pipeline.Set(ContextKeys.SkillGraph, graph);
-        pipeline.Set(ContextKeys.ActiveSkill, SkillRoundCommandName);
+        var rolesDescription = string.Join("\n", roles.Select(r =>
+            $"- {r.Name}: {r.Description} (triggers: {string.Join(", ", r.Triggers)})"));
 
-        var commands = new List<PipelineCommand>();
-        var stageIndex = 1;
+        var fullPrompt = TriageResponseParser.BuildPrompt(BuildUserPrompt(pipeline), rolesDescription);
+        var parser = new TriageResponseParser(Logger);
 
-        foreach (var stage in graph.Stages)
-        {
-            foreach (var skillName in stage.Skills)
-            {
-                commands.Add(PipelineCommand.SkillRound(SkillRoundCommandName, skillName, stageIndex));
-            }
-            stageIndex++;
-        }
-
-        // Debug: log orchestration metadata per skill
-        foreach (var role in roles.Where(r => r.Orchestration is not null))
-        {
-            var o = role.Orchestration!;
-            Logger.LogDebug(
-                "[graph] {Skill}: role={Role}, output={Output}, runs_after=[{After}], runs_before=[{Before}]",
-                role.Name, o.Role, o.Output,
-                string.Join(", ", o.RunsAfter), string.Join(", ", o.RunsBefore));
-        }
-
-        var totalSkills = graph.Stages.Sum(s => s.Skills.Count);
-        var stageDescriptions = graph.Stages.Select((s, i) =>
-            $"  Stage {i + 1} ({s.RoleLabel}): {string.Join(", ", s.Skills)}");
-
-        Logger.LogInformation(
-            "Deterministic triage: {StageCount} stages, {SkillCount} skills",
-            graph.Stages.Count, totalSkills);
-        foreach (var desc in stageDescriptions)
-            Logger.LogInformation("{StageDescription}", desc);
-
-        var summary = string.Join(" → ",
-            graph.Stages.Select(s => $"[{s.RoleLabel}: {string.Join(", ", s.Skills)}]"));
-
-        return CommandResult.OkAndContinueWith(
-            $"Deterministic triage: {graph.Stages.Count} stages, {totalSkills} skills — {summary}",
-            commands.ToArray());
-    }
-
-    private TriageResult? ParseTriageResponse(
-        string response, IReadOnlyList<RoleSkillDefinition> availableRoles)
-    {
         try
         {
-            var json = response;
-            var jsonStart = response.IndexOf('{');
-            var jsonEnd = response.LastIndexOf('}');
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
-                json = response[jsonStart..(jsonEnd + 1)];
-
-            var parsed = JsonSerializer.Deserialize<TriageResult>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            if (parsed is null) return null;
-
-            var validNames = availableRoles.Select(r => r.Name).ToHashSet();
-            var validParticipants = parsed.Participants
-                .Where(p => validNames.Contains(p))
-                .ToList();
-
-            if (validParticipants.Count == 0) return null;
-
-            var lead = validNames.Contains(parsed.Lead) ? parsed.Lead : validParticipants[0];
-
-            return new TriageResult { Lead = lead, Participants = validParticipants };
+            var llmResponse = await llmClient.CompleteAsync(
+                TriageResponseParser.SystemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
+            PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
+            return parser.Parse(llmResponse.Text, roles);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to parse triage response");
+            Logger.LogWarning(ex, "Triage LLM call failed, skipping discussion");
             return null;
         }
     }
 
-    private sealed class TriageResult
+    private void EnsureMandatoryRoles(
+        IReadOnlyList<RoleSkillDefinition> roles, TriageResult triageResult)
     {
-        public string Lead { get; set; } = string.Empty;
-        public List<string> Participants { get; set; } = [];
-        public Dictionary<string, string> Reasoning { get; set; } = new();
+        foreach (var role in roles.Where(r => r.Triggers.Contains("always_include")))
+        {
+            if (triageResult.Participants.Contains(role.Name)) continue;
+            triageResult.Participants.Add(role.Name);
+            Logger.LogInformation("Added mandatory role {Role} (always_include trigger)", role.Name);
+        }
+    }
+
+    private CommandResult BuildSkillRoundCommands(PipelineContext pipeline, TriageResult triage)
+    {
+        pipeline.Set(ContextKeys.ActiveSkill, SkillRoundCommandName);
+
+        var commands = new List<PipelineCommand>
+        {
+            PipelineCommand.SkillRound(SkillRoundCommandName, triage.Lead, 1)
+        };
+        commands.AddRange(triage.Participants
+            .Where(p => p != triage.Lead)
+            .Select(p => PipelineCommand.SkillRound(SkillRoundCommandName, p, 1)));
+        commands.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
+
+        Logger.LogInformation("Triage complete. Lead: {Lead}, Participants: {Participants}",
+            triage.Lead, string.Join(", ", triage.Participants));
+        foreach (var (role, reason) in triage.Reasoning)
+        {
+            var status = triage.Participants.Contains(role) ? "INCLUDED" : "EXCLUDED";
+            Logger.LogInformation("  [{Status}] {Role}: {Reason}", status, role, reason);
+        }
+
+        return CommandResult.OkAndContinueWith(
+            $"Triage complete. Lead: {triage.Lead}. " +
+            $"Participants: {string.Join(", ", triage.Participants)}",
+            commands.ToArray());
     }
 }

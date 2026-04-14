@@ -40,7 +40,7 @@ public sealed class ZapSpawnerTests
             }
             """;
 
-        var findings = ZapSpawner.ParseZapJson(json);
+        var findings = ZapReportParser.ParseZapJson(json);
 
         findings.Should().HaveCount(2);
 
@@ -64,14 +64,14 @@ public sealed class ZapSpawnerTests
     [Fact]
     public void ParseZapJson_EmptyOutput_ReturnsEmpty()
     {
-        var findings = ZapSpawner.ParseZapJson("");
+        var findings = ZapReportParser.ParseZapJson("");
         findings.Should().BeEmpty();
     }
 
     [Fact]
     public void ParseZapJson_NullOutput_ReturnsEmpty()
     {
-        var findings = ZapSpawner.ParseZapJson(null!);
+        var findings = ZapReportParser.ParseZapJson(null!);
         findings.Should().BeEmpty();
     }
 
@@ -79,7 +79,7 @@ public sealed class ZapSpawnerTests
     public void ParseZapJson_NoSiteProperty_ReturnsEmpty()
     {
         var json = """{"version": "2.14.0"}""";
-        var findings = ZapSpawner.ParseZapJson(json);
+        var findings = ZapReportParser.ParseZapJson(json);
         findings.Should().BeEmpty();
     }
 
@@ -87,7 +87,7 @@ public sealed class ZapSpawnerTests
     public void ParseZapJson_EmptyAlerts_ReturnsEmpty()
     {
         var json = """{"site": [{"alerts": []}]}""";
-        var findings = ZapSpawner.ParseZapJson(json);
+        var findings = ZapReportParser.ParseZapJson(json);
         findings.Should().BeEmpty();
     }
 
@@ -123,7 +123,7 @@ public sealed class ZapSpawnerTests
             }
             """;
 
-        var findings = ZapSpawner.ParseZapJson(json);
+        var findings = ZapReportParser.ParseZapJson(json);
         findings.Should().HaveCount(2);
         findings[0].Url.Should().Be("https://site1.example.com/");
         findings[1].Url.Should().Be("https://site2.example.com/");
@@ -132,7 +132,7 @@ public sealed class ZapSpawnerTests
     [Fact]
     public void ParseZapJson_InvalidJson_ReturnsEmpty()
     {
-        var findings = ZapSpawner.ParseZapJson("not valid json {{{");
+        var findings = ZapReportParser.ParseZapJson("not valid json {{{");
         findings.Should().BeEmpty();
     }
 
@@ -154,14 +154,14 @@ public sealed class ZapSpawnerTests
     [InlineData(null, "Informational")]
     public void ExtractRiskLevel_ParsesCorrectly(string? input, string expected)
     {
-        ZapSpawner.ExtractRiskLevel(input!).Should().Be(expected);
+        ZapReportParser.ExtractRiskLevel(input!).Should().Be(expected);
     }
 
     [Fact]
     public void BuildArguments_Baseline_ReturnsCorrectArgs()
     {
         var inputFiles = new Dictionary<string, string>();
-        var args = ZapSpawner.BuildArguments("baseline", "https://example.com", null, inputFiles);
+        var args = ZapArgumentBuilder.BuildArguments("baseline", "https://example.com", null, inputFiles);
 
         args.Should().StartWith(["zap-baseline.py", "-t", "https://example.com"]);
         args.Should().Contain("-J");
@@ -173,7 +173,7 @@ public sealed class ZapSpawnerTests
     public void BuildArguments_FullScan_ReturnsCorrectArgs()
     {
         var inputFiles = new Dictionary<string, string>();
-        var args = ZapSpawner.BuildArguments("full-scan", "https://example.com", null, inputFiles);
+        var args = ZapArgumentBuilder.BuildArguments("full-scan", "https://example.com", null, inputFiles);
 
         args.Should().StartWith(["zap-full-scan.py", "-t", "https://example.com"]);
         args.Should().NotContain("--auto");
@@ -189,7 +189,7 @@ public sealed class ZapSpawnerTests
         try
         {
             var inputFiles = new Dictionary<string, string>();
-            var args = ZapSpawner.BuildArguments("api-scan", "https://example.com", tempSwagger, inputFiles);
+            var args = ZapArgumentBuilder.BuildArguments("api-scan", "https://example.com", tempSwagger, inputFiles);
 
             args.Should().StartWith(["zap-api-scan.py"]);
             args.Should().Contain("-f");
@@ -206,7 +206,7 @@ public sealed class ZapSpawnerTests
     public void BuildArguments_ApiScan_WithoutSwagger_FallsBackToTargetUrl()
     {
         var inputFiles = new Dictionary<string, string>();
-        var args = ZapSpawner.BuildArguments("api-scan", "https://example.com", null, inputFiles);
+        var args = ZapArgumentBuilder.BuildArguments("api-scan", "https://example.com", null, inputFiles);
 
         args.Should().StartWith(["zap-api-scan.py", "-t", "https://example.com"]);
         inputFiles.Should().BeEmpty();
@@ -216,7 +216,7 @@ public sealed class ZapSpawnerTests
     public void BuildArguments_UnknownScanType_DefaultsToBaseline()
     {
         var inputFiles = new Dictionary<string, string>();
-        var args = ZapSpawner.BuildArguments("unknown", "https://example.com", null, inputFiles);
+        var args = ZapArgumentBuilder.BuildArguments("unknown", "https://example.com", null, inputFiles);
 
         args.Should().StartWith(["zap-baseline.py"]);
     }

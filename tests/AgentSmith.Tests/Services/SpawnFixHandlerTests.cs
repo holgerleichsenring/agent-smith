@@ -230,7 +230,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
     public void GetIncludedSeverities_DefaultThreshold_IncludesCriticalAndHigh(
         string severity, bool expected)
     {
-        var severities = SpawnFixHandler.GetIncludedSeverities("High");
+        var severities = SecurityFixRequestBuilder.GetIncludedSeverities("High");
 
         severities.Contains(severity).Should().Be(expected);
     }
@@ -238,7 +238,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
     [Fact]
     public void GetIncludedSeverities_CriticalThreshold_OnlyCritical()
     {
-        var severities = SpawnFixHandler.GetIncludedSeverities("Critical");
+        var severities = SecurityFixRequestBuilder.GetIncludedSeverities("Critical");
 
         severities.Should().Contain("CRITICAL");
         severities.Should().NotContain("HIGH");
@@ -250,7 +250,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
     [InlineData("XSS", "XSS")]
     public void ExtractCategory_ReturnsFirstWord(string title, string expected)
     {
-        SpawnFixHandler.ExtractCategory(title).Should().Be(expected);
+        SecurityFixRequestBuilder.ExtractCategory(title).Should().Be(expected);
     }
 
     [Theory]
@@ -260,7 +260,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
     [InlineData("", null)]
     public void ExtractCweId_ExtractsFromDescription(string description, string? expected)
     {
-        SpawnFixHandler.ExtractCweId(description).Should().Be(expected);
+        SecurityFixRequestBuilder.ExtractCweId(description).Should().Be(expected);
     }
 
     [Fact]
@@ -269,7 +269,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
         var finding = new Finding("HIGH", "src/auth.cs", 10, null,
             "Hardcoded password", "desc [CWE-798]", 9);
 
-        var branch = SpawnFixHandler.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
 
         branch.Should().StartWith("security-fix/cwe-798-");
         branch.Should().Contain("hardcoded");
@@ -281,7 +281,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
         var finding = new Finding("HIGH", "src/auth.cs", 10, null,
             "Hardcoded password", "desc without cwe", 9);
 
-        var branch = SpawnFixHandler.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
 
         branch.Should().StartWith("security-fix/hardcoded");
         branch.Should().NotContain("cwe-");
@@ -294,7 +294,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
             "This is a very long title that should be truncated to keep branch names reasonable",
             "desc", 9);
 
-        var branch = SpawnFixHandler.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
 
         // Branch name slug portion should be at most 40 chars
         var slugPart = branch.Replace("security-fix/", "");
@@ -304,21 +304,21 @@ public sealed class SpawnFixHandlerTests : IDisposable
     [Fact]
     public void SanitizeFileName_ReplacesSlashes()
     {
-        SpawnFixHandler.SanitizeFileName("security-fix/cwe-798-hardcoded")
+        SecurityFixRequestBuilder.SanitizeFileName("security-fix/cwe-798-hardcoded")
             .Should().Be("security-fix-cwe-798-hardcoded");
     }
 
     [Fact]
     public void IsExcluded_MatchingPattern_ReturnsTrue()
     {
-        SpawnFixHandler.IsExcluded("test/auth.cs", ["test/", "vendor/"])
+        SecurityFixRequestBuilder.IsExcluded("test/auth.cs", ["test/", "vendor/"])
             .Should().BeTrue();
     }
 
     [Fact]
     public void IsExcluded_NoMatch_ReturnsFalse()
     {
-        SpawnFixHandler.IsExcluded("src/auth.cs", ["test/", "vendor/"])
+        SecurityFixRequestBuilder.IsExcluded("src/auth.cs", ["test/", "vendor/"])
             .Should().BeFalse();
     }
 
@@ -335,7 +335,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
                 new SecurityFixItem("HIGH", "Hardcoded secret", "Found API key", null, 25)
             ]);
 
-        var yaml = SpawnFixHandler.SerializeFixRequest(request);
+        var yaml = SecurityFixRequestBuilder.SerializeFixRequest(request);
 
         yaml.Should().Contain("file_path: src/auth.cs");
         yaml.Should().Contain("category: Hardcoded");
@@ -360,7 +360,7 @@ public sealed class SpawnFixHandlerTests : IDisposable
                 new SecurityFixItem("HIGH", "SQL \"injection\"", "Uses \"raw\" query", null, 5)
             ]);
 
-        var yaml = SpawnFixHandler.SerializeFixRequest(request);
+        var yaml = SecurityFixRequestBuilder.SerializeFixRequest(request);
 
         yaml.Should().Contain("\\\"injection\\\"");
         yaml.Should().Contain("\\\"raw\\\"");

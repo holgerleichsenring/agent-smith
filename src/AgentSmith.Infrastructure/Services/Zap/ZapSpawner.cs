@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
@@ -25,7 +23,7 @@ public sealed class ZapSpawner(
             request.ScanType, request.TargetUrl, dockerTarget);
 
         var inputFiles = new Dictionary<string, string>();
-        var arguments = BuildArguments(request.ScanType, dockerTarget, request.SwaggerPath, inputFiles);
+        var arguments = ZapArgumentBuilder.BuildArguments(request.ScanType, dockerTarget, request.SwaggerPath, inputFiles);
 
         var extraHosts = isLocal
             ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
@@ -41,7 +39,7 @@ public sealed class ZapSpawner(
         var result = await toolRunner.RunAsync(toolRequest, cancellationToken);
 
         var output = result.OutputFileContent ?? result.Stdout;
-        var findings = ParseZapJson(output);
+        var findings = ZapReportParser.ParseZapJson(output);
 
         logger.LogInformation(
             "ZAP {ScanType} scan completed: {Count} findings in {Duration}s",
@@ -53,180 +51,7 @@ public sealed class ZapSpawner(
         return new ZapResult(findings, result.DurationSeconds, request.ScanType, result.ExitCode);
     }
 
-    internal static List<string> BuildArguments(
-        string scanType, string dockerTarget, string? swaggerPath,
-        Dictionary<string, string> inputFiles)
-    {
-        return scanType.ToLowerInvariant() switch
-        {
-            "full-scan" => BuildFullScanArgs(dockerTarget),
-            "api-scan" => BuildApiScanArgs(dockerTarget, swaggerPath, inputFiles),
-            _ => BuildBaselineArgs(dockerTarget),
-        };
-    }
-
-    private static List<string> BuildBaselineArgs(string target)
-    {
-        return ["zap-baseline.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN"];
-    }
-
-    private static List<string> BuildFullScanArgs(string target)
-    {
-        return ["zap-full-scan.py", "-t", target, "-J", "{work}/zap-report.json", "-l", "WARN"];
-    }
-
-    private static List<string> BuildApiScanArgs(
-        string target, string? swaggerPath, Dictionary<string, string> inputFiles)
-    {
-        if (!string.IsNullOrWhiteSpace(swaggerPath) && File.Exists(swaggerPath))
-        {
-            var specContent = InjectServerUrl(File.ReadAllText(swaggerPath), target);
-            inputFiles["swagger.json"] = specContent;
-            return ["zap-api-scan.py", "-t", "{work}/swagger.json", "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
-        }
-
-        // Fallback: use target URL directly for api-scan
-        return ["zap-api-scan.py", "-t", target, "-f", "openapi", "-J", "{work}/zap-report.json", "-l", "WARN"];
-    }
-
-    /// <summary>
-    /// Ensures the OpenAPI spec has a servers entry with the target URL.
-    /// ZAP fails with "Unable to obtain any server URL" if servers is missing or relative ("/").
-    /// </summary>
-    internal static string InjectServerUrl(string specJson, string targetUrl)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(specJson);
-            var root = doc.RootElement;
-
-            // Check if servers array exists and has a valid absolute URL
-            if (root.TryGetProperty("servers", out var servers) && servers.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var server in servers.EnumerateArray())
-                {
-                    if (server.TryGetProperty("url", out var url)
-                        && url.GetString() is { } urlStr
-                        && urlStr.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return specJson; // Already has a valid absolute server URL
-                    }
-                }
-            }
-
-            // Inject the target URL as the server
-            using var ms = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(ms))
-            {
-                writer.WriteStartObject();
-
-                // Write servers first
-                writer.WritePropertyName("servers");
-                writer.WriteStartArray();
-                writer.WriteStartObject();
-                writer.WriteString("url", targetUrl);
-                writer.WriteEndObject();
-                writer.WriteEndArray();
-
-                // Copy all existing properties
-                foreach (var prop in root.EnumerateObject())
-                {
-                    if (prop.Name == "servers") continue; // Skip original servers
-                    prop.WriteTo(writer);
-                }
-
-                writer.WriteEndObject();
-            }
-
-            return Encoding.UTF8.GetString(ms.ToArray());
-        }
-        catch
-        {
-            return specJson; // If anything goes wrong, return original
-        }
-    }
-
     internal static string RewriteLocalhostForDocker(string url) =>
         url.Replace("://localhost", "://host.docker.internal")
            .Replace("://127.0.0.1", "://host.docker.internal");
-
-    internal static List<ZapFinding> ParseZapJson(string output)
-    {
-        var findings = new List<ZapFinding>();
-
-        if (string.IsNullOrWhiteSpace(output))
-            return findings;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(output);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("site", out var sites) || sites.ValueKind != JsonValueKind.Array)
-                return findings;
-
-            foreach (var site in sites.EnumerateArray())
-            {
-                if (!site.TryGetProperty("alerts", out var alerts) || alerts.ValueKind != JsonValueKind.Array)
-                    continue;
-
-                foreach (var alert in alerts.EnumerateArray())
-                {
-                    var alertRef = GetString(alert, "alertRef");
-                    var name = GetString(alert, "name");
-                    var riskDesc = GetString(alert, "riskdesc");
-                    var confidence = GetString(alert, "confidence");
-                    var desc = GetString(alert, "desc");
-                    var solution = GetStringOrNull(alert, "solution");
-                    var cweId = GetStringOrNull(alert, "cweid");
-                    var wascId = GetStringOrNull(alert, "wascid");
-
-                    // Extract risk level from riskdesc (e.g. "Medium (High)" -> "Medium")
-                    var riskLevel = ExtractRiskLevel(riskDesc);
-
-                    // Get first instance URL or empty
-                    var url = "";
-                    if (alert.TryGetProperty("instances", out var instances) && instances.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var inst in instances.EnumerateArray())
-                        {
-                            if (inst.TryGetProperty("uri", out var uri))
-                            {
-                                url = uri.GetString() ?? "";
-                                break;
-                            }
-                        }
-                    }
-
-                    var countStr = GetString(alert, "count");
-                    _ = int.TryParse(countStr, out var count);
-
-                    findings.Add(new ZapFinding(alertRef, name, riskLevel, confidence, url, desc, solution, cweId, wascId, count));
-                }
-            }
-        }
-        catch
-        {
-            // If JSON parsing fails entirely, return empty findings
-        }
-
-        return findings;
-    }
-
-    internal static string ExtractRiskLevel(string riskDesc)
-    {
-        if (string.IsNullOrWhiteSpace(riskDesc))
-            return "Informational";
-
-        // ZAP riskdesc format: "Medium (High)" where first part is risk, parenthetical is confidence
-        var parenIndex = riskDesc.IndexOf('(');
-        var risk = parenIndex > 0 ? riskDesc[..parenIndex].Trim() : riskDesc.Trim();
-        return string.IsNullOrEmpty(risk) ? "Informational" : risk;
-    }
-
-    private static string GetString(JsonElement element, string property)
-        => element.TryGetProperty(property, out var value) ? value.GetString() ?? "" : "";
-
-    private static string? GetStringOrNull(JsonElement element, string property)
-        => element.TryGetProperty(property, out var value) ? value.GetString() : null;
 }
