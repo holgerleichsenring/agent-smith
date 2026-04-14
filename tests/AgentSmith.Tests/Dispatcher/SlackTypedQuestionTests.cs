@@ -37,7 +37,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.Confirmation);
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("q-1:yes");
@@ -51,7 +51,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.Confirmation, text: "Continue with merge?");
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("Continue with merge?");
@@ -62,7 +62,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.Confirmation, context: "Branch has 3 conflicts");
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("Branch has 3 conflicts");
@@ -74,7 +74,7 @@ public sealed class SlackTypedQuestionTests
         var choices = new[] { "Option A", "Option B", "Option C" };
         var question = CreateQuestion(QuestionType.Choice, choices: choices);
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("Option A");
@@ -90,7 +90,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.Approval);
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("q-1:approve");
@@ -105,7 +105,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.FreeText, text: "What is the target branch?");
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("What is the target branch?");
@@ -119,7 +119,7 @@ public sealed class SlackTypedQuestionTests
     {
         var question = CreateQuestion(QuestionType.FreeText, context: "Current branch: feature/xyz");
 
-        var blocks = SlackTypedQuestionBlockBuilder.Build(question);
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
         var json = JsonSerializer.Serialize(blocks);
 
         json.Should().Contain("Current branch: feature/xyz");
@@ -231,6 +231,9 @@ public sealed class SlackTypedQuestionTests
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SlackApiClient>.Instance);
         return new SlackAdapter(
             apiClient,
+            new SlackTypedQuestionBlockBuilder(),
+            new SlackMessageBlockBuilder(),
+            new SlackProgressFormatter(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SlackAdapter>.Instance);
     }
 

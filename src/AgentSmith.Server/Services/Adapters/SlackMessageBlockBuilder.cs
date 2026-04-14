@@ -3,12 +3,13 @@ namespace AgentSmith.Server.Services.Adapters;
 /// <summary>
 /// Builds Slack Block Kit payloads for standard messages
 /// (clarification, info, question-answered).
+/// Registered as Transient in DI.
 /// </summary>
-internal static class SlackMessageBlockBuilder
+public sealed class SlackMessageBlockBuilder
 {
     internal sealed record BlockPayload(string FallbackText, object[] Blocks);
 
-    internal static BlockPayload BuildClarification(string suggestion)
+    internal BlockPayload BuildClarification(string suggestion)
     {
         var text = $":thinking_face: Did you mean: *{suggestion}*?";
         var blocks = new object[]
@@ -45,7 +46,7 @@ internal static class SlackMessageBlockBuilder
         return new BlockPayload(text, blocks);
     }
 
-    internal static BlockPayload BuildInfo(string title, string body)
+    internal BlockPayload BuildInfo(string title, string body)
     {
         var fallback = $":information_source: {title}: {body}";
         var blocks = new object[]
@@ -64,7 +65,7 @@ internal static class SlackMessageBlockBuilder
         return new BlockPayload(fallback, blocks);
     }
 
-    internal static BlockPayload BuildQuestionAnswered(
+    internal BlockPayload BuildQuestionAnswered(
         string questionText, string answer)
     {
         var emoji = answer.Equals("yes", StringComparison.OrdinalIgnoreCase)
