@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.12.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.11.0...v0.12.0) (2026-04-14)
+
+
+### Features
+
+* **p73:** rewrite coding principles — responsibility modeling ([95dc036](https://github.com/holgerleichsenring/agent-smith/commit/95dc036541a4c92ce33d6edb604b0068689d6ff5))
+* **p74:** CLI source overrides — --source-type, --source-path, --source-url, --source-auth ([2cf2b36](https://github.com/holgerleichsenring/agent-smith/commit/2cf2b3643ccb151997e367b0ee72dac6af1669fb))
+* **p74:** CLI source overrides — --source-type, --source-path, --source-url, --source-auth ([85bffdd](https://github.com/holgerleichsenring/agent-smith/commit/85bffdd870d345aff81781d6815e6f97148eace3))
+* **p75:** add phase-spec.schema.json + schema refs to all phase YAMLs ([b93d5f3](https://github.com/holgerleichsenring/agent-smith/commit/b93d5f3b8d573075d9b0aa77457bfdbbf4e8d112))
+* **p75:** convert all 93 phase docs from markdown to compact YAML ([1a47604](https://github.com/holgerleichsenring/agent-smith/commit/1a476041bb42906f66e391b2d8a11e6278803101))
+
 ## [0.11.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.10.1...v0.11.0) (2026-04-14)
 
 
