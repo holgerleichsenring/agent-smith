@@ -101,7 +101,7 @@ public sealed class SwaggerCompressionTests
             ],
             [], SampleSwaggerJson);
 
-        var result = ApiSkillRoundHandler.CompressSwaggerSpec(spec);
+        var result = new SwaggerSpecCompressor().Compress(spec);
 
         result.Length.Should().BeLessThan(SampleSwaggerJson.Length);
     }
@@ -111,7 +111,7 @@ public sealed class SwaggerCompressionTests
     {
         var spec = new SwaggerSpec("Test", "v1", [], [], SampleSwaggerJson);
 
-        var result = ApiSkillRoundHandler.CompressSwaggerSpec(spec);
+        var result = new SwaggerSpecCompressor().Compress(spec);
 
         result.Should().Contain("UserResponse:");
         result.Should().Contain("email: string");
@@ -126,7 +126,7 @@ public sealed class SwaggerCompressionTests
     {
         var spec = new SwaggerSpec("Test", "v1", [], [], SampleSwaggerJson);
 
-        var result = ApiSkillRoundHandler.CompressSwaggerSpec(spec);
+        var result = new SwaggerSpecCompressor().Compress(spec);
 
         result.Should().Contain("id: integer *required");
         result.Should().Contain("email: string maxLength:255 *required");
@@ -135,7 +135,7 @@ public sealed class SwaggerCompressionTests
     [Fact]
     public void ExtractSchemas_ParsesComponentsSchemas()
     {
-        var schemas = ApiSkillRoundHandler.ExtractSchemas(SampleSwaggerJson);
+        var schemas = SwaggerSpecCompressor.ExtractSchemas(SampleSwaggerJson);
 
         schemas.Should().ContainKey("UserResponse");
         schemas.Should().ContainKey("UserListResponse");
@@ -145,7 +145,7 @@ public sealed class SwaggerCompressionTests
     [Fact]
     public void ExtractSchemas_InvalidJson_ReturnsEmpty()
     {
-        var schemas = ApiSkillRoundHandler.ExtractSchemas("not json");
+        var schemas = SwaggerSpecCompressor.ExtractSchemas("not json");
         schemas.Should().BeEmpty();
     }
 
@@ -154,7 +154,7 @@ public sealed class SwaggerCompressionTests
     {
         var json = """{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Foo"}}}}""";
 
-        var result = ApiSkillRoundHandler.ExtractSchemaRef(json);
+        var result = SwaggerSpecCompressor.ExtractSchemaRef(json);
 
         result.Should().Be("Foo");
     }
@@ -162,7 +162,7 @@ public sealed class SwaggerCompressionTests
     [Fact]
     public void ExtractSchemaRef_NullInput_ReturnsNull()
     {
-        ApiSkillRoundHandler.ExtractSchemaRef(null).Should().BeNull();
+        SwaggerSpecCompressor.ExtractSchemaRef(null).Should().BeNull();
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public sealed class SwaggerCompressionTests
             }
             """;
 
-        var result = ApiSkillRoundHandler.ExtractResponseRefs(json);
+        var result = SwaggerSpecCompressor.ExtractResponseRefs(json);
 
         result.Should().HaveCount(1);
         result["200"].Should().Be("Foo");
@@ -196,7 +196,7 @@ public sealed class SwaggerCompressionTests
             }
             """;
 
-        var result = ApiSkillRoundHandler.ExtractResponseRefs(json);
+        var result = SwaggerSpecCompressor.ExtractResponseRefs(json);
 
         result.Should().HaveCount(2);
         result["200"].Should().Be("Ok");
@@ -215,7 +215,7 @@ public sealed class SwaggerCompressionTests
             ],
             [], SampleSwaggerJson);
 
-        var result = ApiSkillRoundHandler.CompressSwaggerSpec(spec);
+        var result = new SwaggerSpecCompressor().Compress(spec);
 
         result.Should().Contain("POST /api/users [auth]");
         result.Should().Contain("Request: CreateUserRequest");
@@ -240,7 +240,7 @@ public sealed class SwaggerCompressionTests
             }
             """;
 
-        var schemas = ApiSkillRoundHandler.ExtractSchemas(swagger2);
+        var schemas = SwaggerSpecCompressor.ExtractSchemas(swagger2);
 
         schemas.Should().ContainKey("Pet");
         schemas["Pet"].Should().Contain(s => s.Contains("enum[available, sold]"));
