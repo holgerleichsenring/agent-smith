@@ -33,7 +33,8 @@ public sealed class SlackModalSubmissionHandlerTests
 
         var stateManager = new ConversationStateManager(
             redis.Object,
-            NullLogger<ConversationStateManager>.Instance);
+            NullLogger<ConversationStateManager>.Instance,
+            NullLoggerFactory.Instance);
 
         var messageBus = new Mock<IMessageBus>();
         var messageRouter = new Mock<IBusMessageRouter>();

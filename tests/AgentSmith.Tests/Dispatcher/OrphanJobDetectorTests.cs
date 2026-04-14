@@ -42,7 +42,8 @@ public sealed class OrphanJobDetectorTests
 
         _stateManager = new ConversationStateManager(
             _redis.Object,
-            NullLogger<ConversationStateManager>.Instance);
+            NullLogger<ConversationStateManager>.Instance,
+            NullLoggerFactory.Instance);
 
         _listener = new MessageBusListener(
             _messageBus.Object,
