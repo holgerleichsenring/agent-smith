@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -8,19 +7,15 @@ namespace AgentSmith.Server.Services;
 /// <summary>
 /// Manages active conversation state in Redis.
 /// Maps a chat channel to its currently running K8s job.
-/// Key schema: conversation:{platform}:{channelId}
-/// TTL: 45 minutes (safety net; OrphanJobDetector is primary cleanup).
+/// Delegates Redis I/O to <see cref="ConversationStateRepository"/>.
 /// </summary>
 public sealed class ConversationStateManager(
     IConnectionMultiplexer redis,
-    ILogger<ConversationStateManager> logger)
+    ILogger<ConversationStateManager> logger,
+    ILoggerFactory loggerFactory)
 {
-    private static readonly TimeSpan StateTtl = TimeSpan.FromMinutes(45);
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private readonly ConversationStateRepository _repo = new(redis,
+        loggerFactory.CreateLogger<ConversationStateRepository>());
 
     /// <summary>
     /// Persists a new conversation state for the given channel.
@@ -28,11 +23,7 @@ public sealed class ConversationStateManager(
     /// </summary>
     public async Task SetAsync(ConversationState state, CancellationToken cancellationToken)
     {
-        var db = redis.GetDatabase();
-        var key = BuildKey(state.Platform, state.ChannelId);
-        var json = JsonSerializer.Serialize(state, JsonOptions);
-
-        await db.StringSetAsync(key, json, StateTtl);
+        await _repo.WriteAsync(state);
 
         logger.LogInformation(
             "Stored conversation state for channel {ChannelId} on {Platform}: job {JobId}",
@@ -41,61 +32,17 @@ public sealed class ConversationStateManager(
 
     /// <summary>
     /// Retrieves the active conversation state for a channel.
-    /// Returns null if no active job exists for the channel.
     /// </summary>
     public async Task<ConversationState?> GetAsync(string platform, string channelId,
-        CancellationToken cancellationToken)
-    {
-        var db = redis.GetDatabase();
-        var key = BuildKey(platform, channelId);
-        var json = await db.StringGetAsync(key);
-
-        if (json.IsNullOrEmpty)
-            return null;
-
-        try
-        {
-            return JsonSerializer.Deserialize<ConversationState>(json!, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to deserialize conversation state for channel {ChannelId}", channelId);
-            return null;
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await _repo.ReadAsync(platform, channelId);
 
     /// <summary>
-    /// Retrieves conversation state by job ID (reverse lookup via scan).
-    /// Used when the dispatcher receives a bus message and needs the channel.
-    /// Prefer GetByJobIdIndexAsync if high throughput is needed.
+    /// Retrieves conversation state by job ID (reverse lookup via index key).
     /// </summary>
     public async Task<ConversationState?> GetByJobIdAsync(string jobId,
-        CancellationToken cancellationToken)
-    {
-        var db = redis.GetDatabase();
-        var indexKey = JobIndexKey(jobId);
-        var channelKey = await db.StringGetAsync(indexKey);
-
-        if (channelKey.IsNullOrEmpty)
-            return null;
-
-        var json = await db.StringGetAsync((string)channelKey!);
-
-        if (json.IsNullOrEmpty)
-            return null;
-
-        try
-        {
-            return JsonSerializer.Deserialize<ConversationState>(json!, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to deserialize conversation state for job {JobId}", jobId);
-            return null;
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await _repo.ReadByJobIndexAsync(jobId);
 
     /// <summary>
     /// Updates the pending question on an existing conversation state.
@@ -128,19 +75,12 @@ public sealed class ConversationStateManager(
 
     /// <summary>
     /// Removes all state for a channel after the job completes.
-    /// Also removes the job-id index entry.
     /// </summary>
     public async Task RemoveAsync(string platform, string channelId,
         CancellationToken cancellationToken)
     {
         var existing = await GetAsync(platform, channelId, cancellationToken);
-
-        var db = redis.GetDatabase();
-        var key = BuildKey(platform, channelId);
-        await db.KeyDeleteAsync(key.ToString());
-
-        if (existing is not null)
-            await db.KeyDeleteAsync(JobIndexKey(existing.JobId).ToString());
+        await _repo.DeleteAsync(platform, channelId, existing?.JobId);
 
         logger.LogInformation(
             "Removed conversation state for channel {ChannelId} on {Platform}",
@@ -148,20 +88,14 @@ public sealed class ConversationStateManager(
     }
 
     /// <summary>
-    /// Stores a secondary index: jobId → channel key.
-    /// Must be called alongside SetAsync to enable GetByJobIdAsync.
+    /// Stores a secondary index: jobId -> channel key.
     /// </summary>
     public async Task IndexJobAsync(ConversationState state,
-        CancellationToken cancellationToken)
-    {
-        var db = redis.GetDatabase();
-        var channelKey = BuildKey(state.Platform, state.ChannelId);
-        await db.StringSetAsync(JobIndexKey(state.JobId), channelKey.ToString(), StateTtl);
-    }
+        CancellationToken cancellationToken) =>
+        await _repo.IndexJobAsync(state);
 
     /// <summary>
     /// Updates LastActivityAt on an existing conversation state.
-    /// Called by MessageBusListener on every incoming message to track liveness.
     /// </summary>
     public async Task TouchActivityAsync(string platform, string channelId,
         CancellationToken cancellationToken)
@@ -174,41 +108,7 @@ public sealed class ConversationStateManager(
 
     /// <summary>
     /// Returns all active conversation states by scanning conversation:* keys.
-    /// Used by OrphanJobDetector to find orphans after dispatcher restart.
     /// </summary>
-    public async Task<IReadOnlyList<ConversationState>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var db = redis.GetDatabase();
-        var server = redis.GetServers().FirstOrDefault();
-        if (server is null) return [];
-
-        var states = new List<ConversationState>();
-
-        await foreach (var key in server.KeysAsync(pattern: "conversation:*:*"))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var json = await db.StringGetAsync(key);
-            if (json.IsNullOrEmpty) continue;
-
-            try
-            {
-                var state = JsonSerializer.Deserialize<ConversationState>(json!, JsonOptions);
-                if (state is not null) states.Add(state);
-            }
-            catch (JsonException ex)
-            {
-                logger.LogWarning(ex, "Failed to deserialize conversation state for key {Key}", (string)key!);
-            }
-        }
-
-        return states;
-    }
-
-    // --- Helpers ---
-
-    private static RedisKey BuildKey(string platform, string channelId) =>
-        $"conversation:{platform.ToLowerInvariant()}:{channelId}";
-
-    private static RedisKey JobIndexKey(string jobId) =>
-        $"job-index:{jobId}";
+    public async Task<IReadOnlyList<ConversationState>> GetAllAsync(CancellationToken cancellationToken) =>
+        await _repo.ScanAllAsync(cancellationToken);
 }
