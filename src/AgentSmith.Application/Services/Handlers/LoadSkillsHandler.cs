@@ -19,18 +19,40 @@ public sealed class LoadSkillsHandler(
     public Task<CommandResult> ExecuteAsync(
         LoadSkillsContext context, CancellationToken cancellationToken)
     {
-        var skillsDir = Path.Combine("config", context.SkillsPath);
+        var skillsDir = ResolveSkillsDir(context);
 
         if (!Directory.Exists(skillsDir))
         {
-            logger.LogWarning("Skills directory not found: {Dir}", skillsDir);
+            logger.LogWarning("Skills directory not found: {Dir} (resolved from '{Raw}')",
+                skillsDir, context.SkillsPath);
             return Task.FromResult(CommandResult.Ok($"Skills directory not found: {skillsDir}"));
         }
 
+        logger.LogDebug("Loading skills from {Dir}", skillsDir);
         var roles = skillLoader.LoadRoleDefinitions(skillsDir);
         context.Pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, roles);
 
         logger.LogInformation("Loaded {Count} skill roles from {Dir}", roles.Count, skillsDir);
         return Task.FromResult(CommandResult.Ok($"Loaded {roles.Count} skills from {context.SkillsPath}"));
+    }
+
+    private string ResolveSkillsDir(LoadSkillsContext context)
+    {
+        // Try relative to repo root first (if repo is in pipeline context)
+        if (context.Pipeline.TryGet<Domain.Entities.Repository>(ContextKeys.Repository, out var repo)
+            && repo is not null)
+        {
+            var repoRelative = Path.Combine(repo.LocalPath, "config", context.SkillsPath);
+            if (Directory.Exists(repoRelative))
+            {
+                logger.LogDebug("Skills path resolved relative to repo: {Dir}", repoRelative);
+                return repoRelative;
+            }
+        }
+
+        // Fallback to CWD-relative
+        var cwdRelative = Path.Combine("config", context.SkillsPath);
+        logger.LogDebug("Skills path resolved relative to CWD: {Dir}", cwdRelative);
+        return cwdRelative;
     }
 }
