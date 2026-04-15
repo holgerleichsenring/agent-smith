@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.0...v0.15.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* **p77:** resolve skills_path relative to config file directory ([eb83e2f](https://github.com/holgerleichsenring/agent-smith/commit/eb83e2f6c2cb2f1aead5dedf6db2d3e29c723772))
+
 ## [0.15.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.14.1...v0.15.0) (2026-04-15)
 
 
