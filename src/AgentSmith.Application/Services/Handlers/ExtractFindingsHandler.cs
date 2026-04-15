@@ -45,7 +45,8 @@ public sealed class ExtractFindingsHandler(
                     EndLine: null,
                     Title: f.Title,
                     Description: f.Description,
-                    Confidence: f.Confidence));
+                    Confidence: f.Confidence,
+                    Category: f.Category));
             }
         }
 
@@ -60,7 +61,8 @@ public sealed class ExtractFindingsHandler(
                     EndLine: null,
                     Title: f.Title,
                     Description: f.Description + " (commit: " + f.CommitHash[..7] + ")",
-                    Confidence: 9));
+                    Confidence: 9,
+                    Category: "secrets"));
             }
         }
 
@@ -76,7 +78,8 @@ public sealed class ExtractFindingsHandler(
                     EndLine: null,
                     Title: f.Package + " " + f.Version + " — " + f.Title,
                     Description: f.Description + (f.Cve != null ? " [" + f.Cve + "]" : ""),
-                    Confidence: 8));
+                    Confidence: 8,
+                    Category: "dependencies"));
             }
         }
 

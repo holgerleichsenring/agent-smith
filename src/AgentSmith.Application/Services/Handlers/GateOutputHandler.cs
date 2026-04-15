@@ -22,7 +22,7 @@ public sealed class GateOutputHandler(
     {
         return orchestration.Output == SkillOutputType.Verdict
             ? HandleVerdict(role, responseText)
-            : HandleFindingList(role, responseText, pipeline);
+            : HandleFindingList(role, orchestration, responseText, pipeline);
     }
 
     private static CommandResult HandleVerdict(
@@ -44,7 +44,8 @@ public sealed class GateOutputHandler(
     }
 
     private CommandResult HandleFindingList(
-        RoleSkillDefinition role, string responseText, PipelineContext pipeline)
+        RoleSkillDefinition role, SkillOrchestration orchestration,
+        string responseText, PipelineContext pipeline)
     {
         try
         {
@@ -54,26 +55,42 @@ public sealed class GateOutputHandler(
                 return CommandResult.Ok($"Gate {role.DisplayName}: passed");
 
             var count = confirmed.GetArrayLength();
-            if (count == 0)
-            {
-                logger.LogInformation("[{Gate}] All findings filtered — no confirmed issues", role.Name);
-                return CommandResult.Ok($"Gate {role.DisplayName}: all findings filtered, none confirmed");
-            }
-
             var rejected = doc.RootElement.TryGetProperty("rejected", out var rej)
                 ? rej.GetArrayLength() : 0;
 
-            var findings = GateFindingParser.Parse(confirmed);
-            pipeline.Set(ContextKeys.ExtractedFindings, findings.AsReadOnly());
+            var gateFindings = GateFindingParser.Parse(confirmed);
 
-            LogFindings(role, findings, count, rejected);
+            // Merge: keep findings from categories this gate did NOT claim
+            var merged = MergeWithPassthrough(gateFindings, orchestration, pipeline);
+            pipeline.Set(ContextKeys.ExtractedFindings, merged.AsReadOnly());
+
+            LogFindings(role, gateFindings, count, rejected);
 
             return CommandResult.Ok(
-                $"Gate {role.DisplayName}: {count} findings confirmed");
+                $"Gate {role.DisplayName}: {count} findings confirmed, {merged.Count} total after merge");
         }
         catch { /* unparseable = pass */ }
 
         return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+    }
+
+    private static List<Finding> MergeWithPassthrough(
+        List<Finding> gateFindings, SkillOrchestration orchestration, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var existing)
+            || existing is null || orchestration.InputCategories.Count == 0)
+            return gateFindings;
+
+        var claimedCategories = new HashSet<string>(
+            orchestration.InputCategories, StringComparer.OrdinalIgnoreCase);
+
+        // Keep findings from categories this gate does not own
+        var passthrough = existing
+            .Where(f => !claimedCategories.Contains(f.Category))
+            .ToList();
+
+        passthrough.AddRange(gateFindings);
+        return passthrough;
     }
 
     private void LogFindings(
