@@ -26,6 +26,9 @@ public sealed class SpawnNucleiHandler(
 
         context.Pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
 
+        logger.LogDebug("Nuclei: target={Target}, hasSwagger={HasSwagger}, endpoints={Endpoints}",
+            target, spec?.RawJson is not null, spec?.Endpoints?.Count ?? 0);
+
         var swaggerPath = WriteTempSwagger(spec);
 
         try

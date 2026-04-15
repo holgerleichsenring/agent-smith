@@ -33,6 +33,8 @@ public sealed class BootstrapProjectHandler(
 
         var contextFilePath = Path.Combine(agentDir, ContextFileName);
 
+        logger.LogDebug("Bootstrap: repoPath={RepoPath}, agentDir={AgentDir}", repoPath, agentDir);
+
         var detected = detector.Detect(repoPath);
         var snapshot = snapshotCollector.Collect(repoPath, detected);
         context.Pipeline.Set(ContextKeys.DetectedProject, detected);
@@ -40,6 +42,8 @@ public sealed class BootstrapProjectHandler(
 
         var llmClient = llmClientFactory.Create(context.Agent);
         var sourceType = context.Pipeline.TryGet<string>("SourceType", out var st) ? st ?? "github" : "github";
+        logger.LogDebug("Bootstrap: agentType={Type}, sourceType={SourceType}, skillsPath={Skills}",
+            context.Agent.Type, sourceType, context.SkillsPath);
 
         if (File.Exists(contextFilePath))
         {

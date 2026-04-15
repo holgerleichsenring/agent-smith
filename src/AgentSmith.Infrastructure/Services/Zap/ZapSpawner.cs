@@ -25,6 +25,10 @@ public sealed class ZapSpawner(
         var inputFiles = new Dictionary<string, string>();
         var arguments = ZapArgumentBuilder.BuildArguments(request.ScanType, dockerTarget, request.SwaggerPath, inputFiles);
 
+        logger.LogDebug("ZAP container args: {Args}", string.Join(" ", arguments));
+        logger.LogDebug("ZAP input files: {Files}, timeout: {Timeout}s, workDir: /zap/wrk",
+            inputFiles.Count, request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout);
+
         var extraHosts = isLocal
             ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
             : null;
@@ -45,7 +49,10 @@ public sealed class ZapSpawner(
             "ZAP {ScanType} scan completed: {Count} findings in {Duration}s",
             request.ScanType, findings.Count, result.DurationSeconds);
 
-        if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
+        logger.LogDebug("ZAP exit code: {ExitCode}, stdout: {StdoutLen}chars, output file: {HasOutput}",
+            result.ExitCode, result.Stdout.Length, result.OutputFileContent is not null);
+
+        if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode > 3)
             logger.LogWarning("ZAP stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
 
         return new ZapResult(findings, result.DurationSeconds, request.ScanType, result.ExitCode);
