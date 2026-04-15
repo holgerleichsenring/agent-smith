@@ -41,7 +41,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             throw new TicketNotFoundException(ticketId);
 
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         using var json = await JsonDocument.ParseAsync(
             await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -65,7 +65,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         request.Content = JsonContent.Create(new { body = comment });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 
     public async Task CloseTicketAsync(
@@ -82,6 +82,6 @@ public sealed class GitLabTicketProvider : ITicketProvider
         request.Content = JsonContent.Create(new { state_event = "close" });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 }
