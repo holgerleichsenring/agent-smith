@@ -55,8 +55,10 @@ public sealed class GateOutputHandler(
 
             var count = confirmed.GetArrayLength();
             if (count == 0)
-                return CommandResult.Fail(
-                    $"Gate veto ({role.DisplayName}): no findings confirmed");
+            {
+                logger.LogInformation("[{Gate}] All findings filtered — no confirmed issues", role.Name);
+                return CommandResult.Ok($"Gate {role.DisplayName}: all findings filtered, none confirmed");
+            }
 
             var rejected = doc.RootElement.TryGetProperty("rejected", out var rej)
                 ? rej.GetArrayLength() : 0;
