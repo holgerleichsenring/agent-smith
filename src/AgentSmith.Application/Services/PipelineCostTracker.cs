@@ -48,7 +48,7 @@ public sealed class PipelineCostTracker
     public override string ToString()
     {
         var cost = EstimateCostUsd();
-        var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (local/free)";
+        var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (no pricing configured)";
         return $"{CallCount} LLM calls · {TotalInputTokens + TotalOutputTokens} tokens " +
                $"({TotalInputTokens} in, {TotalOutputTokens} out) · {costStr} · {_lastModel}";
     }
