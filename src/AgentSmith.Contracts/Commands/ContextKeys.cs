@@ -80,4 +80,5 @@ public static class ContextKeys
     public const string PipelineTypeName = "PipelineType";
     public const string SkillGraph = "SkillGraph";
     public const string SkillOutputs = "SkillOutputs";
+    public const string ConfigDir = "ConfigDir";
 }

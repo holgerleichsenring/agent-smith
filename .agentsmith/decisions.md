@@ -414,3 +414,8 @@
 - [Implementation] WebhookListener extracts webhookEvent from Jira payload, strips "jira:" prefix → eventType for CanHandle — Jira has no event-type header unlike GitHub/GitLab. Listener parses once before dispatch.
 - [TradeOff] Jira signature validation loads config per request instead of caching — keeps validation consistent with runtime config changes. Acceptable cost for webhook traffic volume.
 - [Scope] Unassign scenario (Agent Smith removed from ticket) explicitly out of scope — handler returns Ignored correctly, but cancelling a running job requires Job Cancellation feature that doesn't exist yet.
+
+## p77: Pipeline Fixes
+- [Architecture] skills_path resolved relative to config file directory — same pattern as tsconfig.json, docker-compose.yml. Config file is the anchor point, not CWD or repo root. Covers: local scan (repo has its own skills), API scan (no repo), CI with separate config repo (RHS.CICD/tools/agent-smith/config/).
+- [Fix] ZAP exit codes 0-3 are valid scan results (pass/info/warnings/failures), not errors — only >3 indicates a tool crash. Previously any non-zero was treated as failure, discarding valid DAST findings.
+- [Fix] Docker cp directories created with mode 0777 — ZAP container runs as UID 1000 (zap user), but docker cp creates files as root. World-writable permissions fix the PermissionDenied on /zap/wrk/zap-report.json.
