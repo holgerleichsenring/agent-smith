@@ -13,7 +13,8 @@ public sealed record Finding(
     int Confidence,
     string ReviewStatus = "not_reviewed",  // confirmed | false_positive | not_reviewed
     string? ApiPath = null,                // e.g. "POST /api/auth/login" — for API scan findings
-    string? SchemaName = null)             // e.g. "OktaProcessInfoResponse" — for schema-level findings
+    string? SchemaName = null,             // e.g. "OktaProcessInfoResponse" — for schema-level findings
+    string Category = "unknown")           // e.g. "secrets", "injection", "dependencies"
 {
     /// <summary>
     /// Returns the best available location string for display.
