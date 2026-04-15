@@ -29,6 +29,7 @@ internal sealed class GateFindingParser
         var reason = item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
         var apiPath = item.TryGetProperty("apiPath", out var ap) ? NullIfEmpty(ap.GetString()) : null;
         var schemaName = item.TryGetProperty("schemaName", out var sn) ? NullIfEmpty(sn.GetString()) : null;
+        var category = item.TryGetProperty("category", out var cat) ? cat.GetString() ?? "unknown" : "unknown";
 
         return new Finding(
             Severity: severity.ToUpperInvariant(),
@@ -40,7 +41,8 @@ internal sealed class GateFindingParser
             Confidence: 8,
             ReviewStatus: "confirmed",
             ApiPath: apiPath,
-            SchemaName: schemaName);
+            SchemaName: schemaName,
+            Category: category);
     }
 
     private static string? NullIfEmpty(string? value) =>
