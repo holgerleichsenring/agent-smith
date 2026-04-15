@@ -22,5 +22,7 @@ public sealed record Finding(
     public string DisplayLocation =>
         !string.IsNullOrWhiteSpace(ApiPath) ? ApiPath :
         !string.IsNullOrWhiteSpace(SchemaName) ? SchemaName :
-        $"{File}:{StartLine}";
+        !string.IsNullOrWhiteSpace(File) && StartLine > 0 ? $"{File}:{StartLine}" :
+        !string.IsNullOrWhiteSpace(File) ? File :
+        "General";
 }
