@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.14.1...v0.15.0) (2026-04-15)
+
+
+### Features
+
+* **p77:** fix skills_path, ZAP exit codes, container permissions, debug logging ([df9a617](https://github.com/holgerleichsenring/agent-smith/commit/df9a6177c6a23173a8fffb4f7f7cf3413f6b50a4))
+
 ## [0.14.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.14.0...v0.14.1) (2026-04-15)
 
 
