@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.1...v0.15.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* cost display says 'no pricing configured' instead of misleading 'local/free' ([d481c02](https://github.com/holgerleichsenring/agent-smith/commit/d481c0285b6cfff2fde68d2c360bdb307ae65b71))
+* markdown findings as sections instead of truncated table ([4423f9a](https://github.com/holgerleichsenring/agent-smith/commit/4423f9a2d811ad2d79e8b8bd8bb2f646a04a4248))
+* **p77:** false-positive-filter must output ALL retained findings ([26067c3](https://github.com/holgerleichsenring/agent-smith/commit/26067c3b155f143efb6b4a30e263f81331ea8f36))
+* **p77:** gate with 0 confirmed findings is OK, not a veto ([9f51482](https://github.com/holgerleichsenring/agent-smith/commit/9f51482d621c70eecfeb3036e8a9f46bedb43ee1))
+* **p77:** merge dast-false-positive-filter into false-positive-filter ([58856c5](https://github.com/holgerleichsenring/agent-smith/commit/58856c57b48f580e4263692e25a834e8173359d2))
+* **p77:** PipelineCostTracker uses config pricing instead of hardcoded map ([406d252](https://github.com/holgerleichsenring/agent-smith/commit/406d252588f9183ec3be6e673943ea9f202c9789))
+
 ## [0.15.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.0...v0.15.1) (2026-04-15)
 
 
