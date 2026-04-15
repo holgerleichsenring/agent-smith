@@ -29,8 +29,8 @@ public sealed class MarkdownOutputStrategyTests
 
         result.Should().Contain("## Agent Smith Security Review");
         result.Should().Contain("Found **3** issues (0 critical, 1 high, 1 medium, 1 low)");
-        result.Should().Contain("| Severity | Location | Issue | Details |");
-        result.Should().Contain("`src/Api/UserController.cs:47`");
-        result.Should().Contain("SQL injection");
+        result.Should().Contain("### \ud83d\udfe0 HIGH: SQL injection");
+        result.Should().Contain("**Location:** `src/Api/UserController.cs:47`");
+        result.Should().Contain("Desc");
     }
 }
