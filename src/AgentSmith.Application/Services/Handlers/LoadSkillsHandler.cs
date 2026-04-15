@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Loads skill role definitions from the configured skills path.
-/// Used by repo-less pipelines (api-security-scan) that don't run BootstrapProject.
+/// Resolves paths relative to the config file directory.
 /// </summary>
 public sealed class LoadSkillsHandler(
     ISkillLoader skillLoader,
@@ -33,16 +33,37 @@ public sealed class LoadSkillsHandler(
         context.Pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, roles);
 
         logger.LogInformation("Loaded {Count} skill roles from {Dir}", roles.Count, skillsDir);
-        return Task.FromResult(CommandResult.Ok($"Loaded {roles.Count} skills from {context.SkillsPath}"));
+        return Task.FromResult(CommandResult.Ok($"Loaded {roles.Count} skills from {skillsDir}"));
     }
 
     private string ResolveSkillsDir(LoadSkillsContext context)
     {
-        // Try relative to repo root first (if repo is in pipeline context)
+        var skillsPath = context.SkillsPath;
+
+        // 1. If the path exists as-is (absolute or already correct relative), use it
+        if (Directory.Exists(skillsPath))
+        {
+            logger.LogDebug("Skills path exists as-is: {Dir}", skillsPath);
+            return skillsPath;
+        }
+
+        // 2. Resolve relative to config file directory
+        if (context.Pipeline.TryGet<string>(ContextKeys.ConfigDir, out var configDir)
+            && !string.IsNullOrEmpty(configDir))
+        {
+            var configRelative = Path.Combine(configDir, skillsPath);
+            if (Directory.Exists(configRelative))
+            {
+                logger.LogDebug("Skills path resolved relative to config: {Dir}", configRelative);
+                return configRelative;
+            }
+        }
+
+        // 3. Try relative to repo root
         if (context.Pipeline.TryGet<Domain.Entities.Repository>(ContextKeys.Repository, out var repo)
             && repo is not null)
         {
-            var repoRelative = Path.Combine(repo.LocalPath, "config", context.SkillsPath);
+            var repoRelative = Path.Combine(repo.LocalPath, "config", skillsPath);
             if (Directory.Exists(repoRelative))
             {
                 logger.LogDebug("Skills path resolved relative to repo: {Dir}", repoRelative);
@@ -50,9 +71,9 @@ public sealed class LoadSkillsHandler(
             }
         }
 
-        // Fallback to CWD-relative
-        var cwdRelative = Path.Combine("config", context.SkillsPath);
-        logger.LogDebug("Skills path resolved relative to CWD: {Dir}", cwdRelative);
+        // 4. Fallback: CWD/config/
+        var cwdRelative = Path.Combine("config", skillsPath);
+        logger.LogDebug("Skills path fallback to CWD: {Dir}", cwdRelative);
         return cwdRelative;
     }
 }
