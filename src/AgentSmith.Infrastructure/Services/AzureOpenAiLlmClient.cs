@@ -29,11 +29,21 @@ public sealed class AzureOpenAiLlmClient(
         var assignment = modelRegistry.GetModel(taskType);
         var deployment = assignment.Deployment ?? defaultDeployment;
 
+        if (string.IsNullOrEmpty(deployment))
+        {
+            logger.LogWarning("Azure OpenAI: no deployment for task {TaskType} (model={Model}), skipping",
+                taskType, assignment.Model);
+            throw new InvalidOperationException(
+                $"No deployment configured for task '{taskType}'. " +
+                $"Add a 'deployment' field to the '{taskType}' model in the 'models' config section.");
+        }
+
         var url = $"{endpoint.TrimEnd('/')}/openai/deployments/{deployment}" +
                   $"/chat/completions?api-version={apiVersion}";
 
-        logger.LogDebug("Azure OpenAI: task={TaskType}, deployment={Deployment}, model={Model}",
-            taskType, deployment, assignment.Model);
+        logger.LogDebug("Azure OpenAI request: {Url}", url);
+        logger.LogDebug("Azure OpenAI: task={TaskType}, deployment={Deployment}, model={Model}, key={KeyPresent}",
+            taskType, deployment, assignment.Model, !string.IsNullOrEmpty(apiKey));
 
         var request = new JsonObject
         {
@@ -47,7 +57,7 @@ public sealed class AzureOpenAiLlmClient(
 
         var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(url, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(json);

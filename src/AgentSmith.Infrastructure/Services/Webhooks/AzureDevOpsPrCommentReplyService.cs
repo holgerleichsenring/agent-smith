@@ -51,7 +51,7 @@ public sealed class AzureDevOpsPrCommentReplyService(
             "application/json");
 
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         logger.LogInformation(
             "Posted reply on {Repo}#{Pr} (original comment {CommentId})",

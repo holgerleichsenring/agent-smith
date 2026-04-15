@@ -224,8 +224,6 @@ projects:
       auth: token
     agent:
       type: azure-openai
-      model: gpt-4.1
-      deployment: gpt4-1-deployment
       endpoint: https://oai-rhegpt-dev.openai.azure.com
       api_version: 2025-01-01-preview
       retry:
@@ -233,22 +231,31 @@ projects:
         initial_delay_ms: 2000
         backoff_multiplier: 2.0
         max_delay_ms: 60000
-      cache:
-        is_enabled: true
-        strategy: automatic
       models:
         scout:
-          model: gpt-4.1-nano
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
           max_tokens: 4096
         primary:
           model: gpt-4.1
+          deployment: gpt4-1-deployment
           max_tokens: 8192
         planning:
           model: gpt-4.1
+          deployment: gpt4-1-deployment
           max_tokens: 4096
         summarization:
           model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
           max_tokens: 2048
+        code_map_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 4096
+        context_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 3072
       pricing:
         models:
           gpt-4.1:

@@ -37,11 +37,13 @@ public sealed class OpenAiCompatibleClient(
             ? $"chat/completions?api-version={apiVersionQueryParam}"
             : "chat/completions";
 
-        logger.LogDebug("Sending chat completion to {Endpoint}/{Path} with model {Model}", endpoint, path, model);
+        logger.LogDebug("Request URL: {BaseUrl}/{Path}", endpoint.TrimEnd('/'), path);
+        logger.LogDebug("Model={Model}, key={KeyPresent}, apiKeyHeader={UseApiKey}",
+            model, !string.IsNullOrEmpty(apiKey), useApiKeyHeader);
 
         var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(path, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(json);

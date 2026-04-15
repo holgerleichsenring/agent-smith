@@ -89,7 +89,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         using var json = await JsonDocument.ParseAsync(
             await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -109,7 +109,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         var json = System.Text.Json.JsonSerializer.Serialize(new { body = markdown });
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(url, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
         _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
     }
 

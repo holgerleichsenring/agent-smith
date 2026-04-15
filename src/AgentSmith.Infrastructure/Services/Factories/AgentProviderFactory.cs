@@ -68,15 +68,20 @@ public sealed class AgentProviderFactory(
     private static AzureOpenAiAgentProvider CreateAzureOpenAi(
         AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger("AzureOpenAiSetup");
         var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint
                        ?? throw new ConfigurationException("Azure OpenAI requires 'endpoint' in agent config");
-        var deployment = config.Deployment
-                         ?? throw new ConfigurationException("Azure OpenAI requires 'deployment' in agent config");
+        var deployment = config.Deployment ?? "";
         var registry = CreateModelRegistry(config, loggerFactory);
+
+        logger.LogInformation(
+            "Azure OpenAI agent: endpoint={Endpoint}, deployment={Deployment}, key={KeyLength}chars",
+            endpoint, deployment, apiKey.Length);
+
         return new AzureOpenAiAgentProvider(
-            apiKey, config.Model, deployment, new Uri(endpoint),
+            apiKey, config.Model ?? "", deployment, new Uri(endpoint),
             config.ApiVersion ?? "2025-01-01-preview",
             config.Retry, registry, config.Pricing,
             loggerFactory.CreateLogger<AzureOpenAiAgentProvider>());

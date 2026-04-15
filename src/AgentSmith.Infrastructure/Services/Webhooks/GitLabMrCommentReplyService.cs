@@ -33,7 +33,7 @@ public sealed class GitLabMrCommentReplyService(
             "application/json");
 
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         logger.LogInformation(
             "Posted reply on {Repo}!{Mr} (original comment {CommentId})",

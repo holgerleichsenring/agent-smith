@@ -75,18 +75,6 @@ public class AgentProviderFactoryTests : IDisposable
     }
 
     [Fact]
-    public void Create_AzureOpenAi_MissingDeployment_Throws()
-    {
-        var config = new AgentConfig
-        {
-            Type = "azure-openai", Model = "gpt-4.1",
-            Endpoint = "https://my-instance.openai.azure.com/"
-        };
-        var act = () => _sut.Create(config);
-        act.Should().Throw<ConfigurationException>().WithMessage("*deployment*");
-    }
-
-    [Fact]
     public void Create_UnknownType_ThrowsConfigurationException()
     {
         var config = new AgentConfig { Type = "unknown" };
