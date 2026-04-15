@@ -11,16 +11,16 @@ False Positive Filter
 
 ## convergence_criteria
 
-- "Every finding has been reviewed for false positive indicators"
-- "No finding with confidence < 7 remains"
-- "Nuclei-specific heuristics applied to all scanner findings"
-- "Duplicate findings deduplicated, highest confidence entry retained"
-- "Filtered count and reasons documented"
+- "Every finding reviewed against exclusion criteria and confidence threshold (≥7)"
+- "Nuclei and ZAP heuristics applied to all DAST findings"
+- "Duplicate findings deduplicated — highest confidence entry retained"
+- "No finding discarded without stated reason"
+- "Retained count and filtered count documented"
 
 ## orchestration
 role: gate
 output: list
 runs_after: contributor
 runs_before: executor
-parallel_with: dast-false-positive-filter
+parallel_with: 
 input_categories: auth, design, runtime
