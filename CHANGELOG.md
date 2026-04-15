@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.2...v0.14.0) (2026-04-15)
+
+
+### Features
+
+* **p76:** per-deployment model routing for Azure OpenAI ([b55dcdf](https://github.com/holgerleichsenring/agent-smith/commit/b55dcdf09b15e3ab27aa0b3c715fad689a487267))
+
+
+### Bug Fixes
+
+* **p76:** readable HTTP error messages + verbose logging for Azure OpenAI ([4958fb0](https://github.com/holgerleichsenring/agent-smith/commit/4958fb019add47b7ee6ed1220a41608faa6192bf))
+
 ## [0.13.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.1...v0.13.2) (2026-04-14)
 
 
