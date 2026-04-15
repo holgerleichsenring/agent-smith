@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.2...v0.15.3) (2026-04-15)
+
+
+### Bug Fixes
+
+* prevent YAML anchor error in context.yaml generation ([9948c8e](https://github.com/holgerleichsenring/agent-smith/commit/9948c8ee689b007768d11d83fc2216dfed5faf9d))
+
 ## [0.15.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.1...v0.15.2) (2026-04-15)
 
 
