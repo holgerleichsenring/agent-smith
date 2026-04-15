@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p78
+goal: "Route findings to gates by input_categories and merge results — multi-gate pipelines work correctly"
+
+decisions:
+  - key: "filter before gate, merge after — each gate sees only its categories, results are combined"
+  - key: "unmatched findings pass through unchanged — categories not claimed by any gate are not lost"
+  - key: "no gate ordering dependency — gates in same stage run independently on disjoint slices"
+
+steps:
+  - id: categorize-findings
+    action: "Tag each Finding with a category derived from its source (static→secrets/injection/config, history→secrets, dependency→dependencies, nuclei/zap→runtime, schema→design, auth→auth)"
+    modify:
+      - "Finding: add Category:string property"
+      - "ExtractFindingsHandler: set category from source scan type"
+      - "GateFindingParser: preserve category from contributor output"
+
+  - id: filter-input
+    action: "Before calling gate LLM, filter ExtractedFindings to only those matching the gate's input_categories"
+    modify:
+      - "SkillRoundHandlerBase or GateOutputHandler: read orchestration.InputCategories, filter findings before prompt"
+
+  - id: merge-output
+    action: "After gate returns confirmed findings, merge with findings from other categories instead of overwriting"
+    modify:
+      - "GateOutputHandler: merge gate output with untouched findings from other categories"
+
+  - id: passthrough
+    action: "Findings in categories not claimed by any gate pass through to ExtractedFindings unchanged"
+
+  - id: verify
+    action: "dotnet build && dotnet test"
+
+tests:
+  - "GateOutputHandler_SingleGate_ReplacesOwnCategory"
+  - "GateOutputHandler_TwoGates_MergesResults"
+  - "GateOutputHandler_UncategorizedFindings_PassThrough"
+  - "Finding_HasCategory_FromSource"
+
+done:
+  - "multi-gate pipeline with disjoint categories produces combined findings"
+  - "single-gate pipeline unchanged behavior"
+  - "findings not claimed by any gate are not lost"
+  - "all existing tests green"
