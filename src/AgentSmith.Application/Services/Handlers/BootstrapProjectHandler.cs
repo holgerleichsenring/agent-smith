@@ -62,10 +62,14 @@ public sealed class BootstrapProjectHandler(
             detected, repoPath, snapshot, llmClient, cancellationToken);
 
         if (yaml is null)
-            return CommandResult.Fail($"Generated {ContextFileName} failed validation");
-
-        await File.WriteAllTextAsync(contextFilePath, yaml, cancellationToken);
-        logger.LogInformation("Written {File} ({Chars} chars)", contextFilePath, yaml.Length);
+        {
+            logger.LogWarning("Generated {File} failed validation, continuing without", ContextFileName);
+        }
+        else
+        {
+            await File.WriteAllTextAsync(contextFilePath, yaml, cancellationToken);
+            logger.LogInformation("Written {File} ({Chars} chars)", contextFilePath, yaml.Length);
+        }
 
         await metaFileBootstrapper.BootstrapAsync(
             detected, agentDir, repoPath, snapshot, llmClient,
