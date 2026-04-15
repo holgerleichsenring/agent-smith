@@ -48,25 +48,36 @@ public sealed class MarkdownOutputStrategy(
 
         var s = FindingSummary.From(findings);
 
-        sb.AppendLine($"Found {s.Total} issues ({s.High} HIGH, {s.Medium} MEDIUM, {s.Low} LOW)");
+        sb.AppendLine($"Found **{s.Total}** issues ({s.Critical} critical, {s.High} high, {s.Medium} medium, {s.Low} low)");
         sb.AppendLine();
 
-        sb.AppendLine("| Severity | Location | Issue |");
-        sb.AppendLine("|----------|----------|-------|");
+        sb.AppendLine("| Severity | Location | Issue | Details |");
+        sb.AppendLine("|----------|----------|-------|---------|");
 
         foreach (var f in findings)
         {
             var icon = f.Severity.ToUpperInvariant() switch
             {
-                "HIGH" => "\ud83d\udd34 HIGH",
+                "CRITICAL" => "\ud83d\udd34 CRITICAL",
+                "HIGH" => "\ud83d\udfe0 HIGH",
                 "MEDIUM" => "\ud83d\udfe1 MEDIUM",
                 "LOW" => "\ud83d\udfe2 LOW",
                 _ => f.Severity
             };
 
-            sb.AppendLine($"| {icon} | {f.DisplayLocation} | {f.Title} |");
+            var location = EscapePipe(f.DisplayLocation);
+            var title = EscapePipe(Truncate(f.Title, 80));
+            var details = EscapePipe(Truncate(f.Description, 120));
+
+            sb.AppendLine($"| {icon} | `{location}` | {title} | {details} |");
         }
 
         return sb.ToString();
     }
+
+    private static string EscapePipe(string text) =>
+        text.Replace("|", "\\|");
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength] + "...";
 }
