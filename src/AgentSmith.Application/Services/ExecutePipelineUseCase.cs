@@ -40,6 +40,7 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
+        pipeline.Set("ProjectPricing", projectConfig.Agent.Pricing);
 
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
