@@ -12,7 +12,7 @@ internal static class TarArchiveBuilder
     {
         var header = new byte[512];
         Encoding.ASCII.GetBytes(dirName).AsSpan().CopyTo(header.AsSpan(0, 100));
-        Encoding.ASCII.GetBytes("0000755\0").CopyTo(header, 100);
+        Encoding.ASCII.GetBytes("0000777\0").CopyTo(header, 100);
         Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 108);
         Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 116);
         Encoding.ASCII.GetBytes("00000000000\0").CopyTo(header, 124);
@@ -28,7 +28,7 @@ internal static class TarArchiveBuilder
     {
         var header = new byte[512];
         Encoding.ASCII.GetBytes(fileName).AsSpan().CopyTo(header.AsSpan(0, 100));
-        Encoding.ASCII.GetBytes("0000644\0").CopyTo(header, 100);
+        Encoding.ASCII.GetBytes("0000666\0").CopyTo(header, 100);
         Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 108);
         Encoding.ASCII.GetBytes("0000000\0").CopyTo(header, 116);
         Encoding.ASCII.GetBytes(
