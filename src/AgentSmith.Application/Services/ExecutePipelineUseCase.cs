@@ -39,6 +39,7 @@ public sealed class ExecutePipelineUseCase(
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
+        pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
 
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
