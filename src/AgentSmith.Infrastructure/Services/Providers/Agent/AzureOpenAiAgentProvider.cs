@@ -29,7 +29,7 @@ public sealed class AzureOpenAiAgentProvider(
 
     public override string ProviderType => "AzureOpenAI";
 
-    protected override ChatClient CreateChatClient(string modelId)
+    protected override ChatClient CreateChatClient(ModelAssignment assignment)
     {
         var factory = new ResilientHttpClientFactory(retryConfig, logger);
         var httpClient = factory.Create();
@@ -39,7 +39,8 @@ public sealed class AzureOpenAiAgentProvider(
             Transport = new HttpClientPipelineTransport(httpClient)
         };
 
+        var deploymentName = assignment.Deployment ?? deployment;
         var client = new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey), options);
-        return client.GetChatClient(deployment);
+        return client.GetChatClient(deploymentName);
     }
 }

@@ -38,7 +38,7 @@ public class OpenAiAgentProvider(
         CancellationToken cancellationToken)
     {
         var planModel = ResolveModel(TaskType.Planning);
-        var client = CreateChatClient(planModel.Model);
+        var client = CreateChatClient(planModel);
 
         var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
@@ -77,7 +77,7 @@ public class OpenAiAgentProvider(
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
             repository.LocalPath, logger, fileReadTracker, progressReporter);
-        var client = CreateChatClient(primaryModel.Model);
+        var client = CreateChatClient(primaryModel);
 
         var loop = new OpenAiAgenticLoop(
             client, toolExecutor, logger, tracker, progressReporter, 25);
@@ -107,7 +107,7 @@ public class OpenAiAgentProvider(
         return new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
     }
 
-    protected virtual ChatClient CreateChatClient(string modelId)
+    protected virtual ChatClient CreateChatClient(ModelAssignment assignment)
     {
         var factory = new ResilientHttpClientFactory(retryConfig, logger);
         var httpClient = factory.Create();
@@ -115,7 +115,7 @@ public class OpenAiAgentProvider(
         if (endpoint is not null)
             clientOptions.Endpoint = endpoint;
         var openAiClient = new OpenAIClient(new ApiKeyCredential(apiKey), clientOptions);
-        return openAiClient.GetChatClient(modelId);
+        return openAiClient.GetChatClient(assignment.Model);
     }
 
     private CostTracker? CreateCostTracker(TokenUsageTracker tracker)
