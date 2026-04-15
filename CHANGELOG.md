@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.14.0...v0.14.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* improve security finding output — no more :0 locations, add Details column ([d610f9f](https://github.com/holgerleichsenring/agent-smith/commit/d610f9fab6a5c57e8f883bedeba06852407ee150))
+
 ## [0.14.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.13.2...v0.14.0) (2026-04-15)
 
 
