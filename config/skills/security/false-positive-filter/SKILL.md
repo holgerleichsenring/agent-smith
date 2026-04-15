@@ -18,7 +18,9 @@ Your task:
 - For each removed finding: briefly state why it was filtered
 - For each retained finding: confirm severity and confidence are appropriate
 
-Output the filtered list of findings in the same structured format.
+Output ALL retained findings in the same structured JSON format.
+You MUST include every single finding that passes the filter — do NOT summarize,
+do NOT limit the count, do NOT omit findings to save space.
 Include a summary: "Retained X of Y findings (Z filtered as false positives)"
 
 Err on the side of removing findings. A false positive wastes developer time.
