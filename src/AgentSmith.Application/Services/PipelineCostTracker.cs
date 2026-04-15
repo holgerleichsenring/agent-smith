@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services;
@@ -6,6 +7,7 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Accumulates LLM token usage and cost across all pipeline steps.
 /// Stored in PipelineContext, read by output handlers at the end.
+/// Uses pricing from project config; falls back to hardcoded defaults.
 /// </summary>
 public sealed class PipelineCostTracker
 {
@@ -13,16 +15,30 @@ public sealed class PipelineCostTracker
     private int _totalOutputTokens;
     private int _callCount;
     private string _lastModel = "unknown";
+    private readonly Dictionary<string, ModelPricing> _pricing;
 
-    private static readonly Dictionary<string, (decimal InputPerMillion, decimal OutputPerMillion)> KnownPricing = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, ModelPricing> DefaultPricing = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["claude-sonnet-4-20250514"] = (3.0m, 15.0m),
-        ["claude-haiku-4-5-20251001"] = (0.80m, 4.0m),
-        ["claude-opus-4-20250514"] = (15.0m, 75.0m),
-        ["gpt-4o"] = (2.50m, 10.0m),
-        ["gpt-4o-mini"] = (0.15m, 0.60m),
-        ["llama-3.3-70b-versatile"] = (0.0m, 0.0m),
+        ["claude-sonnet-4-20250514"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
+        ["claude-haiku-4-5-20251001"] = new() { InputPerMillion = 0.80m, OutputPerMillion = 4.0m, CacheReadPerMillion = 0.08m },
+        ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m },
+        ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m, CacheReadPerMillion = 0.50m },
+        ["gpt-4.1-mini"] = new() { InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CacheReadPerMillion = 0.10m },
+        ["gpt-4.1-nano"] = new() { InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CacheReadPerMillion = 0.025m },
+        ["gpt-4o"] = new() { InputPerMillion = 2.50m, OutputPerMillion = 10.0m },
+        ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m },
+        ["llama-3.3-70b-versatile"] = new() { InputPerMillion = 0.0m, OutputPerMillion = 0.0m },
     };
+
+    public PipelineCostTracker(PricingConfig? config = null)
+    {
+        _pricing = new Dictionary<string, ModelPricing>(DefaultPricing, StringComparer.OrdinalIgnoreCase);
+        if (config?.Models is { Count: > 0 })
+        {
+            foreach (var (model, pricing) in config.Models)
+                _pricing[model] = pricing;
+        }
+    }
 
     public int TotalInputTokens => _totalInputTokens;
     public int TotalOutputTokens => _totalOutputTokens;
@@ -38,7 +54,7 @@ public sealed class PipelineCostTracker
 
     public decimal EstimateCostUsd()
     {
-        if (!KnownPricing.TryGetValue(_lastModel, out var pricing))
+        if (!_pricing.TryGetValue(_lastModel, out var pricing))
             return 0m;
 
         return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
@@ -48,7 +64,7 @@ public sealed class PipelineCostTracker
     public override string ToString()
     {
         var cost = EstimateCostUsd();
-        var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (no pricing configured)";
+        var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (local/free)";
         return $"{CallCount} LLM calls · {TotalInputTokens + TotalOutputTokens} tokens " +
                $"({TotalInputTokens} in, {TotalOutputTokens} out) · {costStr} · {_lastModel}";
     }
@@ -60,7 +76,8 @@ public sealed class PipelineCostTracker
             && existing is not null)
             return existing;
 
-        var tracker = new PipelineCostTracker();
+        pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
+        var tracker = new PipelineCostTracker(pricingConfig);
         pipeline.Set(Key, tracker);
         return tracker;
     }
