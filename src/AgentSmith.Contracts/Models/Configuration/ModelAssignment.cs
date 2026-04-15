@@ -8,6 +8,7 @@ public sealed class ModelAssignment
 {
     public string Model { get; set; } = string.Empty;
     public int MaxTokens { get; set; } = 8192;
+    public string? Deployment { get; set; }
     public string? ProviderType { get; set; }
     public string? Endpoint { get; set; }
 }

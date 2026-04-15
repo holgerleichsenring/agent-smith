@@ -59,23 +59,19 @@ public sealed class LlmClientFactory(
             loggerFactory.CreateLogger<OpenAiLlmClient>());
     }
 
-    private static OpenAiLlmClient CreateAzureOpenAiCompatible(
+    private static AzureOpenAiLlmClient CreateAzureOpenAiCompatible(
         AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
         var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint
                        ?? throw new NotSupportedException("Azure OpenAI requires 'endpoint' in agent config");
-        var deployment = config.Deployment
-                         ?? throw new NotSupportedException("Azure OpenAI requires 'deployment' in agent config");
+        var defaultDeployment = config.Deployment ?? "";
         var apiVersion = config.ApiVersion ?? "2025-01-01-preview";
-        var baseUrl = $"{endpoint.TrimEnd('/')}/openai/deployments/{deployment}";
-        var client = new OpenAiCompatibleClient(
-            baseUrl, apiKey, loggerFactory.CreateLogger("AzureOpenAiLlmClient"),
-            useApiKeyHeader: true, apiVersionQueryParam: apiVersion);
         var registry = CreateModelRegistry(config, loggerFactory);
-        return new OpenAiLlmClient(client, registry,
-            loggerFactory.CreateLogger<OpenAiLlmClient>());
+        return new AzureOpenAiLlmClient(
+            endpoint, apiKey, defaultDeployment, apiVersion, registry,
+            loggerFactory.CreateLogger<AzureOpenAiLlmClient>());
     }
 
     private static IModelRegistry CreateModelRegistry(AgentConfig config, ILoggerFactory loggerFactory)
