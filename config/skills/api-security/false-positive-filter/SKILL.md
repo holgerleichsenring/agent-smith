@@ -29,6 +29,15 @@ Your task:
       with no security impact
     - Nuclei finding duplicates a schema finding already reported by api-design-auditor
       with higher confidence — keep the higher-confidence entry only
+- Apply ZAP-specific false positive heuristics:
+    - Content-Security-Policy on API-only endpoints (no HTML served)
+    - X-Frame-Options on non-HTML responses
+    - Cookie without SameSite on API endpoints using Bearer auth
+    - Information Disclosure on /health, /metrics, /swagger endpoints
+    - CSRF on stateless REST APIs using token-based auth
+    - Timestamp Disclosure in standard JSON response fields
+    - Application Error on expected 4xx responses
+    - Discard ZAP findings with confidence "Low" or "False Positive"
 - For each removed finding: briefly state why it was filtered
 - For each retained finding: confirm severity and confidence are appropriate;
   downgrade severity if the finding requires significant preconditions
