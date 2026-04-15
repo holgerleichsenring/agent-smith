@@ -48,7 +48,7 @@ public sealed class JiraTicketProvider : ITicketProvider
         if (response.StatusCode == HttpStatusCode.NotFound)
             throw new TicketNotFoundException(ticketId);
 
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(json);
@@ -109,7 +109,7 @@ public sealed class JiraTicketProvider : ITicketProvider
 
         var content = new StringContent(body, Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(url, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 
     public async Task CloseTicketAsync(
@@ -121,7 +121,7 @@ public sealed class JiraTicketProvider : ITicketProvider
         // Fetch available transitions.
         var transitionsUrl = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}/transitions";
         var transitionsResponse = await _httpClient.GetAsync(transitionsUrl, cancellationToken);
-        transitionsResponse.EnsureSuccessStatusCode();
+        await transitionsResponse.EnsureSuccessWithBodyAsync(cancellationToken);
 
         var transitionsJson = await transitionsResponse.Content.ReadAsStringAsync(cancellationToken);
         using var transitionsDoc = JsonDocument.Parse(transitionsJson);
@@ -143,7 +143,7 @@ public sealed class JiraTicketProvider : ITicketProvider
 
         var transitionContent = new StringContent(transitionBody, Encoding.UTF8, "application/json");
         var transitionResponse = await _httpClient.PostAsync(transitionsUrl, transitionContent, cancellationToken);
-        transitionResponse.EnsureSuccessStatusCode();
+        await transitionResponse.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 
     /// <summary>

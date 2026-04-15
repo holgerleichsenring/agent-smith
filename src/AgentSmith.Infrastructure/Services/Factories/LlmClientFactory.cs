@@ -62,12 +62,18 @@ public sealed class LlmClientFactory(
     private static AzureOpenAiLlmClient CreateAzureOpenAiCompatible(
         AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger("AzureOpenAiSetup");
         var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint
                        ?? throw new NotSupportedException("Azure OpenAI requires 'endpoint' in agent config");
         var defaultDeployment = config.Deployment ?? "";
         var apiVersion = config.ApiVersion ?? "2025-01-01-preview";
+
+        logger.LogInformation(
+            "Azure OpenAI: endpoint={Endpoint}, defaultDeployment={Deployment}, apiVersion={Version}, key={KeyLength}chars",
+            endpoint, defaultDeployment, apiVersion, apiKey.Length);
+
         var registry = CreateModelRegistry(config, loggerFactory);
         return new AzureOpenAiLlmClient(
             endpoint, apiKey, defaultDeployment, apiVersion, registry,
