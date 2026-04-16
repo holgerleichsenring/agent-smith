@@ -9,17 +9,22 @@ Step-by-step guides for connecting Agent Smith to chat platforms and external se
 | Slack | [Slack Setup](slack.md) | Production-ready |
 | Teams | [Teams Setup](teams.md) | Beta |
 
-## Webhooks & Triggers
+## Webhook Setup
+
+| Platform | Guide | Status |
+|----------|-------|--------|
+| GitHub | [GitHub Webhooks](webhooks/github.md) | Supported |
+| GitLab | [GitLab Webhooks](webhooks/gitlab.md) | Supported |
+| Azure DevOps | [Azure DevOps Webhooks](webhooks/azure-devops.md) | Supported |
+| Jira | [Jira Webhooks](webhooks/jira.md) | Supported (full lifecycle) |
+
+## Label & Tag Triggers
 
 | Topic | Guide | Status |
 |-------|-------|--------|
-| GitHub Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
-| GitLab Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
-| Azure DevOps Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
-| Jira Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
-| Label-based Triggers | Planned (p84) | — |
+| [Label-based Triggers](label-triggers.md) | How labels/tags map to pipelines | Jira: full, others: hardcoded (p84) |
 
 ## Related
 
+- [Webhook Configuration Reference](../configuration/webhooks.md) — secrets, PR comment commands, endpoint details
 - [Chat Gateway Architecture](../deployment/chat-gateway.md) — how the Dispatcher works internally
-- [Webhook Configuration](../configuration/webhooks.md) — webhook secrets, PR comment commands

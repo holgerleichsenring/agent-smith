@@ -129,6 +129,12 @@ nav:
     - setup/README.md
     - Slack: setup/slack.md
     - Teams: setup/teams.md
+    - Webhooks:
+      - GitHub: setup/webhooks/github.md
+      - GitLab: setup/webhooks/gitlab.md
+      - Azure DevOps: setup/webhooks/azure-devops.md
+      - Jira: setup/webhooks/jira.md
+    - Label Triggers: setup/label-triggers.md
   - Integrations:
     - PR Comments: integrations/pr-comments.md
   - Architecture:
