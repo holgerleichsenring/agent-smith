@@ -16,8 +16,8 @@ Step-by-step guides for connecting Agent Smith to chat platforms and external se
 | GitHub Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
 | GitLab Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
 | Azure DevOps Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
-| Jira Webhooks | Planned (p82) | — |
-| Label-based Triggers | Planned (p82) | — |
+| Jira Webhooks | [Webhooks](../configuration/webhooks.md) | Supported |
+| Label-based Triggers | Planned (p84) | — |
 
 ## Related
 
