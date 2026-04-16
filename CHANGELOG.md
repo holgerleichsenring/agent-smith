@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.16.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.3...v0.16.0) (2026-04-16)
+
+
+### Features
+
+* attacker-perspective skills + unified webhook lifecycle (p79, p80, p84) ([e6cdea0](https://github.com/holgerleichsenring/agent-smith/commit/e6cdea03a2705f30c7a9259739f30f3b462b6213))
+* **p78:** gate category routing — filter input, merge output ([fd114b9](https://github.com/holgerleichsenring/agent-smith/commit/fd114b9fb6b9525a0c8191210bba27ad48fe9a1e))
+* **p83:** Jira webhook status lifecycle — trigger gate, done transition, comment trigger ([d935e59](https://github.com/holgerleichsenring/agent-smith/commit/d935e5963bed6bb4be9f890c3a72f5c6c7220c2e))
+* **p85:** webhook structured dispatch — PipelineRequest instead of free-text ([1c215b8](https://github.com/holgerleichsenring/agent-smith/commit/1c215b89081fd25d3dfa6cd85e41ca9450979934))
+* typed inter-agent communication — SkillObservation replaces free-text DiscussionLog (p86) ([a4f77b8](https://github.com/holgerleichsenring/agent-smith/commit/a4f77b8daa638dc26374c642720059c5a4ef0d3a))
+
+
+### Bug Fixes
+
+* ConsolidatedPlan is context for plan generation, not a replacement ([85a49b4](https://github.com/holgerleichsenring/agent-smith/commit/85a49b430c8c4ccc43d4f9be8a1b9be773fb5781))
+* **docs:** move site_dir outside docs_dir to prevent recursive copy ([98ece38](https://github.com/holgerleichsenring/agent-smith/commit/98ece382c4fdef3f59dcfc4bcd495a81938a5128))
+* remove unused logger parameter from TeamsTypedQuestionTracker ([ff8869e](https://github.com/holgerleichsenring/agent-smith/commit/ff8869ed04f4b6fd30d00de94ae8c7d23364bd19))
+* set Plan in context when consolidated by multi-role discussion ([5f389ad](https://github.com/holgerleichsenring/agent-smith/commit/5f389ad25d25c794305779b07257d370db5006b2))
+* upgrade KubernetesClient 16.0.7 → 17.0.14 (NU1902 vulnerability) ([6386845](https://github.com/holgerleichsenring/agent-smith/commit/6386845f90239cc6acaf78cd3d9b21959b2b169e))
+
 ## [0.15.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.2...v0.15.3) (2026-04-15)
 
 
