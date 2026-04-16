@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p81
+goal: "English setup guides for Slack and Teams chat integration — index page, guides, manifest, docker-compose fixes"
+
+decisions:
+  - key: "All guides in English — project lingua franca"
+  - key: "Slack guide exists (docs/slack-setup.md) — review, update, and restructure to match new guide format"
+  - key: "Teams guide is new — cover Azure Bot registration, ngrok, manifest, docker-compose env vars"
+  - key: "All guides go under docs/setup/ as a dedicated setup section"
+  - key: "Webhook and label-trigger docs split out to p82"
+  - key: "Manifest template lives under docs/setup/teams/ (not deploy/) — it's a doc artifact the user customizes, not a production-ready deploy artifact"
+  - key: "chat-gateway.md Teams status → 'beta' — p58b emulator integration test still open"
+  - key: "No placeholder PNGs — document icon requirements (192×192 color, 32×32 outline) and let user provide their own"
+
+steps:
+  - id: setup-index
+    action: "Create docs/setup/README.md — index page linking to all setup guides"
+    new:
+      - "docs/setup/README.md"
+
+  - id: slack-guide
+    action:
+      - "Move and update docs/slack-setup.md → docs/setup/slack.md"
+      - "Verify ngrok and docker-compose instructions against p19a (DockerJobSpawner) — check SPAWNER_TYPE=docker is documented"
+      - "Add docker-compose env var reference"
+    modify:
+      - "docs/slack-setup.md → docs/setup/slack.md"
+
+  - id: teams-guide
+    action:
+      - "Create docs/setup/teams.md — full setup guide covering:"
+      - "Azure AD App Registration + Bot Channel Registration"
+      - "ngrok for local development"
+      - "Teams App Manifest (manifest.json template with icon requirements: 192×192 color.png, 32×32 outline.png)"
+      - "Environment variables (TEAMS_APP_ID, TEAMS_APP_PASSWORD, TEAMS_TENANT_ID)"
+      - "TEAMS_BOT_ENDPOINT — messaging endpoint URL (https://<ngrok>/api/teams/messages) for Azure Bot Service configuration"
+      - "docker-compose.yml changes to pass Teams env vars"
+      - "Sideloading the app into Teams"
+      - "Troubleshooting common issues"
+    new:
+      - "docs/setup/teams.md"
+
+  - id: docker-compose-update
+    action: "Add TEAMS_APP_ID, TEAMS_APP_PASSWORD, TEAMS_TENANT_ID, TEAMS_BOT_ENDPOINT to deploy/docker-compose.yml server service"
+    modify:
+      - "deploy/docker-compose.yml"
+
+  - id: manifest-template
+    action: "Add a Teams app manifest.json template under docs/setup/teams/ — no placeholder PNGs, document icon specs instead"
+    new:
+      - "docs/setup/teams/manifest.json"
+
+  - id: cross-references
+    action: "Update docs/deployment/chat-gateway.md Teams row from 'planned' to 'beta' with link to setup guide"
+    modify:
+      - "docs/deployment/chat-gateway.md"
+
+done:
+  - "docs/setup/ index page exists with links to all guides"
+  - "Slack setup guide reviewed and complete under docs/setup/slack.md — verified against p19a"
+  - "Teams setup guide complete with Azure registration, ngrok, manifest (with icon specs), env vars incl. BOT_ENDPOINT, sideloading"
+  - "docker-compose.yml passes Teams env vars including TEAMS_BOT_ENDPOINT"
+  - "Teams manifest.json template exists under docs/setup/teams/"
+  - "chat-gateway.md Teams status updated to 'beta'"
