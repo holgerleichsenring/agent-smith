@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -18,7 +19,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 public sealed class AzureDevOpsTicketProvider(
     string organizationUrl,
     string project,
-    string personalAccessToken) : ITicketProvider
+    string personalAccessToken,
+    AzureDevOpsAttachmentLoader attachmentLoader) : ITicketProvider
 {
     public string ProviderType => "AzureDevOps";
 
@@ -99,6 +101,38 @@ public sealed class AzureDevOpsTicketProvider(
             GetFieldOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria"),
             GetField(fields, "System.State"),
             "AzureDevOps");
+    }
+
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(ticketId.Value, out var id))
+            return [];
+
+        try
+        {
+            return await attachmentLoader.GetRefsAsync(id, cancellationToken);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        var refs = await GetAttachmentRefsAsync(ticketId, cancellationToken);
+        if (refs.Count == 0) return [];
+
+        var results = new List<TicketImageAttachment>();
+        foreach (var r in refs)
+        {
+            var content = await attachmentLoader.DownloadAsync(r, cancellationToken);
+            if (content is not null)
+                results.Add(new TicketImageAttachment(r, content));
+        }
+        return results;
     }
 
     public async Task UpdateStatusAsync(

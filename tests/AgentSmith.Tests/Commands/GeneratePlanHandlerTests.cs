@@ -35,7 +35,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -58,7 +58,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -82,9 +82,9 @@ public sealed class GeneratePlanHandlerTests
         string? capturedContext = null;
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Callback<Ticket, CodeAnalysis, string, string?, string?, CancellationToken>(
-                (_, _, _, _, ctx, _) => capturedContext = ctx)
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
+            .Callback<Ticket, CodeAnalysis, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>(
+                (_, _, _, _, ctx, _, _) => capturedContext = ctx)
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -114,7 +114,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -143,7 +143,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -177,7 +177,7 @@ public sealed class GeneratePlanHandlerTests
             new(2, "Add eager loading", null, "modify")
         }, "{}");
         string? capturedContext = null;
-        var providerMock = SetupProvider(plan, (_, _, _, _, ctx, _) => capturedContext = ctx);
+        var providerMock = SetupProvider(plan, (_, _, _, _, ctx, _, _) => capturedContext = ctx);
 
         var pipeline = new PipelineContext();
         var convergence = new ConvergenceResult(
@@ -233,7 +233,7 @@ public sealed class GeneratePlanHandlerTests
         providerMock.Verify(p => p.GeneratePlanAsync(
             It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
             It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public sealed class GeneratePlanHandlerTests
     {
         var plan = new Plan("Plan", new List<PlanStep>(), "{}");
         string? capturedContext = null;
-        SetupProvider(plan, (_, _, _, _, ctx, _) => capturedContext = ctx);
+        SetupProvider(plan, (_, _, _, _, ctx, _, _) => capturedContext = ctx);
 
         var pipeline = new PipelineContext();
         var blocking = new SkillObservation(
@@ -269,7 +269,7 @@ public sealed class GeneratePlanHandlerTests
     {
         var plan = new Plan("Plan", new List<PlanStep>(), "{}");
         string? capturedContext = null;
-        SetupProvider(plan, (_, _, _, _, ctx, _) => capturedContext = ctx);
+        SetupProvider(plan, (_, _, _, _, ctx, _, _) => capturedContext = ctx);
 
         var pipeline = new PipelineContext();
         var blocking = new SkillObservation(
@@ -295,13 +295,13 @@ public sealed class GeneratePlanHandlerTests
 
     private Mock<IAgentProvider> SetupProvider(
         Plan plan,
-        Action<Ticket, CodeAnalysis, string, string?, string?, CancellationToken>? callback = null)
+        Action<Ticket, CodeAnalysis, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>? callback = null)
     {
         var providerMock = new Mock<IAgentProvider>();
         var setup = providerMock.Setup(p => p.GeneratePlanAsync(
             It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
             It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-            It.IsAny<CancellationToken>()));
+            It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()));
 
         if (callback is not null)
             setup.Callback(callback);
@@ -333,7 +333,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -365,7 +365,7 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
                 It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);

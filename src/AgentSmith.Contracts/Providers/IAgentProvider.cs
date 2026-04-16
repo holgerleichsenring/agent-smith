@@ -15,6 +15,16 @@ public interface IAgentProvider : ITypedProvider
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
+        CancellationToken cancellationToken)
+        => GeneratePlanAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, null, cancellationToken);
+
+    Task<Plan> GeneratePlanAsync(
+        Ticket ticket,
+        CodeAnalysis codeAnalysis,
+        string codingPrinciples,
+        string? codeMap,
+        string? projectContext,
+        IReadOnlyList<TicketImageAttachment>? images,
         CancellationToken cancellationToken);
 
     Task<AgentExecutionResult> ExecutePlanAsync(

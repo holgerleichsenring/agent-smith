@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -18,6 +20,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     private readonly string _baseUrl;
     private readonly HttpClient _httpClient;
     private readonly ILogger<JiraTicketProvider> _logger;
+    private readonly IAttachmentLoader _attachmentLoader;
 
     public string ProviderType => "Jira";
 
@@ -37,12 +40,14 @@ public sealed class JiraTicketProvider : ITicketProvider
             new AuthenticationHeaderValue("Basic", credentials);
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
+
+        _attachmentLoader = new JiraAttachmentLoader(_httpClient, _logger);
     }
 
     public async Task<Ticket> GetTicketAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
-        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=summary,description,status";
+        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=summary,description,status,attachment";
         var response = await _httpClient.GetAsync(url, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -76,6 +81,40 @@ public sealed class JiraTicketProvider : ITicketProvider
             acceptanceCriteria: null,
             status,
             "Jira");
+    }
+
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=attachment";
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+            return [];
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+
+        if (!doc.RootElement.TryGetProperty("fields", out var fields))
+            return [];
+
+        return JiraAttachmentLoader.ParseRefs(fields);
+    }
+
+    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        var refs = await GetAttachmentRefsAsync(ticketId, cancellationToken);
+        if (refs.Count == 0) return [];
+
+        var results = new List<TicketImageAttachment>();
+        foreach (var r in refs)
+        {
+            var content = await _attachmentLoader.DownloadAsync(r, cancellationToken);
+            if (content is not null)
+                results.Add(new TicketImageAttachment(r, content));
+        }
+        return results;
     }
 
     public async Task UpdateStatusAsync(

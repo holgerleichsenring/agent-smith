@@ -22,7 +22,7 @@ Chain Analyst
 ## orchestration
 role: executor
 output: artifact
-runs_after: recon-analyst, low-privilege-attacker, idor-prober, input-abuser, response-analyst, vuln-analyst, auth-reviewer, injection-checker, secrets-detector, false-positive-filter, config-auditor, supply-chain-auditor, compliance-checker, ai-security-reviewer
+runs_after: gate
 runs_before: 
 parallel_with: 
 input_categories: 
