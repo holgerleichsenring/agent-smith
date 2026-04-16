@@ -92,6 +92,7 @@ public static class PipelinePresets
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
         CommandNames.LoadSwagger,
+        CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,
         CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
