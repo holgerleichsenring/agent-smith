@@ -57,7 +57,8 @@ public sealed class ApiSkillRoundHandler(
 
     private static string BuildFindingsFromSlices(PipelineContext pipeline)
     {
-        if (!pipeline.TryGet<string>(ContextKeys.ApiScanFindingsSummary, out var summary))
+        if (!pipeline.TryGet<string>(ContextKeys.ApiScanFindingsSummary, out var summary)
+            || summary is null)
             return string.Empty;
 
         pipeline.TryGet<Dictionary<string, string>>(ContextKeys.ApiScanFindingsByCategory, out var slices);

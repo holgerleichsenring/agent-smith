@@ -76,7 +76,7 @@ public sealed class BootstrapProjectHandler(
             context.Pipeline, sourceType, context.SkillsPath, cancellationToken);
 
         return CommandResult.Ok(
-            $"Generated {ContextFileName} for {detected.Language} project ({yaml.Length} chars)");
+            $"Generated {ContextFileName} for {detected.Language} project ({yaml?.Length ?? 0} chars)");
     }
 
     private async Task<string?> GenerateContextYamlAsync(
