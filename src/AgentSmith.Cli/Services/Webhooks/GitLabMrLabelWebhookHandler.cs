@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -9,6 +10,8 @@ namespace AgentSmith.Cli.Services.Webhooks;
 /// when "security-review" label is added to a merge request.
 /// </summary>
 public sealed class GitLabMrLabelWebhookHandler(
+    IConfigurationLoader configLoader,
+    ServerContext serverContext,
     ILogger<GitLabMrLabelWebhookHandler> logger) : IWebhookHandler
 {
     private const string TriggerLabel = "security-review";
@@ -39,16 +42,33 @@ public sealed class GitLabMrLabelWebhookHandler(
                 return Task.FromResult(new WebhookResult(false, null, null));
 
             var mrIid = attrs.GetProperty("iid").GetInt32();
-            var projectName = root.GetProperty("project").GetProperty("path").GetString() ?? "";
+            var repoUrl = root.GetProperty("project").GetProperty("web_url").GetString() ?? "";
 
-            var input = $"security-scan in {projectName}";
-            logger.LogInformation("GitLab MR !{MrIid} labeled for security review", mrIid);
-            return Task.FromResult(new WebhookResult(true, input, "security-scan"));
+            var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            var projectName = FindProjectBySourceUrl(config, repoUrl);
+
+            logger.LogInformation("GitLab MR !{MrIid} labeled for security review, project '{Project}'", mrIid, projectName);
+            return Task.FromResult(new WebhookResult(
+                true, null, "security-scan",
+                ProjectName: projectName,
+                TicketId: mrIid.ToString()));
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitLab merge_request webhook");
             return Task.FromResult(new WebhookResult(false, null, null));
         }
+    }
+
+    private static string? FindProjectBySourceUrl(AgentSmithConfig config, string repoUrl)
+    {
+        foreach (var (name, project) in config.Projects)
+        {
+            if (project.Source.Url is not null
+                && repoUrl.Contains(project.Source.Url, StringComparison.OrdinalIgnoreCase))
+                return name;
+        }
+
+        return null;
     }
 }
