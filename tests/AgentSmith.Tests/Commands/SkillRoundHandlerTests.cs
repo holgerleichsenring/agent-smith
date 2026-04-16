@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -154,6 +155,48 @@ public sealed class SkillRoundHandlerTests
         log.Should().HaveCount(2);
         log[0].RoleName.Should().Be("architect");
         log[1].RoleName.Should().Be("tester");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_JsonResponse_ParsesObservationsAndStoresInContext()
+    {
+        var pipeline = CreatePipeline();
+        SetupLlmResponse("""
+            [
+              { "concern": "security", "description": "SQL injection risk", "suggestion": "Parameterize", "blocking": true, "severity": "high", "confidence": 90 }
+            ]
+            """);
+
+        var context = new SkillRoundContext("architect", 1, new AgentConfig(), pipeline);
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var observations)
+            .Should().BeTrue();
+        observations.Should().HaveCount(1);
+        observations![0].Id.Should().Be(1);
+        observations[0].Role.Should().Be("architect");
+        observations[0].Concern.Should().Be(ObservationConcern.Security);
+        observations[0].Blocking.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_JsonResponse_PopulatesDiscussionLogFromObservations()
+    {
+        var pipeline = CreatePipeline();
+        SetupLlmResponse("""
+            [
+              { "concern": "architecture", "description": "Missing interface", "suggestion": "Extract it", "blocking": false, "severity": "medium", "confidence": 75 }
+            ]
+            """);
+
+        var context = new SkillRoundContext("architect", 1, new AgentConfig(), pipeline);
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        var log = pipeline.Get<List<DiscussionEntry>>(ContextKeys.DiscussionLog);
+        log.Should().HaveCount(1);
+        log[0].RoleName.Should().Be("architect");
+        log[0].Content.Should().Contain("Missing interface");
+        log[0].Content.Should().Contain("Architecture");
     }
 
     private void SetupLlmResponse(string response)
