@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.16.0...v0.17.0) (2026-04-16)
+
+
+### Features
+
+* ticket image attachments for LLM vision + restore gate skills (p87) ([73b3352](https://github.com/holgerleichsenring/agent-smith/commit/73b3352a42028acc101745fcf3f6fe91fb2fdf64))
+
 ## [0.16.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.15.3...v0.16.0) (2026-04-16)
 
 
