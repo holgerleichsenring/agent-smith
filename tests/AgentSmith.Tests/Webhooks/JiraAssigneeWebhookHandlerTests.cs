@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
@@ -16,7 +17,8 @@ public sealed class JiraAssigneeWebhookHandlerTests
         string assigneeName = "Agent Smith",
         string issueKey = "PROJ-123",
         string[]? labels = null,
-        string changeField = "assignee")
+        string changeField = "assignee",
+        string issueStatus = "Open")
     {
         var labelArray = labels ?? [];
         var labelsJson = JsonSerializer.Serialize(labelArray);
@@ -28,6 +30,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
             "key": "{{issueKey}}",
             "fields": {
               "assignee": { "displayName": "{{assigneeName}}" },
+              "status": { "name": "{{issueStatus}}" },
               "labels": {{labelsJson}}
             }
           },
@@ -48,7 +51,9 @@ public sealed class JiraAssigneeWebhookHandlerTests
     private static AgentSmithConfig BuildConfig(
         string assigneeName = "Agent Smith",
         string defaultPipeline = "fix-bug",
-        Dictionary<string, string>? labelMap = null)
+        Dictionary<string, string>? labelMap = null,
+        List<string>? triggerStatuses = null,
+        string doneStatus = "In Review")
     {
         return new AgentSmithConfig
         {
@@ -64,7 +69,9 @@ public sealed class JiraAssigneeWebhookHandlerTests
                         {
                             ["security-review"] = "security-scan",
                             ["mad-discussion"] = "mad-discussion"
-                        }
+                        },
+                        TriggerStatuses = triggerStatuses ?? ["Open"],
+                        DoneStatus = doneStatus
                     }
                 }
             }
@@ -159,9 +166,6 @@ public sealed class JiraAssigneeWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_MultipleLabels_ConfigOrderWins()
     {
-        // Config order: security-review first, mad-discussion second.
-        // Payload labels: mad-discussion appears before security-review.
-        // Config order should win → security-scan.
         var handler = CreateHandler(BuildConfig());
         var payload = BuildPayload(labels: ["mad-discussion", "security-review"]);
 
@@ -174,7 +178,6 @@ public sealed class JiraAssigneeWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_SecretMissing_SkipsVerification()
     {
-        // No secret configured → handler should still process the payload
         var config = BuildConfig();
         config.Projects["my-project"].JiraTrigger!.Secret = null;
         var handler = CreateHandler(config);
@@ -188,11 +191,56 @@ public sealed class JiraAssigneeWebhookHandlerTests
     [Fact]
     public void HandleAsync_SecretConfigured_HeaderMissing_ReturnsUnauthorized()
     {
-        // This tests the WebhookSignatureValidator.ValidateJira method directly,
-        // since signature validation is done by the WebhookListener before dispatch.
         var result = WebhookSignatureValidator.ValidateJira(
             "some payload", signatureHeader: null, secret: "my-secret");
 
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HandleAsync_StatusNotInWhitelist_DoesNotTrigger()
+    {
+        var handler = CreateHandler(BuildConfig(triggerStatuses: ["Open", "Active"]));
+        var payload = BuildPayload(issueStatus: "In Review");
+
+        var result = await handler.HandleAsync(payload, EmptyHeaders);
+
+        result.Handled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HandleAsync_StatusInWhitelist_Triggers()
+    {
+        var handler = CreateHandler(BuildConfig(triggerStatuses: ["Open", "Active"]));
+        var payload = BuildPayload(issueStatus: "Active");
+
+        var result = await handler.HandleAsync(payload, EmptyHeaders);
+
+        result.Handled.Should().BeTrue();
+        result.TriggerInput.Should().Be("fix PROJ-123 in my-project");
+    }
+
+    [Fact]
+    public async Task HandleAsync_StatusCheckIsCaseInsensitive()
+    {
+        var handler = CreateHandler(BuildConfig(triggerStatuses: ["open"]));
+        var payload = BuildPayload(issueStatus: "Open");
+
+        var result = await handler.HandleAsync(payload, EmptyHeaders);
+
+        result.Handled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_SetsDoneStatusInInitialContext()
+    {
+        var handler = CreateHandler(BuildConfig(doneStatus: "In Review"));
+        var payload = BuildPayload();
+
+        var result = await handler.HandleAsync(payload, EmptyHeaders);
+
+        result.Handled.Should().BeTrue();
+        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus);
+        result.InitialContext![ContextKeys.DoneStatus].Should().Be("In Review");
     }
 }

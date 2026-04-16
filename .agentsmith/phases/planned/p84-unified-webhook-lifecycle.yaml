@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p84
+goal: "Apply p83 lifecycle pattern (status gate, pipeline-from-label, status transition, comment re-trigger) to GitHub, GitLab, and Azure DevOps"
+requires: ["p83"]
+decisions:
+  - key: "Shared TriggerConfig replaces platform-specific hardcoded values — one config shape for all platforms"
+  - key: "GitHub Issues: status = open/closed, label = configurable, comment trigger via issue_comment event"
+  - key: "GitLab Issues: status = opened/closed, label = configurable, comment trigger via note event"
+  - key: "Azure DevOps: status = work item state (New/Active/Resolved/Closed), tag = configurable, comment trigger via workitem.commented"
+  - key: "Hardcoded trigger labels/tags (agent-smith, security-review) become config defaults — backward compatible"
+  - key: "All platforms support pipeline_from_label — every pipeline is triggerbar from every platform"
+  - key: "Status transition reuses each platform's existing ticket provider (CloseTicketAsync pattern → generalized TransitionToAsync)"
+
+steps:
+  - id: shared-config
+    action: "Extract common trigger config from JiraTriggerConfig into base type, platform configs inherit"
+    new:
+      - "WebhookTriggerConfig: base with TriggerStatuses, DoneStatus, PipelineFromLabel, DefaultPipeline, CommentKeyword"
+    modify:
+      - "JiraTriggerConfig.cs: inherit from WebhookTriggerConfig, keep AssigneeName + Secret"
+      - "ProjectConfig.cs: add GitHubTrigger, GitLabTrigger, AzureDevOpsTrigger (all WebhookTriggerConfig)"
+
+  - id: github-lifecycle
+    action: "Refactor GitHubIssueWebhookHandler to use config-driven trigger with status + label check"
+    modify:
+      - "GitHubIssueWebhookHandler.cs: read trigger config, check status (open), check label from pipeline_from_label keys, resolve pipeline"
+    new:
+      - "GitHubIssueCommentWebhookHandler: handles issue_comment, checks keyword + status + label, triggers pipeline"
+    delete:
+      - "Hardcoded TriggerLabel constant in GitHubIssueWebhookHandler"
+
+  - id: gitlab-lifecycle
+    action: "Add issue lifecycle handler for GitLab (currently only MR label/comment handlers exist)"
+    new:
+      - "GitLabIssueWebhookHandler: handles Issue Hook, checks status + label, resolves pipeline from config"
+      - "GitLabIssueCommentWebhookHandler: handles Note Hook on issues, checks keyword + status + label"
+
+  - id: azuredevops-lifecycle
+    action: "Refactor AzureDevOpsWorkItemWebhookHandler to use config-driven trigger"
+    modify:
+      - "AzureDevOpsWorkItemWebhookHandler.cs: read trigger config, check state from TriggerStatuses, tag from pipeline_from_label, resolve pipeline"
+    new:
+      - "AzureDevOpsWorkItemCommentWebhookHandler: handles workitem.commented, checks keyword + state + tag"
+    delete:
+      - "Hardcoded TriggerTag and pipeline constants in AzureDevOpsWorkItemWebhookHandler"
+
+  - id: status-transition-all
+    action: "Extend ticket providers with TransitionToAsync for done_status support"
+    modify:
+      - "GitHubTicketProvider.cs: add label-based status (add/remove label) or close/reopen"
+      - "GitLabTicketProvider.cs: transition via issue state_event API"
+      - "AzureDevOpsTicketProvider.cs: patch work item state field"
+      - "CommitAndPRHandler.cs: generalize done_status transition to work with any ticket provider"
+
+  - id: config-examples
+    action: "Update agentsmith.yml with trigger examples for all platforms"
+    modify:
+      - "agentsmith.yml: add github_trigger, gitlab_trigger, azuredevops_trigger examples with pipeline_from_label"
+
+tests:
+  - "GitHubIssueWebhookHandler_LabelInConfig_StatusOpen_Triggers"
+  - "GitHubIssueWebhookHandler_LabelInConfig_StatusClosed_DoesNotTrigger"
+  - "GitHubIssueWebhookHandler_UnknownLabel_DoesNotTrigger"
+  - "GitHubIssueCommentWebhookHandler_KeywordPresent_Triggers"
+  - "GitLabIssueWebhookHandler_LabelAndStatusMatch_Triggers"
+  - "GitLabIssueCommentWebhookHandler_KeywordPresent_Triggers"
+  - "AzureDevOpsWorkItemWebhookHandler_TagInConfig_StateActive_Triggers"
+  - "AzureDevOpsWorkItemWebhookHandler_TagInConfig_StateResolved_DoesNotTrigger"
+  - "AzureDevOpsWorkItemCommentWebhookHandler_KeywordPresent_Triggers"
+  - "CommitAndPRHandler_GitHubDoneStatus_ClosesIssue"
+  - "CommitAndPRHandler_AzureDevOpsDoneStatus_TransitionsState"
+
+done:
+  - "All four platforms (Jira, GitHub, GitLab, Azure DevOps) support status-gated triggering"
+  - "All platforms support pipeline_from_label — any pipeline is triggerbar"
+  - "All platforms support comment-based re-triggering with configurable keyword"
+  - "After PR, all platforms transition ticket to done_status"
+  - "Backward compatible — existing webhooks without trigger config still work with defaults"
+  - "Hardcoded labels/tags/pipelines fully replaced by config"
+  - "dotnet build zero warnings, all tests green"

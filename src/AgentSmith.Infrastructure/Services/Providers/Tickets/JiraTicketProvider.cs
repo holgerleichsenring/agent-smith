@@ -115,10 +115,20 @@ public sealed class JiraTicketProvider : ITicketProvider
     public async Task CloseTicketAsync(
         TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
-        // Post the resolution as a comment first.
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);
+        await TransitionToAsync(ticketId, "Done", "Close", cancellationToken);
+    }
 
-        // Fetch available transitions.
+    public async Task TransitionToAsync(
+        TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        await TransitionToAsync(ticketId, statusName, null, cancellationToken);
+    }
+
+    private async Task TransitionToAsync(
+        TicketId ticketId, string primaryName, string? fallbackName,
+        CancellationToken cancellationToken)
+    {
         var transitionsUrl = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}/transitions";
         var transitionsResponse = await _httpClient.GetAsync(transitionsUrl, cancellationToken);
         await transitionsResponse.EnsureSuccessWithBodyAsync(cancellationToken);
@@ -126,16 +136,15 @@ public sealed class JiraTicketProvider : ITicketProvider
         var transitionsJson = await transitionsResponse.Content.ReadAsStringAsync(cancellationToken);
         using var transitionsDoc = JsonDocument.Parse(transitionsJson);
 
-        var transitionId = FindCloseTransitionId(transitionsDoc.RootElement);
+        var transitionId = FindTransitionId(transitionsDoc.RootElement, primaryName, fallbackName);
         if (transitionId is null)
         {
             _logger.LogWarning(
-                "No closing transition found for ticket {TicketId}. The ticket will remain in its current state.",
-                ticketId.Value);
+                "No transition matching '{StatusName}' found for ticket {TicketId}. The ticket will remain in its current state.",
+                primaryName, ticketId.Value);
             return;
         }
 
-        // Execute the transition.
         var transitionBody = JsonSerializer.Serialize(new
         {
             transition = new { id = transitionId }
@@ -146,10 +155,8 @@ public sealed class JiraTicketProvider : ITicketProvider
         await transitionResponse.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// Finds a transition whose name contains "Done" or "Close" (case-insensitive).
-    /// </summary>
-    private static string? FindCloseTransitionId(JsonElement root)
+    private static string? FindTransitionId(
+        JsonElement root, string primaryName, string? fallbackName)
     {
         if (!root.TryGetProperty("transitions", out var transitions))
             return null;
@@ -160,11 +167,10 @@ public sealed class JiraTicketProvider : ITicketProvider
                 ? nameEl.GetString()
                 : null;
 
-            if (name is null)
-                continue;
+            if (name is null) continue;
 
-            if (name.Contains("Done", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("Close", StringComparison.OrdinalIgnoreCase))
+            if (name.Contains(primaryName, StringComparison.OrdinalIgnoreCase)
+                || (fallbackName is not null && name.Contains(fallbackName, StringComparison.OrdinalIgnoreCase)))
             {
                 return transition.TryGetProperty("id", out var idEl)
                     ? idEl.GetString()

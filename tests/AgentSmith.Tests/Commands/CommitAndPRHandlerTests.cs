@@ -87,7 +87,46 @@ public class CommitAndPRHandlerTests
         postedSummary.Should().Contain("Created");
     }
 
-    private static CommitAndPRContext CreateContext()
+    [Fact]
+    public async Task ExecuteAsync_WithDoneStatus_TransitionsInsteadOfClosing()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.DoneStatus, "In Review");
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+
+        _ticketProviderMock.Verify(t => t.TransitionToAsync(
+            It.Is<TicketId>(id => id.Value == "123"),
+            "In Review",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+            It.Is<TicketId>(id => id.Value == "123"),
+            It.Is<string>(s => s.Contains("Agent Smith")),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutDoneStatus_ClosesTicket()
+    {
+        var context = CreateContext();
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        _ticketProviderMock.Verify(t => t.TransitionToAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
     {
         var repo = new Repository("/tmp/test", new BranchName("fix/123"), "https://github.com/test/repo");
         var ticket = new Ticket(new TicketId("123"), "Fix the bug", "Description", null, "Open", "GitHub");
@@ -95,7 +134,6 @@ public class CommitAndPRHandlerTests
         {
             new(new FilePath("README.md"), "content", "Created")
         };
-        var pipeline = new PipelineContext();
-        return new CommitAndPRContext(repo, changes, ticket, new SourceConfig(), new TicketConfig(), pipeline);
+        return new CommitAndPRContext(repo, changes, ticket, new SourceConfig(), new TicketConfig(), pipeline ?? new PipelineContext());
     }
 }
