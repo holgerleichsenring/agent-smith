@@ -22,8 +22,11 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
-        if (context.Pipeline.Has(ContextKeys.ConsolidatedPlan))
+        if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
+            && consolidated is not null)
         {
+            var consolidatedPlan = new Plan(consolidated, [], consolidated);
+            context.Pipeline.Set(ContextKeys.Plan, consolidatedPlan);
             logger.LogInformation("Plan already consolidated by multi-role discussion, skipping generation");
             return CommandResult.Ok("Plan consolidated by multi-role discussion");
         }
