@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models;
+
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
@@ -14,7 +16,8 @@ public sealed record Finding(
     string ReviewStatus = "not_reviewed",  // confirmed | false_positive | not_reviewed
     string? ApiPath = null,                // e.g. "POST /api/auth/login" — for API scan findings
     string? SchemaName = null,             // e.g. "OktaProcessInfoResponse" — for schema-level findings
-    string Category = "unknown")           // e.g. "secrets", "injection", "dependencies"
+    string Category = "unknown",           // e.g. "secrets", "injection", "dependencies"
+    EvidenceMode EvidenceMode = EvidenceMode.Potential) // p79: confirmed only when backed by http_probe
 {
     /// <summary>
     /// Returns the best available location string for display.

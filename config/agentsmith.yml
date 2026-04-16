@@ -57,10 +57,25 @@ projects:
       url: https://dev.azure.com/holgerleichsenring/todo-list/_git/todo-list
       auth: token
     tickets:
-      type: AzureDevOps
-      organization: holgerleichsenring
-      project: todo-list
-      auth: token
+      type: Jira
+      url: https://agent-smith-test.atlassian.net/
+      auth: jira_token
+    jira_trigger:
+      assignee_name: "Holger Leichsenring"
+      # secret: ${JIRA_WEBHOOK_SECRET}       # optional
+      trigger_statuses: ["To Do"]  # only trigger in these statuses
+      done_status: "In Review"              # transition after PR creation
+      pipeline_from_label:                  # label → pipeline mapping
+        bug: fix-bug
+        feature: implement-feature
+        security-review: security-scan
+      default_pipeline: fix-bug             # fallback if no label matches
+      comment_keyword: "@agent-smith"       # optional: re-trigger via comment
+    # tickets:
+    #   type: AzureDevOps
+    #   organization: holgerleichsenring
+    #   project: todo-list
+    #   auth: token
     agent:
       type: Claude
       model: claude-sonnet-4-20250514
@@ -295,6 +310,77 @@ projects:
   #       mad-discussion: mad-discussion
   #       legal: legal-analysis
   #     default_pipeline: fix-bug
+
+  # Example: GitHub Issues with config-driven trigger (p84)
+  # my-github-project:
+  #   source:
+  #     type: GitHub
+  #     url: https://github.com/mycompany/my-project
+  #     auth: token
+  #   tickets:
+  #     type: GitHub
+  #     url: https://github.com/mycompany/my-project
+  #     auth: token
+  #   agent:
+  #     type: Claude
+  #     model: claude-sonnet-4-20250514
+  #   pipeline: fix-bug
+  #   github_trigger:
+  #     trigger_statuses: ["open"]          # only trigger on open issues
+  #     done_status: "closed"               # close issue after PR
+  #     pipeline_from_label:                # label → pipeline mapping
+  #       bug: fix-bug
+  #       feature: add-feature
+  #       security-review: security-scan
+  #     default_pipeline: fix-bug           # fallback if no label matches
+  #     comment_keyword: "@agent-smith"     # re-trigger via issue comment
+
+  # Example: GitLab Issues trigger (p84)
+  # my-gitlab-project:
+  #   source:
+  #     type: GitLab
+  #     url: https://gitlab.com/mycompany/my-project
+  #     auth: token
+  #   tickets:
+  #     type: GitLab
+  #     url: https://gitlab.com/mycompany/my-project
+  #     auth: token
+  #   agent:
+  #     type: Claude
+  #     model: claude-sonnet-4-20250514
+  #   pipeline: fix-bug
+  #   gitlab_trigger:
+  #     trigger_statuses: ["opened"]        # only trigger on opened issues
+  #     done_status: "closed"               # close issue after PR
+  #     pipeline_from_label:
+  #       bug: fix-bug
+  #       security: security-scan
+  #     default_pipeline: fix-bug
+  #     comment_keyword: "@agent-smith"
+
+  # Example: Azure DevOps work item trigger (p84)
+  # my-azuredevops-project:
+  #   source:
+  #     type: AzureRepos
+  #     url: https://dev.azure.com/myorg/my-project/_git/my-project
+  #     auth: token
+  #   tickets:
+  #     type: AzureDevOps
+  #     organization: myorg
+  #     project: my-project
+  #     auth: token
+  #   agent:
+  #     type: Claude
+  #     model: claude-sonnet-4-20250514
+  #   pipeline: fix-bug
+  #   azuredevops_trigger:
+  #     trigger_statuses: ["New", "Active"] # only trigger in these states
+  #     done_status: "Resolved"             # transition after PR
+  #     pipeline_from_label:                # tag → pipeline mapping
+  #       security-review: security-scan
+  #       bug: fix-bug
+  #     default_pipeline: fix-bug
+  #     comment_keyword: "@agent-smith"
 
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}

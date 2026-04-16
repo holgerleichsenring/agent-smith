@@ -27,6 +27,7 @@ public sealed class ApiSecurityTriageHandler(
     {
         pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
         pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);
+        pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var activeMode);
 
         var specSummary = "Swagger spec not available";
         var endpointDetails = "";
@@ -50,14 +51,26 @@ public sealed class ApiSecurityTriageHandler(
             var allUnprotected = spec.Endpoints.All(e => !e.RequiresAuth);
             var hasQueryParams = spec.Endpoints.Any(e => e.Parameters.Any(p => p.In == "query"));
             var hasBulkEndpoints = spec.Endpoints.Any(e => e.Path.Contains("bulk") || e.Path.Contains("batch"));
+            var hasAnonymousEndpoints = spec.Endpoints.Any(e => !e.RequiresAuth && e.Method != "OPTIONS");
+            var hasFileUploadEndpoints = spec.Endpoints.Any(e =>
+                e.Parameters.Any(p => p.In == "formData" || p.Name.Contains("file", StringComparison.OrdinalIgnoreCase)));
+            var hasDeleteOnHierarchicalResources = spec.Endpoints.Any(e =>
+                e.Method.Equals("DELETE", StringComparison.OrdinalIgnoreCase) && e.Path.Contains("{"));
+            var hasIncrementalIdPaths = spec.Endpoints.Any(e =>
+                e.Path.Contains("{id}") || e.Path.Contains("{Id}") || e.Path.Contains("{ID}"));
 
             signalAnalysis = $"""
                 Signals detected:
                 - ID-based paths (BOLA risk): {hasIdPaths}
+                - Incremental ID paths (IDOR risk): {hasIncrementalIdPaths}
                 - Auth scheme declared: {hasAuthScheme}
                 - All endpoints unprotected: {allUnprotected}
+                - Anonymous endpoints (non-OPTIONS): {hasAnonymousEndpoints}
                 - Query parameters present: {hasQueryParams}
                 - Bulk operation endpoints: {hasBulkEndpoints}
+                - File upload endpoints: {hasFileUploadEndpoints}
+                - DELETE on hierarchical resources: {hasDeleteOnHierarchicalResources}
+                - Active mode (personas authenticated): {activeMode}
                 """;
         }
 
@@ -95,9 +108,13 @@ public sealed class ApiSecurityTriageHandler(
             """;
     }
 
-    private static readonly HashSet<string> DastSkills = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Skills that require active mode (HTTP probing with personas).
+    /// When ActiveMode=false, these skills degrade to passive-only.
+    /// </summary>
+    private static readonly HashSet<string> ActiveOnlySkills = new(StringComparer.OrdinalIgnoreCase)
     {
-        "dast-analyst", "dast-false-positive-filter"
+        "low-privilege-attacker", "idor-prober", "input-abuser", "response-analyst"
     };
 
     public async Task<CommandResult> ExecuteAsync(
@@ -106,17 +123,15 @@ public sealed class ApiSecurityTriageHandler(
         // Skip DAST skills if ZAP failed (exit code != 0)
         if (context.Pipeline.TryGet<bool>(ContextKeys.ZapFailed, out var zapFailed) && zapFailed)
         {
-            if (context.Pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
-                    ContextKeys.AvailableRoles, out var roles) && roles is not null)
-            {
-                var filtered = roles.Where(r => !DastSkills.Contains(r.Name)).ToList();
-                context.Pipeline.Set(ContextKeys.AvailableRoles, (IReadOnlyList<RoleSkillDefinition>)filtered);
+            logger.LogInformation("ZAP failed — DAST findings unavailable");
+        }
 
-                logger.LogInformation(
-                    "ZAP failed — excluded {Count} DAST skills: {Skills}",
-                    roles.Count - filtered.Count,
-                    string.Join(", ", DastSkills));
-            }
+        // In passive mode, active-only skills still participate but are informed
+        // they should only perform schema analysis (no HTTP probing)
+        var isActiveMode = context.Pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var active) && active;
+        if (!isActiveMode)
+        {
+            logger.LogInformation("Passive mode — active skills will run schema analysis only");
         }
 
         var llmClient = llmClientFactory.Create(context.AgentConfig);

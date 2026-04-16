@@ -84,4 +84,24 @@ public sealed class GitLabTicketProvider : ITicketProvider
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await response.EnsureSuccessWithBodyAsync(cancellationToken);
     }
+
+    public async Task TransitionToAsync(
+        TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        var stateEvent = statusName.ToLowerInvariant() switch
+        {
+            "closed" => "close",
+            "opened" or "open" or "reopen" => "reopen",
+            _ => statusName.ToLowerInvariant()
+        };
+
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        request.Content = JsonContent.Create(new { state_event = stateEvent });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
+    }
 }

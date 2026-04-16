@@ -2,14 +2,15 @@ namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
 /// Configures automatic pipeline triggering when a Jira issue is assigned to Agent Smith.
+/// Inherits shared trigger config (status gate, pipeline_from_label, done_status, comment keyword).
 /// </summary>
-public sealed class JiraTriggerConfig
+public sealed class JiraTriggerConfig : WebhookTriggerConfig
 {
     public string AssigneeName { get; set; } = "Agent Smith";
     public string? Secret { get; set; }
-    public Dictionary<string, string> PipelineFromLabel { get; set; } = new();
-    public string DefaultPipeline { get; set; } = "fix-bug";
-    public List<string> TriggerStatuses { get; set; } = ["Open"];
-    public string DoneStatus { get; set; } = "In Review";
-    public string? CommentKeyword { get; set; }
+
+    public JiraTriggerConfig()
+    {
+        TriggerStatuses = ["Open"];
+    }
 }

@@ -12,4 +12,7 @@ public sealed class ProjectConfig
     public string? CodingPrinciplesPath { get; set; }
     public string SkillsPath { get; set; } = "skills/coding";
     public JiraTriggerConfig? JiraTrigger { get; set; }
+    public WebhookTriggerConfig? GithubTrigger { get; set; }
+    public WebhookTriggerConfig? GitlabTrigger { get; set; }
+    public WebhookTriggerConfig? AzuredevopsTrigger { get; set; }
 }

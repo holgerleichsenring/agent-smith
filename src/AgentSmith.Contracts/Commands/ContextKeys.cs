@@ -84,4 +84,7 @@ public static class ContextKeys
     public const string DoneStatus = "DoneStatus";
     public const string SkillObservations = "SkillObservations";
     public const string ConvergenceResult = "ConvergenceResult";
+    public const string Personas = "Personas";
+    public const string ActiveMode = "ActiveMode";
+    public const string HttpProbeResults = "HttpProbeResults";
 }
