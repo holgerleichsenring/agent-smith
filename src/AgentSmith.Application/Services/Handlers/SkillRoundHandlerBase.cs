@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -72,15 +73,64 @@ public abstract class SkillRoundHandlerBase(
             systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
 
+        // Parse structured observations and assign framework IDs
+        if (!pipeline.TryGet<List<SkillObservation>>(
+                ContextKeys.SkillObservations, out var observations) || observations is null)
+            observations = [];
+
+        var startId = observations.Count > 0 ? observations.Max(o => o.Id) + 1 : 1;
+        var parsed = ObservationParser.Parse(llmResponse.Text, skillName, startId, Logger);
+        observations.AddRange(parsed);
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+
+        // Backward compat: render observations as text and append to DiscussionLog
+        var renderedText = RenderObservationsAsText(parsed);
         discussionLog.Add(new DiscussionEntry(
-            skillName, role.DisplayName, role.Emoji, round, llmResponse.Text));
+            skillName, role.DisplayName, role.Emoji, round, renderedText));
         pipeline.Set(ContextKeys.DiscussionLog, discussionLog);
 
-        Logger.LogInformation("{Emoji} {DisplayName} (Round {Round}): contributed",
-            role.Emoji, role.DisplayName, round);
+        Logger.LogInformation(
+            "{Emoji} {DisplayName} (Round {Round}): {Count} observations",
+            role.Emoji, role.DisplayName, round, parsed.Count);
 
-        return DetectObjection(llmResponse.Text, role, roles, round)
-            ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): contributed");
+        // Detect objections from blocking observations
+        var blockingObservation = parsed.FirstOrDefault(o => o.Blocking);
+        if (blockingObservation is not null)
+        {
+            // Find a role whose concern area matches, if any
+            var targetRole = roles.FirstOrDefault(r =>
+                r.Name != skillName &&
+                r.Triggers.Any(t => t.Contains(
+                    blockingObservation.Concern.ToString(), StringComparison.OrdinalIgnoreCase)));
+
+            if (targetRole is not null)
+            {
+                var nextRound = round + 1;
+                return CommandResult.OkAndContinueWith(
+                    $"{role.DisplayName} has blocking concern ({blockingObservation.Concern}), requesting {targetRole.DisplayName}",
+                    PipelineCommand.SkillRound(SkillRoundCommandName, targetRole.Name, nextRound),
+                    PipelineCommand.SkillRound(SkillRoundCommandName, skillName, nextRound),
+                    PipelineCommand.Simple(CommandNames.ConvergenceCheck));
+            }
+        }
+
+        // Also check for legacy OBJECTION pattern in rendered text (backward compat)
+        return DetectObjection(renderedText, role, roles, round)
+            ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): {parsed.Count} observations");
+    }
+
+    private static string RenderObservationsAsText(List<SkillObservation> observations)
+    {
+        if (observations.Count == 0) return "No observations.";
+
+        return string.Join("\n\n", observations.Select(o =>
+        {
+            var blocking = o.Blocking ? " [BLOCKING]" : "";
+            var location = !string.IsNullOrWhiteSpace(o.Location) ? $" ({o.Location})" : "";
+            return $"**{o.Concern}{blocking}** [{o.Severity}] (confidence: {o.Confidence}){location}\n" +
+                   $"{o.Description}\n" +
+                   (string.IsNullOrWhiteSpace(o.Suggestion) ? "" : $"→ {o.Suggestion}");
+        }));
     }
 
     private async Task<CommandResult> ExecuteStructuredRoundAsync(
