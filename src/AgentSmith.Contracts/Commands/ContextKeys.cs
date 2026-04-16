@@ -81,4 +81,5 @@ public static class ContextKeys
     public const string SkillGraph = "SkillGraph";
     public const string SkillOutputs = "SkillOutputs";
     public const string ConfigDir = "ConfigDir";
+    public const string DoneStatus = "DoneStatus";
 }

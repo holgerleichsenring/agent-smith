@@ -47,6 +47,7 @@ internal static class ServiceProviderFactory
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsPrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.JiraAssigneeWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.JiraCommentWebhookHandler>();
     }
 
     private static void RegisterProgressReporter(

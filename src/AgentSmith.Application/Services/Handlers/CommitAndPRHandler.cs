@@ -8,7 +8,9 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Commits changes and creates a pull request via source provider.
-/// Posts the result back to the ticket and closes it.
+/// Posts the result back to the ticket. If a DoneStatus is configured
+/// (e.g. from a Jira webhook trigger), transitions the ticket to that status;
+/// otherwise closes the ticket.
 /// </summary>
 public sealed class CommitAndPRHandler(
     ISourceProviderFactory sourceFactory,
@@ -38,12 +40,12 @@ public sealed class CommitAndPRHandler(
 
         logger.LogInformation("Pull request created: {Url}", prUrl);
 
-        await CloseTicketWithSummaryAsync(context, prUrl, cancellationToken);
+        await FinalizeTicketAsync(context, prUrl, cancellationToken);
 
         return CommandResult.Ok($"Pull request created: {prUrl}");
     }
 
-    private async Task CloseTicketWithSummaryAsync(
+    private async Task FinalizeTicketAsync(
         CommitAndPRContext context, string prUrl, CancellationToken cancellationToken)
     {
         try
@@ -63,15 +65,30 @@ public sealed class CommitAndPRHandler(
                 This ticket was automatically processed by Agent Smith.
                 """;
 
-            await ticketProvider.CloseTicketAsync(
-                context.Ticket.Id, summary, cancellationToken);
+            if (context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus)
+                && !string.IsNullOrWhiteSpace(doneStatus))
+            {
+                await ticketProvider.UpdateStatusAsync(
+                    context.Ticket.Id, summary, cancellationToken);
+                await ticketProvider.TransitionToAsync(
+                    context.Ticket.Id, doneStatus, cancellationToken);
 
-            logger.LogInformation("Ticket {Ticket} closed with summary", context.Ticket.Id);
+                logger.LogInformation(
+                    "Ticket {Ticket} transitioned to '{DoneStatus}' with summary",
+                    context.Ticket.Id, doneStatus);
+            }
+            else
+            {
+                await ticketProvider.CloseTicketAsync(
+                    context.Ticket.Id, summary, cancellationToken);
+
+                logger.LogInformation("Ticket {Ticket} closed with summary", context.Ticket.Id);
+            }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Failed to close ticket {Ticket}, PR was still created", context.Ticket.Id);
+                "Failed to finalize ticket {Ticket}, PR was still created", context.Ticket.Id);
         }
     }
 }
