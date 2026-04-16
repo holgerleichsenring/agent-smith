@@ -57,7 +57,6 @@ public sealed class JiraAssigneeWebhookHandler(
             var labels = ExtractLabels(root);
             var pipeline = ResolvePipeline(triggerConfig, labels);
 
-            var input = $"fix {issueKey} in {projectName}";
             logger.LogInformation(
                 "Jira trigger: issue {IssueKey} assigned to '{Assignee}' -> pipeline '{Pipeline}'",
                 issueKey, newAssignee, pipeline);
@@ -67,7 +66,11 @@ public sealed class JiraAssigneeWebhookHandler(
                 [ContextKeys.DoneStatus] = triggerConfig.DoneStatus
             };
 
-            return Task.FromResult(new WebhookResult(true, input, pipeline, InitialContext: initialContext));
+            return Task.FromResult(new WebhookResult(
+                true, null, pipeline,
+                InitialContext: initialContext,
+                ProjectName: projectName,
+                TicketId: issueKey));
         }
         catch (Exception ex)
         {

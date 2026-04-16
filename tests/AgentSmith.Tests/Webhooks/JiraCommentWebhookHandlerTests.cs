@@ -93,7 +93,8 @@ public sealed class JiraCommentWebhookHandlerTests
         var result = await handler.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix PROJ-456 in my-project");
+        result.ProjectName.Should().Be("my-project");
+        result.TicketId.Should().Be("PROJ-456");
         result.Pipeline.Should().Be("fix-bug");
     }
 
