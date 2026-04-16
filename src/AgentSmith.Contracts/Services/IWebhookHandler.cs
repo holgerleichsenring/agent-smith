@@ -20,7 +20,8 @@ public sealed record WebhookResult(
     bool Handled,
     string? TriggerInput,
     string? Pipeline,
-    DialogueAnswerData? DialogueAnswer = null);
+    DialogueAnswerData? DialogueAnswer = null,
+    Dictionary<string, object>? InitialContext = null);
 
 /// <summary>
 /// Carries dialogue answer data extracted from a PR comment (/approve or /reject).

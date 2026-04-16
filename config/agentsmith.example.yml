@@ -106,6 +106,20 @@ projects:
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
 
+    # Optional: Jira webhook trigger — auto-start pipeline when
+    # a Jira issue is assigned to Agent Smith (or a comment keyword is used).
+    # jira_trigger:
+    #   assignee_name: "Agent Smith"
+    #   secret: ${JIRA_WEBHOOK_SECRET}    # optional HMAC verification
+    #   trigger_statuses: ["Open", "Active"]
+    #   done_status: "In Review"           # ticket status after PR is created
+    #   pipeline_from_label:
+    #     bug: fix-bug
+    #     feature: implement-feature
+    #     security-review: security-scan
+    #   default_pipeline: fix-bug
+    #   comment_keyword: "@agent-smith"    # optional: trigger via comment
+
 pipelines:
   fix-bug:
     commands:

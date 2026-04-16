@@ -44,6 +44,13 @@ public interface ITicketProvider : ITypedProvider
         => Task.CompletedTask;
 
     /// <summary>
+    /// Transitions the ticket to the named status (e.g. "In Review").
+    /// No-op if the provider does not support transitions.
+    /// </summary>
+    Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    /// <summary>
     /// Returns attachment references found on the ticket.
     /// Default: empty list (providers that have no attachments skip this).
     /// </summary>
