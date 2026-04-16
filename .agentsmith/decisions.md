@@ -467,3 +467,9 @@
 - [Scope] Per-platform setup guides under docs/setup/webhooks/ — each with prerequisites, step-by-step, config YAML, verification, troubleshooting.
 - [Scope] Label-triggers overview documents current state per platform and p84 roadmap for unified configuration.
 - [Decision] Guides link to each other and to configuration reference (webhooks.md) — no duplication of config details.
+
+## p85: Webhook Structured Dispatch
+- [Architecture] Webhook handlers return ProjectName + TicketId instead of free-text TriggerInput — WebhookRequestProcessor builds PipelineRequest directly, bypassing RegexIntentParser.
+- [Architecture] PR comment handlers still use TriggerInput string (free-form arguments) — legacy path preserved as fallback.
+- [Fix] ConsolidatedPlan is input for GeneratePlanHandler, not a replacement — multi-skill discussion provides analysis context, GeneratePlanHandler distills concrete PlanSteps. Previously the handler short-circuited with 0 steps, causing the agent to spend 32 iterations guessing what to do.
+- [Fix] Jira Cloud system webhooks don't send signature headers — signature validation now skips when no header present, even if secret is configured.
