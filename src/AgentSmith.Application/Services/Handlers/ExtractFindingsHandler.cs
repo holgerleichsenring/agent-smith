@@ -34,7 +34,8 @@ public sealed class ExtractFindingsHandler(
 
         var findings = new List<Finding>();
 
-        if (pipeline.TryGet<StaticScanResult>(ContextKeys.StaticScanResult, out var staticResult))
+        if (pipeline.TryGet<StaticScanResult>(ContextKeys.StaticScanResult, out var staticResult)
+            && staticResult is not null)
         {
             foreach (var f in staticResult.Findings)
             {
@@ -50,7 +51,8 @@ public sealed class ExtractFindingsHandler(
             }
         }
 
-        if (pipeline.TryGet<GitHistoryScanResult>(ContextKeys.GitHistoryScanResult, out var historyResult))
+        if (pipeline.TryGet<GitHistoryScanResult>(ContextKeys.GitHistoryScanResult, out var historyResult)
+            && historyResult is not null)
         {
             foreach (var f in historyResult.Findings)
             {
@@ -66,7 +68,8 @@ public sealed class ExtractFindingsHandler(
             }
         }
 
-        if (pipeline.TryGet<DependencyAuditResult>(ContextKeys.DependencyAuditResult, out var depResult))
+        if (pipeline.TryGet<DependencyAuditResult>(ContextKeys.DependencyAuditResult, out var depResult)
+            && depResult is not null)
         {
             var manifestFile = MapEcosystemToManifest(depResult.Ecosystem);
             foreach (var f in depResult.Findings)
@@ -87,7 +90,7 @@ public sealed class ExtractFindingsHandler(
 
         // Apply LLM assessments: mark findings as confirmed/false_positive
         if (pipeline.TryGet<List<FindingAssessment>>(
-                ContextKeys.FindingAssessments, out var assessments) && assessments.Count > 0)
+                ContextKeys.FindingAssessments, out var assessments) && assessments is { Count: > 0 })
         {
             findings = ApplyAssessments(findings, assessments);
 
