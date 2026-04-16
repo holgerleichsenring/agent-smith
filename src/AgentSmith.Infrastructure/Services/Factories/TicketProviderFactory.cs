@@ -32,13 +32,20 @@ public sealed class TicketProviderFactory(
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
-        return new AzureDevOpsTicketProvider(orgUrl, config.Project!, token);
+        var loader = new AzureDevOpsAttachmentLoader(
+            orgUrl, config.Project!, token,
+            httpClientFactory.CreateClient(),
+            loggerFactory.CreateLogger<AzureDevOpsAttachmentLoader>());
+        return new AzureDevOpsTicketProvider(orgUrl, config.Project!, token, loader);
     }
 
     private GitHubTicketProvider CreateGitHub(TicketConfig config)
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
-        return new GitHubTicketProvider(config.Url!, token);
+        var loader = new GitHubAttachmentLoader(
+            httpClientFactory.CreateClient(),
+            loggerFactory.CreateLogger<GitHubAttachmentLoader>());
+        return new GitHubTicketProvider(config.Url!, token, loader);
     }
 
     private JiraTicketProvider CreateJira(TicketConfig config)
@@ -55,7 +62,11 @@ public sealed class TicketProviderFactory(
         var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var projectPath = config.Project ?? secrets.GetRequired("GITLAB_PROJECT");
-        return new GitLabTicketProvider(baseUrl, Uri.EscapeDataString(projectPath),
-            token, httpClientFactory.CreateClient());
+        var escapedPath = Uri.EscapeDataString(projectPath);
+        var httpClient = httpClientFactory.CreateClient();
+        var loader = new GitLabAttachmentLoader(
+            baseUrl, escapedPath, token, httpClient,
+            loggerFactory.CreateLogger<GitLabAttachmentLoader>());
+        return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader);
     }
 }

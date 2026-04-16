@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -16,16 +17,19 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly string _projectPath;
     private readonly string _privateToken;
     private readonly HttpClient _httpClient;
+    private readonly GitLabAttachmentLoader _attachmentLoader;
 
     public string ProviderType => "GitLab";
 
     public GitLabTicketProvider(
-        string baseUrl, string projectPath, string privateToken, HttpClient httpClient)
+        string baseUrl, string projectPath, string privateToken,
+        HttpClient httpClient, GitLabAttachmentLoader attachmentLoader)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _projectPath = projectPath;
         _privateToken = privateToken;
         _httpClient = httpClient;
+        _attachmentLoader = attachmentLoader;
     }
 
     public async Task<Ticket> GetTicketAsync(
@@ -53,6 +57,39 @@ public sealed class GitLabTicketProvider : ITicketProvider
         var state = root.GetProperty("state").GetString() ?? string.Empty;
 
         return new Ticket(ticketId, title, description, null, state, "GitLab");
+    }
+
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var ticket = await GetTicketAsync(ticketId, cancellationToken);
+            var loader = new GitLabAttachmentLoader(
+                _baseUrl, _projectPath, _privateToken, _httpClient,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+            return loader.ParseRefs(ticket.Description);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        var refs = await GetAttachmentRefsAsync(ticketId, cancellationToken);
+        if (refs.Count == 0) return [];
+
+        var results = new List<TicketImageAttachment>();
+        foreach (var r in refs)
+        {
+            var content = await _attachmentLoader.DownloadAsync(r, cancellationToken);
+            if (content is not null)
+                results.Add(new TicketImageAttachment(r, content));
+        }
+        return results;
     }
 
     public async Task UpdateStatusAsync(
