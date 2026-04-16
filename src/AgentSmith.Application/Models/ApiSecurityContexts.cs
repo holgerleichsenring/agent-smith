@@ -22,6 +22,9 @@ public sealed record ApiSecurityTriageContext(
 public sealed record CompressApiScanFindingsContext(
     PipelineContext Pipeline) : ICommandContext;
 
+public sealed record SessionSetupContext(
+    PipelineContext Pipeline) : ICommandContext;
+
 public sealed record ApiSecuritySkillRoundContext(
     string SkillName,
     int Round,

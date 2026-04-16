@@ -145,6 +145,25 @@ public sealed class AzureDevOpsTicketProvider(
         await client.UpdateWorkItemAsync(patch, project, id, cancellationToken: cancellationToken);
     }
 
+    public async Task TransitionToAsync(
+        TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(ticketId.Value, out var id))
+            return;
+
+        var client = CreateClient();
+        var patch = new JsonPatchDocument
+        {
+            new()
+            {
+                Operation = Operation.Add,
+                Path = "/fields/System.State",
+                Value = statusName
+            }
+        };
+        await client.UpdateWorkItemAsync(patch, project, id, cancellationToken: cancellationToken);
+    }
+
     private static string GetField(IDictionary<string, object> fields, string key)
     {
         return fields.TryGetValue(key, out var value) ? value?.ToString() ?? "" : "";

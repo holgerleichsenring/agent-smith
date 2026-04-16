@@ -71,6 +71,30 @@ public sealed class GitHubTicketProvider : ITicketProvider
             new IssueUpdate { State = ItemState.Closed });
     }
 
+    public async Task TransitionToAsync(
+        TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(ticketId.Value, out var issueNumber))
+            return;
+
+        // GitHub Issues: "closed" transitions to closed, anything else reopens
+        if (statusName.Equals("closed", StringComparison.OrdinalIgnoreCase))
+        {
+            await _client.Issue.Update(_owner, _repo, issueNumber,
+                new IssueUpdate { State = ItemState.Closed });
+        }
+        else if (statusName.Equals("open", StringComparison.OrdinalIgnoreCase))
+        {
+            await _client.Issue.Update(_owner, _repo, issueNumber,
+                new IssueUpdate { State = ItemState.Open });
+        }
+        // For label-based "status" transitions, add/remove label
+        else
+        {
+            await _client.Issue.Labels.AddToIssue(_owner, _repo, issueNumber, [statusName]);
+        }
+    }
+
     private static (string owner, string repo) ParseGitHubUrl(string url)
     {
         var uri = new Uri(url);

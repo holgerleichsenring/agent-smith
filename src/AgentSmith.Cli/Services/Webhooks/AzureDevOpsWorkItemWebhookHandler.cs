@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -6,15 +7,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Cli.Services.Webhooks;
 
 /// <summary>
-/// Handles Azure DevOps workitem.updated events. Triggers security-scan pipeline
-/// when "security-review" tag is added to a work item.
+/// Handles Azure DevOps workitem.updated events. Triggers a pipeline based on
+/// config-driven tag matching and work item state gating.
+/// Falls back to "security-review" tag for backward compatibility.
 /// </summary>
 public sealed class AzureDevOpsWorkItemWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     ILogger<AzureDevOpsWorkItemWebhookHandler> logger) : IWebhookHandler
 {
-    private const string TriggerTag = "security-review";
+    private const string DefaultTriggerTag = "security-review";
 
     public bool CanHandle(string platform, string eventType) =>
         platform == "azuredevops" && eventType == "workitem.updated";
@@ -35,17 +37,48 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
                 return Task.FromResult(new WebhookResult(false, null, null));
 
             var tags = tagsElement.GetString() ?? "";
-            if (!tags.Contains(TriggerTag, StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult(new WebhookResult(false, null, null));
-
             var workItemId = resource.GetProperty("id").GetInt32();
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
-            var projectName = FindProjectByTicketType(config, "AzureDevOps");
+            var (projectName, triggerConfig) = FindProject(config);
 
-            logger.LogInformation("Azure DevOps work item #{WorkItemId} tagged for security review", workItemId);
+            string? pipeline;
+            if (triggerConfig is not null)
+            {
+                var state = fields.TryGetProperty("System.State", out var stateEl)
+                    ? stateEl.GetString() ?? ""
+                    : "";
+
+                if (!IsStatusAllowed(triggerConfig, state))
+                {
+                    logger.LogDebug("Work item #{Id} state '{State}' not in trigger_statuses", workItemId, state);
+                    return Task.FromResult(new WebhookResult(false, null, null));
+                }
+
+                pipeline = ResolvePipelineFromTags(triggerConfig, tags);
+                if (pipeline is null)
+                {
+                    logger.LogDebug("No matching tag found in azuredevops_trigger config");
+                    return Task.FromResult(new WebhookResult(false, null, null));
+                }
+            }
+            else
+            {
+                // Backward compat: trigger on "security-review" tag
+                if (!tags.Contains(DefaultTriggerTag, StringComparison.OrdinalIgnoreCase))
+                    return Task.FromResult(new WebhookResult(false, null, null));
+                pipeline = "security-scan";
+            }
+
+            logger.LogInformation("Azure DevOps work item #{Id} triggered pipeline '{Pipeline}'", workItemId, pipeline);
+
+            var initialContext = triggerConfig is not null
+                ? new Dictionary<string, object> { [ContextKeys.DoneStatus] = triggerConfig.DoneStatus }
+                : null;
+
             return Task.FromResult(new WebhookResult(
-                true, null, "security-scan",
+                true, null, pipeline,
+                InitialContext: initialContext,
                 ProjectName: projectName,
                 TicketId: workItemId.ToString()));
         }
@@ -56,14 +89,30 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
         }
     }
 
-    private static string? FindProjectByTicketType(AgentSmithConfig config, string ticketType)
+    internal static (string? ProjectName, WebhookTriggerConfig? Config) FindProject(AgentSmithConfig config)
     {
         foreach (var (name, project) in config.Projects)
         {
-            if (ticketType.Equals(project.Tickets.Type, StringComparison.OrdinalIgnoreCase))
-                return name;
+            if (project.AzuredevopsTrigger is not null)
+                return (name, project.AzuredevopsTrigger);
+            // Backward compat: match by ticket type
+            if ("AzureDevOps".Equals(project.Tickets.Type, StringComparison.OrdinalIgnoreCase))
+                return (name, null);
         }
+        return (null, null);
+    }
 
-        return null;
+    internal static bool IsStatusAllowed(WebhookTriggerConfig trigger, string state) =>
+        trigger.TriggerStatuses.Count == 0
+        || trigger.TriggerStatuses.Contains(state, StringComparer.OrdinalIgnoreCase);
+
+    internal static string? ResolvePipelineFromTags(WebhookTriggerConfig trigger, string tags)
+    {
+        foreach (var (configTag, pipeline) in trigger.PipelineFromLabel)
+        {
+            if (tags.Contains(configTag, StringComparison.OrdinalIgnoreCase))
+                return pipeline;
+        }
+        return trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
     }
 }

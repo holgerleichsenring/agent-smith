@@ -63,6 +63,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
 
+        // API security probing (p79)
+        services.AddSingleton<ISessionProvider, SessionProvider>();
+
         // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
