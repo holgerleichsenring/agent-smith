@@ -1,6 +1,5 @@
 using AgentSmith.Contracts.Dialogue;
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Adapters;
 
@@ -9,8 +8,7 @@ namespace AgentSmith.Server.Services.Adapters;
 /// Allows question submission (via Adaptive Card callback) to complete
 /// an awaiting <see cref="TaskCompletionSource{T}"/>.
 /// </summary>
-public sealed class TeamsTypedQuestionTracker(
-    ILogger logger)
+public sealed class TeamsTypedQuestionTracker
 {
     private readonly ConcurrentDictionary<string, TaskCompletionSource<DialogAnswer?>>
         _pending = new();
