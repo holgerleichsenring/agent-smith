@@ -46,3 +46,4 @@ deploy/k8s/secret-local.yaml
 site/
 docs/site/
 agentsmith-output/
+*pentest*
