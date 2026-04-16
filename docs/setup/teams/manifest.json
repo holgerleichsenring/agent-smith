@@ -1,0 +1,46 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "<TEAMS_APP_ID>",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "name": {
+    "short": "Agent Smith",
+    "full": "Agent Smith — AI-powered DevOps Agent"
+  },
+  "description": {
+    "short": "Fix bugs, scan for security issues, and manage tickets from Teams.",
+    "full": "Agent Smith is an AI-powered DevOps agent that fixes bugs, runs security scans, and manages tickets. Interact via natural language in Teams channels or direct messages."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#4A90D9",
+  "bots": [
+    {
+      "botId": "<TEAMS_APP_ID>",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            { "title": "help", "description": "Show available commands" },
+            { "title": "fix", "description": "Fix a ticket — e.g. fix #42 in my-project" },
+            { "title": "list tickets", "description": "List open tickets in a project" },
+            { "title": "scan", "description": "Run a security scan on a project" }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}

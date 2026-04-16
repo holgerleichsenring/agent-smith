@@ -39,8 +39,8 @@ The Dispatcher acts as a gateway between chat platforms and Agent Smith. Users t
 
 | Platform | Adapter | Status |
 |----------|---------|--------|
-| Slack    | `SlackAdapter` | Production-ready |
-| Teams    | `IPlatformAdapter` | Interface ready, adapter planned |
+| Slack    | `SlackAdapter` | Production-ready — [setup guide](../setup/slack.md) |
+| Teams    | `TeamsAdapter` | Beta — [setup guide](../setup/teams.md) |
 
 ## Slack Setup
 
@@ -152,8 +152,11 @@ The Dispatcher includes an `OrphanJobDetector` that:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `SLACK_BOT_TOKEN` | Slack bot OAuth token | Yes |
-| `SLACK_SIGNING_SECRET` | Slack request signing secret | Yes |
+| `SLACK_BOT_TOKEN` | Slack bot OAuth token | Slack |
+| `SLACK_SIGNING_SECRET` | Slack request signing secret | Slack |
+| `TEAMS_APP_ID` | Azure AD App Registration client ID | Teams |
+| `TEAMS_APP_PASSWORD` | Azure AD App Registration client secret | Teams |
+| `TEAMS_TENANT_ID` | Azure AD tenant ID | Teams |
 | `REDIS_URL` | Redis connection | Yes |
 | `SPAWNER_TYPE` | `kubernetes` or `docker` | Yes |
 | `AGENTSMITH_IMAGE` | Image for spawned agents | Yes |
