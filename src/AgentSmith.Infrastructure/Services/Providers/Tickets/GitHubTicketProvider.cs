@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -14,13 +15,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly string _owner;
     private readonly string _repo;
     private readonly GitHubClient _client;
+    private readonly GitHubAttachmentLoader _attachmentLoader;
 
     public string ProviderType => "GitHub";
 
-    public GitHubTicketProvider(string repoUrl, string token)
+    public GitHubTicketProvider(string repoUrl, string token, GitHubAttachmentLoader attachmentLoader)
     {
         (_owner, _repo) = ParseGitHubUrl(repoUrl);
         _client = CreateClient(token);
+        _attachmentLoader = attachmentLoader;
     }
 
     public async Task<Ticket> GetTicketAsync(
@@ -49,6 +52,39 @@ public sealed class GitHubTicketProvider : ITicketProvider
             null,
             issue.State.StringValue,
             "GitHub");
+    }
+
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(ticketId.Value, out var issueNumber))
+            return [];
+
+        try
+        {
+            var issue = await _client.Issue.Get(_owner, _repo, issueNumber);
+            return GitHubAttachmentLoader.ParseRefs(issue.Body);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        var refs = await GetAttachmentRefsAsync(ticketId, cancellationToken);
+        if (refs.Count == 0) return [];
+
+        var results = new List<TicketImageAttachment>();
+        foreach (var r in refs)
+        {
+            var content = await _attachmentLoader.DownloadAsync(r, cancellationToken);
+            if (content is not null)
+                results.Add(new TicketImageAttachment(r, content));
+        }
+        return results;
     }
 
     public async Task UpdateStatusAsync(

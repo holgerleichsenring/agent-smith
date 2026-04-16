@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 
@@ -58,4 +59,13 @@ public interface ITicketProvider : ITypedProvider
         TicketId ticketId,
         CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<AttachmentRef>>(Array.Empty<AttachmentRef>());
+
+    /// <summary>
+    /// Downloads image attachments from the ticket, returning ready-to-use image objects.
+    /// Default: empty list. Providers override to handle platform-specific auth.
+    /// </summary>
+    Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
+        TicketId ticketId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<TicketImageAttachment>>([]);
 }

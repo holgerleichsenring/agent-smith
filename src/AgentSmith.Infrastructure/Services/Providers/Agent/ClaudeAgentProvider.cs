@@ -29,18 +29,53 @@ public sealed class ClaudeAgentProvider(
 {
     public string ProviderType => "Claude";
 
-    public async Task<Plan> GeneratePlanAsync(
+    public Task<Plan> GeneratePlanAsync(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
+        IReadOnlyList<TicketImageAttachment>? images,
+        CancellationToken cancellationToken)
+    {
+        return GeneratePlanCoreAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, images, cancellationToken);
+    }
+
+    private async Task<Plan> GeneratePlanCoreAsync(
+        Ticket ticket,
+        CodeAnalysis codeAnalysis,
+        string codingPrinciples,
+        string? codeMap,
+        string? projectContext,
+        IReadOnlyList<TicketImageAttachment>? images,
         CancellationToken cancellationToken)
     {
         using var client = CreateResilientClient();
         var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
         var planModel = ResolveModel(TaskType.Planning);
+
+        var userContent = new List<ContentBase>();
+
+        // p87: Add ticket images as vision content blocks
+        if (images is { Count: > 0 })
+        {
+            foreach (var img in images)
+            {
+                userContent.Add(new ImageContent
+                {
+                    Source = new ImageSource
+                    {
+                        MediaType = img.MediaType,
+                        Data = img.Base64
+                    }
+                });
+            }
+
+            logger.LogInformation("Including {Count} image(s) in plan generation prompt", images.Count);
+        }
+
+        userContent.Add(new TextContent { Text = userPrompt });
 
         var response = await client.Messages.GetClaudeMessageAsync(
             new MessageParameters
@@ -53,7 +88,7 @@ public sealed class ClaudeAgentProvider(
                     new()
                     {
                         Role = RoleType.User,
-                        Content = new List<ContentBase> { new TextContent { Text = userPrompt } }
+                        Content = userContent
                     }
                 },
                 Stream = false,

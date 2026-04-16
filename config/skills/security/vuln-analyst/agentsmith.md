@@ -19,9 +19,9 @@ Vulnerability Analyst
 - "Every finding has a specific code reference and attack vector"
 
 ## orchestration
-role: executor
-output: artifact
-runs_after: gate
-runs_before: 
+role: contributor
+output: list
+runs_after: 
+runs_before: gate
 parallel_with: 
 input_categories: 
