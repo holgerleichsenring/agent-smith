@@ -89,14 +89,11 @@ ls .agentsmith/phases/done/
 # See all runs
 ls .agentsmith/runs/
 
-# Query cost history
-agent-smith cost --project my-api --last 30 --breakdown
-
 # Find when a decision was made
 grep -r "Repository Pattern" .agentsmith/
 
 # See what changed between phases
-diff .agentsmith/phases/done/p54-*.md .agentsmith/phases/done/p55-*.md
+diff .agentsmith/phases/done/p54-*.yaml .agentsmith/phases/done/p55-*.yaml
 ```
 
 ## Related

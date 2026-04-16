@@ -125,6 +125,10 @@ nav:
     - Docker: deployment/docker.md
     - Kubernetes: deployment/kubernetes.md
     - Chat Gateway: deployment/chat-gateway.md
+  - Setup Guides:
+    - setup/README.md
+    - Slack: setup/slack.md
+    - Teams: setup/teams.md
   - Integrations:
     - PR Comments: integrations/pr-comments.md
   - Architecture:
