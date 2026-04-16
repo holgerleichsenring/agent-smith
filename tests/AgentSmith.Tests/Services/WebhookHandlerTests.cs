@@ -1,45 +1,116 @@
 using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
 public sealed class WebhookHandlerTests
 {
+    private const string ConfigPath = "test-config.yml";
+
+    private static AgentSmithConfig BuildGitHubConfig(string repoUrl = "https://github.com/org/my-api") =>
+        new()
+        {
+            Projects = new Dictionary<string, ProjectConfig>
+            {
+                ["my-api"] = new()
+                {
+                    Source = new SourceConfig { Url = repoUrl }
+                }
+            }
+        };
+
+    private static AgentSmithConfig BuildAzDoConfig() =>
+        new()
+        {
+            Projects = new Dictionary<string, ProjectConfig>
+            {
+                ["my-project"] = new()
+                {
+                    Tickets = new TicketConfig { Type = "AzureDevOps" }
+                }
+            }
+        };
+
+    private static AgentSmithConfig BuildGitLabConfig(string repoUrl = "https://gitlab.com/org/my-api") =>
+        new()
+        {
+            Projects = new Dictionary<string, ProjectConfig>
+            {
+                ["my-api"] = new()
+                {
+                    Source = new SourceConfig { Url = repoUrl }
+                }
+            }
+        };
+
+    private static GitHubIssueWebhookHandler CreateGitHubHandler(AgentSmithConfig? config = null)
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config ?? BuildGitHubConfig());
+        return new GitHubIssueWebhookHandler(loader.Object, new ServerContext(ConfigPath),
+            NullLogger<GitHubIssueWebhookHandler>.Instance);
+    }
+
+    private static GitLabMrLabelWebhookHandler CreateGitLabHandler(AgentSmithConfig? config = null)
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config ?? BuildGitLabConfig());
+        return new GitLabMrLabelWebhookHandler(loader.Object, new ServerContext(ConfigPath),
+            NullLogger<GitLabMrLabelWebhookHandler>.Instance);
+    }
+
+    private static AzureDevOpsWorkItemWebhookHandler CreateAzDoHandler(AgentSmithConfig? config = null)
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config ?? BuildAzDoConfig());
+        return new AzureDevOpsWorkItemWebhookHandler(loader.Object, new ServerContext(ConfigPath),
+            NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
+    }
+
+    private static readonly IDictionary<string, string> EmptyHeaders =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    // --- GitHub Issue ---
+
     [Fact]
     public async Task GitHubIssue_LabeledAgentSmith_ReturnsHandled()
     {
-        var sut = new GitHubIssueWebhookHandler(NullLogger<GitHubIssueWebhookHandler>.Instance);
+        var sut = CreateGitHubHandler();
         var payload = """
         {
             "action": "labeled",
             "label": { "name": "agent-smith" },
             "issue": { "number": 42 },
-            "repository": { "name": "my-api" }
+            "repository": { "name": "my-api", "html_url": "https://github.com/org/my-api" }
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix #42 in my-api");
-        result.Pipeline.Should().BeNull();
+        result.ProjectName.Should().Be("my-api");
+        result.TicketId.Should().Be("42");
+        result.TriggerInput.Should().BeNull();
     }
 
     [Fact]
     public async Task GitHubIssue_WrongLabel_ReturnsNotHandled()
     {
-        var sut = new GitHubIssueWebhookHandler(NullLogger<GitHubIssueWebhookHandler>.Instance);
+        var sut = CreateGitHubHandler();
         var payload = """
         {
             "action": "labeled",
             "label": { "name": "bug" },
             "issue": { "number": 42 },
-            "repository": { "name": "my-api" }
+            "repository": { "name": "my-api", "html_url": "https://github.com/org/my-api" }
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -47,10 +118,10 @@ public sealed class WebhookHandlerTests
     [Fact]
     public async Task GitHubIssue_NotLabeled_ReturnsNotHandled()
     {
-        var sut = new GitHubIssueWebhookHandler(NullLogger<GitHubIssueWebhookHandler>.Instance);
-        var payload = """{ "action": "opened", "issue": { "number": 1 }, "repository": { "name": "x" } }""";
+        var sut = CreateGitHubHandler();
+        var payload = """{ "action": "opened", "issue": { "number": 1 }, "repository": { "name": "x", "html_url": "https://github.com/org/x" } }""";
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -58,12 +129,14 @@ public sealed class WebhookHandlerTests
     [Fact]
     public void GitHubIssue_CanHandle_CorrectPlatform()
     {
-        var sut = new GitHubIssueWebhookHandler(NullLogger<GitHubIssueWebhookHandler>.Instance);
+        var sut = CreateGitHubHandler();
 
         sut.CanHandle("github", "issues").Should().BeTrue();
         sut.CanHandle("github", "pull_request").Should().BeFalse();
         sut.CanHandle("gitlab", "issues").Should().BeFalse();
     }
+
+    // --- GitHub PR Label ---
 
     [Fact]
     public async Task GitHubPr_LabeledSecurityReview_ReturnsSecurityScan()
@@ -78,7 +151,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Contain("my-api");
@@ -94,37 +167,41 @@ public sealed class WebhookHandlerTests
         sut.CanHandle("github", "issues").Should().BeFalse();
     }
 
+    // --- GitLab MR Label ---
+
     [Fact]
     public async Task GitLabMr_LabeledSecurityReview_ReturnsSecurityScan()
     {
-        var sut = new GitLabMrLabelWebhookHandler(NullLogger<GitLabMrLabelWebhookHandler>.Instance);
+        var sut = CreateGitLabHandler();
         var payload = """
         {
             "object_attributes": { "action": "update", "iid": 3 },
             "labels": [{ "title": "security-review" }],
-            "project": { "path": "my-api" }
+            "project": { "path": "my-api", "web_url": "https://gitlab.com/org/my-api" }
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.Pipeline.Should().Be("security-scan");
+        result.ProjectName.Should().Be("my-api");
+        result.TicketId.Should().Be("3");
     }
 
     [Fact]
     public async Task GitLabMr_NoMatchingLabel_ReturnsNotHandled()
     {
-        var sut = new GitLabMrLabelWebhookHandler(NullLogger<GitLabMrLabelWebhookHandler>.Instance);
+        var sut = CreateGitLabHandler();
         var payload = """
         {
             "object_attributes": { "action": "update", "iid": 3 },
             "labels": [{ "title": "needs-review" }],
-            "project": { "path": "my-api" }
+            "project": { "path": "my-api", "web_url": "https://gitlab.com/org/my-api" }
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -132,17 +209,18 @@ public sealed class WebhookHandlerTests
     [Fact]
     public void GitLabMr_CanHandle_CorrectPlatform()
     {
-        var sut = new GitLabMrLabelWebhookHandler(NullLogger<GitLabMrLabelWebhookHandler>.Instance);
+        var sut = CreateGitLabHandler();
 
         sut.CanHandle("gitlab", "merge_request").Should().BeTrue();
         sut.CanHandle("gitlab", "push").Should().BeFalse();
     }
 
+    // --- Azure DevOps Work Item ---
+
     [Fact]
     public async Task AzDO_TaggedSecurityReview_ReturnsSecurityScan()
     {
-        var sut = new AzureDevOpsWorkItemWebhookHandler(
-            NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
+        var sut = CreateAzDoHandler();
         var payload = """
         {
             "resource": {
@@ -155,17 +233,18 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.Pipeline.Should().Be("security-scan");
+        result.ProjectName.Should().Be("my-project");
+        result.TicketId.Should().Be("99");
     }
 
     [Fact]
     public async Task AzDO_NoTag_ReturnsNotHandled()
     {
-        var sut = new AzureDevOpsWorkItemWebhookHandler(
-            NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
+        var sut = CreateAzDoHandler();
         var payload = """
         {
             "resource": {
@@ -178,7 +257,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -186,12 +265,13 @@ public sealed class WebhookHandlerTests
     [Fact]
     public void AzDO_CanHandle_CorrectPlatform()
     {
-        var sut = new AzureDevOpsWorkItemWebhookHandler(
-            NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
+        var sut = CreateAzDoHandler();
 
         sut.CanHandle("azuredevops", "workitem.updated").Should().BeTrue();
         sut.CanHandle("azuredevops", "build.complete").Should().BeFalse();
     }
+
+    // --- GitHub PR Comment (unchanged — still uses TriggerInput) ---
 
     [Fact]
     public void GitHubPrComment_CanHandle_CorrectEventTypes()
@@ -227,7 +307,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug pr:org/my-api#42");
@@ -256,7 +336,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug #123 in my-api");
@@ -285,7 +365,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("security-scan pr:org/my-api#7");
@@ -314,7 +394,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -341,7 +421,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.DialogueAnswer.Should().NotBeNull();
@@ -369,7 +449,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -396,7 +476,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -420,7 +500,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug pr:org/my-api#10");
@@ -449,7 +529,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -486,7 +566,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug mr:org/my-api!15");
@@ -512,7 +592,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug #99 in core");
@@ -538,7 +618,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("security-scan mr:org/my-api!3");
@@ -564,7 +644,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.DialogueAnswer.Should().NotBeNull();
@@ -591,7 +671,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -615,7 +695,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -639,7 +719,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -682,7 +762,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug pr:MyProject/my-api#58");
@@ -714,7 +794,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("fix-bug #77 in payments");
@@ -746,7 +826,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.TriggerInput.Should().Be("security-scan pr:MyProject/my-api#12");
@@ -778,7 +858,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         result.DialogueAnswer.Should().NotBeNull();
@@ -812,7 +892,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
@@ -842,7 +922,7 @@ public sealed class WebhookHandlerTests
         }
         """;
 
-        var result = await sut.HandleAsync(payload, new Dictionary<string, string>());
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
     }
