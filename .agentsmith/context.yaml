@@ -148,10 +148,12 @@ state:
     p77: "Pipeline fixes: skills_path relative to config dir, ZAP exit codes, Docker cp permissions (873 tests)"
     p78: "Gate category routing: filter input by category, merge output, passthrough for unclaimed findings (873 tests)"
     p81: "Integration setup docs: Slack + Teams setup guides, Teams env vars in docker-compose"
+    p82: "Webhook & trigger docs: per-platform setup guides (GitHub, GitLab, Azure DevOps, Jira), label-trigger overview"
     p83: "Jira webhook status lifecycle: trigger gate (assignee+label+status), done_status transition after PR, comment re-trigger (896 tests)"
   active: {}
   done-recently:
     p83: "Jira webhook status lifecycle: trigger gate, done_status transition, comment re-trigger (896 tests)"
+    p82: "Webhook & trigger docs: per-platform setup guides, label-trigger overview"
   planned:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
