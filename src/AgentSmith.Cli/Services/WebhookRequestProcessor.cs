@@ -45,7 +45,7 @@ internal sealed class WebhookRequestProcessor(
             result.TriggerInput, result.Pipeline ?? "default");
 
         if (result.TriggerInput is not null)
-            _ = ExecuteRunAsync(result.TriggerInput, result.Pipeline);
+            _ = ExecuteRunAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
 
         return (202, $"Accepted: {result.TriggerInput}");
     }
@@ -63,13 +63,14 @@ internal sealed class WebhookRequestProcessor(
         return new WebhookResult(false, null, null);
     }
 
-    private async Task ExecuteRunAsync(string input, string? pipelineOverride)
+    private async Task ExecuteRunAsync(
+        string input, string? pipelineOverride, Dictionary<string, object>? initialContext = null)
     {
         try
         {
             var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
             var result = await useCase.ExecuteAsync(
-                input, configPath, headless: true, pipelineOverride, CancellationToken.None);
+                input, configPath, headless: true, pipelineOverride, CancellationToken.None, initialContext);
             logger.LogInformation(result.IsSuccess
                 ? "Run completed: {Message}" : "Run failed: {Message}", result.Message);
         }

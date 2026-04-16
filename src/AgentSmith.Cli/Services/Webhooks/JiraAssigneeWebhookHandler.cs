@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -7,8 +8,8 @@ namespace AgentSmith.Cli.Services.Webhooks;
 
 /// <summary>
 /// Handles Jira issue_updated webhooks. Triggers a pipeline when an issue
-/// is assigned to the configured Agent Smith user. Pipeline is resolved
-/// from the issue's labels via the config-defined label map (config order = priority).
+/// is assigned to the configured Agent Smith user, the issue status is in the
+/// configured whitelist, and a matching label determines the pipeline.
 /// </summary>
 public sealed class JiraAssigneeWebhookHandler(
     IConfigurationLoader configLoader,
@@ -44,6 +45,14 @@ public sealed class JiraAssigneeWebhookHandler(
                 return Task.FromResult(new WebhookResult(false, null, null));
             }
 
+            var issueStatus = ExtractIssueStatus(root);
+            if (!IsStatusAllowed(triggerConfig, issueStatus))
+            {
+                logger.LogDebug(
+                    "Issue status '{Status}' not in trigger_statuses, ignoring", issueStatus);
+                return Task.FromResult(new WebhookResult(false, null, null));
+            }
+
             var issueKey = root.GetProperty("issue").GetProperty("key").GetString()!;
             var labels = ExtractLabels(root);
             var pipeline = ResolvePipeline(triggerConfig, labels);
@@ -53,7 +62,12 @@ public sealed class JiraAssigneeWebhookHandler(
                 "Jira trigger: issue {IssueKey} assigned to '{Assignee}' -> pipeline '{Pipeline}'",
                 issueKey, newAssignee, pipeline);
 
-            return Task.FromResult(new WebhookResult(true, input, pipeline));
+            var initialContext = new Dictionary<string, object>
+            {
+                [ContextKeys.DoneStatus] = triggerConfig.DoneStatus
+            };
+
+            return Task.FromResult(new WebhookResult(true, input, pipeline, InitialContext: initialContext));
         }
         catch (Exception ex)
         {
@@ -92,7 +106,23 @@ public sealed class JiraAssigneeWebhookHandler(
         return (string.Empty, null);
     }
 
-    private static List<string> ExtractLabels(JsonElement root)
+    internal static string ExtractIssueStatus(JsonElement root)
+    {
+        if (root.TryGetProperty("issue", out var issue)
+            && issue.TryGetProperty("fields", out var fields)
+            && fields.TryGetProperty("status", out var status)
+            && status.TryGetProperty("name", out var name))
+        {
+            return name.GetString() ?? string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    internal static bool IsStatusAllowed(JiraTriggerConfig trigger, string issueStatus) =>
+        trigger.TriggerStatuses.Contains(issueStatus, StringComparer.OrdinalIgnoreCase);
+
+    internal static List<string> ExtractLabels(JsonElement root)
     {
         var labels = new List<string>();
 
@@ -111,7 +141,6 @@ public sealed class JiraAssigneeWebhookHandler(
 
     internal static string ResolvePipeline(JiraTriggerConfig trigger, List<string> labels)
     {
-        // Iterate config keys (user-defined priority), not payload labels.
         foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
         {
             if (labels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
