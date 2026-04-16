@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -27,6 +28,7 @@ public sealed class ConvergenceCheckHandlerTests
             NullLogger<PlanConsolidator>.Instance);
         _handler = new ConvergenceCheckHandler(
             planConsolidator,
+            _llmFactoryMock.Object,
             NullLogger<ConvergenceCheckHandler>.Instance);
     }
 
@@ -185,6 +187,156 @@ public sealed class ConvergenceCheckHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Has(ContextKeys.ConsolidatedPlan).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillObservations_AllNonBlocking_ConsensusIsTrue()
+    {
+        var pipeline = CreatePipeline();
+        var observations = new List<SkillObservation>
+        {
+            new(1, "architect", ObservationConcern.Architecture, "Good structure", "Keep it", false, ObservationSeverity.Info, 80),
+            new(2, "tester", ObservationConcern.Correctness, "Tests pass", "Add more", false, ObservationSeverity.Low, 75)
+        };
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+        pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
+        {
+            new("architect", "Architect", "🏗️", 1, "observations text")
+        });
+
+        SetupLlmResponse("""{ "consensus": true, "links": [], "additionalRoles": [] }""");
+
+        var context = CreateContext(pipeline);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("Consensus reached");
+        pipeline.Has(ContextKeys.ConvergenceResult).Should().BeTrue();
+        var convergence = pipeline.Get<ConvergenceResult>(ContextKeys.ConvergenceResult);
+        convergence.Consensus.Should().BeTrue();
+        convergence.Blocking.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillObservations_ContradictingBlocking_ConsensusIsFalse()
+    {
+        var pipeline = CreatePipeline();
+        pipeline.Set(ContextKeys.ProjectSkills, new SkillConfig
+        {
+            Discussion = new DiscussionConfig { MaxRounds = 1 }
+        });
+        var observations = new List<SkillObservation>
+        {
+            new(1, "architect", ObservationConcern.Security, "Use OAuth", "Implement OAuth", true, ObservationSeverity.High, 90),
+            new(2, "tester", ObservationConcern.Security, "Use API keys", "Implement API keys", true, ObservationSeverity.High, 85)
+        };
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+        pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
+        {
+            new("architect", "Architect", "🏗️", 1, "text")
+        });
+
+        SetupLlmResponse("""
+            {
+              "consensus": false,
+              "links": [
+                { "observationId": 1, "relatedObservationId": 2, "relationship": "contradicts" }
+              ],
+              "additionalRoles": []
+            }
+            """);
+
+        var context = CreateContext(pipeline);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("No consensus");
+        pipeline.Has(ContextKeys.ConvergenceResult).Should().BeTrue();
+        var convergence = pipeline.Get<ConvergenceResult>(ContextKeys.ConvergenceResult);
+        convergence.Consensus.Should().BeFalse();
+        convergence.Links.Should().ContainSingle(l => l.Relationship == ObservationRelationship.Contradicts);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillObservations_BlockingBelowConfidence70_ConsensusIsFalse()
+    {
+        var pipeline = CreatePipeline();
+        pipeline.Set(ContextKeys.ProjectSkills, new SkillConfig
+        {
+            Discussion = new DiscussionConfig { MaxRounds = 1 }
+        });
+        var observations = new List<SkillObservation>
+        {
+            new(1, "architect", ObservationConcern.Architecture, "Might be wrong", "Maybe fix", true, ObservationSeverity.Medium, 50)
+        };
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+        pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
+        {
+            new("architect", "Architect", "🏗️", 1, "text")
+        });
+
+        // LLM says consensus, but low confidence on blocking should override
+        SetupLlmResponse("""{ "consensus": true, "links": [], "additionalRoles": [] }""");
+
+        var context = CreateContext(pipeline);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var convergence = pipeline.Get<ConvergenceResult>(ContextKeys.ConvergenceResult);
+        convergence.Consensus.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillObservations_MissingRoleForConcern_AddsToAdditionalRoles()
+    {
+        var pipeline = CreatePipeline();
+        pipeline.Set(ContextKeys.ProjectSkills, new SkillConfig
+        {
+            Discussion = new DiscussionConfig { MaxRounds = 1 }
+        });
+        var observations = new List<SkillObservation>
+        {
+            new(1, "architect", ObservationConcern.Legal, "Licensing issue", "Check license", false, ObservationSeverity.Medium, 70)
+        };
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+        pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
+        {
+            new("architect", "Architect", "🏗️", 1, "text")
+        });
+
+        SetupLlmResponse("""{ "consensus": true, "links": [], "additionalRoles": ["legal-reviewer"] }""");
+
+        var context = CreateContext(pipeline);
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var convergence = pipeline.Get<ConvergenceResult>(ContextKeys.ConvergenceResult);
+        convergence.AdditionalRoles.Should().Contain("legal-reviewer");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillObservations_ProducesConvergenceResult_NotConsolidatedPlanString()
+    {
+        var pipeline = CreatePipeline();
+        var observations = new List<SkillObservation>
+        {
+            new(1, "architect", ObservationConcern.Architecture, "Good", "Keep", false, ObservationSeverity.Info, 80)
+        };
+        pipeline.Set(ContextKeys.SkillObservations, observations);
+        pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
+        {
+            new("architect", "Architect", "🏗️", 1, "text")
+        });
+
+        SetupLlmResponse("""{ "consensus": true, "links": [], "additionalRoles": [] }""");
+
+        var context = CreateContext(pipeline);
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.Has(ContextKeys.ConvergenceResult).Should().BeTrue();
+        var convergence = pipeline.Get<ConvergenceResult>(ContextKeys.ConvergenceResult);
+        convergence.Should().NotBeNull();
+        convergence.Observations.Should().HaveCount(1);
     }
 
     private void SetupLlmResponse(string response)

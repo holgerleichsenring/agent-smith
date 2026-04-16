@@ -2,6 +2,7 @@ using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -11,6 +12,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Generates an execution plan using the AI agent provider.
+/// When ConvergenceResult is available, maps blocking observations to structured plan input.
 /// Writes plan decisions to the decision log after parsing.
 /// </summary>
 public sealed class GeneratePlanHandler(
@@ -22,11 +24,24 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
-        // ConsolidatedPlan from multi-skill discussion is additional context
-        // for plan generation, not a replacement. The discussion provides analysis
-        // and recommendations; this handler distills them into concrete PlanSteps.
         var projectContext = context.ProjectContext;
-        if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
+
+        // Prefer structured ConvergenceResult when available
+        if (context.Pipeline.TryGet<ConvergenceResult>(
+                ContextKeys.ConvergenceResult, out var convergenceResult)
+            && convergenceResult is not null)
+        {
+            logger.LogInformation(
+                "Using ConvergenceResult: {Blocking} blocking, {NonBlocking} non-blocking observations",
+                convergenceResult.Blocking.Count, convergenceResult.NonBlocking.Count);
+
+            var structuredInput = BuildStructuredInput(convergenceResult);
+            projectContext = string.IsNullOrEmpty(projectContext)
+                ? structuredInput
+                : $"{projectContext}\n\n{structuredInput}";
+        }
+        // Fallback: ConsolidatedPlan from legacy discussion path
+        else if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
             && consolidated is not null)
         {
             logger.LogInformation("Including consolidated multi-role discussion as plan context");
@@ -57,6 +72,47 @@ public sealed class GeneratePlanHandler(
             plan.Summary, plan.Steps.Count, plan.Decisions.Count);
 
         return CommandResult.Ok($"Plan generated with {plan.Steps.Count} steps");
+    }
+
+    private static string BuildStructuredInput(ConvergenceResult convergenceResult)
+    {
+        var sections = new List<string> { "## Multi-Role Analysis (Structured)" };
+
+        if (convergenceResult.Blocking.Count > 0)
+        {
+            sections.Add("### Blocking Observations — each MUST map to a plan step");
+            foreach (var obs in convergenceResult.Blocking)
+            {
+                var effort = obs.Effort.HasValue ? $" | effort: {obs.Effort}" : "";
+                var location = !string.IsNullOrWhiteSpace(obs.Location) ? $" | target: {obs.Location}" : "";
+                sections.Add(
+                    $"- [{obs.Id}] **{obs.Concern}** ({obs.Severity}, confidence: {obs.Confidence}){effort}{location}\n" +
+                    $"  {obs.Description}\n" +
+                    (string.IsNullOrWhiteSpace(obs.Suggestion) ? "" : $"  → Action: {obs.Suggestion}"));
+            }
+        }
+
+        if (convergenceResult.NonBlocking.Count > 0)
+        {
+            sections.Add("### Non-Blocking Observations — address if feasible");
+            foreach (var obs in convergenceResult.NonBlocking)
+            {
+                sections.Add(
+                    $"- [{obs.Id}] **{obs.Concern}** ({obs.Severity}): {obs.Description}" +
+                    (string.IsNullOrWhiteSpace(obs.Suggestion) ? "" : $" → {obs.Suggestion}"));
+            }
+        }
+
+        if (convergenceResult.Links.Count > 0)
+        {
+            sections.Add("### Observation Relationships");
+            foreach (var link in convergenceResult.Links)
+            {
+                sections.Add($"- [{link.ObservationId}] {link.Relationship} [{link.RelatedObservationId}]");
+            }
+        }
+
+        return string.Join("\n\n", sections);
     }
 
     private async Task WriteDecisionsAsync(
