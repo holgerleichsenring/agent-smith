@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services;
 

@@ -61,6 +61,7 @@ public static class CommandNames
     public const string LoadVision = "LoadVisionCommand";
     public const string LoadRuns = "LoadRunsCommand";
     public const string WriteTickets = "WriteTicketsCommand";
+    public const string SessionSetup = "SessionSetupCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -133,5 +134,6 @@ public static class CommandNames
         [LoadVision] = "Loading project vision",
         [LoadRuns] = "Loading run history",
         [WriteTickets] = "Writing tickets",
+        [SessionSetup] = "Authenticating API personas",
     };
 }

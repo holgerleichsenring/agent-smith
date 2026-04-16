@@ -12,6 +12,12 @@ public sealed class LoadSwaggerContextBuilder : IContextBuilder
         => new LoadSwaggerContext(pipeline);
 }
 
+public sealed class SessionSetupContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new SessionSetupContext(pipeline);
+}
+
 public sealed class SpawnNucleiContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)

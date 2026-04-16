@@ -40,9 +40,13 @@ internal static class ServiceProviderFactory
     private static void RegisterWebhookHandlers(IServiceCollection services)
     {
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubIssueWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubPrLabelWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrLabelWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabIssueWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsWorkItemWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsWorkItemCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitHubPrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.GitLabMrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, Services.Webhooks.AzureDevOpsPrCommentWebhookHandler>();
