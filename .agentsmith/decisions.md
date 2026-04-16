@@ -419,3 +419,46 @@
 - [Architecture] skills_path resolved relative to config file directory — same pattern as tsconfig.json, docker-compose.yml. Config file is the anchor point, not CWD or repo root. Covers: local scan (repo has its own skills), API scan (no repo), CI with separate config repo (RHS.CICD/tools/agent-smith/config/).
 - [Fix] ZAP exit codes 0-3 are valid scan results (pass/info/warnings/failures), not errors — only >3 indicates a tool crash. Previously any non-zero was treated as failure, discarding valid DAST findings.
 - [Fix] Docker cp directories created with mode 0777 — ZAP container runs as UID 1000 (zap user), but docker cp creates files as root. World-writable permissions fix the PermissionDenied on /zap/wrk/zap-report.json.
+
+## p73: Class Size Enforcement
+- [Quality] CI gate starts non-blocking, flip to blocking after Tier 1+2 — allows incremental adoption without breaking builds.
+- [Scope] Pure refactoring only (extract, rename, split — no behavior changes) — ensures no regressions from size enforcement work.
+
+## p74: CLI Source Overrides
+- [Architecture] Three generic options (--source-type, --source-path, --source-url, --source-auth) replace --repo — covers all provider types uniformly.
+- [Architecture] Applied in ExecutePipelineUseCase (transparent to downstream) — handlers don't need to know about CLI overrides.
+- [Cleanup] SecurityScanCommand drops --repo — replaced by generic source options.
+
+## p75: Phase Docs to YAML
+- [Architecture] YAML over markdown — structured input yields structured output, ~10x token reduction (96k → 19k words).
+- [Scope] No code examples in phase specs — agent reads codebase directly, examples become stale.
+- [Scope] Type signatures kept, action field supports single value or list.
+- [Scope] Delete original markdown files — git history is the archive.
+
+## p76: Azure OpenAI Provider
+- [Architecture] Inheritance over composition — only CreateChatClient differs from OpenAiAgentProvider.
+- [Configuration] Only 'deployment' and 'api_version' added to AgentConfig — api_version defaults to 2025-01-01-preview.
+- [Tooling] Azure.AI.OpenAI NuGet (official Microsoft package).
+
+## p78: Gate Category Routing
+- [Architecture] Filter before gate, merge after — each gate sees only its input_categories, results are combined.
+- [Architecture] Unmatched findings pass through unchanged — categories not claimed by any gate are not lost.
+- [Architecture] No gate ordering dependency — gates in same stage run independently on disjoint slices.
+
+## p81: Integration Setup Docs
+- [Scope] All guides in English, under docs/setup/ as dedicated section.
+- [Scope] Slack guide review/update, Teams guide is new (Azure Bot registration, ngrok, manifest, docker-compose env vars).
+- [Scope] Webhook and label-trigger docs split to p82.
+- [Decision] Manifest template under docs/setup/teams/ (not deploy/).
+- [Decision] Teams status marked 'beta' in chat-gateway.md.
+- [Decision] No placeholder PNGs — document icon requirements in text instead.
+
+## p83: Jira Webhook Status Lifecycle
+- [Architecture] Trigger requires all three: assignee match + label match + status in whitelist — prevents accidental runs on resolved/closed tickets.
+- [Architecture] Comment trigger (comment_created) is a separate handler, not a mode in JiraAssigneeWebhookHandler — separate event type, cleaner routing.
+- [Architecture] Comment trigger also checks status whitelist — prevents triggering on closed tickets.
+- [Architecture] done_status resolved via transition name, not status ID — names are human-readable and portable across Jira projects.
+- [Architecture] All pipelines are valid trigger targets — pipeline_from_label maps to any pipeline name, no hardcoded restrictions.
+- [Reuse] Status transition after PR extracts TransitionToAsync from JiraTicketProvider.CloseTicketAsync — reusable for any target status.
+- [Flow] DoneStatus flows via WebhookResult.InitialContext → PipelineContext → CommitAndPRHandler — no coupling between webhook handler and pipeline handler.
+- [Note] PipelineFromLabel uses Dictionary<string,string> — insertion order preserved by YamlDotNet but not spec-guaranteed. Migrate to OrderedDictionary<TKey,TValue> when moving to .NET 9.
