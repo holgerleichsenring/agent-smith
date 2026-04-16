@@ -63,7 +63,7 @@ integrations:
   GitHub: { type: bidirectional, does: "Issues + PRs via Octokit" }
   GitLab: { type: bidirectional, does: "Issues + MRs via REST" }
   Azure:  { type: bidirectional, does: "Work items + Repos via DevOps SDK" }
-  Jira:   { type: bidirectional, does: "Tickets via REST v3, assignee webhook trigger" }
+  Jira:   { type: bidirectional, does: "Tickets via REST v3, webhook trigger (assignee+label+status gate, comment re-trigger, done_status transition)" }
   Slack:  { type: bidirectional, does: "Chat commands + progress via Events API" }
   Redis:  { type: bidirectional, does: "Job queue + progress pub/sub" }
 
@@ -141,11 +141,17 @@ state:
     p58b: "Teams integration: TeamsAdapter (IPlatformAdapter), TeamsCardBuilder (5 Adaptive Cards), TeamsJwtValidator (Bot Framework OpenID), TeamsInteractionHandler, removed obsolete AskQuestion (864 tests)"
     p71: "Root cleanup: Dockerfiles to src/Cli+Server, deploy/ for compose+k8s, mkdocs.yml into docs/, removed site+agentsmith-output+prompts, ProjectDetector recursive search (873 tests)"
     p72: "Jira assignee webhook trigger: JiraAssigneeWebhookHandler, JiraTriggerConfig, /webhook/jira route, config-order label priority, ValidateJira signature (873 tests)"
-  active: {}
-  done-recently:
+    p73: "Class size enforcement: Tier 1 critical files split (873 tests)"
     p74: "CLI source overrides: --source-type, --source-path, --source-url, --source-auth (873 tests)"
     p75: "Phase docs markdown → YAML: 96k → 19k words, 93 files converted"
-    p73: "Class size enforcement: Tier 1 critical files split (873 tests)"
+    p76: "Azure OpenAI provider: inheritance from OpenAiAgentProvider, per-deployment model routing (873 tests)"
+    p77: "Pipeline fixes: skills_path relative to config dir, ZAP exit codes, Docker cp permissions (873 tests)"
+    p78: "Gate category routing: filter input by category, merge output, passthrough for unclaimed findings (873 tests)"
+    p81: "Integration setup docs: Slack + Teams setup guides, Teams env vars in docker-compose"
+    p83: "Jira webhook status lifecycle: trigger gate (assignee+label+status), done_status transition after PR, comment re-trigger (896 tests)"
+  active: {}
+  done-recently:
+    p83: "Jira webhook status lifecycle: trigger gate, done_status transition, comment re-trigger (896 tests)"
   planned:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
