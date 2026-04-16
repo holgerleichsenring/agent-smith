@@ -462,3 +462,8 @@
 - [Reuse] Status transition after PR extracts TransitionToAsync from JiraTicketProvider.CloseTicketAsync — reusable for any target status.
 - [Flow] DoneStatus flows via WebhookResult.InitialContext → PipelineContext → CommitAndPRHandler — no coupling between webhook handler and pipeline handler.
 - [Note] PipelineFromLabel uses Dictionary<string,string> — insertion order preserved by YamlDotNet but not spec-guaranteed. Migrate to OrderedDictionary<TKey,TValue> when moving to .NET 9.
+
+## p82: Webhook & Trigger Docs
+- [Scope] Per-platform setup guides under docs/setup/webhooks/ — each with prerequisites, step-by-step, config YAML, verification, troubleshooting.
+- [Scope] Label-triggers overview documents current state per platform and p84 roadmap for unified configuration.
+- [Decision] Guides link to each other and to configuration reference (webhooks.md) — no duplication of config details.
