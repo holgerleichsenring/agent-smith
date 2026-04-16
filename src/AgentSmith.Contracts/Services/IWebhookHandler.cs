@@ -15,13 +15,17 @@ public interface IWebhookHandler
 
 /// <summary>
 /// Result of processing a webhook event.
+/// When ProjectName is set, the processor builds a PipelineRequest directly
+/// instead of parsing TriggerInput through RegexIntentParser.
 /// </summary>
 public sealed record WebhookResult(
     bool Handled,
     string? TriggerInput,
     string? Pipeline,
     DialogueAnswerData? DialogueAnswer = null,
-    Dictionary<string, object>? InitialContext = null);
+    Dictionary<string, object>? InitialContext = null,
+    string? ProjectName = null,
+    string? TicketId = null);
 
 /// <summary>
 /// Carries dialogue answer data extracted from a PR comment (/approve or /reject).

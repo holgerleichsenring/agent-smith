@@ -44,12 +44,17 @@ internal sealed class WebhookSignatureVerifier(
 
             var config = configLoader.LoadConfig(serverCtx.ConfigPath);
 
+            // Jira Cloud system webhooks don't send a signature header.
+            // Only validate if both a secret is configured AND a signature header is present.
+            headers.TryGetValue("x-hub-signature", out var sig);
+            if (sig is null)
+                return true;
+
             foreach (var (_, project) in config.Projects)
             {
                 var secret = project.JiraTrigger?.Secret;
                 if (string.IsNullOrEmpty(secret)) continue;
 
-                headers.TryGetValue("x-hub-signature", out var sig);
                 return WebhookSignatureValidator.ValidateJira(body, sig, secret);
             }
 

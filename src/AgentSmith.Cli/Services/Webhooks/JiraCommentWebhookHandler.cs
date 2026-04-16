@@ -50,7 +50,6 @@ public sealed class JiraCommentWebhookHandler(
             var labels = JiraAssigneeWebhookHandler.ExtractLabels(root);
             var pipeline = JiraAssigneeWebhookHandler.ResolvePipeline(triggerConfig, labels);
 
-            var input = $"fix {issueKey} in {projectName}";
             logger.LogInformation(
                 "Jira comment trigger: issue {IssueKey} keyword '{Keyword}' -> pipeline '{Pipeline}'",
                 issueKey, triggerConfig.CommentKeyword, pipeline);
@@ -60,7 +59,11 @@ public sealed class JiraCommentWebhookHandler(
                 [ContextKeys.DoneStatus] = triggerConfig.DoneStatus
             };
 
-            return Task.FromResult(new WebhookResult(true, input, pipeline, InitialContext: initialContext));
+            return Task.FromResult(new WebhookResult(
+                true, null, pipeline,
+                InitialContext: initialContext,
+                ProjectName: projectName,
+                TicketId: issueKey));
         }
         catch (Exception ex)
         {

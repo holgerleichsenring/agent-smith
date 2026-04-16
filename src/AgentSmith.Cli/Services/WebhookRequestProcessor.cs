@@ -1,5 +1,7 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -41,11 +43,17 @@ internal sealed class WebhookRequestProcessor(
             return (202, "Accepted: dialogue answer");
         }
 
-        logger.LogInformation("Webhook: {Input} (pipeline: {Pipeline})",
-            result.TriggerInput, result.Pipeline ?? "default");
+        logger.LogInformation("Webhook: {Project}/{Ticket} (pipeline: {Pipeline})",
+            result.ProjectName ?? result.TriggerInput, result.TicketId, result.Pipeline ?? "default");
+
+        if (result.ProjectName is not null)
+        {
+            _ = ExecuteStructuredAsync(result);
+            return (202, $"Accepted: {result.TicketId} in {result.ProjectName}");
+        }
 
         if (result.TriggerInput is not null)
-            _ = ExecuteRunAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
+            _ = ExecuteLegacyAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
 
         return (202, $"Accepted: {result.TriggerInput}");
     }
@@ -63,7 +71,29 @@ internal sealed class WebhookRequestProcessor(
         return new WebhookResult(false, null, null);
     }
 
-    private async Task ExecuteRunAsync(
+    private async Task ExecuteStructuredAsync(WebhookResult result)
+    {
+        try
+        {
+            var request = new PipelineRequest(
+                result.ProjectName!,
+                result.Pipeline ?? "fix-bug",
+                TicketId: result.TicketId is not null ? new TicketId(result.TicketId) : null,
+                Headless: true,
+                Context: result.InitialContext);
+
+            var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
+            var execResult = await useCase.ExecuteAsync(request, configPath, CancellationToken.None);
+            logger.LogInformation(execResult.IsSuccess
+                ? "Run completed: {Message}" : "Run failed: {Message}", execResult.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Run failed for: {Ticket} in {Project}", result.TicketId, result.ProjectName);
+        }
+    }
+
+    private async Task ExecuteLegacyAsync(
         string input, string? pipelineOverride, Dictionary<string, object>? initialContext = null)
     {
         try
