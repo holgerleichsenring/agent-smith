@@ -77,45 +77,93 @@ projects:
     #   project: todo-list
     #   auth: token
     agent:
-      type: Claude
-      model: claude-sonnet-4-20250514
+      type: azure-openai
+      endpoint: https://oai-rhegpt-dev.openai.azure.com
+      api_version: 2025-01-01-preview
       retry:
         max_retries: 5
         initial_delay_ms: 2000
         backoff_multiplier: 2.0
         max_delay_ms: 60000
-      cache:
-        is_enabled: true
-        strategy: automatic
-      compaction:
-        is_enabled: true
-        threshold_iterations: 8
-        max_context_tokens: 80000
-        keep_recent_iterations: 3
-        summary_model: claude-haiku-4-5-20251001
       models:
         scout:
-          model: claude-haiku-4-5-20251001
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
           max_tokens: 4096
         primary:
-          model: claude-sonnet-4-20250514
+          model: gpt-4.1
+          deployment: gpt4-1-deployment
           max_tokens: 8192
         planning:
-          model: claude-sonnet-4-20250514
+          model: gpt-4.1
+          deployment: gpt4-1-deployment
           max_tokens: 4096
         summarization:
-          model: claude-haiku-4-5-20251001
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
           max_tokens: 2048
+        code_map_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 4096
+        context_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 3072
       pricing:
         models:
-          claude-sonnet-4-20250514:
-            input_per_million: 3.0
-            output_per_million: 15.0
-            cache_read_per_million: 0.30
-          claude-haiku-4-5-20251001:
-            input_per_million: 0.80
-            output_per_million: 4.0
-            cache_read_per_million: 0.08
+          gpt-4.1:
+            input_per_million: 2.0
+            output_per_million: 8.0
+            cache_read_per_million: 0.50
+          gpt-4.1-mini:
+            input_per_million: 0.40
+            output_per_million: 1.60
+            cache_read_per_million: 0.10
+          gpt-4.1-nano:
+            input_per_million: 0.10
+            output_per_million: 0.40
+            cache_read_per_million: 0.025
+    # agent:
+    #   type: Claude
+    #   model: claude-sonnet-4-20250514
+    #   retry:
+    #     max_retries: 5
+    #     initial_delay_ms: 2000
+    #     backoff_multiplier: 2.0
+    #     max_delay_ms: 60000
+    #   cache:
+    #     is_enabled: true
+    #     strategy: automatic
+    #   compaction:
+    #     is_enabled: true
+    #     threshold_iterations: 8
+    #     max_context_tokens: 80000
+    #     keep_recent_iterations: 3
+    #     summary_model: claude-haiku-4-5-20251001
+    #   models:
+    #     scout:
+    #       model: claude-haiku-4-5-20251001
+    #       max_tokens: 4096
+    #     primary:
+    #       model: claude-sonnet-4-20250514
+    #       max_tokens: 8192
+    #     planning:
+    #       model: claude-sonnet-4-20250514
+    #       max_tokens: 4096
+    #     summarization:
+    #       model: claude-haiku-4-5-20251001
+    #       max_tokens: 2048
+    #   pricing:
+    #     models:
+    #       claude-sonnet-4-20250514:
+    #         input_per_million: 3.0
+    #         output_per_million: 15.0
+    #         cache_read_per_million: 0.30
+    #       claude-haiku-4-5-20251001:
+    #         input_per_million: 0.80
+    #         output_per_million: 4.0
+    #         cache_read_per_million: 0.08
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
 

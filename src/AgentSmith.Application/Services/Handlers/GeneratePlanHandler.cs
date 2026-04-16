@@ -50,12 +50,16 @@ public sealed class GeneratePlanHandler(
                 : $"{projectContext}\n\n## Multi-Role Discussion\n\n{consolidated}";
         }
 
+        // p87: Pass ticket images if available
+        context.Pipeline.TryGet<IReadOnlyList<TicketImageAttachment>>(
+            ContextKeys.Attachments, out var images);
+
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
 
         var provider = factory.Create(context.AgentConfig);
         var plan = await provider.GeneratePlanAsync(
             context.Ticket, context.CodeAnalysis, context.CodingPrinciples,
-            context.CodeMap, projectContext, cancellationToken);
+            context.CodeMap, projectContext, images, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.Plan, plan);
 

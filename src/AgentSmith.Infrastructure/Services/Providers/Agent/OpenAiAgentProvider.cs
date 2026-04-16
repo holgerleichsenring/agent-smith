@@ -29,12 +29,25 @@ public class OpenAiAgentProvider(
 {
     public virtual string ProviderType => "OpenAI";
 
-    public async Task<Plan> GeneratePlanAsync(
+    public Task<Plan> GeneratePlanAsync(
         Ticket ticket,
         CodeAnalysis codeAnalysis,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
+        IReadOnlyList<TicketImageAttachment>? images,
+        CancellationToken cancellationToken)
+    {
+        return GeneratePlanCoreAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, images, cancellationToken);
+    }
+
+    private async Task<Plan> GeneratePlanCoreAsync(
+        Ticket ticket,
+        CodeAnalysis codeAnalysis,
+        string codingPrinciples,
+        string? codeMap,
+        string? projectContext,
+        IReadOnlyList<TicketImageAttachment>? images,
         CancellationToken cancellationToken)
     {
         var planModel = ResolveModel(TaskType.Planning);
@@ -43,10 +56,26 @@ public class OpenAiAgentProvider(
         var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
+        var contentParts = new List<ChatMessageContentPart>();
+
+        // p87: Add ticket images as vision content parts
+        if (images is { Count: > 0 })
+        {
+            foreach (var img in images)
+            {
+                contentParts.Add(ChatMessageContentPart.CreateImagePart(
+                    BinaryData.FromBytes(img.Content), img.MediaType));
+            }
+
+            logger.LogInformation("Including {Count} image(s) in plan generation prompt", images.Count);
+        }
+
+        contentParts.Add(ChatMessageContentPart.CreateTextPart(userPrompt));
+
         var messages = new List<ChatMessage>
         {
             new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
+            new UserChatMessage(contentParts)
         };
 
         var options = new ChatCompletionOptions { MaxOutputTokenCount = planModel.MaxTokens };
