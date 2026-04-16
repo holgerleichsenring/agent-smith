@@ -74,21 +74,36 @@ public sealed class GeneratePlanHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ConsolidatedPlanExists_SkipsGeneration()
+    public async Task ExecuteAsync_ConsolidatedPlanExists_PassesAsContextToProvider()
     {
+        var plan = new Plan("Structured plan", new List<PlanStep>(), "{}");
+        var providerMock = new Mock<IAgentProvider>();
+        string? capturedContext = null;
+        providerMock.Setup(p => p.GeneratePlanAsync(
+                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Callback<Ticket, CodeAnalysis, string, string?, string?, CancellationToken>(
+                (_, _, _, _, ctx, _) => capturedContext = ctx)
+            .ReturnsAsync(plan);
+        _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
+            .Returns(providerMock.Object);
+
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
         var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ConsolidatedPlan, "Already consolidated plan content");
+        pipeline.Set(ContextKeys.ConsolidatedPlan, "Architecture: use Strategy Pattern");
 
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline,
+            ProjectContext: "existing context");
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("consolidated");
-        _factoryMock.Verify(f => f.Create(It.IsAny<AgentConfig>()), Times.Never);
+        capturedContext.Should().Contain("existing context");
+        capturedContext.Should().Contain("Multi-Role Discussion");
+        capturedContext.Should().Contain("Architecture: use Strategy Pattern");
+        pipeline.TryGet<Plan>(ContextKeys.Plan, out _).Should().BeTrue();
     }
 
     [Fact]

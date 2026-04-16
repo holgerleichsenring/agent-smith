@@ -22,13 +22,17 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
+        // ConsolidatedPlan from multi-skill discussion is additional context
+        // for plan generation, not a replacement. The discussion provides analysis
+        // and recommendations; this handler distills them into concrete PlanSteps.
+        var projectContext = context.ProjectContext;
         if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
             && consolidated is not null)
         {
-            var consolidatedPlan = new Plan(consolidated, [], consolidated);
-            context.Pipeline.Set(ContextKeys.Plan, consolidatedPlan);
-            logger.LogInformation("Plan already consolidated by multi-role discussion, skipping generation");
-            return CommandResult.Ok("Plan consolidated by multi-role discussion");
+            logger.LogInformation("Including consolidated multi-role discussion as plan context");
+            projectContext = string.IsNullOrEmpty(projectContext)
+                ? $"## Multi-Role Discussion\n\n{consolidated}"
+                : $"{projectContext}\n\n## Multi-Role Discussion\n\n{consolidated}";
         }
 
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
@@ -36,7 +40,7 @@ public sealed class GeneratePlanHandler(
         var provider = factory.Create(context.AgentConfig);
         var plan = await provider.GeneratePlanAsync(
             context.Ticket, context.CodeAnalysis, context.CodingPrinciples,
-            context.CodeMap, context.ProjectContext, cancellationToken);
+            context.CodeMap, projectContext, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.Plan, plan);
 
