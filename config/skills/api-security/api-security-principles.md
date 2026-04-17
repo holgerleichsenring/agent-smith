@@ -31,12 +31,39 @@ Do NOT flag the following (low signal-to-noise ratio):
 - Infrastructure-level issues (TLS cipher suites, network topology, firewall rules)
 - Missing security headers without a concrete exploit scenario
 - Informational findings without actionable remediation
-- SSRF where only the path is user-controlled (not the host)
+- SSRF where only the path is user-controlled (not the host or protocol)
+- Missing audit logs — not a vulnerability
+- Regex injection / regex DoS — not a vulnerability in this context
+- Outdated libraries — managed separately by dependency scanning
+
+## API-Specific Precedents
+
+These rules override general analysis for API security scans:
+
+1. **Environment variables and CLI arguments**: Treated as trusted input. Attacks
+   requiring control of env vars or CLI flags are invalid.
+2. **UUIDs in paths/params**: Assumed unguessable. Do not report missing UUID validation
+   or enumeration concerns for UUID-based identifiers.
+3. **Client-side validation**: Not a vulnerability. The API is responsible for all
+   input validation — missing client-side checks are not reportable.
+4. **URL logging**: Assumed safe — URLs in logs are not a vulnerability.
+5. **Logging non-PII data**: Not a vulnerability. Only report if secrets, passwords,
+   or personally identifiable information (PII) are logged in API responses or server logs.
+6. **AI/LLM endpoints**: Including user-controlled content in AI prompts is not a
+   vulnerability in this context (prompt injection is outside API security scan scope).
+7. **Subtle web vulnerabilities**: Do not report tabnabbing, XS-Leaks, prototype
+   pollution, or open redirects unless extremely high confidence with demonstrated
+   impact on the API.
+8. **CORS misconfiguration**: Only report if the Access-Control-Allow-Origin is
+   concretely exploitable (wildcard with credentials, or reflects arbitrary origin).
+   Permissive CORS without credentials is informational, not a vulnerability.
 
 ## Confidence Threshold
 
-Every finding must include a confidence score (1-10).
-Findings with confidence < 7 are discarded by the false-positive-filter.
+Every finding must include a confidence score (0-100).
+See observation-schema.md for the confidence calibration table.
+Findings in the Low band (< 30) are discarded unconditionally.
+Findings in the Medium band (30-69) require clearly articulated exploitation conditions.
 When in doubt, do not report. Prefer underreporting to overreporting.
 
 ## Output Format

@@ -11,13 +11,15 @@ namespace AgentSmith.Infrastructure.Services.Zap;
 public sealed class ZapSpawner(
     IToolRunner toolRunner,
     ZapConfig config,
+    ToolRunnerConfig toolRunnerConfig,
     ILogger<ZapSpawner> logger) : IZapScanner
 {
     public async Task<ZapResult> ScanAsync(
         ZapScanRequest request, CancellationToken cancellationToken)
     {
-        var dockerTarget = RewriteLocalhostForDocker(request.TargetUrl);
-        var isLocal = dockerTarget.Contains("host.docker.internal");
+        var dockerHostname = toolRunnerConfig.DockerHostname;
+        var dockerTarget = RewriteLocalhostForDocker(request.TargetUrl, dockerHostname);
+        var isLocal = dockerTarget.Contains(dockerHostname);
 
         logger.LogInformation("Starting ZAP {ScanType} scan: {Target} (container: {DockerTarget})",
             request.ScanType, request.TargetUrl, dockerTarget);
@@ -30,7 +32,7 @@ public sealed class ZapSpawner(
             inputFiles.Count, request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout);
 
         var extraHosts = isLocal
-            ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
+            ? new Dictionary<string, string> { [dockerHostname] = "host-gateway" }
             : null;
 
         var toolRequest = new ToolRunRequest(
@@ -58,7 +60,7 @@ public sealed class ZapSpawner(
         return new ZapResult(findings, result.DurationSeconds, request.ScanType, result.ExitCode);
     }
 
-    internal static string RewriteLocalhostForDocker(string url) =>
-        url.Replace("://localhost", "://host.docker.internal")
-           .Replace("://127.0.0.1", "://host.docker.internal");
+    internal static string RewriteLocalhostForDocker(string url, string dockerHostname = "host.docker.internal") =>
+        url.Replace("://localhost", $"://{dockerHostname}")
+           .Replace("://127.0.0.1", $"://{dockerHostname}");
 }

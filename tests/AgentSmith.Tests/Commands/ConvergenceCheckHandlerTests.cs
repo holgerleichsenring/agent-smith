@@ -23,8 +23,19 @@ public sealed class ConvergenceCheckHandlerTests
     {
         _llmFactoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(_llmClientMock.Object);
+        var promptTemplates = new Mock<IPromptTemplateProvider>();
+        promptTemplates.Setup(p => p.Get(It.IsAny<string>()))
+            .Returns<string>(name => name switch
+            {
+                "plan-consolidator-system" =>
+                    "You are consolidating a multi-specialist discussion into a final summary.",
+                "plan-consolidator-user" =>
+                    "{InputSection}\n\n## Discussion\n{DiscussionText}\n{EscalationNote}\n\n## Task\nConsolidate.\n\nExample:\n{AssessmentJsonExample}",
+                _ => throw new FileNotFoundException($"Template '{name}' not found")
+            });
         var planConsolidator = new PlanConsolidator(
             _llmFactoryMock.Object,
+            promptTemplates.Object,
             NullLogger<PlanConsolidator>.Instance);
         _handler = new ConvergenceCheckHandler(
             planConsolidator,

@@ -21,6 +21,8 @@ public sealed class JiraTicketProvider : ITicketProvider
     private readonly HttpClient _httpClient;
     private readonly ILogger<JiraTicketProvider> _logger;
     private readonly IAttachmentLoader _attachmentLoader;
+    private readonly string _doneStatus;
+    private readonly string _closeTransitionName;
 
     public string ProviderType => "Jira";
 
@@ -29,11 +31,15 @@ public sealed class JiraTicketProvider : ITicketProvider
         string email,
         string apiToken,
         HttpClient httpClient,
-        ILogger<JiraTicketProvider> logger)
+        ILogger<JiraTicketProvider> logger,
+        string? doneStatus = null,
+        string? closeTransitionName = null)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = httpClient;
         _logger = logger;
+        _doneStatus = doneStatus ?? "Done";
+        _closeTransitionName = closeTransitionName ?? "Close";
 
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{apiToken}"));
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -155,7 +161,7 @@ public sealed class JiraTicketProvider : ITicketProvider
         TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);
-        await TransitionToAsync(ticketId, "Done", "Close", cancellationToken);
+        await TransitionToAsync(ticketId, _doneStatus, _closeTransitionName, cancellationToken);
     }
 
     public async Task TransitionToAsync(

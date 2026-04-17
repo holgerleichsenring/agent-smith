@@ -14,7 +14,8 @@ public sealed class AzureDevOpsPrDiffProvider(
     string organization,
     string project,
     string repositoryId,
-    ILogger<AzureDevOpsPrDiffProvider> logger) : IPrDiffProvider
+    ILogger<AzureDevOpsPrDiffProvider> logger,
+    string apiVersion = "7.1") : IPrDiffProvider
 {
     public async Task<PrDiff> GetDiffAsync(string prIdentifier, CancellationToken cancellationToken = default)
     {
@@ -22,19 +23,19 @@ public sealed class AzureDevOpsPrDiffProvider(
             prIdentifier, organization, project);
 
         var prUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
-                    $"/pullRequests/{prIdentifier}?api-version=7.1";
+                    $"/pullRequests/{prIdentifier}?api-version={apiVersion}";
         var pr = await httpClient.GetFromJsonAsync<JsonElement>(prUrl, cancellationToken);
 
         var baseSha = pr.GetProperty("lastMergeTargetCommit").GetProperty("commitId").GetString() ?? string.Empty;
         var headSha = pr.GetProperty("lastMergeSourceCommit").GetProperty("commitId").GetString() ?? string.Empty;
 
         var iterationsUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
-                            $"/pullRequests/{prIdentifier}/iterations?api-version=7.1";
+                            $"/pullRequests/{prIdentifier}/iterations?api-version={apiVersion}";
         var iterations = await httpClient.GetFromJsonAsync<JsonElement>(iterationsUrl, cancellationToken);
         var iterationCount = iterations.GetProperty("count").GetInt32();
 
         var changesUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
-                         $"/pullRequests/{prIdentifier}/iterations/{iterationCount}/changes?api-version=7.1";
+                         $"/pullRequests/{prIdentifier}/iterations/{iterationCount}/changes?api-version={apiVersion}";
         var changes = await httpClient.GetFromJsonAsync<JsonElement>(changesUrl, cancellationToken);
 
         var changedFiles = changes.GetProperty("changeEntries").EnumerateArray()

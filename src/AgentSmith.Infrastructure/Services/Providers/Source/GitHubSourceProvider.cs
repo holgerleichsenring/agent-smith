@@ -20,16 +20,20 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly string _repo;
     private readonly string _cloneUrl;
     private readonly string _token;
+    private readonly string? _configuredDefaultBranch;
     private readonly ILogger<GitHubSourceProvider> _logger;
+    private string? _cachedDefaultBranch;
 
     public string ProviderType => "GitHub";
 
     public GitHubSourceProvider(
-        string repoUrl, string token, ILogger<GitHubSourceProvider> logger)
+        string repoUrl, string token, ILogger<GitHubSourceProvider> logger,
+        string? defaultBranch = null)
     {
         (_owner, _repo) = ParseGitHubUrl(repoUrl);
         _cloneUrl = repoUrl.EndsWith(".git") ? repoUrl : $"{repoUrl}.git";
         _token = token;
+        _configuredDefaultBranch = defaultBranch;
         _logger = logger;
     }
 
@@ -70,15 +74,39 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         CancellationToken cancellationToken)
     {
         var client = CreateGitHubClient();
+        var targetBranch = await GetDefaultBranchAsync(client);
         var pr = await client.PullRequest.Create(
             _owner, _repo,
-            new NewPullRequest(title, repository.CurrentBranch.Value, "main")
+            new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
             {
                 Body = description
             });
 
         _logger.LogInformation("Pull request created: {Url}", pr.HtmlUrl);
         return pr.HtmlUrl;
+    }
+
+    private async Task<string> GetDefaultBranchAsync(GitHubClient client)
+    {
+        if (_configuredDefaultBranch is not null)
+            return _configuredDefaultBranch;
+
+        if (_cachedDefaultBranch is not null)
+            return _cachedDefaultBranch;
+
+        try
+        {
+            var repo = await client.Repository.Get(_owner, _repo);
+            _cachedDefaultBranch = repo.DefaultBranch;
+            _logger.LogDebug("Resolved default branch from GitHub API: {Branch}", _cachedDefaultBranch);
+            return _cachedDefaultBranch;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve default branch from GitHub API, falling back to 'main'");
+            _cachedDefaultBranch = "main";
+            return _cachedDefaultBranch;
+        }
     }
 
     private string GetLocalPath()
