@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.18.0...v0.19.0) (2026-04-17)
+
+
+### Features
+
+* configurable defaults, skill content improvements, prompt extraction infra (p88, p89a, p89b) ([8cd9413](https://github.com/holgerleichsenring/agent-smith/commit/8cd941375d89751407ec2d2228a3b5fd130ca27f))
+
 ## [0.18.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.17.0...v0.18.0) (2026-04-17)
 
 
