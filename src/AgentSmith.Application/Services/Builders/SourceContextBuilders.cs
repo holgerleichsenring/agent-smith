@@ -24,7 +24,7 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
             ? new BranchName(b)
             : pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId)
                 ? BranchName.FromTicket(ticketId!)
-                : new BranchName("main");
+                : null;
 
         return new CheckoutSourceContext(project.Source, branch, pipeline);
     }
