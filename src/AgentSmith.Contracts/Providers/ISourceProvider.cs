@@ -8,7 +8,7 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface ISourceProvider : ITypedProvider
 {
-    Task<Repository> CheckoutAsync(BranchName branch, CancellationToken cancellationToken);
+    Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken);
 
     Task<string> CreatePullRequestAsync(
         Repository repository,

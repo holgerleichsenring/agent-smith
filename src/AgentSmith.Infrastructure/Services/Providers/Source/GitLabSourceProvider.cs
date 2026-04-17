@@ -43,20 +43,22 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     }
 
     public Task<Repository> CheckoutAsync(
-        BranchName branch, CancellationToken cancellationToken)
+        BranchName? branch, CancellationToken cancellationToken)
     {
         var localPath = GetLocalPath();
         EnsureCloned(localPath);
 
+        var target = branch ?? new BranchName("main");
+
         using var repo = new LibGit2Sharp.Repository(localPath);
-        var existingBranch = repo.Branches[branch.Value];
-        var targetBranch = existingBranch ?? repo.CreateBranch(branch.Value);
+        var existingBranch = repo.Branches[target.Value];
+        var targetBranch = existingBranch ?? repo.CreateBranch(target.Value);
         Commands.Checkout(repo, targetBranch);
 
         _logger.LogInformation(
-            "Checked out branch {Branch} in {Path}", branch, localPath);
+            "Checked out branch {Branch} in {Path}", target, localPath);
 
-        return Task.FromResult(new Repository(localPath, branch, _cloneUrl));
+        return Task.FromResult(new Repository(localPath, target, _cloneUrl));
     }
 
     public Task CommitAndPushAsync(

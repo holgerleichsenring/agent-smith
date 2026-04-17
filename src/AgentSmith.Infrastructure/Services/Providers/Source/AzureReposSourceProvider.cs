@@ -27,14 +27,17 @@ public sealed class AzureReposSourceProvider(
 
     public string ProviderType => "AzureRepos";
 
-    public Task<Repository> CheckoutAsync(BranchName branch, CancellationToken cancellationToken)
+    public Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken)
     {
         var localPath = GetLocalPath();
         _git.EnsureCloned(_cloneUrl, localPath);
+
+        var target = branch ?? new BranchName("main");
+
         using var repo = new LibGit2Sharp.Repository(localPath);
-        _git.CheckoutBranch(repo, branch.Value);
-        logger.LogInformation("Checked out branch {Branch} in {Path}", branch, localPath);
-        return Task.FromResult(new Repository(localPath, branch, _cloneUrl));
+        _git.CheckoutBranch(repo, target.Value);
+        logger.LogInformation("Checked out branch {Branch} in {Path}", target, localPath);
+        return Task.FromResult(new Repository(localPath, target, _cloneUrl));
     }
 
     public Task CommitAndPushAsync(Repository repository, string message, CancellationToken cancellationToken)

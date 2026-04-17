@@ -9,5 +9,5 @@ namespace AgentSmith.Application.Models;
 /// </summary>
 public sealed record CheckoutSourceContext(
     SourceConfig Config,
-    BranchName Branch,
+    BranchName? Branch,
     PipelineContext Pipeline) : ICommandContext;
