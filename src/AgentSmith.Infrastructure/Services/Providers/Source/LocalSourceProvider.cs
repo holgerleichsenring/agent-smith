@@ -15,25 +15,30 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
     public string ProviderType => "Local";
 
     public Task<Repository> CheckoutAsync(
-        BranchName branch, CancellationToken cancellationToken)
+        BranchName? branch, CancellationToken cancellationToken)
     {
         ValidateRepositoryPath();
 
         using var repo = new LibGit2Sharp.Repository(basePath);
 
-        var existing = repo.Branches[branch.Value];
-        if (existing is not null)
+        var currentBranch = new BranchName(repo.Head.FriendlyName);
+
+        if (branch is not null && branch.Value != currentBranch.Value)
         {
-            Commands.Checkout(repo, existing);
-        }
-        else
-        {
-            var newBranch = repo.CreateBranch(branch.Value);
-            Commands.Checkout(repo, newBranch);
+            var existing = repo.Branches[branch.Value];
+            if (existing is not null)
+            {
+                Commands.Checkout(repo, existing);
+            }
+            else
+            {
+                var newBranch = repo.CreateBranch(branch.Value);
+                Commands.Checkout(repo, newBranch);
+            }
         }
 
         var remoteUrl = GetRemoteUrl(repo);
-        var result = new Repository(basePath, branch, remoteUrl);
+        var result = new Repository(basePath, branch ?? currentBranch, remoteUrl);
         return Task.FromResult(result);
     }
 

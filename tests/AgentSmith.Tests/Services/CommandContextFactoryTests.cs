@@ -75,7 +75,7 @@ public class CommandContextFactoryTests
 
         result.Should().BeOfType<CheckoutSourceContext>();
         var ctx = (CheckoutSourceContext)result;
-        ctx.Branch.Value.Should().Be("fix/456");
+        ctx.Branch!.Value.Should().Be("fix/456");
     }
 
     [Fact]
