@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Detection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core;
 
@@ -27,6 +28,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
+        services.AddSingleton<IPromptTemplateProvider>(sp =>
+            new FilePromptTemplateProvider(
+                Path.Combine("config", "prompts"),
+                sp.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger<FilePromptTemplateProvider>()));
         return services;
     }
 }

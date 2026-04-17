@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class PlanConsolidator(
     ILlmClientFactory llmClientFactory,
+    IPromptTemplateProvider promptTemplates,
     ILogger<PlanConsolidator> logger)
 {
     private const string AssessmentJsonExample =
@@ -35,7 +36,7 @@ public sealed class PlanConsolidator(
             ? "\nNOTE: Not all roles agreed. Note the dissenting views in the summary."
             : "";
 
-        var systemPrompt = "You are consolidating a multi-specialist discussion into a final summary.";
+        var systemPrompt = promptTemplates.Get("plan-consolidator-system");
 
         var inputSection = ticket is not null
             ? $"""
@@ -45,28 +46,11 @@ public sealed class PlanConsolidator(
                 """
             : "## Analysis Target\nSee discussion below for context.";
 
-        var userPrompt = $"""
-            {inputSection}
-
-            ## Discussion
-            {discussionText}
-            {escalationNote}
-
-            ## Task
-            Create a consolidated summary that incorporates all findings and agreed-upon decisions.
-
-            Respond with a JSON object containing:
-            1. "summary" — a numbered list of concrete findings and recommendations (string)
-            2. "assessments" — an array of finding assessments, one per finding discussed.
-               Each assessment has: "file" (string), "line" (int), "title" (string),
-               "status" ("confirmed" or "false_positive"), "reason" (brief explanation).
-
-            Only include findings that were explicitly discussed. Findings not listed
-            are treated as not_reviewed (they are NOT filtered out).
-
-            Example:
-            {AssessmentJsonExample}
-            """;
+        var userPrompt = promptTemplates.Get("plan-consolidator-user")
+            .Replace("{InputSection}", inputSection)
+            .Replace("{DiscussionText}", discussionText)
+            .Replace("{EscalationNote}", escalationNote)
+            .Replace("{AssessmentJsonExample}", AssessmentJsonExample);
 
         try
         {

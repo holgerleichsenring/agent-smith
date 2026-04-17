@@ -18,10 +18,20 @@ Each observation has this shape:
 }
 ```
 
+**Confidence Calibration:**
+
+| Band | Range | Meaning | Action |
+|------|-------|---------|--------|
+| Low | 0–30 | Speculative — theoretical risk, no concrete exploit path | Do NOT report. These waste reviewer time. |
+| Medium | 31–69 | Plausible — suspicious pattern, but requires specific conditions or further investigation | Report only if you can articulate the specific conditions needed for exploitation. |
+| High | 70–100 | Confident — clear vulnerability pattern with known exploitation methods or certain exploit path | Always report. Include concrete code path and attack vector. |
+
+When in doubt, round down. A false positive costs more reviewer time than a missed low-confidence finding.
+
 **Rules:**
 - Do NOT include an `id` field — IDs are assigned by the framework.
 - `blocking` = true means this MUST be addressed before proceeding.
-- `confidence` reflects how certain you are (0 = guess, 100 = certain).
+- `confidence` reflects how certain you are (0 = guess, 100 = certain). See calibration table above.
 - Produce 1–5 observations. Prefer fewer, higher-quality observations over many weak ones.
 
 **Example:**

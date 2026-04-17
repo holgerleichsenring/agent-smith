@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p88
+goal: "Replace hardcoded environment-specific values with configurable settings — sensible defaults, but always overridable via agentsmith.yml"
+decisions:
+  - Config wins over hardcoded: "every value that depends on the user's environment must be readable from agentsmith.yml"
+  - Defaults stay as fallback: "current hardcoded values become defaults so nothing breaks for existing users"
+  - Ticket states are whitelist, not blacklist: "ListOpenAsync uses configured 'open' states instead of excluding known 'closed' ones — unknown states are excluded by default"
+  - PR target branch from repo, not constant: "read default branch from the source provider; fall back to config; last resort 'main'. Cache per run — one API call, not per PR"
+  - Close/Done state from trigger config: "done_status already exists in trigger config — reuse it in CloseTicketAsync and TransitionToAsync"
+  - Missing fields are null, not errors: "if a configured extra_field doesn't exist on a work item, map it as null — never fail the whole fetch"
+  - GitLab base URL is required for self-hosted: "no silent fallback to gitlab.com — validation error with clear message at startup if missing"
+steps:
+  - id: ticket-states
+    action: "AzureDevOpsTicketProvider: accept open-states list via constructor; build WIQL with IN clause instead of <> blacklist. JiraTicketProvider: accept done-status + close-transition name via constructor instead of hardcoded 'Done'/'Close'"
+    modify: ["AzureDevOpsTicketProvider.cs", "JiraTicketProvider.cs"]
+  - id: wire-trigger-config
+    action: "Pass trigger_statuses and done_status from project config through to ticket provider factories so the values from agentsmith.yml reach the providers"
+    modify: ["TicketProviderFactory (or equivalent DI registration)"]
+  - id: pr-target-branch
+    action: "GitHubSourceProvider and GitLabSourceProvider: read default branch from API (GET /repos/{owner}/{repo} resp. GET /projects/:id), cache result for the run; fall back to config property 'default_branch'; last resort 'main'. SourceContextBuilders: same fallback chain"
+    modify: ["GitHubSourceProvider.cs", "GitLabSourceProvider.cs", "SourceContextBuilders.cs"]
+  - id: ado-fields
+    action: "AzureDevOpsTicketProvider: make the list of fetched fields configurable (extra_fields in config); AcceptanceCriteria stays as default but is no longer assumed to exist. Missing fields map to null — never fail the fetch"
+    modify: ["AzureDevOpsTicketProvider.cs"]
+  - id: container-runtime
+    action: "ToolRunnerSetup: make container runtime detection configurable (docker/podman/none); NucleiSpawner + ZapSpawner: make host-rewrite rule configurable with host.docker.internal as default"
+    modify: ["ToolRunnerSetup.cs", "NucleiSpawner.cs", "ZapSpawner.cs"]
+  - id: api-versions-and-urls
+    action: "AzureDevOpsPrCommentReplyService: api-version from config (default 7.1). GitLabMrCommentReplyService: base URL required from config — startup validation throws with message 'GitLab base_url is required — set it in agentsmith.yml under source.url' if missing"
+    modify: ["AzureDevOpsPrCommentReplyService.cs", "GitLabMrCommentReplyService.cs"]
+  - id: minor-defaults
+    action: "AgentProviderFactory: Ollama endpoint from config (default localhost:11434). DispatcherDefaults: agent image name from config. QueryKnowledgeHandler: knowledge file names from config"
+    modify: ["AgentProviderFactory.cs", "DispatcherDefaults.cs", "QueryKnowledgeHandler.cs"]
+done:
+  - "No hardcoded ticket state names in provider code — all from config"
+  - "PR target branch resolved from repo API or config, not hardcoded 'main'"
+  - "Container host-rewrite configurable"
+  - "API versions and base URLs configurable with current values as defaults"
+  - "All existing setups continue to work without config changes (defaults match current behavior)"
+  - "GitLab base_url: validation error at startup if missing (breaking change for self-hosted users relying on silent gitlab.com fallback — intentional)"
+  - "Missing ADO fields (e.g. AcceptanceCriteria on non-Agile templates) produce null, not errors"
+  - "Default-branch API result cached per run (no extra round-trip per PR)"
+  - "dotnet build + dotnet test clean"

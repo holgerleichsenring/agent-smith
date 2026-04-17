@@ -19,7 +19,10 @@ public sealed class GitLabMrCommentReplyService(
     public async Task ReplyAsync(CommentIntent originalComment, string text, CancellationToken cancellationToken)
     {
         var token = secrets.GetRequired("GITLAB_TOKEN");
-        var baseUrl = Environment.GetEnvironmentVariable("GITLAB_URL")?.TrimEnd('/') ?? "https://gitlab.com";
+        var baseUrl = secrets.GetOptional("GITLAB_URL")?.TrimEnd('/')
+            ?? Environment.GetEnvironmentVariable("GITLAB_URL")?.TrimEnd('/')
+            ?? throw new InvalidOperationException(
+                "GitLab base_url is required — set GITLAB_URL as an environment variable or in agentsmith.yml secrets.");
 
         var encodedPath = Uri.EscapeDataString(originalComment.RepoFullName);
         var url = $"{baseUrl}/api/v4/projects/{encodedPath}/merge_requests/{originalComment.PrIdentifier}/notes";
