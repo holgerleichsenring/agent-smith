@@ -14,4 +14,11 @@ public sealed class ToolRunnerConfig
         ["nuclei"] = "projectdiscovery/nuclei:latest",
         ["spectral"] = "stoplight/spectral:6",
     };
+
+    /// <summary>
+    /// Hostname used to reach the host from inside a container.
+    /// Defaults to "host.docker.internal" (Docker Desktop / --add-host on Linux).
+    /// Set to a different value for Podman or custom networking.
+    /// </summary>
+    public string DockerHostname { get; set; } = "host.docker.internal";
 }

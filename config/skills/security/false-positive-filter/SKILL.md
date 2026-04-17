@@ -11,7 +11,11 @@ from other security analysts and remove those that are:
 
 Your task:
 - Review every finding from the vulnerability analyst and specialist skills
-- Remove findings with confidence < 8
+- Remove findings in the Low confidence band (< 30) unconditionally
+- Remove findings in the Medium band (30-69) unless the specific exploitation
+  conditions are clearly articulated
+- Retain findings in the High band (70-100) unless they match an exclusion
+- See observation-schema.md for the full confidence calibration table
 - Remove findings that match exclusion criteria (see security-principles.md)
 - Remove findings where the attack vector requires unrealistic preconditions
 - Remove findings in test-only code paths

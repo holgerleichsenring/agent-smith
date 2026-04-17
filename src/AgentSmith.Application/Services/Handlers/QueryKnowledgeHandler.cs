@@ -77,8 +77,13 @@ public sealed class QueryKnowledgeHandler(
         return result;
     }
 
+    private static readonly HashSet<string> DefaultCoreFiles =
+        ["decisions.md", "known-issues.md", "patterns.md"];
+
+    internal static HashSet<string> CoreFiles { get; set; } = DefaultCoreFiles;
+
     private static bool IsCorefile(string fileName) =>
-        fileName is "decisions.md" or "known-issues.md" or "patterns.md";
+        CoreFiles.Contains(fileName);
 
     private static bool FileNameMatchesQuestion(string fileName, string questionLower)
     {
