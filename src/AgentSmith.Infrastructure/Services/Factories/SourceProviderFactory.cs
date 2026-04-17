@@ -37,7 +37,8 @@ public sealed class SourceProviderFactory(
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
         return new GitHubSourceProvider(
-            config.Url!, token, loggerFactory.CreateLogger<GitHubSourceProvider>());
+            config.Url!, token, loggerFactory.CreateLogger<GitHubSourceProvider>(),
+            defaultBranch: config.DefaultBranch);
     }
 
     private GitLabSourceProvider CreateGitLab(SourceConfig config)
@@ -48,7 +49,8 @@ public sealed class SourceProviderFactory(
         var cloneUrl = $"{baseUrl}/{projectPath}.git";
         return new GitLabSourceProvider(
             baseUrl, Uri.EscapeDataString(projectPath), cloneUrl, token,
-            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabSourceProvider>());
+            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabSourceProvider>(),
+            defaultBranch: config.DefaultBranch);
     }
 
     private AzureReposSourceProvider CreateAzureRepos(SourceConfig config)

@@ -21,8 +21,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly string _projectPath;
     private readonly string _cloneUrl;
     private readonly string _privateToken;
+    private readonly string? _configuredDefaultBranch;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitLabSourceProvider> _logger;
+    private string? _cachedDefaultBranch;
 
     public string ProviderType => "GitLab";
 
@@ -32,12 +34,14 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         string cloneUrl,
         string privateToken,
         HttpClient httpClient,
-        ILogger<GitLabSourceProvider> logger)
+        ILogger<GitLabSourceProvider> logger,
+        string? defaultBranch = null)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _projectPath = projectPath;
         _cloneUrl = cloneUrl;
         _privateToken = privateToken;
+        _configuredDefaultBranch = defaultBranch;
         _httpClient = httpClient;
         _logger = logger;
     }
@@ -78,6 +82,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         Repository repository, string title, string description,
         CancellationToken cancellationToken)
     {
+        var targetBranch = await GetDefaultBranchAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -85,7 +90,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         request.Content = JsonContent.Create(new
         {
             source_branch = repository.CurrentBranch.Value,
-            target_branch = "main",
+            target_branch = targetBranch,
             title,
             description
         });
@@ -113,6 +118,42 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         var response = await _httpClient.PostAsync(url, content, cancellationToken);
         await response.EnsureSuccessWithBodyAsync(cancellationToken);
         _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
+    }
+
+    private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
+    {
+        if (_configuredDefaultBranch is not null)
+            return _configuredDefaultBranch;
+
+        if (_cachedDefaultBranch is not null)
+            return _cachedDefaultBranch;
+
+        try
+        {
+            var url = $"{_baseUrl}/api/v4/projects/{_projectPath}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            using var json = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            _cachedDefaultBranch = json.RootElement.TryGetProperty("default_branch", out var branch)
+                ? branch.GetString() ?? "main"
+                : "main";
+
+            _logger.LogDebug("Resolved default branch from GitLab API: {Branch}", _cachedDefaultBranch);
+            return _cachedDefaultBranch;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve default branch from GitLab API, falling back to 'main'");
+            _cachedDefaultBranch = "main";
+            return _cachedDefaultBranch;
+        }
     }
 
     private string GetLocalPath()

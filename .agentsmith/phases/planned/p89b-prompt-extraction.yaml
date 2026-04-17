@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p89b
+goal: "Extract all 17 inline LLM prompts from C# classes into external templates and align them to a consistent structured format — no behavioral change"
+depends_on: ["p89a"]
+decisions:
+  - Format decision first: "before extracting, decide on template format (embedded resources / .md files / prompt registry class) — document rationale as a decision in this phase"
+  - No behavioral change: "extracted prompts must produce identical output for identical input — style alignment only, no semantic changes"
+  - Snapshot tests as safety net: "before extraction, capture current prompt outputs as snapshot tests; after extraction, same inputs must produce same outputs against the JSON schemas"
+  - Same pattern as skills: "each prompt follows: role statement, task definition, structured output format (JSON schema where applicable), explicit exclusions"
+  - PlanConsolidator is the reference refactor: "start with PlanConsolidator as the first extraction — it's the clearest example of prose-to-structured conversion"
+steps:
+  - id: format-decision
+    action: "Evaluate template format options (embedded resources, .md files under config/prompts/, static registry class) against criteria: changeable without recompile, discoverable, testable, DI-friendly. Document decision"
+    modify: []
+  - id: snapshot-baseline
+    action: "Add snapshot tests for all 17 prompts: feed representative inputs, capture assembled prompt strings as approved snapshots. These are the regression baseline"
+    new: ["Snapshot test class(es)"]
+  - id: extract-planconsolidator
+    action: "Extract PlanConsolidator prompts (system + user) to template file. Replace prose system prompt with structured role/task/output-format. Keep JSON schema identical. Verify snapshot test passes"
+    modify: ["PlanConsolidator.cs"]
+    new: ["PlanConsolidator prompt template"]
+  - id: extract-remaining
+    action: >
+      Extract remaining 16 prompts to template files, one by one. For each:
+      (a) move string literal to template,
+      (b) align to structured format (role, task, output schema, exclusions),
+      (c) verify snapshot test passes.
+      Files:
+      AgentPromptBuilder.cs, SkillPromptBuilder.cs, ConvergenceCheckHandler.cs,
+      StructuredOutputInstructionBuilder.cs, EvaluateSkillsHandler.cs, ScoutAgent.cs,
+      ClaudeContextCompactor.cs, CodeMapGenerator.cs, CodingPrinciplesGenerator.cs,
+      ContextPromptTemplates.cs, BootstrapDocumentHandler.cs, TriageResponseParser.cs,
+      KnowledgePromptBuilder.cs, QueryKnowledgeHandler.cs,
+      LlmIntentParser.cs (Application), LlmIntentParser.cs (Server)
+    modify:
+      - "AgentPromptBuilder.cs"
+      - "SkillPromptBuilder.cs"
+      - "ConvergenceCheckHandler.cs"
+      - "StructuredOutputInstructionBuilder.cs"
+      - "EvaluateSkillsHandler.cs"
+      - "ScoutAgent.cs"
+      - "ClaudeContextCompactor.cs"
+      - "CodeMapGenerator.cs"
+      - "CodingPrinciplesGenerator.cs"
+      - "ContextPromptTemplates.cs"
+      - "BootstrapDocumentHandler.cs"
+      - "TriageResponseParser.cs"
+      - "KnowledgePromptBuilder.cs"
+      - "QueryKnowledgeHandler.cs"
+      - "LlmIntentParser.cs (Application)"
+      - "LlmIntentParser.cs (Server)"
+  - id: cleanup
+    action: "Remove dead string constants from C# classes. Verify no prompt string literals remain in src/**/*.cs (grep check). Run full test suite"
+    modify: ["All 17 files from previous steps"]
+done:
+  - "Template format decided and documented"
+  - "Snapshot tests exist for all 17 prompts (baseline captured before extraction)"
+  - "All 17 prompts extracted — no LLM prompt string literals remain in C# code"
+  - "All prompts follow consistent pattern: role, task, output schema, exclusions"
+  - "PlanConsolidator uses structured format, not prose"
+  - "All snapshot tests pass (same inputs → same assembled prompts)"
+  - "dotnet build + dotnet test clean"

@@ -29,8 +29,9 @@ public sealed class AzureDevOpsPrCommentReplyService(
         var project = parts[0];
         var repo = parts[1];
 
+        var apiVersion = Environment.GetEnvironmentVariable("AZDO_API_VERSION") ?? "7.1";
         var url = $"{orgUrl}/{project}/_apis/git/repositories/{repo}" +
-                  $"/pullRequests/{originalComment.PrIdentifier}/threads?api-version=7.1";
+                  $"/pullRequests/{originalComment.PrIdentifier}/threads?api-version={apiVersion}";
 
         var body = new
         {

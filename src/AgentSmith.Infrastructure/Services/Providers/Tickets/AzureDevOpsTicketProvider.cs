@@ -20,8 +20,18 @@ public sealed class AzureDevOpsTicketProvider(
     string organizationUrl,
     string project,
     string personalAccessToken,
-    AzureDevOpsAttachmentLoader attachmentLoader) : ITicketProvider
+    AzureDevOpsAttachmentLoader attachmentLoader,
+    IReadOnlyList<string>? openStates = null,
+    string? doneStatus = null,
+    IReadOnlyList<string>? extraFields = null) : ITicketProvider
 {
+    private static readonly string[] DefaultOpenStates = ["New", "Active", "Committed"];
+    private static readonly string[] StandardFields =
+        ["System.Id", "System.Title", "System.Description",
+         "System.State", "Microsoft.VSTS.Common.AcceptanceCriteria"];
+
+    private readonly string _doneStatus = doneStatus ?? "Closed";
+
     public string ProviderType => "AzureDevOps";
 
     public async Task<Ticket> GetTicketAsync(
@@ -37,15 +47,16 @@ public sealed class AzureDevOpsTicketProvider(
     {
         var client = CreateClient();
 
+        var states = openStates is { Count: > 0 } ? openStates : DefaultOpenStates;
+        var stateFilter = string.Join(", ", states.Select(s => $"'{s}'"));
+
         var wiql = new Wiql
         {
             Query = $"""
                 SELECT [System.Id]
                 FROM WorkItems
                 WHERE [System.TeamProject] = '{project}'
-                  AND [System.State] <> 'Closed'
-                  AND [System.State] <> 'Resolved'
-                  AND [System.State] <> 'Done'
+                  AND [System.State] IN ({stateFilter})
                 ORDER BY [System.ChangedDate] DESC
                 """
         };
@@ -58,10 +69,13 @@ public sealed class AzureDevOpsTicketProvider(
 
         var ids = result.WorkItems.Select(w => w.Id).ToArray();
 
+        var fields = extraFields is { Count: > 0 }
+            ? StandardFields.Union(extraFields).Distinct().ToArray()
+            : StandardFields;
+
         var workItems = await client.GetWorkItemsAsync(
             ids,
-            fields: ["System.Id", "System.Title", "System.Description",
-                     "System.State", "Microsoft.VSTS.Common.AcceptanceCriteria"],
+            fields: fields,
             cancellationToken: cancellationToken);
 
         return workItems
@@ -173,7 +187,7 @@ public sealed class AzureDevOpsTicketProvider(
             {
                 Operation = Operation.Add,
                 Path = "/fields/System.State",
-                Value = "Closed"
+                Value = _doneStatus
             }
         };
         await client.UpdateWorkItemAsync(patch, project, id, cancellationToken: cancellationToken);

@@ -12,13 +12,15 @@ namespace AgentSmith.Infrastructure.Services.Nuclei;
 public sealed class NucleiSpawner(
     IToolRunner toolRunner,
     NucleiConfig config,
+    ToolRunnerConfig toolRunnerConfig,
     ILogger<NucleiSpawner> logger) : INucleiScanner
 {
     public async Task<NucleiResult> ScanAsync(
         string targetUrl, string swaggerPath, CancellationToken cancellationToken)
     {
-        var dockerTarget = RewriteLocalhostForDocker(targetUrl);
-        var isLocal = dockerTarget.Contains("host.docker.internal");
+        var dockerHostname = toolRunnerConfig.DockerHostname;
+        var dockerTarget = RewriteLocalhostForDocker(targetUrl, dockerHostname);
+        var isLocal = dockerTarget.Contains(dockerHostname);
 
         logger.LogInformation("Starting Nuclei scan: {Target} (container: {DockerTarget})",
             targetUrl, dockerTarget);
@@ -51,7 +53,7 @@ public sealed class NucleiSpawner(
         };
 
         var extraHosts = isLocal
-            ? new Dictionary<string, string> { ["host.docker.internal"] = "host-gateway" }
+            ? new Dictionary<string, string> { [dockerHostname] = "host-gateway" }
             : null;
 
         var request = new ToolRunRequest(
@@ -105,9 +107,9 @@ public sealed class NucleiSpawner(
         return urls.Distinct().ToList();
     }
 
-    internal static string RewriteLocalhostForDocker(string url) =>
-        url.Replace("://localhost", "://host.docker.internal")
-           .Replace("://127.0.0.1", "://host.docker.internal");
+    internal static string RewriteLocalhostForDocker(string url, string dockerHostname = "host.docker.internal") =>
+        url.Replace("://localhost", $"://{dockerHostname}")
+           .Replace("://127.0.0.1", $"://{dockerHostname}");
 
     internal static List<NucleiFinding> ParseJsonLines(string output)
     {
