@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.17.0...v0.18.0) (2026-04-17)
+
+
+### Features
+
+* nullable branch in CheckoutAsync — LocalSourceProvider uses HEAD when no branch specified (p74) ([365db04](https://github.com/holgerleichsenring/agent-smith/commit/365db046cf374279b318a9515643cbee9f01b987))
+
 ## [0.17.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.16.0...v0.17.0) (2026-04-16)
 
 
