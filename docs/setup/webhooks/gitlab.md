@@ -50,6 +50,28 @@ If no token is configured, verification is skipped (development only).
 !!! note "Label-to-pipeline mapping"
     Currently, the GitLab MR handler only triggers `security-scan` for the `security-review` label. Configurable label-to-pipeline mapping is planned for p84.
 
+## GitLab Base URL (Self-Hosted)
+
+For self-hosted GitLab instances, you **must** set the `GITLAB_URL` environment variable or secret. There is no automatic fallback to `gitlab.com`.
+
+```bash
+export GITLAB_URL="https://gitlab.mycompany.com"
+```
+
+If `GITLAB_URL` is not set, Agent Smith will fail at startup with a clear error message.
+
+## Source Configuration
+
+```yaml
+source:
+  type: GitLab
+  url: https://gitlab.mycompany.com/group/project
+  auth: token
+  default_branch: develop         # MR target branch (auto-detected from API if omitted)
+```
+
+The `default_branch` is resolved in this order: explicit config → GitLab API (`GET /projects/:id`) → fallback `main`.
+
 ## Troubleshooting
 
 | Problem | Solution |
