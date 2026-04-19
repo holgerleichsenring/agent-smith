@@ -97,7 +97,8 @@ agent-smith/
 │   └── AgentSmith.Tests/          # 567 tests (xUnit + Moq + FluentAssertions)
 │
 ├── config/                         # Configuration templates
-├── prompts/                        # Prompt templates for AI providers
+│   ├── prompts/                    # LLM prompt templates (.md files, loaded by FilePromptTemplateProvider)
+│   └── skills/                     # Skill definitions, observation schema, security principles
 ├── k8s/                            # Kubernetes manifests
 │   ├── base/                       # Kustomize base
 │   │   ├── kustomization.yaml
