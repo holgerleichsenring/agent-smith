@@ -101,6 +101,12 @@ public sealed class ExtractFindingsHandler(
                 "Applied {AssessmentCount} assessments: {FP} false positives removed, {Remaining} findings remain",
                 assessments.Count, falsePositives, findings.Count);
         }
+        else if (pipeline.Has(ContextKeys.ConsolidatedDiscussion) || pipeline.Has(ContextKeys.ConsolidatedPlan))
+        {
+            logger.LogWarning(
+                "Consolidation ran but produced no assessments — {Count} findings remain unreviewed",
+                findings.Count);
+        }
 
         pipeline.Set(ContextKeys.ExtractedFindings, findings.AsReadOnly());
 

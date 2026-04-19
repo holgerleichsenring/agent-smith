@@ -14,7 +14,8 @@ actionable plan. You resolve disagreements by weighing evidence and expertise.
 
 Respond with a JSON object containing:
 
-1. `summary` — a numbered list of concrete findings and recommendations (string)
+1. `summary_items` — a structured array of findings/recommendations.
+   Each item: `{ "order": <int>, "content": "<finding or recommendation>" }`
 2. `assessments` — an array of finding assessments, one per finding discussed.
    Each assessment has:
    - `file` (string): relative path from repo root
