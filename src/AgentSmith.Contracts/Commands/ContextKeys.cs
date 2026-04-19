@@ -19,6 +19,7 @@ public static class ContextKeys
     public const string ExecutionTrail = "ExecutionTrail";
     public const string DiscussionLog = "DiscussionLog";
     public const string ConsolidatedPlan = "ConsolidatedPlan";
+    public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
     public const string Approved = "Approved";
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";

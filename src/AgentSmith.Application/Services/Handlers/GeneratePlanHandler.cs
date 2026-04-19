@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -24,6 +25,14 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
+        // Discussion/structured pipelines don't generate execution plans
+        if (context.Pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
+            && pipelineType is PipelineType.Discussion or PipelineType.Structured)
+        {
+            logger.LogInformation("Skipping plan generation — pipeline type is {Type}", pipelineType);
+            return CommandResult.Ok($"Plan generation skipped for {pipelineType} pipeline");
+        }
+
         var projectContext = context.ProjectContext;
 
         // Prefer structured ConvergenceResult when available
