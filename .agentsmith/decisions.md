@@ -473,3 +473,42 @@
 - [Architecture] PR comment handlers still use TriggerInput string (free-form arguments) — legacy path preserved as fallback.
 - [Fix] ConsolidatedPlan is input for GeneratePlanHandler, not a replacement — multi-skill discussion provides analysis context, GeneratePlanHandler distills concrete PlanSteps. Previously the handler short-circuited with 0 steps, causing the agent to spend 32 iterations guessing what to do.
 - [Fix] Jira Cloud system webhooks don't send signature headers — signature validation now skips when no header present, even if secret is configured.
+
+## p84: Unified Webhook Lifecycle
+- [Architecture] WebhookTriggerConfig as shared base for all platforms — status gate, pipeline-from-label, done_status, comment re-trigger unified across GitHub, GitLab, Azure DevOps, Jira.
+- [Architecture] Hardcoded trigger labels/tags replaced by config with backward-compatible defaults — existing setups work without changes.
+- [Architecture] All platforms support pipeline_from_label — any pipeline is a valid trigger target, no hardcoded restrictions.
+
+## p86: Typed Skill Observations
+- [Architecture] SkillObservation as universal output contract — replaces free-text DiscussionLog, pipeline-agnostic structured data.
+- [Architecture] ID assigned by framework, not LLM — prevents hallucinated or colliding IDs.
+- [Architecture] ConvergenceResult replaces ConsolidatedPlan string — mechanical plan generation from structured input.
+- [Architecture] GeneratePlanHandler always runs — ConsolidatedPlan is context for plan generation, not a replacement.
+- [Implementation] Concern, Severity, Effort as enums with JsonStringEnumConverter — type-safe, serialization-friendly.
+- [TradeOff] Partial valid JSON accepted — take valid observations, skip broken ones with warning. Robustness over strictness.
+
+## p79/p80: Attacker-Perspective Security Skills
+- [Architecture] Commodity tools (StaticPatternScan, GitHistoryScan, DependencyAudit) are passive layer — unchanged. Intelligence layer (LLM attacker skills) is active layer on top.
+- [Architecture] Attacker-perspective skills (recon-analyst, low-privilege-attacker, idor-prober, input-abuser, response-analyst) complement knowledge-domain skills — both run together.
+- [Architecture] chain-analyst is executor — receives all commodity + skill findings and produces chained attack assessment.
+- [Scope] No runtime, no user accounts, no HTTP probing — code/diff analysis only.
+
+## p87: Ticket Image Attachments
+- [Architecture] IAttachmentLoader per platform — keeps TicketProvider focused on ticket CRUD, image downloading is separate concern.
+- [Implementation] Only image MIME types (png, jpeg, gif, webp) — skip PDFs, ZIPs. Max 5MB per image, skip larger with warning.
+- [Implementation] Images stored as base64 in PipelineContext via ContextKeys.Attachments — passed as vision input to LLM during plan generation.
+- [TradeOff] Markdown parsing for GitHub/GitLab (![](url) patterns) over API-based attachment listing — issues embed images inline, not as separate attachments.
+
+## p88: Configurable Defaults
+- [Architecture] Config wins over hardcoded — every value that depends on the user's environment must be readable from agentsmith.yml.
+- [Architecture] Ticket states as whitelist (IN clause) instead of blacklist (<> exclusions) — unknown states excluded by default. Blacklists in foreign systems are a bug machine.
+- [Architecture] PR target branch: repo API → config → "main" fallback chain. API result cached per run — one extra API call, not per PR.
+- [Architecture] Missing ADO fields map to null, not errors — AcceptanceCriteria may not exist in all process templates.
+- [Architecture] GitLab base URL required for self-hosted — no silent fallback to gitlab.com. Startup validation error with clear message.
+- [TradeOff] ADO API version via env var (AZDO_API_VERSION) instead of config file — env vars are standard for server-side overrides, config file would be over-engineering for a rarely changed value.
+
+## p89a: Skill Content Improvements
+- [Architecture] Confidence calibration defined once in observation-schema.md — Low (0-30), Medium (31-69), High (70-100). Referenced by all skills.
+- [Architecture] Framework-specific false-positive rules derived from Anthropic's claude-code-security-review — 12 precedents battle-tested across thousands of reviews.
+- [Architecture] Phase 1 repo context exploration before analysis — skills must understand existing security patterns before flagging findings. Deviations from established patterns are more likely real findings.
+- [Scope] Content only — zero C# changes, zero build risk.
