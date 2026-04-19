@@ -10,7 +10,7 @@ stack:
   lang: C#
   infra: [Docker, K8s, Redis]
   testing: [xUnit, Moq, FluentAssertions]
-  sdks: [Anthropic, OpenAI, Google-Gemini, Octokit, LibGit2Sharp, YamlDotNet]
+  sdks: [Anthropic, OpenAI, Azure.AI.OpenAI, Google-Gemini, Octokit, LibGit2Sharp, YamlDotNet]
 
 arch:
   style: [CleanArch]
@@ -58,7 +58,7 @@ quality:
   testing: { style: AAA, naming: "{Method}_{Scenario}_{Expected}" }
 
 integrations:
-  AI:     { type: outbound, providers: [Claude, OpenAI, Gemini, Ollama] }
+  AI:     { type: outbound, providers: [Claude, OpenAI, Azure-OpenAI, Gemini, Ollama] }
   Git:    { type: bidirectional, protocol: SSH/HTTPS, does: "LibGit2Sharp clone/branch/commit/push" }
   GitHub: { type: bidirectional, does: "Issues + PRs via Octokit" }
   GitLab: { type: bidirectional, does: "Issues + MRs via REST" }
@@ -150,15 +150,25 @@ state:
     p81: "Integration setup docs: Slack + Teams setup guides, Teams env vars in docker-compose"
     p82: "Webhook & trigger docs: per-platform setup guides (GitHub, GitLab, Azure DevOps, Jira), label-trigger overview"
     p83: "Jira webhook status lifecycle: trigger gate (assignee+label+status), done_status transition after PR, comment re-trigger (896 tests)"
+    p84: "Unified webhook lifecycle: status gate + pipeline-from-label + done_status + comment re-trigger for all 4 platforms (GitHub, GitLab, Azure DevOps, Jira)"
+    p85: "Webhook structured dispatch: handlers return ProjectName+TicketId, ConsolidatedPlan is context not replacement"
+    p86: "Typed skill observations: SkillObservation + ConvergenceResult replace free-text DiscussionLog, enum types, partial JSON tolerance (941 tests)"
+    p79: "Attacker-perspective API security skills: anonymous-attacker, low-privilege-attacker, input-abuser, chain-analyst"
+    p80: "Attacker-perspective security scan skills: recon-analyst, low-privilege-attacker, idor-prober, input-abuser, response-analyst, chain-analyst"
+    p87: "Ticket image attachments: IAttachmentLoader per platform, vision input to LLM, 5MB limit, image MIME filter (941 tests)"
+    p88: "Configurable defaults: ticket state whitelist, PR target branch from API, ADO extra_fields, docker_hostname, API versions, GitLab URL required (941 tests)"
+    p89a: "Skill content improvements: confidence calibration table, 12+ framework-specific FP rules, Phase 1 repo context exploration in vuln-analyst skills"
   active: {}
   done-recently:
-    p83: "Jira webhook status lifecycle: trigger gate, done_status transition, comment re-trigger (896 tests)"
-    p82: "Webhook & trigger docs: per-platform setup guides, label-trigger overview"
+    p88: "Configurable defaults: whitelist states, PR branch from API, docker_hostname, GitLab URL required"
+    p89a: "Skill content improvements: confidence calibration, FP rules, Phase 1 methodology"
   planned:
+    # --- in progress ---
+    p89b: "Prompt extraction: IPromptTemplateProvider + FilePromptTemplateProvider done, PlanConsolidator extracted, 16 prompts remaining"
     # --- backlog (new features) ---
-    p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.md"
-    p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
+    p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.yaml"
+    p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.yaml"
     # --- deferred (refactoring, no new features) ---
-    p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.md"
-    p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.md"
-    p40d: "Storage providers & LoadAttachments (refactoring) → .agentsmith/phases/planned/p40d-storage-providers-attachments.md"
+    p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.yaml"
+    p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.yaml"
+    p40d: "Storage providers & LoadAttachments (refactoring) → .agentsmith/phases/planned/p40d-storage-providers-attachments.yaml"
