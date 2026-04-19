@@ -12,11 +12,16 @@ projects:
       type: GitHub                  # GitHub | AzureRepos | GitLab | Local
       url: https://github.com/owner/repo
       auth: token                   # Auth method (resolved from secrets)
+      # default_branch: main        # PR target branch (auto-detected if omitted)
 
     tickets:
       type: GitHub                  # GitHub | AzureDevOps | Jira | GitLab
       url: https://github.com/owner/repo
       auth: token
+      # open_states: ["New", "Active"]  # States considered "open" (ADO whitelist)
+      # done_status: "Closed"           # Target state when closing
+      # close_transition_name: "Close"  # Jira transition name for closing
+      # extra_fields: []                # Additional ADO fields to fetch
       # Azure DevOps only:
       # organization: my-org
       # project: my-project
@@ -118,10 +123,15 @@ Each key under `projects` defines a project. Use `--project <key>` on the CLI to
 | `source.url` | Yes* | Repository URL (*not required for `Local`) |
 | `source.path` | No | Local path (for `Local` type) |
 | `source.auth` | Yes | Auth method: `token` |
+| `source.default_branch` | No | PR target branch. If omitted, read from remote API (cached per run); last resort `main` |
 | `tickets.type` | Yes | Ticket provider: `GitHub`, `AzureDevOps`, `Jira`, `GitLab` |
 | `tickets.url` | Yes | Ticket system URL |
 | `tickets.organization` | No | Azure DevOps organization name |
 | `tickets.project` | No | Azure DevOps project name |
+| `tickets.open_states` | No | Whitelist of states considered "open" for `ListOpenAsync` (ADO only, default: `New`, `Active`, `Committed`) |
+| `tickets.done_status` | No | Target state when closing a ticket (default: `Closed` for ADO, `Done` for Jira) |
+| `tickets.close_transition_name` | No | Jira only: transition name for closing (default: `Close`) |
+| `tickets.extra_fields` | No | Additional fields to fetch from work items (ADO only, e.g. custom fields). Missing fields map to null |
 | `pipeline` | Yes | Default pipeline name |
 | `skills_path` | No | Path to skill definitions (default: `skills/coding`) |
 | `coding_principles_path` | No | Path to coding conventions file |
@@ -195,5 +205,6 @@ Controls how security scanning tools (Nuclei, Spectral) are executed.
 |-------|---------|-------------|
 | `type` | `auto` | `auto` detects Docker socket, falls back to process |
 | `socket` | -- | Custom Docker/Podman socket path |
+| `docker_hostname` | `host.docker.internal` | Hostname used to reach the host from inside a container. Change for Podman (`host.containers.internal`) or custom networking |
 | `images.nuclei` | `projectdiscovery/nuclei:latest` | Nuclei container image |
 | `images.spectral` | `stoplight/spectral:6` | Spectral container image |

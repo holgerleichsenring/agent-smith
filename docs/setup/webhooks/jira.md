@@ -68,6 +68,8 @@ export JIRA_WEBHOOK_SECRET="your-secret-here"
 
 ### 3. Configuration Reference
 
+#### Trigger configuration (`jira_trigger`)
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `assignee_name` | string | `Agent Smith` | Jira display name that triggers the webhook |
@@ -77,6 +79,16 @@ export JIRA_WEBHOOK_SECRET="your-secret-here"
 | `pipeline_from_label` | map | — | Maps Jira labels to pipeline names (config order = priority) |
 | `default_pipeline` | string | `fix-bug` | Pipeline when no label matches |
 | `comment_keyword` | string | — | Keyword in comments that triggers a pipeline run |
+
+#### Ticket provider configuration (`tickets`)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `done_status` | string | `Done` | Target state when closing a ticket via `CloseTicketAsync` |
+| `close_transition_name` | string | `Close` | Jira transition name used to close tickets (substring match, case-insensitive) |
+
+!!! tip "Custom workflows"
+    Jira workflows are fully customizable. If your workflow uses different transition names (e.g. "Resolve", "Complete"), set `close_transition_name` to match. The provider searches available transitions using substring matching.
 
 ### 4. Verify
 
