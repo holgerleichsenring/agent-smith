@@ -57,6 +57,33 @@ If no secret is configured, verification is skipped (development only).
 !!! note "Tag-to-pipeline mapping"
     Currently, the Azure DevOps handler only triggers `security-scan` for the `security-review` tag. Configurable tag-to-pipeline mapping is planned for p84.
 
+## Ticket Provider Configuration
+
+The Azure DevOps ticket provider supports additional configuration:
+
+```yaml
+tickets:
+  type: AzureDevOps
+  organization: my-org
+  project: my-project
+  auth: token
+  open_states: ["New", "Active"]                # States considered "open" (default: New, Active, Committed)
+  done_status: "Resolved"                       # Target state when closing (default: Closed)
+  extra_fields:                                 # Additional fields to fetch from work items
+    - "Microsoft.VSTS.Common.Priority"
+    - "Custom.MyField"
+```
+
+!!! tip "Process template compatibility"
+    The `open_states` whitelist replaces the previous hardcoded state exclusions. Set this to match your Azure DevOps process template (Agile, Scrum, CMMI, or custom). Missing `extra_fields` map to null — they never cause errors.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AZDO_WEBHOOK_SECRET` | — | Raw secret for Basic auth verification |
+| `AZDO_API_VERSION` | `7.1` | Azure DevOps REST API version for PR comment replies |
+
 ## Troubleshooting
 
 | Problem | Solution |

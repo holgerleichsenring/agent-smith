@@ -111,4 +111,14 @@ agent-smith security-trend --project my-api
 agent-smith security-trend --project my-api --dry-run
 ```
 
+## Confidence Calibration & False-Positive Rules
+
+Security skills use a confidence calibration table and framework-specific false-positive rules defined in:
+
+- `config/skills/observation-schema.md` — confidence bands (Low 0–30, Medium 31–69, High 70–100)
+- `config/skills/security/security-principles.md` — exclusions and 12 framework-specific precedents (React XSS, GitHub Actions, env vars, etc.)
+- `config/skills/api-security/api-security-principles.md` — API-specific exclusions and 8 precedents
+
+These files govern all security skill roles. Edit them to adjust false-positive filtering for your codebase.
+
 See also: [Security Scan Pipeline](../pipelines/security-scan.md) for the full pipeline documentation.
