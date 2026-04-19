@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p90
+goal: "Clean up PlanConsolidator — eliminate text-split-back-to-structure hack, stop misusing Plan entity, fix silent failure mode, remove security-specific bias from generic class"
+requires: [p63, p64]
+decisions:
+  - key: "summary becomes a structured array, not a markdown string — no more newline-split + TrimStart character soup to recover steps"
+  - key: "Plan entity is for fix-bug/feature pipelines — discussion-result pipelines write a separate ConsolidatedDiscussion record instead of impersonating Plan"
+  - key: "GeneratePlanCommand skip mechanism moves from 'Plan exists' check to explicit pipeline-type awareness — discussion/structured pipelines never run GeneratePlan"
+  - key: "Consolidation failure is fatal for discussion pipelines — silent catch + LogWarning leaves ExtractFindings with 0 assessments, which silently drops the entire scan's value"
+  - key: "PlanConsolidator becomes pipeline-agnostic — title/role/output schema injected by caller, not hardcoded to 'Security Scan Findings'"
+  - key: "escalationNote rendered as conditional template section, not empty-string concatenation — avoids stray blank lines"
+
+steps:
+  - id: structured-summary-output
+    action: "Change consolidation JSON schema: summary is now an array of finding/recommendation entries, each with order + content. Remove the markdown-list-as-string pattern."
+    modify:
+      - "ConsolidationResponseParser: parse summary as array of { order:int, content:string } instead of single string"
+      - "PlanConsolidator: drop the Split('\\n').TrimStart('-', ' ', '*') reconstruction — use parsed array directly"
+      - "Prompt template: 'summary' described as JSON array, not numbered markdown list"
+
+  - id: consolidated-discussion-record
+    action: "Introduce ConsolidatedDiscussion as the proper output type for discussion/structured pipelines — stop reusing Plan as a carrier"
+    new:
+      - "ConsolidatedDiscussion: record(string Title, IReadOnlyList<DiscussionFinding> Findings, IReadOnlyList<FindingAssessment> Assessments, string? RawSummary)"
+      - "DiscussionFinding: record(int Order, string Content) — replaces the synthetic PlanStep list"
+      - "ContextKeys.ConsolidatedDiscussion — new key, separate from ConsolidatedPlan and Plan"
+
+  - id: pipeline-type-aware-skip
+    action: "GeneratePlanCommand checks pipeline type, not Plan presence — discussion/structured pipelines never run it"
+    modify:
+      - "GeneratePlanHandler: skip when PipelineType is discussion or structured (read from PipelineContext, set by PipelineExecutor)"
+      - "PlanConsolidator: stop writing fake Plan into ContextKeys.Plan — only writes ConsolidatedDiscussion"
+      - "ContextKeys: add PipelineType key (set once at pipeline start)"
+
+  - id: consolidation-failure-handling
+    action: "Consolidation failure must surface as pipeline failure for discussion pipelines, not a silent warning that leaves downstream handlers with empty context"
+    modify:
+      - "PlanConsolidator: distinguish parse error (recoverable — retry once with stricter prompt) from LLM/network error (fatal — return CommandResult.Fail to caller)"
+      - "ConvergenceCheckHandler: propagate consolidator failure as CommandResult.Fail instead of swallowing"
+      - "ExtractFindingsHandler: log explicit warning when assessments missing AND pipeline expected them — currently fails silently with '0 from 0' which masks real bugs"
+
+  - id: pipeline-agnostic-prompt
+    action: "Remove security-specific assumptions from the generic class — title, role description, and output expectations come from the caller"
+    modify:
+      - "PlanConsolidator.ConsolidateAsync: accept ConsolidationRequest record with Title, RoleDescription, OutputExpectations instead of hardcoding 'Security Scan Findings'"
+      - "ConvergenceCheckHandler: pass pipeline-specific consolidation request (security-scan, mad-discussion, legal-analysis each provide their own)"
+      - "Prompt template: parameterize role and output framing — same template works for security findings, philosophical conclusions, legal positions"
+
+  - id: prompt-template-cleanup
+    action: "Fix template hygiene — conditional sections render cleanly, no stray blank lines from empty interpolations"
+    modify:
+      - "Prompt template: render escalationNote as conditional block (full ## Escalation section + content, or nothing at all — no empty-string interpolation between sections)"
+      - "PlanConsolidator: use a small template helper for conditional sections, or migrate prompt to resource file (aligns with p89b if scheduled before)"
+
+tests:
+  - "PlanConsolidator_StructuredSummaryArray_NoStringSplitNeeded"
+  - "PlanConsolidator_DiscussionPipeline_DoesNotWriteFakePlan"
+  - "PlanConsolidator_LlmFailure_ReturnsFailureNotSilentSuccess"
+  - "PlanConsolidator_ParseError_RetriesOnceWithStricterPrompt"
+  - "PlanConsolidator_GenericTitle_FromConsolidationRequest"
+  - "PlanConsolidator_NotEscalated_NoEmptyEscalationSection"
+  - "GeneratePlanHandler_DiscussionPipeline_SkippedByType"
+  - "GeneratePlanHandler_FixBugPipeline_RunsNormally"
+  - "ExtractFindingsHandler_MissingAssessments_LogsExplicitWarning"
+  - "ConvergenceCheckHandler_ConsolidatorFails_PipelineFails"
+
+done:
+  - "summary is a JSON array, no more newline-split reconstruction in PlanConsolidator"
+  - "ConsolidatedDiscussion record exists and is used by discussion/structured pipelines"
+  - "Plan entity is no longer constructed from discussion output"
+  - "GeneratePlanCommand skip is driven by PipelineType, not Plan presence"
+  - "Consolidation LLM/network failure causes pipeline to fail visibly, not silently"
+  - "ExtractFindingsHandler logs warning when assessments expected but missing"
+  - "PlanConsolidator has no security-specific defaults — title and role come from caller"
+  - "escalationNote renders cleanly without blank-line artifacts"
+  - "All discussion pipelines (security-scan, mad-discussion, legal-analysis) work via the same generic consolidator"
+  - "dotnet build zero warnings, all tests green"

@@ -90,7 +90,7 @@ public sealed class ConvergenceCheckHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Consensus reached");
         pipeline.Has(ContextKeys.ConsolidatedPlan).Should().BeTrue();
-        pipeline.Has(ContextKeys.Plan).Should().BeTrue();
+        pipeline.Has(ContextKeys.ConsolidatedDiscussion).Should().BeTrue();
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class ConvergenceCheckHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ConsolidationSetssPlanSteps()
+    public async Task ExecuteAsync_ConsolidationSetsDiscussionFindings()
     {
         var pipeline = CreatePipeline();
         pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
@@ -173,14 +173,14 @@ public sealed class ConvergenceCheckHandlerTests
         var context = CreateContext(pipeline);
         await _handler.ExecuteAsync(context, CancellationToken.None);
 
-        var plan = pipeline.Get<Plan>(ContextKeys.Plan);
-        plan.Steps.Should().HaveCount(3);
-        plan.Steps[0].Order.Should().Be(1);
-        plan.Steps[0].Description.Should().Be("Add endpoint");
+        var discussion = pipeline.Get<ConsolidatedDiscussion>(ContextKeys.ConsolidatedDiscussion);
+        discussion.Findings.Should().HaveCount(3);
+        discussion.Findings[0].Order.Should().Be(1);
+        discussion.Findings[0].Content.Should().Be("Add endpoint");
     }
 
     [Fact]
-    public async Task ExecuteAsync_ConsolidationFails_PlanNotStored()
+    public async Task ExecuteAsync_ConsolidationFails_ThrowsException()
     {
         var pipeline = CreatePipeline();
         pipeline.Set(ContextKeys.DiscussionLog, new List<DiscussionEntry>
@@ -194,9 +194,9 @@ public sealed class ConvergenceCheckHandlerTests
             .ThrowsAsync(new Exception("LLM error"));
 
         var context = CreateContext(pipeline);
-        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+        var act = () => _handler.ExecuteAsync(context, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
+        await act.Should().ThrowAsync<Exception>().WithMessage("LLM error");
         pipeline.Has(ContextKeys.ConsolidatedPlan).Should().BeFalse();
     }
 

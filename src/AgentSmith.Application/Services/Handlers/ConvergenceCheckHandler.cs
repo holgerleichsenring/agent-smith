@@ -269,7 +269,15 @@ public sealed class ConvergenceCheckHandler(
         if (context.Pipeline.TryGet<List<DiscussionEntry>>(
                 ContextKeys.DiscussionLog, out var discussionLog) && discussionLog is not null)
         {
-            await planConsolidator.ConsolidateAsync(context, discussionLog, escalated, cancellationToken);
+            try
+            {
+                await planConsolidator.ConsolidateAsync(context, discussionLog, escalated, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Consolidation failed — discussion pipeline results may be incomplete");
+                throw;
+            }
         }
     }
 
