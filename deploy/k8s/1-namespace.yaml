@@ -4,4 +4,3 @@ metadata:
   name: agentsmith
   labels:
     app.kubernetes.io/name: agentsmith
-    app.kubernetes.io/managed-by: kustomize
