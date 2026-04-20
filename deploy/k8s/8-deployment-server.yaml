@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: agentsmith-server
     app.kubernetes.io/component: server
 spec:
-  replicas: 1
+  replicas: 1                      # prod: 2
   selector:
     matchLabels:
       app: agentsmith-server
@@ -26,7 +26,7 @@ spec:
       containers:
         - name: server
           image: agentsmith-server:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: IfNotPresent  # prod: Always
           ports:
             - name: http
               containerPort: 8081
@@ -58,7 +58,7 @@ spec:
             - name: AGENTSMITH_IMAGE
               value: "agentsmith-cli:latest"
             - name: IMAGE_PULL_POLICY
-              value: "IfNotPresent"
+              value: "IfNotPresent"      # prod: Always
             - name: K8S_SECRET_NAME
               value: "agentsmith-secrets"
           volumeMounts:
@@ -83,11 +83,11 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "100m"              # prod: 200m
+              memory: "256Mi"          # prod: 384Mi
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: "500m"              # prod: 1000m
+              memory: "512Mi"          # prod: 768Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
