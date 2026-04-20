@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p91
+goal: "Build a Claude Code plugin in the specification-first-agentic-development repo that packages the methodology for easy installation"
+
+decisions:
+  - key: "Plugin lives in specification-first-agentic-development repo, not in agent-smith — plugin IS the methodology packaged, Agent Smith just uses it"
+  - key: "Skills over Commands — commands/ is legacy per Anthropic docs, skills with SKILL.md frontmatter are the current standard"
+  - key: "6 skills: workflow, bootstrap-project, create-phase, execute-phase, log-decision, update-project — full lifecycle coverage"
+  - key: "Skills reference existing templates/ instead of duplicating — single source of truth"
+  - key: "methodology.version field in user's context.yaml — single source of truth for version tracking, compared against plugin.json version"
+  - key: "update-project included in v1.0, not deferred — methodology evolution without sync strands early adopters"
+  - key: "Manual install via git clone + --plugin-dir for MVP — marketplace listing is separate effort"
+
+steps:
+  - id: branch
+    action: "Create feat/claude-code-plugin branch in specification-first-agentic-development repo"
+
+  - id: manifest
+    action: "Create .claude-plugin/plugin.json with metadata"
+    new:
+      - ".claude-plugin/plugin.json"
+
+  - id: workflow-skill
+    action: "Write main skill that explains the methodology and points to other skills"
+    new:
+      - "skills/spec-first-workflow/SKILL.md"
+
+  - id: bootstrap-skill
+    action: "Write bootstrap skill for setting up methodology in new projects"
+    new:
+      - "skills/bootstrap-project/SKILL.md"
+
+  - id: create-phase-skill
+    action: "Write skill for creating new phase specs, with examples"
+    new:
+      - "skills/create-phase/SKILL.md"
+      - "skills/create-phase/examples/simple-phase.yaml"
+      - "skills/create-phase/examples/refactor-phase.yaml"
+
+  - id: execute-phase-skill
+    action: "Write skill for implementing active phases following the 10-step workflow"
+    new:
+      - "skills/execute-phase/SKILL.md"
+
+  - id: log-decision-skill
+    action: "Write skill for appending entries to decisions.md"
+    new:
+      - "skills/log-decision/SKILL.md"
+
+  - id: update-project-skill
+    action: "Write skill for syncing existing projects with newer methodology versions"
+    new:
+      - "skills/update-project/SKILL.md"
+
+  - id: readme-update
+    action: "Update README.md with plugin install as primary CTA"
+    modify:
+      - "README.md"
+
+  - id: template-versioning
+    action: "Add methodology.version field to templates/context.yaml"
+    modify:
+      - "templates/context.yaml"
+
+  - id: decisions-log
+    action: "Create decisions.md at repo root with phase decisions"
+    new:
+      - "decisions.md"
+
+done:
+  - "Plugin installable via git clone + --plugin-dir"
+  - "All 6 skills have SKILL.md with proper frontmatter (name, description, user-invocable)"
+  - "Repo README shows install command prominently as first section"
+  - "Templates reused, not duplicated — bootstrap skill references templates/"
+  - "methodology.version field in templates/context.yaml"
+  - "update-project skill detects version drift and proposes merge"
+  - "Decisions logged in specification-first-agentic-development/decisions.md"
