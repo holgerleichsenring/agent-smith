@@ -512,3 +512,11 @@
 - [Architecture] Framework-specific false-positive rules derived from Anthropic's claude-code-security-review — 12 precedents battle-tested across thousands of reviews.
 - [Architecture] Phase 1 repo context exploration before analysis — skills must understand existing security patterns before flagging findings. Deviations from established patterns are more likely real findings.
 - [Scope] Content only — zero C# changes, zero build risk.
+
+## p92: K8s Config Cleanup
+- [Architecture] Flat numbered YAMLs over Kustomize — GitOps repos (ArgoCD) apply plain YAML directly; Kustomize/Helm can be derived from flat files if needed, not the other way around
+- [Architecture] Dev/prod differences as inline comments (e.g. `# prod: 2`) instead of overlay patches — this is a reference deployment, not a production GitOps repo
+- [Implementation] Shell script over Makefile for ConfigMap regeneration — project has no Makefile, standalone script in deploy/k8s/ is more discoverable
+- [Implementation] Two placeholder projects (GitLab+Claude, AzureDevOps+AzureOpenAI) — covers provider combos not already shown in agentsmith.example.yml (which defaults to GitHub+Claude)
+- [Implementation] Pricing moved under agent block in example.yml — matches current real config structure where pricing is provider-specific, not project-level
+- [Scope] Config/infra only — zero C# changes, zero build risk

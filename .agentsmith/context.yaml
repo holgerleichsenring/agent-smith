@@ -161,6 +161,7 @@ state:
     p89b: "Prompt extraction: IPromptTemplateProvider + FilePromptTemplateProvider, PlanConsolidator extracted"
     p90: "PlanConsolidator cleanup: structured output, no fake Plan, fatal failures"
     p91: "Claude Code plugin: 6 skills (workflow, bootstrap, create-phase, execute-phase, log-decision, update-project) for specification-first-agentic-development repo"
+    p92: "K8s restructure: Kustomize → flat numbered YAMLs (1-9), updated ConfigMap + secrets + example.yml, regenerate script (no C# changes)"
   active: {}
   planned:
     # --- backlog (new features) ---
