@@ -158,13 +158,11 @@ state:
     p87: "Ticket image attachments: IAttachmentLoader per platform, vision input to LLM, 5MB limit, image MIME filter (941 tests)"
     p88: "Configurable defaults: ticket state whitelist, PR target branch from API, ADO extra_fields, docker_hostname, API versions, GitLab URL required (941 tests)"
     p89a: "Skill content improvements: confidence calibration table, 12+ framework-specific FP rules, Phase 1 repo context exploration in vuln-analyst skills"
+    p89b: "Prompt extraction: IPromptTemplateProvider + FilePromptTemplateProvider, PlanConsolidator extracted"
+    p90: "PlanConsolidator cleanup: structured output, no fake Plan, fatal failures"
+    p91: "Claude Code plugin: 6 skills (workflow, bootstrap, create-phase, execute-phase, log-decision, update-project) for specification-first-agentic-development repo"
   active: {}
-  done-recently:
-    p88: "Configurable defaults: whitelist states, PR branch from API, docker_hostname, GitLab URL required"
-    p89a: "Skill content improvements: confidence calibration, FP rules, Phase 1 methodology"
   planned:
-    # --- in progress ---
-    p89b: "Prompt extraction: IPromptTemplateProvider + FilePromptTemplateProvider done, PlanConsolidator extracted, 16 prompts remaining"
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.yaml"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.yaml"
