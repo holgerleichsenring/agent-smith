@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentsmith-config
+  namespace: agentsmith
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: config
+data:
+  agentsmith.yml: |
+    # This ConfigMap is generated from config/agentsmith.yml.
+    # Do not edit manually. Regenerate with:
+    #
+    #   ./deploy/k8s/regenerate-configmap.sh
+    #
+
+    projects:
+      # --- Example 1: GitLab + Claude ---
+      my-gitlab-project:
+        source:
+          type: GitLab
+          url: https://gitlab.com/yourorg/your-repo
+          auth: token
+        tickets:
+          type: GitLab
+          url: https://gitlab.com/yourorg/your-repo
+          auth: token
+        agent:
+          type: Claude
+          model: claude-sonnet-4-20250514
+          retry:
+            max_retries: 5
+            initial_delay_ms: 2000
+            backoff_multiplier: 2.0
+            max_delay_ms: 60000
+          cache:
+            is_enabled: true
+            strategy: automatic
+          compaction:
+            is_enabled: true
+            threshold_iterations: 8
+            max_context_tokens: 80000
+            keep_recent_iterations: 3
+            summary_model: claude-haiku-4-5-20251001
+          models:
+            scout:
+              model: claude-haiku-4-5-20251001
+              max_tokens: 4096
+            primary:
+              model: claude-sonnet-4-20250514
+              max_tokens: 8192
+            planning:
+              model: claude-sonnet-4-20250514
+              max_tokens: 4096
+            summarization:
+              model: claude-haiku-4-5-20251001
+              max_tokens: 2048
+          pricing:
+            models:
+              claude-sonnet-4-20250514:
+                input_per_million: 3.0
+                output_per_million: 15.0
+                cache_read_per_million: 0.30
+              claude-haiku-4-5-20251001:
+                input_per_million: 0.80
+                output_per_million: 4.0
+                cache_read_per_million: 0.08
+        pipeline: fix-bug
+        coding_principles_path: .agentsmith/coding-principles.md
+        gitlab_trigger:
+          trigger_statuses: ["opened"]
+          done_status: "closed"
+          pipeline_from_label:
+            bug: fix-bug
+            feature: add-feature
+            security: security-scan
+          default_pipeline: fix-bug
+          comment_keyword: "@agent-smith"
+
+      # --- Example 2: Azure DevOps + Azure OpenAI ---
+      my-azuredevops-project:
+        source:
+          type: AzureRepos
+          url: https://dev.azure.com/yourorg/your-project/_git/your-repo
+          auth: token
+        tickets:
+          type: AzureDevOps
+          organization: yourorg
+          project: your-project
+          auth: token
+        agent:
+          type: azure-openai
+          endpoint: https://your-instance.openai.azure.com
+          api_version: 2025-01-01-preview
+          retry:
+            max_retries: 5
+            initial_delay_ms: 2000
+            backoff_multiplier: 2.0
+            max_delay_ms: 60000
+          models:
+            scout:
+              model: gpt-4.1-mini
+              deployment: gpt-4o-mini-deployment
+              max_tokens: 4096
+            primary:
+              model: gpt-4.1
+              deployment: gpt4-1-deployment
+              max_tokens: 8192
+            planning:
+              model: gpt-4.1
+              deployment: gpt4-1-deployment
+              max_tokens: 4096
+            summarization:
+              model: gpt-4.1-mini
+              deployment: gpt-4o-mini-deployment
+              max_tokens: 2048
+          pricing:
+            models:
+              gpt-4.1:
+                input_per_million: 2.0
+                output_per_million: 8.0
+                cache_read_per_million: 0.50
+              gpt-4.1-mini:
+                input_per_million: 0.40
+                output_per_million: 1.60
+                cache_read_per_million: 0.10
+        pipeline: fix-bug
+        coding_principles_path: .agentsmith/coding-principles.md
+        azuredevops_trigger:
+          trigger_statuses: ["New", "Active"]
+          done_status: "Resolved"
+          pipeline_from_label:
+            bug: fix-bug
+            security-review: security-scan
+          default_pipeline: fix-bug
+          comment_keyword: "@agent-smith"
+
+    secrets:
+      anthropic_api_key: ${ANTHROPIC_API_KEY}
+      azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
+      openai_api_key: ${OPENAI_API_KEY}
+      gemini_api_key: ${GEMINI_API_KEY}
+      groq_api_key: ${GROQ_API_KEY}
+      github_token: ${GITHUB_TOKEN}
+      gitlab_token: ${GITLAB_TOKEN}
+      azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+      jira_token: ${JIRA_TOKEN}
+      jira_email: ${JIRA_EMAIL}

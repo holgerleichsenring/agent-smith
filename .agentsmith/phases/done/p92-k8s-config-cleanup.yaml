@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p92
+goal: "Restructure k8s manifests from Kustomize to flat numbered YAMLs, clean up outdated ConfigMap and secrets"
+
+requires: []
+
+decisions:
+  - key: "Flat numbered YAMLs over Kustomize — GitOps repos (ArgoCD) use plain YAML, Kustomize/Helm can be derived if needed"
+  - key: "Two placeholder projects (GitLab+Claude, AzureDevOps+AzureOpenAI) — covers provider combos not in example.yml"
+  - key: "Shell script for ConfigMap regeneration — project has no Makefile"
+  - key: "Dev/prod differences as inline comments — no overlays needed for a reference deployment"
+  - key: "pricing under agent (not project level) — matches current real config structure"
+
+steps:
+  - id: flatten-manifests
+    action: "Replace Kustomize structure with flat numbered YAMLs in deploy/k8s/"
+    new:
+      - "1-namespace.yaml"
+      - "2-rbac.yaml (ServiceAccount + Role + RoleBinding)"
+      - "3-configmap.yaml (placeholder projects)"
+      - "4-secret-template.yaml (all current secret keys)"
+      - "5-service-redis.yaml"
+      - "6-deployment-redis.yaml"
+      - "7-service-server.yaml"
+      - "8-deployment-server.yaml (dev/prod values as comments)"
+      - "9-ingress.yaml"
+    delete:
+      - "base/ directory (kustomization, subdirectories)"
+      - "overlays/ directory (dev + prod patches)"
+      - "secret-template.yaml (replaced by 4-secret-template.yaml)"
+
+  - id: update-example-config
+    action: "Fix config/agentsmith.example.yml pricing location and add trigger examples"
+    modify:
+      - "agentsmith.example.yml: pricing under agent, Azure OpenAI option, all 4 trigger types"
+
+  - id: add-regenerate-script
+    action: "Create deploy/k8s/regenerate-configmap.sh targeting 3-configmap.yaml"
+    new:
+      - "regenerate-configmap.sh"
+
+done:
+  - "Flat numbered YAMLs 1-9 in deploy/k8s/, no Kustomize structure"
+  - "ConfigMap has two placeholder projects with current schema"
+  - "Secret template includes all current secret keys + chat platform keys"
+  - "agentsmith.example.yml pricing under agent, trigger examples for all platforms"
+  - "regenerate-configmap.sh exists and targets 3-configmap.yaml"
