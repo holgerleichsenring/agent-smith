@@ -7,4 +7,10 @@ public sealed class AgentSmithConfig
 {
     public Dictionary<string, ProjectConfig> Projects { get; set; } = new();
     public Dictionary<string, string> Secrets { get; set; } = new();
+
+    /// <summary>
+    /// Process-wide queue settings. Shared across all projects — one queue, one consumer
+    /// with bounded concurrency as the backpressure knob.
+    /// </summary>
+    public QueueConfig Queue { get; set; } = new();
 }

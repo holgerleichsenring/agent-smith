@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
@@ -162,5 +164,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddTransient<ExecutePipelineUseCase>();
+        services.AddScoped<ITicketClaimService, TicketClaimService>();
     }
 }

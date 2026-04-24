@@ -57,6 +57,11 @@ internal static class ServiceProviderFactory
     private static void RegisterProgressReporter(
         IServiceCollection services, bool headless, string jobId, string redisUrl)
     {
+        // Server-mode Redis (p95a: queue + claim-lock need it even without a jobId)
+        var serverRedisUrl = string.IsNullOrWhiteSpace(redisUrl)
+            ? Environment.GetEnvironmentVariable("REDIS_URL")
+            : null;
+
         if (!string.IsNullOrWhiteSpace(jobId) && !string.IsNullOrWhiteSpace(redisUrl))
         {
             var redis = ConnectionMultiplexer.Connect(redisUrl);
@@ -67,19 +72,25 @@ internal static class ServiceProviderFactory
                     sp.GetRequiredService<IMessageBus>(),
                     jobId,
                     sp.GetRequiredService<ILogger<RedisProgressReporter>>()));
+            return;
         }
-        else
-        {
-            services.AddSingleton<IProgressReporter>(sp =>
-                new ConsoleProgressReporter(
-                    sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless));
 
-            // Override the Infrastructure RedisDialogueTransport with interactive console I/O
-            services.AddSingleton<IDialogueTransport>(sp =>
-                new ConsoleDialogueTransport(
-                    Console.In,
-                    Console.Out,
-                    sp.GetRequiredService<ILogger<ConsoleDialogueTransport>>()));
+        if (!string.IsNullOrWhiteSpace(serverRedisUrl))
+        {
+            var redis = ConnectionMultiplexer.Connect(serverRedisUrl);
+            services.AddSingleton<IConnectionMultiplexer>(redis);
+            services.AddSingleton<IMessageBus, RedisMessageBus>();
         }
+
+        services.AddSingleton<IProgressReporter>(sp =>
+            new ConsoleProgressReporter(
+                sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless));
+
+        // Override the Infrastructure RedisDialogueTransport with interactive console I/O
+        services.AddSingleton<IDialogueTransport>(sp =>
+            new ConsoleDialogueTransport(
+                Console.In,
+                Console.Out,
+                sp.GetRequiredService<ILogger<ConsoleDialogueTransport>>()));
     }
 }

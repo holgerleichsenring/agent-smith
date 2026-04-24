@@ -70,7 +70,8 @@ public sealed class JiraAssigneeWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issueKey));
+                TicketId: issueKey,
+                Platform: "Jira"));
         }
         catch (Exception ex)
         {
