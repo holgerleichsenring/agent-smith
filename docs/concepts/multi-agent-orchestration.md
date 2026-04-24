@@ -27,20 +27,20 @@ graph LR
     end
 
     Contributors --> Gate["false-positive-filter<br/>[Gate]"]
-    Gate -->|"confirmed findings only"| Executor["vuln-analyst<br/>[Executor]"]
+    Gate -->|"confirmed findings only"| Executor["chain-analyst<br/>[Executor]"]
     Executor --> Output[Findings Report]
 
     style Gate fill:#c0392b,color:#fff
     style Executor fill:#2980b9,color:#fff
 ```
 
-**Real numbers** (security-scan on Agent Smith, 2026-04-09):
+**Real numbers** (security-scan on Agent Smith, 2026-04-24, after p94a gitignore-aware enumeration + p94b skill reduction):
 
-- 207 raw findings from static scan (188), git history (18), dependencies (1)
+- 269 raw findings from static scan (245), git history (24), dependencies (0)
 - 7 contributors analyzed category-sliced findings in parallel
-- Gate confirmed **16 of 207** findings — 92% noise eliminated
-- 9 LLM calls, 64,875 tokens, **$0.35**
-- Duration: 3 minutes 51 seconds
+- Gate confirmed **14 of 269** findings — 95% noise eliminated
+- Duration: ~4 minutes wall-clock (Azure OpenAI GPT-4.1)
+- Skill count reduced 15 → 9 in p94b: overlapping attacker-perspective skills (recon, low-priv, input-abuser, idor-prober, response, vuln) deleted. auth-reviewer's scope extended to cover IDOR/BOLA; a static IDOR pattern (`config/patterns/auth.yaml`) complements the LLM reasoning. The deleted skills remain in `api-security` where HTTP probing is a distinct capability.
 
 ### Discussion Pipeline (MAD, Legal Analysis)
 

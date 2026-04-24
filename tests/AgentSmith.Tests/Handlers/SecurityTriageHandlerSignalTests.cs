@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class SecurityTriageHandlerSignalTests
 {
     [Fact]
-    public void SecurityTriage_WithCodeAnalysis_DetectsAttackerSignals()
+    public void SecurityTriage_WithCodeAnalysis_DetectsCodeAreaSignals()
     {
         var codeAnalysis = new CodeAnalysis(
             new List<string>
@@ -16,8 +16,7 @@ public sealed class SecurityTriageHandlerSignalTests
                 "Controllers/UserController.cs",
                 "Models/LoginRequest.cs",
                 "Services/AuthGuard.cs",
-                "Middleware/ExceptionMiddleware.cs",
-                "Services/FileUploadService.cs"
+                "Middleware/ExceptionMiddleware.cs"
             },
             new List<string> { "Microsoft.AspNetCore", "Microsoft.EntityFrameworkCore" },
             ".NET 8",
@@ -29,7 +28,7 @@ public sealed class SecurityTriageHandlerSignalTests
         files.Any(f => f.Contains("request")).Should().BeTrue("has input entry points");
         files.Any(f => f.Contains("auth") || f.Contains("guard")).Should().BeTrue("has auth guard changes");
         files.Any(f => f.Contains("exception") || f.Contains("middleware")).Should().BeTrue("has error handling");
-        files.Any(f => f.Contains("upload")).Should().BeTrue("has file upload changes");
+        // hasFileUploadChanges signal was removed in p94b — input-abuser was its only consumer
     }
 
     [Fact]

@@ -34,7 +34,7 @@ public sealed class SecurityTriageHandler(
               $"Dependencies: {string.Join(", ", codeAnalysis.Dependencies.Take(20))}"
             : "Code analysis not available";
 
-        // p80: Attacker-perspective signals for skill selection
+        // Code-area signals for skill selection
         var signalAnalysis = "";
         if (codeAnalysis is not null)
         {
@@ -49,16 +49,13 @@ public sealed class SecurityTriageHandler(
                 f.Contains("auth") || f.Contains("guard") || f.Contains("policy") || f.Contains("permission"));
             var hasErrorHandlingChanges = fileNames.Any(f =>
                 f.Contains("exception") || f.Contains("error") || f.Contains("middleware"));
-            var hasFileUploadChanges = fileNames.Any(f =>
-                f.Contains("upload") || f.Contains("file") || f.Contains("multipart") || f.Contains("storage"));
 
             signalAnalysis = $"""
-                ## Attacker-Perspective Signals
+                ## Code-Area Signals
                 - Direct object references (controllers/handlers): {hasDirectObjectReferences}
                 - Input entry points (DTOs/forms/requests): {hasInputEntryPoints}
                 - Auth guard/policy changes: {hasAuthGuardChanges}
                 - Error handling changes: {hasErrorHandlingChanges}
-                - File upload changes: {hasFileUploadChanges}
                 """;
         }
 
