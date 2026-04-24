@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IJobHeartbeatService, Services.Lifecycle.JobHeartbeatService>();
+        services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
 
         // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
