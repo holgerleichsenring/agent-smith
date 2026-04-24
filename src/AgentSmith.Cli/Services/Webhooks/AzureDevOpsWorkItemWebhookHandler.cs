@@ -80,7 +80,8 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: workItemId.ToString()));
+                TicketId: workItemId.ToString(),
+                Platform: "AzureDevOps"));
         }
         catch (Exception ex)
         {

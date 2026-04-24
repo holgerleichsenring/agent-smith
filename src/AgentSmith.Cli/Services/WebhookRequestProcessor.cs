@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -10,6 +11,8 @@ namespace AgentSmith.Cli.Services;
 /// <summary>
 /// Processes validated webhook requests: detects platform, verifies
 /// signature, dispatches to handlers, and routes results.
+/// GitHub routes through ITicketClaimService (p95a); other platforms keep legacy
+/// fire-and-forget until p95b widens the claim path.
 /// </summary>
 internal sealed class WebhookRequestProcessor(
     IServiceProvider services,
@@ -46,6 +49,9 @@ internal sealed class WebhookRequestProcessor(
         logger.LogInformation("Webhook: {Project}/{Ticket} (pipeline: {Pipeline})",
             result.ProjectName ?? result.TriggerInput, result.TicketId, result.Pipeline ?? "default");
 
+        if (result.ProjectName is not null && UsesClaimService(result.Platform))
+            return await RouteToClaimServiceAsync(result);
+
         if (result.ProjectName is not null)
         {
             _ = ExecuteStructuredAsync(result);
@@ -57,6 +63,35 @@ internal sealed class WebhookRequestProcessor(
 
         return (202, $"Accepted: {result.TriggerInput}");
     }
+
+    private static bool UsesClaimService(string? platform)
+        => string.Equals(platform, "GitHub", StringComparison.Ordinal);
+
+    private async Task<(int StatusCode, string Body)> RouteToClaimServiceAsync(WebhookResult result)
+    {
+        var claimService = services.GetRequiredService<ITicketClaimService>();
+        var configLoader = services.GetRequiredService<IConfigurationLoader>();
+        var config = configLoader.LoadConfig(configPath);
+
+        var claim = new ClaimRequest(
+            result.Platform!,
+            result.ProjectName!,
+            new TicketId(result.TicketId!),
+            result.Pipeline ?? "fix-bug",
+            result.InitialContext);
+
+        var outcome = await claimService.ClaimAsync(claim, config, CancellationToken.None);
+        return MapClaim(outcome, result);
+    }
+
+    private static (int, string) MapClaim(ClaimResult outcome, WebhookResult result) => outcome.Outcome switch
+    {
+        ClaimOutcome.Claimed => (202, $"Accepted: {result.TicketId} in {result.ProjectName}"),
+        ClaimOutcome.AlreadyClaimed => (200, $"Already claimed: {result.TicketId}"),
+        ClaimOutcome.Rejected => (200, $"Rejected: {outcome.Rejection}"),
+        ClaimOutcome.Failed => (500, $"Claim failed: {outcome.Error}"),
+        _ => (500, "Unknown claim outcome")
+    };
 
     private static async Task<WebhookResult> DispatchAsync(
         IEnumerable<IWebhookHandler> handlers, string platform, string eventType,

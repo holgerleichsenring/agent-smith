@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;

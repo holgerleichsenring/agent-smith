@@ -67,7 +67,8 @@ public sealed class GitLabIssueWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issueId.ToString()));
+                TicketId: issueId.ToString(),
+                Platform: "GitLab"));
         }
         catch (Exception ex)
         {

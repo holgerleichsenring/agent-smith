@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;

@@ -12,6 +12,7 @@ using AgentSmith.Infrastructure.Services.Spectral;
 using AgentSmith.Infrastructure.Services.Zap;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers;
+using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using YamlDotNet.Serialization;
@@ -26,9 +27,14 @@ public static class ServiceCollectionExtensions
         services.AddAgentSmithCore();
         services.AddHttpClient();
         services.AddSingleton<ITicketProviderFactory, TicketProviderFactory>();
+        services.AddSingleton<ITicketStatusTransitionerFactory, TicketStatusTransitionerFactory>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
+
+        // Redis-backed claim + queue primitives (p95a)
+        services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
+        services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
 
         // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
