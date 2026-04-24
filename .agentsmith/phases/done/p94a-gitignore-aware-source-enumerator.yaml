@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p94a
+goal: "SourceFileEnumerator respects .gitignore when scanning a git repo — eliminates false positives from generated output (site/, docs/_site) that happen to live outside the hardcoded exclude list"
+
+requires: []
+
+decisions:
+  - key: "Use LibGit2Sharp's Repository.Ignore.IsPathIgnored for the ignore lookup — the library is already a dependency (git operations elsewhere), handles nested .gitignore files, .git/info/exclude and global excludes. No new dependency, no hand-rolled gitignore parser"
+  - key: "Fallback path stays: if the directory is not a git repo, the hardcoded exclude list applies. CLI scans of arbitrary local directories must still work"
+  - key: "Binary-extension filter stays independent of gitignore — .gitignore doesn't mark binaries as binaries, and generated .png/.pdf files are often (correctly) not gitignored. Two orthogonal reasons to skip a file, both still apply"
+  - key: "Hardcoded exclude list shrinks but is not removed — .git/ stays (LibGit2Sharp opens that, shouldn't scan it), plus cross-ecosystem defaults that may not be in .gitignore (node_modules, bin, obj, __pycache__) stay as a safety net for non-git scans"
+  - key: "Scope is enumeration only — pattern definitions, severity, findings model unchanged. The only observable difference is fewer files reach the scanner for repos with meaningful .gitignore entries"
+
+steps:
+  - id: introduce-ignore-resolver
+    action: >
+      Introduce a small helper that opens the git repo at scan-time via LibGit2Sharp.Repository.Discover +
+      new Repository(path). On success, expose IsIgnored(relativePath). On failure (not a git repo, corrupted
+      .git), return a no-op resolver that says 'never ignored' — the hardcoded exclude list then does the work.
+      Lifetime of the Repository object is the scan: opened once, disposed at end.
+    new:
+      - "GitIgnoreResolver (or similar) in AgentSmith.Infrastructure/Services/Security/"
+
+  - id: wire-resolver-into-enumerator
+    action: >
+      SourceFileEnumerator.EnumerateSourceFiles takes the resolver (or constructs one internally from repoPath).
+      For each candidate file and subdirectory, check IsIgnored(relativeToRepoPath) before recursing/yielding.
+      Hardcoded ExcludedDirectories list still applies as an early short-circuit (cheaper than the git check)
+      and as the fallback when not in a git repo.
+    modify:
+      - "SourceFileEnumerator.cs — accept/construct resolver, check IsIgnored per file and per directory"
+      - "StaticPatternScanner.cs — pass repoPath-aware construction if the enumerator needs it injected"
+
+  - id: shrink-hardcoded-list
+    action: >
+      Remove entries from ExcludedDirectories that are exclusively generated output and therefore always
+      gitignored (dist, build, packages, vendor — these live in .gitignore in every real repo). Keep .git/,
+      node_modules/, bin/, obj/, __pycache__/, .vs/, .idea/ as safety net for non-git scans.
+    modify:
+      - "SourceFileEnumerator.cs — trim ExcludedDirectories"
+
+  - id: tests
+    action: "Cover gitignored-file-skipped, non-git-fallback-applies, nested-gitignore-respected, binary-extension-still-filtered"
+
+  - id: verify
+    action: "dotnet build && dotnet test; manual: run static scan on this repo, confirm site/ is no longer in findings"
+
+tests:
+  - "SourceFileEnumerator_GitRepo_GitignoredFile_NotYielded"
+  - "SourceFileEnumerator_GitRepo_TrackedFile_Yielded"
+  - "SourceFileEnumerator_NotGitRepo_FallsBackToHardcodedExcludes"
+  - "SourceFileEnumerator_GitRepo_NestedGitignore_Respected"
+  - "SourceFileEnumerator_GitRepo_BinaryFile_StillFiltered"
+  - "GitIgnoreResolver_NonGitPath_ReturnsNoOp"
+
+done:
+  - "SourceFileEnumerator constructs or receives a GitIgnoreResolver and consults it before yielding files"
+  - "Repos with .gitignore entries (site/, dist/, coverage/, etc.) produce scan results without those files"
+  - "Non-git directory scan still works (CLI scan of arbitrary local path) — falls back to hardcoded excludes"
+  - "Hardcoded ExcludedDirectories trimmed to the 'not covered by gitignore in practice' set"
+  - "A static scan on this repo produces zero findings from site/"
+  - "All tests green (new + existing), dotnet build zero warnings"
