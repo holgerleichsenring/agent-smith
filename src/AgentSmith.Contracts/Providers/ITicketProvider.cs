@@ -4,6 +4,7 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Providers;
 
+
 /// <summary>
 /// Provides access to tickets from an external system (Azure DevOps, Jira, GitHub).
 /// </summary>
@@ -50,6 +51,15 @@ public interface ITicketProvider : ITypedProvider
     /// </summary>
     Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => Task.CompletedTask;
+
+    /// <summary>
+    /// Lists tickets whose lifecycle label matches the given status. Used by
+    /// EnqueuedReconciler and StaleJobDetector to enumerate Enqueued/InProgress tickets.
+    /// Default: empty list — providers that don't support lifecycle search don't participate.
+    /// </summary>
+    Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
+        TicketLifecycleStatus status, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<Ticket>>(Array.Empty<Ticket>());
 
     /// <summary>
     /// Returns attachment references found on the ticket.
