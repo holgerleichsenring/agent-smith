@@ -55,7 +55,7 @@ public sealed class PlanConsolidator(
             systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
 
-        var parseResult = ConsolidationResponseParser.Parse(llmResponse.Text);
+        var parseResult = ConsolidationResponseParser.Parse(llmResponse.Text, logger);
 
         var title = request?.Title ?? ticket?.Title ?? "Discussion Findings";
         var discussion = new ConsolidatedDiscussion(

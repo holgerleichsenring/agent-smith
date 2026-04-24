@@ -17,10 +17,10 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SecuritySkillRoundHandler(
     ILlmClientFactory llmClientFactory,
     ISkillPromptBuilder promptBuilder,
-    IGateOutputHandler gateOutputHandler,
+    IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     ILogger<SecuritySkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateOutputHandler, upstreamContextBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder),
       ICommandHandler<SecuritySkillRoundContext>
 {
     protected override ILogger Logger => logger;

@@ -14,10 +14,10 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SkillRoundHandler(
     ILlmClientFactory llmClientFactory,
     ISkillPromptBuilder promptBuilder,
-    IGateOutputHandler gateOutputHandler,
+    IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     ILogger<SkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateOutputHandler, upstreamContextBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder),
       ICommandHandler<SkillRoundContext>
 {
     protected override ILogger Logger => logger;

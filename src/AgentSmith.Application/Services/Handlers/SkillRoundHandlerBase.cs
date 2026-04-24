@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public abstract class SkillRoundHandlerBase(
     ISkillPromptBuilder promptBuilder,
-    IGateOutputHandler gateOutputHandler,
+    IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder)
 {
     private static readonly Regex ObjectionPattern = new(
@@ -150,6 +150,20 @@ public abstract class SkillRoundHandlerBase(
         var (systemPrompt, userPrompt) = promptBuilder.BuildStructuredPrompt(
             role, domainSection, upstreamContext, outputInstruction);
 
+        if (orch.Role == SkillRole.Gate)
+        {
+            var outcome = await gateRetryCoordinator.ExecuteAsync(
+                role, orch, systemPrompt, userPrompt, llmClient, pipeline, cancellationToken);
+
+            skillOutputs[skillName] = outcome.FinalResponseText;
+            pipeline.Set(ContextKeys.SkillOutputs, skillOutputs);
+
+            Logger.LogInformation("{Emoji} {DisplayName} [Gate]: {Message}",
+                role.Emoji, role.DisplayName, outcome.Result.Message);
+
+            return outcome.Result;
+        }
+
         var llmResponse = await llmClient.CompleteAsync(
             systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
@@ -159,9 +173,6 @@ public abstract class SkillRoundHandlerBase(
 
         skillOutputs[skillName] = llmResponse.Text;
         pipeline.Set(ContextKeys.SkillOutputs, skillOutputs);
-
-        if (orch.Role == SkillRole.Gate)
-            return gateOutputHandler.Handle(role, orch, llmResponse.Text, pipeline);
 
         if (orch.Role == SkillRole.Lead)
             pipeline.Set(ContextKeys.ConsolidatedPlan, llmResponse.Text);
