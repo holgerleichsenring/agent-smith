@@ -1,12 +1,15 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Parses the JSON consolidation response from the LLM into structured findings and assessments.
 /// Supports both array-based summary (preferred) and legacy string summary (backward compat).
+/// On JSON parse failure the raw text is used as a degraded fallback — the failure is logged
+/// so diagnosis is possible, and the fallback is explicit rather than silent.
 /// </summary>
 internal static class ConsolidationResponseParser
 {
@@ -15,7 +18,7 @@ internal static class ConsolidationResponseParser
         PropertyNameCaseInsensitive = true
     };
 
-    internal static ConsolidationParseResult Parse(string response)
+    internal static ConsolidationParseResult Parse(string response, ILogger? logger = null)
     {
         try
         {
@@ -39,11 +42,21 @@ internal static class ConsolidationResponseParser
 
                     return new ConsolidationParseResult(findings, assessments, rawSummary);
                 }
+
+                logger?.LogWarning(
+                    "Consolidation response parsed as null JSON object — falling back to raw text");
+            }
+            else
+            {
+                logger?.LogWarning(
+                    "Consolidation response contained no JSON object (no matching braces) — falling back to raw text");
             }
         }
-        catch
+        catch (JsonException ex)
         {
-            // JSON parsing failed — fall back to raw text
+            logger?.LogWarning(ex,
+                "Failed to parse consolidation JSON — falling back to raw text. Response length: {Length}",
+                response.Length);
         }
 
         var fallbackFindings = response.Split('\n')

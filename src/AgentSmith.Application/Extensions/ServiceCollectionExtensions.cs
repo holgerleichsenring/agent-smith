@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ISkillPromptBuilder, SkillPromptBuilder>();
         services.AddTransient<IGateOutputHandler, GateOutputHandler>();
+        services.AddTransient<IGateRetryCoordinator, GateRetryCoordinator>();
         services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();

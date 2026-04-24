@@ -22,4 +22,4 @@ output: list
 runs_after: contributor
 runs_before: executor
 parallel_with: 
-input_categories: 
+input_categories: *

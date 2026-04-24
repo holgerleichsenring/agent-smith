@@ -115,6 +115,10 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
                     logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogError(ex, "Invalid skill configuration in {Dir} — skill not loaded", dir);
+            }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to load role definition from {Dir}", dir);

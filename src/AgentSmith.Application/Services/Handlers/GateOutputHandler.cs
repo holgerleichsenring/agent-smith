@@ -9,38 +9,52 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Parses LLM gate output (verdict or finding list) and writes
-/// confirmed findings to the pipeline context.
+/// confirmed findings to the pipeline context. Parse failures are
+/// surfaced as CommandResult.Fail with the raw response logged.
 /// </summary>
 public sealed class GateOutputHandler(
     ILogger<GateOutputHandler> logger) : IGateOutputHandler
 {
+    private const int ResponseLogLimit = 2000;
+
     public CommandResult Handle(
         RoleSkillDefinition role,
         SkillOrchestration orchestration,
         string responseText,
         PipelineContext pipeline)
     {
+        if (string.IsNullOrWhiteSpace(responseText))
+        {
+            logger.LogError("Gate {Name}: empty LLM response", role.DisplayName);
+            return CommandResult.Fail($"Gate {role.DisplayName}: empty LLM response");
+        }
+
         return orchestration.Output == SkillOutputType.Verdict
             ? HandleVerdict(role, responseText)
             : HandleFindingList(role, orchestration, responseText, pipeline);
     }
 
-    private static CommandResult HandleVerdict(
-        RoleSkillDefinition role, string responseText)
+    private CommandResult HandleVerdict(RoleSkillDefinition role, string responseText)
     {
         try
         {
-            var json = JsonExtractor.Extract(responseText);
-            using var doc = JsonDocument.Parse(json);
-            var pass = doc.RootElement.GetProperty("pass").GetBoolean();
-            var reason = doc.RootElement.TryGetProperty("reason", out var r)
-                ? r.GetString() : "";
-            if (!pass)
-                return CommandResult.Fail($"Gate veto ({role.DisplayName}): {reason}");
-        }
-        catch { /* unparseable = pass */ }
+            using var doc = JsonDocument.Parse(JsonExtractor.Extract(responseText));
 
-        return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+            if (!doc.RootElement.TryGetProperty("pass", out var passProp))
+                return FailWithLog(role, "missing 'pass' property in verdict response", responseText);
+
+            var pass = passProp.GetBoolean();
+            var reason = doc.RootElement.TryGetProperty("reason", out var r)
+                ? r.GetString() ?? "" : "";
+
+            return pass
+                ? CommandResult.Ok($"Gate {role.DisplayName}: passed")
+                : CommandResult.Fail($"Gate veto ({role.DisplayName}): {reason}");
+        }
+        catch (JsonException ex)
+        {
+            return FailWithLog(role, $"invalid JSON in verdict response — {ex.Message}", responseText, ex);
+        }
     }
 
     private CommandResult HandleFindingList(
@@ -49,19 +63,17 @@ public sealed class GateOutputHandler(
     {
         try
         {
-            var json = JsonExtractor.Extract(responseText);
-            using var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(JsonExtractor.Extract(responseText));
+
             if (!doc.RootElement.TryGetProperty("confirmed", out var confirmed))
-                return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+                return FailWithLog(role, "missing 'confirmed' property in list response", responseText);
 
             var count = confirmed.GetArrayLength();
             var rejected = doc.RootElement.TryGetProperty("rejected", out var rej)
                 ? rej.GetArrayLength() : 0;
 
             var gateFindings = GateFindingParser.Parse(confirmed);
-
-            // Merge: keep findings from categories this gate did NOT claim
-            var merged = MergeWithPassthrough(gateFindings, orchestration, pipeline);
+            var merged = GateFindingMerger.Merge(gateFindings, orchestration, pipeline);
             pipeline.Set(ContextKeys.ExtractedFindings, merged.AsReadOnly());
 
             LogFindings(role, gateFindings, count, rejected);
@@ -69,41 +81,38 @@ public sealed class GateOutputHandler(
             return CommandResult.Ok(
                 $"Gate {role.DisplayName}: {count} findings confirmed, {merged.Count} total after merge");
         }
-        catch { /* unparseable = pass */ }
-
-        return CommandResult.Ok($"Gate {role.DisplayName}: passed");
+        catch (JsonException ex)
+        {
+            return FailWithLog(role, $"invalid JSON in list response — {ex.Message}", responseText, ex);
+        }
+        catch (Exception ex)
+        {
+            return FailWithLog(role, $"failed to parse list response — {ex.Message}", responseText, ex);
+        }
     }
 
-    private static List<Finding> MergeWithPassthrough(
-        List<Finding> gateFindings, SkillOrchestration orchestration, PipelineContext pipeline)
+    private CommandResult FailWithLog(
+        RoleSkillDefinition role, string reason, string responseText, Exception? ex = null)
     {
-        if (!pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var existing)
-            || existing is null || orchestration.InputCategories.Count == 0)
-            return gateFindings;
-
-        var claimedCategories = new HashSet<string>(
-            orchestration.InputCategories, StringComparer.OrdinalIgnoreCase);
-
-        // Keep findings from categories this gate does not own
-        var passthrough = existing
-            .Where(f => !claimedCategories.Contains(f.Category))
-            .ToList();
-
-        passthrough.AddRange(gateFindings);
-        return passthrough;
+        logger.LogError(ex,
+            "Gate {Name}: {Reason}. Response: {Response}",
+            role.DisplayName, reason, Truncate(responseText));
+        return CommandResult.Fail($"Gate {role.DisplayName}: {reason}");
     }
 
     private void LogFindings(
-        RoleSkillDefinition role,
-        List<Finding> findings, int confirmed, int rejected)
+        RoleSkillDefinition role, List<Finding> findings, int confirmed, int rejected)
     {
         foreach (var finding in findings)
             logger.LogDebug(
-                "[{Gate}] confirmed: {Severity} {File}:{Line} \u2014 {Title}",
+                "[{Gate}] confirmed: {Severity} {File}:{Line} — {Title}",
                 role.Name, finding.Severity, finding.File, finding.StartLine, finding.Title);
 
         logger.LogDebug(
             "[{Gate}] Gate result: {Confirmed} confirmed, {Rejected} rejected",
             role.Name, confirmed, rejected);
     }
+
+    private static string Truncate(string text) =>
+        text.Length <= ResponseLogLimit ? text : text[..ResponseLogLimit] + "...[truncated]";
 }
