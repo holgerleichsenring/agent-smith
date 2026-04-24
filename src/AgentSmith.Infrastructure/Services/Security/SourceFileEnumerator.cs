@@ -1,16 +1,21 @@
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
-/// Enumerates source files in a repository, excluding binary files and common non-source directories.
+/// Enumerates source files in a repository. Skips binary files, oversized files,
+/// gitignored paths (when the scan root is a git repo), and a small safety-net
+/// list of directories that are generated output even in non-git scans.
 /// </summary>
 internal static class SourceFileEnumerator
 {
     private const long MaxFileSizeBytes = 1_048_576; // 1 MB
 
+    // Safety net for non-git scans and for things git doesn't track but that should
+    // never be scanned (.git/ itself, IDE metadata, common language artifacts).
+    // Anything that belongs in a project's .gitignore — site/, dist/, coverage/ — is
+    // intentionally not here; gitignore handles those when present.
     private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "node_modules", ".git", "bin", "obj", "dist", "build",
-        "vendor", "__pycache__", ".vs", ".idea", "packages"
+        ".git", "node_modules", "bin", "obj", "__pycache__", ".vs", ".idea"
     };
 
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -23,6 +28,8 @@ internal static class SourceFileEnumerator
 
     public static IEnumerable<string> EnumerateSourceFiles(string repoPath)
     {
+        using var resolver = new GitIgnoreResolver(repoPath);
+
         var stack = new Stack<string>();
         stack.Push(repoPath);
 
@@ -45,6 +52,9 @@ internal static class SourceFileEnumerator
                 var fileName = Path.GetFileName(file);
 
                 if (IsBinaryFile(fileName))
+                    continue;
+
+                if (resolver.IsIgnored(file))
                     continue;
 
                 try
@@ -74,15 +84,17 @@ internal static class SourceFileEnumerator
             foreach (var subdir in subdirs)
             {
                 var dirName = Path.GetFileName(subdir);
-                if (!ExcludedDirectories.Contains(dirName))
-                    stack.Push(subdir);
+                if (ExcludedDirectories.Contains(dirName))
+                    continue;
+                if (resolver.IsIgnored(subdir))
+                    continue;
+                stack.Push(subdir);
             }
         }
     }
 
     private static bool IsBinaryFile(string fileName)
     {
-        // Check compound extensions like .min.js, .min.css
         if (fileName.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase)
             || fileName.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase))
         {

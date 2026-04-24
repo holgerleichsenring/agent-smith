@@ -527,3 +527,10 @@
 - [Architecture] Gate (output: list) must declare `input_categories` explicitly — `*` for wildcard or a concrete list. Empty/missing is rejected at skill load. Gate (output: verdict) is exempt because it doesn't filter findings.
 - [Architecture] Validation throws at load time, skill-loader logs as Error — invalid skills don't silently vanish from the role set; the error is visible before the pipeline runs.
 - [Scope] LLM-output parsing only — infrastructure cleanup catches (Docker, Process, file fallbacks) are legitimately best-effort and stayed unchanged. Non-gate parsers (Consolidation, Wiki) got logging on their existing fallbacks, not behavioral changes, because their fallback paths are semantically valid (degraded text, empty dict).
+
+## p94a: Gitignore-Aware Source Enumeration
+- [Architecture] LibGit2Sharp's `Repository.Ignore.IsPathIgnored` is the ignore source of truth when scanning a git repo — nested `.gitignore`, `.git/info/exclude`, and global excludes all covered without a hand-rolled gitignore parser.
+- [Architecture] Hardcoded `ExcludedDirectories` list shrunk but kept as a non-git fallback — `.git/`, `node_modules/`, `bin/`, `obj/`, `__pycache__/`, `.vs/`, `.idea/` stay for CLI scans of arbitrary local paths; `dist/`, `build/`, `vendor/`, `packages/` removed because real repos gitignore them anyway.
+- [Architecture] Binary-extension filter stays orthogonal to gitignore — `.gitignore` doesn't mark `.png` as binary, and many repos correctly track binary assets. Two independent reasons to skip a file.
+- [Implementation] macOS `/var` → `/private/var` symlink fallback in `GitIgnoreResolver.ToRelative` — realpath canonicalization inside LibGit2Sharp vs. caller-supplied `/var/...` paths breaks direct `Path.GetRelativePath`; a targeted `/private/` prefix strip handles the common test/scratch case without introducing a P/Invoke dependency.
+- [Scope] Enumeration only — no changes to pattern definitions, scanner, or findings model. Observable effect limited to fewer files reaching the scanner for repos that gitignore their build output.

@@ -163,6 +163,7 @@ state:
     p91: "Claude Code plugin: 6 skills (workflow, bootstrap, create-phase, execute-phase, log-decision, update-project) for specification-first-agentic-development repo"
     p92: "K8s restructure: Kustomize → flat numbered YAMLs (1-9), updated ConfigMap + secrets + example.yml, regenerate script (no C# changes)"
     p93: "LLM output error handling: GateOutputHandler fails loud (no silent catches, logs raw response), GateRetryCoordinator runs one corrective retry before hard fail, input_categories requires '*' wildcard or explicit list — empty rejected at skill load (958 tests)"
+    p94a: "Gitignore-aware SourceFileEnumerator: LibGit2Sharp-backed GitIgnoreResolver skips .gitignored paths during scans (site/, dist/, coverage/…); hardcoded excludes shrunk to non-git safety net; non-git scans fall back to that list (966 tests)"
   active: {}
   planned:
     # --- backlog (new features) ---
