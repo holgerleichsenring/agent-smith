@@ -9,10 +9,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Cli.Services;
 
 /// <summary>
-/// Processes validated webhook requests: detects platform, verifies
-/// signature, dispatches to handlers, and routes results.
-/// GitHub routes through ITicketClaimService (p95a); other platforms keep legacy
-/// fire-and-forget until p95b widens the claim path.
+/// Processes validated webhook requests: detects platform, verifies signature,
+/// dispatches to handlers, and routes results. All structured ticket webhooks
+/// (GitHub, GitLab, AzureDevOps, Jira) go through ITicketClaimService since p95b.
+/// Free-form TriggerInput (PR comments, dialogue answers) stays on the legacy path.
 /// </summary>
 internal sealed class WebhookRequestProcessor(
     IServiceProvider services,
@@ -49,23 +49,14 @@ internal sealed class WebhookRequestProcessor(
         logger.LogInformation("Webhook: {Project}/{Ticket} (pipeline: {Pipeline})",
             result.ProjectName ?? result.TriggerInput, result.TicketId, result.Pipeline ?? "default");
 
-        if (result.ProjectName is not null && UsesClaimService(result.Platform))
+        if (result.ProjectName is not null && result.Platform is not null)
             return await RouteToClaimServiceAsync(result);
-
-        if (result.ProjectName is not null)
-        {
-            _ = ExecuteStructuredAsync(result);
-            return (202, $"Accepted: {result.TicketId} in {result.ProjectName}");
-        }
 
         if (result.TriggerInput is not null)
             _ = ExecuteLegacyAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
 
         return (202, $"Accepted: {result.TriggerInput}");
     }
-
-    private static bool UsesClaimService(string? platform)
-        => string.Equals(platform, "GitHub", StringComparison.Ordinal);
 
     private async Task<(int StatusCode, string Body)> RouteToClaimServiceAsync(WebhookResult result)
     {
@@ -104,28 +95,6 @@ internal sealed class WebhookRequestProcessor(
             if (result.Handled) return result;
         }
         return new WebhookResult(false, null, null);
-    }
-
-    private async Task ExecuteStructuredAsync(WebhookResult result)
-    {
-        try
-        {
-            var request = new PipelineRequest(
-                result.ProjectName!,
-                result.Pipeline ?? "fix-bug",
-                TicketId: result.TicketId is not null ? new TicketId(result.TicketId) : null,
-                Headless: true,
-                Context: result.InitialContext);
-
-            var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
-            var execResult = await useCase.ExecuteAsync(request, configPath, CancellationToken.None);
-            logger.LogInformation(execResult.IsSuccess
-                ? "Run completed: {Message}" : "Run failed: {Message}", execResult.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Run failed for: {Ticket} in {Project}", result.TicketId, result.ProjectName);
-        }
     }
 
     private async Task ExecuteLegacyAsync(
