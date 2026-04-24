@@ -18,11 +18,11 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ApiSkillRoundHandler(
     ILlmClientFactory llmClientFactory,
     ISkillPromptBuilder promptBuilder,
-    IGateOutputHandler gateOutputHandler,
+    IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     HttpProbeRunner? httpProbeRunner,
     ILogger<ApiSkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateOutputHandler, upstreamContextBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
     private readonly SwaggerSpecCompressor _compressor = new();

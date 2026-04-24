@@ -520,3 +520,10 @@
 - [Implementation] Two placeholder projects (GitLab+Claude, AzureDevOps+AzureOpenAI) — covers provider combos not already shown in agentsmith.example.yml (which defaults to GitHub+Claude)
 - [Implementation] Pricing moved under agent block in example.yml — matches current real config structure where pricing is provider-specific, not project-level
 - [Scope] Config/infra only — zero C# changes, zero build risk
+
+## p93: LLM Output Error Handling
+- [Architecture] Silent catch banned for LLM-output parsing — every parse failure logs the response and returns Fail. Silent pass hid unreliable gates; a scan could report "647 raw → 647 extracted" while the gate had actually failed to parse.
+- [Architecture] One corrective retry in the gate path (`GateRetryCoordinator`) — cheap (one extra LLM call worst case), recovers most schema drift. Retry failure fails the pipeline rather than silently letting findings through, because an unfiltered scan masquerading as filtered is worse than an explicit failure.
+- [Architecture] Gate (output: list) must declare `input_categories` explicitly — `*` for wildcard or a concrete list. Empty/missing is rejected at skill load. Gate (output: verdict) is exempt because it doesn't filter findings.
+- [Architecture] Validation throws at load time, skill-loader logs as Error — invalid skills don't silently vanish from the role set; the error is visible before the pipeline runs.
+- [Scope] LLM-output parsing only — infrastructure cleanup catches (Docker, Process, file fallbacks) are legitimately best-effort and stayed unchanged. Non-gate parsers (Consolidation, Wiki) got logging on their existing fallbacks, not behavioral changes, because their fallback paths are semantically valid (degraded text, empty dict).

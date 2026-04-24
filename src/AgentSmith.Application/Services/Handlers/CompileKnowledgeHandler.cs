@@ -70,7 +70,7 @@ public sealed class CompileKnowledgeHandler(
         var response = await llmClient.CompleteAsync(
             systemPrompt, userPrompt, TaskType.Summarization, cancellationToken);
 
-        var wikiUpdates = WikiUpdateParser.Parse(response.Text);
+        var wikiUpdates = WikiUpdateParser.Parse(response.Text, logger);
         if (wikiUpdates.Count == 0)
         {
             logger.LogWarning("LLM returned no wiki updates");

@@ -162,6 +162,7 @@ state:
     p90: "PlanConsolidator cleanup: structured output, no fake Plan, fatal failures"
     p91: "Claude Code plugin: 6 skills (workflow, bootstrap, create-phase, execute-phase, log-decision, update-project) for specification-first-agentic-development repo"
     p92: "K8s restructure: Kustomize → flat numbered YAMLs (1-9), updated ConfigMap + secrets + example.yml, regenerate script (no C# changes)"
+    p93: "LLM output error handling: GateOutputHandler fails loud (no silent catches, logs raw response), GateRetryCoordinator runs one corrective retry before hard fail, input_categories requires '*' wildcard or explicit list — empty rejected at skill load (958 tests)"
   active: {}
   planned:
     # --- backlog (new features) ---
