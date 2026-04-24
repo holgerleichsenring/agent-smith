@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p95a
+goal: "End-to-end claim-then-enqueue spine for a single platform (GitHub): Redis queue + claim service + consumer + GitHub transitioner. Webhooks for GitHub go through the new path; GitLab/AzDO/Jira keep today's fire-and-forget in-process call. This phase introduces the architecture; p95b broadens it to all platforms; p95c adds crash-recovery services."
+requires: ["p85"]
+
+decisions:
+  - key: "Ticket status is the source of truth for lifecycle, not Redis. Redis holds the queue + claim lock only — can be lost without data loss. Recovery comes in p95c."
+  - key: "Status values are label-based on GitHub (agent-smith:pending, agent-smith:enqueued). Default labels ship with the code; overridable via Lifecycle config (see p95c for full schema)."
+  - key: "Claim order is strict: pre-checks → claim-lock → status-read → status-transition → enqueue. If enqueue fails, ClaimAsync returns Failed — recovery via EnqueuedReconciler in p95c."
+  - key: "IRedisJobQueue is the durable handoff between receiver and worker. RPUSH/BRPOP on a single list (agentsmith:queue:jobs). Queue is ephemeral, crash recovery via reconciler (p95c)."
+  - key: "PipelineQueueConsumer is a BackgroundService with SemaphoreSlim(maxParallelJobs) backpressure. Webhook receivers never run pipelines in-process anymore for GitHub — only enqueue. Graceful shutdown waits for in-flight jobs up to shutdown_grace_seconds."
+  - key: "Redis SETNX claim-lock (30s TTL) protects the status-read → status-transition window against concurrent webhook + (future) poller fires for the same ticket."
+  - key: "Pre-existing GitHub transitions in GitHubTicketProvider.TransitionToAsync (label add, open/closed) stay untouched. New ITicketStatusTransitioner is a separate concept for lifecycle labels — it reads If-None-Match ETag and rejects on precondition failure."
+  - key: "Single platform (GitHub) first. Webhook handlers for GitLab/AzDO/Jira continue through WebhookRequestProcessor.ExecuteStructuredAsync unchanged until p95b. The branch in WebhookRequestProcessor is: if platform=GitHub → ClaimService; else → legacy path."
+  - key: "ITicketStatusTransitionerFactory mirrors ITicketProviderFactory — resolves the right transitioner per TicketConfig.Type."
+
+steps:
+  - id: contracts
+    action: "Interfaces, enums, records for the new lifecycle spine"
+    new:
+      - "Contracts/Models/TicketLifecycleStatus.cs: enum Pending, Enqueued, InProgress, Done, Failed"
+      - "Contracts/Models/TransitionOutcome.cs: enum Succeeded, PreconditionFailed, NotFound, Failed"
+      - "Contracts/Models/TransitionResult.cs: record (Outcome, Error?) with static factories"
+      - "Contracts/Models/ClaimOutcome.cs: enum Claimed, AlreadyClaimed, Rejected, Failed"
+      - "Contracts/Models/ClaimRejectionReason.cs: enum UnknownProject, UnknownPipeline, PipelineNotLabelTriggered"
+      - "Contracts/Models/ClaimRequest.cs: record (Platform, ProjectName, TicketId, PipelineName, InitialContext?)"
+      - "Contracts/Models/ClaimResult.cs: record (Outcome, Rejection?, Error?) with static factories"
+      - "Contracts/Services/ITicketStatusTransitioner.cs: TransitionAsync(TicketId, from, to, ct) + ProviderType (ITypedProvider)"
+      - "Contracts/Services/ITicketStatusTransitionerFactory.cs: Create(TicketConfig) → ITicketStatusTransitioner"
+      - "Contracts/Services/IRedisJobQueue.cs: EnqueueAsync(PipelineRequest, ct), ConsumeAsync(ct) → IAsyncEnumerable<PipelineRequest>, LenAsync(ct)"
+      - "Contracts/Services/IRedisClaimLock.cs: TryAcquireAsync(key, ttl, ct) → bool, ReleaseAsync(key, ct)"
+      - "Contracts/Services/ITicketClaimService.cs: ClaimAsync(ClaimRequest, ct) → ClaimResult"
+
+  - id: redis-queue
+    action: "RedisJobQueue + RedisClaimLock infrastructure"
+    new:
+      - "Infrastructure/Services/Queue/RedisJobQueue.cs: RPUSH agentsmith:queue:jobs (JSON-serialized PipelineRequest). ConsumeAsync uses BRPOP with 5s block. LenAsync via LLEN."
+      - "Infrastructure/Services/Queue/RedisClaimLock.cs: SET key value NX EX ttlSeconds. ReleaseAsync with CAS Lua script (only delete if value matches acquirer token)."
+    action_detail:
+      - "PipelineRequest JSON via System.Text.Json — same JsonSerializerDefaults as RedisMessageBus for consistency."
+      - "RedisClaimLock acquirer-token: Guid.NewGuid().ToString(), kept in-memory by the caller; Release must pass the same token. Prevents releasing someone else's lock after TTL expiry + re-acquisition."
+
+  - id: github-transitioner
+    action: "GitHub ITicketStatusTransitioner with If-None-Match concurrency"
+    new:
+      - "Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs: reads issue (captures ETag), removes 'from'-label + adds 'to'-label via POST/DELETE to /issues/{n}/labels. If ETag changed between read and write (412 Precondition Failed), returns PreconditionFailed."
+      - "Infrastructure/Services/Providers/Tickets/TicketStatusTransitionerFactory.cs: switch on config.Type → GitHub impl for now; throws NotSupportedException for other types (p95b fills these in)."
+    action_detail:
+      - "Octokit doesn't expose ETag directly — use raw HttpClient via Octokit's connection or a separate HttpClient with the same Bearer token. Keep it small (<120 lines per class)."
+      - "Label names (pending/enqueued) come from a hardcoded `TicketStatusLabels` static constants class for p95a. Config-driven labels land in p95c."
+
+  - id: claim-service
+    action: "TicketClaimService encapsulates pre-checks + lock + status-transition + enqueue"
+    new:
+      - "Application/Services/Claim/TicketClaimService.cs: implements ITicketClaimService. Depends on IRedisClaimLock, ITicketStatusTransitionerFactory, ITicketProviderFactory, IRedisJobQueue, AgentSmithConfig."
+    action_detail:
+      - "Flow (same as discussed earlier):"
+      - "  0. Pre-checks: project+pipeline exist in config, trigger label mapped → Rejected if not."
+      - "  1. SETNX lock agentsmith:claim-lock:{platform}:{ticketId} (30s). Fail → AlreadyClaimed."
+      - "  2. Read ticket status via ITicketProvider."
+      - "  3. Status != Pending (i.e. lifecycle label != agent-smith:pending) → AlreadyClaimed."
+      - "  4. Transition Pending → Enqueued via transitioner. PreconditionFailed → AlreadyClaimed; other failure → Failed."
+      - "  5. EnqueueAsync(PipelineRequest). Failure → Failed, status stays Enqueued, no rollback."
+      - "  6. Release lock (CAS), return Claimed."
+
+  - id: queue-consumer
+    action: "PipelineQueueConsumer BackgroundService"
+    new:
+      - "Application/Services/PipelineQueueConsumer.cs: BackgroundService. ExecuteAsync awaits IRedisJobQueue.ConsumeAsync; per request, acquires SemaphoreSlim(maxParallelJobs), Task.Run invokes ExecutePipelineUseCase.ExecuteAsync, releases semaphore in finally."
+    action_detail:
+      - "Max parallel jobs: agent.queue.max_parallel_jobs (default 4). For p95a, read from a new QueueConfig on AgentConfig."
+      - "Graceful shutdown: stop pulling new items, await in-flight with Task.WhenAny(whenAll, Task.Delay(grace))."
+      - "DI: AddHostedService<PipelineQueueConsumer>() wired in Cli --server path only (Server/Dispatcher flow stays on IJobSpawner, untouched)."
+
+  - id: webhook-integration
+    action: "WebhookRequestProcessor routes GitHub through ClaimService"
+    modify:
+      - "WebhookRequestProcessor.cs: after dispatch, branch on result.Platform. If 'GitHub' and ProjectName present → call ITicketClaimService.ClaimAsync; map ClaimResult to HTTP (Claimed→202, AlreadyClaimed→200, Rejected→200 with reason, Failed→500). Else (other platforms) → fall back to existing ExecuteStructuredAsync until p95b."
+      - "IWebhookHandler.cs + WebhookResult: add `Platform` property (string) so the processor can route without sniffing content. GitHubIssueWebhookHandler sets 'GitHub'; others set their platform string too (cheap, no-op until p95b)."
+      - "WebhookRequestProcessor.cs: remove the now-dead branch for GitHub from ExecuteStructuredAsync (only leaves the non-GitHub structured path)."
+
+  - id: config-minimal
+    action: "Minimal config additions for queue concurrency"
+    new:
+      - "Contracts/Models/Configuration/QueueConfig.cs: MaxParallelJobs (default 4), ConsumeBlockSeconds (default 5), ShutdownGraceSeconds (default 30)."
+    modify:
+      - "Contracts/Models/Configuration/AgentConfig.cs: add Queue property (default instance)."
+      - "config/agentsmith.example.yml: document the queue section under agent:."
+
+  - id: di-wiring
+    action: "Register all new services"
+    modify:
+      - "Infrastructure/Extensions/ServiceCollectionExtensions.cs: register IRedisJobQueue → RedisJobQueue (Singleton), IRedisClaimLock → RedisClaimLock (Singleton), ITicketStatusTransitionerFactory → TicketStatusTransitionerFactory (Singleton)."
+      - "Application/Extensions/ServiceCollectionExtensions.cs: register ITicketClaimService → TicketClaimService (Scoped); AddHostedService<PipelineQueueConsumer>() behind a 'consumer enabled' flag that the Cli --server mode sets."
+
+  - id: verify
+    action: "dotnet build && dotnet test — 0 new warnings, all existing tests green plus new ones"
+
+tests:
+  - "RedisJobQueue_EnqueueThenConsume_RoundTripsRequest"
+  - "RedisJobQueue_LenAsync_ReflectsQueueDepth"
+  - "RedisClaimLock_FirstAcquirerWins_SecondGetsFalse"
+  - "RedisClaimLock_Release_WithWrongToken_DoesNotDelete (CAS Lua correctness)"
+  - "RedisClaimLock_TtlExpiry_AllowsReacquire"
+  - "GitHubTicketStatusTransitioner_HappyPath_ReturnsSucceeded"
+  - "GitHubTicketStatusTransitioner_IfMatchConflict_ReturnsPreconditionFailed"
+  - "GitHubTicketStatusTransitioner_IssueNotFound_ReturnsNotFound"
+  - "TicketClaimService_PendingTicket_ReturnsClaimedAndEnqueues"
+  - "TicketClaimService_AlreadyEnqueuedTicket_ReturnsAlreadyClaimed"
+  - "TicketClaimService_UnknownProject_ReturnsRejected"
+  - "TicketClaimService_UnknownPipeline_ReturnsRejected"
+  - "TicketClaimService_LabelNotTriggerBound_ReturnsRejected"
+  - "TicketClaimService_ConcurrentClaims_OnlyOneWins (RedisClaimLock in-process test)"
+  - "TicketClaimService_StatusTransitionFails_ReturnsFailedAndNoEnqueue"
+  - "TicketClaimService_EnqueueFails_ReturnsFailed_StatusStaysEnqueued_LockReleased"
+  - "PipelineQueueConsumer_RespectsMaxParallelJobs_SemaphoreLimitsInFlight"
+  - "PipelineQueueConsumer_FailingPipeline_LogsAndReleasesSlot"
+  - "PipelineQueueConsumer_Shutdown_WaitsForInFlightWithinGrace"
+  - "WebhookRequestProcessor_GitHub_InvokesClaimServiceNotFireAndForget"
+  - "WebhookRequestProcessor_NonGitHub_UsesLegacyPathUntilP95b"
+
+done:
+  - "Contracts for the claim-then-enqueue spine exist and are stable for p95b/c and p96."
+  - "IRedisJobQueue + RedisClaimLock work against Redis with token-based CAS release."
+  - "GitHub webhooks run through TicketClaimService → Queue → Consumer → Pipeline. Non-GitHub webhooks keep legacy fire-and-forget until p95b."
+  - "Consumer concurrency is bounded by agent.queue.max_parallel_jobs (default 4)."
+  - "Webhook flow is idempotent for GitHub: replaying the same event results in AlreadyClaimed and a single queued pipeline."
+  - "dotnet build 0 warnings, all tests green (existing + new)."

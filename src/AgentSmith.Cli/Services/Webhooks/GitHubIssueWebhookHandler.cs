@@ -78,7 +78,8 @@ public sealed class GitHubIssueWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issue.ToString()));
+                TicketId: issue.ToString(),
+                Platform: "GitHub"));
         }
         catch (Exception ex)
         {

@@ -1,10 +1,10 @@
 using AgentSmith.Domain.Models;
 
-namespace AgentSmith.Application.Models;
+namespace AgentSmith.Contracts.Models;
 
 /// <summary>
 /// Explicit request to execute a pipeline. No regex parsing, no guessing.
-/// Built by CLI commands or Slack intent parser.
+/// Built by CLI commands, Slack intent parser, or TicketClaimService.
 /// </summary>
 public sealed record PipelineRequest(
     string ProjectName,
