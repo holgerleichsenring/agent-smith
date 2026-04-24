@@ -2,7 +2,9 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Polling;
 using AgentSmith.Cli.Services;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,8 +45,8 @@ internal static class ServerCommand
             await Task.WhenAll(
                 listener.RunAsync(port, cts.Token),
                 StartConsumerAsync(provider, configPath, cts.Token),
-                StartStaleDetectorAsync(provider, configPath, cts.Token),
-                StartReconcilerAsync(provider, configPath, cts.Token));
+                StartHousekeepingLeaderAsync(provider, configPath, cts.Token),
+                StartPollerLeaderAsync(provider, configPath, cts.Token));
         });
 
         return cmd;
@@ -65,35 +67,80 @@ internal static class ServerCommand
             .RunAsync(ct);
     }
 
-    private static Task StartStaleDetectorAsync(
+    private static Task StartHousekeepingLeaderAsync(
         IServiceProvider provider, string configPath, CancellationToken ct)
     {
-        var heartbeat = provider.GetService<IJobHeartbeatService>();
-        if (heartbeat is null) return Task.CompletedTask;
+        var lease = provider.GetService<IRedisLeaderLease>();
+        if (lease is null) return Task.CompletedTask;
 
-        return new StaleJobDetector(
-            heartbeat,
-            provider.GetRequiredService<ITicketProviderFactory>(),
-            provider.GetRequiredService<ITicketStatusTransitionerFactory>(),
-            provider.GetRequiredService<IConfigurationLoader>(),
-            configPath,
-            provider.GetRequiredService<ILogger<StaleJobDetector>>())
-            .RunAsync(ct);
+        var leader = new LeaderElectedHostedService(
+            "agentsmith:leader:housekeeping",
+            leaderCt => RunHousekeepingAsync(provider, configPath, leaderCt),
+            lease,
+            provider.GetRequiredService<ILogger<LeaderElectedHostedService>>());
+        return leader.RunAsync(ct);
     }
 
-    private static Task StartReconcilerAsync(
+    private static Task RunHousekeepingAsync(
         IServiceProvider provider, string configPath, CancellationToken ct)
     {
-        var heartbeat = provider.GetService<IJobHeartbeatService>();
-        var queue = provider.GetService<IRedisJobQueue>();
-        if (heartbeat is null || queue is null) return Task.CompletedTask;
+        var heartbeat = provider.GetRequiredService<IJobHeartbeatService>();
+        var queue = provider.GetRequiredService<IRedisJobQueue>();
+        var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
+        var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
+        var configLoader = provider.GetRequiredService<IConfigurationLoader>();
 
-        return new EnqueuedReconciler(
-            heartbeat, queue,
-            provider.GetRequiredService<ITicketProviderFactory>(),
+        var stale = new StaleJobDetector(
+            heartbeat, ticketFactory, transitionerFactory, configLoader, configPath,
+            provider.GetRequiredService<ILogger<StaleJobDetector>>());
+        var reconciler = new EnqueuedReconciler(
+            heartbeat, queue, ticketFactory, configLoader, configPath,
+            provider.GetRequiredService<ILogger<EnqueuedReconciler>>());
+        return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct));
+    }
+
+    private static Task StartPollerLeaderAsync(
+        IServiceProvider provider, string configPath, CancellationToken ct)
+    {
+        var lease = provider.GetService<IRedisLeaderLease>();
+        if (lease is null) return Task.CompletedTask;
+
+        var leader = new LeaderElectedHostedService(
+            "agentsmith:leader:poller",
+            leaderCt => RunPollerHostAsync(provider, configPath, leaderCt),
+            lease,
+            provider.GetRequiredService<ILogger<LeaderElectedHostedService>>());
+        return leader.RunAsync(ct);
+    }
+
+    private static Task RunPollerHostAsync(
+        IServiceProvider provider, string configPath, CancellationToken ct)
+    {
+        var config = provider.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath);
+        var pollers = BuildPollers(provider, config);
+        var host = new PollerHostedService(
+            pollers,
+            provider.GetRequiredService<ITicketClaimService>(),
             provider.GetRequiredService<IConfigurationLoader>(),
             configPath,
-            provider.GetRequiredService<ILogger<EnqueuedReconciler>>())
-            .RunAsync(ct);
+            provider.GetRequiredService<ILogger<PollerHostedService>>());
+        return host.RunAsync(ct);
+    }
+
+    private static IEnumerable<IEventPoller> BuildPollers(
+        IServiceProvider provider, AgentSmithConfig config)
+    {
+        var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
+        var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
+        var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+        foreach (var (name, project) in config.Projects)
+        {
+            if (!project.Polling.Enabled) continue;
+            if (project.Tickets.Type.Equals("github", StringComparison.OrdinalIgnoreCase))
+                yield return new GitHubIssuePoller(
+                    name, project, ticketFactory,
+                    transitionerFactory.Create(project.Tickets),
+                    loggerFactory.CreateLogger<GitHubIssuePoller>());
+        }
     }
 }
