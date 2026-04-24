@@ -15,6 +15,8 @@ public class PipelineExecutorTests
     private readonly Mock<ICommandExecutor> _executorMock = new();
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
+    private readonly Mock<ITicketStatusTransitionerFactory> _transitionerFactoryMock = new();
+    private readonly Mock<IJobHeartbeatService> _heartbeatMock = new();
     private readonly Mock<IProgressReporter> _progressReporterMock = new();
     private readonly PipelineExecutor _sut;
 
@@ -24,6 +26,8 @@ public class PipelineExecutorTests
             _executorMock.Object,
             _factoryMock.Object,
             _ticketFactoryMock.Object,
+            _transitionerFactoryMock.Object,
+            _heartbeatMock.Object,
             _progressReporterMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }
