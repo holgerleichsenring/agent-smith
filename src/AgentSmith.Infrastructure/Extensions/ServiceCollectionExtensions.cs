@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         // Redis-backed claim + queue primitives (p95a)
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
+        services.AddSingleton<IJobHeartbeatService, Services.Lifecycle.JobHeartbeatService>();
 
         // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");

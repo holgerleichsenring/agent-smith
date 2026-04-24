@@ -1,7 +1,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Cli.Services;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,7 +16,9 @@ internal static class ServerCommand
     {
         var portOption = new Option<int>("--port", () => 8081, "Port for webhook listener");
 
-        var cmd = new Command("server", "Start as webhook listener + pipeline queue consumer")
+        var cmd = new Command(
+            "server",
+            "Start webhook listener + pipeline queue consumer + lifecycle housekeeping")
         {
             portOption, configOption, verboseOption
         };
@@ -36,10 +40,11 @@ internal static class ServerCommand
                 cts.Cancel();
             };
 
-            var listenerTask = listener.RunAsync(port, cts.Token);
-            var consumerTask = StartConsumerAsync(provider, configPath, cts.Token);
-
-            await Task.WhenAll(listenerTask, consumerTask);
+            await Task.WhenAll(
+                listener.RunAsync(port, cts.Token),
+                StartConsumerAsync(provider, configPath, cts.Token),
+                StartStaleDetectorAsync(provider, configPath, cts.Token),
+                StartReconcilerAsync(provider, configPath, cts.Token));
         });
 
         return cmd;
@@ -51,18 +56,44 @@ internal static class ServerCommand
         var queue = provider.GetService<IRedisJobQueue>();
         if (queue is null) return Task.CompletedTask;
 
-        var configLoader = provider.GetRequiredService<IConfigurationLoader>();
-        var queueConfig = configLoader.LoadConfig(configPath).Queue;
-        var logger = provider.GetRequiredService<ILogger<PipelineQueueConsumer>>();
+        var queueConfig = provider.GetRequiredService<IConfigurationLoader>()
+            .LoadConfig(configPath).Queue;
+        return new PipelineQueueConsumer(
+            provider, queue, configPath,
+            queueConfig.MaxParallelJobs, queueConfig.ShutdownGraceSeconds,
+            provider.GetRequiredService<ILogger<PipelineQueueConsumer>>())
+            .RunAsync(ct);
+    }
 
-        var consumer = new PipelineQueueConsumer(
-            provider,
-            queue,
+    private static Task StartStaleDetectorAsync(
+        IServiceProvider provider, string configPath, CancellationToken ct)
+    {
+        var heartbeat = provider.GetService<IJobHeartbeatService>();
+        if (heartbeat is null) return Task.CompletedTask;
+
+        return new StaleJobDetector(
+            heartbeat,
+            provider.GetRequiredService<ITicketProviderFactory>(),
+            provider.GetRequiredService<ITicketStatusTransitionerFactory>(),
+            provider.GetRequiredService<IConfigurationLoader>(),
             configPath,
-            queueConfig.MaxParallelJobs,
-            queueConfig.ShutdownGraceSeconds,
-            logger);
+            provider.GetRequiredService<ILogger<StaleJobDetector>>())
+            .RunAsync(ct);
+    }
 
-        return consumer.RunAsync(ct);
+    private static Task StartReconcilerAsync(
+        IServiceProvider provider, string configPath, CancellationToken ct)
+    {
+        var heartbeat = provider.GetService<IJobHeartbeatService>();
+        var queue = provider.GetService<IRedisJobQueue>();
+        if (heartbeat is null || queue is null) return Task.CompletedTask;
+
+        return new EnqueuedReconciler(
+            heartbeat, queue,
+            provider.GetRequiredService<ITicketProviderFactory>(),
+            provider.GetRequiredService<IConfigurationLoader>(),
+            configPath,
+            provider.GetRequiredService<ILogger<EnqueuedReconciler>>())
+            .RunAsync(ct);
     }
 }
