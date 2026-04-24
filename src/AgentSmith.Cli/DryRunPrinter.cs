@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 
 namespace AgentSmith.Cli;
