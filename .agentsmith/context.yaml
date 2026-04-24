@@ -164,11 +164,13 @@ state:
     p92: "K8s restructure: Kustomize → flat numbered YAMLs (1-9), updated ConfigMap + secrets + example.yml, regenerate script (no C# changes)"
     p93: "LLM output error handling: GateOutputHandler fails loud (no silent catches, logs raw response), GateRetryCoordinator runs one corrective retry before hard fail, input_categories requires '*' wildcard or explicit list — empty rejected at skill load (958 tests)"
     p94a: "Gitignore-aware SourceFileEnumerator: LibGit2Sharp-backed GitIgnoreResolver skips .gitignored paths during scans (site/, dist/, coverage/…); hardcoded excludes shrunk to non-git safety net; non-git scans fall back to that list (966 tests)"
+    p94b: "Security-scan skill reduction 15→9: deleted 6 overlapping attacker-perspective skills (vuln-analyst, recon-analyst, response-analyst, low-privilege-attacker, input-abuser, idor-prober); auth-reviewer scope extended to cover IDOR/BOLA; new config/patterns/auth.yaml with static IDOR patterns; legacy SkillCategories dict removed (dead code since p93); wildcard '*' handling added to GetSliceForSkill. Scan: 29% faster (3m vs 4m15s baseline), 7 contributors (was 13). 976 tests"
   active: {}
   planned:
     # --- backlog (new features) ---
     p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo-update.yaml"
     p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.yaml"
+    p97: "Parallel skill rounds: PipelineExecutor batches same-stage skills, SemaphoreSlim-throttled fan-out, per-skill buffers merged at stage boundary → .agentsmith/phases/planned/p97-parallel-skill-rounds.yaml"
     # --- deferred (refactoring, no new features) ---
     p40b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p40b-git-provider-extraction.yaml"
     p40c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p40c-ai-provider-extraction.yaml"
