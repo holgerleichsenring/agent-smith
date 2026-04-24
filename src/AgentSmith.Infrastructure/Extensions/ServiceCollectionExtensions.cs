@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient();
         services.AddSingleton<ITicketProviderFactory, TicketProviderFactory>();
         services.AddSingleton<ITicketStatusTransitionerFactory, TicketStatusTransitionerFactory>();
+        services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
