@@ -31,7 +31,7 @@ The pipeline has 18 base steps, with dynamic expansion during the skill rounds p
 | 18 | SpawnFix | Spawns fix jobs for Critical/High findings (skips if `auto_fix.enabled: false`) |
 
 !!! info "Deterministic execution graph"
-    Step 12 uses `SkillGraphBuilder` to build an execution graph from skill metadata (`runs_after`/`runs_before` declarations). Skills are topologically sorted into stages: **contributors** run in parallel with category-sliced findings, the **gate** (false-positive-filter) runs next and can veto findings, and the **executor** (vuln-analyst) runs last. There is no LLM triage and no convergence checking. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction.
+    Step 12 uses `SkillGraphBuilder` to build an execution graph from skill metadata (`runs_after`/`runs_before` declarations). Skills are topologically sorted into stages: **contributors** run in parallel with category-sliced findings, the **gate** (false-positive-filter) runs next and can veto findings, and the **executor** (chain-analyst) runs last. There is no LLM triage and no convergence checking. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction.
 
 ## Static Pattern Scan
 
@@ -69,19 +69,21 @@ The `CompressSecurityFindings` step groups raw findings by category and creates 
 
 ## The 9 Specialist Skills
 
-Each skill is defined as a YAML skill file in `config/skills/security/`. The triage step selects skills based on the codebase's language, framework, and dependencies. The `false-positive-filter` is always included.
+Each skill is defined as a YAML skill file in `config/skills/security/`. The triage step selects skills based on the codebase's language, framework, and dependencies. The `false-positive-filter` is always included, and `chain-analyst` is the final executor.
+
+p94b reduced the set from 15 to 9 by removing overlapping attacker-perspective skills whose signals, in a code-audit context, duplicated the knowledge-domain skills. The attacker skills remain in `api-security` where HTTP probing and persona-based testing are distinct capabilities.
 
 | Skill | Emoji | Focus Area |
 |-------|-------|------------|
-| **Vulnerability Analyst** | 🔍 | OWASP Top 10 across all code. Lead role -- runs first. |
-| **Auth Reviewer** | 🔐 | OAuth flows, JWT validation, session handling, password storage |
-| **Injection Checker** | 💉 | SQL, command, LDAP, XPath, NoSQL, template injection |
+| **Auth Reviewer** | 🔐 | OAuth, JWT, session handling, password storage, **IDOR/BOLA** (sequential IDs, ownership checks, cross-tenant) |
+| **Injection Checker** | 💉 | SQL, command, LDAP, XPath, NoSQL, template injection, SSRF |
 | **Secrets Detector** | 🔑 | Hardcoded API keys, tokens, connection strings, credentials in source |
-| **False Positive Filter** | 🧹 | Reviews all findings, removes confidence < 8 and invalid results |
 | **Config Auditor** | ⚙️ | Security misconfigurations, debug settings, permissive CORS, missing headers |
 | **Supply Chain Auditor** | 📦 | Dependency vulnerabilities, lockfile integrity, typosquatting |
 | **Compliance Checker** | 📜 | PII handling, encryption requirements, regulatory compliance patterns |
 | **AI Security Reviewer** | 🤖 | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
+| **False Positive Filter** | 🧹 | Gate: reviews all findings, removes confidence < 8 and invalid results |
+| **Chain Analyst** | 🔗 | Executor: synthesizes across commodity + skill findings, reasons about multi-step attack chains, deduplicates |
 
 ### How Skills Collaborate
 
@@ -94,7 +96,7 @@ Skills run in a **deterministic staged graph** built by `SkillGraphBuilder`:
 3. **Triage** builds a skill execution graph from `runs_after`/`runs_before` metadata (no LLM call)
 4. **Stage 1 -- Contributors** (parallel): Each specialist reviews its category-sliced findings in a single call
 5. **Stage 2 -- Gate**: The false-positive-filter reviews all contributor output, produces typed `List<Finding>`, and can veto findings
-6. **Stage 3 -- Executor**: The vuln-analyst synthesizes the filtered findings into the final assessment
+6. **Stage 3 -- Executor**: The chain-analyst receives the filtered findings plus the full commodity-tool output (StaticPatternScan, GitHistoryScan, DependencyAudit) and synthesizes the final assessment, reasoning about multi-step attack chains
 
 Each skill runs exactly once. There are no convergence rounds and no re-runs.
 
@@ -114,36 +116,32 @@ SecurityTriage → SkillGraphBuilder builds execution graph (deterministic, no L
   Stage 2 (gate):
     → false-positive-filter: vetoes 2 findings → typed List<Finding> (14 retained)
   Stage 3 (executor):
-    → vuln-analyst: synthesizes final assessment
+    → chain-analyst: synthesizes final assessment (with commodity findings + skill outputs)
 DeliverFindings → console + SARIF output (typed findings, no raw extraction needed)
 ```
 
 ### Customizing Skills
 
-Each skill's behavior is controlled by its YAML skill file. For example, `config/skills/security/vuln-analyst.yaml`:
+Each skill's behavior is controlled by its SKILL.md + agentsmith.md pair. For example, `config/skills/security/auth-reviewer/`:
 
-```yaml
-name: vuln-analyst
-display_name: "Vulnerability Analyst"
-emoji: "🔍"
-description: "Identifies high-confidence security vulnerabilities"
+```markdown
+---
+name: auth-reviewer
+description: "Specializes in authentication and authorization: OAuth, JWT, session handling, IDOR/BOLA"
+---
 
-triggers:
-  - security-scan
-  - code-change
-  - api-endpoint
-  - user-input
+# Auth Reviewer
 
-rules: |
-  You are a security vulnerability analyst...
-  - Analyze every changed file for OWASP Top 10 vulnerabilities
-  - Only report findings with confidence >= 8
-  - For each finding: cite the specific code line and explain the attack vector
-
-convergence_criteria:
-  - "All changed files have been reviewed"
-  - "No HIGH severity finding left unexamined"
+You are a security specialist focused on authentication and authorization.
+Your task:
+- Check OAuth flows for CSRF protection (state parameter)
+- Verify JWT validation: signature, expiry, issuer, audience
+- Check for IDOR/BOLA: sequential IDs in paths, missing ownership predicates,
+  cross-tenant access, bulk operations bypassing per-item authorization
+- ...
 ```
+
+The `agentsmith.md` file holds orchestration metadata (role, output type, runs_after/runs_before declarations, input_categories). Gate-role skills with `output: list` must declare `input_categories` explicitly — `*` for all categories or a comma-separated list.
 
 You can modify triggers, rules, and convergence criteria to match your team's security standards.
 
