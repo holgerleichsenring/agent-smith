@@ -126,17 +126,17 @@ public sealed class GateOutputHandlerTests
     }
 
     [Fact]
-    public void NoInputCategories_ReplacesAll()
+    public void WildcardCategories_ReplacesAllFindings()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ExtractedFindings,
             (IReadOnlyList<Finding>)new List<Finding>
             {
                 new("HIGH", "a.cs", 1, null, "Old finding", "desc", 9, Category: "secrets"),
+                new("MEDIUM", "b.cs", 2, null, "Another old", "desc", 8, Category: "injection"),
             }.AsReadOnly());
 
-        // Gate with empty InputCategories — legacy single-gate behavior
-        var orch = CreateOrchestration();
+        var orch = CreateOrchestration("*");
         var json = BuildGateJson(("New finding", "secrets"));
 
         _handler.Handle(CreateRole(), orch, json, pipeline);
@@ -146,5 +146,71 @@ public sealed class GateOutputHandlerTests
 
         findings.Should().HaveCount(1);
         findings.Single().Title.Should().Be("New finding");
+    }
+
+    [Fact]
+    public void InvalidJson_ReturnsFail()
+    {
+        var pipeline = new PipelineContext();
+        var orch = CreateOrchestration("secrets");
+
+        var result = _handler.Handle(CreateRole(), orch, "not json at all {", pipeline);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("invalid JSON");
+    }
+
+    [Fact]
+    public void MissingConfirmedProperty_ReturnsFail()
+    {
+        var pipeline = new PipelineContext();
+        var orch = CreateOrchestration("secrets");
+
+        var result = _handler.Handle(CreateRole(), orch, """{"findings":[]}""", pipeline);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("missing 'confirmed'");
+    }
+
+    [Fact]
+    public void EmptyResponse_ReturnsFail()
+    {
+        var pipeline = new PipelineContext();
+        var orch = CreateOrchestration("secrets");
+
+        var result = _handler.Handle(CreateRole(), orch, "   ", pipeline);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("empty LLM response");
+    }
+
+    [Fact]
+    public void Verdict_MissingPassProperty_ReturnsFail()
+    {
+        var pipeline = new PipelineContext();
+        var orch = new SkillOrchestration(
+            SkillRole.Gate, SkillOutputType.Verdict,
+            Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(),
+            Array.Empty<string>());
+
+        var result = _handler.Handle(CreateRole(), orch, """{"reason":"ok"}""", pipeline);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("missing 'pass'");
+    }
+
+    [Fact]
+    public void Verdict_InvalidJson_ReturnsFail()
+    {
+        var pipeline = new PipelineContext();
+        var orch = new SkillOrchestration(
+            SkillRole.Gate, SkillOutputType.Verdict,
+            Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(),
+            Array.Empty<string>());
+
+        var result = _handler.Handle(CreateRole(), orch, "garbage", pipeline);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("invalid JSON");
     }
 }
