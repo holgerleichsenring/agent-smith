@@ -9,18 +9,7 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public static class SecurityFindingsCompressor
 {
-    private static readonly Dictionary<string, string[]> SkillCategories = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["secrets-detector"] = ["secrets", "history"],
-        ["injection-checker"] = ["injection", "ssrf"],
-        ["auth-reviewer"] = ["secrets", "injection"],
-        ["config-auditor"] = ["config"],
-        ["supply-chain-auditor"] = ["dependencies"],
-        ["compliance-checker"] = ["compliance"],
-        ["ai-security-reviewer"] = ["ai-security"],
-        ["vuln-analyst"] = ["secrets", "injection", "ssrf", "config", "dependencies"],
-        ["false-positive-filter"] = ["secrets", "injection", "ssrf", "config", "compliance", "ai-security", "dependencies", "history"],
-    };
+    private const string Wildcard = "*";
 
     /// <summary>
     /// Builds a compact summary table of all findings for baseline context.
@@ -85,22 +74,31 @@ public static class SecurityFindingsCompressor
 
     /// <summary>
     /// Returns the relevant finding slice for a specific skill.
-    /// Prefers orchestration-declared input categories; falls back to hardcoded mapping.
+    /// Reads categories from the skill's orchestration.InputCategories — empty means
+    /// the skill does not consume a category-scoped slice (typical for Executor skills
+    /// that get the full commodity section elsewhere). "*" yields every slice concatenated.
     /// </summary>
     public static string GetSliceForSkill(
         string skillName,
         Dictionary<string, string> categorySlices,
         IReadOnlyList<string>? inputCategories = null)
     {
-        var categories = inputCategories is { Count: > 0 }
-            ? inputCategories
-            : SkillCategories.TryGetValue(skillName, out var legacy) ? legacy : null;
-
-        if (categories is null)
+        if (inputCategories is null || inputCategories.Count == 0)
             return string.Empty;
 
         var sb = new StringBuilder();
-        foreach (var cat in categories)
+
+        if (inputCategories.Count == 1 && inputCategories[0] == Wildcard)
+        {
+            foreach (var slice in categorySlices.Values)
+            {
+                sb.AppendLine(slice);
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+
+        foreach (var cat in inputCategories)
         {
             if (categorySlices.TryGetValue(cat, out var slice))
             {

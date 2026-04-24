@@ -27,4 +27,4 @@ output: list
 runs_after: 
 runs_before: gate
 parallel_with: secrets-detector, injection-checker, config-auditor, supply-chain-auditor, compliance-checker, ai-security-reviewer
-input_categories: secrets, injection
+input_categories: secrets, injection, auth

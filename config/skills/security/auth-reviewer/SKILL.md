@@ -14,7 +14,14 @@ Your task:
 - Verify JWT validation: signature check, expiry, issuer, audience
 - Check session handling: secure flags, httponly, samesite, rotation on login
 - Verify password handling: hashing algorithm (bcrypt/argon2, not MD5/SHA1)
-- Check authorization: role checks, ownership verification, IDOR prevention
+- Check authorization patterns: missing [Authorize] on controllers/endpoints,
+  backend trusting frontend role claims, self-registration role escalation,
+  bulk operations bypassing per-item authorization
+- Check for IDOR/BOLA (Broken Object Level Authorization):
+    * sequential or guessable IDs in path parameters ({id:int}, /users/{id})
+    * queries that load by ID without a user/tenant ownership predicate
+    * cross-tenant data access where the tenant isn't enforced server-side
+    * ownership checks happening after the data is loaded (TOCTOU)
 - Verify token storage: not in localStorage for web (use httponly cookies)
 - Check for hardcoded secrets, default credentials, or bypassed auth
 
