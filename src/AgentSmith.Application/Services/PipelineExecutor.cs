@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -13,11 +14,15 @@ namespace AgentSmith.Application.Services;
 /// them through the CommandExecutor sequentially. Stops on first failure.
 /// Supports runtime command insertion via CommandResult.InsertNext.
 /// Posts status updates and error reports to the ticket provider.
+/// Wraps execution with lifecycle transitions (Enqueued → InProgress → Done/Failed)
+/// and a Redis heartbeat when a TicketId is present.
 /// </summary>
 public sealed class PipelineExecutor(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
+    ITicketStatusTransitionerFactory transitionerFactory,
+    IJobHeartbeatService heartbeat,
     IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
@@ -38,6 +43,8 @@ public sealed class PipelineExecutor(
 
         await PostTicketStatusAsync(projectConfig, context,
             "Agent Smith is working on this issue...", cancellationToken);
+
+        await using var lifecycle = await BeginLifecycleAsync(projectConfig, context, cancellationToken);
 
         var commands = new LinkedList<PipelineCommand>(
             commandNames.Select(PipelineCommand.Simple));
@@ -101,6 +108,7 @@ public sealed class PipelineExecutor(
                     $"## Agent Smith - Failed\n\n**Step:** {label} ({executionCount}/{total})\n**Error:** {result.Message}",
                     cancellationToken);
 
+                lifecycle.MarkFailed();
                 return result with
                 {
                     FailedStep = executionCount,
@@ -143,6 +151,31 @@ public sealed class PipelineExecutor(
         ICommandContext context, CancellationToken ct)
         => commandExecutor.ExecuteAsync(context, ct);
 
+    private async Task<LifecycleScope> BeginLifecycleAsync(
+        ProjectConfig projectConfig, PipelineContext context, CancellationToken ct)
+    {
+        if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+            return LifecycleScope.Noop;
+
+        try
+        {
+            var transitioner = transitionerFactory.Create(projectConfig.Tickets);
+            var transition = await transitioner.TransitionAsync(
+                ticketId, TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, ct);
+            if (!transition.IsSuccess)
+                logger.LogWarning(
+                    "Enqueued → InProgress transition {Outcome}: {Error}",
+                    transition.Outcome, transition.Error);
+
+            return new LifecycleScope(transitioner, heartbeat.Start(ticketId), ticketId, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to start lifecycle tracking — continuing without it");
+            return LifecycleScope.Noop;
+        }
+    }
+
     private async Task PostSkillDetailAsync(
         PipelineCommand cmd, CommandResult result, CancellationToken cancellationToken)
     {
@@ -183,6 +216,40 @@ public sealed class PipelineExecutor(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to post status update to ticket");
+        }
+    }
+
+    private sealed class LifecycleScope(
+        ITicketStatusTransitioner? transitioner,
+        IAsyncDisposable? heartbeat,
+        TicketId? ticketId,
+        ILogger logger) : IAsyncDisposable
+    {
+        public static LifecycleScope Noop { get; } = new(null, null, null, NullLogger.Instance);
+        private bool _failed;
+
+        public void MarkFailed() => _failed = true;
+
+        public async ValueTask DisposeAsync()
+        {
+            if (heartbeat is not null) await heartbeat.DisposeAsync();
+            if (transitioner is null || ticketId is null) return;
+
+            var target = _failed ? TicketLifecycleStatus.Failed : TicketLifecycleStatus.Done;
+            var result = await transitioner.TransitionAsync(
+                ticketId, TicketLifecycleStatus.InProgress, target, CancellationToken.None);
+            if (!result.IsSuccess)
+                logger.LogWarning(
+                    "InProgress → {Target} transition {Outcome}: {Error}",
+                    target, result.Outcome, result.Error);
+        }
+
+        private sealed class NullLogger : ILogger
+        {
+            public static NullLogger Instance { get; } = new();
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => false;
+            public void Log<TState>(LogLevel l, EventId e, TState s, Exception? ex, Func<TState, Exception?, string> f) { }
         }
     }
 }

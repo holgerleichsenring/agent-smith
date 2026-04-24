@@ -107,6 +107,26 @@ public sealed class GitHubTicketProvider : ITicketProvider
             new IssueUpdate { State = ItemState.Closed });
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
+        TicketLifecycleStatus status, CancellationToken cancellationToken)
+    {
+        var label = LifecycleLabels.For(status);
+        try
+        {
+            var request = new RepositoryIssueRequest
+            {
+                State = ItemStateFilter.All,
+                Labels = { label }
+            };
+            var issues = await _client.Issue.GetAllForRepository(_owner, _repo, request);
+            return issues.Select(i => MapToTicket(new TicketId(i.Number.ToString()), i)).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     public async Task TransitionToAsync(
         TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
