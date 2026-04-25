@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p98
+goal: "Docs catch-up for p84 (label-triggers config), p95a-c (claim-then-enqueue, lifecycle, recovery) and p96 (polling, leader election). Until this phase, the docs reflect a pre-p95 architecture (direct in-process execution, hardcoded GitHub label). Without these updates, polling is invisible to operators and the lifecycle/recovery story is inaccessible."
+requires: ["p84", "p95a", "p95b", "p95c", "p96"]
+
+decisions:
+  - key: "Docs-only phase. Zero code changes. No new tests (existing build/test suite stays green by construction)."
+  - key: "Single commit at the end. Docs changes are coupled — splitting per file would create intermediate states where one page describes claim flow and the next still says 'webhook → ExecutePipelineUseCase direct'."
+  - key: "Three new pages (polling.md, polling-vs-webhooks.md, ticket-lifecycle.md) + four substantial rewrites (label-triggers, webhooks, agentsmith-yml, setup/README) + minor updates (architecture/layers, mkdocs.yml nav)."
+  - key: "ticket-lifecycle.md sits under concepts/ — it's an architecture concept, not a setup guide. Setup pages link to it for the explanation, but don't duplicate the state machine."
+  - key: "Polling is GitHub-only at runtime today (ListByLifecycleStatusAsync only implemented on GitHubTicketProvider). polling.md must say so explicitly with a 'limitation' admonition rather than implying full coverage."
+
+steps:
+  - id: new-pages
+    action: "Create new doc pages"
+    new:
+      - "docs/setup/polling.md: per-project polling config, requirements (Redis, repo permissions for label writes), GitHub-only limitation, troubleshooting"
+      - "docs/setup/polling-vs-webhooks.md: decision matrix (latency, network egress, cost, coexistence), worked examples for each scenario"
+      - "docs/concepts/ticket-lifecycle.md: state diagram (Pending → Enqueued → InProgress → Done/Failed), per-state ownership (Claim, Executor, StaleDetector, Reconciler), crash/Redis-loss recovery story"
+
+  - id: rewrite-existing
+    action: "Substantial updates to existing pages"
+    modify:
+      - "docs/setup/label-triggers.md: replace the 'p84 planned' notes with current state — all four platforms have configurable pipeline_from_label since p84; webhook OR poll; claim flow brings idempotency."
+      - "docs/configuration/webhooks.md: describe webhook → ClaimService → Queue → Consumer flow, HTTP response codes (202 Claimed, 200 AlreadyClaimed/Rejected, 500 Failed), p95b coverage of all four platforms."
+      - "docs/configuration/agentsmith-yml.md: add four trigger sections (github_trigger, gitlab_trigger, azuredevops_trigger, jira_trigger), polling section per project, queue section at root, status_labels/lifecycle defaults documented."
+      - "docs/setup/README.md: split table into Webhook Setup + Polling Setup; cross-link decision matrix and concept page."
+
+  - id: minor-updates
+    action: "Smaller nudges to keep architecture pages consistent"
+    modify:
+      - "docs/architecture/layers.md: replace the old 'webhook → ExecutePipelineUseCase' arrow with the new claim flow; mention IRedisJobQueue as a layer artefact."
+      - "docs/architecture/index.md: add a one-line summary of the claim/queue/consumer pattern under whatever architecture overview exists."
+
+  - id: nav
+    action: "Wire new pages into mkdocs navigation"
+    modify:
+      - "docs/mkdocs.yml: add concepts/ticket-lifecycle.md, setup/polling.md, setup/polling-vs-webhooks.md to nav. Setup section reorganised so Webhooks and Polling are siblings under 'Ingress'."
+
+  - id: verify
+    action: "mkdocs build (if available) to catch broken links / missing nav entries; otherwise manual cross-link audit."
+
+tests: []
+
+done:
+  - "Three new pages exist and explain polling, polling-vs-webhooks, and the ticket lifecycle."
+  - "label-triggers.md no longer references p84 as 'planned'; describes current configurable state."
+  - "agentsmith-yml.md reference covers all four trigger sections, polling, and queue config."
+  - "webhooks.md describes the claim flow + HTTP response semantics."
+  - "setup/README.md presents Webhook and Polling as equal ingress options with a clear decision pointer."
+  - "mkdocs nav includes all new pages; no orphaned files."
+  - "Internal links between setup/concepts/architecture pages are consistent and not broken."
+  - "Single commit summarising the docs catch-up across p84, p95a-c, p96."

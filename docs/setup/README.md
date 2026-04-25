@@ -1,6 +1,6 @@
 # Integration Setup Guides
 
-Step-by-step guides for connecting Agent Smith to chat platforms and external services.
+Step-by-step guides for connecting Agent Smith to chat platforms and ticket-event sources.
 
 ## Chat Platforms
 
@@ -9,22 +9,48 @@ Step-by-step guides for connecting Agent Smith to chat platforms and external se
 | Slack | [Slack Setup](slack.md) | Production-ready |
 | Teams | [Teams Setup](teams.md) | Beta |
 
-## Webhook Setup
+## Ticket Ingress
+
+Tickets enter Agent Smith via one (or both) of two paths. Both feed the same `TicketClaimService` and the same lifecycle.
+
+| Path | Latency | Network requirement | Setup |
+|------|---------|---------------------|-------|
+| **Webhook** | Sub-second | Public HTTPS endpoint reachable from the platform | Per-platform setup in the platform UI |
+| **Polling** | `interval_seconds ± jitter` (default 60s) | Outbound only — no inbound traffic | One YAML stanza per project |
+
+**Pick webhooks** when you have a reachable endpoint and want minimum latency.
+**Pick polling** when you run in a private network with no inbound HTTP, or want a self-healing safety net.
+**Use both** for redundancy — claims are idempotent, the first one wins.
+
+Detailed comparison: [Polling vs Webhooks](polling-vs-webhooks.md).
+
+### Webhook Setup
+
+| Platform | Guide | Trigger config | Lifecycle labels |
+|----------|-------|:--------------:|:----------------:|
+| GitHub | [GitHub Webhooks](webhooks/github.md) | `github_trigger` | Yes |
+| GitLab | [GitLab Webhooks](webhooks/gitlab.md) | `gitlab_trigger` | Yes |
+| Azure DevOps | [Azure DevOps Webhooks](webhooks/azure-devops.md) | `azuredevops_trigger` | Yes |
+| Jira | [Jira Webhooks](webhooks/jira.md) | `jira_trigger` | Yes (label-mode) |
+
+### Polling Setup
 
 | Platform | Guide | Status |
 |----------|-------|--------|
-| GitHub | [GitHub Webhooks](webhooks/github.md) | Supported |
-| GitLab | [GitLab Webhooks](webhooks/gitlab.md) | Supported |
-| Azure DevOps | [Azure DevOps Webhooks](webhooks/azure-devops.md) | Supported |
-| Jira | [Jira Webhooks](webhooks/jira.md) | Supported (full lifecycle) |
+| GitHub | [Polling Setup](polling.md) | Supported |
+| GitLab / Azure DevOps / Jira | [Polling Setup](polling.md) (config accepted, runtime stub) | Pending platform `ListByLifecycleStatus` impl |
 
 ## Label & Tag Triggers
 
-| Topic | Guide | Status |
-|-------|-------|--------|
-| [Label-based Triggers](label-triggers.md) | How labels/tags map to pipelines | Jira: full, others: hardcoded (p84) |
+How user-added labels (`agent-smith`, `security-review`, etc.) map to pipelines — same model across all four platforms.
 
-## Related
+| Topic | Guide |
+|-------|-------|
+| [Label-Based Triggers](label-triggers.md) | Per-platform `pipeline_from_label` config and matching rules |
 
-- [Webhook Configuration Reference](../configuration/webhooks.md) — secrets, PR comment commands, endpoint details
-- [Chat Gateway Architecture](../deployment/chat-gateway.md) — how the Dispatcher works internally
+## Background Reading
+
+- [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — Pending → Enqueued → InProgress → Done/Failed, who owns each transition, what survives crashes
+- [Webhook Configuration Reference](../configuration/webhooks.md) — secrets, claim flow, HTTP response codes, PR comment commands
+- [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — full config schema with trigger/polling/queue sections
+- [Chat Gateway Architecture](../deployment/chat-gateway.md) — how the Slack/Teams Dispatcher works

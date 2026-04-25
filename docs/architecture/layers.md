@@ -104,11 +104,25 @@ The use-case layer. Contains all pipeline handlers, the pipeline executor, and s
 
 | Service | Purpose |
 |---------|---------|
-| `ExecutePipelineUseCase` | Top-level orchestrator: resolves config, builds pipeline, executes |
-| `PipelineExecutor` | Runs an ordered list of commands, handles errors |
+| `ExecutePipelineUseCase` | Resolves config, builds pipeline, executes — invoked by the queue consumer |
+| `PipelineExecutor` | Runs an ordered list of commands; wraps execution with lifecycle transitions and heartbeat |
 | `CommandExecutor` | Dispatches a single command to its handler |
 | `CommandContextFactory` | Creates typed contexts for each handler |
 | `PipelineCostTracker` | Aggregates token/cost data across handlers |
+| `TicketClaimService` | Single ingress for ticket-driven pipelines: pre-checks → SETNX claim-lock → status transition → enqueue |
+| `PipelineQueueConsumer` | Pulls `PipelineRequest` from `IRedisJobQueue`, runs them with `SemaphoreSlim` backpressure |
+
+### Lifecycle & Polling Services
+
+| Service | Purpose |
+|---------|---------|
+| `JobHeartbeatService` (Infrastructure) | Renews `agentsmith:heartbeat:{id}` every 30s; `IAsyncDisposable` clears on stop |
+| `StaleJobDetector` | Reverts InProgress tickets without heartbeat back to Pending (every 1min, leader-only) |
+| `EnqueuedReconciler` | Re-enqueues orphan Enqueued tickets (every 10min, leader-only) |
+| `PollerHostedService` | Runs configured `IEventPoller` instances in parallel under the poller leader |
+| `LeaderElectedHostedService` | Generic leader-election wrapper; runs work callback only when holding the named Redis lease |
+
+The ingress/lifecycle stack: webhook handler (or `IEventPoller`) → `TicketClaimService` → `IRedisJobQueue` → `PipelineQueueConsumer` → `ExecutePipelineUseCase` → `PipelineExecutor`. See [Ticket Lifecycle](../concepts/ticket-lifecycle.md) for the state machine.
 
 ### Handlers (39 total)
 

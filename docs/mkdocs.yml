@@ -92,6 +92,7 @@ nav:
   - Concepts:
     - concepts/index.md
     - Pipeline System: concepts/pipeline-system.md
+    - Ticket Lifecycle: concepts/ticket-lifecycle.md
     - Phases & Runs: concepts/phases-and-runs.md
     - Self-Documentation: concepts/self-documentation.md
     - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
@@ -134,6 +135,8 @@ nav:
       - GitLab: setup/webhooks/gitlab.md
       - Azure DevOps: setup/webhooks/azure-devops.md
       - Jira: setup/webhooks/jira.md
+    - Polling: setup/polling.md
+    - Polling vs Webhooks: setup/polling-vs-webhooks.md
     - Label Triggers: setup/label-triggers.md
   - Integrations:
     - PR Comments: integrations/pr-comments.md
