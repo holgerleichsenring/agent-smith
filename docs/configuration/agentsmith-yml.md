@@ -76,6 +76,37 @@ projects:
     skills_path: skills/coding      # Relative to config/ directory
     coding_principles_path: .agentsmith/coding-principles.md
 
+    # ─── Trigger config ────────────────────────────────────────────
+    # One section per platform; pick the one matching tickets.type.
+    # All four shapes are identical (Jira adds assignee_name).
+    github_trigger:
+      pipeline_from_label:
+        agent-smith: fix-bug
+        security-review: security-scan
+      default_pipeline: fix-bug
+      trigger_statuses: []          # empty = all states allowed
+      done_status: "In Review"      # post-PR transition
+
+    # gitlab_trigger:    # same shape
+    # azuredevops_trigger:  # same shape (uses tags instead of labels)
+    # jira_trigger:
+    #   assignee_name: "Agent Smith"      # required for Jira gating
+    #   pipeline_from_label: { ... }
+    #   ...
+
+    # ─── Polling (alternative ingress to webhooks) ─────────────────
+    polling:
+      enabled: false                # default: webhook-only
+      interval_seconds: 60
+      jitter_percent: 10            # ±% applied to the interval
+
+# ─── Process-wide queue (consumer + receiver) ──────────────────────
+agent:
+  queue:
+    max_parallel_jobs: 4            # SemaphoreSlim cap on PipelineQueueConsumer
+    consume_block_seconds: 5        # LPOP poll interval
+    shutdown_grace_seconds: 30      # in-flight grace on SIGTERM
+
 # ─── Pipelines ───────────────────────────────────────────────────────
 pipelines:
   fix-bug:
@@ -196,6 +227,48 @@ pricing:
 
 !!! note
     `cache_read_per_million` only applies to Anthropic models with prompt caching enabled. Omit it for other providers.
+
+### Trigger sections (`github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger`)
+
+Per-project trigger configuration. Both webhooks and polling read this. The shape is shared across platforms; Jira extends it with `assignee_name` and `comment_keyword`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pipeline_from_label` | map | `{}` | Trigger label → pipeline name, matched in config order |
+| `default_pipeline` | string | `fix-bug` | Used when no label entry matches |
+| `trigger_statuses` | list | `[]` | Allowed ticket states (empty = all) |
+| `done_status` | string | `"In Review"` | Status set after PR creation |
+| `comment_keyword` | string? | none | Optional keyword that re-triggers on comment |
+| `assignee_name` | string | — | **Jira only**: required for assignee-based gating |
+
+See [Label-Based Triggers](../setup/label-triggers.md) for per-platform examples and matching rules.
+
+### `polling` (per project)
+
+Opt-in alternative to webhooks. When enabled, Agent Smith pulls eligible tickets on an interval and routes them through the same `TicketClaimService` as webhooks.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Whether to poll this project |
+| `interval_seconds` | int | `60` | Base sleep between poll cycles |
+| `jitter_percent` | int | `10` | Random ±% applied to the interval (avoids thundering herd) |
+
+!!! warning "GitHub-only at runtime"
+    Polling currently lists Pending tickets via `ITicketProvider.ListByLifecycleStatusAsync`, which only `GitHubTicketProvider` implements. Other platforms accept the config but produce no claims until per-platform listing implementations land.
+
+See [Polling Setup](../setup/polling.md) and [Polling vs Webhooks](../setup/polling-vs-webhooks.md).
+
+### `agent.queue` (root-level)
+
+Process-wide queue settings. The queue is shared across all projects on a given pod; one `agentsmith:queue:jobs` Redis list backs the entire deployment.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_parallel_jobs` | int | `4` | `SemaphoreSlim` cap on concurrent pipelines per pod (backpressure knob) |
+| `consume_block_seconds` | int | `5` | LPOP polling interval inside the consumer loop |
+| `shutdown_grace_seconds` | int | `30` | Time to await in-flight pipelines on graceful shutdown |
+
+`max_parallel_jobs` is the only knob that throttles pipeline concurrency. Webhook receivers never block on pipeline execution — they only enqueue, which is O(ms). Increase if your AI provider has headroom; decrease if you're hitting rate limits.
 
 ### tool_runner
 
