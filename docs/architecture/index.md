@@ -60,6 +60,8 @@ Domain ← Contracts ← Application ← Infrastructure.Core ← Infrastructure 
 |---------|-------|---------|
 | Command/Handler | Application | Each pipeline step is a command with a handler |
 | Pipeline | Application | Ordered sequence of commands per use case |
+| Claim-then-Enqueue | Application + Infrastructure | Single ingress for ticket-driven pipelines: webhook or poll → `TicketClaimService` → SETNX claim-lock → atomic status transition → `IRedisJobQueue` → `PipelineQueueConsumer`. Lifecycle (`Pending → Enqueued → InProgress → Done/Failed`) lives on the ticket itself. See [Ticket Lifecycle](../concepts/ticket-lifecycle.md) |
+| Leader Election | Application + Infrastructure | `LeaderElectedHostedService` over Redis SETNX+TTL leases for single-poller and single-housekeeping coordination across replicas |
 | Skill Graph | Application | `SkillGraphBuilder` builds deterministic execution graphs from skill metadata for structured/hierarchical pipelines |
 | Typed Orchestration | Application | Skills produce typed JSON outputs (`SkillOutputs`); gates write typed `List<Finding>` directly to context |
 | Factory | Infrastructure | Create providers based on config (AI, Git, tickets) |
