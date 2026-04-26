@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0099a
+goal: "Polling honors pipeline_from_label, same as webhooks. Closes the routing gap p0099 explicitly scoped out: today every polled ticket runs default_pipeline regardless of its other tags."
+requires: ["p0099"]
+
+decisions:
+  - key: "Ticket entity gets a Labels: IReadOnlyList<string> property — added to the constructor with default []. Existing callers (37 across src+tests) keep working unchanged. Labels carry the platform's user-facing tags as plain strings — agent-smith:* lifecycle labels are filtered out at the poller boundary so they never accidentally match pipeline_from_label keys."
+  - key: "Only ListByLifecycleStatusAsync populates Labels in p0099a. GetTicketAsync stays unchanged — the pipeline executor reads tickets afresh by ID once a job runs, but downstream code doesn't yet need the Labels field, so populating it there is an unused cost. Revisit if a downstream consumer appears."
+  - key: "Shared ResolvePipeline helper in Application/Services/Polling/PipelineResolver.cs — static method (WebhookTriggerConfig trigger, IEnumerable<string> labels) → string pipeline. Mirrors the AzureDevOpsWorkItemWebhookHandler.ResolvePipelineFromTags semantics: first key in pipeline_from_label whose value is contained in the labels wins; if no match and pipeline_from_label is non-empty, returns null (callers fall back to default_pipeline); if pipeline_from_label is empty, returns default_pipeline directly."
+  - key: "First-match-wins is dictionary insertion order. C# Dictionary preserves insertion order in practice on .NET 8, but YamlDotNet may not guarantee it across YAML parses. Operators who rely on order should keep their pipeline_from_label entries unambiguous (no overlapping label keys). Same caveat applies to the existing webhook resolver — not a regression."
+  - key: "Webhook handlers stay on their existing per-platform Resolve methods. They take a tag-string (AzDO) or List<string> (GitHub/GitLab/Jira) from the raw payload, which is shaped differently per platform. Refactoring the webhook handlers to go through the new resolver is an attractive cleanup but not in scope — the test-coverage matrix would have to widen and the win is small (4× ~8-line methods replaced by 1× shared one)."
+  - key: "Lifecycle-label filter is a centralized concern. PipelineResolver internally filters out anything starting with LifecycleLabels.Prefix (\"agent-smith:\") before matching. This protects the pipeline_from_label config from accidentally matching agent-smith:pending → some_pipeline if an operator names a key that way. Same guarantee in webhook code is implicit (the webhook payload typically excludes lifecycle labels); explicit filter in the resolver makes the polling path robust."
+  - key: "Provider-side label population per platform: GitHub (Octokit Issue.Labels.Select(l => l.Name)), GitLab (issue.labels JSON array), AzDO (System.Tags split on ';' with TrimEntries — same parser the transitioner uses), Jira (fields.labels JSON array). Each provider's listing test gets one new assertion that Labels round-trip from API → Ticket."
+  - key: "No new config schema. pipeline_from_label is already on WebhookTriggerConfig and used by webhooks; the poller just starts reading the same field. Operators with existing webhook configs get label-aware polling for free as soon as p0099a lands."
+  - key: "Drift caught by audit-phases.py is the trigger for p0099a. The polling.md docs already say polling resolves via default_pipeline only, which was honest about the gap — but a user reading the spec-first plan in p0096 would have expected pipeline_from_label support. p0099a makes the implementation match the original p0096 intent and updates the docs accordingly."
+
+steps:
+  - id: ticket-labels
+    action: "Ticket entity carries Labels"
+    modify:
+      - "Domain/Entities/Ticket.cs: add IReadOnlyList<string> Labels property; constructor parameter `IReadOnlyList<string>? labels = null` defaulting to empty array internally. Public getter returns the stored list."
+
+  - id: provider-listings
+    action: "Each ListByLifecycleStatusAsync populates Labels from the platform-native tag/label source"
+    modify:
+      - "Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs: ListByLifecycleStatusAsync passes issue.Labels.Select(l => l.Name) to Ticket constructor."
+      - "Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs: ListByLifecycleStatusAsync reads the issue's `labels` JSON array."
+      - "Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs: ListWiqlAsync requests System.Tags as part of the field set, MapToTicket splits on ';' (RemoveEmptyEntries | TrimEntries) — same parser AzureDevOpsTicketStatusTransitioner already uses."
+      - "Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs: ListByLifecycleStatusAsync requests `labels` in the JQL search field set and maps the JSON array to the Ticket constructor."
+
+  - id: pipeline-resolver
+    action: "Shared static helper for label → pipeline matching"
+    new:
+      - "Application/Services/Polling/PipelineResolver.cs: static class with `string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)`. Filters lifecycle labels (prefix-match agent-smith:), iterates pipeline_from_label, returns first match or default_pipeline. Throws no exceptions; null return is the explicit no-match-and-no-default case (caller falls back)."
+    action_detail:
+      - "Method signature kept narrow — takes only WebhookTriggerConfig + labels, no provider/platform awareness. Callers pass their platform's trigger config (project.GithubTrigger, project.AzuredevopsTrigger, etc.)."
+      - "Uses StringComparer.OrdinalIgnoreCase for label matching, same as the webhook resolver."
+
+  - id: poller-routing
+    action: "All four pollers route via PipelineResolver instead of returning default_pipeline blindly"
+    modify:
+      - "Application/Services/Polling/GitHubIssuePoller.cs: replace `var pipeline = projectConfig.GithubTrigger?.DefaultPipeline ?? \"fix-bug\"` with per-ticket PipelineResolver.Resolve(trigger, ticket.Labels) ?? \"fix-bug\"."
+      - "Application/Services/Polling/GitLabIssuePoller.cs: same pattern using GitlabTrigger."
+      - "Application/Services/Polling/AzureDevOpsWorkItemPoller.cs: same pattern using AzuredevopsTrigger."
+      - "Application/Services/Polling/JiraIssuePoller.cs: same pattern using JiraTrigger."
+    action_detail:
+      - "Per-ticket resolution moves inside the .Select projection — each ClaimRequest gets the pipeline for its specific labels. Today's behavior (one pipeline for the whole batch) was accidentally efficient but wrong; the cycle still does one listing call, so per-ticket routing has no API cost."
+
+  - id: tests-providers
+    action: "Provider listing tests assert Labels round-trip"
+    modify:
+      - "tests/AgentSmith.Tests/Providers/Tickets/GitLabTicketProviderListByLifecycleTests.cs: extend the two-issue test to include labels in the JSON fixture and assert tickets[0].Labels contains the expected user tags + the agent-smith:pending lifecycle label."
+      - "tests/AgentSmith.Tests/Providers/Tickets/JiraTicketProviderListByLifecycleTests.cs: same — add labels to the fixture, assert round-trip."
+    action_detail:
+      - "AzDO provider listing test stays deferred (VssConnection mocking limitation noted in p0099). The poller test covers AzDO routing via a fake provider that returns Labels directly."
+
+  - id: tests-pollers
+    action: "Each poller gets a label-routing test pair"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Polling/GitHubIssuePollerTests.cs: add PollAsync_TicketHasMatchingLabel_RoutesToMappedPipeline + PollAsync_NoMatchingLabel_FallsBackToDefaultPipeline."
+      - "tests/AgentSmith.Tests/Services/Polling/GitLabIssuePollerTests.cs: same pair."
+      - "tests/AgentSmith.Tests/Services/Polling/AzureDevOpsWorkItemPollerTests.cs: same pair."
+      - "tests/AgentSmith.Tests/Services/Polling/JiraIssuePollerTests.cs: same pair."
+
+  - id: tests-resolver
+    action: "Direct unit tests for PipelineResolver"
+    new:
+      - "tests/AgentSmith.Tests/Services/Polling/PipelineResolverTests.cs"
+    action_detail:
+      - "Cover: empty pipeline_from_label returns default_pipeline; first-match-wins ordering; case-insensitive label matching; lifecycle labels filtered (agent-smith:pending in input does not match an agent-smith:pending key in config); empty default + no match returns null."
+
+  - id: docs
+    action: "Polling docs reflect that pipeline_from_label now applies"
+    modify:
+      - "docs/setup/polling.md: remove the 'pipeline_from_label only applies when the trigger label is added by a human' caveat from the Full Configuration block. Add a short subsection explaining that polled tickets are routed via labels at poll time, with the same first-match semantics as webhooks."
+      - "docs/configuration/agentsmith-yml.md: polling section gets one line clarifying that pipeline_from_label is honored on the polling path as of p0099a."
+      - "config/agentsmith.yml: comment on todo-list-azuredevops `pipeline_from_label` block that polling uses it as of p0099a (today the comment says 'Polling does not see tag-add events — routes via default_pipeline below', which becomes wrong)."
+
+  - id: verify
+    action: "dotnet build && dotnet test — all existing tests green; new label-routing tests pass; scripts/audit-phases.py shows p0099a as a separate done phase with no missing files/tests."
+
+tests:
+  - "Ticket_ConstructorWithoutLabels_DefaultsToEmpty"
+  - "Ticket_ConstructorWithLabels_ExposesThemReadOnly"
+  - "GitHubTicketProvider_ListByLifecycleStatusAsync_PopulatesLabelsFromOctokit"
+  - "GitLabTicketProvider_ListByLifecycleStatusAsync_MapsLabelsArrayFromJson"
+  - "AzureDevOpsTicketProvider_ListByLifecycleStatusAsync_SplitsSystemTagsBySemicolon"
+  - "JiraTicketProvider_ListByLifecycleStatusAsync_MapsFieldsLabelsArray"
+  - "PipelineResolver_EmptyPipelineFromLabel_ReturnsDefaultPipeline"
+  - "PipelineResolver_FirstMatchingLabelWins_InInsertionOrder"
+  - "PipelineResolver_LabelMatchIsCaseInsensitive"
+  - "PipelineResolver_LifecycleLabelInInput_DoesNotMatchPipelineFromLabelKeys"
+  - "PipelineResolver_NoMatchAndNoDefault_ReturnsNull"
+  - "GitHubIssuePoller_TicketWithMatchingLabel_RoutesToMappedPipeline"
+  - "GitHubIssuePoller_TicketWithNoMatchingLabel_FallsBackToDefaultPipeline"
+  - "GitLabIssuePoller_TicketWithMatchingLabel_RoutesToMappedPipeline"
+  - "GitLabIssuePoller_TicketWithNoMatchingLabel_FallsBackToDefaultPipeline"
+  - "AzureDevOpsWorkItemPoller_TicketWithMatchingLabel_RoutesToMappedPipeline"
+  - "AzureDevOpsWorkItemPoller_TicketWithNoMatchingLabel_FallsBackToDefaultPipeline"
+  - "JiraIssuePoller_TicketWithMatchingLabel_RoutesToMappedPipeline"
+  - "JiraIssuePoller_TicketWithNoMatchingLabel_FallsBackToDefaultPipeline"
+
+done:
+  - "Ticket entity carries Labels: IReadOnlyList<string>; existing 37 construction sites unchanged (default empty)."
+  - "All four ListByLifecycleStatusAsync overrides populate Labels from the platform's native tag/label source — verified by provider tests for GitLab and Jira (AzDO via poller test as in p0099)."
+  - "PipelineResolver in Application.Services.Polling implements the same first-match semantics as the webhook resolvers, plus a centralised lifecycle-label filter."
+  - "All four pollers route per-ticket via PipelineResolver — pipeline_from_label entries in the per-platform trigger config now apply to polled tickets."
+  - "Operators with an existing webhook config (pipeline_from_label populated) automatically get label-aware polling — no config migration."
+  - "Polling docs and config/agentsmith.yml comments updated to reflect that pipeline_from_label applies on the polling path."
+  - "scripts/audit-phases.py reports zero new drift introduced."
+  - "1066+ tests, 0 warnings."
