@@ -1,0 +1,43 @@
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
+
+namespace AgentSmith.Application.Services.Polling;
+
+/// <summary>
+/// Reads Pending-lifecycle work items for an Azure DevOps project via ITicketProvider
+/// and turns them into ClaimRequests. One WIQL listing per cycle.
+/// </summary>
+public sealed class AzureDevOpsWorkItemPoller(
+    string projectName,
+    ProjectConfig projectConfig,
+    ITicketProviderFactory ticketFactory,
+    ITicketStatusTransitioner transitioner,
+    ILogger<AzureDevOpsWorkItemPoller> logger) : IEventPoller
+{
+    public string PlatformName => "AzureDevOps";
+    public string ProjectName => projectName;
+    public int IntervalSeconds => projectConfig.Polling.IntervalSeconds;
+
+    public async Task<IReadOnlyList<ClaimRequest>> PollAsync(CancellationToken cancellationToken)
+    {
+        var provider = ticketFactory.Create(projectConfig.Tickets);
+        var tickets = await provider.ListByLifecycleStatusAsync(
+            TicketLifecycleStatus.Pending, cancellationToken);
+
+        if (tickets.Count == 0) return [];
+
+        var pipeline = projectConfig.AzuredevopsTrigger?.DefaultPipeline ?? "fix-bug";
+        var requests = tickets
+            .Select(t => new ClaimRequest("AzureDevOps", projectName, t.Id, pipeline))
+            .ToList();
+
+        logger.LogDebug("AzureDevOps poll for {Project}: {Count} pending candidates",
+            projectName, requests.Count);
+        _ = transitioner;
+        return requests;
+    }
+}

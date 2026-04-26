@@ -23,6 +23,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     private readonly IAttachmentLoader _attachmentLoader;
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
+    private readonly string? _projectKey;
 
     public string ProviderType => "Jira";
 
@@ -33,13 +34,15 @@ public sealed class JiraTicketProvider : ITicketProvider
         HttpClient httpClient,
         ILogger<JiraTicketProvider> logger,
         string? doneStatus = null,
-        string? closeTransitionName = null)
+        string? closeTransitionName = null,
+        string? projectKey = null)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = httpClient;
         _logger = logger;
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
+        _projectKey = projectKey;
 
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{apiToken}"));
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -87,6 +90,67 @@ public sealed class JiraTicketProvider : ITicketProvider
             acceptanceCriteria: null,
             status,
             "Jira");
+    }
+
+    public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
+        TicketLifecycleStatus status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var label = LifecycleLabels.For(status);
+            var jql = _projectKey is null
+                ? $"labels = \"{label}\""
+                : $"project = \"{_projectKey}\" AND labels = \"{label}\"";
+
+            var url = $"{_baseUrl}/rest/api/3/search";
+            var body = JsonSerializer.Serialize(new
+            {
+                jql,
+                fields = new[] { "summary", "description", "status" },
+                maxResults = 100
+            });
+
+            var content = new StringContent(body, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(url, content, cancellationToken);
+            if (!response.IsSuccessStatusCode) return [];
+
+            using var doc = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+
+            if (!doc.RootElement.TryGetProperty("issues", out var issuesEl)
+                || issuesEl.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var tickets = new List<Ticket>(issuesEl.GetArrayLength());
+            foreach (var issue in issuesEl.EnumerateArray())
+            {
+                var key = issue.TryGetProperty("key", out var keyEl) ? keyEl.GetString() : null;
+                if (key is null) continue;
+
+                var fields = issue.TryGetProperty("fields", out var f) ? f : default;
+                var title = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("summary", out var sEl)
+                        ? sEl.GetString() ?? ""
+                        : "";
+                var description = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("description", out var dEl)
+                    && dEl.ValueKind != JsonValueKind.Null
+                        ? JiraAdfParser.ExtractText(dEl)
+                        : "";
+                var statusName = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("status", out var stEl)
+                    && stEl.TryGetProperty("name", out var stNameEl)
+                        ? stNameEl.GetString() ?? ""
+                        : "";
+
+                tickets.Add(new Ticket(new TicketId(key), title, description, null, statusName, "Jira"));
+            }
+            return tickets;
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
