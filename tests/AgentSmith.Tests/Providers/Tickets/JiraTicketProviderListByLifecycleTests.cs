@@ -73,7 +73,8 @@ public sealed class JiraTicketProviderListByLifecycleTests
                       "fields": {
                         "summary": "first",
                         "description": {{adf}},
-                        "status": { "name": "To Do" }
+                        "status": { "name": "To Do" },
+                        "labels": ["agent-smith:pending", "security-review"]
                       }
                     },
                     {
@@ -81,7 +82,8 @@ public sealed class JiraTicketProviderListByLifecycleTests
                       "fields": {
                         "summary": "second",
                         "description": null,
-                        "status": { "name": "To Do" }
+                        "status": { "name": "To Do" },
+                        "labels": []
                       }
                     }
                   ]
@@ -98,8 +100,10 @@ public sealed class JiraTicketProviderListByLifecycleTests
         tickets[0].Title.Should().Be("first");
         tickets[0].Description.Should().Contain("hello world");
         tickets[0].Status.Should().Be("To Do");
+        tickets[0].Labels.Should().BeEquivalentTo(new[] { "agent-smith:pending", "security-review" });
         tickets[1].Id.Value.Should().Be("PROJ-43");
         tickets[1].Description.Should().Be(""); // null description maps to empty
+        tickets[1].Labels.Should().BeEmpty();
     }
 
     [Fact]

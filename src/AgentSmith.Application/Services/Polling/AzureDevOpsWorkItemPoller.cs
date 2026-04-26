@@ -30,9 +30,13 @@ public sealed class AzureDevOpsWorkItemPoller(
 
         if (tickets.Count == 0) return [];
 
-        var pipeline = projectConfig.AzuredevopsTrigger?.DefaultPipeline ?? "fix-bug";
+        var trigger = projectConfig.AzuredevopsTrigger;
         var requests = tickets
-            .Select(t => new ClaimRequest("AzureDevOps", projectName, t.Id, pipeline))
+            .Select(t => new ClaimRequest(
+                "AzureDevOps", projectName, t.Id,
+                trigger is null
+                    ? "fix-bug"
+                    : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
         logger.LogDebug("AzureDevOps poll for {Project}: {Count} pending candidates",

@@ -62,8 +62,44 @@ public sealed class GitLabIssuePollerTests
         result[0].PipelineName.Should().Be("security-scan");
     }
 
+    [Fact]
+    public async Task PollAsync_TicketWithMatchingLabel_RoutesToMappedPipeline()
+    {
+        var tickets = new[]
+        {
+            new Ticket(new TicketId("1"), "t", "", null, "opened", "GitLab", labels: ["bug"])
+        };
+        var sut = Build(
+            pendingTickets: tickets,
+            defaultPipeline: "fix-bug",
+            pipelineFromLabel: new() { ["bug"] = "fix-bug", ["feature"] = "implement-feature" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result[0].PipelineName.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task PollAsync_TicketWithNoMatchingLabel_FallsBackToFixBug()
+    {
+        var tickets = new[]
+        {
+            new Ticket(new TicketId("1"), "t", "", null, "opened", "GitLab", labels: ["unrelated"])
+        };
+        var sut = Build(
+            pendingTickets: tickets,
+            defaultPipeline: "implement-feature",
+            pipelineFromLabel: new() { ["bug"] = "fix-bug" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result[0].PipelineName.Should().Be("fix-bug");
+    }
+
     private static GitLabIssuePoller Build(
-        Ticket[] pendingTickets, string? defaultPipeline = "fix-bug")
+        Ticket[] pendingTickets,
+        string? defaultPipeline = "fix-bug",
+        Dictionary<string, string>? pipelineFromLabel = null)
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.ListByLifecycleStatusAsync(
@@ -74,8 +110,12 @@ public sealed class GitLabIssuePollerTests
         factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);
 
         var project = new ProjectConfig();
-        if (defaultPipeline is not null)
-            project.GitlabTrigger = new WebhookTriggerConfig { DefaultPipeline = defaultPipeline };
+        if (defaultPipeline is not null || pipelineFromLabel is not null)
+            project.GitlabTrigger = new WebhookTriggerConfig
+            {
+                DefaultPipeline = defaultPipeline ?? "fix-bug",
+                PipelineFromLabel = pipelineFromLabel ?? new()
+            };
 
         return new GitLabIssuePoller(
             "proj", project, factory.Object,

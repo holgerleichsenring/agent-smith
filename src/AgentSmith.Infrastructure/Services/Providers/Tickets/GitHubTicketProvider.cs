@@ -45,13 +45,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
 
     private static Ticket MapToTicket(TicketId ticketId, Issue issue)
     {
+        var labels = issue.Labels?.Select(l => l.Name).ToList() ?? [];
         return new Ticket(
             ticketId,
             issue.Title,
             issue.Body ?? "",
             null,
             issue.State.StringValue,
-            "GitHub");
+            "GitHub",
+            labels);
     }
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(

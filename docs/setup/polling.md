@@ -75,10 +75,11 @@ projects:
 
     # Trigger config decides which pipeline a polled ticket runs.
     # Polling and webhook share this section — pipeline_from_label
-    # maps Pending-labelled tickets to pipelines (default_pipeline
-    # is the fallback). For polling without webhooks, only
-    # default_pipeline matters; pipeline_from_label only applies
-    # when the trigger label is added by a human.
+    # maps a user-facing label on the ticket to a pipeline; lifecycle
+    # labels (agent-smith:*) are filtered before matching. First key
+    # in the map whose value appears on the ticket wins; default_pipeline
+    # is the fallback when nothing matches. Same semantics on both paths
+    # since p0099a.
     github_trigger:
       default_pipeline: fix-bug
       pipeline_from_label:
@@ -113,6 +114,16 @@ A single replica per process holds the `agentsmith:leader:poller` Redis lease (3
 4. Sleeps for `min(interval_seconds across pollers) ± jitter`, then loops.
 
 If the leader pod crashes, another pod acquires the lease within ~30s. Followers don't poll but still process queue items as workers (the consumer is per-pod, not leader-only).
+
+### Pipeline routing per ticket
+
+Each candidate is routed individually via `pipeline_from_label` — the same map webhooks use. The shared `PipelineResolver` (in `Application/Services/Polling`):
+
+1. Strips lifecycle labels (`agent-smith:*`) from the ticket's labels — they never satisfy a `pipeline_from_label` key.
+2. Iterates `pipeline_from_label` in YAML insertion order; first key whose value is a label on the ticket wins.
+3. Falls back to `default_pipeline` if no key matches and the map is empty; returns null otherwise (caller's last-resort default applies — `"fix-bug"`).
+
+Same semantics as the per-platform webhook resolvers. Operators with an existing webhook config get label-aware polling automatically — no migration.
 
 ## Operator Tasks
 

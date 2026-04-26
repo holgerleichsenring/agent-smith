@@ -255,6 +255,8 @@ Opt-in alternative to webhooks. When enabled, Agent Smith pulls eligible tickets
 
 All four platforms support polling. Each provider implements `ITicketProvider.ListByLifecycleStatusAsync(Pending)` natively (GitHub via Issues+labels, GitLab via Issues+labels, Azure DevOps via WIQL on `[System.Tags]`, Jira via JQL search). Jira is label-mode only — native-status-mode polling is deferred. Set `tickets.project` for Jira if your instance hosts multiple projects so the JQL is scoped.
 
+`pipeline_from_label` is honored on the polling path as of p0099a — same first-match semantics as webhooks; lifecycle labels (`agent-smith:*`) are filtered before matching.
+
 See [Polling Setup](../setup/polling.md) for per-platform listing details and required token scopes, and [Polling vs Webhooks](../setup/polling-vs-webhooks.md) for the decision matrix.
 
 ### `agent.queue` (root-level)

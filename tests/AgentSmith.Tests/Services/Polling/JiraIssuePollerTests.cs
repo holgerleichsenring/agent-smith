@@ -62,8 +62,44 @@ public sealed class JiraIssuePollerTests
         result[0].PipelineName.Should().Be("security-scan");
     }
 
+    [Fact]
+    public async Task PollAsync_TicketWithMatchingLabel_RoutesToMappedPipeline()
+    {
+        var tickets = new[]
+        {
+            new Ticket(new TicketId("PROJ-1"), "t", "", null, "To Do", "Jira", labels: ["security-review"])
+        };
+        var sut = Build(
+            pendingTickets: tickets,
+            defaultPipeline: "fix-bug",
+            pipelineFromLabel: new() { ["security-review"] = "security-scan" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result[0].PipelineName.Should().Be("security-scan");
+    }
+
+    [Fact]
+    public async Task PollAsync_TicketWithNoMatchingLabel_FallsBackToFixBug()
+    {
+        var tickets = new[]
+        {
+            new Ticket(new TicketId("PROJ-1"), "t", "", null, "To Do", "Jira", labels: ["unrelated"])
+        };
+        var sut = Build(
+            pendingTickets: tickets,
+            defaultPipeline: "fix-bug",
+            pipelineFromLabel: new() { ["security-review"] = "security-scan" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result[0].PipelineName.Should().Be("fix-bug");
+    }
+
     private static JiraIssuePoller Build(
-        Ticket[] pendingTickets, string? defaultPipeline = "fix-bug")
+        Ticket[] pendingTickets,
+        string? defaultPipeline = "fix-bug",
+        Dictionary<string, string>? pipelineFromLabel = null)
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.ListByLifecycleStatusAsync(
@@ -74,8 +110,12 @@ public sealed class JiraIssuePollerTests
         factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);
 
         var project = new ProjectConfig();
-        if (defaultPipeline is not null)
-            project.JiraTrigger = new JiraTriggerConfig { DefaultPipeline = defaultPipeline };
+        if (defaultPipeline is not null || pipelineFromLabel is not null)
+            project.JiraTrigger = new JiraTriggerConfig
+            {
+                DefaultPipeline = defaultPipeline ?? "fix-bug",
+                PipelineFromLabel = pipelineFromLabel ?? new()
+            };
 
         return new JiraIssuePoller(
             "proj", project, factory.Object,

@@ -29,15 +29,17 @@ public sealed class GitLabTicketProviderListByLifecycleTests
     }
 
     [Fact]
-    public async Task ListByLifecycleStatusAsync_TwoIssues_MapsToTicketsWithIidAsId()
+    public async Task ListByLifecycleStatusAsync_TwoIssues_MapsToTicketsWithIidAsIdAndLabelsRoundTrip()
     {
         var handler = new RecordingHandler
         {
             Responder = _ => JsonResponse(
                 """
                 [
-                  { "iid": 17, "title": "first", "description": "d1", "state": "opened" },
-                  { "iid": 18, "title": "second", "description": null, "state": "opened" }
+                  { "iid": 17, "title": "first", "description": "d1", "state": "opened",
+                    "labels": ["agent-smith:pending", "bug"] },
+                  { "iid": 18, "title": "second", "description": null, "state": "opened",
+                    "labels": [] }
                 ]
                 """)
         };
@@ -50,8 +52,10 @@ public sealed class GitLabTicketProviderListByLifecycleTests
         tickets[0].Id.Value.Should().Be("17");
         tickets[0].Title.Should().Be("first");
         tickets[0].Description.Should().Be("d1");
+        tickets[0].Labels.Should().BeEquivalentTo(new[] { "agent-smith:pending", "bug" });
         tickets[1].Id.Value.Should().Be("18");
         tickets[1].Description.Should().Be(""); // null description maps to empty
+        tickets[1].Labels.Should().BeEmpty();
     }
 
     [Fact]
