@@ -106,7 +106,7 @@ public sealed class JiraTicketProvider : ITicketProvider
             var body = JsonSerializer.Serialize(new
             {
                 jql,
-                fields = new[] { "summary", "description", "status" },
+                fields = new[] { "summary", "description", "status", "labels" },
                 maxResults = 100
             });
 
@@ -142,8 +142,17 @@ public sealed class JiraTicketProvider : ITicketProvider
                     && stEl.TryGetProperty("name", out var stNameEl)
                         ? stNameEl.GetString() ?? ""
                         : "";
+                var labels = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("labels", out var lblEl)
+                    && lblEl.ValueKind == JsonValueKind.Array
+                        ? lblEl.EnumerateArray()
+                            .Where(e => e.ValueKind == JsonValueKind.String)
+                            .Select(e => e.GetString() ?? string.Empty)
+                            .Where(s => !string.IsNullOrEmpty(s))
+                            .ToList()
+                        : new List<string>();
 
-                tickets.Add(new Ticket(new TicketId(key), title, description, null, statusName, "Jira"));
+                tickets.Add(new Ticket(new TicketId(key), title, description, null, statusName, "Jira", labels));
             }
             return tickets;
         }

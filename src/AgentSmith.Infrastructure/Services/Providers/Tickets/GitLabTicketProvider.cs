@@ -92,7 +92,14 @@ public sealed class GitLabTicketProvider : ITicketProvider
                     ? d.GetString() ?? ""
                     : "";
                 var state = issue.TryGetProperty("state", out var s) ? s.GetString() ?? "" : "";
-                tickets.Add(new Ticket(new TicketId(iid), title, description, null, state, "GitLab"));
+                var labels = issue.TryGetProperty("labels", out var lbl) && lbl.ValueKind == JsonValueKind.Array
+                    ? lbl.EnumerateArray()
+                        .Where(e => e.ValueKind == JsonValueKind.String)
+                        .Select(e => e.GetString() ?? string.Empty)
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToList()
+                    : new List<string>();
+                tickets.Add(new Ticket(new TicketId(iid), title, description, null, state, "GitLab", labels));
             }
             return tickets;
         }

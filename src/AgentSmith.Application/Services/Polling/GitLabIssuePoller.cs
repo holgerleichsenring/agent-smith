@@ -30,9 +30,13 @@ public sealed class GitLabIssuePoller(
 
         if (tickets.Count == 0) return [];
 
-        var pipeline = projectConfig.GitlabTrigger?.DefaultPipeline ?? "fix-bug";
+        var trigger = projectConfig.GitlabTrigger;
         var requests = tickets
-            .Select(t => new ClaimRequest("GitLab", projectName, t.Id, pipeline))
+            .Select(t => new ClaimRequest(
+                "GitLab", projectName, t.Id,
+                trigger is null
+                    ? "fix-bug"
+                    : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
         logger.LogDebug("GitLab poll for {Project}: {Count} pending candidates",

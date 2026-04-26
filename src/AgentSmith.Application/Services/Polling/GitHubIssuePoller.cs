@@ -31,9 +31,13 @@ public sealed class GitHubIssuePoller(
 
         if (tickets.Count == 0) return [];
 
-        var pipeline = projectConfig.GithubTrigger?.DefaultPipeline ?? "fix-bug";
+        var trigger = projectConfig.GithubTrigger;
         var requests = tickets
-            .Select(t => new ClaimRequest("GitHub", projectName, t.Id, pipeline))
+            .Select(t => new ClaimRequest(
+                "GitHub", projectName, t.Id,
+                trigger is null
+                    ? "fix-bug"
+                    : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
         logger.LogDebug("GitHub poll for {Project}: {Count} pending candidates",

@@ -60,17 +60,17 @@ projects:
       type: Jira
       url: https://agent-smith-test.atlassian.net/
       auth: jira_token
-    jira_trigger:
-      assignee_name: "Holger Leichsenring"
-      # secret: ${JIRA_WEBHOOK_SECRET}       # optional
-      trigger_statuses: ["To Do"]  # only trigger in these statuses
-      done_status: "In Review"              # transition after PR creation
-      pipeline_from_label:                  # label → pipeline mapping
-        bug: fix-bug
-        feature: implement-feature
-        security-review: security-scan
-      default_pipeline: fix-bug             # fallback if no label matches
-      comment_keyword: "@agent-smith"       # optional: re-trigger via comment
+    # jira_trigger:
+    #   assignee_name: "Holger Leichsenring"
+    #   # secret: ${JIRA_WEBHOOK_SECRET}       # optional
+    #   trigger_statuses: ["To Do"]  # only trigger in these statuses
+    #   done_status: "In Review"              # transition after PR creation
+    #   pipeline_from_label:                  # label → pipeline mapping
+    #     bug: fix-bug
+    #     feature: implement-feature
+    #     security-review: security-scan
+    #   default_pipeline: fix-bug             # fallback if no label matches
+    #   comment_keyword: "@agent-smith"       # optional: re-trigger via comment
     # tickets:
     #   type: AzureDevOps
     #   organization: holgerleichsenring
@@ -166,6 +166,128 @@ projects:
     #         cache_read_per_million: 0.08
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
+
+  todo-list-azuredevops:
+    source:
+      type: AzureRepos
+      url: https://dev.azure.com/holgerleichsenring/todo-list/_git/todo-list
+      auth: token
+    tickets:
+      type: AzureDevOps
+      organization: holgerleichsenring
+      project: todo-list
+      auth: token
+      # AzDO work item states considered "open" for both polling and ListOpenAsync.
+      # Tickets in any other state are ignored even if they carry agent-smith:pending.
+      open_states: ["New", "Active", "Committed"]
+      done_status: "Resolved"               # state transition applied after PR creation
+    azuredevops_trigger:
+      trigger_statuses: ["New", "Active"]   # only trigger in these states
+      done_status: "Resolved"
+      # pipeline_from_label is honored by both webhook AND polling paths (p0099a).
+      # First key whose value appears as a tag on the work item wins; agent-smith:*
+      # lifecycle tags are filtered before matching.
+      pipeline_from_label:
+        bug: fix-bug
+        feature: implement-feature
+        security-review: security-scan
+      default_pipeline: fix-bug             # fallback when no pipeline_from_label key matches
+      # comment_keyword: "@agent-smith"     # webhook-only; polling does not see comments
+    polling:
+      enabled: true
+      interval_seconds: 60
+      jitter_percent: 10
+    agent:
+      type: azure-openai
+      endpoint: https://oai-rhegpt-dev.openai.azure.com
+      api_version: 2025-01-01-preview
+      retry:
+        max_retries: 5
+        initial_delay_ms: 2000
+        backoff_multiplier: 2.0
+        max_delay_ms: 60000
+      models:
+        scout:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 4096
+        primary:
+          model: gpt-4.1
+          deployment: gpt4-1-deployment
+          max_tokens: 8192
+        planning:
+          model: gpt-4.1
+          deployment: gpt4-1-deployment
+          max_tokens: 4096
+        summarization:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 2048
+        code_map_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 4096
+        context_generation:
+          model: gpt-4.1-mini
+          deployment: gpt-4o-mini-deployment
+          max_tokens: 3072
+      pricing:
+        models:
+          gpt-4.1:
+            input_per_million: 2.0
+            output_per_million: 8.0
+            cache_read_per_million: 0.50
+          gpt-4.1-mini:
+            input_per_million: 0.40
+            output_per_million: 1.60
+            cache_read_per_million: 0.10
+          gpt-4.1-nano:
+            input_per_million: 0.10
+            output_per_million: 0.40
+            cache_read_per_million: 0.025
+    # agent:
+    #   type: Claude
+    #   model: claude-sonnet-4-20250514
+    #   retry:
+    #     max_retries: 5
+    #     initial_delay_ms: 2000
+    #     backoff_multiplier: 2.0
+    #     max_delay_ms: 60000
+    #   cache:
+    #     is_enabled: true
+    #     strategy: automatic
+    #   compaction:
+    #     is_enabled: true
+    #     threshold_iterations: 8
+    #     max_context_tokens: 80000
+    #     keep_recent_iterations: 3
+    #     summary_model: claude-haiku-4-5-20251001
+    #   models:
+    #     scout:
+    #       model: claude-haiku-4-5-20251001
+    #       max_tokens: 4096
+    #     primary:
+    #       model: claude-sonnet-4-20250514
+    #       max_tokens: 8192
+    #     planning:
+    #       model: claude-sonnet-4-20250514
+    #       max_tokens: 4096
+    #     summarization:
+    #       model: claude-haiku-4-5-20251001
+    #       max_tokens: 2048
+    #   pricing:
+    #     models:
+    #       claude-sonnet-4-20250514:
+    #         input_per_million: 3.0
+    #         output_per_million: 15.0
+    #         cache_read_per_million: 0.30
+    #       claude-haiku-4-5-20251001:
+    #         input_per_million: 0.80
+    #         output_per_million: 4.0
+    #         cache_read_per_million: 0.08
+    pipeline: fix-bug
+    coding_principles_path: .agentsmith/coding-principles.md
+
 
   mad-discussion:
     source:
@@ -285,6 +407,8 @@ projects:
       type: GitHub
       url: https://github.com/holgerleichsenring/agent-smith
       auth: token
+    polling:
+      enabled: true 
     agent:
       type: azure-openai
       endpoint: https://oai-rhegpt-dev.openai.azure.com

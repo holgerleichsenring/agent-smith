@@ -31,9 +31,13 @@ public sealed class JiraIssuePoller(
 
         if (tickets.Count == 0) return [];
 
-        var pipeline = projectConfig.JiraTrigger?.DefaultPipeline ?? "fix-bug";
+        var trigger = projectConfig.JiraTrigger;
         var requests = tickets
-            .Select(t => new ClaimRequest("Jira", projectName, t.Id, pipeline))
+            .Select(t => new ClaimRequest(
+                "Jira", projectName, t.Id,
+                trigger is null
+                    ? "fix-bug"
+                    : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
         logger.LogDebug("Jira poll for {Project}: {Count} pending candidates",

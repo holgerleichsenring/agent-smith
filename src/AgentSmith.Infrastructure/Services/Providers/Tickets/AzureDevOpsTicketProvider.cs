@@ -28,7 +28,7 @@ public sealed class AzureDevOpsTicketProvider(
     private static readonly string[] DefaultOpenStates = ["New", "Active", "Committed"];
     private static readonly string[] StandardFields =
         ["System.Id", "System.Title", "System.Description",
-         "System.State", "Microsoft.VSTS.Common.AcceptanceCriteria"];
+         "System.State", "System.Tags", "Microsoft.VSTS.Common.AcceptanceCriteria"];
 
     private readonly string _doneStatus = doneStatus ?? "Closed";
 
@@ -131,13 +131,18 @@ public sealed class AzureDevOpsTicketProvider(
     private static Ticket MapToTicket(
         TicketId ticketId, IDictionary<string, object> fields)
     {
+        var tagsRaw = GetField(fields, "System.Tags");
+        string[] labels = string.IsNullOrEmpty(tagsRaw)
+            ? []
+            : tagsRaw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return new Ticket(
             ticketId,
             GetField(fields, "System.Title"),
             GetField(fields, "System.Description"),
             GetFieldOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria"),
             GetField(fields, "System.State"),
-            "AzureDevOps");
+            "AzureDevOps",
+            labels);
     }
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
