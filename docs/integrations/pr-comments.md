@@ -107,8 +107,8 @@ All acknowledgments and status updates are posted back as PR comments.
 
 | Platform | Status |
 |----------|--------|
-| GitHub | Supported (p59) |
-| GitLab | Planned (p59b) |
-| Azure DevOps | Planned (p59c) |
+| GitHub | Supported (p0059) |
+| GitLab | Planned (p0059b) |
+| Azure DevOps | Planned (p0059c) |
 
 See also: [Webhook Configuration](../configuration/webhooks.md) for the full configuration reference.

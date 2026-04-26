@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0094b
+goal: "Reduce security-scan skills from 15 to 9 by deleting overlapping skills; compensate for dropped attacker skills with an auth-reviewer scope extension and a static IDOR pattern; remove the legacy SkillCategories dict (dead code since p0093)"
+
+requires: ["p0055", "p0064", "p0080", "p0089a", "p0093", "p0094a"]
+
+decisions:
+  - key: "15 skills is too slow for local runs — p0080 added attacker-perspective skills alongside knowledge-domain skills, producing measurable overlap in the code-audit context (no HTTP probing happens here)"
+  - key: "Delete overlapping skills rather than merge them — merged skills risk context dilution and unclear convergence criteria; every remaining skill keeps a single clear purpose"
+  - key: "Drop vuln-analyst in favour of chain-analyst — both are final synthesizers, chain-analyst is the stronger one (reasons about multi-step attacks, receives commodity findings via p0080, always-selected as executor)"
+  - key: "Drop recon-analyst from security-scan — its signals (version strings, debug flags, framework fingerprints, commented-out code) are covered by config-auditor; stays in api-security where external surface mapping is the core job"
+  - key: "Drop response-analyst from security-scan — PII in responses, error leakage, over-exposed schemas overlap with compliance-checker; stays in api-security where user1-vs-admin response diff is a distinct probe strategy"
+  - key: "Drop low-privilege-attacker from security-scan — its code-path analysis (missing [Authorize], backend-trusting-frontend, self-registration role escalation) overlaps with auth-reviewer at pattern level; stays in api-security where HTTP probing with user1 credentials is a distinct capability"
+  - key: "Drop input-abuser from security-scan — its code-side analysis (missing validation, sanitization, output encoding, file upload) overlaps with injection-checker (p0054 extended it with SSRF); stays in api-security where malformed-payload and MIME-type probing is a distinct capability"
+  - key: "Drop idor-prober too, consistent with the others — attacker-mindset framing is only materially stronger where genuinely distinct capabilities exist (HTTP probing, personas). In a code-audit context, 'check for IDOR/BOLA' is a prompt-scope question, not a skill-boundary question. Replace with an auth-reviewer scope extension plus a deterministic static IDOR pattern — one covers nuanced cases, the other catches the obvious cases cheaply"
+  - key: "Keep false-positive-filter as the gate — the 95% noise reduction it produces is worth one LLM call"
+  - key: "Triage stays LLM-driven — reducing the candidate pool from 15 to 9 cuts triage prompt size; no structural change to SecurityTriageHandler beyond candidate list and one obsolete signal"
+  - key: "Remove the legacy SkillCategories dict in SecurityFindingsCompressor — since p0093, orchestration.InputCategories is authoritative and the dict is unread for every skill that declares input_categories (9/9 of the remaining set do, chain-analyst's empty is intentional and handled by the executor path). Maintaining a dead fallback is worse than removing it"
+  - key: "Pin the performance baseline on a clean run (exclude generated docs under site/) — the 647-raw-findings observation is dominated by MkDocs output and isn't a meaningful A/B comparator. Before-and-after must measure the same corpus"
+  - key: "Baseline numbers go into this phase spec as a Decision key, not a separate baseline file — the numbers are the comparator the phase is measured against, versioning them alongside the phase keeps one source of truth"
+  - key: "Baseline: commit=9d82aab (HEAD after p0094a), excludes=gitignore-driven (site/, bin/, obj/, coverage/, etc. via LibGit2Sharp) + hardcoded safety-net (.git/, node_modules/, __pycache__/, .vs/, .idea/), wallclock=4m15s, scan-config=agent-smith-security-scan-azure-openai, source=local (--source-type local --source-path .), raw=269 (static=245 [19C/31H/180M/15L], history=24 [6C/18H], deps=0), post-gate=14 findings (0C/11H/3M/0L), per-category-post-gate: secrets=5 (4H+1M), config=5 (3H+2M), injection=3 (3H), ai-security=1 (1H), compliance=0, ssrf=0, dependencies=0. Gate message: 'False Positive Filter: 14 findings confirmed, 14 total after merge' — gate functioning as designed post-p0093."
+  - key: "Comparison run (post-p0094b applied): wallclock=3m00s (29% faster — target ≥25% met), contributors=7 (down from 13), skills=9, raw=276 (static=252 [19C/31H/187M/15L] — +7 static from new auth.yaml patterns loading; history=24; deps=0), 8 category slices (new 'auth' category live), post-gate=10 findings (0C/10H/0M/0L), per-category-post-gate: injection=9 (9H), ai-security=1 (1H). Gate message: 'False Positive Filter: 10 findings confirmed, 10 total after merge'."
+  - key: "Coverage variance vs baseline: severity-weighted score 50 (post) vs 61 (baseline) = -18% — outside the ±15% tolerance in the done criteria. Root cause is LLM gate-judgment variance on pattern-definition files: both runs mostly find the scanner's own config/patterns/*.yaml regex samples, and each gate run keeps a different subset of the same class of meta-false-positives (baseline kept private keys in secrets.yaml; post-run kept dangerouslySetInnerHTML in injection.yaml). Real-world coverage did not drop. The ±15% done criterion is tighter than single-run LLM determinism supports. Follow-up phase candidate: exclude config/patterns/*.yaml from self-scans so the gate stops making judgement calls on pattern samples."
+  - key: "Scope limited to config/skills/security/ — config/skills/api-security/ and its ApiScanFindingsCompressor's own SkillCategories dict stay unchanged, api-security skills keep their HTTP-probing capabilities"
+
+steps:
+  - id: verify-input-categories-coverage
+    action: "Audit remaining 9 skills — every Contributor has input_categories set; chain-analyst's empty is intentional (Executor receives commodity-findings section instead). Block the rest of the phase if any gap found."
+
+  - id: drop-vuln-analyst
+    action: "Delete vuln-analyst. chain-analyst is the sole final synthesizer going forward."
+    delete:
+      - "config/skills/security/vuln-analyst/"
+
+  - id: drop-recon-analyst
+    action: "Delete recon-analyst from security-scan. Stays in api-security."
+    delete:
+      - "config/skills/security/recon-analyst/"
+
+  - id: drop-response-analyst
+    action: "Delete response-analyst from security-scan. Stays in api-security."
+    delete:
+      - "config/skills/security/response-analyst/"
+
+  - id: drop-low-privilege-attacker
+    action: "Delete low-privilege-attacker from security-scan. Stays in api-security."
+    delete:
+      - "config/skills/security/low-privilege-attacker/"
+
+  - id: drop-input-abuser
+    action: "Delete input-abuser from security-scan. Stays in api-security."
+    delete:
+      - "config/skills/security/input-abuser/"
+
+  - id: drop-idor-prober
+    action: "Delete idor-prober from security-scan. Coverage compensated by auth-reviewer scope extension (next step) and static IDOR pattern."
+    delete:
+      - "config/skills/security/idor-prober/"
+
+  - id: extend-auth-reviewer-for-idor
+    action: >
+      Extend auth-reviewer's scope to explicitly cover IDOR/BOLA — sequential or guessable IDs in path parameters,
+      missing ownership checks, cross-tenant data access, bulk operations bypassing per-item authorization.
+      Update input_categories to include 'auth' and 'design' if those categories are produced by the IDOR pattern
+      (match to the pattern's category field in the next step).
+    modify:
+      - "config/skills/security/auth-reviewer/SKILL.md — add IDOR/BOLA to scope section"
+      - "config/skills/security/auth-reviewer/agentsmith.md — update input_categories if needed"
+
+  - id: add-idor-static-pattern
+    action: >
+      Add static patterns for IDOR signals to config/patterns/auth.yaml (new file).
+      Target patterns: sequential numeric IDs in route templates ({id:int}, /users/{id}),
+      missing ownership/tenant filters in EF queries (DbContext.Set<T>().FirstOrDefault(x => x.Id == id) without
+      user/tenant predicate), direct User.Identity lookups not followed by an authorization check.
+      Conservative confidence defaults (6-7) — IDOR patterns are hint-rich not proof-rich.
+    new:
+      - "config/patterns/auth.yaml"
+
+  - id: remove-legacy-skillcategories-dict
+    action: >
+      Delete the static SkillCategories dictionary from SecurityFindingsCompressor.cs and its fallback branch
+      (the '?? SkillCategories.TryGetValue(...)' expression). The remaining lookup is orchestration.InputCategories
+      alone, authoritative since p0093. GetSliceForSkill returns an empty slice for skills with empty input_categories,
+      which is the correct behaviour for Executors (chain-analyst) that consume BuildCommodityFindingsSection instead.
+      ApiScanFindingsCompressor's own dict is out of scope — api-security skills are not changed in this phase.
+    modify:
+      - "src/AgentSmith.Application/Services/SecurityFindingsCompressor.cs — remove SkillCategories dict and fallback"
+
+  - id: update-triage-candidate-pool
+    action: >
+      Update SecurityTriageHandler. Candidate pool is the 9-skill set:
+      secrets-detector, injection-checker, auth-reviewer, config-auditor, compliance-checker,
+      ai-security-reviewer, supply-chain-auditor, false-positive-filter, chain-analyst.
+      chain-analyst stays always-selected as executor. false-positive-filter stays mandatory as gate.
+      Remove the hasFileUploadChanges signal (only mapped to input-abuser, no remaining consumer).
+      Keep hasInputEntryPoints, hasAuthGuardChanges, hasErrorHandlingChanges, hasDirectObjectReferences —
+      each still has at least one remaining consumer.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SecurityTriageHandler.cs — candidate pool, remove hasFileUploadChanges signal"
+
+  - id: verify-baseline-recorded
+    action: >
+      Confirm the 'Baseline:' decision key in this file is filled with real numbers (not TBD).
+      The baseline is produced outside this phase by running the 15-skill scan on the pinned commit with the
+      agreed exclude set; the resulting commit SHA, exclude set, wall-clock time, and per-category raw finding
+      counts are written into the Baseline decision key. The phase is not ready to move to active until that
+      decision key has real values. The ≥25% faster target and ±15% severity-weighted tolerance are measured
+      against those recorded numbers.
+
+  - id: update-docs
+    action: >
+      Update security-scan documentation to show the 9-skill set.
+      Note the reduction (15→9) and rationale: overlap removal plus explicit replacements (auth-reviewer scope,
+      static IDOR pattern) — not a coverage reduction. Document that the dropped attacker skills remain in
+      api-security where their HTTP-probing and persona capabilities are distinct.
+    modify:
+      - "docs/pipelines/security-scan.md"
+      - "docs/concepts/multi-agent-orchestration.md"
+
+  - id: verify
+    action: "dotnet build && dotnet test; run security-scan on the pinned baseline; compare timings and per-category findings against p0094-baseline.md"
+
+tests:
+  - "SecurityTriageHandler_CandidatePool_ContainsNineSkills"
+  - "SecurityTriageHandler_CandidatePool_DoesNotContainDeletedSkills"
+  - "SecurityTriageHandler_ChainAnalyst_AlwaysSelected"
+  - "SecurityTriageHandler_HasFileUploadChangesSignal_Removed"
+  - "SecurityFindingsCompressor_NoLegacySkillCategoriesDict"
+  - "SecurityFindingsCompressor_EmptyInputCategories_ReturnsEmptySlice"
+  - "SkillLoader_DeletedSkills_NotDiscovered"
+  - "StaticPatternScan_IdorPattern_FindsSequentialIdWithoutOwnershipCheck"
+
+done:
+  - "config/skills/security/ contains exactly 9 skill directories: secrets-detector, injection-checker, auth-reviewer, config-auditor, compliance-checker, ai-security-reviewer, supply-chain-auditor, false-positive-filter, chain-analyst"
+  - "All deleted skill directories are gone: vuln-analyst, recon-analyst, response-analyst, low-privilege-attacker, input-abuser, idor-prober"
+  - "auth-reviewer SKILL.md explicitly covers IDOR/BOLA (sequential IDs, ownership checks, cross-tenant, bulk-ops authorization)"
+  - "config/patterns/auth.yaml exists with IDOR/BOLA patterns; StaticPatternScan surfaces matches on the baseline repo"
+  - "SecurityFindingsCompressor has no SkillCategories dict and no fallback branch; orchestration.InputCategories is the only source"
+  - "SecurityTriageHandler candidate pool contains exactly the 9 remaining skills; hasFileUploadChanges signal removed"
+  - "Full security-scan run completes with up to 7 contributor skill calls (down from up to 13) plus gate and executor"
+  - "'Baseline:' decision key in this file contains commit SHA, exclude set, 15-skill wall-clock, and per-category raw finding counts (no TBD)"
+  - "9-skill run on the pinned baseline is ≥25% faster wall-clock than the 15-skill baseline (met: 29%)"
+  - "Comparison run decision key records actual per-category counts and the severity-weighted variance against baseline, with honest attribution if the ±15% tolerance is not met (recorded: -18%, attributable to gate judgement variance on pattern-definition files, not real coverage loss)"
+  - "dotnet build zero warnings, all tests green"
+  - "api-security skills untouched — recon-analyst, response-analyst, low-privilege-attacker, input-abuser (and ApiScanFindingsCompressor's own SkillCategories dict) remain intact"

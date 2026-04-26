@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0100
+goal: "Zero-pad all phase IDs to 4 digits (p01 → p0001, p57a → p0057a, p100 → p0100). Pure repo refactor — no code, no behavior change."
+requires: []
+
+decisions:
+  - key: "Width = 4 digits. Reason: handles p9999 without ever needing another reflow. Going from 2-digit (p01) to 4-digit (p0001) costs two characters per occurrence and ends visual misalignment when the project crosses 100 phases. Choosing 3 would just defer the same disruption to p1000."
+  - key: "Suffix preserved unchanged. p57a → p0057a (not p0057-a, not p0057.a). The single lowercase letter is part of the phase ID and stays attached to the digits — same convention as before, just with padding inserted between p and the number. Schema regex (^p\\d+[a-z]?$) already accepts both forms; no schema change needed."
+  - key: "Schema examples are updated to the new form so future tooling/agents see the 4-digit convention as canonical. Description on the phase field gets a one-line note about the padding convention."
+  - key: "Run directory naming follows phase IDs only inside the embedded reference. r01-p39-legal-analysis becomes r01-p0039-legal-analysis. The r01 prefix stays 2-digit — runs are not phases, the user's request was specifically about phase IDs and references to phase IDs."
+  - key: "Documentation references rewritten in place (e.g. 'Phases are numbered sequentially (p01, p02, ..., p62)' becomes '... (p0001, p0002, ..., p0062)'). No translation table or backwards-compat alias — git history preserves the old names for archaeology and the rename is atomic across the repo."
+  - key: "Single-commit rename (or one commit for files + content, one for verification — operator's choice). The repo must never be in a state where context.yaml references p57a-... while the file on disk is p0057a-... — that breaks any tooling that reads context.yaml and tries to resolve the path."
+  - key: "Plugin repo (specification-first-agentic-development) is OUT OF SCOPE. It hosts the methodology and templates as a separate distribution; updating those examples is a separate decision and a separate phase if pursued. agent-smith is the source of truth for itself."
+
+steps:
+  - id: rename-phase-files
+    action: "Rename every .agentsmith/phases/{done,planned}/p<N><suffix>-<slug>.yaml to p<padded><suffix>-<slug>.yaml using git mv (preserves history)"
+    action_detail:
+      - "Pattern: p(\\d+)([a-z]?)-(.*).yaml → p<printf '%04d' digits><suffix>-<slug>.yaml. Two-digit prefix p01 expands to p0001; three-digit p100 expands to p0100; suffixed p57a becomes p0057a."
+      - "Use git mv for each rename so blame/log surface the move."
+
+  - id: rewrite-phase-internal-refs
+    action: "Inside each phase YAML, update phase: and requires: fields to the new ID format"
+    modify:
+      - "Every .agentsmith/phases/{done,planned}/*.yaml: phase: p<NN> → phase: p<padded>; requires: [\"pXX\", \"pYY\"] → requires: [\"p<paddedXX>\", \"p<paddedYY>\"]."
+
+  - id: rewrite-context-yaml
+    action: "Update .agentsmith/context.yaml — every key under state.done and state.planned, plus every embedded path reference and inline mention"
+    modify:
+      - "context.yaml state.done: every p<NN>: \"...\" key gets renamed to p<padded>: \"...\". Description bodies that reference earlier phases (e.g. 'Docs catch-up for p84 + p95a/b/c + p96') also get rewritten in place."
+      - "context.yaml state.planned: same treatment, including the path strings (e.g. .agentsmith/phases/planned/p23-multi-repo-update.yaml → .agentsmith/phases/planned/p0023-multi-repo-update.yaml)."
+
+  - id: rewrite-decisions-md
+    action: "Update .agentsmith/decisions.md — every '## p<NN>: Title' header"
+    modify:
+      - "decisions.md: regex ^## p(\\d+)([a-z]?): → ## p<padded><suffix>:. Body text mentioning prior phases gets the same treatment so cross-references stay resolvable."
+
+  - id: rewrite-code-map
+    action: "Update .agentsmith/code-map.yaml — every embedded phase file path"
+    modify:
+      - "code-map.yaml: every 'file: .agentsmith/phases/{any}/p<NN>-<slug>.yaml' value → padded form."
+
+  - id: rewrite-docs
+    action: "Update docs/ markdown files that reference phase IDs in prose or example blocks"
+    modify:
+      - "docs/architecture/phase-workflow.md: rename phase IDs in examples and the 'p01-p10' / 'p57a-c' style range mentions to 'p0001-p0010' / 'p0057a-c'."
+      - "docs/concepts/phases-and-runs.md: same — example state.done blocks, 'numbered sequentially' text, mermaid timeline labels."
+      - "docs/concepts/multi-agent-orchestration.md, docs/concepts/self-documentation.md, docs/integrations/pr-comments.md, docs/pipelines/security-scan.md, docs/setup/label-triggers.md, docs/setup/webhooks/{github,gitlab,azure-devops}.md, docs/configuration/webhooks.md: any inline 'pXX' phase reference padded."
+
+  - id: rename-run-dir
+    action: "Rename .agentsmith/runs/r01-p39-legal-analysis to r01-p0039-legal-analysis (only the embedded phase reference is padded; r01 prefix stays as-is)"
+    rename:
+      - ".agentsmith/runs/r01-p39-legal-analysis → .agentsmith/runs/r01-p0039-legal-analysis"
+
+  - id: schema-examples
+    action: "Update phase-spec.schema.json examples and description to 4-digit canonical form"
+    modify:
+      - ".agentsmith/phase-spec.schema.json: phase.examples [\"p01\", \"p42\", \"p57a\"] → [\"p0001\", \"p0042\", \"p0057a\"]. phase.description: append ' Padded to 4 digits with optional lowercase letter suffix.'"
+
+  - id: move-p0100-to-done
+    action: "Move this phase file itself from planned/ to done/ once the rename is verified"
+    rename:
+      - ".agentsmith/phases/planned/p0100-phase-id-zero-padding.yaml → .agentsmith/phases/done/p0100-phase-id-zero-padding.yaml"
+
+  - id: verify
+    action: "Spot-check: ls phases/{done,planned} shows uniform 4-digit prefixes; grep -E '\\bp[0-9]{1,3}([a-z])?\\b' .agentsmith/ docs/ returns nothing relevant; context.yaml self-consistent (every state.done/state.planned key matches a file on disk)"
+
+tests: []
+
+done:
+  - "All ~118 phase files (done/ + planned/) have 4-digit zero-padded names. Suffix letters preserved (p0057a, p0094b, p0095c)."
+  - "Every phase YAML's internal phase: and requires: fields match the new convention."
+  - "context.yaml: all state.done and state.planned keys padded; embedded path strings match the renamed files."
+  - "decisions.md: all phase-section headers padded; cross-references in body text padded."
+  - "code-map.yaml: all path references padded."
+  - "docs/: all inline phase references in markdown padded; range expressions (p0001-p0010, p0057a-c) read sensibly."
+  - "runs/r01-p39-legal-analysis renamed to runs/r01-p0039-legal-analysis."
+  - "phase-spec.schema.json examples updated to 4-digit form."
+  - "p0100 file itself moved from planned/ to done/."
+  - "git status clean: only renames + content edits, zero source-code changes."
+  - "grep '\\bp[0-9]{1,3}\\b' across .agentsmith/ + docs/ returns zero phase-ID matches (only false positives like port numbers if any)."

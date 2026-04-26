@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0063
+goal: "Close the gap between LLM skill discussion and finding output — skills mark false positives, ExtractFindings applies those assessments"
+decisions:
+  - Remove TopN cap in compressor: "all findings reach skills, ~3-4k extra tokens per call is acceptable"
+  - DetailThreshold stays as formatting threshold: "compact vs verbose rendering, but no findings dropped"
+  - Unreviewed findings pass through: "nothing silently dropped"
+steps:
+  - id: review-status
+    action: "Add ReviewStatus field to Finding record"
+    modify:
+      - "Finding.cs: add ReviewStatus (confirmed | false_positive | not_reviewed)"
+  - id: remove-cap
+    action: "Remove TopNPerCategory=10 cap in SecurityFindingsCompressor"
+    modify: ["SecurityFindingsCompressor.cs"]
+  - id: structured-assessments
+    action: "ConvergenceCheckHandler outputs JSON array of assessed findings alongside prose summary"
+    new:
+      - "FindingAssessment: { File, Line, Title, Status, Reason }"
+    modify:
+      - "ConvergenceCheckHandler.cs: structured consolidation prompt + parse assessments"
+      - "ContextKeys.cs: add FindingAssessments key"
+  - id: apply-assessments
+    action: "ExtractFindingsHandler matches assessments by file+line, filters false positives"
+    modify: ["ExtractFindingsHandler.cs"]
+done:
+  - "Finding record has ReviewStatus field"
+  - "All findings reach skills (no Top-10 cap)"
+  - "Convergence produces structured JSON assessments"
+  - "ExtractFindingsHandler applies assessments and filters false positives"
+  - "not_reviewed findings pass through"
+  - "dotnet build + dotnet test clean"
