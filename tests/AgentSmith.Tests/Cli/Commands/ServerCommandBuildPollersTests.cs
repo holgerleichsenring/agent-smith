@@ -3,6 +3,7 @@ using AgentSmith.Cli.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -68,6 +69,71 @@ public sealed class ServerCommandBuildPollersTests
         var pollers = Build("GitHub").ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<GitHubIssuePoller>();
+    }
+
+    /// <summary>
+    /// End-to-end smoke: real YAML on disk → real YamlConfigurationLoader → BuildPollers
+    /// → all four platforms register, in order, with no Redis/network dependency.
+    /// Backstops p0099 wiring against config-loader regressions.
+    /// </summary>
+    [Fact]
+    public void BuildPollers_LoadsYamlConfig_RegistersAllFourPlatformPollers()
+    {
+        var yaml = """
+            projects:
+              gh:
+                source: { type: GitHub, url: https://github.com/o/r }
+                tickets: { type: github, url: https://github.com/o/r, auth: token }
+                pipeline: fix-bug
+                polling: { enabled: true }
+              azdo:
+                source: { type: AzureDevOps, url: https://dev.azure.com/o/p/_git/r }
+                tickets: { type: azuredevops, organization: https://dev.azure.com/o, project: p, auth: pat }
+                pipeline: fix-bug
+                polling: { enabled: true }
+              gl:
+                source: { type: GitLab, url: https://gitlab.com/g/r }
+                tickets: { type: gitlab, project: g/r, auth: token }
+                pipeline: fix-bug
+                polling: { enabled: true }
+              jr:
+                source: { type: GitHub, url: https://github.com/o/r }
+                tickets: { type: jira, url: https://jira.example, project: PROJ, auth: token }
+                pipeline: fix-bug
+                polling: { enabled: true }
+            """;
+
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-dry-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, yaml);
+
+        try
+        {
+            var config = new YamlConfigurationLoader().LoadConfig(path);
+
+            var ticketFactory = new Mock<ITicketProviderFactory>();
+            var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();
+            transitionerFactory.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+                .Returns(new Mock<ITicketStatusTransitioner>().Object);
+
+            var services = new ServiceCollection();
+            services.AddSingleton(ticketFactory.Object);
+            services.AddSingleton(transitionerFactory.Object);
+            services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
+
+            var pollers = ServerCommand.BuildPollers(services.BuildServiceProvider(), config).ToList();
+
+            pollers.Should().HaveCount(4);
+            pollers.Select(p => p.PlatformName).Should().BeEquivalentTo(
+                new[] { "GitHub", "AzureDevOps", "GitLab", "Jira" });
+            pollers.OfType<GitHubIssuePoller>().Should().HaveCount(1);
+            pollers.OfType<AzureDevOpsWorkItemPoller>().Should().HaveCount(1);
+            pollers.OfType<GitLabIssuePoller>().Should().HaveCount(1);
+            pollers.OfType<JiraIssuePoller>().Should().HaveCount(1);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     private static IEnumerable<IEventPoller> Build(

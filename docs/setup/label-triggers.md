@@ -24,9 +24,9 @@ For the full state machine and recovery semantics, see [Ticket Lifecycle](../con
 | Platform | Trigger config key | Webhook | Polling | Lifecycle labels |
 |----------|--------------------|:-------:|:-------:|:---:|
 | **GitHub** | `github_trigger` | Yes | Yes | Yes |
-| **GitLab** | `gitlab_trigger` | Yes | Planned | Yes |
-| **Azure DevOps** | `azuredevops_trigger` | Yes | Planned | Yes |
-| **Jira** | `jira_trigger` | Yes | Planned | Yes (label-mode) |
+| **GitLab** | `gitlab_trigger` | Yes | Yes | Yes |
+| **Azure DevOps** | `azuredevops_trigger` | Yes | Yes | Yes |
+| **Jira** | `jira_trigger` | Yes | Yes (label-mode) | Yes (label-mode) |
 
 All four use the same `WebhookTriggerConfig` shape (`pipeline_from_label`, `default_pipeline`, `trigger_statuses`, `done_status`); Jira extends it with `JiraTriggerConfig` (assignee gating).
 
