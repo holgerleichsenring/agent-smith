@@ -8,7 +8,6 @@ Both ingress paths feed the same `TicketClaimService` — once a claim succeeds,
 |-------------|-----|
 | A reachable HTTPS endpoint and want minimum latency | Webhooks |
 | Network egress only (private K8s, no inbound) | Polling |
-| GitLab/AzDO/Jira and want to start today | Webhooks (polling is GitHub-only at runtime) |
 | A flaky webhook delivery history and want self-healing | Both (coexistence is safe) |
 | A cost-sensitive deployment with rare ticket activity | Webhooks (polling does API calls even when nothing happens) |
 
@@ -25,7 +24,7 @@ Both ingress paths feed the same `TicketClaimService` — once a claim succeeds,
 | **Resilience to platform delivery delays** | Subject to platform's webhook queue health | Independent — pulls from current state |
 | **Multi-replica behaviour** | Every replica receives webhooks; whoever wins SETNX claims | Single leader polls; followers run consumer + housekeeping |
 | **Authentication** | Webhook signature (HMAC for GitHub, token for GitLab, etc.) | Same auth as the ticket provider (PAT, API token) |
-| **Platform coverage today** | All four (GitHub, GitLab, AzDO, Jira) | GitHub only |
+| **Platform coverage today** | All four (GitHub, GitLab, AzDO, Jira) | All four (GitHub, GitLab, AzDO, Jira; Jira is label-mode only) |
 
 ## Common Scenarios
 
@@ -41,7 +40,7 @@ projects:
       interval_seconds: 60
 ```
 
-GitHub-only at runtime. For GitLab/AzDO/Jira projects in this scenario, polling support is the work item that unblocks them — see [polling.md](polling.md#current-platform-coverage).
+Works for all four platforms — see [polling.md](polling.md#current-platform-coverage) for per-platform listing details and required token scopes.
 
 ### "We have webhooks but want a safety net"
 

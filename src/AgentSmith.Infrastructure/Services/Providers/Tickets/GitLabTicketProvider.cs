@@ -59,6 +59,49 @@ public sealed class GitLabTicketProvider : ITicketProvider
         return new Ticket(ticketId, title, description, null, state, "GitLab");
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
+        TicketLifecycleStatus status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var label = Uri.EscapeDataString(LifecycleLabels.For(status));
+            var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?labels={label}&state=opened&per_page=100";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode) return [];
+
+            using var json = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            if (json.RootElement.ValueKind != JsonValueKind.Array) return [];
+
+            var tickets = new List<Ticket>(json.RootElement.GetArrayLength());
+            foreach (var issue in json.RootElement.EnumerateArray())
+            {
+                var iid = issue.TryGetProperty("iid", out var iidEl)
+                    ? iidEl.GetInt64().ToString()
+                    : null;
+                if (iid is null) continue;
+
+                var title = issue.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+                var description = issue.TryGetProperty("description", out var d) && d.ValueKind != JsonValueKind.Null
+                    ? d.GetString() ?? ""
+                    : "";
+                var state = issue.TryGetProperty("state", out var s) ? s.GetString() ?? "" : "";
+                tickets.Add(new Ticket(new TicketId(iid), title, description, null, state, "GitLab"));
+            }
+            return tickets;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {

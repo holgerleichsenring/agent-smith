@@ -60,7 +60,8 @@ public sealed class TicketProviderFactory(
         return new JiraTicketProvider(url, email, token, httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
             doneStatus: config.DoneStatus,
-            closeTransitionName: config.CloseTransitionName);
+            closeTransitionName: config.CloseTransitionName,
+            projectKey: config.Project);
     }
 
     private GitLabTicketProvider CreateGitLab(TicketConfig config)
