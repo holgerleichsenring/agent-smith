@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.19.0...v0.20.0) (2026-04-26)
+
+
+### Features
+
+* event pollers + leader election — GitHub poller, housekeeping-under-leader (p96) ([c0d0fb0](https://github.com/holgerleichsenring/agent-smith/commit/c0d0fb0091eb90c8854facc2bad7aef6a3e30ca9))
+* Gitignore-aware SourceFileEnumerator — LibGit2Sharp replaces hardcoded excludes (p94a) ([9d82aab](https://github.com/holgerleichsenring/agent-smith/commit/9d82aab0e7208a74bccbbf06c9b6c24627efd4a0))
+* K8s manifests restructure — Kustomize to flat numbered YAMLs (p92) ([2329cc5](https://github.com/holgerleichsenring/agent-smith/commit/2329cc50d230d6fc6d53bd7281c801754c362d57))
+* LLM output error handling — no silent catches, corrective retry, explicit input_categories (p93) ([73eb6c5](https://github.com/holgerleichsenring/agent-smith/commit/73eb6c528e8ed9b127bb9f55fbf385351eda8060))
+* multi-platform status transitioners + webhook unification (p95b) ([6649185](https://github.com/holgerleichsenring/agent-smith/commit/66491857307e5334d2b3c434d767f64f00746300))
+* PlanConsolidator cleanup — structured output, no fake Plan, fatal failures (p90) ([f439f45](https://github.com/holgerleichsenring/agent-smith/commit/f439f45afa9f8efa10c12d7e977222eec9bb37a1))
+* Security-scan skill reduction 15 → 9 — overlap removal, IDOR patterns, legacy dict removed (p94b) ([118fccc](https://github.com/holgerleichsenring/agent-smith/commit/118fccccdf5fb3d3421e3de42a2e4f82b5af2f4a))
+* ticket lifecycle recovery — heartbeat, stale detector, reconciler (p95c) ([09d3947](https://github.com/holgerleichsenring/agent-smith/commit/09d394771ffbd6ad09b0dba017aab517fead74e1))
+* ticket-claim spine for GitHub — queue, lock, transitioner, consumer (p95a) ([f51ef05](https://github.com/holgerleichsenring/agent-smith/commit/f51ef05286abb0bf1b3123fa2ea2debe440a47cf))
+
 ## [0.19.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.18.0...v0.19.0) (2026-04-17)
 
 
