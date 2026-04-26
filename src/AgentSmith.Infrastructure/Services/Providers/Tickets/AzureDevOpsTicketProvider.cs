@@ -45,18 +45,41 @@ public sealed class AzureDevOpsTicketProvider(
     public async Task<IReadOnlyList<Ticket>> ListOpenAsync(
         CancellationToken cancellationToken)
     {
+        return await ListWiqlAsync(extraWhere: null, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
+        TicketLifecycleStatus status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var label = LifecycleLabels.For(status);
+            return await ListWiqlAsync(extraWhere: $"[System.Tags] CONTAINS '{label}'", cancellationToken);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private async Task<IReadOnlyList<Ticket>> ListWiqlAsync(
+        string? extraWhere, CancellationToken cancellationToken)
+    {
         var client = CreateClient();
 
         var states = openStates is { Count: > 0 } ? openStates : DefaultOpenStates;
         var stateFilter = string.Join(", ", states.Select(s => $"'{s}'"));
+
+        var whereClause = $"[System.TeamProject] = '{project}' AND [System.State] IN ({stateFilter})";
+        if (!string.IsNullOrEmpty(extraWhere))
+            whereClause += $" AND {extraWhere}";
 
         var wiql = new Wiql
         {
             Query = $"""
                 SELECT [System.Id]
                 FROM WorkItems
-                WHERE [System.TeamProject] = '{project}'
-                  AND [System.State] IN ({stateFilter})
+                WHERE {whereClause}
                 ORDER BY [System.ChangedDate] DESC
                 """
         };

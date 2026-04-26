@@ -14,15 +14,29 @@ For the deeper comparison: [Polling vs Webhooks](polling-vs-webhooks.md).
 
 ## Current Platform Coverage
 
-!!! warning "GitHub-only at runtime"
-    Polling currently lists Pending tickets via `ITicketProvider.ListByLifecycleStatusAsync`. Only `GitHubTicketProvider` implements this method; the others fall back to an empty list. Setting `polling.enabled: true` for a GitLab/AzureDevOps/Jira project does no harm but produces no claims. Per-platform polling implementations land in a follow-up phase.
+All four platforms support polling. Listing is platform-native — each provider implements `ITicketProvider.ListByLifecycleStatusAsync(Pending)` against its own API. One listing call per project per cycle.
 
 | Platform | Listing API | Status |
 |----------|-------------|--------|
 | GitHub | `GET /repos/{owner}/{repo}/issues?labels=agent-smith:pending&state=all` | Supported |
-| GitLab | `GET /projects/{id}/issues?labels=...` | Planned |
-| Azure DevOps | WIQL by `System.Tags` | Planned |
-| Jira | JQL by labels | Planned |
+| GitLab | `GET /projects/{id}/issues?labels=agent-smith:pending&state=opened` | Supported |
+| Azure DevOps | WIQL `[System.Tags] CONTAINS 'agent-smith:pending' AND [System.State] IN (...openStates...)` | Supported |
+| Jira | JQL `project = "{key}" AND labels = "agent-smith:pending"` (POST /rest/api/3/search) | Supported (label-mode) |
+
+### Required token scopes
+
+| Platform | Scope / permission |
+|----------|---------------------|
+| GitHub | Token with `repo` (read access to issues + write access to labels) |
+| GitLab | Personal access token with `api` scope |
+| Azure DevOps | PAT with **Work Items: Read & Write** |
+| Jira | API token + email; user must have **Browse Projects** + **Edit Issues** on the project |
+
+### Platform-specific notes
+
+- **Azure DevOps**: WIQL also filters by the project's configured `open_states` (default `New`/`Active`/`Committed`). A Pending-tagged work item already in `Closed` is not picked up.
+- **Jira**: Label-mode only in the current implementation. If `tickets.project` is set in `agentsmith.yml`, the JQL is scoped to that project key; otherwise the search is instance-wide and matches any issue with the lifecycle label. Native-status-mode polling (probing `JiraWorkflowCatalog` for transitions) is deferred.
+- **GitLab**: Listing returns at most 100 issues per cycle (per-page max). Backlog drains naturally over multiple cycles.
 
 ## Minimal Configuration
 
@@ -147,7 +161,13 @@ Check: is a pod with `IRedisJobQueue` consumer running? `agent-smith server` sta
 
 Symptom: `polling.enabled: true`, ticket has the trigger label, but nothing happens.
 
-Check the platform: this is the GitHub-only limitation. For GitLab/AzureDevOps/Jira projects, polling is configured but does nothing until per-platform listing implementations land. Use webhooks for those platforms today.
+Checks (in order):
+
+- The trigger label is exactly `agent-smith:pending` (not `agent-smith` alone).
+- The token has the listing scope from the table above.
+- For Jira, `tickets.project` is set if you have multiple projects on the same instance — otherwise the JQL search may match issues you didn't expect.
+- For Azure DevOps, the work item is in one of `tickets.open_states` (default `New`/`Active`/`Committed`).
+- Check the leader log: `agentsmith:leader:poller` is held by exactly one pod, and it logs poll cycles.
 
 ## Related
 
