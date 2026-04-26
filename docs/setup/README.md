@@ -38,7 +38,9 @@ Detailed comparison: [Polling vs Webhooks](polling-vs-webhooks.md).
 | Platform | Guide | Status |
 |----------|-------|--------|
 | GitHub | [Polling Setup](polling.md) | Supported |
-| GitLab / Azure DevOps / Jira | [Polling Setup](polling.md) (config accepted, runtime stub) | Pending platform `ListByLifecycleStatus` impl |
+| GitLab | [Polling Setup](polling.md) | Supported |
+| Azure DevOps | [Polling Setup](polling.md) | Supported |
+| Jira | [Polling Setup](polling.md) | Supported (label-mode) |
 
 ## Label & Tag Triggers
 
