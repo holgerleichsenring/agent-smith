@@ -178,6 +178,7 @@ state:
     p0023: "Multi-repo support → .agentsmith/phases/planned/p0023-multi-repo-update.yaml"
     p0025: "PR review iteration → .agentsmith/phases/planned/p0025-pr-review.yaml"
     p0097: "Parallel skill rounds: PipelineExecutor batches same-stage skills, SemaphoreSlim-throttled fan-out, per-skill buffers merged at stage boundary → .agentsmith/phases/planned/p0097-parallel-skill-rounds.yaml"
+    p0099a: "Polling honors pipeline_from_label like webhooks — Ticket gets Labels property, providers populate from platform-native tags, shared PipelineResolver helper, all 4 pollers route per-ticket → .agentsmith/phases/planned/p0099a-polling-pipeline-from-label.yaml"
     # --- deferred (refactoring, no new features) ---
     p0040b: "Git provider extraction (refactoring) → .agentsmith/phases/planned/p0040b-git-provider-extraction.yaml"
     p0040c: "AI provider extraction (refactoring) → .agentsmith/phases/planned/p0040c-ai-provider-extraction.yaml"
