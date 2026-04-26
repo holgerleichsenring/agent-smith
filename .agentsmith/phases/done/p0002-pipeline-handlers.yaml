@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0002
+goal: "Wire up pipeline — CommandExecutor + 9 command contexts/handlers as stubs"
+requires: ["p0001"]
+decisions:
+  - key: "Stubs write dummy data to PipelineContext — pipeline runs through end-to-end"
+  - key: "LoadCodingPrinciplesHandler and ApprovalHandler can be fully implemented already"
+  - key: "Primary constructors (.NET 8) for all handlers"
+steps:
+  - id: executor
+    action: "Implement CommandExecutor — resolves ICommandHandler<T> via DI"
+    new:
+      - "CommandExecutor: ICommandExecutor impl, GetService<ICommandHandler<T>>, catches exceptions"
+  - id: contexts
+    action: "Define 9 sealed record contexts implementing ICommandContext"
+    new:
+      - "FetchTicketContext: { TicketId, Config:TicketConfig, Pipeline }"
+      - "CheckoutSourceContext: { Config:SourceConfig, Branch:BranchName, Pipeline }"
+      - "LoadCodingPrinciplesContext: { FilePath:string, Pipeline }"
+      - "AnalyzeCodeContext: { Repository, Pipeline }"
+      - "GeneratePlanContext: { Ticket, CodeAnalysis, CodingPrinciples, AgentConfig, Pipeline }"
+      - "ApprovalContext: { Plan, Pipeline }"
+      - "AgenticExecuteContext: { Plan, Repository, CodingPrinciples, AgentConfig, Pipeline }"
+      - "TestContext: { Repository, Changes:IReadOnlyList<CodeChange>, Pipeline }"
+      - "CommitAndPRContext: { Repository, Changes, Ticket, SourceConfig, Pipeline }"
+  - id: handlers
+    action: "Implement 9 stub handlers with DI constructors, logging, guard clauses"
+    new:
+      - "FetchTicketHandler: ITicketProviderFactory"
+      - "CheckoutSourceHandler: ISourceProviderFactory"
+      - "LoadCodingPrinciplesHandler: ILogger only"
+      - "AnalyzeCodeHandler: ILogger only"
+      - "GeneratePlanHandler: IAgentProviderFactory"
+      - "ApprovalHandler: ILogger only"
+      - "AgenticExecuteHandler: IAgentProviderFactory"
+      - "TestHandler: ILogger only"
+      - "CommitAndPRHandler: ISourceProviderFactory"
+  - id: di-registration
+    action: "Create ServiceCollectionExtensions.AddAgentSmithCommands()"
+    new:
+      - "ServiceCollectionExtensions: registers CommandExecutor + all 9 handlers"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "CommandExecutor resolves handler and calls ExecuteAsync"
+  - "CommandExecutor returns Fail when no handler registered"
+  - "At least 1 handler stub test (logging, guard clauses)"
+done:
+  - "CommandExecutor resolves handlers via DI"
+  - "All 9 contexts and handlers defined"
+  - "DI registration present"
+  - "dotnet build + dotnet test pass"

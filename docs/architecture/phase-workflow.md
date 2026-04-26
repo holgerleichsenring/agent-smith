@@ -4,7 +4,7 @@ Agent Smith evolves through a structured phase process. Each phase is a bounded 
 
 ## What Is a Phase?
 
-A phase is a Markdown document in `.agentsmith/phases/` that describes a feature, refactor, or capability addition. Phases are numbered sequentially (`p01`, `p02`, ..., `p62`).
+A phase is a Markdown document in `.agentsmith/phases/` that describes a feature, refactor, or capability addition. Phases are numbered sequentially (`p0001`, `p0002`, ..., `p0062`).
 
 ```
 .agentsmith/phases/
@@ -59,29 +59,29 @@ The `state` section in `context.yaml` tracks all phases:
 ```yaml
 state:
   done:
-    p01: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
-    p02: "Retry and resilience: Polly policies, test retry loop"
-    p52: "Single executable release: binaries for 5 platforms"
+    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
+    p0002: "Retry and resilience: Polly policies, test retry loop"
+    p0052: "Single executable release: binaries for 5 platforms"
   active: {}
   planned:
-    p23: "Multi-repo support"
+    p0023: "Multi-repo support"
 ```
 
 ## Implemented Phases
 
 Agent Smith has completed over 60 phases covering:
 
-- **Core pipeline** (p01-p10) -- ticket fetch, checkout, plan, execute, test, commit, PR
-- **Resilience** (p02, p08) -- retry policies, error handling
-- **Multi-provider** (p11, p40a-d) -- Claude, OpenAI, Gemini, Ollama support
-- **Security stack** (p54-p56, p60) -- static scan, git history, dependency audit, ZAP, auto-fix, trend
-- **API security** (p44-p48) -- Nuclei, Spectral, API specialist panel
-- **Chat gateway** (p14-p18) -- Slack integration, Redis pub/sub, job spawning
-- **Multi-skill** (p34-p36) -- role-based triage, skill rounds, convergence
-- **Skill standard** (p57a-c) -- SKILL.md format, skill manager, autonomous pipeline
-- **Interactive dialogue** (p58) -- structured Q&A across all channels
-- **PR comments** (p59) -- webhook-based commands and dialogue
-- **Knowledge base** (p61) -- wiki compilation, querying, linting
+- **Core pipeline** (p0001-p0010) -- ticket fetch, checkout, plan, execute, test, commit, PR
+- **Resilience** (p0002, p0008) -- retry policies, error handling
+- **Multi-provider** (p0011, p0040a-d) -- Claude, OpenAI, Gemini, Ollama support
+- **Security stack** (p0054-p0056, p0060) -- static scan, git history, dependency audit, ZAP, auto-fix, trend
+- **API security** (p0044-p0048) -- Nuclei, Spectral, API specialist panel
+- **Chat gateway** (p0014-p0018) -- Slack integration, Redis pub/sub, job spawning
+- **Multi-skill** (p0034-p0036) -- role-based triage, skill rounds, convergence
+- **Skill standard** (p0057a-c) -- SKILL.md format, skill manager, autonomous pipeline
+- **Interactive dialogue** (p0058) -- structured Q&A across all channels
+- **PR comments** (p0059) -- webhook-based commands and dialogue
+- **Knowledge base** (p0061) -- wiki compilation, querying, linting
 
 ## Creating a New Phase
 

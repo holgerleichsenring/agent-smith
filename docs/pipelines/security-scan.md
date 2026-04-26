@@ -71,7 +71,7 @@ The `CompressSecurityFindings` step groups raw findings by category and creates 
 
 Each skill is defined as a YAML skill file in `config/skills/security/`. The triage step selects skills based on the codebase's language, framework, and dependencies. The `false-positive-filter` is always included, and `chain-analyst` is the final executor.
 
-p94b reduced the set from 15 to 9 by removing overlapping attacker-perspective skills whose signals, in a code-audit context, duplicated the knowledge-domain skills. The attacker skills remain in `api-security` where HTTP probing and persona-based testing are distinct capabilities.
+p0094b reduced the set from 15 to 9 by removing overlapping attacker-perspective skills whose signals, in a code-audit context, duplicated the knowledge-domain skills. The attacker skills remain in `api-security` where HTTP probing and persona-based testing are distinct capabilities.
 
 | Skill | Emoji | Focus Area |
 |-------|-------|------------|

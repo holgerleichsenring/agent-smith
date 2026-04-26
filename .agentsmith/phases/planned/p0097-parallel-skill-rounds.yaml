@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0097
+goal: "Parallelize same-stage skill rounds (Round number) in PipelineExecutor — fan-out stage contributors, barrier between stages. Cuts security-scan Stage-1 wall time from ~13× LLM-call to ~(13 / max_parallelism)× LLM-call."
+requires: []
+
+decisions:
+  - key: "Stage-boundary barrier, not global reordering. PipelineExecutor groups the longest run of consecutive commands sharing (Name, Round) into a batch and fan-outs that batch with Task.WhenAll. Next batch starts only after all tasks of the current batch settle. Commands without a Round (or with different Names) flush the batch and run sequentially as today."
+  - key: "Opt-in via config, default off. ParallelismConfig.MaxConcurrentSkillRounds (int, default 1 = current behavior). Keeps backward compatibility and gives operators one knob to tune against Anthropic rate limits."
+  - key: "SemaphoreSlim inside the batch runner throttles to MaxConcurrentSkillRounds — even if a stage has 13 skills and the knob is 4, only 4 LLM calls are in flight at once."
+  - key: "Per-skill write buffers, stage-boundary merge. SkillRoundHandlerBase writes to a thread-local ObservationBuffer / DiscussionBuffer / SkillOutputBuffer instead of directly mutating PipelineContext lists. On batch completion, the executor merges all buffers into the shared context in deterministic order (skill-graph-insertion order). Avoids List<T>/Dictionary concurrency issues without a reader-writer lock spaghetti."
+  - key: "Observation IDs assigned at merge time, not inside the handler. Current code does startId = observations.Max(o => o.Id) + 1 inside each round — a race. Move ID assignment into the merge step so IDs are sequential and deterministic within a single run, regardless of task completion order. Cross-run ID stability is NOT a new guarantee — it already depends on how many observations each skill emits, and LLM output varies (same caveat as the sequential path today). The claim here is merge consistency inside one run, not reproducibility across runs."
+  - key: "PipelineCostTracker.Track gets an internal lock. Hot path already thread-safe on Anthropic SDK usage objects; just need to serialize the aggregator update."
+  - key: "Fail-fast within a batch. If one skill fails, the CancellationToken for the others is triggered and the executor reports the first failure (same error semantics as today). Partial observations from cancelled skills are discarded."
+  - key: "Fail-fast cancels downstream orchestration but does NOT abort in-flight LLM calls. The Anthropic SDK + Polly retry layer may complete HTTP responses and even fire a retry before the CancellationToken propagates. Operators should expect worst-case batch cost (close to all N skills) even when the batch fails early. PipelineCostTracker.Track still runs inside each cancelled task before the cancellation throws — costs are always recorded, never skipped on cancellation, so the cost report stays trustworthy."
+  - key: "No changes to SkillGraphBuilder, SecurityTriageCommand, or skill definitions. The topology already emits correct Round numbers; executor is the only component that changes behavior."
+  - key: "OBJECTION / blocking-observation follow-ups in DiscussionRound: precise semantics. If any skill in a completed batch returned CommandResult.InsertNext (e.g. OBJECTION or blocking observation), the executor (1) finishes the current batch first — all in-flight tasks settle naturally, no early-abort, (2) merges all successful buffers in skill-graph order, (3) applies InsertNext from the deterministically-first skill in skill-graph order that set it (if multiple skills set InsertNext, only the first wins — a conservative choice; alternatives like concatenation or voting were rejected as too clever), (4) runs the inserted commands sequentially since they logically react to the just-completed round's output, (5) after drainage, the next (Name, Round) run parallelizes normally. Parallelism is NOT permanently disabled; it's just bypassed for the inserted commands. Discussion pipelines (mad, fix-bug triage) mostly have 1 skill per round anyway, so the fast path stays intact."
+  - key: "Streaming-merge explicitly rejected. We could theoretically start merging (and maybe starting the next batch) as soon as the first skill finishes, but that breaks merge-order determinism and observation-ID stability within a run. Deterministic in-run behavior is worth more than shaving a few hundred ms — the LLM call dominates wall time anyway. If someone later proposes streaming merge as a perf win, the answer is no: the IDs-within-a-run contract is load-bearing for test snapshots and for human review of observation reports."
+  - key: "Rate-limit retry is per-skill (Polly already wraps LlmClient). No batch-level retry — if all 4 concurrent calls hit a 429, each retries independently with jitter."
+  - key: "MaxCommandExecutions = 100 guard is unchanged but consumes faster. A 13-skill batch eats 13 of 100 in one parallel burst. With MaxConcurrentSkillRounds ≥ 2 and nested OBJECTIONs, operators can hit 100 sooner than before. Acceptable for now; revisit the guard if security-scan pipelines with objections start tripping it."
+
+steps:
+  - id: config-schema
+    action: "Add ParallelismConfig to agent config"
+    new:
+      - "Contracts/Models/Configuration/ParallelismConfig.cs: record ParallelismConfig(int MaxConcurrentSkillRounds = 1). Bind from parallelism: section under agent:."
+    modify:
+      - "Contracts/Models/Configuration/AgentConfig.cs: add Parallelism property (default instance)."
+      - "config/agentsmith.example.yml: document the knob with commented example (max_concurrent_skill_rounds: 4)."
+      - "docs/configuration.md: add Parallelism section — what it does, when to raise it, interaction with Anthropic rate limits."
+
+  - id: buffer-types
+    action: "Thread-local write buffers for skill round output"
+    new:
+      - "Application/Services/SkillRoundBuffer.cs: record (string SkillName, int Round, IReadOnlyList<SkillObservation> Observations, DiscussionEntry? DiscussionEntry, string? StructuredOutput). Immutable — built inside the handler, consumed at merge time."
+    action_detail:
+      - "Buffer carries everything the handler would have written to PipelineContext. Nothing mutates the shared context during a parallel batch."
+
+  - id: handler-refactor
+    action: "Rewire SkillRoundHandlerBase to return a buffer instead of mutating context"
+    modify:
+      - "Application/Services/Handlers/SkillRoundHandlerBase.cs: split ExecuteDiscussionRoundAsync / ExecuteStructuredRoundAsync so they produce a SkillRoundBuffer (plus CommandResult). A new protected overload ApplyBufferToContext(PipelineContext, SkillRoundBuffer, int observationStartId) performs the merge under the caller's ordering guarantee."
+    action_detail:
+      - "Internal call path: handler → build buffer (no context writes) → return (result, buffer). The executor is responsible for invoking ApplyBufferToContext in deterministic order."
+      - "Sequential path (MaxConcurrentSkillRounds = 1) merges immediately and behaves exactly like today — diff should be invisible at the context level."
+
+  - id: executor-batching
+    action: "Batch consecutive same-stage commands in PipelineExecutor and fan-out"
+    modify:
+      - "Application/Services/PipelineExecutor.cs: replace the single-node `while (current is not null)` loop with a batch-aware loop that (a) peels the longest run of consecutive commands where Name ∈ {SkillRound, SecuritySkillRound, ApiSecuritySkillRound} AND Round is equal AND the parallelism knob > 1, (b) runs that batch via a new private ExecuteBatchAsync, (c) falls back to the existing per-command path for non-batchable commands."
+      - "Application/Services/PipelineExecutor.cs: ExecuteBatchAsync dispatches each command through a SemaphoreSlim(MaxConcurrentSkillRounds), awaits Task.WhenAll, merges buffers in skill-graph order on success, propagates the first failure (cancelling remaining tasks) on failure. CommandResult.InsertNext is honored in both outcomes: on full success, apply InsertNext from the first skill in skill-graph order that returned one (OBJECTION / blocking-observation follow-ups must NOT be dropped); on failure, apply InsertNext from the deterministically-first failing command (same semantics as today's sequential path)."
+    action_detail:
+      - "Progress reporting: TO VERIFY during implementation — per-command ReportProgressAsync works for sequential but may flood Slack/CLI with 13 near-simultaneous messages in unsorted completion order. Prefer batch-aware events (ReportBatchStartAsync(total), ReportBatchProgressAsync(completed, total), ReportBatchCompleteAsync) if UX testing shows spam. Decide during step tests-executor with a human-readable output check."
+      - "Logging: existing [{Step}/{Total}] format stays; Step is per-command, Total updates when InsertNext fires."
+      - "Execution count guard (MaxCommandExecutions = 100) counts each command in the batch once, same as today — a 13-skill batch uses 13 of the budget in one go (documented in decisions)."
+
+  - id: cost-tracker-thread-safety
+    action: "Make PipelineCostTracker.Track concurrent-safe"
+    modify:
+      - "Application/Services/PipelineCostTracker.cs: wrap Track with lock (_gate). Read paths (Snapshot / GetTotals) take the same lock."
+    action_detail:
+      - "Alternative Interlocked.Add per counter was considered and rejected — too many fields, lock is clearer and the contention window is negligible vs. the LLM call."
+
+  - id: observation-id-assignment
+    action: "Assign SkillObservation IDs during merge, not during parse"
+    modify:
+      - "Application/Services/Handlers/SkillRoundHandlerBase.cs: ObservationParser.Parse called with startId = 0 (placeholder). Real ID assignment happens in ApplyBufferToContext under the executor's merge ordering."
+      - "Application/Services/Handlers/ObservationParser.cs: accept a NoId overload that leaves Id = 0; existing overload retained for callers that need it."
+    action_detail:
+      - "Merge order = skill-graph order (the order SecurityTriageCommand inserted the skills). Deterministic within a single run, regardless of which task finished first → observation IDs are sequential and stable for the lifetime of the pipeline run. Cross-run stability is NOT claimed: if Skill A emits 7 observations one run and 5 the next, Skill B's IDs shift accordingly — same behavior as the sequential path today."
+
+  - id: cancellation-plumbing
+    action: "Linked CancellationToken per batch"
+    modify:
+      - "Application/Services/PipelineExecutor.cs: ExecuteBatchAsync creates a linked CTS; on first failure, cancel. Callers already propagate OperationCanceledException."
+    action_detail:
+      - "Cancelled tasks have their buffers discarded, not merged. Their cost (tokens already consumed) still counts — Track runs inside each task before the cancellation throws."
+      - "CancellationToken only cancels orchestration, not the in-flight HTTP/LLM call. Anthropic responses run to completion and Polly may even retry before cancellation propagates. This is intentional (see fail-fast/cost decision) — don't try to abort HttpClient requests mid-flight."
+
+  - id: tests-executor
+    action: "Cover the batching + barrier + fail-fast behavior"
+    new:
+      - "tests/Application/Services/PipelineExecutorParallelTests.cs"
+    action_detail:
+      - "Tests use a fake ILlmClient that delays configurable ms per call and records the in-flight peak."
+
+  - id: tests-thread-safety
+    action: "Cover buffer merge + cost tracker + ID assignment"
+    new:
+      - "tests/Application/Services/SkillRoundBufferMergeTests.cs"
+      - "tests/Application/Services/PipelineCostTrackerConcurrencyTests.cs"
+
+  - id: smoke-security-scan
+    action: "Run security-scan dry-run + live on agent-smith-security with MaxConcurrentSkillRounds=4; compare wall time and observation IDs against sequential baseline"
+    action_detail:
+      - "Record numbers in reports/p0097-parallel-bench.md: sequential elapsed vs. parallel elapsed vs. observation-count identity check."
+
+  - id: verify
+    action: "dotnet build && dotnet test — all existing tests green; parallelism defaults off so no behavior change for projects that don't opt in"
+
+tests:
+  - "PipelineExecutor_BatchOfSameRoundSkills_RunsInParallel"
+  - "PipelineExecutor_BatchHonorsMaxConcurrency_SemaphoreLimitsInFlight"
+  - "PipelineExecutor_BatchBoundary_NextStageWaitsForAllPredecessors"
+  - "PipelineExecutor_DifferentRoundNumbers_DoNotBatch"
+  - "PipelineExecutor_DifferentCommandNames_DoNotBatch"
+  - "PipelineExecutor_OneSkillFails_OtherSkillsInBatchCancelled"
+  - "PipelineExecutor_OneSkillFails_PipelineReportsFirstFailure"
+  - "PipelineExecutor_MaxConcurrencyOne_BehavesSequentiallyLikeBefore"
+  - "PipelineExecutor_BatchAllSucceed_FirstInsertNextInSkillGraphOrder_IsApplied"
+  - "PipelineExecutor_BatchAllSucceed_MultipleInsertNext_OnlyFirstInSkillGraphOrderWins"
+  - "PipelineExecutor_BatchWithInsertNext_FinishesBatchFirst_ThenExecutesInsertedSequentially"
+  - "PipelineExecutor_AfterInsertedCommandsDrain_NextBatchParallelizesAgain"
+  - "PipelineExecutor_BatchFailure_InsertNextFromFirstFailingCommand_IsApplied"
+  - "SkillRoundBuffer_Merge_DeterministicOrderMatchesInsertOrder"
+  - "SkillRoundBuffer_Merge_ObservationIdsSequentialFromStartId"
+  - "SkillRoundBuffer_Merge_DiscussionLogAppendsInSkillGraphOrder"
+  - "PipelineCostTracker_ConcurrentTrackCalls_NoLostUpdates"
+  - "PipelineCostTracker_CancelledTaskStillTracksConsumedTokens (the discard path that hurts in prod)"
+  - "ObservationParser_NoIdOverload_ReturnsIdZero"
+  - "SkillRoundHandler_WithParallelismEnabled_DoesNotMutateSharedContext (via fake context that panics on concurrent write)"
+
+done:
+  - "ParallelismConfig with MaxConcurrentSkillRounds knob bound from agent.parallelism.max_concurrent_skill_rounds."
+  - "Default = 1 → byte-identical behavior to pre-p0097 (verified by observation-ID and DiscussionLog snapshot tests)."
+  - "Security-scan Stage 1 (13 contributors) runs in parallel when the knob ≥ 2; wall time drops measurably (benchmark recorded in reports/p0097-parallel-bench.md)."
+  - "Stage barriers enforced: false-positive-filter never starts before the last Stage-1 contributor settles; chain-analyst never starts before false-positive-filter settles."
+  - "Fail-fast: one skill failure cancels the rest of the batch's orchestration, PipelineExecutor reports the first failure with correct step/total numbers. In-flight LLM calls are NOT aborted (documented limitation)."
+  - "PipelineCostTracker survives concurrent Track calls with no lost updates (repro test under ThreadPool load). Cancelled-task costs are still tracked (test covers the discard path)."
+  - "Observation IDs are sequential and deterministic within a single run, regardless of task completion order. Cross-run ID stability is not claimed (unchanged from sequential path)."
+  - "OBJECTION / InsertNext semantics: current batch finishes, first-in-skill-graph-order InsertNext is applied, inserted commands run sequentially, next batch parallelizes again. Covered by FinishesBatchFirst_ThenExecutesInsertedSequentially + AfterInsertedCommandsDrain_NextBatchParallelizesAgain tests."
+  - "No changes to SkillGraphBuilder, SecurityTriageCommand, skill YAMLs, or any skill prompt."
+  - "config/agentsmith.example.yml documents the knob; docs/configuration.md explains when to raise it."
+  - "dotnet build zero warnings, all tests green."

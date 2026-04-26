@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0037
+goal: "Type-driven pipeline via strategy interfaces — same engine for coding, discussion, data pipelines"
+decisions:
+  - tell-dont-ask: "No if(type==coding) anywhere; pipeline type resolves correct strategies via DI"
+  - small-classes: "Nothing over 120 lines; PipelineExecutor 212->120, CommandContextFactory 223->120, BootstrapProjectHandler 317->split"
+  - keyed-services: ".NET 8 keyed services or strategy factory for type resolution"
+  - old-names-accepted: "Both old and new command names accepted during transition"
+steps:
+  - id: strategy-interfaces
+    action: "Define ISourceProvider, IContextBootstrapper, IExecutionStrategy, ITestStrategy, IOutputStrategy"
+    new: ["ISourceProvider", "IContextBootstrapper", "IExecutionStrategy", "ITestStrategy", "IOutputStrategy"]
+  - id: refactor-handlers
+    action: "Extract existing handlers into strategy implementations"
+    modify: ["CheckoutSourceHandler -> GitSourceProvider", "BootstrapProjectHandler -> CodingBootstrapper + helpers", "TestHandler -> CodingTestStrategy", "CommitAndPRHandler -> PullRequestOutputStrategy", "AgenticExecuteHandler -> CodingExecutionStrategy"]
+  - id: eliminate-switches
+    action: "PipelineExecutor and CommandContextFactory: generic dispatch via ICommandHandler<T> resolution"
+    modify: ["PipelineExecutor: <120 lines", "CommandContextFactory: <120 lines"]
+  - id: discussion-type
+    action: "Add discussion pipeline type with NoOp/Discussion strategies"
+    new: ["NoOpSourceProvider", "DiscussionBootstrapper", "DiscussionExecutionStrategy", "ContentValidator", "MarkdownOutputStrategy"]
+  - id: di-wiring
+    action: "Type-based DI registration; pipeline type flows from Dispatcher -> Host -> DI scope"
+  - id: slack-commands
+    action: "Add /discuss intent in Dispatcher with persona selection"
+renamed-steps:
+  - "CheckoutSource -> AcquireSource"
+  - "Test -> Validate"
+  - "CommitAndPR -> DeliverOutput"
+done:
+  - "Pipeline type resolves strategies via DI"
+  - "Coding pipeline works unchanged"
+  - "Discussion pipeline skips code steps"
+  - "All 427+ existing tests pass"
+  - "No class over 120 lines"
