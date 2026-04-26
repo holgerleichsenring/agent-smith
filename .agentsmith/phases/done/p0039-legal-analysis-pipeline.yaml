@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0039
+goal: "Legal document analysis via skill-based discussion — PDF input, structured markdown report output"
+requires: ["p0037", "p0038"]
+decisions:
+  - pro-repo: "All new implementations in agent-smith-pro; OSS gets only strategy interfaces, CommandNames, preset"
+  - inbox-polling: "InboxPollingService polls ./inbox/ every 5-10s via Directory.GetFiles — more reliable than FileSystemWatcher on Docker"
+  - copy-then-delete: "Copy PDF to ./processing/ first, then enqueue — crash-safe (original stays in inbox)"
+  - markitdown: "PDF -> Markdown via MarkItDown (Microsoft, MIT) — 60% fewer tokens than raw PDF"
+  - event-based-output: "LocalFileOutputStrategy publishes AnalysisCompletedEvent; platform adapters subscribe for reply-to-channel"
+steps:
+  - id: oss-interfaces
+    action: "Add strategy interfaces to Contracts (IContextBootstrapper, IExecutionStrategy, ITestStrategy, IOutputStrategy)"
+    new: ["IContextBootstrapper", "IExecutionStrategy", "ITestStrategy", "IOutputStrategy"]
+  - id: oss-commands
+    action: "Add AcquireSource, BootstrapDocument, DeliverOutput to CommandNames + LegalAnalysis preset"
+    modify: ["CommandNames", "PipelinePresets"]
+  - id: pro-source
+    action: "Create LocalFolderSourceProvider reading from ./processing/"
+    new: ["LocalFolderSourceProvider (Pro)"]
+  - id: pro-bootstrap
+    action: "Create DocumentBootstrapper — MarkItDown subprocess + contract type detection via Haiku"
+    new: ["DocumentBootstrapper (Pro)"]
+  - id: pro-output
+    action: "Create LocalFileOutputStrategy — writes to ./outbox/, moves to ./archive/, publishes event"
+    new: ["LocalFileOutputStrategy (Pro)", "NoOpTestStrategy (Pro)"]
+  - id: pro-inbox
+    action: "Create InboxPollingService (IHostedService) with orphan recovery on startup"
+    new: ["InboxPollingService (Pro)"]
+  - id: legal-skills
+    action: "Create legal skill YAMLs and principles"
+    new: ["config/skills/legal/{contract-analyst,risk-assessor,liability-analyst,compliance-checker,clause-negotiator}.yaml", "config/skills/legal/legal-principles.md"]
+pipeline: "AcquireSource -> BootstrapDocument -> LoadDomainRules -> Triage -> [SkillRounds] -> ConvergenceCheck -> CompileDiscussion -> DeliverOutput"
+legal-roles:
+  - "contract-analyst: reads contract systematically, identifies all clauses"
+  - "risk-assessor: assigns HIGH/MEDIUM/LOW risk per clause"
+  - "liability-analyst: deep-dives liability caps, exclusions, indemnification"
+  - "compliance-checker: DSGVO + AGB-Recht validity"
+  - "clause-negotiator: proposes alternative formulations"
+triggers:
+  - "inbox polling (primary): new PDF in ./inbox/"
+  - "Slack upload (additive): file_shared event -> download to ./inbox/"
+done:
+  - "PDF in inbox -> structured markdown report in outbox"
+  - "Contract type auto-detected"
+  - "Legal skills selected by triage based on contract type"
+  - "~350 lines new code in Pro, ~50 lines in OSS"

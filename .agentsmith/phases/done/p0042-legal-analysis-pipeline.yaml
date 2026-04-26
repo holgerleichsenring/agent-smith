@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0042
+goal: "Full legal analysis pipeline — document acquisition, Markdown conversion, contract type detection, legal skill roles, output delivery, inbox polling"
+requires: ["p0039"]
+decisions:
+  - key: "MarkItDown CLI for document-to-Markdown conversion"
+  - key: "FileSystemWatcher-style polling over complex event systems — simplicity for first run"
+  - key: "German legal terminology throughout — DSGVO, AGB-Recht (§305-310 BGB)"
+steps:
+  - id: handlers
+    action: "Implement three pipeline handlers"
+    new:
+      - "AcquireSourceHandler: copies document to temp workspace, creates pseudo-Repository"
+      - "BootstrapDocumentHandler: converts to Markdown, detects contract type via LLM Scout, loads legal skills"
+      - "DeliverOutputHandler: writes to ./outbox/, archives to ./archive/, removes from ./inbox/"
+  - id: contexts
+    action: "Add context models and builders"
+    new:
+      - "AcquireSourceContext, BootstrapDocumentContext, DeliverOutputContext"
+      - "AcquireSourceContextBuilder, BootstrapDocumentContextBuilder, DeliverOutputContextBuilder"
+  - id: inbox
+    action: "Implement inbox polling service"
+    new:
+      - "InboxPollingService: BackgroundService with PeriodicTimer, recovers orphaned files on startup"
+      - "IInboxJobEnqueuer: interface in Contracts"
+      - "InboxPollingOptions: configurable paths + poll interval"
+  - id: skills
+    action: "Create legal skills"
+    new:
+      - "config/skills/legal/contract-analyst.yaml"
+      - "config/skills/legal/compliance-checker.yaml — DSGVO + AGB-Recht"
+      - "config/skills/legal/risk-assessor.yaml — HIGH/MEDIUM/LOW per clause"
+      - "config/skills/legal/liability-analyst.yaml"
+      - "config/skills/legal/clause-negotiator.yaml"
+      - "config/skills/legal/legal-principles.md"
+    modify:
+      - "ServiceCollectionExtensions: register handlers + builders"
+      - "*.csproj (6 files): Microsoft.Extensions 10.0.3 -> 10.0.5"
+tests:
+  - "AcquireSourceHandlerTests (2)"
+  - "DeliverOutputHandlerTests (2)"
+  - "InboxPollingServiceTests (3)"
+done:
+  - "All 473 tests green"

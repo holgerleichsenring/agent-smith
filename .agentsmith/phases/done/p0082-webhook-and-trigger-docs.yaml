@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0082
+goal: "Per-platform webhook setup guides and label-based trigger documentation"
+requires: ["p0081"]
+
+decisions:
+  - key: "All guides in English — project lingua franca"
+  - key: "Webhook guide exists (docs/configuration/webhooks.md) — expand with per-platform step-by-step sections for GitHub, Azure DevOps, GitLab, and add new Jira section"
+  - key: "Label/tag trigger guide is new — document how issue labels map to pipelines across all four platforms"
+
+steps:
+  - id: webhook-guides
+    action:
+      - "Expand docs/configuration/webhooks.md OR create per-platform guides under docs/setup/webhooks/:"
+      - "docs/setup/webhooks/github.md — repo webhook, events, secret, signature verification"
+      - "docs/setup/webhooks/azure-devops.md — service hook subscription, basic auth, work item events"
+      - "docs/setup/webhooks/gitlab.md — project webhook, token header, merge request events"
+      - "docs/setup/webhooks/jira.md — Jira webhook or Automation rule, issue events, JQL filter"
+      - "Each guide: prerequisites, step-by-step with screenshots/URLs, config YAML snippet, verification"
+    new:
+      - "docs/setup/webhooks/github.md"
+      - "docs/setup/webhooks/azure-devops.md"
+      - "docs/setup/webhooks/gitlab.md"
+      - "docs/setup/webhooks/jira.md"
+
+  - id: label-triggers
+    action:
+      - "Create docs/setup/label-triggers.md — how label/tag-based ticket detection works:"
+      - "Concept: adding a label (e.g. agent-smith:security-scan) triggers a pipeline"
+      - "Platform-specific label/tag mapping (GitHub labels, GitLab labels, AzDO tags, Jira labels)"
+      - "Config YAML: label_triggers section with label → pipeline mapping"
+      - "Example: GitHub issue labeled 'agent-smith:fix-bug' triggers fix-bug pipeline"
+      - "Supported events per platform"
+    new:
+      - "docs/setup/label-triggers.md"
+
+  - id: setup-index-update
+    action: "Update docs/setup/README.md with links to webhook and label-trigger guides"
+    modify:
+      - "docs/setup/README.md"
+
+done:
+  - "Webhook guides for GitHub, Azure DevOps, GitLab, and Jira — each with step-by-step instructions"
+  - "Label trigger documentation explains concept + per-platform mapping + config YAML"
+  - "Setup index updated with links to new guides"

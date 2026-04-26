@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0009
+goal: "Task-specific model routing — Haiku scout for discovery, Sonnet for coding"
+requires: ["p0008"]
+decisions:
+  - key: "Scout is internal to ClaudeAgentProvider — IAgentProvider unchanged"
+  - key: "ScoutTools are read-only (read_file + list_files only) — cannot break anything"
+  - key: "Backward-compatible: if Models is null, single Model field used everywhere"
+  - key: "Reasoning TaskType falls back to Primary if not configured"
+steps:
+  - id: registry
+    action: "Add ModelRegistryConfig, TaskType enum, IModelRegistry"
+    new:
+      - "TaskType: enum { Scout, Primary, Planning, Reasoning, Summarization }"
+      - "ModelAssignment: { Model:string, MaxTokens:int }"
+      - "ModelRegistryConfig: { Scout, Primary, Planning, Reasoning?, Summarization }"
+      - "IModelRegistry: GetModel(TaskType)"
+      - "ConfigBasedModelRegistry: maps TaskType to config property"
+    modify:
+      - "AgentConfig: add Models:ModelRegistryConfig? property"
+  - id: scout
+    action: "Implement ScoutAgent with read-only tools"
+    new:
+      - "ScoutResult: record { RelevantFiles, ContextSummary, TokensUsed }"
+      - "ScoutAgent: DiscoverAsync — Haiku loop (max 5 iterations), read-only tools"
+      - "ToolDefinitions.ScoutTools: read_file + list_files only"
+    modify:
+      - "ClaudeAgentProvider: run Scout before Primary when configured, feed results to user prompt"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "ConfigBasedModelRegistry returns correct model per TaskType"
+  - "Reasoning falls back to Primary when null"
+  - "ScoutAgent tests"
+done:
+  - "ModelRegistry maps TaskType to model"
+  - "ScoutAgent discovers relevant files via Haiku"
+  - "Primary agent receives scout context in user prompt"
+  - "10x cost reduction for discovery phase"

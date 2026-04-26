@@ -20,16 +20,16 @@ Example: Phase 64 introduced typed skill orchestration because free-form discuss
 ```
 .agentsmith/phases/
 ├── done/
-│   ├── p01-core-infrastructure.md
-│   ├── p06-retry-resilience.md
-│   ├── p34-multi-skill.md
-│   ├── p54-91-pattern-scanner.md
-│   ├── p55-findings-compression.md
-│   └── p64-typed-skill-orchestration.md
+│   ├── p0001-core-infrastructure.md
+│   ├── p0006-retry-resilience.md
+│   ├── p0034-multi-skill.md
+│   ├── p0054-91-pattern-scanner.md
+│   ├── p0055-findings-compression.md
+│   └── p0064-typed-skill-orchestration.md
 ├── active/
 │   └── (max 1 at a time)
 └── planned/
-    └── p66-docs-enhancement.md
+    └── p0066-docs-enhancement.md
 ```
 
 ### Layer 2: Runs (the "how much" and "what happened")
@@ -61,7 +61,7 @@ The run result captures which commands ran, in what order, what the token usage 
 ## Use deterministic skill graph instead of LLM triage
 
 **Date:** 2026-03-15
-**Phase:** p64
+**Phase:** p0064
 **Choice:** Build execution graph from skill metadata (runs_after/runs_before)
 **Alternatives:**
   - LLM-based triage (status quo) — flexible but expensive and non-deterministic
@@ -93,7 +93,7 @@ ls .agentsmith/runs/
 grep -r "Repository Pattern" .agentsmith/
 
 # See what changed between phases
-diff .agentsmith/phases/done/p54-*.yaml .agentsmith/phases/done/p55-*.yaml
+diff .agentsmith/phases/done/p0054-*.yaml .agentsmith/phases/done/p0055-*.yaml
 ```
 
 ## Related

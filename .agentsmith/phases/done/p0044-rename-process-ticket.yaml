@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0044
+goal: "Rename ProcessTicketUseCase to ExecutePipelineUseCase — Agent Smith orchestrates arbitrary AI workflows, not just tickets"
+decisions:
+  - key: "Ticket/TicketId/ITicketProvider NOT renamed — tickets are one input type; legal has SourceFilePath, security has --repo"
+  - key: "Single commit, no behavioral changes"
+steps:
+  - id: rename
+    action: "Rename class, file, and all references across 30+ files"
+    modify:
+      - "ProcessTicketUseCase.cs -> ExecutePipelineUseCase.cs"
+      - "ProcessTicketUseCaseTests.cs -> ExecutePipelineUseCaseTests.cs"
+      - "All references: DI, Host, Dispatcher, WebhookListener, tests"
+      - "ScoutAgent comment: neutral wording (not 'coding agent')"
+      - "CodingPrinciplesGenerator prompt: 'AI orchestration agent' not 'AI coding agent'"
+done:
+  - "ProcessTicketUseCase renamed to ExecutePipelineUseCase across all files"
+  - "All tests green"

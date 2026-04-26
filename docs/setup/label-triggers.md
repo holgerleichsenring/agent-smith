@@ -1,6 +1,6 @@
 # Label-Based Triggers
 
-Agent Smith starts pipelines when configured labels are added to issues, work items, or merge requests. All four platforms (GitHub, GitLab, Azure DevOps, Jira) support the same trigger model since p84.
+Agent Smith starts pipelines when configured labels are added to issues, work items, or merge requests. All four platforms (GitHub, GitLab, Azure DevOps, Jira) support the same trigger model since p0084.
 
 The trigger fires via either path:
 

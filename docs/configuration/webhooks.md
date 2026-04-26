@@ -2,8 +2,8 @@
 
 Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
 
-- **Ticket triggers** (issue/work-item labelled, assigned, etc.) — these enter `TicketClaimService` and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms supported since p95b.
-- **PR comment commands and dialogue answers** — free-form path, fire-and-forget in-process. Currently GitHub-only with GitLab/AzDO additions in p59b/c.
+- **Ticket triggers** (issue/work-item labelled, assigned, etc.) — these enter `TicketClaimService` and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms supported since p0095b.
+- **PR comment commands and dialogue answers** — free-form path, fire-and-forget in-process. Currently GitHub-only with GitLab/AzDO additions in p0059b/c.
 
 Polling is the alternative ingress for ticket triggers. See [Polling vs Webhooks](../setup/polling-vs-webhooks.md).
 

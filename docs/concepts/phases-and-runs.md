@@ -79,17 +79,17 @@ The `state` section in `context.yaml` tracks all phases:
 ```yaml
 state:
   done:
-    p01: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
-    p02: "Retry and resilience: Polly policies, test retry loop"
+    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
+    p0002: "Retry and resilience: Polly policies, test retry loop"
     # ...
-    p52: "Single executable release: binaries for 5 platforms, GitHub Releases"
+    p0052: "Single executable release: binaries for 5 platforms, GitHub Releases"
   active: {}
   planned:
-    p23: "Multi-repo support → .agentsmith/phases/planned/p23-multi-repo.md"
-    p25: "PR review iteration → .agentsmith/phases/planned/p25-pr-review.md"
+    p0023: "Multi-repo support → .agentsmith/phases/planned/p0023-multi-repo.md"
+    p0025: "PR review iteration → .agentsmith/phases/planned/p0025-pr-review.md"
 ```
 
-Phases are numbered sequentially (`p01`, `p02`, ..., `p52`). The description after the number is a one-line summary. Planned phases link to their full document.
+Phases are numbered sequentially (`p0001`, `p0002`, ..., `p0052`). The description after the number is a one-line summary. Planned phases link to their full document.
 
 ## Runs
 
@@ -167,18 +167,18 @@ Agent Smith itself is built using this phase workflow. The timeline below shows 
 timeline
     title Agent Smith Evolution
     section Foundation
-        p01 : Core Infrastructure
-        p06 : Retry & Resilience
-        p11 : Multi-Provider (Claude, OpenAI, Ollama)
+        p0001 : Core Infrastructure
+        p0006 : Retry & Resilience
+        p0011 : Multi-Provider (Claude, OpenAI, Ollama)
     section Skill System
-        p34 : Multi-Skill Architecture
-        p37 : Strategy Pattern
-        p38 : MAD Discussion Pipeline
+        p0034 : Multi-Skill Architecture
+        p0037 : Strategy Pattern
+        p0038 : MAD Discussion Pipeline
     section Security
-        p43b : Security Pipeline
-        p54  : 91 Pattern Scanner
-        p55  : Findings Compression
-        p64  : Typed Skill Orchestration
+        p0043b : Security Pipeline
+        p0054  : 91 Pattern Scanner
+        p0055  : Findings Compression
+        p0064  : Typed Skill Orchestration
 ```
 
 Every one of these phases has a document in `.agentsmith/phases/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.

@@ -1,0 +1,39 @@
+modules:
+  - name: phases.active
+    path: .agentsmith/phases/active/
+    depends_on: []
+    interfaces:
+      - name: IPipelineHandler
+        file: .agentsmith/phases/active/p0002-pipeline-handlers.yaml
+        does: "Defines methods for handling pipeline stages."
+        implementations:
+          - name: PipelineHandler
+            file: .agentsmith/phases/active/p0002-pipeline-handlers.yaml
+    key_classes:
+      - name: PipelineContext
+        file: .agentsmith/phases/active/p0002-pipeline-handlers.yaml
+        does: "Represents the context for pipeline execution."
+
+  - name: phases.done
+    path: .agentsmith/phases/done/
+    depends_on: [phases.active]
+    interfaces:
+      - name: ISkillLoader
+        file: .agentsmith/phases/done/p0057b-skill-manager.yaml
+        does: "Loads skills definitions from YAML files."
+        implementations:
+          - name: YamlSkillLoader
+            file: .agentsmith/phases/done/p0057b-skill-manager.yaml
+    key_classes:
+      - name: SkillCandidate
+        file: .agentsmith/phases/done/p0057b-skill-manager.yaml
+        does: "Represents a candidate skill with metadata."
+
+entry_points:
+  - file: .agentsmith/phases/active/p0001-core-infrastructure.yaml
+    type: di_setup
+    does: "Configures dependency injection for core services."
+
+dependency_graph:
+  phases.active: []
+  phases.done: [phases.active]

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0017
+goal: "Add GitLab as source + ticket provider — issues, merge requests, git ops"
+requires: ["p0010"]
+decisions:
+  - key: "No GitLab SDK — HttpClient with REST API v4"
+  - key: "GitLab uses 'oauth2' as username for token-based HTTPS auth"
+  - key: "Merge requests (not pull requests) — different terminology"
+steps:
+  - id: ticket-provider
+    action: "Implement GitLabTicketProvider via REST API v4"
+    new:
+      - "GitLabTicketProvider: ITicketProvider { baseUrl, projectPath, privateToken, httpClient }"
+  - id: source-provider
+    action: "Implement GitLabSourceProvider — LibGit2Sharp + REST for MRs"
+    new:
+      - "GitLabSourceProvider: ISourceProvider { baseUrl, projectPath, cloneUrl, privateToken, httpClient }"
+  - id: factory
+    action: "Update both factories for 'gitlab' type"
+    modify:
+      - "TicketProviderFactory: add gitlab case"
+      - "SourceProviderFactory: add gitlab case"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Factory tests for gitlab type"
+  - "GitLabTicketProvider with mocked HttpClient"
+done:
+  - "GitLabTicketProvider reads issues, posts comments, closes issues"
+  - "GitLabSourceProvider clones, branches, commits, creates merge requests"
+  - "Both factories handle gitlab type"

@@ -55,7 +55,7 @@ Azure DevOps uses Basic authentication in the `Authorization` header. Agent Smit
 If no secret is configured, verification is skipped (development only).
 
 !!! note "Tag-to-pipeline mapping"
-    Currently, the Azure DevOps handler only triggers `security-scan` for the `security-review` tag. Configurable tag-to-pipeline mapping is planned for p84.
+    Currently, the Azure DevOps handler only triggers `security-scan` for the `security-review` tag. Configurable tag-to-pipeline mapping is planned for p0084.
 
 ## Ticket Provider Configuration
 

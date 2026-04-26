@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0023
+goal: "Handle tickets spanning multiple repositories — one ticket, multiple PRs, coordinated dialogue, monorepo support"
+requires: ["p0058", "p0022"]
+decisions:
+  - Dialogue approval between primary and consumers: "no blind switching — typed Approval step from p0058"
+  - Monorepo is multi-repo without checkout switch: "same architecture, different working directories"
+  - Cross-repo context extracted via Haiku call after primary PR: "new/changed interfaces, max 500 chars"
+steps:
+  - id: config
+    action: "Add project-groups config with role (primary/consumer), strategy, confirm flags, monorepo mode"
+    new:
+      - "ProjectGroupConfig: { ConfirmAtStart, ConfirmBetweenRepos, MonorepoMode, Strategy }"
+  - id: executor
+    action: "Add MultiRepoPipelineExecutor — runs primary first, extracts cross-repo context, then consumers"
+    new:
+      - "MultiRepoPipelineExecutor"
+      - "CrossRepoContext: { SourceRepo, PrUrl, DiffSummary, InterfaceChanges, LinkedPrUrls }"
+      - "MultiRepoResult"
+  - id: dialogue
+    action: "Add confirmation dialogs before primary start and before consumer execution"
+  - id: monorepo
+    action: "Monorepo mode: single checkout, per-path working directories, configurable PR strategy"
+  - id: writeback
+    action: "Ticket writeback lists all PRs with role and per-repo cost"
+    new:
+      - "PrReference: { Repo, PrUrl, Role }"
+    modify: ["TicketWritebackResult: PullRequests becomes list"]
+done:
+  - "ProjectGroupConfig with ConfirmAtStart, ConfirmBetweenRepos, MonorepoMode"
+  - "MultiRepoPipelineExecutor — sequential + parallel strategy"
+  - "CrossRepoContext extracted via Haiku after primary PR"
+  - "Dialogue integration: approval before primary and consumers"
+  - "Monorepo mode: one checkout, multiple working directories"
+  - "Ticket writeback: all PRs listed, cost per repo"
+  - "Single-repo pipelines: zero regression"

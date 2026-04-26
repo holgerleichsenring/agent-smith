@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0019b
+goal: "Helm Chart for fully self-contained K8s deployment — replace manual scripts"
+requires: ["p0019a"]
+decisions:
+  - helm-over-kustomize: "Helm provides templating, rollback, and secret management; Kustomize kept as reference only"
+  - values-layered: "values.yaml (defaults, no secrets) + values.local.yaml/values.prod.yaml (gitignored, secrets)"
+  - prod-secrets-external: "Production should use External Secrets Operator or Sealed Secrets, not values files"
+steps:
+  - id: chart
+    action: "Create Chart.yaml, values.yaml, _helpers.tpl"
+  - id: secret-configmap
+    action: "Create secret.yaml + configmap.yaml Helm templates"
+  - id: redis
+    action: "Create Redis Deployment + Service templates"
+  - id: dispatcher
+    action: "Create Dispatcher Deployment + Service + Ingress templates"
+  - id: rbac
+    action: "Create ServiceAccount + Role + RoleBinding templates"
+  - id: guide
+    action: "Write local test guide + prod deployment guide"
+new:
+  - "helm/agentsmith/Chart.yaml"
+  - "helm/agentsmith/values.yaml"
+  - "helm/agentsmith/templates/ (secret, configmap, redis, dispatcher, rbac, ingress)"
+commands:
+  - "helm install agentsmith ./helm/agentsmith --namespace agentsmith --create-namespace -f helm/agentsmith/values.local.yaml"
+  - "helm upgrade agentsmith ./helm/agentsmith --namespace agentsmith -f helm/agentsmith/values.local.yaml"
+  - "helm uninstall agentsmith --namespace agentsmith"
+config-keys:
+  - "image.agent, image.dispatcher, image.pullPolicy"
+  - "spawner.type, spawner.namespace, spawner.jobResources"
+  - "dispatcher.replicas, dispatcher.port, dispatcher.resources"
+  - "redis.image, redis.maxMemory, redis.resources"
+  - "ingress.enabled, ingress.host, ingress.tls"
+  - "secrets.* (anthropicApiKey, slackBotToken, etc.)"
+done:
+  - "helm install deploys full stack (redis + dispatcher Running)"
+  - "helm upgrade rolls out new image without downtime"
+  - "helm uninstall cleanly removes all resources"
+  - "No apply-k8s-secret.sh needed"
+  - "values.local.yaml and values.prod.yaml in .gitignore"

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0093
+goal: "Make LLM output handling fail loudly: no silent catches, one corrective retry, explicit input_categories semantics"
+
+requires: []
+
+decisions:
+  - key: "Silent catch banned for LLM-output parsing — every parse failure logs the response and returns Fail, not Ok. Silent pass hides unreliable gates and lets a scan report '647 raw → 647 extracted' as success."
+  - key: "One retry with corrective prompt in gate path — cheap (one extra LLM call worst case) and recovers most schema drift. No exponential loop."
+  - key: "Retry failure fails the pipeline, does not silently let findings through — unfiltered findings are worse than an explicit failure, because the reviewer trusts that filtering happened."
+  - key: "input_categories: ['*'] means all categories; missing field or empty list rejected at skill load — eliminates the empty-equals-everything ambiguity, forces author intent to be explicit."
+  - key: "Scope limited to LLM-output parsing — infrastructure cleanup catches (Docker, Process, filesystem fallbacks) are legitimately best-effort and stay as-is."
+
+steps:
+  - id: inventory-llm-catches
+    action: "Grep for silent catch/try-catch around LLM response handling beyond GateOutputHandler; document each or adjust scope if more found"
+
+  - id: gate-output-fail-loud
+    action: "Replace silent catches in GateOutputHandler with typed catches that log the response and return Fail"
+    modify:
+      - "GateOutputHandler.HandleVerdict: log LLM response (truncated) on parse failure, return CommandResult.Fail"
+      - "GateOutputHandler.HandleFindingList: log response on parse failure and on missing 'confirmed' property, return CommandResult.Fail"
+      - "GateOutputHandler: distinct log messages for empty response, invalid JSON, missing required property"
+
+  - id: gate-output-retry
+    action: "Add one retry with corrective prompt before final failure"
+    new:
+      - "GateRetryCoordinator: orchestrates one retry, builds a corrective prompt containing the original instruction, the offending response, and the parse error"
+    modify:
+      - "SkillRoundHandlerBase.ExecuteStructuredRoundAsync: on gate parse failure, call coordinator; if retry also fails, propagate Fail to the pipeline"
+
+  - id: input-categories-semantics
+    action: "Validate input_categories at skill load time: required for Gate role, '*' is the explicit wildcard, empty list rejected"
+    modify:
+      - "SkillOrchestrationParser: reject missing/empty input_categories for Gate role with a clear error; accept '*' as wildcard"
+      - "GateOutputHandler.MergeWithPassthrough: branch on wildcard vs explicit category set (no implicit 'empty = all')"
+      - "config/skills/security/false-positive-filter/agentsmith.md: set input_categories to '*'"
+      - "any other Gate-role skill config: ensure input_categories is set (audit config/skills/)"
+
+  - id: tests
+    action: "Cover every new failure mode plus wildcard semantics"
+
+  - id: verify
+    action: "dotnet build && dotnet test"
+
+tests:
+  - "GateOutputHandler_InvalidJson_ReturnsFailAndLogsResponse"
+  - "GateOutputHandler_MissingConfirmedProperty_ReturnsFail"
+  - "GateOutputHandler_EmptyResponse_ReturnsFail"
+  - "GateOutputHandler_WildcardCategories_ReplacesAllFindings"
+  - "GateOutputHandler_ExplicitCategories_MergesWithPassthrough"
+  - "GateRetryCoordinator_FirstAttemptFails_RetriesWithCorrectivePrompt"
+  - "GateRetryCoordinator_RetryAlsoFails_ReturnsFail"
+  - "SkillOrchestrationParser_GateRoleMissingInputCategories_ThrowsAtLoad"
+  - "SkillOrchestrationParser_GateRoleEmptyInputCategories_ThrowsAtLoad"
+  - "SkillOrchestrationParser_GateRoleWildcardInputCategories_Parses"
+
+done:
+  - "No empty catch remains in GateOutputHandler — every catch logs and returns Fail"
+  - "Gate parse failure triggers exactly one retry with a corrective prompt"
+  - "Retry failure marks the pipeline as Fail; no silent passthrough of unfiltered findings"
+  - "input_categories is required for Gate-role skills at load time"
+  - "input_categories: '*' accepted as explicit wildcard; empty list rejected"
+  - "false-positive-filter skill config updated to use '*'"
+  - "Security-scan log no longer reports 'raw N → extracted N' when the gate ran — either the gate filters, or the pipeline fails"
+  - "All existing and new tests green"

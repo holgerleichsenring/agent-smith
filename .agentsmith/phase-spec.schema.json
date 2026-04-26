@@ -9,9 +9,9 @@
   "properties": {
     "phase": {
       "type": "string",
-      "description": "Phase identifier (e.g. p01, p42, p57a)",
+      "description": "Phase identifier (e.g. p0001, p0042, p0057a). Padded to 4 digits with optional lowercase letter suffix.",
       "pattern": "^p\\d+[a-z]?$",
-      "examples": ["p01", "p42", "p57a"]
+      "examples": ["p0001", "p0042", "p0057a"]
     },
     "goal": {
       "type": "string",

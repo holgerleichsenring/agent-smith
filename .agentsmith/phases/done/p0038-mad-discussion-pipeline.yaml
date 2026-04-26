@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0038
+goal: "Multi-agent discussion (MAD) pipeline — Claude personas debate a topic, produce markdown PR"
+requires: ["p0034"]
+decisions:
+  - skills-path-on-config: "ProjectConfig.SkillsPath (default: config/skills) replaces hardcoded path in MetaFileBootstrapper"
+  - no-new-turn-commands: "Silencer trigger is pure prompt logic ([SILENCE] response); SkillRoundHandler handles it"
+  - reuse-convergence: "Existing ConvergenceCheck consolidation works for discussion summaries; ConsolidatedPlan becomes executive summary"
+steps:
+  - id: skills-path
+    action: "Add SkillsPath to ProjectConfig, update MetaFileBootstrapper to use it"
+    modify: ["ProjectConfig: add SkillsPath", "MetaFileBootstrapper", "BootstrapProjectHandler"]
+  - id: compile-discussion
+    action: "Create CompileDiscussionHandler — formats DiscussionLog + ConsolidatedPlan as markdown"
+    new: ["CompileDiscussionHandler", "CompileDiscussionContext", "DiscussionContextBuilders"]
+  - id: pipeline-preset
+    action: "Add mad-discussion to PipelinePresets"
+    modify: ["PipelinePresets", "CommandNames: add CompileDiscussion"]
+  - id: project-config
+    action: "Add mad-discussion project entry in agentsmith.yml"
+    modify: ["agentsmith.yml"]
+pipeline: "FetchTicket -> CheckoutSource -> BootstrapProject -> LoadContext -> Triage -> [SkillRounds] -> ConvergenceCheck -> CompileDiscussion -> CommitAndPR"
+tests:
+  - "CompileDiscussionHandlerTests"
+  - "PipelinePresetsTests: resolves mad-discussion"
+  - "MetaFileBootstrapperTests: respects custom skills_path"
+  - "426 existing tests still pass"
+done:
+  - "MAD discussion produces formatted markdown document as PR"
+  - "Custom skills_path per project"
+  - "~200 lines new code"
