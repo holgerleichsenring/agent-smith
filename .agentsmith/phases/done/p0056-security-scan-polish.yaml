@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0056
+goal: "Close security scan gaps — secret provider identification, mandatory false-positive filter, severity logging, SARIF output for security-scan, docs"
+requires: ["p0054"]
+decisions:
+  - key: "No live API probing for secrets — provider name + revoke URL is sufficient, too risky for automated scans"
+  - key: "false-positive-filter always participates regardless of triage — triggers: [always_include]"
+  - key: "ExtractFindingsCommand replaces DeliverOutput with DeliverFindings — unifies output path with api-scan"
+steps:
+  - id: secret-providers
+    action: "Map pattern IDs to provider names and revoke URLs"
+    new:
+      - "SecretProviderRegistry: static mapping for 13+ patterns (AWS, GitHub, Stripe, Slack, OpenAI, etc.)"
+      - "SecretProvider record"
+    modify:
+      - "PatternFinding, HistoryFinding: add Provider?, RevokeUrl?"
+      - "StaticPatternScanner, GitHistoryScanner: enrich findings via registry"
+  - id: mandatory-fp
+    action: "Force false-positive-filter into every security scan"
+    modify:
+      - "SecurityTriageHandler: append false-positive-filter if not already selected"
+      - "ApiSecurityTriageHandler: same"
+  - id: severity-log
+    action: "Add severity breakdown to scan handler logs"
+    modify:
+      - "StaticPatternScanHandler: log '271 findings — 3 critical, 20 high, 51 medium, 197 low'"
+      - "GitHistoryScanHandler: log '15 secrets — 3 critical (history-only), 12 high'"
+  - id: sarif-unify
+    action: "Enable SARIF output for security-scan pipeline"
+    new:
+      - "ExtractFindingsHandler: converts discussion + raw findings to Finding records"
+      - "ExtractFindingsContext + ContextBuilder"
+    modify:
+      - "PipelinePresets: security-scan uses CompileDiscussion -> ExtractFindings -> DeliverFindings"
+      - "CommandNames: add ExtractFindings"
+  - id: docs
+    action: "Update documentation site"
+    modify:
+      - "docs/pipelines/security-scan.md, docs/configuration/tools.md, docs/concepts/pipeline-system.md"
+      - "docs/cicd/azure-devops.md, github-actions.md, gitlab-ci.md: add security-scan SARIF examples"
+done:
+  - "Secret findings include provider name and revoke URL"
+  - "false-positive-filter always participates in security-scan and api-scan"
+  - "Handler logs show severity breakdown"
+  - "security-scan produces SARIF output via --output sarif"
+  - "security-scan and api-scan share DeliverFindings output path"
+  - "Docs updated"

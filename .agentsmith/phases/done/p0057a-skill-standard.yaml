@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0057a
+goal: "Migrate all skills from proprietary YAML to open SKILL.md standard (agentskills.io) — portable, auditable, updatable"
+decisions:
+  - key: "SKILL.md body is the instruction — standard format, shareable"
+  - key: "agentsmith.md holds AS-specific extensions (convergence_criteria, notes)"
+  - key: "source.md is required for every skill — origin always explicit, never implicit"
+  - key: "Local skills: origin: local; external skills: origin URL + commit + reviewed-by"
+  - key: "triggers moved to SKILL.md frontmatter description field"
+steps:
+  - id: loader
+    action: "Update SkillLoader to read directory-based skill format"
+    new:
+      - "SkillDefinition: { Name, Description, Instructions, ConvergenceCriteria, Source? }"
+      - "SkillSource: { Origin, Version, Commit, Reviewed, ReviewedBy }"
+    modify:
+      - "SkillLoader: read SKILL.md (frontmatter + body) + agentsmith.md + source.md, merge into SkillDefinition"
+  - id: migrate
+    action: "Convert all existing YAML skills to SKILL.md directory structure"
+    new:
+      - "config/skills/security/*/SKILL.md + agentsmith.md + source.md"
+      - "config/skills/legal/*/SKILL.md + agentsmith.md + source.md"
+      - "config/skills/coding/*/SKILL.md + agentsmith.md + source.md"
+      - "config/skills/mad/*/SKILL.md + agentsmith.md + source.md"
+    # Delete all config/skills/**/*.yaml after migration
+  - id: frontmatter
+    action: "Define SKILL.md frontmatter format"
+    # name, description, allowed-tools, version in YAML frontmatter
+done:
+  - "All existing skills migrated to SKILL.md format"
+  - "SkillLoader reads SKILL.md + agentsmith.md + source.md"
+  - "convergence_criteria still works"
+  - "Triage still activates correct skills (description-based matching)"
+  - "No *.yaml skill files remaining in config/skills/"
+  - "dotnet build + dotnet test clean"

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0058b
+goal: "Full Teams adapter with Adaptive Cards for all 5 QuestionTypes, JWT verification, removal of deprecated AskQuestion"
+requires: ["p0058"]
+steps:
+  - id: adapter
+    action: "Implement TeamsAdapter"
+    new:
+      - "TeamsAdapter: implements IPlatformAdapter fully"
+      - "TeamsCardBuilder: deterministic Adaptive Card per QuestionType (Confirmation: Yes/No buttons, Choice: N buttons, Approval: Approve/Reject + Input.Text, FreeText: Input.Text + Submit, Info: TextBlock + Acknowledge)"
+      - "TeamsJwtValidator: Azure Bot Service JWT via Microsoft OpenID endpoint"
+      - "MapTeamsEndpoints(): /api/teams/messages"
+  - id: cleanup
+    action: "Remove deprecated AskQuestion"
+    modify:
+      - "IPlatformAdapter: remove old AskQuestion method"
+      - "All adapters: remove AskQuestion implementation"
+      - "MessageBusListener: migrate to AskTypedQuestionAsync"
+done:
+  - "TeamsAdapter implements IPlatformAdapter completely"
+  - "Adaptive Cards for all 5 QuestionTypes"
+  - "JWT verification via Microsoft OpenID endpoint"
+  - "MapTeamsEndpoints registered"
+  - "Old AskQuestion removed from IPlatformAdapter + all adapters"
+  - "All 864 tests green, dotnet build zero new warnings"

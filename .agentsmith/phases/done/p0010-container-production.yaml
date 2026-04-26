@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0010
+goal: "Production-ready container — --headless mode, non-root Docker, .env support"
+requires: ["p0009"]
+decisions:
+  - key: "--headless is opt-in CLI flag — non-headless keeps interactive approval"
+  - key: "ApprovalHandler reads headless flag from PipelineContext"
+  - key: "Non-root user 'agentsmith' in Docker for security"
+  - key: "SSH keys mounted read-only from host"
+steps:
+  - id: headless
+    action: "Add --headless CLI option, auto-approve in headless mode"
+    new:
+      - "ContextKeys.Headless: string constant"
+    modify:
+      - "Program.cs: add --headless option"
+      - "ProcessTicketUseCase: accept headless param, store in PipelineContext"
+      - "ApprovalHandler: check headless flag, skip Console.ReadLine if true"
+  - id: docker-production
+    action: "Harden Dockerfile and docker-compose.yml"
+    modify:
+      - "Dockerfile: add non-root user, health check, temp directory"
+      - "docker-compose.yml: restart policy, env_file, SSH mount, stdin_open:false"
+    new:
+      - ".env.example: template with all env vars"
+      - "config/agentsmith.example.yml: quick-start config template"
+  - id: verify
+    action: "dotnet build && dotnet test"
+done:
+  - "--headless auto-approves plans without stdin"
+  - "Dockerfile runs as non-root with health check"
+  - "docker-compose.yml with restart policy and env_file"
+  - ".env.example and config template present"

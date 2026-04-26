@@ -42,7 +42,7 @@ export GITHUB_WEBHOOK_SECRET="your-secret-here"
 Currently, the GitHub issue handler triggers when the `agent-smith` label is added to an issue. The pipeline is the project's default pipeline.
 
 !!! note "Label-to-pipeline mapping"
-    Configurable label-to-pipeline mapping (like Jira's `pipeline_from_label`) is planned for GitHub in p84.
+    Configurable label-to-pipeline mapping (like Jira's `pipeline_from_label`) is planned for GitHub in p0084.
 
 ### 4. Configure PR Comment Commands
 

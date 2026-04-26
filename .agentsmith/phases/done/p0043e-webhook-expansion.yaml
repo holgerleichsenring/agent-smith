@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0043e
+goal: "Extend WebhookListener with IWebhookHandler dispatch pattern — PR/MR label events from GitHub, GitLab, AzDO trigger security-scan pipeline"
+requires: ["p0043b", "p0043c"]
+decisions:
+  - key: "IWebhookHandler dispatch pattern over monolithic handler — one handler per platform+event"
+  - key: "Per-platform signature verification: GitHub HMAC-SHA256, GitLab token header, AzDO Basic Auth"
+  - key: "SecurityScanRequest as common record — all handlers map platform-specific payload to it"
+steps:
+  - id: contracts
+    action: "Define webhook handler interface"
+    new:
+      - "IWebhookHandler: { CanHandle(platform, eventType), HandleAsync } + WebhookResult record"
+      - "SecurityScanRequest: { RepoUrl, PrIdentifier?, ProjectName, Platform }"
+  - id: handlers
+    action: "Implement per-platform webhook handlers"
+    new:
+      - "GitHubPrLabelWebhookHandler: pull_request + labeled + 'security-review'"
+      - "GitLabMrLabelWebhookHandler: Merge Request Hook + 'security-review' label"
+      - "AzureDevOpsWorkItemWebhookHandler: workitem.updated + 'security-review' tag"
+      - "GitHubIssueWebhookHandler: extracted from WebhookListener"
+    modify:
+      - "WebhookListener: refactor to dispatch via IEnumerable<IWebhookHandler>"
+  - id: chat
+    action: "Add /security-review command to Slack/Teams"
+    modify: ["Dispatcher intent engine: new pattern -> SecurityScanRequest -> Redis"]
+config: |
+  projects.*.security_scan: never | on_label | on_pr
+  webhooks: { github_secret, gitlab_token, azdo_secret }
+done:
+  - "GitHub PR label 'security-review' triggers security-scan"
+  - "GitLab MR label triggers security-scan"
+  - "AzDO Work Item tag triggers security-scan"
+  - "Existing GitHub Issues webhook still works"
+  - "Webhook signature verification for all platforms"

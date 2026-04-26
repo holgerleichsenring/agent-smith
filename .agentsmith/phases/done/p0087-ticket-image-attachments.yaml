@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0087
+goal: "Download image attachments from tickets (Jira, GitHub, GitLab, Azure DevOps) and pass them as vision input to the LLM for plan generation"
+requires: []
+decisions:
+  - key: "IAttachmentLoader interface per platform — keeps TicketProvider classes focused on ticket CRUD"
+  - key: "Jira: attachment array from REST API fields=attachment, download content URL with Basic Auth"
+  - key: "GitHub: parse markdown ![](url) from issue body, fetch public CDN URLs"
+  - key: "GitLab: parse markdown ![](/uploads/...) from issue body, resolve relative URLs, fetch with Private-Token"
+  - key: "Azure DevOps: expand relations on work item, filter AttachedFile type, fetch with PAT"
+  - key: "Only image MIME types (image/png, image/jpeg, image/gif, image/webp) — skip PDFs, ZIPs etc. for now"
+  - key: "Images stored as base64 in PipelineContext via ContextKeys.Attachments"
+  - key: "LLM prompt includes images as vision content blocks (Claude, OpenAI, Gemini all support this)"
+  - key: "TicketProviders delegate GetAttachmentRefsAsync to their IAttachmentLoader"
+  - key: "Max image size: 5MB per image, skip larger with warning"
+
+steps:
+  - id: attachment-loader-interface
+    action: "Define IAttachmentLoader interface and TicketAttachment model"
+    new:
+      - "IAttachmentLoader: Task<IReadOnlyList<AttachmentRef>> GetRefsAsync(ticketId, rawTicketData) + Task<byte[]> DownloadAsync(AttachmentRef)"
+      - "TicketImageAttachment: record(AttachmentRef Ref, byte[] Content, string Base64) — downloaded image ready for LLM"
+
+  - id: jira-loader
+    action: "JiraAttachmentLoader — reads attachment array from Jira REST API response"
+    new:
+      - "JiraAttachmentLoader: IAttachmentLoader — parses fields.attachment array, downloads content URL with Basic Auth"
+    modify:
+      - "JiraTicketProvider: change fields query to include attachment, delegate GetAttachmentRefsAsync to loader"
+
+  - id: github-loader
+    action: "GitHubAttachmentLoader — parses markdown image URLs from issue body"
+    new:
+      - "GitHubAttachmentLoader: IAttachmentLoader — regex for ![...](url), filters image URLs, downloads from CDN"
+    modify:
+      - "GitHubTicketProvider: delegate GetAttachmentRefsAsync to loader, pass issue body for parsing"
+
+  - id: gitlab-loader
+    action: "GitLabAttachmentLoader — parses markdown image URLs and resolves relative upload paths"
+    new:
+      - "GitLabAttachmentLoader: IAttachmentLoader — regex for ![...](/uploads/...), resolves to absolute URL, downloads with Private-Token"
+    modify:
+      - "GitLabTicketProvider: delegate GetAttachmentRefsAsync to loader, pass issue body + base URL"
+
+  - id: azuredevops-loader
+    action: "AzureDevOpsAttachmentLoader — expands work item relations for AttachedFile type"
+    new:
+      - "AzureDevOpsAttachmentLoader: IAttachmentLoader — fetches work item with $expand=relations, filters AttachedFile, downloads with PAT"
+    modify:
+      - "AzureDevOpsTicketProvider: delegate GetAttachmentRefsAsync to loader"
+
+  - id: fetch-ticket-integration
+    action: "FetchTicketHandler downloads image attachments and stores them in PipelineContext"
+    modify:
+      - "FetchTicketHandler: after GetTicketAsync, call GetAttachmentRefsAsync, download images via loader, store as ContextKeys.Attachments"
+
+  - id: llm-vision-support
+    action: "Pass images as vision content blocks in LLM prompts"
+    modify:
+      - "GeneratePlanHandler: include images from ContextKeys.Attachments in user prompt as vision content"
+      - "ILlmClient.CompleteAsync: support mixed text+image content (or add CompleteWithImagesAsync)"
+      - "ClaudeLlmClient / OpenAiLlmClient: serialize images as base64 content blocks in API request"
+
+tests:
+  - "JiraAttachmentLoader_WithAttachmentArray_ReturnsImageRefs"
+  - "JiraAttachmentLoader_SkipsNonImageMimeTypes"
+  - "GitHubAttachmentLoader_ParsesMarkdownImages"
+  - "GitLabAttachmentLoader_ResolvesRelativeUploadUrls"
+  - "AzureDevOpsAttachmentLoader_FiltersAttachedFileRelations"
+  - "FetchTicketHandler_WithAttachments_StoresInContext"
+  - "GeneratePlanHandler_WithImages_IncludesVisionContent"
+  - "AttachmentLoader_SkipsImagesOver5MB"
+
+done:
+  - "Jira tickets with inline or attached images → images visible to LLM during plan generation"
+  - "GitHub issues with markdown images → images visible to LLM"
+  - "GitLab issues with uploaded images → images visible to LLM"
+  - "Azure DevOps work items with attached images → images visible to LLM"
+  - "Non-image attachments silently skipped"
+  - "Images over 5MB skipped with log warning"
+  - "Existing tickets without images work unchanged"
+  - "dotnet build zero warnings, all tests green"

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0031
+goal: "Extend OrphanJobDetector to scan all Redis conversation states — catch pre-restart orphans"
+requires: ["p0030"]
+decisions:
+  - dual-path: "Check in-memory tracked jobs first, then scan Redis for untracked orphans"
+  - malformed-skip: "Malformed JSON in Redis skipped with warning log"
+steps:
+  - id: get-all-async
+    action: "Add ConversationStateManager.GetAllAsync() scanning conversation:*:* keys"
+    modify: ["ConversationStateManager"]
+  - id: redis-scan
+    action: "OrphanJobDetector scans all Redis states for untracked orphans after checking tracked jobs"
+    modify: ["OrphanJobDetector: dual-path detection (runtime > 10min AND inactivity > 5min)"]
+  - id: fix-ttl
+    action: "Fix stale doc comment in ConversationState (TTL 2h -> 45min)"
+    modify: ["ConversationState"]
+tests:
+  - "GetAllAsync_HappyPath"
+  - "GetAllAsync_MalformedJsonSkipped"
+done:
+  - "290 tests passing"
+  - "Stale pre-restart orphans detected and cleaned within 60s"

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0020a
+goal: "Three-stage intent engine (regex + Haiku + project resolution) replacing RegexIntentParser"
+decisions:
+  - intent-engine-in-server: "Chat-specific logic lives in AgentSmith.Server, not Application; CLI keeps old RegexIntentParser"
+  - discriminated-union: "abstract record ChatIntent with subtypes — dispatcher switch-cases on type"
+  - parallel-project-lookup: "When user omits project, all configured providers queried simultaneously"
+  - handlers-per-intent: "SlackMessageDispatcher routes to dedicated handlers (FixTicketIntentHandler, ListTicketsIntentHandler, etc.)"
+steps:
+  - id: regex-stage
+    action: "Implement ChatIntentParser with pattern matching for fix/list/create/help"
+    new: ["ChatIntentParser: regex stage producing ChatIntent subtypes"]
+  - id: haiku-stage
+    action: "Implement HaikuIntentParser for free-form text via claude-haiku-4-5-20251001"
+    new: ["HaikuIntentParser: JSON-only LLM call, max 256 tokens", "IHaikuIntentParser: interface"]
+  - id: project-resolver
+    action: "Implement ProjectResolver with parallel ticket lookup and disambiguation"
+    new: ["ProjectResolver: parallel TicketExistsAsync across providers", "IProjectResolver: interface", "ProjectResolverResult: found/not-found/ambiguous"]
+  - id: intent-engine
+    action: "Orchestrate all three stages in IntentEngine.ParseAsync"
+    new: ["IntentEngine: regex -> haiku -> project resolution"]
+  - id: dispatcher-wiring
+    action: "Replace ChatIntentParser in Dispatcher, route intents to handlers"
+    modify: ["SlackMessageDispatcher: routes ChatIntent subtypes to handlers", "ServiceCollectionExtensions: DI registration"]
+types:
+  - "ChatIntent (abstract record)"
+  - "FixTicketIntent { TicketId, Project, ChannelId, UserId, Platform }"
+  - "ListTicketsIntent { Project, UserId, ChannelId, Platform }"
+  - "CreateTicketIntent { Title, Project, UserId, ChannelId, Platform }"
+  - "HelpIntent"
+  - "GreetingIntent"
+  - "ErrorIntent"
+  - "ClarificationNeeded { Suggestion, OriginalInput }"
+tests:
+  - "fix #58 resolves correctly (single project)"
+  - "fix #58 with multiple projects triggers parallel lookup"
+  - "fix ticket #58 in agent-smith-test skips lookup"
+  - "free-form text parsed by Haiku correctly"
+  - "what can you do? -> HelpIntent"
+  - "low confidence -> ClarificationNeeded with buttons"
+  - "unknown input -> UnknownIntent with fallback"
+  - "no AI call for standard fix #N in project"
+done:
+  - "All common patterns handled by regex at zero cost"
+  - "Haiku fallback for free-form text with cost tracking"
+  - "Project resolution via parallel ticket provider queries"

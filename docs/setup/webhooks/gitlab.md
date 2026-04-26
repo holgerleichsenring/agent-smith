@@ -48,7 +48,7 @@ GitLab sends the token in the `X-Gitlab-Token` header. Agent Smith compares it a
 If no token is configured, verification is skipped (development only).
 
 !!! note "Label-to-pipeline mapping"
-    Currently, the GitLab MR handler only triggers `security-scan` for the `security-review` label. Configurable label-to-pipeline mapping is planned for p84.
+    Currently, the GitLab MR handler only triggers `security-scan` for the `security-review` label. Configurable label-to-pipeline mapping is planned for p0084.
 
 ## GitLab Base URL (Self-Hosted)
 

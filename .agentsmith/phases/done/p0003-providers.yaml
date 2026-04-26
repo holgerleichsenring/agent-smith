@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0003
+goal: "Real provider implementations — tickets, source, agent with agentic loop"
+requires: ["p0002"]
+decisions:
+  - key: "ToolExecutor tracks all write_file calls as CodeChange list"
+  - key: "AgenticLoop is a separate class from ClaudeAgentProvider"
+  - key: "run_command has 60s timeout, path validation prevents traversal"
+  - key: "Max 25 agentic loop iterations as safety net"
+steps:
+  - id: factories
+    action: "Implement provider factories with config.Type switch"
+    new:
+      - "TicketProviderFactory: azuredevops/github/jira"
+      - "SourceProviderFactory: local/github/gitlab/azurerepos"
+      - "AgentProviderFactory: claude/openai"
+      - "SecretsProvider: GetRequired/GetOptional from env vars"
+  - id: ticket-providers
+    action: "Implement ticket providers"
+    new:
+      - "AzureDevOpsTicketProvider: VssConnection + WorkItemTrackingHttpClient"
+      - "GitHubTicketProvider: Octokit Issue → Domain Ticket"
+  - id: source-providers
+    action: "Implement source providers with LibGit2Sharp"
+    new:
+      - "LocalSourceProvider: checkout/commit/push via LibGit2Sharp"
+      - "GitHubSourceProvider: LibGit2Sharp for git, Octokit for PR creation"
+  - id: agent-provider
+    action: "Implement Claude agent provider with agentic loop"
+    new:
+      - "ClaudeAgentProvider: IAgentProvider — GeneratePlanAsync + ExecutePlanAsync"
+      - "AgenticLoop: send → tool_use → execute → send back → repeat"
+      - "ToolExecutor: dispatches read_file/write_file/list_files/run_command"
+      - "ToolDefinitions: JSON schemas for 4 tools"
+  - id: handler-wiring
+    action: "Replace handler stubs with real provider calls"
+    modify:
+      - "FetchTicketHandler: factory.Create → provider.GetTicketAsync"
+      - "CheckoutSourceHandler: factory.Create → provider.CheckoutAsync"
+      - "GeneratePlanHandler: factory.Create → provider.GeneratePlanAsync"
+      - "AgenticExecuteHandler: factory.Create → provider.ExecutePlanAsync"
+      - "CommitAndPRHandler: factory.Create → provider.CommitAndPushAsync + CreatePullRequestAsync"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "Factory tests for each provider type"
+  - "Provider tests with mocked HTTP clients"
+  - "LocalSourceProvider integration tests (real temp git repo)"
+done:
+  - "All three factories implemented"
+  - "AzureDevOps + GitHub ticket providers working"
+  - "Local + GitHub source providers working"
+  - "ClaudeAgentProvider with agentic loop working"
+  - "All handler stubs replaced with real implementations"

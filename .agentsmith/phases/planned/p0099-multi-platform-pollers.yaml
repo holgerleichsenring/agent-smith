@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0099
+goal: "Polling for AzDO/GitLab/Jira — fills the gap p0096 left open. Each platform gets a ListByLifecycleStatusAsync override + an IEventPoller, wired through the existing PollerHostedService."
+requires: ["p0096"]
+
+decisions:
+  - key: "Provider-first, poller-second per platform. Each platform pairs an ITicketProvider.ListByLifecycleStatusAsync override with an IEventPoller that delegates to it — same pattern as GitHub. The poller stays thin (label→pipeline mapping + ClaimRequest construction); the listing query lives next to the rest of the platform's API code in the provider. Symmetrical with how GitHub already works in p0096 — keeps the polling path uniform across platforms."
+  - key: "AzDO listing: WIQL by System.Tags. SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{project}' AND [System.Tags] CONTAINS 'agent-smith:pending' AND [System.State] IN ({openStates}). Reuses the openStates whitelist from AzureDevOpsTicketProvider (default New/Active/Committed). One WIQL call + one batch GetWorkItemsAsync per cycle — same shape as the existing ListOpenAsync."
+  - key: "GitLab listing: GET /projects/{id}/issues?labels=agent-smith:pending&state=opened. Matches the lifecycle label written by GitLabTicketStatusTransitioner. URL-encode the label; multiple labels are comma-joined per GitLab's API."
+  - key: "Jira listing: JQL search via POST /rest/api/3/search/jql (the v3 endpoint, since v2 search is deprecated). Query: project = '{key}' AND labels = 'agent-smith:pending'. Pending status in label-mode is determined by label presence; native status mode is out of scope for p0099 (still gated by JiraWorkflowCatalog probing, deferred from p0095c). For label-mode projects this is sufficient."
+  - key: "Pipeline resolution per platform: each poller reads the platform's WebhookTriggerConfig (GitlabTrigger / AzuredevopsTrigger / JiraTrigger) for default_pipeline, with the same fallback to 'fix-bug' that GitHub uses. No new config schema — same field shape, just per-platform property name. Comment-trigger and pipeline_from_label remain webhook-only (polling has no event source for label-add events; only the static 'pending' label gates entry)."
+  - key: "Per-platform rate limits handled at the provider layer (existing). Octokit/HttpClient + Polly retry policies already wrap the API calls these pollers reuse. No poller-level rate limiter — would duplicate work and miss interactive provider calls (lifecycle housekeeping, transitions). One listing per cycle keeps quota cost flat at O(projects) regardless of ticket volume."
+  - key: "Jira label-lock interaction: TicketClaimService for Jira already takes an additional SETNX label-lock on top of the global claim-lock (p0095b). The poller does not need to know — ClaimAsync handles it. The poller only enumerates candidates."
+  - key: "BuildPollers becomes a switch over Tickets.Type. Unknown / unsupported types log a warning instead of silently registering nothing — replaces p0096's silent skip. Operators see polling.enabled=true for an Ollama/Local/whatever ticket type and get a clear log line on startup."
+  - key: "AzDO openStates default ('New','Active','Committed') applies to polling too — a Pending-tagged work item that's already been moved to Closed by a human is not picked up. Same logic as ListOpenAsync. If the operator has customised openStates in tickets config, polling honors that customisation automatically."
+  - key: "Test strategy: each provider's new ListByLifecycleStatusAsync gets unit tests with a mocked HTTP/SDK client. Each new poller gets a smoke test against a faked ITicketProvider returning N/0 tickets. PollerHostedService integration tests stay GitHub-only (already covered in p0096) — adding multi-platform flow tests adds maintenance for shape that's identical to GitHub's."
+  - key: "Docs: docs/setup/polling.md gets the GitHub-only warning removed and the platform table flipped from 'Planned' to 'Supported' for the three platforms. Add per-platform notes about token scopes (AzDO PAT needs Work Items Read+Write; GitLab token needs api scope; Jira token needs project browse + edit issues)."
+
+steps:
+  - id: azdo-listing
+    action: "AzureDevOpsTicketProvider.ListByLifecycleStatusAsync override — WIQL by tag + state"
+    modify:
+      - "Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs: add ListByLifecycleStatusAsync(status, ct). Build WIQL with [System.Tags] CONTAINS '{LifecycleLabels.For(status)}' AND [System.State] IN ({openStates}). Reuse CreateClient/MapToTicket. Top 50 results per cycle — same as ListOpenAsync."
+    action_detail:
+      - "Status arg accepts the full TicketLifecycleStatus enum but only Pending is meaningful for polling — Enqueued/InProgress/Done queries already exist for housekeeping (StaleJobDetector / EnqueuedReconciler) and use the same code path."
+      - "Fields fetched: standard set (Id/Title/Description/State) + extraFields if configured. No need to fetch tags back — the WIQL filter guarantees they're present."
+
+  - id: azdo-poller
+    action: "AzureDevOpsWorkItemPoller — IEventPoller delegating to the provider"
+    new:
+      - "Application/Services/Polling/AzureDevOpsWorkItemPoller.cs: ctor (projectName, ProjectConfig, ITicketProviderFactory, ITicketStatusTransitioner, ILogger). PollAsync: ListByLifecycleStatusAsync(Pending) → ClaimRequest list with platform=\"AzureDevOps\". Pipeline from project.AzuredevopsTrigger?.DefaultPipeline ?? \"fix-bug\"."
+    action_detail:
+      - "Mirrors GitHubIssuePoller exactly — only differences are PlatformName and which trigger config to read for default_pipeline."
+
+  - id: gitlab-listing
+    action: "GitLabTicketProvider.ListByLifecycleStatusAsync override — Issues API with label filter"
+    modify:
+      - "Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs: add ListByLifecycleStatusAsync(status, ct). Call GET /projects/{urlEncodedPath}/issues?labels={lifecycleLabel}&state=opened. Parse JSON response, map to Ticket via existing MapToTicket helper."
+    action_detail:
+      - "Label parameter must be URL-encoded (the agent-smith:pending colon is technically reserved). Use Uri.EscapeDataString."
+      - "Pagination: cap at 100 per page (GitLab default 20, max 100). One page per cycle is enough — Pending tickets don't accumulate faster than the cycle interval. If a deployment hits >100 Pending tickets in one cycle, the leftover fall through to the next cycle naturally."
+
+  - id: gitlab-poller
+    action: "GitLabIssuePoller — IEventPoller delegating to the provider"
+    new:
+      - "Application/Services/Polling/GitLabIssuePoller.cs: ctor (projectName, ProjectConfig, ITicketProviderFactory, ITicketStatusTransitioner, ILogger). PollAsync: ListByLifecycleStatusAsync(Pending) → ClaimRequest list with platform=\"GitLab\". Pipeline from project.GitlabTrigger?.DefaultPipeline ?? \"fix-bug\"."
+
+  - id: jira-listing
+    action: "JiraTicketProvider.ListByLifecycleStatusAsync override — JQL search on labels"
+    modify:
+      - "Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs: add ListByLifecycleStatusAsync(status, ct). POST /rest/api/3/search/jql with body {jql: \"project = '{key}' AND labels = '{lifecycleLabel}'\", fields: [...]}. Map to Ticket via existing helpers (issue.fields.summary/description/status)."
+    action_detail:
+      - "Label-mode only in p0099. Native-status-mode polling (probing JiraWorkflowCatalog for the matching transition) is deferred — same boundary as p0095b/c."
+      - "JQL labels equality (= 'agent-smith:pending') is exact-match on Jira's tokenized labels — works with the colon-prefixed convention."
+      - "ADF parsing for description reuses JiraAdfParser already in use by GetTicketAsync."
+
+  - id: jira-poller
+    action: "JiraIssuePoller — IEventPoller delegating to the provider"
+    new:
+      - "Application/Services/Polling/JiraIssuePoller.cs: ctor (projectName, ProjectConfig, ITicketProviderFactory, ITicketStatusTransitioner, ILogger). PollAsync: ListByLifecycleStatusAsync(Pending) → ClaimRequest list with platform=\"Jira\". Pipeline from project.JiraTrigger?.DefaultPipeline ?? \"fix-bug\"."
+
+  - id: server-wireup
+    action: "Extend ServerCommand.BuildPollers to register all four pollers based on Tickets.Type"
+    modify:
+      - "Cli/Commands/ServerCommand.cs BuildPollers: replace the GitHub-only if with a switch over project.Tickets.Type (case-insensitive). \"github\" → GitHubIssuePoller. \"azuredevops\" → AzureDevOpsWorkItemPoller. \"gitlab\" → GitLabIssuePoller. \"jira\" → JiraIssuePoller. default → log warning (\"polling enabled for unsupported ticket type {Type} on project {Project} — no poller registered\")."
+
+  - id: tests-providers
+    action: "Cover the three new ListByLifecycleStatusAsync overrides at the provider layer"
+    new:
+      - "tests/Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProviderListByLifecycleTests.cs: WIQL contains the configured tag + state filter; openStates customisation respected; empty result → empty list."
+      - "tests/Infrastructure/Services/Providers/Tickets/GitLabTicketProviderListByLifecycleTests.cs: URL-encoded label; state=opened; HTTP 404 → empty list (no auth/scope panic)."
+      - "tests/Infrastructure/Services/Providers/Tickets/JiraTicketProviderListByLifecycleTests.cs: JQL matches the lifecycle label; ADF description parsed; pagination omitted (label-mode rare-enough)."
+
+  - id: tests-pollers
+    action: "Cover the three new pollers — same shape as GitHubIssuePollerTests"
+    new:
+      - "tests/Services/Polling/AzureDevOpsWorkItemPollerTests.cs"
+      - "tests/Services/Polling/GitLabIssuePollerTests.cs"
+      - "tests/Services/Polling/JiraIssuePollerTests.cs"
+    action_detail:
+      - "Each poller test mocks ITicketProviderFactory to return a fake provider returning N tickets. Asserts: ClaimRequest list shape, default_pipeline resolution from the platform-specific trigger config, fallback to 'fix-bug' when trigger config absent."
+
+  - id: tests-server
+    action: "Cover the new BuildPollers switch — including the warning path"
+    new:
+      - "tests/Cli/Commands/ServerCommand_BuildPollersTests.cs: feed configs with each Tickets.Type; assert one poller of the expected concrete type is registered. Unsupported type → zero pollers registered AND a warning logged (capture via test logger)."
+
+  - id: docs
+    action: "Update polling docs to reflect full coverage"
+    modify:
+      - "docs/setup/polling.md: remove the 'GitHub-only at runtime' warning admonition. Flip the platform-coverage table to all-Supported. Add a per-platform 'Required token scopes' subsection (AzDO PAT: Work Items Read+Write; GitLab token: api; Jira token: project browse + edit issues)."
+      - "docs/setup/polling-vs-webhooks.md: drop any 'GitHub only for polling' caveats — the decision matrix becomes purely about network reachability and latency."
+      - "context.yaml state.done: add p0099 entry once shipped."
+
+  - id: verify
+    action: "dotnet build && dotnet test — all existing tests green; manual smoke against a real AzDO/GitLab/Jira project (one each) optional but recommended before merge."
+
+tests:
+  - "AzureDevOpsTicketProvider_ListByLifecycleStatusAsync_BuildsWiqlWithTagAndStateFilter"
+  - "AzureDevOpsTicketProvider_ListByLifecycleStatusAsync_HonorsCustomOpenStates"
+  - "AzureDevOpsTicketProvider_ListByLifecycleStatusAsync_EmptyResult_ReturnsEmptyList"
+  - "GitLabTicketProvider_ListByLifecycleStatusAsync_UrlEncodesLifecycleLabel"
+  - "GitLabTicketProvider_ListByLifecycleStatusAsync_StateFilterIsOpened"
+  - "GitLabTicketProvider_ListByLifecycleStatusAsync_HttpError_ReturnsEmptyList"
+  - "JiraTicketProvider_ListByLifecycleStatusAsync_JqlMatchesLifecycleLabel"
+  - "JiraTicketProvider_ListByLifecycleStatusAsync_ParsesAdfDescription"
+  - "AzureDevOpsWorkItemPoller_ReturnsClaimRequestsWithAzureDevOpsPlatformTag"
+  - "AzureDevOpsWorkItemPoller_ResolvesPipelineFromAzuredevopsTriggerDefaultPipeline"
+  - "AzureDevOpsWorkItemPoller_NoTriggerConfig_FallsBackToFixBug"
+  - "GitLabIssuePoller_ReturnsClaimRequestsWithGitLabPlatformTag"
+  - "GitLabIssuePoller_ResolvesPipelineFromGitlabTriggerDefaultPipeline"
+  - "GitLabIssuePoller_NoTriggerConfig_FallsBackToFixBug"
+  - "JiraIssuePoller_ReturnsClaimRequestsWithJiraPlatformTag"
+  - "JiraIssuePoller_ResolvesPipelineFromJiraTriggerDefaultPipeline"
+  - "JiraIssuePoller_NoTriggerConfig_FallsBackToFixBug"
+  - "ServerCommand_BuildPollers_GitHubProject_RegistersGitHubPoller"
+  - "ServerCommand_BuildPollers_AzureDevOpsProject_RegistersAzdoPoller"
+  - "ServerCommand_BuildPollers_GitLabProject_RegistersGitLabPoller"
+  - "ServerCommand_BuildPollers_JiraProject_RegistersJiraPoller"
+  - "ServerCommand_BuildPollers_UnknownTicketType_LogsWarningAndRegistersNothing"
+
+done:
+  - "ListByLifecycleStatusAsync overridden on AzureDevOpsTicketProvider, GitLabTicketProvider, JiraTicketProvider — each returns Pending-labelled tickets via the platform's native listing API."
+  - "AzureDevOpsWorkItemPoller, GitLabIssuePoller, JiraIssuePoller exist alongside GitHubIssuePoller in Application/Services/Polling. Each delegates listing to its provider and constructs ClaimRequests."
+  - "ServerCommand.BuildPollers switches on Tickets.Type and registers the appropriate poller per project. Unknown types emit a warning instead of failing silently."
+  - "Pipeline resolution honors per-platform WebhookTriggerConfig.DefaultPipeline (GitlabTrigger / AzuredevopsTrigger / JiraTrigger), falls back to 'fix-bug'."
+  - "All four platforms behave equivalently from the poller's perspective: setting polling.enabled=true on any project produces claims for Pending-labelled tickets within one interval cycle."
+  - "PollerHostedService unchanged — the parallel/timeout/leader infrastructure from p0096 carries the new pollers without modification (validates p0096's design)."
+  - "Coexistence with webhooks unchanged — TicketClaimService still serializes; whichever ingress fires first wins the claim-lock."
+  - "docs/setup/polling.md drops the GitHub-only warning; platform table fully Supported; per-platform token-scope notes added."
+  - "dotnet build zero warnings, all tests green. Manual smoke run on at least one AzDO/GitLab/Jira project before merging — recorded in reports/p0099-multi-poller-smoke.md."

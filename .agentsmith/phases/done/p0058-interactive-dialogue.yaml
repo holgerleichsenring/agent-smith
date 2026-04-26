@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0058
+goal: "Structured interactive dialogue across Slack, CLI, and PR comments — typed questions, timeout handling, complete audit trail in result.md"
+decisions:
+  - key: "5 QuestionTypes: Confirmation, Choice, FreeText, Approval, Info"
+  - key: "Timeout uses DefaultAnswer with hint — pipeline never blocks indefinitely"
+  - key: "Redis protocol extends existing job:{id}:in/out streams"
+  - key: "PR comment adapter: /approve /reject webhook handler (GitHub only in p0058)"
+  - key: "ask_human tool available in AgenticLoop — system prompt restricts to genuinely ambiguous cases"
+  - key: "Teams deferred to p0058b"
+steps:
+  - id: contracts
+    action: "Define dialogue types"
+    new:
+      - "DialogQuestion: { QuestionId, Type, Text, Context?, Choices?, DefaultAnswer, Timeout }"
+      - "DialogAnswer: { QuestionId, Answer, Comment?, AnsweredAt, AnsweredBy }"
+      - "QuestionType enum: Confirmation, Choice, FreeText, Approval, Info"
+      - "IDialogueTransport: { PublishQuestionAsync, WaitForAnswerAsync, PublishAnswerAsync }"
+      - "IDialogueTrail: { RecordAsync, GetAll }"
+    modify:
+      - "IPlatformAdapter: add AskTypedQuestionAsync, SendInfoAsync; mark AskQuestion [Obsolete]"
+  - id: transport
+    action: "Implement Redis dialogue transport"
+    new:
+      - "RedisDialogueTransport: extends job:{id}:in/out stream schema"
+      - "InMemoryDialogueTrail: accumulates Q&A entries"
+  - id: adapters
+    action: "Implement per-channel adapters"
+    new:
+      - "PrCommentAdapter: GitHub comment as question, /approve /reject webhook"
+    modify:
+      - "CliAdapter: AskTypedQuestionAsync with interactive input + timeout"
+      - "SlackAdapter: Block Kit for all 5 QuestionTypes, free-text state in Redis"
+  - id: tool
+    action: "Add ask_human tool to AgenticLoop"
+    modify:
+      - "ToolDefinitions: add ask_human tool"
+      - "ToolExecutor: handle ask_human"
+      - "System prompt: human interaction rules (ask only when genuinely ambiguous)"
+  - id: handler
+    action: "Create AskCommandHandler pipeline command"
+    new:
+      - "AskCommandHandler: asks question, records trail, rejection aborts pipeline"
+    modify:
+      - "RunResultFormatter: add Dialogue Trail section to result.md"
+done:
+  - "DialogQuestion/DialogAnswer/QuestionType in Contracts"
+  - "IDialogueTransport + RedisDialogueTransport implemented"
+  - "CLI: all 5 QuestionTypes interactive with timeout"
+  - "Slack: all 5 QuestionTypes as Block Kit"
+  - "PR comment: question + /approve /reject webhook (GitHub only)"
+  - "ask_human tool in AgenticLoop"
+  - "Dialogue trail in result.md always present"
+  - "Existing AskQuestion marked [Obsolete]"
+  - "All existing tests green, dotnet build zero warnings"

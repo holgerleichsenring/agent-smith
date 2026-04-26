@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0035
+goal: "Split FixTicket modal command into FixBug/FixBugNoTests/AddFeature — hide pipeline implementation detail"
+requires: ["p0034"]
+decisions:
+  - user-intent-not-pipeline: "Users pick what they want to do, not which pipeline to run"
+  - implicit-routing: "FixBug->fix-bug, FixBugNoTests->fix-no-test, AddFeature->add-feature"
+  - pipeline-dropdown-removed: "BuildPipelineBlock() deleted; pipeline determined by command type"
+steps:
+  - id: modal-command-type
+    action: "Replace FixTicket with FixBug, FixBugNoTests, AddFeature in ModalCommandType"
+    modify: ["ModalCommandType"]
+  - id: modal-builder
+    action: "Update SlackModalBuilder with 6 commands, remove pipeline dropdown"
+    modify: ["SlackModalBuilder: 6 commands (FixBug, FixBugNoTests, AddFeature, ListTickets, CreateTicket, InitProject)"]
+  - id: submission-handler
+    action: "Route command type to implicit pipeline in SlackModalSubmissionHandler"
+    modify: ["SlackModalSubmissionHandler"]
+  - id: cleanup
+    action: "Remove SlackBlockPipeline/SlackActionPipeline constants"
+    modify: ["DispatcherDefaults", "WebApplicationExtensions"]
+done:
+  - "413 tests passing"
+  - "Pipeline selection invisible to users"
+  - "6 clear command options in Slack modal"

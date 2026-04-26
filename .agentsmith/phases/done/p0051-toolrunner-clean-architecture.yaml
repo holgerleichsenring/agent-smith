@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0051
+goal: "Clean separation in IToolRunner — spawners define logical I/O, runners translate to execution model, no hardcoded container paths"
+requires: ["p0049", "p0050"]
+decisions:
+  - key: "{input}/{output} placeholders in arguments — each runner resolves to its own paths"
+  - key: "DockerToolRunner uses /work with docker cp, ProcessToolRunner uses temp dir"
+  - key: "OutputDir resolved once in DeliverFindingsHandler, not per-strategy"
+  - key: "No IsWritable() fallback chains — strategies receive concrete writable path"
+steps:
+  - id: placeholders
+    action: "Implement placeholder-based path resolution"
+    modify:
+      - "IToolRunner: document {input}/{output} placeholder contract"
+      - "DockerToolRunner: resolve {input}->/work, clean docker cp, tar creation"
+      - "ProcessToolRunner: resolve {input}->tempDir, temp dir lifecycle"
+      - "NucleiSpawner: use {input}/{output} placeholders, no hardcoded paths"
+      - "SpectralSpawner: use {input}/{output} placeholders"
+  - id: output
+    action: "Simplify output directory handling"
+    modify:
+      - "DeliverFindingsHandler: resolve outputDir once"
+      - "IOutputStrategy/OutputContext: add outputDir"
+      - "MarkdownOutputStrategy: receive outputDir, remove IsWritable"
+      - "SarifOutputStrategy: receive outputDir, remove IsWritable"
+done:
+  - "No hardcoded container paths in Spawners"
+  - "{input}/{output} placeholders resolved by each runner"
+  - "OutputDir resolved once in handler, not per-strategy"
+  - "No IsWritable() fallback chains"
+  - "All existing tests pass"

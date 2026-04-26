@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0060
+goal: "Add DAST via ZAP, auto-fix pipeline for Critical/High findings, and git-based security trend analysis"
+requires: ["p0054", "p0055", "p0056", "p0058"]
+decisions:
+  - ZAP uses docker cp (not volume mounts): "comply with Docker-from-Docker architecture"
+  - Auto-fix spawns separate K8s jobs: "fix can take 10+ min, must not block security scan"
+  - Trend uses LibGit2Sharp on committed SARIF snapshots: "no API, no Redis, no Docker — Git is the database"
+  - Auto-fix disabled by default: "explicit opt-in required"
+steps:
+  - id: frontmatter
+    action: "Extend result.md YAML frontmatter with security: block (findings counts, scan types, trend)"
+  - id: trend-command
+    action: "Add SecurityTrendCommand — reads git history of SARIF snapshots from default branch"
+    new:
+      - "SecurityTrend: { NewFindings, ResolvedFindings, CriticalDelta, HighDelta, TotalScans, AverageCost }"
+  - id: trend-output
+    action: "Show trend delta in result.md and delivery message"
+  - id: trend-cli
+    action: "Add security-trend CLI subcommand"
+    modify: ["CLI: agent-smith security-trend --project"]
+  - id: zap-spawner
+    action: "Add SpawnZapCommand — starts ZAP container via IToolRunner with docker cp pattern"
+    new: ["SpawnZapCommand", "ZapResult"]
+    modify: ["IToolRunner"]
+  - id: zap-skills
+    action: "Add dast-analyst and dast-false-positive-filter LLM skills"
+    new: ["dast-analyst.yaml", "dast-false-positive-filter.yaml"]
+  - id: auto-fix
+    action: "Add SpawnFixCommand — groups Critical/High findings by file+category, spawns fix jobs"
+    new: ["SpawnFixCommand", "SecurityFixRequest"]
+    modify: ["IJobSpawner"]
+tests:
+  - "SecurityTrendHandler reads git-based history correctly"
+  - "SpawnZapCommand starts ZAP container via IToolRunner"
+  - "ZapResult correctly parsed"
+  - "SpawnFixCommand writes fix requests for Critical/High findings"
+  - "All existing security tests green"
+done:
+  - "result.md frontmatter contains security: block"
+  - "SecurityTrendHandler reads git-based YAML snapshots"
+  - "Trend delta visible in result.md and delivery message"
+  - "security-trend CLI subcommand outputs table"
+  - "SpawnZapCommand starts ZAP via docker cp"
+  - "ZAP baseline scan runs, ZapResult parsed"
+  - "dast-analyst skill evaluates ZAP findings"
+  - "ZAP + StaticPattern findings correlated"
+  - "SpawnFixCommand writes fix requests to .agentsmith/security/fixes/"
+  - "confirm_before_fix triggers p0058 dialogue step"
+  - "Branch naming: security-fix/cwe-{id}-{slug}"
+  - "auto_fix.enabled: false is default"
+  - "dotnet build zero warnings"

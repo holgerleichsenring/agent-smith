@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0096
+goal: "Label-idempotent pollers for all four platforms — replaces or supplements webhooks for environments without inbound network access. Uses the same claim-then-enqueue contract as webhooks."
+requires: ["p0095a", "p0095b", "p0095c"]
+
+decisions:
+  - key: "Pollers are label-idempotent, not time-cursored. Query: 'all tickets with trigger label in status Pending'. No last-sync timestamp needed — the ticket status itself decides whether to act."
+  - key: "Two independent Redis leases: agentsmith:leader:poller (who polls) and agentsmith:leader:housekeeping (who runs EnqueuedReconciler + StaleJobDetector). Both 30s TTL, renewed every 10s. A single replica can hold both. This distributes work across replicas without leaving a gap during failover."
+  - key: "Non-leader replicas remain active workers — they pull from Redis queue and execute pipelines. Worker role is independent of leadership."
+  - key: "Sharding explicitly rejected — too much operator burden. One poller-leader polls all configured platforms."
+  - key: "Polling across platforms runs in parallel (Task.WhenAll with per-poller timeout + exception isolation). One slow platform does not delay others."
+  - key: "Each platform has its own IEventPoller implementation. Per-platform rate limiting via Polly. One listing request per poll cycle (not one per ticket)."
+  - key: "Pollers call TicketClaimService.ClaimAsync — same code path as webhooks. No direct enqueueing."
+  - key: "Polling is opt-in per pipeline/project in config. Webhook and poller can coexist (both idempotent — whoever claims first wins, second gets AlreadyClaimed)."
+  - key: "Poll interval configurable per project (default 60s). Jitter ±10% to avoid thundering herd across projects."
+  - key: "Scope reduced during implementation — only the GitHub poller and the platform-agnostic infrastructure (IEventPoller contract, leader-election, housekeeping migration, PollingConfig) ship in p0096. AzDO/GitLab/Jira pollers and their ListByLifecycleStatusAsync provider implementations are deferred to p0099. Reason: validating the contract end-to-end only needs one platform, and each remaining platform has a distinct listing API (WIQL / Issues+labels / JQL) and rate-limit profile that warrant individual treatment. Pollers and providers ship together per platform — implementing a poller without the corresponding ListByLifecycleStatusAsync override produces empty result lists by default and silently fails closed."
+
+steps:
+  - id: poller-interface
+    action: "IEventPoller abstraction — one method, returns tickets to claim"
+    new:
+      - "Contracts/Services/IEventPoller.cs: PollAsync(ct) → IReadOnlyList<ClaimRequest>"
+      - "Contracts/Services/PollerMetadata.cs: record (PlatformName, ProjectName, IntervalSeconds)"
+    action_detail:
+      - "PollAsync returns the candidates found. Orchestration (calling TicketClaimService) is the host's job — keeps pollers focused on discovery."
+
+  - id: platform-pollers
+    action: "Concrete IEventPoller for GitHub — lists Pending-lifecycle tickets via ITicketProvider in a single API call. AzDO/GitLab/Jira pollers deferred to p0099."
+    new:
+      - "Services/Polling/GitHubIssuePoller.cs: delegates to ITicketProvider.ListByLifecycleStatusAsync(Pending) — wraps the Octokit listing already used by EnqueuedReconciler/StaleJobDetector. Pipeline resolution: project's github_trigger.default_pipeline (fallback 'fix-bug')."
+    action_detail:
+      - "Returns ClaimRequest list with (platform=\"GitHub\", projectName, ticketId, pipelineName)."
+      - "Rate limiting deferred to the underlying ITicketProvider — Octokit honors GitHub's 5000/h budget; one listing call per cycle keeps cost predictable."
+
+  - id: leader-election
+    action: "Two independent Redis leases — poller-leader and housekeeping-leader"
+    new:
+      - "Services/Polling/RedisLeaderLease.cs: TryAcquireAsync(key, ttl) / RenewAsync / ReleaseAsync using SET key value NX EX ttl + Lua renewal script (CAS to prevent renewing a lease we no longer hold)."
+      - "Services/Polling/LeaderElectedHostedService.cs: parameterized by lease key and work callback. Holds the lease, invokes the callback when leader, idles otherwise. Two instances registered — one for agentsmith:leader:poller, one for agentsmith:leader:housekeeping."
+    modify:
+      - "From p0095: EnqueuedReconciler and StaleJobDetector no longer run unconditionally on every replica. They become work callbacks inside the housekeeping LeaderElectedHostedService. Single replica deployments still work (the one replica holds both leases)."
+
+  - id: poller-host
+    action: "PollerHostedService orchestrates the poll cycle on the leader — platforms run in parallel"
+    new:
+      - "Services/Polling/PollerHostedService.cs: work callback for the poller LeaderElectedHostedService. Per cycle, invokes all configured IEventPoller.PollAsync via Task.WhenAll with per-poller timeout (default 20s). Each returned ClaimRequest is handed to TicketClaimService.ClaimAsync."
+    action_detail:
+      - "Per-cycle flow: for each poller → Task.Run(PollAsync) with CancellationTokenSource(20s). Task.WhenAll awaits all. Per-poller exceptions and timeouts are caught and logged; one failing platform does not prevent the others' claims from being processed."
+      - "Claim processing after WhenAll is sequential per cycle — keeps Redis claim-lock contention predictable. ClaimAsync is fast (few hundred ms worst case), so this is not a bottleneck."
+      - "Sleep between cycles: configured interval + jitter. Jitter is per-project, not global — prevents alignment across projects even when all use the same interval."
+      - "Graceful shutdown: on cancellation, await current cycle's WhenAll (bounded by the 20s timeout), then release lease."
+
+  - id: config-schema
+    action: "Per-project poller configuration"
+    modify:
+      - "agentsmith.yml schema: add polling section per project with enabled (bool, default false), interval_seconds (default 60), jitter_percent (default 10)."
+      - "ProjectConfig.cs: PollingConfig property, defaults mean 'disabled — webhook only'."
+      - "DI registration: register an IEventPoller per (project, platform) pair where polling.enabled=true. Currently GitHub-only (BuildPollers in ServerCommand) — non-GitHub projects with polling.enabled=true silently register no poller and produce no claims. Documented limitation in docs/setup/polling.md; non-silent rejection deferred to p0099."
+
+  - id: observability
+    action: "Metrics and logs for poll cycles"
+    modify:
+      - "PollerHostedService: emit structured log per cycle with platform, project, candidates_found, claimed, already_claimed, rejected, failed, duration_ms."
+      - "RedisLeaderLease: emit log on leader change (acquired/lost/renewed)."
+      - "OpenTelemetry counters: poll.cycle{platform,project,result}, poll.candidates{platform,project}, leader.state{acquired|released}."
+
+  - id: docs
+    action: "Setup documentation — when to use polling vs webhook"
+    new:
+      - "docs/setup/polling.md: conceptual overview, per-platform config examples, troubleshooting (stuck leader, rate-limit breaches, orphaned Enqueued tickets)."
+      - "docs/setup/polling-vs-webhooks.md: decision matrix covering network egress-only environments, latency tradeoffs, cost considerations."
+    modify:
+      - "docs/setup/README.md: link polling docs prominently for private-K8s deployments."
+
+  - id: verify
+    action: "dotnet build && dotnet test — all existing tests green, polling disabled by default so no behavioral change for webhook users"
+
+tests:
+  - "GitHubIssuePoller_ReturnsOnlyPendingLabeledIssues"
+  # GitLabIssuePoller / AzureDevOpsWorkItemPoller / JiraIssuePoller tests deferred to p0099
+  - "RedisLeaderLease_FirstCallerAcquires_SecondCallerBlocked"
+  - "RedisLeaderLease_LeaderCrashes_LeaseExpires_FollowerAcquires"
+  - "RedisLeaderLease_Renewal_ExtendsLease"
+  - "RedisLeaderLease_RenewalAfterLoss_DoesNotOverwriteNewHolder (CAS check)"
+  - "LeaderElectedHostedService_TwoInstancesWithDifferentKeys_BothLeadable (poller + housekeeping)"
+  - "PollerHostedService_AsLeader_InvokesAllConfiguredPollers"
+  - "PollerHostedService_AsFollower_DoesNotPoll"
+  - "PollerHostedService_OnePlatformTimesOut_OthersStillComplete (parallel isolation)"
+  - "PollerHostedService_OnePlatformThrows_OthersStillComplete"
+  - "PollerHostedService_CandidateAlreadyClaimed_LogsAndContinues (webhook-poller coexistence)"
+  - "PollerHostedService_JitterApplied_CyclesDoNotAlign"
+  - "HousekeepingLeaderedService_OnlyLeaderRunsReconciler"
+  - "HousekeepingLeaderedService_LeaderDies_FollowerTakesOverWithin30s"
+  - "PollingConfig_Disabled_NoPollerRegistered"
+
+done:
+  - "IEventPoller contract + GitHubIssuePoller shipped. AzDO/GitLab/Jira pollers deferred to p0099 — those projects can set polling.enabled=true today but will produce no claims until p0099 lands. Webhooks remain the supported path for non-GitHub platforms."
+  - "Two independent Redis leases control work distribution: poller-leader and housekeeping-leader. Single-replica deployments still function (same pod holds both)."
+  - "Housekeeping services from p0095 (EnqueuedReconciler, StaleJobDetector) move from unconditional-on-every-replica to leader-only — reduces N-fold API calls across replicas. Leader failover within 30s on pod crash closes any gap."
+  - "Poll cycle runs registered pollers in parallel via Task.WhenAll with 20s per-poller timeout. Currently only GitHub registers; the parallel infrastructure is ready for the additional pollers from p0099."
+  - "Non-leader replicas continue to pull jobs from Redis queue and execute pipelines — worker role is independent of leadership."
+  - "Webhook and poller (GitHub) interchangeable: disabling webhooks and enabling polling for a GitHub project produces equivalent behavior with higher latency but no inbound network requirement."
+  - "Coexistence works: when both fire for the same ticket, TicketClaimService serializes — one wins, the other gets AlreadyClaimed cleanly."
+  - "Per-project polling config; disabled by default (backward compatible)."
+  - "GitHub poll cost: one listing call per project per cycle (Octokit-rate-limited to GitHub's 5000/h budget). Per-platform rate-limiter policies deferred to p0099 alongside the new pollers."
+  - "docs/setup/polling.md and polling-vs-webhooks.md published — both call out the GitHub-only-at-runtime limitation."
+  - "dotnet build zero warnings, all tests green."

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0004
+goal: "End-to-end pipeline — user input → intent → config → pipeline → result"
+requires: ["p0003"]
+decisions:
+  - key: "IntentParser uses Regex, not LLM — simplicity, no API costs, deterministic"
+  - key: "PipelineExecutor receives ProjectConfig as parameter, not via DI — differs per invocation"
+  - key: "CommandContextFactory uses pattern matching to dispatch generic ExecuteAsync calls"
+steps:
+  - id: intent-parser
+    action: "Implement RegexIntentParser — extracts TicketId + ProjectName from user input"
+    new:
+      - "RegexIntentParser: IIntentParser impl, tries ticket-first and project-first patterns"
+  - id: pipeline-executor
+    action: "Implement PipelineExecutor + CommandContextFactory"
+    new:
+      - "ICommandContextFactory: Create(commandName, ProjectConfig, PipelineContext)"
+      - "CommandContextFactory: maps command names to ICommandContext via switch"
+      - "PipelineExecutor: iterates commands, builds contexts, executes via CommandExecutor, stops on failure"
+    modify:
+      - "IPipelineExecutor: add ProjectConfig parameter"
+  - id: use-case
+    action: "Implement ProcessTicketUseCase — orchestrates load config → parse → pipeline"
+    new:
+      - "ProcessTicketUseCase: IConfigurationLoader + IIntentParser + IPipelineExecutor"
+  - id: di-wiring
+    action: "Register all Phase 4 components in DI"
+    new:
+      - "Infrastructure.ServiceCollectionExtensions.AddAgentSmithInfrastructure()"
+    modify:
+      - "Application.ServiceCollectionExtensions: add IntentParser, ContextFactory, PipelineExecutor, UseCase"
+      - "Program.cs: build DI container, call ProcessTicketUseCase"
+  - id: verify
+    action: "dotnet build && dotnet test"
+tests:
+  - "ParseAsync_FixHashInProject_ReturnsCorrectIntent"
+  - "ParseAsync_ProjectFirst_ReturnsCorrectIntent"
+  - "ParseAsync_InvalidInput_ThrowsConfigurationException"
+  - "Create_FetchTicketCommand_ReturnsFetchTicketContext"
+  - "Create_UnknownCommand_ThrowsConfigurationException"
+  - "ExecuteAsync_AllCommandsSucceed_ReturnsOk"
+  - "ExecuteAsync_SecondCommandFails_StopsAndReturnsFail"
+  - "ExecuteAsync_ValidInput_RunsPipeline"
+  - "ServiceRegistration_AllServicesResolvable"
+done:
+  - "User input parsed to TicketId + ProjectName"
+  - "Pipeline executes all commands sequentially"
+  - "ProcessTicketUseCase orchestrates full flow"
+  - "DI container resolves all services"

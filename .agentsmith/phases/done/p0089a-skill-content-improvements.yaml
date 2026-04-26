@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0089a
+goal: "Strengthen skill definitions with confidence calibration, framework-specific false-positive rules, and analysis methodology — content only, no C# changes"
+decisions:
+  - Content only: "this phase edits only Markdown/YAML skill files — zero C# changes, zero build risk"
+  - Calibration defined once, referenced everywhere: "observation-schema.md is the single source of truth for confidence bands"
+  - Anthropic precedents as source: "false-positive rules derived from Anthropic's claude-code-security-review — battle-tested across thousands of reviews"
+  - Phase 1 before analysis: "skills must explore repo context (existing security patterns, frameworks in use) before flagging findings"
+steps:
+  - id: confidence-calibration
+    action: "Add confidence calibration table to observation-schema.md: 1-3 = low/don't report, 4-6 = medium/needs investigation, 7-10 = high/report. Add brief rationale per band. Update false-positive-filter SKILL.md to reference these bands explicitly"
+    modify: ["config/skills/observation-schema.md", "config/skills/security/false-positive-filter/SKILL.md"]
+  - id: enrich-security-principles
+    action: >
+      Add framework-specific false-positive rules to security-principles.md and api-security-principles.md:
+      1. React/Angular safe from XSS except dangerouslySetInnerHTML/bypassSecurityTrustHtml
+      2. Environment variables and CLI args are trusted input
+      3. GitHub Actions findings only valid if untrusted input reaches the vulnerable step
+      4. Regex injection is not a vulnerability
+      5. Client-side auth/permission checks are not vulnerabilities (server is responsible)
+      6. Notebook (.ipynb) findings need concrete untrusted-input path
+      7. Shell script command injection only if untrusted input proven
+      8. UUIDs are unguessable — no validation finding
+      9. Logging non-PII data is not a vulnerability
+      10. SSRF only if host or protocol controllable, not path-only
+      11. Insecure documentation (markdown) is not a vulnerability
+      12. Missing audit logs are not a vulnerability
+    modify: ["config/skills/security/security-principles.md", "config/skills/api-security/api-security-principles.md"]
+  - id: analysis-methodology
+    action: >
+      Add Phase 1 instruction to vuln-analyst and api-vuln-analyst SKILL.md:
+      Before analyzing changes, explore the repository to understand:
+      (a) which security frameworks/libraries are in use,
+      (b) existing sanitization and validation patterns,
+      (c) the project's security model.
+      Compare new code against these established patterns — deviations are more likely to be real findings.
+    modify: ["config/skills/security/vuln-analyst/SKILL.md", "config/skills/api-security/api-vuln-analyst/SKILL.md"]
+done:
+  - "observation-schema.md has confidence calibration table with 3 bands and rationale"
+  - "security-principles.md has 12+ framework-specific false-positive exclusions"
+  - "api-security-principles.md has equivalent exclusions relevant to API context"
+  - "vuln-analyst and api-vuln-analyst start with repo context exploration before analysis"
+  - "false-positive-filter references calibration bands from observation-schema.md"
+  - "No C# files changed"

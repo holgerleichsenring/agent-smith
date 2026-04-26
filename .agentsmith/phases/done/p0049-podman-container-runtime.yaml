@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0049
+goal: "IToolRunner abstraction replacing IContainerRunner for tools — supports Docker, Podman, K8s Jobs, and local process execution"
+decisions:
+  - key: "IToolRunner over IContainerRunner — separates tool execution from Docker-specific API"
+  - key: "Four implementations: DockerToolRunner, PodmanToolRunner, K8sJobToolRunner, ProcessToolRunner"
+  - key: "Auto-detection fallback: K8s cluster -> k8s, docker socket -> docker, else process"
+  - key: "IContainerRunner stays for backward compatibility (Dispatcher uses it)"
+steps:
+  - id: interface
+    action: "Define IToolRunner abstraction"
+    new:
+      - "IToolRunner: { RunAsync(ToolRunRequest) -> ToolResult }"
+      - "ToolRunRequest: { Tool, Arguments, InputFiles?, OutputFileName?, TimeoutSeconds }"
+      - "ToolResult: { Stdout, Stderr, OutputFileContent?, ExitCode, DurationSeconds }"
+  - id: runners
+    action: "Implement tool runners"
+    new:
+      - "DockerToolRunner: spawns sibling container via socket"
+      - "PodmanToolRunner: different socket path, rootless"
+      - "K8sJobToolRunner: ephemeral K8s Job, reads logs via K8s API"
+      - "ProcessToolRunner: runs tool as child process directly"
+    modify:
+      - "NucleiSpawner: use IToolRunner instead of IContainerRunner"
+      - "SpectralSpawner: use IToolRunner instead of IContainerRunner"
+      - "ServiceCollectionExtensions: register selected runner based on config"
+      - "docker-compose.yml: updated"
+config: |
+  tool_runner:
+    type: docker | podman | process | k8s
+    socket: unix:///var/run/docker.sock
+    images: { nuclei: projectdiscovery/nuclei:latest, spectral: stoplight/spectral:6 }
+done:
+  - "IToolRunner interface with ToolRunRequest/ToolResult"
+  - "All four runners implemented"
+  - "NucleiSpawner + SpectralSpawner use IToolRunner"
+  - "Configuration selects implementation"
+  - "Auto-detection fallback works"

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0045
+goal: "New api-security-scan pipeline — scans running API via swagger.json + Nuclei Docker container + LLM skills for OWASP API Top 10"
+requires: ["p0019a", "p0043b", "p0043c", "p0034"]
+decisions:
+  - key: "Nuclei as scan engine via Docker Spawner (p0019a)"
+  - key: "OWASP API Security Top 10 (2023) as primary ruleset"
+  - key: "Skills analyze Nuclei output + review swagger.json for structural problems tools can't catch"
+  - key: "Cascading Commands + ConvergenceCheck same as security-scan"
+steps:
+  - id: contracts
+    action: "Add new interfaces and records"
+    new:
+      - "ISwaggerProvider: { LoadAsync(pathOrUrl) -> SwaggerSpec }"
+      - "SwaggerSpec: { Title, Version, Endpoints, SecuritySchemes, RawJson }"
+      - "ApiEndpoint: { Method, Path, OperationId?, Parameters, RequiresAuth, RequestBodySchema?, ResponseSchema? }"
+      - "ApiParameter: { Name, In, Type?, Required }"
+      - "SecurityScheme: { Name, Type, In?, Scheme? }"
+      - "NucleiResult: { Findings, DurationSeconds, RawOutput }"
+      - "NucleiFinding: { TemplateId, Name, Severity, MatchedUrl, Description?, Reference? }"
+    modify:
+      - "CommandNames: add LoadSwagger, SpawnNuclei, ApiSecurityTriage, ApiSecuritySkillRound"
+      - "ContextKeys: add SwaggerSpec, NucleiResult, ApiTarget, SwaggerPath"
+      - "PipelinePresets: add api-security-scan"
+  - id: handlers
+    action: "Implement pipeline handlers"
+    new:
+      - "LoadSwaggerHandler: load + parse OpenAPI spec, store in pipeline"
+      - "SpawnNucleiHandler: spawn Nuclei container, parse JSON-lines output"
+      - "ApiSecurityTriageHandler: extends TriageHandlerBase, selects api-security skills"
+      - "ApiSkillRoundHandler: extends SkillRoundHandlerBase, includes swagger + Nuclei context"
+  - id: infra
+    action: "Implement infrastructure services"
+    new:
+      - "SwaggerProvider: loads from file or HTTP, parses OpenAPI 2.0/3.x"
+      - "NucleiSpawner: reuses IDockerJobSpawner, 5min timeout"
+  - id: skills
+    action: "Create API security skills"
+    new:
+      - "config/skills/api-security/api-security-principles.md — OWASP API Top 10 scope"
+      - "config/skills/api-security/api-vuln-analyst.yaml — Nuclei findings + OWASP mapping"
+      - "config/skills/api-security/api-design-auditor.yaml — swagger structural review"
+      - "config/skills/api-security/auth-tester.yaml — JWT, OAuth, API key exposure"
+      - "config/skills/api-security/false-positive-filter.yaml — Nuclei FP filtering"
+  - id: cli
+    action: "Add api-scan CLI verb"
+    # agent-smith api-scan --swagger ./swagger.json --target https://... --output sarif
+done:
+  - "agent-smith api-scan runs locally end-to-end"
+  - "Nuclei container spawns, scan runs, JSON output parsed"
+  - "SwaggerProvider loads from local file and HTTP URL"
+  - "Triage selects skills based on swagger content + Nuclei findings"
+  - "Output as Console, SARIF, Markdown via existing IOutputStrategy"
+  - "dotnet build zero warnings, all tests green"
