@@ -72,6 +72,9 @@ projects:
             output_per_million: 4.0
             cache_read_per_million: 0.08
 
+      parallelism:                  # Fan-out for same-stage skill rounds
+        max_concurrent_skill_rounds: 1   # Default 1 = sequential; raise to 4 for api-scan/security-scan
+
     pipeline: fix-bug               # Default pipeline for this project
     skills_path: skills/coding      # Relative to config/ directory
     coding_principles_path: .agentsmith/coding-principles.md

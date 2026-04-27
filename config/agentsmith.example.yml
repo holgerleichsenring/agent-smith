@@ -64,6 +64,12 @@ projects:
             input_per_million: 0.80
             output_per_million: 4.0
             cache_read_per_million: 0.08
+      # Parallelism for same-stage skill rounds (e.g. security-scan stage 1, api-scan contributors).
+      # Default 1 = sequential. Raise to fan out contributor calls under a SemaphoreSlim throttle.
+      # Recommended for api-security-scan: 4 — required to keep parallel calls within Anthropic's
+      # 5-minute prompt-cache TTL so the prefix-cache hit rate (p0102) is realized.
+      parallelism:
+        max_concurrent_skill_rounds: 1   # set to 4 to enable parallel fan-out
 
     # --- Option B: OpenAI (uncomment to use instead of Claude) ---
     # agent:
