@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.20.0...v0.21.0) (2026-04-27)
+
+
+### Features
+
+* polling honors pipeline_from_label like webhooks (p0099a) ([6e68122](https://github.com/holgerleichsenring/agent-smith/commit/6e68122219696003313bcddae98b5e9bf781b41d))
+* server stays up + reports per-subsystem health when Redis is missing (p0101) ([bc1563b](https://github.com/holgerleichsenring/agent-smith/commit/bc1563bac4edafcf20cb60dc34ec7d5de14ec899))
+
 ## [0.20.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.19.0...v0.20.0) (2026-04-26)
 
 
