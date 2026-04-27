@@ -12,10 +12,14 @@ namespace AgentSmith.Tests.Cli.Services;
 public sealed class SubsystemTaskTests
 {
     [Fact]
-    public async Task RunRedisGatedAsync_ServiceUnregistered_SetsDisabledAndReturns()
+    public async Task RunRedisGatedAsync_RedisHealthDisabled_SetsDisabledAndReturns()
     {
         var health = new SubsystemHealth("queue_consumer");
-        var provider = new ServiceCollection().BuildServiceProvider();
+        var redis = new SubsystemHealth("redis");
+        redis.SetDisabled("REDIS_URL not configured");
+        var services = new ServiceCollection();
+        services.AddSingleton<ISubsystemHealth>(redis);
+        var provider = services.BuildServiceProvider();
         var workInvoked = false;
 
         await SubsystemTask.RunRedisGatedAsync<IFakeService>(
