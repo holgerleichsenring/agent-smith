@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.21.2...v0.22.0) (2026-04-27)
+
+
+### Features
+
+* parallel skill rounds with batch fan-out (p0097) ([63f2ce1](https://github.com/holgerleichsenring/agent-smith/commit/63f2ce1cdd3f536d2ca190e7eaee21751d07dda4))
+
 ## [0.21.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.21.1...v0.21.2) (2026-04-27)
 
 
