@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -123,9 +124,17 @@ public sealed class SarifOutputStrategy(
             ["ruleId"] = ruleId,
             ["level"] = MapSeverity(finding.Severity),
             ["message"] = new JsonObject { ["text"] = finding.Description },
-            ["locations"] = new JsonArray { location }
+            ["locations"] = new JsonArray { location },
+            ["properties"] = new JsonObject { ["evidence_mode"] = MapEvidence(finding.EvidenceMode) }
         };
     }
+
+    private static string MapEvidence(EvidenceMode mode) => mode switch
+    {
+        EvidenceMode.Confirmed => "confirmed",
+        EvidenceMode.AnalyzedFromSource => "analyzed_from_source",
+        _ => "potential"
+    };
 
     internal static string MapSeverity(string severity) => severity.ToUpperInvariant() switch
     {

@@ -76,6 +76,37 @@ For each finding, include:
 - description: detailed explanation with specific request/response reference
 - confidence: 1-10
 
+## Code-Aware Analysis (when source is available)
+
+When `api_source_available: true`, three additional skills run alongside the
+attacker-perspective contributors:
+
+- `auth-config-reviewer` — reviews authentication configuration in source
+- `ownership-checker` — confirms ownership/tenant predicates on state-changing routes
+- `upload-validator-reviewer` — reviews file-upload handler bodies
+
+### Evidence modes
+
+Findings carry one of three evidence modes:
+
+- `potential` — inferred from schema or static patterns only
+- `confirmed` — confirmed by an authenticated HTTP probe response
+- `analyzed_from_source` — backed by a direct read of the handler body or config block
+
+### File-line attribution
+
+When `evidence_mode = analyzed_from_source`, the finding MUST include a
+`location` of the form `relative/path/file.ext:line`. Routes whose
+`RouteHandlerLocation.Confidence < 0.5` MUST NOT yield findings — log the route
+as low-confidence and stop.
+
+### Boundary with attacker skills
+
+Code-aware skills and attacker-perspective skills (anonymous-attacker,
+low-privilege-attacker, idor-prober, input-abuser, response-analyst) are
+complementary, not redundant. A finding may legitimately appear from both
+sides; the chain-analyst is responsible for cross-mode chains.
+
 ## Language
 
 All output MUST be in English.

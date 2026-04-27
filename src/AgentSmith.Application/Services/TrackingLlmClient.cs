@@ -18,4 +18,14 @@ public sealed class TrackingLlmClient(ILlmClient inner, PipelineCostTracker trac
         tracker.Track(response);
         return response;
     }
+
+    public async Task<LlmResponse> CompleteWithCachedPrefixAsync(
+        string systemPrompt, string userPromptPrefix, string userPromptSuffix,
+        TaskType taskType, CancellationToken cancellationToken)
+    {
+        var response = await inner.CompleteWithCachedPrefixAsync(
+            systemPrompt, userPromptPrefix, userPromptSuffix, taskType, cancellationToken);
+        tracker.Track(response);
+        return response;
+    }
 }

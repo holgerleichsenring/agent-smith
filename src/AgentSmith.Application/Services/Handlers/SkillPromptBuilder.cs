@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Builds system and user prompts for skill round LLM calls.
 /// Handles both discussion (multi-round) and structured (single-round) formats.
 /// </summary>
-public sealed class SkillPromptBuilder : ISkillPromptBuilder
+public sealed class SkillPromptBuilder(PromptPrefixBuilder prefixBuilder) : ISkillPromptBuilder
 {
     internal const string ObservationSchemaInstruction = """
         ## Output Format — SkillObservation
@@ -50,69 +50,56 @@ public sealed class SkillPromptBuilder : ISkillPromptBuilder
         """;
 
     public (string SystemPrompt, string UserPrompt) BuildDiscussionPrompt(
-        RoleSkillDefinition role,
-        string domainSection,
-        string? projectContext,
-        string? domainRules,
-        string? codeMap,
-        IReadOnlyList<DiscussionEntry> discussionLog,
-        int round)
+        RoleSkillDefinition role, string domainSection,
+        string? projectContext, string? domainRules, string? codeMap,
+        IReadOnlyList<DiscussionEntry> discussionLog, int round)
     {
-        var discussionSoFar = discussionLog.Count > 0
-            ? string.Join("\n\n---\n\n", discussionLog.Select(e =>
-                $"{e.Emoji} {e.DisplayName} (Round {e.Round}):\n{e.Content}"))
-            : "No prior discussion.";
+        var (system, prefix, suffix) = BuildDiscussionPromptParts(
+            role, domainSection, "", projectContext, domainRules, codeMap, discussionLog, round);
+        return (system, $"{prefix}\n\n{suffix}");
+    }
 
-        var systemPrompt = $"""
+    public (string SystemPrompt, string UserPrompt) BuildStructuredPrompt(
+        RoleSkillDefinition role, string domainSection,
+        string upstreamContext, string outputInstruction)
+    {
+        var (system, prefix, suffix) = BuildStructuredPromptParts(
+            role, domainSection, "", upstreamContext, outputInstruction);
+        return (system, $"{prefix}\n\n{suffix}");
+    }
+
+    public (string SystemPrompt, string UserPrefix, string UserSuffix) BuildDiscussionPromptParts(
+        RoleSkillDefinition role, string domainStable, string domainVariable,
+        string? projectContext, string? domainRules, string? codeMap,
+        IReadOnlyList<DiscussionEntry> discussionLog, int round)
+    {
+        var system = $"""
             {BuildRolePrompt(role)}
 
             {ObservationSchemaInstruction}
             """;
-
-        var userPrompt = $"""
-            {domainSection}
-
-            ## Project Context
-            {projectContext ?? "Not available"}
-
-            ## Domain Rules
-            {domainRules ?? "Not available"}
-
-            ## Code Map
-            {codeMap ?? "Not available"}
-
-            ## Discussion So Far
-            {discussionSoFar}
-
-            ## Your Task
-            Based on the discussion so far, provide your analysis as a JSON array of observations.
-            This is round {round}.
-
-            Respond ONLY with a JSON array. No other text.
-            """;
-
-        return (systemPrompt, userPrompt);
+        var discussionSoFar = RenderDiscussion(discussionLog);
+        var (prefix, suffix) = prefixBuilder.BuildDiscussionParts(
+            domainStable, domainVariable, projectContext, domainRules, codeMap,
+            discussionSoFar, round);
+        return (system, prefix, suffix);
     }
 
-    public (string SystemPrompt, string UserPrompt) BuildStructuredPrompt(
-        RoleSkillDefinition role,
-        string domainSection,
-        string upstreamContext,
-        string outputInstruction)
+    public (string SystemPrompt, string UserPrefix, string UserSuffix) BuildStructuredPromptParts(
+        RoleSkillDefinition role, string domainStable, string domainVariable,
+        string upstreamContext, string outputInstruction)
     {
-        var systemPrompt = BuildRolePrompt(role);
-
-        var userPrompt = $"""
-            {domainSection}
-
-            {(string.IsNullOrEmpty(upstreamContext) ? "" : $"## Upstream Analysis\n{upstreamContext}\n")}
-
-            ## Output Format
-            {outputInstruction}
-            """;
-
-        return (systemPrompt, userPrompt);
+        var system = BuildRolePrompt(role);
+        var (prefix, suffix) = prefixBuilder.BuildStructuredParts(
+            domainStable, domainVariable, upstreamContext, outputInstruction);
+        return (system, prefix, suffix);
     }
+
+    private static string RenderDiscussion(IReadOnlyList<DiscussionEntry> discussionLog) =>
+        discussionLog.Count > 0
+            ? string.Join("\n\n---\n\n", discussionLog.Select(e =>
+                $"{e.Emoji} {e.DisplayName} (Round {e.Round}):\n{e.Content}"))
+            : "No prior discussion.";
 
     private static string BuildRolePrompt(RoleSkillDefinition role) => $"""
         ## Your Role

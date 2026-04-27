@@ -1,0 +1,65 @@
+name: api-auth
+patterns:
+  - id: jwt-validate-lifetime-disabled
+    regex: "ValidateLifetime\\s*=\\s*false"
+    severity: critical
+    confidence: 9
+    cwe: CWE-613
+    title: "JWT ValidateLifetime disabled"
+    description: "TokenValidationParameters.ValidateLifetime is false. Expired tokens are accepted indefinitely. Set ValidateLifetime = true; rotate signing keys regularly."
+
+  - id: jwt-validate-issuer-signing-key-disabled
+    regex: "ValidateIssuerSigningKey\\s*=\\s*false"
+    severity: critical
+    confidence: 9
+    cwe: CWE-347
+    title: "JWT ValidateIssuerSigningKey disabled"
+    description: "Issuer signing key validation is disabled. Tokens signed by any key (or unsigned 'alg: none') will be accepted. Set ValidateIssuerSigningKey = true and configure IssuerSigningKey."
+
+  - id: jwt-validate-issuer-disabled
+    regex: "ValidateIssuer\\s*=\\s*false"
+    severity: high
+    confidence: 8
+    cwe: CWE-347
+    title: "JWT ValidateIssuer disabled"
+    description: "Issuer validation is disabled. Tokens issued by any provider will be accepted. Set ValidateIssuer = true and configure ValidIssuer to the expected authority."
+
+  - id: jwt-validate-audience-disabled
+    regex: "ValidateAudience\\s*=\\s*false"
+    severity: high
+    confidence: 8
+    cwe: CWE-347
+    title: "JWT ValidateAudience disabled"
+    description: "Audience validation is disabled. A valid token issued to a different application can authenticate against this API. Set ValidateAudience = true and configure ValidAudience."
+
+  - id: cors-allow-any-origin-with-credentials
+    regex: "AllowAnyOrigin\\s*\\(\\s*\\)[\\s\\S]{0,200}AllowCredentials\\s*\\(\\s*\\)|AllowCredentials\\s*\\(\\s*\\)[\\s\\S]{0,200}AllowAnyOrigin\\s*\\(\\s*\\)"
+    severity: high
+    confidence: 9
+    cwe: CWE-942
+    title: "CORS AllowAnyOrigin combined with AllowCredentials"
+    description: "AllowAnyOrigin and AllowCredentials together is rejected by browsers but the configuration signals intent for credentialed cross-origin requests with no origin allow-list. Replace with WithOrigins(...) listing trusted origins."
+
+  - id: anonymous-on-state-changing-verb
+    regex: "\\[AllowAnonymous\\][\\s\\S]{0,200}\\[Http(Post|Put|Delete|Patch)"
+    severity: high
+    confidence: 7
+    cwe: CWE-862
+    title: "AllowAnonymous on state-changing endpoint"
+    description: "[AllowAnonymous] decorates a POST/PUT/DELETE/PATCH endpoint. Confirm this is a deliberate public mutation (e.g. user registration). Most state-changing operations require authentication."
+
+  - id: hardcoded-jwt-secret
+    regex: "(?i)(?:Jwt|Token|Signing)(?:Key|Secret)\\s*=\\s*\"[A-Za-z0-9+/=_-]{16,}\""
+    severity: critical
+    confidence: 8
+    cwe: CWE-798
+    title: "Hardcoded JWT signing key"
+    description: "JWT signing key embedded in source. Move to a secret store (Key Vault, Secret Manager, env var) and rotate the leaked key immediately."
+
+  - id: exception-message-in-response
+    regex: "(return|Ok|StatusCode|BadRequest|InternalServerError)\\s*\\(\\s*ex(ception)?\\.(Message|ToString\\s*\\(\\s*\\))"
+    severity: medium
+    confidence: 7
+    cwe: CWE-209
+    title: "Exception message returned to caller"
+    description: "Exception details are returned in the HTTP response body. Stack traces and inner messages can disclose paths, framework versions, and SQL fragments. Return a generic error and log the exception server-side."

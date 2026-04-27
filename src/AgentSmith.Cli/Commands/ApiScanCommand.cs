@@ -29,11 +29,13 @@ internal static class ApiScanCommand
         var user2UserOption = new Option<string?>("--user2-user", "User2 persona username");
         var user2PassOption = new Option<string?>("--user2-pass", "User2 persona password");
 
+        var sourceOptions = new SourceOptions();
         var cmd = new Command("api-scan", "Scan a running API against its OpenAPI spec")
         {
             swaggerOption, targetOption, outputOption, outputDirOption, projectOption, configOption, verboseOption, dryRunOption,
             adminUserOption, adminPassOption, user1UserOption, user1PassOption, user2UserOption, user2PassOption
         };
+        sourceOptions.AddTo(cmd);
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
@@ -73,10 +75,18 @@ internal static class ApiScanCommand
             if (personas.Count > 0)
                 contextData[ContextKeys.Personas] = personas;
 
-            // Print mode at startup
-            Console.WriteLine(personas.Count > 0
+            sourceOptions.ApplyTo(ctx, contextData);
+            var sourcePath = contextData.TryGetValue(ContextKeys.SourcePath, out var p) ? p as string : null;
+
+            // Print mode banner at startup
+            var modeLabel = personas.Count > 0
                 ? $"Active mode — {personas.Count} persona(s): {string.Join(", ", personas.Keys)}"
-                : "Passive mode — no credentials provided");
+                : "Passive mode — no credentials provided";
+            var sourceLabel = !string.IsNullOrWhiteSpace(sourcePath)
+                ? $"Source: {sourcePath} (code-aware analysis enabled)"
+                : "Source: not provided (schema-only analysis)";
+            var skillCount = EstimateSkillCount(personas.Count > 0, !string.IsNullOrWhiteSpace(sourcePath));
+            Console.WriteLine($"{modeLabel} | {sourceLabel} | ~{skillCount} skill(s)");
 
             var request = new PipelineRequest(projectName, "api-security-scan", Headless: true,
                 Context: contextData);
@@ -144,4 +154,13 @@ internal static class ApiScanCommand
         if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
             personas[name] = new PersonaCredentials { Username = username, Password = password };
     }
+
+    private static int EstimateSkillCount(bool active, bool source) =>
+        (active, source) switch
+        {
+            (false, false) => 4,
+            (false, true)  => 7,
+            (true,  false) => 8,
+            (true,  true)  => 11,
+        };
 }

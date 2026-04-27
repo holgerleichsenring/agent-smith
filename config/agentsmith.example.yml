@@ -204,6 +204,37 @@ projects:
     #   default_pipeline: fix-bug
     #   comment_keyword: "@agent-smith"
 
+  # --- api-security project (p0102): code-aware api-scan with prefix caching ---
+  api-security:
+    source:
+      type: Local
+      path: ./repo                      # path to the API source — enables auth-config-reviewer,
+                                        # ownership-checker, upload-validator-reviewer
+    agent:
+      type: Claude
+      model: claude-sonnet-4-20250514
+      cache:
+        is_enabled: true
+        strategy: automatic
+      models:
+        primary:
+          model: claude-sonnet-4-20250514
+          max_tokens: 8192
+        planning:
+          model: claude-sonnet-4-20250514
+          max_tokens: 4096
+      pricing:
+        models:
+          claude-sonnet-4-20250514:
+            input_per_million: 3.0
+            output_per_million: 15.0
+            cache_read_per_million: 0.30
+      # Required for prefix-cache hit rate within Anthropic's 5-minute TTL —
+      # at parallelism 1 contributors run sequentially and the cache expires
+      # before later skills hit it (p0102).
+      parallelism:
+        max_concurrent_skill_rounds: 4
+
 # Tool runner for security scanning tools (Nuclei, Spectral).
 # Type is auto-detected if not specified: docker socket → docker, else process.
 tool_runner:

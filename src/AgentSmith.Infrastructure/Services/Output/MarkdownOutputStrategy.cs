@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -64,7 +65,8 @@ public sealed class MarkdownOutputStrategy(
 
             sb.AppendLine($"### {icon} {f.Severity.ToUpperInvariant()}: {f.Title}");
             sb.AppendLine();
-            sb.AppendLine($"**Location:** `{f.DisplayLocation}`");
+            sb.AppendLine($"**Location:** `{f.DisplayLocation}`  ");
+            sb.AppendLine($"**Evidence:** {EvidenceLabel(f.EvidenceMode)}");
             sb.AppendLine();
             sb.AppendLine(f.Description);
             sb.AppendLine();
@@ -72,4 +74,11 @@ public sealed class MarkdownOutputStrategy(
 
         return sb.ToString();
     }
+
+    private static string EvidenceLabel(EvidenceMode mode) => mode switch
+    {
+        EvidenceMode.Confirmed => "confirmed (HTTP probe)",
+        EvidenceMode.AnalyzedFromSource => "analyzed from source",
+        _ => "potential (schema/pattern)"
+    };
 }
