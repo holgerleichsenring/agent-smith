@@ -3,65 +3,100 @@
 Self-hosted AI orchestration framework. Code, legal, security, workflows.
 Your AI. Your infrastructure. Your rules.
 
-## Quick Start
+## Images
+
+| Image | Purpose |
+|-------|---------|
+| `holgerleichsenring/agent-smith-cli` | CLI runner — one-shot commands (`fix`, `security-scan`, `api-scan`, `mad`, `legal`, …) and the lightweight webhook listener (`server` subcommand) |
+| `holgerleichsenring/agent-smith-server` | Slack/Teams dispatcher — receives chat events on `:8081` and spawns CLI jobs (Docker or Kubernetes) |
+
+Both images are published for `linux/amd64` and `linux/arm64`.
+
+## Deployment Modes
+
+### 1. Standalone `docker run` (one-shot)
 
 ```bash
-# One-shot: process a ticket
+# Fix a ticket
 docker run --rm \
   -e ANTHROPIC_API_KEY=sk-... \
   -e GITHUB_TOKEN=ghp_... \
   -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
   holgerleichsenring/agent-smith-cli \
-  "fix #42 in my-api"
+  fix --ticket 42 --project my-api
 
-# Server mode: webhook listener
+# Security scan a branch
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-... \
+  -e GITHUB_TOKEN=ghp_... \
+  -v ./config:/app/config \
+  holgerleichsenring/agent-smith-cli \
+  security-scan --project my-api --branch feature/x --output console
+
+# Webhook listener (CLI image, no dispatcher)
 docker run -d \
   -e ANTHROPIC_API_KEY=sk-... \
   -e GITHUB_TOKEN=ghp_... \
-  -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
   -p 8081:8081 \
   holgerleichsenring/agent-smith-cli \
-  --server --port 8081
+  server --port 8081
 ```
 
-## Docker Compose
+Run `docker run --rm holgerleichsenring/agent-smith-cli --help` for the full subcommand list.
+
+### 2. Docker Compose
 
 ```bash
-git clone https://github.com/holgerleichsenring/agent-smith-cli.git
+git clone https://github.com/holgerleichsenring/agent-smith.git
 cd agent-smith
 cp .env.example .env  # add your API keys
-docker compose up -d
+
+# CLI one-shot
+docker compose -f deploy/docker-compose.yml run --rm agentsmith \
+  fix --ticket 42 --project my-api
+
+# Webhook server + Redis
+docker compose -f deploy/docker-compose.yml up -d agentsmith-server redis
 ```
 
-## Images
+See [`deploy/docker-compose.yml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/docker-compose.yml) for the full service set (CLI, server, Redis, optional Ollama).
 
-| Image | Description |
-|-------|-------------|
-| `holgerleichsenring/agent-smith-cli` | CLI runner + webhook server |
-| `holgerleichsenring/agent-smith-server` | Slack/Teams gateway, K8s/Docker job spawner |
+### 3. Kubernetes
 
-## Supported Platforms
+```bash
+git clone https://github.com/holgerleichsenring/agent-smith.git
+cd agent-smith/deploy/k8s
+cp 4-secret-template.yaml 4-secret.yaml  # fill in tokens
+kubectl apply -f .
+```
 
-- **Tickets**: GitHub Issues, GitLab Issues, Jira, Azure DevOps Work Items
-- **Source**: GitHub, GitLab, Azure Repos, Local
-- **AI**: Anthropic Claude, OpenAI, Google Gemini
+The `agent-smith-server` deployment listens for Slack/Teams events and spawns `agent-smith-cli` jobs in the same namespace. Manifests in [`deploy/k8s/`](https://github.com/holgerleichsenring/agent-smith/tree/main/deploy/k8s).
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes* | Anthropic API key |
-| `GITHUB_TOKEN` | Yes* | GitHub personal access token |
-| `OPENAI_API_KEY` | No | OpenAI API key (if using OpenAI provider) |
-| `GEMINI_API_KEY` | No | Google Gemini API key |
-| `AZURE_DEVOPS_TOKEN` | No | Azure DevOps PAT |
-| `REDIS_URL` | No | Redis connection (for dispatcher mode) |
+| `ANTHROPIC_API_KEY` | Yes\* | Anthropic API key |
+| `OPENAI_API_KEY` | Yes\* | OpenAI API key |
+| `GEMINI_API_KEY` | Yes\* | Google Gemini API key |
+| `GITHUB_TOKEN` | Yes\*\* | GitHub PAT |
+| `AZURE_DEVOPS_TOKEN` | Yes\*\* | Azure DevOps PAT |
+| `REDIS_URL` | Server only | Redis connection (dispatcher / queue) |
+| `SLACK_BOT_TOKEN` | Server only | Slack adapter |
+| `SLACK_SIGNING_SECRET` | Server only | Slack request verification |
 
-*At least one AI provider key and one source provider token required.
+\* At least one AI provider key required. \*\* At least one source/ticket platform token required.
+
+## Supported Platforms
+
+- **Tickets**: GitHub Issues, GitLab Issues, Jira, Azure DevOps Work Items
+- **Source**: GitHub, GitLab, Azure Repos, Local
+- **AI**: Anthropic Claude, OpenAI, Google Gemini, Ollama (local)
 
 ## Links
 
-- [GitHub Repository](https://github.com/holgerleichsenring/agent-smith-cli)
-- [Configuration Guide](https://github.com/holgerleichsenring/agent-smith-cli/blob/main/config/)
+- [GitHub Repository](https://github.com/holgerleichsenring/agent-smith)
+- [Configuration Guide](https://github.com/holgerleichsenring/agent-smith/tree/main/config)
+- [Deployment Manifests](https://github.com/holgerleichsenring/agent-smith/tree/main/deploy)
