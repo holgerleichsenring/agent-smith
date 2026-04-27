@@ -18,6 +18,20 @@ internal static class ObservationParser
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
+    /// <summary>
+    /// Parses observations with placeholder Id=0 on every entry. Real IDs are assigned later
+    /// at merge time (see ApplyBufferToContext) so deterministic ordering is preserved across
+    /// parallel skill rounds.
+    /// </summary>
+    internal static List<SkillObservation> ParseWithoutIds(
+        string response, string role, ILogger? logger = null)
+    {
+        var parsed = Parse(response, role, 0, logger);
+        for (var i = 0; i < parsed.Count; i++)
+            parsed[i] = parsed[i] with { Id = 0 };
+        return parsed;
+    }
+
     internal static List<SkillObservation> Parse(
         string response, string role, int startId, ILogger? logger = null)
     {

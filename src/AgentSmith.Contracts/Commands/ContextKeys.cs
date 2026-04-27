@@ -88,4 +88,5 @@ public static class ContextKeys
     public const string Personas = "Personas";
     public const string ActiveMode = "ActiveMode";
     public const string HttpProbeResults = "HttpProbeResults";
+    public const string DeferredBuffers = "DeferredBuffers";
 }
