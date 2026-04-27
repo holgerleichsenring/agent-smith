@@ -1,6 +1,7 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
@@ -21,6 +22,12 @@ public class DiRegistrationTests
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole());
         services.AddSingleton(new Mock<IConnectionMultiplexer>().Object);
+        services.AddSingleton(new Mock<IRedisJobQueue>().Object);
+        services.AddSingleton(new Mock<IRedisClaimLock>().Object);
+        services.AddSingleton(new Mock<IRedisLeaderLease>().Object);
+        services.AddSingleton(new Mock<IJobHeartbeatService>().Object);
+        services.AddSingleton(new Mock<IConversationLookup>().Object);
+        services.AddSingleton(new Mock<IDialogueTransport>().Object);
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddSingleton<IProgressReporter>(sp =>

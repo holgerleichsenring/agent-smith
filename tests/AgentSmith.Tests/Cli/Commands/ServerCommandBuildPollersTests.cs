@@ -1,5 +1,5 @@
 using AgentSmith.Application.Services.Polling;
-using AgentSmith.Cli.Commands;
+using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -120,7 +120,7 @@ public sealed class ServerCommandBuildPollersTests
             services.AddSingleton(transitionerFactory.Object);
             services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
 
-            var pollers = ServerCommand.BuildPollers(services.BuildServiceProvider(), config).ToList();
+            var pollers = PollerFactory.Build(services.BuildServiceProvider(), config).ToList();
 
             pollers.Should().HaveCount(4);
             pollers.Select(p => p.PlatformName).Should().BeEquivalentTo(
@@ -157,6 +157,6 @@ public sealed class ServerCommandBuildPollersTests
             Polling = new PollingConfig { Enabled = pollingEnabled }
         };
 
-        return ServerCommand.BuildPollers(provider, config);
+        return PollerFactory.Build(provider, config);
     }
 }

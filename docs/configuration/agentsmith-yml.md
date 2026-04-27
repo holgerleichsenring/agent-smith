@@ -106,6 +106,9 @@ agent:
     max_parallel_jobs: 4            # SemaphoreSlim cap on PipelineQueueConsumer
     consume_block_seconds: 5        # LPOP poll interval
     shutdown_grace_seconds: 30      # in-flight grace on SIGTERM
+    redis_retry_interval_seconds: 30 # subsystems poll IConnectionMultiplexer.IsConnected
+                                     # at this cadence when Redis is configured but
+                                     # unreachable; once connected they start their work
 
 # ─── Pipelines ───────────────────────────────────────────────────────
 pipelines:
@@ -266,6 +269,7 @@ Process-wide queue settings. The queue is shared across all projects on a given 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `max_parallel_jobs` | int | `4` | `SemaphoreSlim` cap on concurrent pipelines per pod (backpressure knob) |
+| `redis_retry_interval_seconds` | int | `30` | How often subsystems re-check `IConnectionMultiplexer.IsConnected` while Redis is configured but unreachable. Lower = faster recovery, more polling noise. (p0101) |
 | `consume_block_seconds` | int | `5` | LPOP polling interval inside the consumer loop |
 | `shutdown_grace_seconds` | int | `30` | Time to await in-flight pipelines on graceful shutdown |
 

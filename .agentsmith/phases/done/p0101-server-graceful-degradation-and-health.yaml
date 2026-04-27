@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0101
+goal: "CLI server stays up and reports per-subsystem status when Redis is unconfigured/unreachable, instead of crashing on DI resolution or ConnectionMultiplexer.Connect."
+
+requires: ["p0095a", "p0096"]
+
+decisions:
+  - key: "Resilience strategy = 'webhook listener always up, Redis-dependent subsystems degrade'. The webhook HTTP endpoint, /health, and unsigned-payload rejection do not need Redis. Queue consumer, housekeeping (StaleJobDetector + EnqueuedReconciler), and poller leader all do. We keep that split — server can boot with REDIS_URL unset or with Redis temporarily down, log a clear warning, and serve /health. Webhook POSTs that hit ITicketClaimService while Redis is down respond 503 with a structured body instead of throwing."
+
+  - key: "ConnectionMultiplexer is built with AbortOnConnectFail=false. That makes Connect() return a multiplexer immediately even if Redis is unreachable, and reconnect automatically when Redis comes up. The current code uses ConnectionMultiplexer.Connect(redisUrl) (defaults to AbortOnConnectFail=true), so Redis being down at startup throws. Switching the flag is a one-line change with no behavior change in the happy path."
+
+  - key: "DI registration of Redis-dependent services moves out of AddAgentSmithInfrastructure and into ServiceProviderFactory.RegisterRedis, gated on whether IConnectionMultiplexer was registered. Affected services: IRedisJobQueue, IRedisClaimLock, IRedisLeaderLease, IJobHeartbeatService, IDialogueTransport(Redis impl), IConversationLookup, IMessageBus. Rationale: the existing 'if (queue is null) return' graceful-skip pattern in ServerCommand only works if those services are NOT in the container when Redis isn't available. Today they are registered unconditionally and their constructors blow up at first GetService call."
+
+  - key: "ITicketClaimService remains Scoped/registered, but we add a null-object replacement (NullTicketClaimService) registered when IRedisClaimLock is absent. ClaimAsync on the null impl returns ClaimResult.Rejected('redis_unavailable') and logs once. WebhookRequestProcessor stays on GetRequiredService<ITicketClaimService>() — no call-site changes. Alternative considered: GetService + null-check in every caller — rejected because TicketClaimService is invoked from 4 places and the null-check would spread."
+
+  - key: "/health upgrade: the endpoint returns JSON with per-subsystem status. /health is liveness — HTTP 200 as long as the listener is alive, even when Redis is unconfigured or unreachable. /health/ready is readiness and follows a strict 'loud-fail' rule: ANY subsystem in non-Up state (Down, Degraded, or Disabled) returns 503. Rationale: a server that runs without REDIS_URL would otherwise sit there happily ignoring webhooks (TicketClaimService → null impl → 503 per webhook), with operators noticing only via Slack/Jira tickets piling up. /health/ready=503 when Disabled forces operators to either configure Redis or ack the degraded state in their own monitoring. Liveness vs readiness split keeps Kubernetes/Docker restart loops sane (don't kill the pod just because Redis is briefly down) while still surfacing the issue to readiness gates and alerting."
+
+  - key: "ISubsystemHealth is a tiny contract surface: each long-running subsystem (queue consumer, housekeeping, poller, redis multiplexer) registers an ISubsystemHealth singleton that exposes Name, State (Up/Degraded/Down/Disabled), and Reason. WebhookListener iterates GetServices<ISubsystemHealth>() to build the report. No reflection, no central registry — just DI."
+
+  - key: "Subsystem retry loop: instead of returning Task.CompletedTask when Redis is missing, sub-tasks (consumer, housekeeping, poller) enter a 'wait-for-redis' loop that polls IConnectionMultiplexer.IsConnected every 30s (configurable via QueueConfig.RedisRetryIntervalSeconds, default 30). Once connected, they start their normal work. If Redis was never registered (no REDIS_URL at all), the task transitions to ISubsystemHealth.State=Disabled and exits — no point looping forever for a config that will never become true. The Disabled-vs-Down distinction is what 'tells the operator why' on /health."
+
+  - key: "Logging cadence: 'Redis unavailable, X disabled' once at INFO on startup, then nothing while in retry-loop (DEBUG every retry). When Redis comes up: INFO 'Redis available, X started'. When Redis goes down mid-run: WARN 'Redis lost, X paused' once, INFO when it recovers. Goal is to not flood the log with retry noise but always have a clear last-event-state in operator's tail."
+
+  - key: "Out of scope: AgentSmith.Server (the Dispatcher binary at src/AgentSmith.Server) keeps its current depends_on/REDIS_URL setup. It is a different deployment unit (Slack/Teams gateway + job spawner) with stricter Redis coupling — Slack signing secrets, conversation state, dispatcher queue. Making it resilient is a follow-up phase. This phase is strictly about the CLI's `server` command."
+
+steps:
+  - id: redis-status-contract
+    action: "Add ISubsystemHealth contract + concrete SubsystemHealth record"
+    new:
+      - "Contracts/Services/ISubsystemHealth.cs: interface with `string Name`, `SubsystemState State`, `string? Reason`, `DateTimeOffset? LastChangedUtc`. SubsystemState enum: Up, Degraded, Down, Disabled."
+      - "Contracts/Services/SubsystemHealth.cs: thread-safe mutable implementation backed by an internal lock. Methods: SetUp(), SetDegraded(string reason), SetDown(string reason), SetDisabled(string reason). Constructor takes the Name."
+
+  - id: resilient-multiplexer
+    action: "Make ConnectionMultiplexer creation non-fatal and report status"
+    modify:
+      - "Cli/ServiceProviderFactory.cs: extract Redis registration into private RegisterRedis(IServiceCollection, string? redisUrl, bool isJobMode). Build ConfigurationOptions { AbortOnConnectFail = false, ConnectRetry = 3, ConnectTimeout = 5000 } from redisUrl. Always register one ISubsystemHealth named 'redis' — Disabled when redisUrl is empty, otherwise it tracks the multiplexer's IsConnected and ConnectionFailed/ConnectionRestored events."
+    new:
+      - "Cli/Services/RedisConnectionHealth.cs: subscribes to IConnectionMultiplexer.ConnectionFailed/ConnectionRestored, mirrors the state into a SubsystemHealth instance. ILogger logs the transitions (INFO on restored, WARN on lost)."
+
+  - id: gated-redis-services
+    action: "Move Redis-dependent service registrations out of Infrastructure"
+    modify:
+      - "Infrastructure/Extensions/ServiceCollectionExtensions.cs: remove the AddSingleton lines for IRedisJobQueue, IRedisClaimLock, IRedisLeaderLease, IJobHeartbeatService, IConversationLookup, IDialogueTransport→RedisDialogueTransport. Leave the interfaces in Contracts and the impls in Infrastructure — only the registrations move."
+      - "Cli/ServiceProviderFactory.cs: in RegisterRedis (when redisUrl is non-empty) add the moved registrations: AddSingleton<IRedisJobQueue, RedisJobQueue>, AddSingleton<IRedisClaimLock, RedisClaimLock>, AddSingleton<IRedisLeaderLease, RedisLeaderLease>, AddSingleton<IJobHeartbeatService, JobHeartbeatService>, AddSingleton<IConversationLookup, RedisConversationLookup>. RedisDialogueTransport stays bypassed by the existing ConsoleDialogueTransport override in interactive mode; in headless/jobId mode register it here."
+
+  - id: null-claim-service
+    action: "Provide a graceful fallback for ITicketClaimService when Redis is absent"
+    new:
+      - "Application/Services/Claim/NullTicketClaimService.cs: implements ITicketClaimService. ClaimAsync returns ClaimResult.Rejected with reason 'redis_unavailable'; logs once at WARN per webhook delivery (not per call — use a counter + sample). Comment explains this is the fallback path, not a real implementation."
+    modify:
+      - "Cli/ServiceProviderFactory.cs: when Redis is unavailable, register AddScoped<ITicketClaimService, NullTicketClaimService>() instead of the normal one. Application's existing AddScoped<ITicketClaimService, TicketClaimService>() in Application/Extensions/ServiceCollectionExtensions.cs gets gated similarly — switch to a method overload AddAgentSmithCommands(bool redisAvailable)."
+
+  - id: subsystem-health-tracking
+    action: "Each long-running task in ServerCommand reports ISubsystemHealth"
+    modify:
+      - "Cli/Commands/ServerCommand.cs: register four ISubsystemHealth singletons in Build (or factory) — 'webhook', 'queue_consumer', 'housekeeping', 'poller'. Each StartXxxAsync method receives its SubsystemHealth handle and calls SetUp/SetDown/SetDisabled at the right transitions."
+      - "Cli/Commands/ServerCommand.cs StartConsumerAsync: drop the 'queue is null → CompletedTask' early return. Instead: if IRedisJobQueue is unregistered (TryGetService returns null), set health Disabled('REDIS_URL not configured') and return. If registered but multiplexer not connected, enter the wait-for-redis loop (Degraded('redis disconnected')). Once connected, start PipelineQueueConsumer and SetUp."
+      - "Cli/Commands/ServerCommand.cs StartHousekeepingLeaderAsync, StartPollerLeaderAsync: same pattern via IRedisLeaderLease check."
+
+  - id: webhook-listener-health
+    action: "WebhookListener exposes /health (JSON, always 200 if listener alive) and /health/ready (503 if any required subsystem Down)"
+    modify:
+      - "Cli/Services/WebhookListener.cs: replace the 'ok' string response on /health with a JSON body { status: 'ok'|'degraded', subsystems: [{ name, state, reason, last_changed_utc }, ...] }. /health always returns HTTP 200 as long as the listener is alive (status field reflects degradation in the body). Add /health/ready: returns 503 if ANY subsystem state is not Up (Down, Degraded, or Disabled all count as not-ready); 200 only when every subsystem reports Up. Both endpoints read from GetServices<ISubsystemHealth>()."
+      - "Cli/Services/WebhookListener.cs: own SubsystemHealth handle named 'webhook' set to Up after listener.Start() succeeds, Down when listener.Stop() runs (graceful shutdown)."
+      - "Cli/Services/WebhookRequestProcessor.cs: when Redis is required for the dispatch (any structured ticket webhook) and ITicketClaimService is the null impl, return 503 with body 'redis_unavailable' instead of going through DispatchAsync. Detected via ISubsystemHealth lookup of 'redis' (cheaper than try/catch on DispatchAsync)."
+
+  - id: docs
+    action: "Server resilience documented for operators"
+    modify:
+      - "docs/deployment/binary.md: new subsection 'Health endpoints' explaining /health (liveness JSON) and /health/ready (readiness, 503 on degradation). Note that REDIS_URL is now optional and that the server starts with a logged warning if missing — webhooks reply 503 until Redis is reachable."
+      - "docs/deployment/docker.md: same subsection. Note that depends_on:redis is no longer required for the agentsmith-server service (it is for AgentSmith.Server which is a different binary)."
+      - "docs/setup/polling.md: note that polling is disabled when Redis is unavailable; /health JSON shows it as State=Disabled (no REDIS_URL) or Degraded (Redis configured but disconnected)."
+      - "config/agentsmith.yml: comment block under queue: section explains RedisRetryIntervalSeconds (new field on QueueConfig)."
+    new:
+      - "docs/operations/server-resilience.md: new short page (single column) describing the four subsystems, what 'Disabled' vs 'Down' vs 'Degraded' mean, and how /health body looks."
+
+  - id: tests
+    action: "Cover startup with Redis missing/down, /health JSON shape, null-claim fallback"
+    new:
+      - "tests/AgentSmith.Cli.Tests/ServiceProviderFactoryRedisGatingTests.cs"
+      - "tests/AgentSmith.Cli.Tests/Services/WebhookListenerHealthEndpointTests.cs"
+      - "tests/AgentSmith.Application.Tests/Services/Claim/NullTicketClaimServiceTests.cs"
+      - "tests/AgentSmith.Cli.Tests/Services/RedisConnectionHealthTests.cs"
+    modify:
+      - "tests/AgentSmith.Cli.Tests/Commands/ServerCommandTests.cs (or new file if absent): test that StartConsumerAsync sets queue_consumer health to Disabled when REDIS_URL is unset, Degraded when set but unreachable, Up when reachable. Use a fake IConnectionMultiplexer that toggles IsConnected."
+
+  - id: verify
+    action: "dotnet build && dotnet test green; manual smoke test: start `agent-smith server` with Redis stopped → server stays up, /health returns degraded JSON, structured webhook POST returns 503 with body 'redis_unavailable'; start Redis → /health flips to ok, webhooks succeed."
+
+tests:
+  - "ServiceProviderFactory_RedisUrlEmpty_DoesNotRegisterRedisJobQueue"
+  - "ServiceProviderFactory_RedisUrlEmpty_RegistersNullTicketClaimService"
+  - "ServiceProviderFactory_RedisUrlSet_RegistersRedisJobQueue"
+  - "ServiceProviderFactory_RedisUrlSet_RegistersTicketClaimService"
+  - "ServiceProviderFactory_RedisUnreachable_StillBuildsServiceProvider"
+  - "RedisConnectionHealth_MultiplexerConnects_SetsStateUp"
+  - "RedisConnectionHealth_MultiplexerDisconnects_SetsStateDegraded"
+  - "RedisConnectionHealth_MultiplexerReconnects_LogsRecoveryAndSetsUp"
+  - "NullTicketClaimService_ClaimAsync_ReturnsRejectedRedisUnavailable"
+  - "NullTicketClaimService_ClaimAsyncCalledTwice_LogsOnlyOnce"
+  - "WebhookListener_HealthEndpoint_ReturnsJsonWithSubsystems"
+  - "WebhookListener_HealthEndpoint_AllUp_StatusIsOk"
+  - "WebhookListener_HealthEndpoint_RedisDown_StatusIsDegradedHttp200"
+  - "WebhookListener_HealthReadyEndpoint_AllUp_Returns200"
+  - "WebhookListener_HealthReadyEndpoint_AnyDown_Returns503"
+  - "WebhookListener_HealthReadyEndpoint_AnyDegraded_Returns503"
+  - "WebhookListener_HealthReadyEndpoint_AnyDisabled_Returns503"
+  - "WebhookListener_HealthReadyEndpoint_BodyListsNonUpSubsystemsWithReason"
+  - "WebhookRequestProcessor_StructuredWebhookRedisDown_Returns503RedisUnavailable"
+  - "WebhookRequestProcessor_DialogueAnswerRedisDown_Returns503RedisUnavailable"
+  - "ServerCommand_StartConsumer_RedisUnconfigured_HealthDisabled"
+  - "ServerCommand_StartConsumer_RedisUnreachable_HealthDegraded_RetriesUntilConnected"
+  - "ServerCommand_StartConsumer_RedisConnected_HealthUp"
+  - "SubsystemHealth_SetDown_TouchesLastChangedUtc"
+
+done:
+  - "Starting `agent-smith server --port 8081` with REDIS_URL unset succeeds: webhook listener up, /health returns 200 with JSON body showing redis=Disabled and queue_consumer/housekeeping/poller=Disabled, no exception in logs. /health/ready returns 503 with the same body — operators see immediately that the server is up but not ready."
+  - "Starting `agent-smith server --port 8081` with REDIS_URL=redis://nonexistent:6379 succeeds: listener up, /health shows redis=Degraded, queue_consumer=Degraded, retry log line at INFO once."
+  - "Bringing Redis up while server is running flips redis and dependent subsystems to Up within RedisRetryIntervalSeconds (default 30s); INFO log 'Redis available, queue_consumer started'."
+  - "Stopping Redis while server is running: redis flips to Degraded, queue_consumer to Degraded, single WARN log; subsequent webhook POSTs return 503 'redis_unavailable' (not 500 stack trace); /health JSON reflects the change immediately."
+  - "/health/ready returns 503 whenever any subsystem is not Up — Down, Degraded, AND Disabled all force 503. There is no silent-OK path: an operator who starts the server without REDIS_URL sees /health/ready=503 with body listing redis=Disabled, queue_consumer=Disabled, etc. Only when every subsystem reports Up does /health/ready return 200. /health (liveness) stays 200 throughout to avoid container restart loops on transient Redis outages."
+  - "All Redis-dependent service registrations live in Cli/ServiceProviderFactory.cs gated on redisUrl presence; Infrastructure/Extensions/ServiceCollectionExtensions.cs no longer registers them."
+  - "ITicketClaimService still resolvable via GetRequiredService — null impl in Redis-down mode means existing call-sites (WebhookRequestProcessor, PollerHostedService) need no null-checks."
+  - "AbortOnConnectFail=false on the multiplexer; ConnectRetry=3, ConnectTimeout=5000ms — verified by integration test that builds the SP with a non-routable URL and asserts no throw within 6s."
+  - "Operators upgrading need no config change. Existing docker-compose with REDIS_URL=redis:6379 works identically (happy path). Removing REDIS_URL or stopping the redis service no longer crashes the agentsmith-server container."
+  - "Docs updated: docs/operations/server-resilience.md exists; binary.md and docker.md describe /health and /health/ready; polling.md notes the disabled-without-Redis state."
+  - "1075+ tests, 0 warnings."

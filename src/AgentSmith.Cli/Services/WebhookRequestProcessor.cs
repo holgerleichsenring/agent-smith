@@ -41,6 +41,7 @@ internal sealed class WebhookRequestProcessor(
 
         if (result.DialogueAnswer is not null)
         {
+            if (!IsRedisAvailable()) return (503, "redis_unavailable");
             var router = new WebhookDialogueRouter(services, logger);
             _ = router.RouteAsync(result.DialogueAnswer);
             return (202, "Accepted: dialogue answer");
@@ -50,7 +51,10 @@ internal sealed class WebhookRequestProcessor(
             result.ProjectName ?? result.TriggerInput, result.TicketId, result.Pipeline ?? "default");
 
         if (result.ProjectName is not null && result.Platform is not null)
+        {
+            if (!IsRedisAvailable()) return (503, "redis_unavailable");
             return await RouteToClaimServiceAsync(result);
+        }
 
         if (result.TriggerInput is not null)
             _ = ExecuteLegacyAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
@@ -80,9 +84,17 @@ internal sealed class WebhookRequestProcessor(
         ClaimOutcome.Claimed => (202, $"Accepted: {result.TicketId} in {result.ProjectName}"),
         ClaimOutcome.AlreadyClaimed => (200, $"Already claimed: {result.TicketId}"),
         ClaimOutcome.Rejected => (200, $"Rejected: {outcome.Rejection}"),
+        ClaimOutcome.Failed when outcome.Error == "redis_unavailable" => (503, "redis_unavailable"),
         ClaimOutcome.Failed => (500, $"Claim failed: {outcome.Error}"),
         _ => (500, "Unknown claim outcome")
     };
+
+    private bool IsRedisAvailable()
+    {
+        var redisHealth = services.GetServices<ISubsystemHealth>()
+            .FirstOrDefault(h => h.Name == "redis");
+        return redisHealth?.State == SubsystemState.Up;
+    }
 
     private static async Task<WebhookResult> DispatchAsync(
         IEnumerable<IWebhookHandler> handlers, string platform, string eventType,
