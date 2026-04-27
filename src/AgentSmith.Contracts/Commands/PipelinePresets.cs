@@ -91,8 +91,9 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
+        CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
         CommandNames.LoadSwagger,
-        CommandNames.ApiCodeContext,        // p0102: route → handler mapping when --source-path
+        CommandNames.ApiCodeContext,        // p0102: route → handler mapping when source resolved
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,

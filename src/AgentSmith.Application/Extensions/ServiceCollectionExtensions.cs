@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
+        services.AddTransient<ICommandHandler<TryCheckoutSourceContext>, TryCheckoutSourceHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
@@ -100,6 +101,7 @@ public static class ServiceCollectionExtensions
     {
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
+        AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
         AddBuilder<LoadDomainRulesContextBuilder>(services, CommandNames.LoadDomainRules);
         AddBuilder<LoadDomainRulesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);

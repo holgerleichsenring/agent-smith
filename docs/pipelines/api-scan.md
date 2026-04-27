@@ -176,6 +176,25 @@ tools:
     fail_severity: warn
 ```
 
+## Source Resolution
+
+api-scan can read source code to enable the code-aware skills (auth-config-reviewer,
+ownership-checker, upload-validator-reviewer). Source is **optional** — the pipeline
+runs in passive schema-only mode if no source is available, without failing.
+
+Resolution order (first match wins):
+
+1. **CLI flag** — `--source-path <local-path>` always wins over config.
+2. **Local config** — `source: { type: Local, path: ./repo }` resolves to an absolute path.
+3. **Remote clone** — `source: { type: GitHub|GitLab|AzureRepos, url: ..., auth: token }`
+   clones the repo on demand via the same provider infrastructure used by security-scan.
+   Auth tokens are resolved from the secret store / env vars (e.g. `GITHUB_TOKEN`).
+4. **Passive fallback** — no source block, missing url, missing auth, unreachable remote,
+   or any clone failure leaves the pipeline running with the schema-only skill pool.
+
+The branch checked out is `source.default_branch` if set, otherwise the provider default
+(typically `main`). api-scan never checks out ticket branches.
+
 ## CLI Examples
 
 ```bash

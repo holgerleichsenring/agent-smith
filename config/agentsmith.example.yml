@@ -205,11 +205,22 @@ projects:
     #   comment_keyword: "@agent-smith"
 
   # --- api-security project (p0102): code-aware api-scan with prefix caching ---
+  # The source: block is OPTIONAL for api-scan (p0102a). When present, the repo is
+  # auto-resolved (Local path or remote clone via ISourceProviderFactory) and the
+  # code-aware skills (auth-config-reviewer, ownership-checker, upload-validator-reviewer)
+  # run with file:line evidence. When absent or unreachable, api-scan falls back to
+  # passive schema-only mode without failing.
   api-security:
     source:
       type: Local
       path: ./repo                      # path to the API source — enables auth-config-reviewer,
                                         # ownership-checker, upload-validator-reviewer
+    # --- Alternative: clone a remote repo on each run (p0102a) ---
+    # source:
+    #   type: GitHub                    # GitHub | GitLab | AzureRepos | Local
+    #   url: https://github.com/owner/repo
+    #   auth: token                     # auth token resolved from secret store / env (e.g. GITHUB_TOKEN)
+    #   default_branch: main            # optional — falls back to provider default ('main') if omitted
     agent:
       type: Claude
       model: claude-sonnet-4-20250514
