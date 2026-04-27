@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Health;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -7,10 +8,11 @@ namespace AgentSmith.Cli.Services;
 
 /// <summary>
 /// Wraps a Redis-dependent server task with health-state tracking and a wait-for-redis
-/// retry loop. If TService is unregistered, the subsystem transitions to Disabled and
-/// the task returns. If TService is registered but the multiplexer is disconnected, the
-/// task waits in Degraded until the multiplexer connects, then runs the inner work.
-/// On task error, transitions Degraded and re-enters the wait loop.
+/// retry loop. If the redis subsystem health reports Disabled (REDIS_URL not set),
+/// the subsystem transitions to Disabled and the task returns. If TService is registered
+/// but the multiplexer is disconnected, the task waits in Degraded until the multiplexer
+/// connects, then runs the inner work. On task error, transitions Degraded and re-enters
+/// the wait loop.
 /// </summary>
 public static class SubsystemTask
 {
@@ -23,8 +25,9 @@ public static class SubsystemTask
         CancellationToken cancellationToken)
         where TService : class
     {
-        var service = provider.GetService<TService>();
-        if (service is null)
+        var redisHealth = provider.GetServices<ISubsystemHealth>()
+            .FirstOrDefault(h => h.Name == "redis");
+        if (redisHealth?.State == SubsystemState.Disabled)
         {
             health.SetDisabled("REDIS_URL not configured");
             logger.LogInformation(
@@ -32,6 +35,7 @@ public static class SubsystemTask
             return;
         }
 
+        var service = provider.GetRequiredService<TService>();
         var multiplexer = provider.GetRequiredService<IConnectionMultiplexer>();
         while (!cancellationToken.IsCancellationRequested)
         {
