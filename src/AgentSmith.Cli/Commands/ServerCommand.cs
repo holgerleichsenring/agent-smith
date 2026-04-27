@@ -1,11 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Health;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Cli.Services;
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -17,68 +16,65 @@ internal static class ServerCommand
     public static Command Create(Option<string> configOption, Option<bool> verboseOption)
     {
         var portOption = new Option<int>("--port", () => 8081, "Port for webhook listener");
-
         var cmd = new Command(
             "server",
             "Start webhook listener + pipeline queue consumer + lifecycle housekeeping")
         {
             portOption, configOption, verboseOption
         };
-
-        cmd.SetHandler(async (InvocationContext ctx) =>
-        {
-            var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
-            var port = ctx.ParseResult.GetValueForOption(portOption);
-            var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
-
-            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty, configPath);
-            var listenerLogger = provider.GetRequiredService<ILogger<WebhookListener>>();
-            var listener = new WebhookListener(provider, configPath, listenerLogger);
-
-            using var cts = new CancellationTokenSource();
-            Console.CancelKeyPress += (_, e) =>
-            {
-                e.Cancel = true;
-                cts.Cancel();
-            };
-
-            await Task.WhenAll(
-                listener.RunAsync(port, cts.Token),
-                StartConsumerAsync(provider, configPath, cts.Token),
-                StartHousekeepingLeaderAsync(provider, configPath, cts.Token),
-                StartPollerLeaderAsync(provider, configPath, cts.Token));
-        });
-
+        cmd.SetHandler(async (InvocationContext ctx) => await RunAsync(
+            ctx.ParseResult.GetValueForOption(configOption)!,
+            ctx.ParseResult.GetValueForOption(portOption),
+            ctx.ParseResult.GetValueForOption(verboseOption)));
         return cmd;
     }
 
-    private static Task StartConsumerAsync(
-        IServiceProvider provider, string configPath, CancellationToken ct)
+    private static async Task RunAsync(string configPath, int port, bool verbose)
     {
-        var queue = provider.GetService<IRedisJobQueue>();
-        if (queue is null) return Task.CompletedTask;
+        var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty, configPath);
+        var (webhook, queue, housekeeping, poller) = (
+            new SubsystemHealth("webhook"), new SubsystemHealth("queue_consumer"),
+            new SubsystemHealth("housekeeping"), new SubsystemHealth("poller"));
+        var allHealths = CollectHealths(provider, webhook, queue, housekeeping, poller);
 
-        var queueConfig = provider.GetRequiredService<IConfigurationLoader>()
-            .LoadConfig(configPath).Queue;
-        return new PipelineQueueConsumer(
-            provider, queue, configPath,
-            queueConfig.MaxParallelJobs, queueConfig.ShutdownGraceSeconds,
-            provider.GetRequiredService<ILogger<PipelineQueueConsumer>>())
-            .RunAsync(ct);
+        var listener = new WebhookListener(provider, configPath, webhook, allHealths,
+            provider.GetRequiredService<ILogger<WebhookListener>>());
+        var retry = provider.GetRequiredService<IConfigurationLoader>()
+            .LoadConfig(configPath).Queue.RedisRetryIntervalSeconds;
+
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
+        await Task.WhenAll(
+            listener.RunAsync(port, cts.Token),
+            StartConsumerAsync(provider, configPath, queue, retry, cts.Token),
+            LeaderSubsystemRunner.RunAsync(provider, housekeeping, "agentsmith:leader:housekeeping",
+                ct => RunHousekeepingAsync(provider, configPath, ct), retry, cts.Token),
+            LeaderSubsystemRunner.RunAsync(provider, poller, "agentsmith:leader:poller",
+                ct => RunPollerHostAsync(provider, configPath, ct), retry, cts.Token));
     }
 
-    private static Task StartHousekeepingLeaderAsync(
-        IServiceProvider provider, string configPath, CancellationToken ct)
+    private static IReadOnlyList<ISubsystemHealth> CollectHealths(
+        IServiceProvider provider, params ISubsystemHealth[] subsystems)
     {
-        var lease = provider.GetService<IRedisLeaderLease>();
-        if (lease is null) return Task.CompletedTask;
+        var redis = provider.GetServices<ISubsystemHealth>()
+            .FirstOrDefault(h => h.Name == "redis");
+        return redis is null ? subsystems : subsystems.Append(redis).ToArray();
+    }
 
-        var leader = new LeaderElectedHostedService(
-            "agentsmith:leader:housekeeping",
-            leaderCt => RunHousekeepingAsync(provider, configPath, leaderCt),
-            lease,
-            provider.GetRequiredService<ILogger<LeaderElectedHostedService>>());
-        return leader.RunAsync(ct);
+    private static Task StartConsumerAsync(
+        IServiceProvider provider, string configPath, SubsystemHealth health,
+        int retryIntervalSeconds, CancellationToken ct)
+    {
+        var queueConfig = provider.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath).Queue;
+        return SubsystemTask.RunRedisGatedAsync<IRedisJobQueue>(
+            provider, health, retryIntervalSeconds,
+            (queue, t) => new PipelineQueueConsumer(
+                provider, queue, configPath,
+                queueConfig.MaxParallelJobs, queueConfig.ShutdownGraceSeconds,
+                provider.GetRequiredService<ILogger<PipelineQueueConsumer>>())
+                .RunAsync(t),
+            provider.GetRequiredService<ILogger<PipelineQueueConsumer>>(), ct);
     }
 
     private static Task RunHousekeepingAsync(
@@ -86,10 +82,9 @@ internal static class ServerCommand
     {
         var heartbeat = provider.GetRequiredService<IJobHeartbeatService>();
         var queue = provider.GetRequiredService<IRedisJobQueue>();
-        var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
+        var ticketFactory = provider.GetRequiredService<Contracts.Providers.ITicketProviderFactory>();
         var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
         var configLoader = provider.GetRequiredService<IConfigurationLoader>();
-
         var stale = new StaleJobDetector(
             heartbeat, ticketFactory, transitionerFactory, configLoader, configPath,
             provider.GetRequiredService<ILogger<StaleJobDetector>>());
@@ -99,72 +94,16 @@ internal static class ServerCommand
         return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct));
     }
 
-    private static Task StartPollerLeaderAsync(
-        IServiceProvider provider, string configPath, CancellationToken ct)
-    {
-        var lease = provider.GetService<IRedisLeaderLease>();
-        if (lease is null) return Task.CompletedTask;
-
-        var leader = new LeaderElectedHostedService(
-            "agentsmith:leader:poller",
-            leaderCt => RunPollerHostAsync(provider, configPath, leaderCt),
-            lease,
-            provider.GetRequiredService<ILogger<LeaderElectedHostedService>>());
-        return leader.RunAsync(ct);
-    }
-
     private static Task RunPollerHostAsync(
         IServiceProvider provider, string configPath, CancellationToken ct)
     {
         var config = provider.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath);
-        var pollers = BuildPollers(provider, config);
         var host = new PollerHostedService(
-            pollers,
+            PollerFactory.Build(provider, config),
             provider.GetRequiredService<ITicketClaimService>(),
             provider.GetRequiredService<IConfigurationLoader>(),
             configPath,
             provider.GetRequiredService<ILogger<PollerHostedService>>());
         return host.RunAsync(ct);
-    }
-
-    internal static IEnumerable<IEventPoller> BuildPollers(
-        IServiceProvider provider, AgentSmithConfig config)
-    {
-        var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
-        var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
-        var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("ServerCommand.BuildPollers");
-
-        foreach (var (name, project) in config.Projects)
-        {
-            if (!project.Polling.Enabled) continue;
-
-            var transitioner = transitionerFactory.Create(project.Tickets);
-            IEventPoller? poller = project.Tickets.Type.ToLowerInvariant() switch
-            {
-                "github" => new GitHubIssuePoller(
-                    name, project, ticketFactory, transitioner,
-                    loggerFactory.CreateLogger<GitHubIssuePoller>()),
-                "azuredevops" => new AzureDevOpsWorkItemPoller(
-                    name, project, ticketFactory, transitioner,
-                    loggerFactory.CreateLogger<AzureDevOpsWorkItemPoller>()),
-                "gitlab" => new GitLabIssuePoller(
-                    name, project, ticketFactory, transitioner,
-                    loggerFactory.CreateLogger<GitLabIssuePoller>()),
-                "jira" => new JiraIssuePoller(
-                    name, project, ticketFactory, transitioner,
-                    loggerFactory.CreateLogger<JiraIssuePoller>()),
-                _ => null
-            };
-
-            if (poller is null)
-            {
-                logger.LogWarning(
-                    "Polling enabled for project {Project} but ticket type '{Type}' has no poller — skipping",
-                    name, project.Tickets.Type);
-                continue;
-            }
-            yield return poller;
-        }
     }
 }

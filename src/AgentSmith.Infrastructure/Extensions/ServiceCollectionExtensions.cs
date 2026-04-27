@@ -33,11 +33,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
 
-        // Redis-backed claim + queue primitives (p95a)
-        services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
-        services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
-        services.AddSingleton<IJobHeartbeatService, Services.Lifecycle.JobHeartbeatService>();
-        services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
+        // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
+        // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
+        // (p0101).
 
         // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
@@ -62,8 +60,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => LoadZapConfig());
         services.AddSingleton<IZapScanner, ZapSpawner>();
 
-        // Dialogue (p58)
-        services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
+        // Dialogue (p58) — RedisDialogueTransport is registered by AgentSmith.Cli/ServiceProviderFactory
+        // alongside the other Redis-dependent services (p0101). The CLI overrides with
+        // ConsoleDialogueTransport for interactive modes.
         services.AddScoped<IDialogueTrail, InMemoryDialogueTrail>();
 
         // Security scanners (p54)
@@ -80,7 +79,8 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
         services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
         services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
-        services.AddSingleton<IConversationLookup, RedisConversationLookup>();
+        // IConversationLookup → RedisConversationLookup is registered by AgentSmith.Cli/ServiceProviderFactory
+        // when REDIS_URL is available (p0101). WebhookDialogueRouter handles the null case.
 
         return services;
     }

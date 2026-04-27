@@ -1,15 +1,21 @@
 using System.Net;
+using AgentSmith.Application.Services.Health;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Cli.Services;
 
 /// <summary>
-/// Thin HTTP server that accepts webhook requests and delegates
-/// processing to <see cref="WebhookRequestProcessor"/>.
+/// HTTP server that accepts webhook requests and exposes liveness (/health) and
+/// readiness (/health/ready) endpoints. Webhook handling is delegated to
+/// <see cref="WebhookRequestProcessor"/>; health responses are built from
+/// the injected <see cref="ISubsystemHealth"/> list (p0101).
 /// </summary>
 public sealed class WebhookListener(
     IServiceProvider services,
     string configPath,
+    SubsystemHealth ownHealth,
+    IReadOnlyList<ISubsystemHealth> allSubsystems,
     ILogger<WebhookListener> logger)
 {
     public async Task RunAsync(int port, CancellationToken cancellationToken)
@@ -18,7 +24,7 @@ public sealed class WebhookListener(
         using var listener = new HttpListener();
         listener.Prefixes.Add(prefix);
         listener.Start();
-
+        ownHealth.SetUp();
         logger.LogInformation("Webhook listener started on port {Port}", port);
 
         while (!cancellationToken.IsCancellationRequested)
@@ -33,6 +39,7 @@ public sealed class WebhookListener(
         }
 
         listener.Stop();
+        ownHealth.SetDown("listener stopped");
         logger.LogInformation("Webhook listener stopped");
     }
 
@@ -40,17 +47,13 @@ public sealed class WebhookListener(
     {
         try
         {
-            if (context.Request.HttpMethod == "GET" && context.Request.Url?.AbsolutePath == "/health")
-            {
-                await RespondAsync(context, 200, "ok");
-                return;
-            }
+            if (TryHandleHealth(context)) return;
 
             var path = context.Request.Url?.AbsolutePath;
             if (context.Request.HttpMethod != "POST"
                 || path is not ("/webhook" or "/webhook/jira" or "/webhook/github" or "/webhook/gitlab"))
             {
-                await RespondAsync(context, 404, "Not found");
+                await RespondAsync(context, 404, "Not found", "text/plain");
                 return;
             }
 
@@ -60,13 +63,32 @@ public sealed class WebhookListener(
 
             var processor = new WebhookRequestProcessor(services, configPath, logger);
             var (statusCode, responseBody) = await processor.ProcessAsync(path!, body, headers);
-            await RespondAsync(context, statusCode, responseBody);
+            await RespondAsync(context, statusCode, responseBody, "text/plain");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error handling webhook");
-            await RespondAsync(context, 500, "Internal server error");
+            await RespondAsync(context, 500, "Internal server error", "text/plain");
         }
+    }
+
+    private bool TryHandleHealth(HttpListenerContext context)
+    {
+        if (context.Request.HttpMethod != "GET") return false;
+        var path = context.Request.Url?.AbsolutePath;
+        if (path == "/health")
+        {
+            var (code, body) = HealthResponseBuilder.Liveness(allSubsystems);
+            _ = RespondAsync(context, code, body, "application/json");
+            return true;
+        }
+        if (path == "/health/ready")
+        {
+            var (code, body) = HealthResponseBuilder.Readiness(allSubsystems);
+            _ = RespondAsync(context, code, body, "application/json");
+            return true;
+        }
+        return false;
     }
 
     private static Dictionary<string, string> ExtractHeaders(
@@ -78,10 +100,11 @@ public sealed class WebhookListener(
         return dict;
     }
 
-    private static async Task RespondAsync(HttpListenerContext ctx, int code, string body)
+    private static async Task RespondAsync(
+        HttpListenerContext ctx, int code, string body, string contentType)
     {
         ctx.Response.StatusCode = code;
-        ctx.Response.ContentType = "text/plain";
+        ctx.Response.ContentType = contentType;
         var buf = System.Text.Encoding.UTF8.GetBytes(body);
         ctx.Response.ContentLength64 = buf.Length;
         await ctx.Response.OutputStream.WriteAsync(buf);
