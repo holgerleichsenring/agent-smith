@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.21.0...v0.21.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* CLI commands work without Redis (security-scan, fix, mad, ...) (p0101 follow-up) ([3fd93ef](https://github.com/holgerleichsenring/agent-smith/commit/3fd93eff15780a33156522edb74f9049519c6c87))
+
 ## [0.21.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.20.0...v0.21.0) (2026-04-27)
 
 
