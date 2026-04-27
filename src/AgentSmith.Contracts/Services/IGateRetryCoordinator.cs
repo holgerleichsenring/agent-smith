@@ -14,7 +14,8 @@ public interface IGateRetryCoordinator
         RoleSkillDefinition role,
         SkillOrchestration orchestration,
         string systemPrompt,
-        string userPrompt,
+        string userPromptPrefix,
+        string userPromptSuffix,
         ILlmClient llmClient,
         PipelineContext pipeline,
         CancellationToken cancellationToken);

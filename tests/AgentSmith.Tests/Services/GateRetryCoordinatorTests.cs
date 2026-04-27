@@ -39,8 +39,8 @@ public sealed class GateRetryCoordinatorTests
     private void SetupLlmResponses(params string[] responses)
     {
         var calls = 0;
-        _llm.Setup(c => c.CompleteAsync(
-                It.IsAny<string>(), It.IsAny<string>(),
+        _llm.Setup(c => c.CompleteWithCachedPrefixAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
@@ -56,36 +56,36 @@ public sealed class GateRetryCoordinatorTests
         SetupLlmResponses("""{"confirmed":[],"rejected":[]}""");
 
         var outcome = await _coordinator.ExecuteAsync(
-            CreateRole(), CreateOrchestration(), "sys", "user",
+            CreateRole(), CreateOrchestration(), "sys", "prefix", "suffix",
             _llm.Object, new PipelineContext(), CancellationToken.None);
 
         outcome.Result.IsSuccess.Should().BeTrue();
-        _llm.Verify(c => c.CompleteAsync(
-            It.IsAny<string>(), It.IsAny<string>(),
+        _llm.Verify(c => c.CompleteWithCachedPrefixAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<TaskType>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task FirstAttemptFails_RetriesWithCorrectivePrompt()
+    public async Task FirstAttemptFails_RetriesWithCorrectiveSuffix()
     {
-        var capturedPrompts = new List<string>();
-        _llm.Setup(c => c.CompleteAsync(
-                It.IsAny<string>(), Capture.In(capturedPrompts),
+        var capturedSuffixes = new List<string>();
+        _llm.Setup(c => c.CompleteWithCachedPrefixAsync(
+                It.IsAny<string>(), It.IsAny<string>(), Capture.In(capturedSuffixes),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string sys, string user, TaskType t, CancellationToken ct) =>
-                capturedPrompts.Count == 1
+            .ReturnsAsync((string sys, string prefix, string suffix, TaskType t, CancellationToken ct) =>
+                capturedSuffixes.Count == 1
                     ? new LlmResponse("garbage response", 0, 0)
                     : new LlmResponse("""{"confirmed":[],"rejected":[]}""", 0, 0));
 
         var outcome = await _coordinator.ExecuteAsync(
-            CreateRole(), CreateOrchestration(), "sys", "user",
+            CreateRole(), CreateOrchestration(), "sys", "prefix", "suffix",
             _llm.Object, new PipelineContext(), CancellationToken.None);
 
         outcome.Result.IsSuccess.Should().BeTrue();
-        capturedPrompts.Should().HaveCount(2);
-        capturedPrompts[0].Should().Be("user");
-        capturedPrompts[1].Should().Contain("previous response could not be parsed");
-        capturedPrompts[1].Should().Contain("garbage response");
+        capturedSuffixes.Should().HaveCount(2);
+        capturedSuffixes[0].Should().Be("suffix");
+        capturedSuffixes[1].Should().Contain("previous response could not be parsed");
+        capturedSuffixes[1].Should().Contain("garbage response");
     }
 
     [Fact]
@@ -94,13 +94,13 @@ public sealed class GateRetryCoordinatorTests
         SetupLlmResponses("garbage", "still garbage");
 
         var outcome = await _coordinator.ExecuteAsync(
-            CreateRole(), CreateOrchestration(), "sys", "user",
+            CreateRole(), CreateOrchestration(), "sys", "prefix", "suffix",
             _llm.Object, new PipelineContext(), CancellationToken.None);
 
         outcome.Result.IsSuccess.Should().BeFalse();
         outcome.Result.Message.Should().Contain("failed after one retry");
-        _llm.Verify(c => c.CompleteAsync(
-            It.IsAny<string>(), It.IsAny<string>(),
+        _llm.Verify(c => c.CompleteWithCachedPrefixAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<TaskType>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
@@ -110,7 +110,7 @@ public sealed class GateRetryCoordinatorTests
         SetupLlmResponses("garbage", """{"confirmed":[],"rejected":[]}""");
 
         var outcome = await _coordinator.ExecuteAsync(
-            CreateRole(), CreateOrchestration(), "sys", "user",
+            CreateRole(), CreateOrchestration(), "sys", "prefix", "suffix",
             _llm.Object, new PipelineContext(), CancellationToken.None);
 
         outcome.FinalResponseText.Should().Be("""{"confirmed":[],"rejected":[]}""");

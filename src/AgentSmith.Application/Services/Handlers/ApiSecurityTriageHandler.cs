@@ -1,8 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -10,12 +8,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Triages based on swagger spec and Nuclei findings to determine which
-/// API security specialist roles should participate.
+/// Triages the API security scan: filters the skill pool by mode + source,
+/// then delegates to the deterministic triage builder.
 /// </summary>
 public sealed class ApiSecurityTriageHandler(
     ILlmClientFactory llmClientFactory,
     ISkillGraphBuilder skillGraphBuilder,
+    ApiSecurityTriagePromptBuilder promptBuilder,
+    ApiSecuritySkillFilter skillFilter,
     ILogger<ApiSecurityTriageHandler> logger)
     : TriageHandlerBase, ICommandHandler<ApiSecurityTriageContext>
 {
@@ -23,118 +23,37 @@ public sealed class ApiSecurityTriageHandler(
     protected override string SkillRoundCommandName => "ApiSecuritySkillRoundCommand";
     protected override ISkillGraphBuilder? GraphBuilder => skillGraphBuilder;
 
-    protected override string BuildUserPrompt(PipelineContext pipeline)
-    {
-        pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
-        pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);
-        pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var activeMode);
-
-        var specSummary = "Swagger spec not available";
-        var endpointDetails = "";
-        var authDetails = "";
-        var signalAnalysis = "";
-
-        if (spec is not null)
-        {
-            specSummary = $"API: {spec.Title} v{spec.Version}, {spec.Endpoints.Count} endpoints";
-
-            endpointDetails = string.Join("\n", spec.Endpoints.Select(e =>
-                $"  {e.Method} {e.Path} (auth: {e.RequiresAuth}, params: {string.Join(", ", e.Parameters.Select(p => $"{p.Name}[{p.In}]"))})"));
-
-            authDetails = spec.SecuritySchemes.Count > 0
-                ? string.Join("\n", spec.SecuritySchemes.Select(s =>
-                    $"  {s.Name}: type={s.Type}, in={s.In ?? "n/a"}, scheme={s.Scheme ?? "n/a"}"))
-                : "  No security schemes defined";
-
-            var hasIdPaths = spec.Endpoints.Any(e => e.Path.Contains("{id}") || e.Path.Contains("{"));
-            var hasAuthScheme = spec.SecuritySchemes.Count > 0;
-            var allUnprotected = spec.Endpoints.All(e => !e.RequiresAuth);
-            var hasQueryParams = spec.Endpoints.Any(e => e.Parameters.Any(p => p.In == "query"));
-            var hasBulkEndpoints = spec.Endpoints.Any(e => e.Path.Contains("bulk") || e.Path.Contains("batch"));
-            var hasAnonymousEndpoints = spec.Endpoints.Any(e => !e.RequiresAuth && e.Method != "OPTIONS");
-            var hasFileUploadEndpoints = spec.Endpoints.Any(e =>
-                e.Parameters.Any(p => p.In == "formData" || p.Name.Contains("file", StringComparison.OrdinalIgnoreCase)));
-            var hasDeleteOnHierarchicalResources = spec.Endpoints.Any(e =>
-                e.Method.Equals("DELETE", StringComparison.OrdinalIgnoreCase) && e.Path.Contains("{"));
-            var hasIncrementalIdPaths = spec.Endpoints.Any(e =>
-                e.Path.Contains("{id}") || e.Path.Contains("{Id}") || e.Path.Contains("{ID}"));
-
-            signalAnalysis = $"""
-                Signals detected:
-                - ID-based paths (BOLA risk): {hasIdPaths}
-                - Incremental ID paths (IDOR risk): {hasIncrementalIdPaths}
-                - Auth scheme declared: {hasAuthScheme}
-                - All endpoints unprotected: {allUnprotected}
-                - Anonymous endpoints (non-OPTIONS): {hasAnonymousEndpoints}
-                - Query parameters present: {hasQueryParams}
-                - Bulk operation endpoints: {hasBulkEndpoints}
-                - File upload endpoints: {hasFileUploadEndpoints}
-                - DELETE on hierarchical resources: {hasDeleteOnHierarchicalResources}
-                - Active mode (personas authenticated): {activeMode}
-                """;
-        }
-
-        var nucleiSummary = "No Nuclei findings";
-        var nucleiDetails = "";
-        if (nuclei is not null && nuclei.Findings.Count > 0)
-        {
-            nucleiSummary = $"{nuclei.Findings.Count} findings (critical: {nuclei.Findings.Count(f => f.Severity == "critical")}, " +
-                            $"high: {nuclei.Findings.Count(f => f.Severity == "high")}, " +
-                            $"medium: {nuclei.Findings.Count(f => f.Severity == "medium")}, " +
-                            $"low: {nuclei.Findings.Count(f => f.Severity == "low")})";
-            nucleiDetails = string.Join("\n", nuclei.Findings.Select(f =>
-                $"  [{f.Severity.ToUpperInvariant()}] {f.Name} — {f.MatchedUrl}"));
-        }
-
-        return $"""
-            ## API Overview
-            {specSummary}
-
-            ## Endpoints
-            {endpointDetails}
-
-            ## Authentication Configuration
-            {authDetails}
-
-            ## {signalAnalysis}
-
-            ## Nuclei Scan Results
-            {nucleiSummary}
-            {nucleiDetails}
-
-            Select ALL roles whose triggers match the signals above.
-            Every role that has relevant work to do should participate.
-            Only exclude a role if there is genuinely nothing for it to review.
-            """;
-    }
-
-    /// <summary>
-    /// Skills that require active mode (HTTP probing with personas).
-    /// When ActiveMode=false, these skills degrade to passive-only.
-    /// </summary>
-    private static readonly HashSet<string> ActiveOnlySkills = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "low-privilege-attacker", "idor-prober", "input-abuser", "response-analyst"
-    };
+    protected override string BuildUserPrompt(PipelineContext pipeline) =>
+        promptBuilder.Build(pipeline);
 
     public async Task<CommandResult> ExecuteAsync(
         ApiSecurityTriageContext context, CancellationToken cancellationToken)
     {
-        // Skip DAST skills if ZAP failed (exit code != 0)
-        if (context.Pipeline.TryGet<bool>(ContextKeys.ZapFailed, out var zapFailed) && zapFailed)
-        {
-            logger.LogInformation("ZAP failed — DAST findings unavailable");
-        }
+        var pipeline = context.Pipeline;
+        var activeMode = pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var a) && a;
+        var sourceAvailable = pipeline.TryGet<bool>(ContextKeys.ApiSourceAvailable, out var s) && s;
 
-        // In passive mode, active-only skills still participate but are informed
-        // they should only perform schema analysis (no HTTP probing)
-        var isActiveMode = context.Pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var active) && active;
-        if (!isActiveMode)
-        {
-            logger.LogInformation("Passive mode — active skills will run schema analysis only");
-        }
+        if (pipeline.TryGet<bool>(ContextKeys.ZapFailed, out var zapFailed) && zapFailed)
+            logger.LogInformation("ZAP failed — DAST findings unavailable");
+
+        ApplySkillFilter(pipeline, activeMode, sourceAvailable);
 
         var llmClient = llmClientFactory.Create(context.AgentConfig);
-        return await TriageAsync(context.Pipeline, llmClient, cancellationToken);
+        return await TriageAsync(pipeline, llmClient, cancellationToken);
+    }
+
+    private void ApplySkillFilter(PipelineContext pipeline, bool activeMode, bool sourceAvailable)
+    {
+        if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+                ContextKeys.AvailableRoles, out var roles) || roles is null) return;
+
+        var filtered = skillFilter.Filter(roles, activeMode, sourceAvailable);
+        if (filtered.Count == roles.Count) return;
+
+        var dropped = roles.Select(r => r.Name).Except(filtered.Select(r => r.Name));
+        logger.LogInformation(
+            "API skill pool: active={Active}, source={Source} — kept {Kept}, dropped [{Dropped}]",
+            activeMode, sourceAvailable, filtered.Count, string.Join(", ", dropped));
+        pipeline.Set(ContextKeys.AvailableRoles, filtered);
     }
 }

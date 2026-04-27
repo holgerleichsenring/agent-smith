@@ -14,6 +14,8 @@ public sealed class PipelineCostTracker
     private readonly object _gate = new();
     private int _totalInputTokens;
     private int _totalOutputTokens;
+    private int _totalCacheCreateTokens;
+    private int _totalCacheReadTokens;
     private int _callCount;
     private string _lastModel = "unknown";
     private readonly Dictionary<string, ModelPricing> _pricing;
@@ -43,6 +45,8 @@ public sealed class PipelineCostTracker
 
     public int TotalInputTokens { get { lock (_gate) return _totalInputTokens; } }
     public int TotalOutputTokens { get { lock (_gate) return _totalOutputTokens; } }
+    public int TotalCacheCreateTokens { get { lock (_gate) return _totalCacheCreateTokens; } }
+    public int TotalCacheReadTokens { get { lock (_gate) return _totalCacheReadTokens; } }
     public int CallCount { get { lock (_gate) return _callCount; } }
 
     public void Track(LlmResponse response)
@@ -51,6 +55,8 @@ public sealed class PipelineCostTracker
         {
             _totalInputTokens += response.InputTokens;
             _totalOutputTokens += response.OutputTokens;
+            _totalCacheCreateTokens += response.CacheCreationTokens;
+            _totalCacheReadTokens += response.CacheReadTokens;
             _callCount++;
             if (response.Model != "unknown") _lastModel = response.Model;
         }
@@ -58,14 +64,7 @@ public sealed class PipelineCostTracker
 
     public decimal EstimateCostUsd()
     {
-        lock (_gate)
-        {
-            if (!_pricing.TryGetValue(_lastModel, out var pricing))
-                return 0m;
-
-            return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
-                   (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion);
-        }
+        lock (_gate) return EstimateCostUsdLocked();
     }
 
     public override string ToString()
@@ -74,8 +73,11 @@ public sealed class PipelineCostTracker
         {
             var cost = EstimateCostUsdLocked();
             var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (local/free)";
+            var cacheStr = _totalCacheReadTokens > 0 || _totalCacheCreateTokens > 0
+                ? $" (cache: {_totalCacheReadTokens} read, {_totalCacheCreateTokens} create)"
+                : "";
             return $"{_callCount} LLM calls · {_totalInputTokens + _totalOutputTokens} tokens " +
-                   $"({_totalInputTokens} in, {_totalOutputTokens} out) · {costStr} · {_lastModel}";
+                   $"({_totalInputTokens} in, {_totalOutputTokens} out){cacheStr} · {costStr} · {_lastModel}";
         }
     }
 
@@ -84,7 +86,9 @@ public sealed class PipelineCostTracker
         if (!_pricing.TryGetValue(_lastModel, out var pricing))
             return 0m;
         return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
-               (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion);
+               (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion) +
+               (_totalCacheCreateTokens / 1_000_000m * pricing.InputPerMillion * 1.25m) +
+               (_totalCacheReadTokens / 1_000_000m * pricing.CacheReadPerMillion);
     }
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)

@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<TriageContext>, TriageHandler>();
         services.AddTransient<ICommandHandler<SecurityTriageContext>, SecurityTriageHandler>();
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
+        services.AddTransient<PromptPrefixBuilder>();
         services.AddTransient<ISkillPromptBuilder, SkillPromptBuilder>();
         services.AddTransient<IGateOutputHandler, GateOutputHandler>();
         services.AddTransient<IGateRetryCoordinator, GateRetryCoordinator>();
@@ -59,9 +60,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
+        services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
+        services.AddTransient<ApiSecurityTriagePromptBuilder>();
+        services.AddTransient<ApiSecuritySkillFilter>();
         services.AddTransient<ICommandHandler<ApiSecurityTriageContext>, ApiSecurityTriageHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
@@ -123,6 +127,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
         AddBuilder<SessionSetupContextBuilder>(services, CommandNames.SessionSetup);
         AddBuilder<LoadSwaggerContextBuilder>(services, CommandNames.LoadSwagger);
+        AddBuilder<ApiCodeContextContextBuilder>(services, CommandNames.ApiCodeContext);
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);

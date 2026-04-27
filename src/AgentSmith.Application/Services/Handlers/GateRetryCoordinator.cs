@@ -22,12 +22,13 @@ public sealed class GateRetryCoordinator(
         RoleSkillDefinition role,
         SkillOrchestration orchestration,
         string systemPrompt,
-        string userPrompt,
+        string userPromptPrefix,
+        string userPromptSuffix,
         ILlmClient llmClient,
         PipelineContext pipeline,
         CancellationToken cancellationToken)
     {
-        var first = await CallAsync(llmClient, systemPrompt, userPrompt, pipeline, cancellationToken);
+        var first = await CallAsync(llmClient, systemPrompt, userPromptPrefix, userPromptSuffix, pipeline, cancellationToken);
         var firstResult = gateOutputHandler.Handle(role, orchestration, first.Text, pipeline);
         if (firstResult.IsSuccess)
             return new GateCallOutcome(firstResult, first.Text);
@@ -36,8 +37,8 @@ public sealed class GateRetryCoordinator(
             "Gate {Name} failed on first attempt: {Message}. Retrying once with corrective prompt.",
             role.DisplayName, firstResult.Message);
 
-        var correctivePrompt = BuildCorrectivePrompt(userPrompt, first.Text, firstResult.Message);
-        var retry = await CallAsync(llmClient, systemPrompt, correctivePrompt, pipeline, cancellationToken);
+        var correctiveSuffix = BuildCorrectiveSuffix(userPromptSuffix, first.Text, firstResult.Message);
+        var retry = await CallAsync(llmClient, systemPrompt, userPromptPrefix, correctiveSuffix, pipeline, cancellationToken);
         var retryResult = gateOutputHandler.Handle(role, orchestration, retry.Text, pipeline);
 
         if (retryResult.IsSuccess)
@@ -55,24 +56,26 @@ public sealed class GateRetryCoordinator(
     }
 
     private static async Task<LlmResponse> CallAsync(
-        ILlmClient llmClient, string systemPrompt, string userPrompt,
+        ILlmClient llmClient, string systemPrompt,
+        string userPromptPrefix, string userPromptSuffix,
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var response = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+        var response = await llmClient.CompleteWithCachedPrefixAsync(
+            systemPrompt, userPromptPrefix, userPromptSuffix,
+            TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
         return response;
     }
 
-    private static string BuildCorrectivePrompt(
-        string originalUserPrompt, string failedResponse, string parseError)
+    private static string BuildCorrectiveSuffix(
+        string originalUserSuffix, string failedResponse, string parseError)
     {
         var quoted = failedResponse.Length <= FailedResponseQuoteLimit
             ? failedResponse
             : failedResponse[..FailedResponseQuoteLimit] + "...[truncated]";
 
         return $$"""
-            {{originalUserPrompt}}
+            {{originalUserSuffix}}
 
             ## IMPORTANT: Your previous response could not be parsed.
 

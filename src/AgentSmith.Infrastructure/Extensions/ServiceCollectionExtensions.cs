@@ -74,6 +74,11 @@ public static class ServiceCollectionExtensions
         // API security probing (p79)
         services.AddSingleton<ISessionProvider, SessionProvider>();
 
+        // Code-aware API analysis (p0102)
+        services.AddSingleton<IRouteMapper, Services.Security.Code.RouteMapper>();
+        services.AddSingleton<IAuthBootstrapExtractor, Services.Security.Code.AuthBootstrapExtractor>();
+        services.AddSingleton<IUploadHandlerExtractor, Services.Security.Code.UploadHandlerExtractor>();
+
         // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");

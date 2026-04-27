@@ -21,12 +21,21 @@ public sealed record Finding(
 {
     /// <summary>
     /// Returns the best available location string for display.
-    /// Prefers ApiPath, then SchemaName, then File:StartLine.
+    /// AnalyzedFromSource always prefers File:StartLine; otherwise prefers
+    /// ApiPath, then SchemaName, then File:StartLine.
     /// </summary>
-    public string DisplayLocation =>
-        !string.IsNullOrWhiteSpace(ApiPath) ? ApiPath :
-        !string.IsNullOrWhiteSpace(SchemaName) ? SchemaName :
-        !string.IsNullOrWhiteSpace(File) && StartLine > 0 ? $"{File}:{StartLine}" :
-        !string.IsNullOrWhiteSpace(File) ? File :
-        "General";
+    public string DisplayLocation
+    {
+        get
+        {
+            if (EvidenceMode == EvidenceMode.AnalyzedFromSource
+                && !string.IsNullOrWhiteSpace(File) && StartLine > 0)
+                return $"{File}:{StartLine}";
+            if (!string.IsNullOrWhiteSpace(ApiPath)) return ApiPath;
+            if (!string.IsNullOrWhiteSpace(SchemaName)) return SchemaName;
+            if (!string.IsNullOrWhiteSpace(File) && StartLine > 0) return $"{File}:{StartLine}";
+            if (!string.IsNullOrWhiteSpace(File)) return File;
+            return "General";
+        }
+    }
 }

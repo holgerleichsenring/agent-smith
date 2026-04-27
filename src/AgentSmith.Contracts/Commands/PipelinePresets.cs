@@ -92,6 +92,7 @@ public static class PipelinePresets
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
         CommandNames.LoadSwagger,
+        CommandNames.ApiCodeContext,        // p0102: route → handler mapping when --source-path
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,

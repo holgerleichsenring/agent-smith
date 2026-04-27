@@ -22,4 +22,25 @@ public interface ISkillPromptBuilder
         string domainSection,
         string upstreamContext,
         string outputInstruction);
+
+    /// <summary>
+    /// Cache-aware variant. Returns (system, userPrefix, userSuffix) so the prefix
+    /// can be sent under cache_control while the suffix varies per skill.
+    /// </summary>
+    (string SystemPrompt, string UserPrefix, string UserSuffix) BuildDiscussionPromptParts(
+        RoleSkillDefinition role,
+        string domainStable,
+        string domainVariable,
+        string? projectContext,
+        string? domainRules,
+        string? codeMap,
+        IReadOnlyList<DiscussionEntry> discussionLog,
+        int round);
+
+    (string SystemPrompt, string UserPrefix, string UserSuffix) BuildStructuredPromptParts(
+        RoleSkillDefinition role,
+        string domainStable,
+        string domainVariable,
+        string upstreamContext,
+        string outputInstruction);
 }
