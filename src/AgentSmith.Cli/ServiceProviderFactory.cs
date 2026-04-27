@@ -2,6 +2,7 @@ using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Health;
+using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
@@ -71,6 +72,11 @@ internal static class ServiceProviderFactory
         if (string.IsNullOrWhiteSpace(resolvedUrl))
         {
             services.AddSingleton<ISubsystemHealth>(DisabledHealth("redis", "REDIS_URL not configured"));
+            services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
+            services.AddSingleton<IRedisClaimLock, NullRedisClaimLock>();
+            services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
+            services.AddSingleton<IJobHeartbeatService, NullJobHeartbeatService>();
+            services.AddSingleton<IConversationLookup, NullConversationLookup>();
             services.Replace(ServiceDescriptor.Scoped<ITicketClaimService, NullTicketClaimService>());
             return;
         }
