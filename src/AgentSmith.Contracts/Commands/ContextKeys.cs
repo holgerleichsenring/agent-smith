@@ -89,4 +89,6 @@ public static class ContextKeys
     public const string ActiveMode = "ActiveMode";
     public const string HttpProbeResults = "HttpProbeResults";
     public const string DeferredBuffers = "DeferredBuffers";
+    public const string ApiCodeContext = "ApiCodeContext";
+    public const string ApiSourceAvailable = "ApiSourceAvailable";
 }

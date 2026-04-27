@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -73,9 +74,17 @@ public sealed class ConsoleOutputStrategy(
         foreach (var finding in context.Findings)
         {
             var status = finding.ReviewStatus == "confirmed" ? " ✓" : "";
-            lines.Add($"[{finding.Severity.ToUpperInvariant()}] {finding.DisplayLocation} — {finding.Title}{status}");
+            var badge = EvidenceBadge(finding.EvidenceMode);
+            lines.Add($"[{finding.Severity.ToUpperInvariant()}]{badge} {finding.DisplayLocation} — {finding.Title}{status}");
         }
 
         return string.Join("\n", lines);
     }
+
+    private static string EvidenceBadge(EvidenceMode mode) => mode switch
+    {
+        EvidenceMode.Confirmed => " [confirmed]",
+        EvidenceMode.AnalyzedFromSource => " [source]",
+        _ => ""
+    };
 }

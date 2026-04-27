@@ -25,7 +25,7 @@ public sealed class SkillRoundHandlerTests
             .Returns(_llmClientMock.Object);
         _handler = new SkillRoundHandler(
             _llmFactoryMock.Object,
-            new SkillPromptBuilder(),
+            new SkillPromptBuilder(new PromptPrefixBuilder()),
             new GateRetryCoordinator(
                 new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
                 NullLogger<GateRetryCoordinator>.Instance),
@@ -203,8 +203,8 @@ public sealed class SkillRoundHandlerTests
 
     private void SetupLlmResponse(string response)
     {
-        _llmClientMock.Setup(c => c.CompleteAsync(
-                It.IsAny<string>(), It.IsAny<string>(),
+        _llmClientMock.Setup(c => c.CompleteWithCachedPrefixAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<TaskType>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResponse(response, 0, 0));
     }

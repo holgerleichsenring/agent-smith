@@ -27,6 +27,15 @@ public abstract class SkillRoundHandlerBase(
 
     protected abstract ILogger Logger { get; }
     protected abstract string BuildDomainSection(PipelineContext pipeline);
+
+    /// <summary>
+    /// Splits the domain section into a stable prefix (cached across same-round calls)
+    /// and a per-skill suffix. Default returns the legacy single-section as the prefix
+    /// with an empty suffix — handlers that benefit from prompt caching override this.
+    /// </summary>
+    protected virtual (string Stable, string PerSkill) BuildDomainSectionParts(PipelineContext pipeline)
+        => (BuildDomainSection(pipeline), string.Empty);
+
     protected virtual string SkillRoundCommandName => "SkillRoundCommand";
 
     protected async Task<CommandResult> ExecuteRoundAsync(
@@ -64,12 +73,13 @@ public abstract class SkillRoundHandlerBase(
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussionLog);
         var discussionForPrompt = (IReadOnlyList<DiscussionEntry>)(discussionLog ?? []);
 
-        var domainSection = BuildDomainSection(pipeline);
-        var (systemPrompt, userPrompt) = promptBuilder.BuildDiscussionPrompt(
-            role, domainSection, projectContext, domainRules, codeMap, discussionForPrompt, round);
+        var (domainStable, domainVariable) = BuildDomainSectionParts(pipeline);
+        var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildDiscussionPromptParts(
+            role, domainStable, domainVariable, projectContext, domainRules, codeMap,
+            discussionForPrompt, round);
 
-        var llmResponse = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+        var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
+            systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
 
         var parsed = ObservationParser.ParseWithoutIds(llmResponse.Text, skillName, Logger);
@@ -200,19 +210,19 @@ public abstract class SkillRoundHandlerBase(
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(skillOutputs, StringComparer.OrdinalIgnoreCase);
 
-        var domainSection = BuildDomainSection(pipeline);
+        var (domainStable, domainVariable) = BuildDomainSectionParts(pipeline);
         var upstreamContext = upstreamContextBuilder.Build(orch.Role, pipeline, upstreamSnapshot);
         var outputInstruction = _instructionBuilder.Build(orch);
 
-        var (systemPrompt, userPrompt) = promptBuilder.BuildStructuredPrompt(
-            role, domainSection, upstreamContext, outputInstruction);
+        var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildStructuredPromptParts(
+            role, domainStable, domainVariable, upstreamContext, outputInstruction);
 
         if (orch.Role == SkillRole.Gate)
             return await ExecuteGateRoundAsync(
-                skillName, role, orch, systemPrompt, userPrompt, pipeline, llmClient, cancellationToken);
+                skillName, role, orch, systemPrompt, userPrefix, userSuffix, pipeline, llmClient, cancellationToken);
 
-        var llmResponse = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+        var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
+            systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
 
         Logger.LogInformation("{Emoji} {DisplayName} [{Role}]: structured round complete",
@@ -229,11 +239,11 @@ public abstract class SkillRoundHandlerBase(
 
     private async Task<CommandResult> ExecuteGateRoundAsync(
         string skillName, RoleSkillDefinition role, SkillOrchestration orch,
-        string systemPrompt, string userPrompt, PipelineContext pipeline,
+        string systemPrompt, string userPrefix, string userSuffix, PipelineContext pipeline,
         ILlmClient llmClient, CancellationToken cancellationToken)
     {
         var outcome = await gateRetryCoordinator.ExecuteAsync(
-            role, orch, systemPrompt, userPrompt, llmClient, pipeline, cancellationToken);
+            role, orch, systemPrompt, userPrefix, userSuffix, llmClient, pipeline, cancellationToken);
 
         var buffer = new SkillRoundBuffer(skillName, 0, [], null, outcome.FinalResponseText);
         DispatchBuffer(pipeline, buffer);

@@ -84,3 +84,9 @@ public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
         return new ApiSecuritySkillRoundContext(skillName, round, project.Agent, pipeline);
     }
 }
+
+public sealed class ApiCodeContextContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new ApiCodeContextCommandContext(pipeline);
+}
