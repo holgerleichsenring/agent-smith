@@ -82,6 +82,11 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ./agent-smith server --port 8081
 ```
 
+`REDIS_URL` is optional. The server starts even when Redis is missing or unreachable — the
+webhook listener stays up and `/health` reports the degraded state. See
+[Server Resilience](../operations/server-resilience.md) for `/health` and `/health/ready`
+semantics.
+
 ## When to Use
 
 - **CI/CD pipelines** — download, scan, discard. No image pull overhead.
