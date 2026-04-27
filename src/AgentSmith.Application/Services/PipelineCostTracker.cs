@@ -11,6 +11,7 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class PipelineCostTracker
 {
+    private readonly object _gate = new();
     private int _totalInputTokens;
     private int _totalOutputTokens;
     private int _callCount;
@@ -40,33 +41,50 @@ public sealed class PipelineCostTracker
         }
     }
 
-    public int TotalInputTokens => _totalInputTokens;
-    public int TotalOutputTokens => _totalOutputTokens;
-    public int CallCount => _callCount;
+    public int TotalInputTokens { get { lock (_gate) return _totalInputTokens; } }
+    public int TotalOutputTokens { get { lock (_gate) return _totalOutputTokens; } }
+    public int CallCount { get { lock (_gate) return _callCount; } }
 
     public void Track(LlmResponse response)
     {
-        Interlocked.Add(ref _totalInputTokens, response.InputTokens);
-        Interlocked.Add(ref _totalOutputTokens, response.OutputTokens);
-        Interlocked.Increment(ref _callCount);
-        if (response.Model != "unknown") _lastModel = response.Model;
+        lock (_gate)
+        {
+            _totalInputTokens += response.InputTokens;
+            _totalOutputTokens += response.OutputTokens;
+            _callCount++;
+            if (response.Model != "unknown") _lastModel = response.Model;
+        }
     }
 
     public decimal EstimateCostUsd()
     {
-        if (!_pricing.TryGetValue(_lastModel, out var pricing))
-            return 0m;
+        lock (_gate)
+        {
+            if (!_pricing.TryGetValue(_lastModel, out var pricing))
+                return 0m;
 
-        return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
-               (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion);
+            return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
+                   (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion);
+        }
     }
 
     public override string ToString()
     {
-        var cost = EstimateCostUsd();
-        var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (local/free)";
-        return $"{CallCount} LLM calls · {TotalInputTokens + TotalOutputTokens} tokens " +
-               $"({TotalInputTokens} in, {TotalOutputTokens} out) · {costStr} · {_lastModel}";
+        lock (_gate)
+        {
+            var cost = EstimateCostUsdLocked();
+            var costStr = cost > 0 ? $"${cost:F4}" : "$0.00 (local/free)";
+            return $"{_callCount} LLM calls · {_totalInputTokens + _totalOutputTokens} tokens " +
+                   $"({_totalInputTokens} in, {_totalOutputTokens} out) · {costStr} · {_lastModel}";
+        }
+    }
+
+    private decimal EstimateCostUsdLocked()
+    {
+        if (!_pricing.TryGetValue(_lastModel, out var pricing))
+            return 0m;
+        return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
+               (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion);
     }
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)

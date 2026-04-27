@@ -11,11 +11,12 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Executes a pipeline by building contexts from command names and dispatching
-/// them through the CommandExecutor sequentially. Stops on first failure.
-/// Supports runtime command insertion via CommandResult.InsertNext.
+/// them through the CommandExecutor. Same-(Name, Round) skill-round commands are
+/// batched and run in parallel via PipelineBatchRunner when the parallelism knob > 1;
+/// otherwise the loop is sequential and behaves exactly as before.
+/// Stops on first failure. Supports runtime command insertion via CommandResult.InsertNext.
 /// Posts status updates and error reports to the ticket provider.
-/// Wraps execution with lifecycle transitions (Enqueued → InProgress → Done/Failed)
-/// and a Redis heartbeat when a TicketId is present.
+/// Wraps execution with lifecycle transitions and a Redis heartbeat when a TicketId is present.
 /// </summary>
 public sealed class PipelineExecutor(
     ICommandExecutor commandExecutor,
@@ -34,9 +35,7 @@ public sealed class PipelineExecutor(
         PipelineContext context,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Starting pipeline with {Count} commands", commandNames.Count);
-
+        logger.LogInformation("Starting pipeline with {Count} commands", commandNames.Count);
         for (var i = 0; i < commandNames.Count; i++)
             logger.LogInformation("  [{Index}/{Total}] {Command}",
                 i + 1, commandNames.Count, commandNames[i]);
@@ -48,108 +47,197 @@ public sealed class PipelineExecutor(
 
         var commands = new LinkedList<PipelineCommand>(
             commandNames.Select(PipelineCommand.Simple));
+        var maxConcurrent = projectConfig.Agent.Parallelism.MaxConcurrentSkillRounds;
         var current = commands.First;
         var executionCount = 0;
 
         while (current is not null)
         {
-            if (++executionCount > MaxCommandExecutions)
-            {
+            var batch = PeelBatch(current, maxConcurrent);
+            if (executionCount + batch.Count > MaxCommandExecutions)
                 return CommandResult.Fail(
                     $"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
                     "Possible infinite loop in command insertion.");
-            }
 
-            var cmd = current.Value;
-            var commandName = cmd.DisplayName;
-            var total = commands.Count;
-            var label = CommandNames.GetLabel(cmd.Name);
+            var (result, advanceTo) = batch.Count == 1
+                ? await ExecuteSingleStepAsync(
+                    current, commands, projectConfig, context, ++executionCount, cancellationToken)
+                : await ExecuteBatchStepAsync(
+                    batch, commands, projectConfig, context, executionCount + 1, cancellationToken);
 
-            logger.LogInformation(
-                "[{Step}/{Total}] Executing {Command}...",
-                executionCount, total, commandName);
-
-            await progressReporter.ReportProgressAsync(
-                executionCount, total, label, cancellationToken);
-
-            CommandResult result;
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            try
-            {
-                var commandContext = contextFactory.Create(
-                    cmd, projectConfig, context);
-
-                result = await ExecuteCommandAsync(commandContext, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw; // Propagate cancellation
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Command {Command} threw an unhandled exception", commandName);
-                result = CommandResult.Fail($"{commandName} failed: {ex.Message}");
-            }
-            finally
-            {
-                sw.Stop();
-            }
-
-            context.TrackCommand(cmd.DisplayName, result.IsSuccess, result.Message,
-                sw.Elapsed, result.InsertNext?.Count);
+            if (batch.Count > 1) executionCount += batch.Count;
 
             if (!result.IsSuccess)
             {
-                logger.LogWarning(
-                    "Pipeline stopped at step {Step}: {Command} failed - {Message}",
-                    executionCount, commandName, result.Message);
-
-                await PostTicketStatusAsync(projectConfig, context,
-                    $"## Agent Smith - Failed\n\n**Step:** {label} ({executionCount}/{total})\n**Error:** {result.Message}",
-                    cancellationToken);
-
                 lifecycle.MarkFailed();
-                return result with
-                {
-                    FailedStep = executionCount,
-                    TotalSteps = total,
-                    StepName = label
-                };
+                return result;
             }
 
-            if (result.InsertNext is { Count: > 0 })
-            {
-                var insertAfter = current;
-                foreach (var next in result.InsertNext)
-                {
-                    commands.AddAfter(insertAfter, next);
-                    insertAfter = insertAfter.Next!;
-                }
-
-                logger.LogInformation(
-                    "{Command} inserted {Count} follow-up commands: {Commands}",
-                    commandName,
-                    result.InsertNext.Count,
-                    string.Join(", ", result.InsertNext));
-            }
-
-            // Post skill-related detail to Slack/progress reporter
-            await PostSkillDetailAsync(cmd, result, cancellationToken);
-
-            logger.LogInformation(
-                "[{Step}/{Total}] {Command} completed: {Message}",
-                executionCount, commands.Count, commandName, result.Message);
-
-            current = current.Next;
+            current = advanceTo ?? batch[^1].Next;
         }
 
         logger.LogInformation("Pipeline completed successfully");
         return CommandResult.Ok("Pipeline completed successfully");
     }
 
-    private Task<CommandResult> ExecuteCommandAsync(
-        ICommandContext context, CancellationToken ct)
-        => commandExecutor.ExecuteAsync(context, ct);
+    internal static List<LinkedListNode<PipelineCommand>> PeelBatch(
+        LinkedListNode<PipelineCommand> start, int maxConcurrent)
+    {
+        var batch = new List<LinkedListNode<PipelineCommand>> { start };
+        if (maxConcurrent <= 1 || !IsBatchableCommand(start.Value.Name)) return batch;
+
+        var probe = start.Next;
+        while (probe is not null
+               && probe.Value.Name == start.Value.Name
+               && probe.Value.Round == start.Value.Round
+               && IsBatchableCommand(probe.Value.Name))
+        {
+            batch.Add(probe);
+            probe = probe.Next;
+        }
+        return batch;
+    }
+
+    private static bool IsBatchableCommand(string name) =>
+        name is CommandNames.SkillRound
+             or CommandNames.SecuritySkillRound
+             or CommandNames.ApiSecuritySkillRound;
+
+    private async Task<(CommandResult Result, LinkedListNode<PipelineCommand>? AdvanceTo)>
+        ExecuteSingleStepAsync(
+            LinkedListNode<PipelineCommand> current,
+            LinkedList<PipelineCommand> commands,
+            ProjectConfig projectConfig, PipelineContext context,
+            int executionCount, CancellationToken cancellationToken)
+    {
+        var cmd = current.Value;
+        var total = commands.Count;
+        var label = CommandNames.GetLabel(cmd.Name);
+
+        logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
+            executionCount, total, cmd.DisplayName);
+        await progressReporter.ReportProgressAsync(executionCount, total, label, cancellationToken);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
+        sw.Stop();
+
+        context.TrackCommand(cmd.DisplayName, result.IsSuccess, result.Message,
+            sw.Elapsed, result.InsertNext?.Count);
+
+        if (!result.IsSuccess)
+        {
+            await ReportFailureAsync(executionCount, total, label, cmd, result,
+                projectConfig, context, cancellationToken);
+            return (result with { FailedStep = executionCount, TotalSteps = total, StepName = label }, null);
+        }
+
+        InsertFollowUps(current, commands, result);
+        await PostSkillDetailAsync(cmd, result, cancellationToken);
+        logger.LogInformation("[{Step}/{Total}] {Command} completed: {Message}",
+            executionCount, commands.Count, cmd.DisplayName, result.Message);
+        return (result, null);
+    }
+
+    private async Task<(CommandResult Result, LinkedListNode<PipelineCommand>? AdvanceTo)>
+        ExecuteBatchStepAsync(
+            IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
+            LinkedList<PipelineCommand> commands,
+            ProjectConfig projectConfig, PipelineContext context,
+            int firstStepIndex, CancellationToken cancellationToken)
+    {
+        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
+        var outcome = await runner.ExecuteAsync(
+            batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
+
+        TrackBatchedCommands(outcome, context);
+
+        var failure = outcome.FirstFailure();
+        if (failure is not null)
+        {
+            await ReportFailureAsync(failure.StepIndex, commands.Count,
+                CommandNames.GetLabel(failure.Command.Name), failure.Command, failure.Result,
+                projectConfig, context, cancellationToken);
+            return (failure.Result with
+            {
+                FailedStep = failure.StepIndex,
+                TotalSteps = commands.Count,
+                StepName = CommandNames.GetLabel(failure.Command.Name)
+            }, null);
+        }
+
+        var firstInsert = outcome.FirstInsertNext();
+        if (firstInsert is not null)
+            InsertFollowUps(firstInsert.Value.Node, commands, firstInsert.Value.Result);
+
+        await PostBatchSkillDetailsAsync(outcome, cancellationToken);
+        return (CommandResult.Ok(
+            $"Batch of {batch.Count} {batch[0].Value.Name} skills (round {batch[0].Value.Round}) completed"), null);
+    }
+
+    private async Task<CommandResult> SafeExecuteAsync(
+        PipelineCommand cmd, ProjectConfig projectConfig, PipelineContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var commandContext = contextFactory.Create(cmd, projectConfig, context);
+            return await commandExecutor.ExecuteAsync(commandContext, cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Command {Command} threw an unhandled exception", cmd.DisplayName);
+            return CommandResult.Fail($"{cmd.DisplayName} failed: {ex.Message}");
+        }
+    }
+
+    private static void TrackBatchedCommands(BatchOutcome outcome, PipelineContext context)
+    {
+        foreach (var slot in outcome.Slots)
+        {
+            if (slot is null) continue;
+            context.TrackCommand(slot.Command.DisplayName, slot.Result.IsSuccess,
+                slot.Result.Message, slot.Elapsed, slot.Result.InsertNext?.Count);
+        }
+    }
+
+    private async Task PostBatchSkillDetailsAsync(BatchOutcome outcome, CancellationToken ct)
+    {
+        foreach (var slot in outcome.Slots)
+        {
+            if (slot is null) continue;
+            await PostSkillDetailAsync(slot.Command, slot.Result, ct);
+        }
+    }
+
+    private async Task ReportFailureAsync(
+        int executionCount, int total, string label,
+        PipelineCommand cmd, CommandResult result,
+        ProjectConfig projectConfig, PipelineContext context, CancellationToken ct)
+    {
+        logger.LogWarning("Pipeline stopped at step {Step}: {Command} failed - {Message}",
+            executionCount, cmd.DisplayName, result.Message);
+        await PostTicketStatusAsync(projectConfig, context,
+            $"## Agent Smith - Failed\n\n**Step:** {label} ({executionCount}/{total})\n**Error:** {result.Message}", ct);
+    }
+
+    private void InsertFollowUps(
+        LinkedListNode<PipelineCommand> after,
+        LinkedList<PipelineCommand> commands,
+        CommandResult result)
+    {
+        if (result.InsertNext is not { Count: > 0 } follow) return;
+
+        var insertAfter = after;
+        foreach (var next in follow)
+        {
+            commands.AddAfter(insertAfter, next);
+            insertAfter = insertAfter.Next!;
+        }
+        logger.LogInformation("{Command} inserted {Count} follow-up commands: {Commands}",
+            after.Value.DisplayName, follow.Count, string.Join(", ", follow));
+    }
 
     private async Task<LifecycleScope> BeginLifecycleAsync(
         ProjectConfig projectConfig, PipelineContext context, CancellationToken ct)
@@ -163,8 +251,7 @@ public sealed class PipelineExecutor(
             var transition = await transitioner.TransitionAsync(
                 ticketId, TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, ct);
             if (!transition.IsSuccess)
-                logger.LogWarning(
-                    "Enqueued → InProgress transition {Outcome}: {Error}",
+                logger.LogWarning("Enqueued → InProgress transition {Outcome}: {Error}",
                     transition.Outcome, transition.Error);
 
             return new LifecycleScope(transitioner, heartbeat.Start(ticketId), ticketId, logger);
@@ -239,8 +326,7 @@ public sealed class PipelineExecutor(
             var result = await transitioner.TransitionAsync(
                 ticketId, TicketLifecycleStatus.InProgress, target, CancellationToken.None);
             if (!result.IsSuccess)
-                logger.LogWarning(
-                    "InProgress → {Target} transition {Outcome}: {Error}",
+                logger.LogWarning("InProgress → {Target} transition {Outcome}: {Error}",
                     target, result.Outcome, result.Error);
         }
 
