@@ -40,6 +40,12 @@ public class PipelinePresetsTests
     }
 
     [Fact]
+    public void ApiSecurityScan_FirstStepIsTryCheckoutSource()
+    {
+        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.TryCheckoutSource);
+    }
+
+    [Fact]
     public void FixNoTest_DoesNotContainTestCommand()
     {
         PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Test);
