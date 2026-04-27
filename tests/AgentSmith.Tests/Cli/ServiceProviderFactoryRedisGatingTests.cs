@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Cli;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
@@ -20,14 +21,16 @@ public sealed class ServiceProviderFactoryRedisGatingTests : IDisposable
         => Environment.SetEnvironmentVariable("REDIS_URL", _originalRedisUrl);
 
     [Fact]
-    public void Build_RedisUrlEmpty_DoesNotRegisterRedisJobQueue()
+    public void Build_RedisUrlEmpty_RegistersNullRedisImplementations()
     {
         using var provider = ServiceProviderFactory.Build(
             verbose: false, headless: true, jobId: string.Empty, redisUrl: string.Empty);
 
-        provider.GetService<IRedisJobQueue>().Should().BeNull();
-        provider.GetService<IRedisClaimLock>().Should().BeNull();
-        provider.GetService<IRedisLeaderLease>().Should().BeNull();
+        provider.GetService<IRedisJobQueue>().Should().BeOfType<NullRedisJobQueue>();
+        provider.GetService<IRedisClaimLock>().Should().BeOfType<NullRedisClaimLock>();
+        provider.GetService<IRedisLeaderLease>().Should().BeOfType<NullRedisLeaderLease>();
+        provider.GetService<IJobHeartbeatService>().Should().BeOfType<NullJobHeartbeatService>();
+        provider.GetService<IConversationLookup>().Should().BeOfType<NullConversationLookup>();
     }
 
     [Fact]
