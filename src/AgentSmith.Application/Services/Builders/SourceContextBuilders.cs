@@ -30,6 +30,18 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
     }
 }
 
+public sealed class TryCheckoutSourceContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    {
+        var branch = string.IsNullOrWhiteSpace(project.Source.DefaultBranch)
+            ? null
+            : new BranchName(project.Source.DefaultBranch);
+
+        return new TryCheckoutSourceContext(project.Source, branch, pipeline);
+    }
+}
+
 public sealed class LoadDomainRulesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)

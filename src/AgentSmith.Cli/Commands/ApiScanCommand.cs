@@ -76,17 +76,13 @@ internal static class ApiScanCommand
                 contextData[ContextKeys.Personas] = personas;
 
             sourceOptions.ApplyTo(ctx, contextData);
-            var sourcePath = contextData.TryGetValue(ContextKeys.SourcePath, out var p) ? p as string : null;
 
-            // Print mode banner at startup
+            // Pre-flight banner — final source state and skill count are emitted
+            // by TryCheckoutSourceHandler after resolution (p0102a).
             var modeLabel = personas.Count > 0
                 ? $"Active mode — {personas.Count} persona(s): {string.Join(", ", personas.Keys)}"
                 : "Passive mode — no credentials provided";
-            var sourceLabel = !string.IsNullOrWhiteSpace(sourcePath)
-                ? $"Source: {sourcePath} (code-aware analysis enabled)"
-                : "Source: not provided (schema-only analysis)";
-            var skillCount = EstimateSkillCount(personas.Count > 0, !string.IsNullOrWhiteSpace(sourcePath));
-            Console.WriteLine($"{modeLabel} | {sourceLabel} | ~{skillCount} skill(s)");
+            Console.WriteLine($"{modeLabel} | Resolving source...");
 
             var request = new PipelineRequest(projectName, "api-security-scan", Headless: true,
                 Context: contextData);
@@ -155,12 +151,4 @@ internal static class ApiScanCommand
             personas[name] = new PersonaCredentials { Username = username, Password = password };
     }
 
-    private static int EstimateSkillCount(bool active, bool source) =>
-        (active, source) switch
-        {
-            (false, false) => 4,
-            (false, true)  => 7,
-            (true,  false) => 8,
-            (true,  true)  => 11,
-        };
 }

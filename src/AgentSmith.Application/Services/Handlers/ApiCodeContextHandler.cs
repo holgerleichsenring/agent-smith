@@ -9,9 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Builds an ApiCodeContext when --source-path is provided. Walks the source
-/// tree once via the route mapper and the two extractors, then exposes the
-/// findings under ContextKeys.ApiCodeContext for downstream skills.
+/// Builds an ApiCodeContext when ContextKeys.SourcePath is set (by the
+/// --source-path CLI flag or by TryCheckoutSourceHandler resolving the
+/// configured source: block). Walks the source tree once via the route
+/// mapper and the two extractors, then exposes the findings under
+/// ContextKeys.ApiCodeContext for downstream skills.
 /// </summary>
 public sealed class ApiCodeContextHandler(
     IRouteMapper routeMapper,
