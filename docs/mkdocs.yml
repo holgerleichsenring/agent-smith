@@ -126,6 +126,8 @@ nav:
     - Docker: deployment/docker.md
     - Kubernetes: deployment/kubernetes.md
     - Chat Gateway: deployment/chat-gateway.md
+  - Operations:
+    - Server Resilience: operations/server-resilience.md
   - Setup Guides:
     - setup/README.md
     - Slack: setup/slack.md

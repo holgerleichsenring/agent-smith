@@ -61,10 +61,16 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   # Webhook server (persistent, listens for GitHub/GitLab/AzDO events)
+  # REDIS_URL is optional — without it, the server stays up but webhook POSTs reply 503
+  # and /health/ready reports the degraded state. Set REDIS_URL=redis:6379 for end-to-end
+  # ticket processing. depends_on:redis is not required: the multiplexer reconnects when
+  # Redis becomes reachable (p0101).
   agentsmith-server:
     image: holgerleichsenring/agent-smith:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      - REDIS_URL=redis:6379
     ports:
       - "${WEBHOOK_PORT:-8081}:8081"
     volumes:
@@ -134,8 +140,12 @@ docker compose run --rm agentsmith fix --repo https://github.com/org/repo --tick
 # One-shot: security scan
 docker compose run --rm agentsmith security-scan --repo /app/repo --output console
 
-# Start webhook server
+# Start webhook server (Redis optional — see Health endpoints below)
 docker compose up -d agentsmith-server
+
+# Liveness (always 200 if listener alive) and readiness (503 unless every subsystem is Up)
+curl http://localhost:8081/health
+curl -i http://localhost:8081/health/ready
 
 # Start full stack (dispatcher + redis)
 docker compose up -d dispatcher redis

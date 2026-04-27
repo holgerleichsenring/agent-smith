@@ -9,7 +9,7 @@ For the deeper comparison: [Polling vs Webhooks](polling-vs-webhooks.md).
 ## Prerequisites
 
 - Agent Smith running in server mode (`agent-smith server --port 8081`).
-- Redis reachable via `REDIS_URL` env var. Polling needs the same Redis as the claim/queue infrastructure.
+- Redis reachable via `REDIS_URL` env var. Polling needs the same Redis as the claim/queue infrastructure. If `REDIS_URL` is unset or Redis is unreachable, the poller reports `Disabled`/`Degraded` on `/health` and `/health/ready` returns 503 — see [Server Resilience](../operations/server-resilience.md).
 - The configured ticket auth (e.g. `GITHUB_TOKEN`) has read access to the project AND write access to issue labels — pollers and the lifecycle transitioner both write `agent-smith:*` labels.
 
 ## Current Platform Coverage
