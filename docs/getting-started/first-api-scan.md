@@ -52,6 +52,26 @@ agent-smith api-scan --swagger ./spec.json --target https://api --output sarif -
 agent-smith api-scan --swagger ./spec.json --target https://api --output console,markdown,sarif --output-dir ./reports
 ```
 
+## Code-Aware Scans (Optional)
+
+For richer findings with file:line evidence, add a `source:` block to the project
+config — api-scan will resolve it automatically (local path or remote clone), no
+`--source-path` needed:
+
+```yaml
+projects:
+  api-security:
+    source:
+      type: GitHub                    # GitHub | GitLab | AzureRepos | Local
+      url: https://github.com/owner/repo
+      auth: token                     # token resolved from GITHUB_TOKEN env / secret store
+    # ...
+```
+
+A missing or unreachable source falls back to passive schema-only mode without failing.
+The `--source-path <local>` CLI flag still works for ad-hoc local overrides during
+iteration and wins over any configured source.
+
 ## With Custom Configuration
 
 For recurring scans with custom skills and tool config, create an `.agentsmith/` directory:

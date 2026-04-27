@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0102a
+goal: "api-scan resolves the configured source block on its own — local path or remote clone — so the code-aware skills introduced in p0102 are reachable without a manual --source-path flag. Fail-soft: no source, missing auth, or a failed clone leaves the pipeline in passive schema-only mode without erroring out."
+
+requires: ["p0102"]
+
+decisions:
+  - key: "p0102 wired the code-aware skills but not the source acquisition — the goal 'api-scan reads source' was implemented as 'reads source from a path the user pre-positions'. Configured source: blocks (type: GitHub|GitLab|AzureRepos|Local with url/path/auth) were documented in agentsmith.example.yml but never consumed by the api-security-scan pipeline. ApiSecurityScan in PipelinePresets has no CheckoutSource step; ApiCodeContextHandler.TryResolveSourcePath only reads ContextKeys.SourcePath from the --source-path CLI flag. This phase closes that gap."
+  - key: "Checkout policy differs from security-scan: fail-soft, not fail-hard. security-scan cannot run without a repo (it scans code by definition); api-scan can — schema-only is a first-class mode (passive scan against an OpenAPI spec and live target). Therefore the new step never fails the pipeline; it sets ContextKeys.ApiSourceAvailable=false and lets downstream code-aware skill gating (already in place from p0102 via ApiSecurityTriageHandler) collapse to the passive skill pool."
+  - key: "New command TryCheckoutSource, not a parameter on existing CheckoutSource — security-scan must keep its strict semantics (a clone failure is a hard error there). Two commands with one shared infra (ISourceProviderFactory) is clearer than one command with a policy flag. CheckoutSourceHandler stays untouched."
+  - key: "Single source of truth downstream: ContextKeys.SourcePath. Whether the path comes from --source-path (CLI override via SourceConfigOverrider), a configured Local source, or a freshly cloned remote, the pipeline contract for the rest of the run is the same — ApiCodeContextHandler reads SourcePath, builds the ApiCodeContext, sets ApiSourceAvailable=true. ContextKeys.Repository (set by the strict CheckoutSourceHandler) is not introduced into api-scan to avoid two parallel mechanisms."
+  - key: "Conditional execution lives in the handler, not in pipeline composition. The user phrasing 'der kann auch on-demand hinzugefügt werden wenn im vorfeld festgestellt wurde, dass es möglich ist' is satisfied by the handler doing the pre-check (is Source.Type set? auth present? clone reachable?) and shortcircuiting to a passive run when any precondition is missing. PipelinePresets stays a static list — dynamic step injection would be a larger architectural change for no semantic gain here."
+  - key: "What counts as 'source configured': SourceConfig.Type non-empty AND (Type=Local with valid Path) OR (remote Type with Url + Auth). An empty default SourceConfig (the ProjectConfig default) is treated as 'no source intent' and triggers the passive-mode shortcircuit silently, not as a warning — many api-scan users have no source at all and that's fine."
+  - key: "Banner is split in two: a pre-flight line at CLI start ('Active/Passive mode — N persona(s) | Resolving source...') and a post-resolution line emitted by TryCheckoutSourceHandler ('Source: <path> | ~N skill(s)' or 'Source: unavailable — passive mode | ~N skill(s)'). EstimateSkillCount moves out of ApiScanCommand and into the handler's post-resolution log because skill count depends on ApiSourceAvailable, which only the handler knows. No event-subscriber plumbing — direct ILogger output is sufficient."
+  - key: "CLI flag --source-path retains override priority over config. SourceConfigOverrider already runs and sets SourcePath in the pipeline context from the flag; TryCheckoutSourceHandler must check for that first and skip cloning if a path is already there. This keeps the local-iteration story working unchanged."
+  - key: "Branch selection for api-scan: SourceConfig.DefaultBranch if set, otherwise null (provider falls back to 'main'). api-scan never has a TicketId in scope, so BranchName.FromTicket does not apply. Read-only inspection — checking out a non-default branch is not a goal. The TryCheckoutSourceContextBuilder reads SourceConfig.DefaultBranch directly, ignoring ContextKeys.CheckoutBranch and TicketId entirely."
+  - key: "Clone caching is provider-owned, not phase-owned. ISourceProvider implementations clone into Path.GetTempPath()/agentsmith/<owner>/<repo> and short-circuit re-clone via LibGit2Sharp.Repository.IsValid. This is the same persistent cache security-scan already uses; api-scan inherits it as-is. No cleanup hook in TryCheckoutSourceHandler — disposal is the user's concern (rm -rf $TMPDIR/agentsmith) and matches existing security-scan behavior. Stale-cache risk (out-of-date local clone) exists today and is not regressed by this phase; addressing it would be a cross-cutting follow-up."
+
+steps:
+  - id: try-checkout-command
+    action: "New command name + builder + context + handler. Mirrors the CheckoutSource trio but produces a fail-soft outcome."
+    new:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: TryCheckoutSource constant + StatusMessages entry"
+      - "src/AgentSmith.Application/Models/TryCheckoutSourceContext.cs: { SourceConfig Source, BranchName? Branch, PipelineContext Pipeline } — Branch is nullable, comes from SourceConfig.DefaultBranch only"
+      - "src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs: TryCheckoutSourceContextBuilder — reads project.Source, derives branch as (project.Source.DefaultBranch is set ? new BranchName(...) : null). Does not consult ContextKeys.CheckoutBranch or TicketId — api-scan has no ticket scope"
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register TryCheckoutSourceContextBuilder + TryCheckoutSourceHandler"
+
+  - id: handler-logic
+    action: >
+      TryCheckoutSourceHandler resolution order — first match wins, none of them fail the pipeline:
+      (1) ContextKeys.SourcePath already set (--source-path CLI flag) and Directory.Exists → log info 'Source: <path> (CLI override)', emit post-resolution banner line, return Ok.
+      (2) Source.Type empty → log debug 'no source configured, passive mode', emit banner, return Ok with SourcePath unset.
+      (3) Source.Type=Local with non-empty Path and Directory.Exists → set SourcePath = absolute Source.Path, log info, emit banner, return Ok.
+      (4) Source.Type=Local but Path missing or directory absent → log warning, emit banner, return Ok with SourcePath unset.
+      (5) Remote Source.Type (GitHub|GitLab|AzureRepos) with non-empty Url → wrap in try/catch: factory.Create(Source); provider.CheckoutAsync(branchFromConfig); on success set SourcePath = repo.LocalPath. On any exception (missing token from SecretsProvider, network failure, invalid URL, auth failure) log warning with provider name and exception message, leave SourcePath unset. Return Ok in both cases. Auth presence is NOT pre-checked — the factory and SecretsProvider chain already handle env vars, secret stores, etc. Pre-checking SourceConfig.Auth would shadow valid auth resolution paths.
+      (6) Remote Source.Type with empty Url → log warning 'remote source declared but url missing', emit banner, return Ok with SourcePath unset.
+    new:
+      - "TryCheckoutSourceHandler with the six branches above"
+
+  - id: pipeline-wire-up
+    action: "Insert TryCheckoutSource as the first step of ApiSecurityScan so SourcePath is resolved before LoadSwagger and ApiCodeContext run."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs: ApiSecurityScan list — prepend CommandNames.TryCheckoutSource"
+
+  - id: code-context-handler-cleanup
+    action: "ApiCodeContextHandler is already SourcePath-driven; verify nothing else changes. The existing TryResolveSourcePath stays as-is — TryCheckoutSource is the only new producer of SourcePath, so the handler reads the same key without caring how it got there."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ApiCodeContextHandler.cs: doc comment update — 'when --source-path is provided OR source: block resolves' (no behavioral change)"
+
+  - id: cli-banner
+    action: >
+      Two-line banner. Pre-flight line stays in ApiScanCommand and shows what's known at CLI parse time: mode (active/passive based on personas) and a 'Resolving source...' marker. Post-resolution line is emitted by TryCheckoutSourceHandler at info level after each branch decides — shows the resolved source path (or 'unavailable — passive mode') plus the final '~N skill(s)' count derived from the ApiSourceAvailable state the handler has just set. EstimateSkillCount moves from ApiScanCommand into the handler. ApiScanCommand no longer constructs sourceLabel from sourcePath.
+    modify:
+      - "src/AgentSmith.Cli/Commands/ApiScanCommand.cs: replace sourceLabel construction with a static 'Resolving source...' suffix in the pre-flight banner; remove EstimateSkillCount call here"
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs: emit final banner line via ILogger.LogInformation in each of the six branches (consistent format: 'Source: <state> | ~N skill(s)'); host the moved EstimateSkillCount as a private helper or shared static"
+      - "EstimateSkillCount: extract to a small shared helper if used by both CLI and handler, or duplicate the 4-arm switch — duplication is fine for one tiny pure function"
+
+  - id: example-config
+    action: >
+      agentsmith.example.yml: show a GitHub-configured api-security project alongside the existing Local example. Make it explicit in comments that for api-scan the source: block is optional and that a missing or unreachable source falls back to schema-only.
+    modify:
+      - "config/agentsmith.example.yml: api-security project — add a commented-out type: GitHub variant; comment block 'optional for api-scan; if present, the repo is auto-cloned and code-aware skills run'"
+
+  - id: docs
+    action: "Update docs to describe the new flow."
+    modify:
+      - "docs/pipelines/api-scan.md: source resolution section — CLI flag > Local config > Remote clone > passive fallback"
+      - "docs/getting-started/first-api-scan.md: note that source: block in config is sufficient, --source-path is for ad-hoc local overrides"
+
+tests:
+  - "TryCheckoutSourceHandler_NoSourceConfigured_OkAndSourcePathUnset"
+  - "TryCheckoutSourceHandler_CliFlagAlreadySetSourcePath_DoesNotOverwrite"
+  - "TryCheckoutSourceHandler_LocalConfigPathExists_SetsSourcePathAbsolute"
+  - "TryCheckoutSourceHandler_LocalConfigPathMissing_OkAndSourcePathUnset"
+  - "TryCheckoutSourceHandler_GitHubConfigWithUrl_DelegatesToProviderAndSetsSourcePathFromLocalPath"
+  - "TryCheckoutSourceHandler_RemoteConfigEmptyUrl_OkAndSourcePathUnset"
+  - "TryCheckoutSourceHandler_ProviderFactoryThrowsOnMissingToken_LogsWarningAndReturnsOk"
+  - "TryCheckoutSourceHandler_ProviderCheckoutThrows_LogsWarningAndReturnsOk"
+  - "TryCheckoutSourceHandler_LogsResolutionBannerLine_InEveryBranch"
+  - "TryCheckoutSourceContextBuilder_SourceConfigDefaultBranchSet_PassesAsBranchName"
+  - "TryCheckoutSourceContextBuilder_SourceConfigDefaultBranchUnset_PassesNullBranch"
+  - "TryCheckoutSourceContextBuilder_IgnoresContextKeysCheckoutBranchAndTicketId"
+  - "ApiSecurityScanPreset_FirstStepIsTryCheckoutSource"
+  - "ApiCodeContextHandler_SourcePathSetByTryCheckout_BuildsCodeContextAndApiSourceAvailableTrue"
+  - "ApiCodeContextHandler_SourcePathUnsetByTryCheckout_ApiSourceAvailableFalse"
+  - "ApiSecurityTriageHandler_PassiveAfterTryCheckoutFailed_FourSkills (extends p0102 test)"
+
+done:
+  - "CommandNames.TryCheckoutSource constant exists; StatusMessages entry exists"
+  - "TryCheckoutSourceHandler exists with the six-branch resolution order; never returns Fail; auth resolution is delegated to ISourceProviderFactory + SecretsProvider via try/catch, not pre-checked from SourceConfig.Auth"
+  - "TryCheckoutSourceContextBuilder exists, reads ProjectConfig.Source, derives branch from SourceConfig.DefaultBranch only (ignores ContextKeys.CheckoutBranch and TicketId)"
+  - "Both registered in ServiceCollectionExtensions"
+  - "PipelinePresets.ApiSecurityScan starts with TryCheckoutSource"
+  - "Running api-scan with a configured GitHub source: block (no --source-path) clones the repo and code-aware skills run with file:line evidence"
+  - "Running api-scan with a configured Local source: block resolves the absolute path and code-aware skills run with file:line evidence"
+  - "Running api-scan with no source: block runs in passive mode, no warning noise — same behavior as today"
+  - "Running api-scan with a misconfigured remote source (bad token, unreachable URL, invalid URL) logs one warning and continues in passive mode without failing"
+  - "Running api-scan with a remote source whose auth comes from a secret store / env var (not in config) succeeds — auth is resolved by SecretsProvider during factory.Create, not pre-checked by the handler"
+  - "--source-path on the CLI still wins over config — TryCheckoutSourceHandler detects the existing SourcePath and skips its own resolution"
+  - "Pre-flight banner (in ApiScanCommand) shows mode + 'Resolving source...'; post-resolution banner (in TryCheckoutSourceHandler) shows 'Source: <state> | ~N skill(s)' with the final skill count derived from ApiSourceAvailable"
+  - "Cloned repos land in Path.GetTempPath()/agentsmith/<owner>/<repo> via the existing ISourceProvider cache; api-scan introduces no new cleanup logic"
+  - "agentsmith.example.yml has a GitHub variant for the api-security project with the optionality comment"
+  - "docs/pipelines/api-scan.md documents the resolution order"
+  - "dotnet build clean, all tests green"
