@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.23.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.22.0...v0.23.0) (2026-04-27)
+
+
+### Features
+
+* api-scan resolves source: block automatically (p0102a) ([0eb24d5](https://github.com/holgerleichsenring/agent-smith/commit/0eb24d572ad24178183cb2a5392e1f00409ddb54))
+
+
+### Bug Fixes
+
+* minify JSON output instructions to avoid gate truncation ([0557631](https://github.com/holgerleichsenring/agent-smith/commit/0557631fe047b8904d6805f7faee56e96c75ece6))
+
 ## [0.22.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.21.2...v0.22.0) (2026-04-27)
 
 
