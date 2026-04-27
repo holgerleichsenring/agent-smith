@@ -16,4 +16,5 @@ public sealed class AgentConfig
     public CompactionConfig Compaction { get; set; } = new();
     public ModelRegistryConfig? Models { get; set; }
     public PricingConfig Pricing { get; set; } = new();
+    public ParallelismConfig Parallelism { get; set; } = new();
 }

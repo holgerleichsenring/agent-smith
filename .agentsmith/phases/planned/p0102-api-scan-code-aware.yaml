@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0102
+goal: "api-scan reads source for API-shaped concerns; cut per-run cost via prefix caching and passive-mode skill reduction"
+
+requires: ["p0007", "p0045", "p0067", "p0074", "p0079", "p0094a", "p0097"]
+
+decisions:
+  - key: "Boundary: api-scan follows routes into code (auth bootstrap, handlers, middleware); security-scan scans code independently — overlap is fine"
+  - key: "Source optional — no source-path means pipeline runs as before"
+  - key: "Multi-stack from day one — .NET, Express, FastAPI, Spring; only regex anchors differ"
+  - key: "Skills are language-agnostic with multi-stack examples — no framework-specific code in skills"
+  - key: "Three code skills additive, not replacing — attacker skills from p0079 unchanged"
+  - key: "Static patterns split like p0094b — config/patterns/api-auth.yaml for deterministic cases, LLM for nuance"
+  - key: "EvidenceMode gains AnalyzedFromSource — code-only carries file:line"
+  - key: "Caching: explicit cache_control on shared user-message prefix in skill round handlers — p0007 covers system+tools only"
+  - key: "Cache win only realized with p0097's MaxConcurrentSkillRounds ≥ 4 — sequential calls past the 5min cache TTL miss the read. api-security-scan sets 4 in agentsmith.example.yml; comparison run uses the same value or the comparison is meaningless"
+  - key: "Passive-no-source skill pool: 4 (recon-analyst, anonymous-attacker, false-positive-filter, chain-analyst)"
+  - key: "Cross-pipeline correlation deferred to p0099b — async via repo-state, not synchronous"
+  - key: "Roslyn deferred — revisit if LLM under-confidence on nuanced cases is measurable"
+  - key: "Route mapping confidence threshold: RouteHandlerLocation.Confidence < 0.5 → no finding emitted by code-aware skills, route logged as low-confidence in run output. Avoids false positives on regex misses"
+  - key: "Baseline and comparison cost recorded post-phase as decision keys (same as p0094b), each pinned to model ID + MaxConcurrentSkillRounds value — comparison across different model versions or parallelism settings is not valid"
+
+steps:
+  - id: prefix-cache
+    action: "cache_control breakpoint on shared user-message prefix"
+    new: ["PromptPrefixBuilder"]
+    modify:
+      - "AnthropicLlmClient: CompleteWithCachedPrefixAsync(prefix, suffix, taskType)"
+      - "ILlmClient: overload signature, default falls back to CompleteAsync"
+      - "ApiSkillRoundHandler / SecuritySkillRoundHandler: split prompt into prefix + per-skill suffix"
+      - "TokenUsageTracker: log cache_read and cache_create separately"
+
+  - id: passive-skills
+    action: "Triage shrinks pool when ActiveMode=false and ApiSourceAvailable=false"
+    modify:
+      - "ApiSecurityTriageHandler: gate active-only and code-aware skills"
+      - "ApiScanCommand: banner shows mode + skill count"
+
+  - id: contracts
+    action: "ApiCodeContext + EvidenceMode extension"
+    new:
+      - "ApiCodeContext: { RoutesToHandlers, AuthBootstrapFiles, SecurityMiddlewareRegistrations, UploadHandlers, MappingConfidence }"
+      - "RouteHandlerLocation: { Method, Path, File, StartLine, EndLine, HandlerSnippet, Framework, Confidence }"
+      - "SourceFileExcerpt: { File, StartLine, EndLine, Content, Reason }"
+    modify:
+      - "EvidenceMode: AnalyzedFromSource"
+      - "ContextKeys: ApiCodeContext, ApiSourceAvailable"
+
+  - id: code-context-handler
+    action: "ApiCodeContextHandler after LoadSwagger, before SessionSetup"
+    new:
+      - "ApiCodeContextHandler"
+      - "IRouteMapper + RouteMapper: regex sets for .NET / Express / FastAPI / Spring"
+      - "IAuthBootstrapExtractor + AuthBootstrapExtractor"
+      - "IUploadHandlerExtractor + UploadHandlerExtractor"
+    modify:
+      - "PipelinePresets: insert ApiCodeContextCommand"
+      - "CommandNames: ApiCodeContext"
+
+  - id: api-auth-patterns
+    action: "Add config/patterns/api-auth.yaml"
+    new:
+      - "config/patterns/api-auth.yaml: ValidateLifetime=false, ValidateIssuerSigningKey=false, ValidateIssuer=false, ValidateAudience=false, AllowAnyOrigin+AllowCredentials, [AllowAnonymous] on state-changing verbs, missing UseAuthentication/UseAuthorization, hardcoded JWT secrets, exception message in response body"
+
+  - id: code-skills
+    action: "Three new skills alongside attacker skills"
+    new:
+      - "config/skills/api-security/auth-config-reviewer/ — disabled JWT validation, dead authorization middleware, missing security headers, unsafe CORS"
+      - "config/skills/api-security/ownership-checker/ — user/tenant predicates in DB queries on state-changing routes"
+      - "config/skills/api-security/upload-validator-reviewer/ — content-sniffing vs header-only MIME, magic bytes, filename sanitization, server-side size limits"
+    modify:
+      - "config/skills/api-security/api-security-principles.md — code-aware section"
+
+  - id: triage-source-aware
+    action: "Gate code skills on ApiSourceAvailable"
+    modify:
+      - "ApiSecurityTriageHandler: signals hasAuthBootstrap, hasUploadHandlers, hasStateChangingRoutesMapped"
+
+  - id: cli-config
+    action: "Banner and example config"
+    modify:
+      - "ApiScanCommand: banner"
+      - "agentsmith.example.yml: source block under api-security-scan"
+      - "agentsmith.example.yml: api-security-scan sets parallelism.max_concurrent_skill_rounds: 4 with comment 'required for prefix-cache hit rate within 5min TTL'"
+
+  - id: output
+    action: "AnalyzedFromSource in all output strategies"
+    modify:
+      - "ApiScanFindingsFormatter: three-valued evidence_mode, file:line for AnalyzedFromSource"
+      - "ConsoleOutputStrategy / MarkdownOutputStrategy / SarifOutputStrategy"
+
+  - id: chain-analyst
+    action: "Cross-mode chains"
+    modify:
+      - "config/skills/api-security/chain-analyst/SKILL.md"
+
+tests:
+  - "AnthropicLlmClient_CompleteWithCachedPrefix_EmitsCacheControlMarker"
+  - "AnthropicLlmClient_SecondCall_SeesCacheRead"
+  - "ApiSkillRoundHandler_PrefixBuiltOncePerRound"
+  - "ApiSecurityTriageHandler_PassiveNoSource_FourSkills"
+  - "ApiSecurityTriageHandler_PassiveWithSource_AddsCodeSkills"
+  - "ApiSecurityTriageHandler_ActiveWithSource_FullPool"
+  - "ApiCodeContextHandler_NoSource_ApiSourceAvailableFalse"
+  - "RouteMapper_DotNet_MapsHttpAttributes"
+  - "RouteMapper_Express_MapsRouterMethods"
+  - "RouteMapper_FastApi_MapsDecorators"
+  - "RouteMapper_Spring_MapsRequestMapping"
+  - "RouteMapper_Unmatched_LowConfidenceEntry"
+  - "AuthBootstrapExtractor_DotNetProgramCs_ExtractsBlock"
+  - "AuthBootstrapExtractor_NestJs_ExtractsJwtModule"
+  - "UploadHandlerExtractor_IFormFile_ExtractsBody"
+  - "UploadHandlerExtractor_Multer_ExtractsBody"
+  - "ApiAuthPatterns_ValidateLifetimeFalse_Critical"
+  - "ApiAuthPatterns_AllowAnyOriginPlusCredentials_High"
+  - "AuthConfigReviewer_DeadAuthorizationMiddleware_Critical"
+  - "OwnershipChecker_DbSetWithoutUserPredicate_FlagsIdor"
+  - "UploadValidatorReviewer_HeaderOnlyMime_Medium"
+  - "ApiScanFindingsFormatter_AnalyzedFromSource_RendersFileLine"
+
+done:
+  - "cache_read dominates cache_create from contributor skill 2 onwards in TokenUsageTracker logs across the full passive+source run (verifies cache survives all parallel calls within 5min TTL)"
+  - "Passive-no-source ≤4 contributor skills"
+  - "api-scan with --source-path produces findings with file:line"
+  - "api-scan without source unchanged, same Potential findings as before"
+  - "Fixture repo (.NET + Node) emits ValidateLifetime=false, dead authorization middleware, missing user predicate, header-only MIME — each with file:line"
+  - "EvidenceMode three-valued in Console / Markdown / SARIF"
+  - "Baseline and Comparison decision keys filled post-phase, each pinned to model ID and MaxConcurrentSkillRounds value"
+  - "Comparison run on the same target costs ≤60% of baseline (with MaxConcurrentSkillRounds=4 and identical model ID — both pinned in baseline decision key)"
+  - "dotnet build zero warnings, all tests green"
