@@ -20,19 +20,25 @@ public sealed class StructuredOutputInstructionBuilder
         };
     }
 
+    private const string MinifiedJsonInstruction =
+        "Output minified JSON on a single line — no whitespace between tokens, no indentation, no newlines.";
+
     private const string ContributorInstruction =
         "Respond with a JSON array of findings. Each finding: " +
         "{ \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\", " +
         "\"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. " +
         "Use apiPath for endpoint-level findings and schemaName for schema-level findings. " +
-        "Omit both for file-based findings. Max 50 items.";
+        "Omit both for file-based findings. Max 50 items. " +
+        MinifiedJsonInstruction;
 
     private const string GateListInstruction =
         "Review all findings. Respond with JSON: { \"confirmed\": [...], \"rejected\": [...] }. " +
         "Each item: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"reason\": \"\", " +
         "\"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. " +
-        "Preserve apiPath/schemaName from contributor findings when present.";
+        "Preserve apiPath/schemaName from contributor findings when present. " +
+        MinifiedJsonInstruction;
 
     private const string GateVerdictInstruction =
-        "Review the analysis. Respond with JSON: { \"pass\": true/false, \"reason\": \"\" }.";
+        "Review the analysis. Respond with JSON: { \"pass\": true/false, \"reason\": \"\" }. " +
+        MinifiedJsonInstruction;
 }
