@@ -62,6 +62,7 @@ public static class CommandNames
     public const string LoadRuns = "LoadRunsCommand";
     public const string WriteTickets = "WriteTicketsCommand";
     public const string SessionSetup = "SessionSetupCommand";
+    public const string ApiCodeContext = "ApiCodeContextCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -135,5 +136,6 @@ public static class CommandNames
         [LoadRuns] = "Loading run history",
         [WriteTickets] = "Writing tickets",
         [SessionSetup] = "Authenticating API personas",
+        [ApiCodeContext] = "Mapping API routes to source",
     };
 }

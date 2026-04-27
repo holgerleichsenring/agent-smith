@@ -18,6 +18,19 @@ Look for findings from different contributors that combine into a more severe at
 - Anonymous finding (no rate limit on login) + Recon finding (username enumeration) = brute force
 - Low-priv finding (privilege escalation) + IDOR finding (cross-user access) = full account takeover
 
+#### Cross-mode chains (when source is available)
+Combine findings from code-aware skills with attacker-perspective findings:
+- `auth-config-reviewer` flags `ValidateLifetime = false` (analyzed_from_source) +
+  `low-privilege-attacker` confirms an expired token still authenticates (confirmed) =
+  **critical** — the disabled validation is exploitable today, not theoretical.
+- `ownership-checker` flags missing user predicate on `PUT /api/orders/{id}`
+  (analyzed_from_source) + `idor-prober` confirms cross-tenant write succeeds (confirmed) =
+  **critical** chain — promote both to a single CRITICAL finding describing the
+  end-to-end exploit, with code-evidence and probe-evidence both cited.
+- `upload-validator-reviewer` flags header-only MIME (analyzed_from_source) +
+  `anonymous-attacker` confirms unauthenticated upload (confirmed) = **high** —
+  attacker-controlled file persistence, no credentials needed.
+
 ### 2. Severity adjustment
 When a chain makes individual findings more severe, escalate:
 - Two MEDIUM findings that chain into a HIGH attack scenario → mark chain as HIGH
