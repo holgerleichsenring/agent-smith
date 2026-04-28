@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.23.0...v0.24.0) (2026-04-28)
+
+
+### Features
+
+* externalize skill catalog into agentsmith-skills repo (p0103) ([4a51511](https://github.com/holgerleichsenring/agent-smith/commit/4a5151175339cccd44730d59e224fdbc5f2138c1))
+* externalize skill catalog into agentsmith-skills repo (p0103) ([aba039d](https://github.com/holgerleichsenring/agent-smith/commit/aba039dfe9f6ce6763fa7815e5a8beb2880bbc07))
+* **prompts:** finish IPromptCatalog migration — all prompts as embedded resources (p0103c) ([83a9741](https://github.com/holgerleichsenring/agent-smith/commit/83a97417a340adc459df80daceb23edf9438197c))
+* **prompts:** IPromptCatalog foundation + drop project-vision (p0103c partial) ([1268bf9](https://github.com/holgerleichsenring/agent-smith/commit/1268bf9bb4fbbfec386f5ac093de89e32092bd23))
+
 ## [0.23.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.22.0...v0.23.0) (2026-04-27)
 
 
