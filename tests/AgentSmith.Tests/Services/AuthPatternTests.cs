@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Services.Security;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,11 +13,11 @@ public sealed class AuthPatternTests
 
     private static IReadOnlyList<PatternDefinition> LoadAuthPatterns()
     {
+        var dir = TestPatternsDirectory.Resolve();
+        if (dir is null) return [];
+
         var loader = new PatternDefinitionLoader(NullLogger<PatternDefinitionLoader>.Instance);
-        var patternsDir = Path.Combine(
-            Directory.GetCurrentDirectory().Split("bin")[0],
-            "..", "..", "config", "patterns");
-        var all = loader.LoadFromDirectory(Path.GetFullPath(patternsDir));
+        var all = loader.LoadFromDirectory(dir);
         return all.Where(p => p.Category == AuthCategory).ToList();
     }
 
@@ -26,13 +27,15 @@ public sealed class AuthPatternTests
     [Fact]
     public void AuthCategory_PatternsLoaded()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
-        patterns.Should().NotBeEmpty("config/patterns/auth.yaml must exist and contain IDOR patterns");
+        patterns.Should().NotBeEmpty("auth category in agentsmith-skills must contain IDOR patterns");
     }
 
     [Fact]
     public void AuthPatterns_AllRegexCompile()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
         foreach (var p in patterns)
         {
@@ -44,6 +47,7 @@ public sealed class AuthPatternTests
     [Fact]
     public void AuthPatterns_AllSeveritiesValid()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var allowed = new[] { "info", "low", "medium", "high", "critical" };
         var patterns = LoadAuthPatterns();
         foreach (var p in patterns)
@@ -55,6 +59,7 @@ public sealed class AuthPatternTests
     [Fact]
     public void AspnetIntRouteIdorSample_MatchedByAtLeastOneAuthPattern()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
         const string sample = "[HttpGet(\"users/{id:int}\")]";
         AnyMatches(patterns, sample)
@@ -64,6 +69,7 @@ public sealed class AuthPatternTests
     [Fact]
     public void EfFindByIdSample_MatchedByAtLeastOneAuthPattern()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
         const string sample = "var user = dbContext.Users.Find(id);";
         AnyMatches(patterns, sample)
@@ -73,6 +79,7 @@ public sealed class AuthPatternTests
     [Fact]
     public void LinqSinglePredicateSample_MatchedByAtLeastOneAuthPattern()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
         const string sample = ".FirstOrDefault(u => u.Id == userId)";
         AnyMatches(patterns, sample)
@@ -82,6 +89,7 @@ public sealed class AuthPatternTests
     [Fact]
     public void OwnershipPredicateSample_NotMatchedByAuthPatterns()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadAuthPatterns();
         const string safeSample = ".FirstOrDefault(u => u.Id == id && u.TenantId == currentTenant)";
         AnyMatches(patterns, safeSample)

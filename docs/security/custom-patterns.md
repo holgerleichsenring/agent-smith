@@ -1,31 +1,47 @@
 # Custom Security Patterns
 
-Pattern files under `config/patterns/*.yaml` are consumed by the static scanner
+Pattern files (`*.yaml`) are consumed by the static scanner
 ([`StaticPatternScanner`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/StaticPatternScanner.cs))
 and the git-history scanner
 ([`GitHistoryScanner`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs)).
 
-Both scanners load the same YAML — there is no parallel hardcoded list. Patterns
-in category `secrets` are additionally used by the git-history scanner; all other
-categories run only against the working tree.
+Both scanners load the same YAML — there is no parallel hardcoded list.
+Patterns in category `secrets` are additionally used by the git-history scanner;
+all other categories run only against the working tree.
 
-## File layout
+## Where patterns live
+
+Default patterns ship as part of the
+[agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills)
+release tarball — the same artefact the server pulls at boot for skills.
+After a successful pull, the catalog cache (e.g. `/var/lib/agentsmith/skills`)
+contains both:
 
 ```
-config/patterns/
-├── ai-security.yaml
-├── api-auth.yaml
-├── auth.yaml
-├── compliance.yaml
-├── config.yaml
-├── injection.yaml
-├── secrets.yaml
-└── ssrf.yaml
+{cacheDir}/
+├── skills/                # role definitions (loaded by SkillLoader)
+└── patterns/              # YAML regex pattern definitions (loaded by the scanners)
+    ├── ai-security.yaml
+    ├── api-auth.yaml
+    ├── auth.yaml
+    ├── compliance.yaml
+    ├── config.yaml
+    ├── injection.yaml
+    ├── secrets.yaml
+    └── ssrf.yaml
 ```
 
-The file name is organisational. The category exposed in findings comes from the
-top-level `name:` field inside the YAML, falling back to the file name if `name:`
-is omitted.
+The pattern resolver looks at, in order:
+
+1. `${AGENTSMITH_CONFIG_DIR}/patterns/` — operator override for custom or
+   replacement patterns
+2. `{catalogRoot}/patterns/` — patterns from the agentsmith-skills release
+3. `./config/patterns/` (development convenience when running from a source
+   checkout that still has bundled patterns)
+
+The file name is organisational. The category exposed in findings comes from
+the top-level `name:` field inside the YAML, falling back to the file name
+if `name:` is omitted.
 
 ## Schema
 
@@ -67,11 +83,22 @@ and bump documentation that mentions it.
 
 ## Adding a custom pattern
 
-The simplest path is to drop a new YAML file in `config/patterns/` (or in the
-directory pointed at by `AGENTSMITH_CONFIG_DIR`). It is auto-discovered on the
-next scan — no code changes, no rebuild.
+Two paths depending on whether the pattern is for everyone or just your
+deployment:
+
+**For everyone — contribute upstream:** open a PR against
+[agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills),
+add or extend a YAML under `patterns/`. The next release ships it.
+
+**For your deployment only — operator override:** point
+`AGENTSMITH_CONFIG_DIR` at a directory that contains a `patterns/` subfolder
+with your custom YAMLs. The resolver picks that location up before the
+catalog. Mix-and-match isn't supported in this slice — when the override path
+is set, the catalog patterns are not also loaded; copy any defaults you want
+to keep into your override directory.
 
 ```yaml
+# ${AGENTSMITH_CONFIG_DIR}/patterns/my-org.yaml
 name: my-org
 patterns:
   - id: internal-api-key
@@ -84,10 +111,6 @@ patterns:
     provider: "MyOrg Vault"
     revocationUrl: "https://vault.internal.myorg/keys"
 ```
-
-Existing files (`auth.yaml`, `secrets.yaml`, …) can also be edited or extended
-in place; adding patterns to a built-in file is just as supported as creating a
-new file. The shipped patterns are sensible defaults, not a frozen contract.
 
 ## Where patterns flow
 
