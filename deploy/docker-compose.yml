@@ -31,12 +31,6 @@ services:
     stdin_open: false
     env_file:
       - ../.env
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     ports:
       - "${WEBHOOK_PORT:-8081}:8081"
     volumes:
