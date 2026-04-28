@@ -20,6 +20,7 @@ public sealed class ExecutePipelineUseCase(
     IIntentParser intentParser,
     IPipelineExecutor pipelineExecutor,
     ISourceConfigOverrider sourceConfigOverrider,
+    ISkillsCatalogResolver catalogResolver,
     ILogger<ExecutePipelineUseCase> logger)
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -29,6 +30,7 @@ public sealed class ExecutePipelineUseCase(
             request.PipelineName, request.ProjectName);
 
         var config = configLoader.LoadConfig(configPath);
+        await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
 
         var projectName = request.ProjectName.ToLowerInvariant();
         if (!config.Projects.TryGetValue(projectName, out var projectConfig))
