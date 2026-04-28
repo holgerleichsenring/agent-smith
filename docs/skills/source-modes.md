@@ -5,7 +5,7 @@ sources, configured under `skills:` in `agentsmith.yml`:
 
 | Mode | Use case | What happens |
 |---|---|---|
-| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agentsmith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
+| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
 | `path` | Operator-managed mount (PVC, sidecar copy, GitOps) | Server validates the directory contains `skills/` and uses it as-is. No download. |
 | `url` | Custom mirror or one-off override | Server pulls from an explicit URL with optional SHA256 verification. |
 

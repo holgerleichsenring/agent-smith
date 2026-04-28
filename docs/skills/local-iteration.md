@@ -7,16 +7,16 @@ binary, without releasing a new version of `agentsmith-skills`.
 
 ```bash
 # Clone the catalog repo somewhere outside the agent-smith working tree
-git clone https://github.com/holgerleichsenring/agentsmith-skills /path/to/agentsmith-skills
+git clone https://github.com/holgerleichsenring/agent-smith-skills /path/to/agent-smith-skills
 
 # Point your local config at it
 # agentsmith.yml:
 skills:
   source: path
-  path: /path/to/agentsmith-skills
+  path: /path/to/agent-smith-skills
 ```
 
-Edits to `/path/to/agentsmith-skills/skills/**/SKILL.md` are picked up by the
+Edits to `/path/to/agent-smith-skills/skills/**/SKILL.md` are picked up by the
 next pipeline run — no rebuild, no restart needed (the loader reads SKILL.md
 on each load).
 
@@ -27,7 +27,7 @@ on each load).
 services:
   agent-smith:
     volumes:
-      - ../agentsmith-skills:/var/lib/agentsmith/skills:ro
+      - ../agent-smith-skills:/var/lib/agentsmith/skills:ro
     environment:
       AGENTSMITH_SKILLS_DIR: /var/lib/agentsmith/skills
 ```
@@ -41,7 +41,7 @@ The test suite uses `./test-skills/` populated by `scripts/fetch-skills.sh`.
 For local-iteration tests, point at your working copy instead:
 
 ```bash
-export AGENTSMITH_TEST_SKILLS_DIR=/path/to/agentsmith-skills
+export AGENTSMITH_TEST_SKILLS_DIR=/path/to/agent-smith-skills
 dotnet test
 ```
 

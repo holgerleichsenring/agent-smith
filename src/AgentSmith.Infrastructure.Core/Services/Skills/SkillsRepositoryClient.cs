@@ -8,7 +8,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Skills;
 
 /// <summary>
 /// Downloads, verifies (SHA256), and atomically extracts the skill catalog
-/// tarball. Default release URL is the <c>holgerleichsenring/agentsmith-skills</c>
+/// tarball. Default release URL is the <c>holgerleichsenring/agent-smith-skills</c>
 /// GitHub release; overridable via the <c>AGENTSMITH_SKILLS_REPOSITORY_URL</c>
 /// environment variable for air-gap mirrors.
 /// </summary>
@@ -16,7 +16,7 @@ public sealed class SkillsRepositoryClient(
     HttpClient httpClient,
     ILogger<SkillsRepositoryClient> logger) : ISkillsRepositoryClient
 {
-    private const string DefaultRepoUrl = "https://github.com/holgerleichsenring/agentsmith-skills";
+    private const string DefaultRepoUrl = "https://github.com/holgerleichsenring/agent-smith-skills";
     private const string EnvOverride = "AGENTSMITH_SKILLS_REPOSITORY_URL";
 
     public Uri ResolveReleaseUrl(string version)
