@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -24,6 +25,7 @@ public sealed class TriageHandlerTests
             .Returns(_llmClientMock.Object);
         _handler = new TriageHandler(
             _llmFactoryMock.Object,
+            new FakePromptCatalog(),
             NullLogger<TriageHandler>.Instance);
     }
 

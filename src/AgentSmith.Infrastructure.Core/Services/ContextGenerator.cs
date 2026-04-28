@@ -9,6 +9,8 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// Generates a .context.yaml (CCS format) for a repository using one cheap LLM call.
 /// </summary>
 public sealed class ContextGenerator(
+    ContextUserPromptBuilder userPromptBuilder,
+    IPromptCatalog prompts,
     ILogger<ContextGenerator> logger) : IContextGenerator
 {
     private const int MaxFileContentChars = 4000;
@@ -21,11 +23,11 @@ public sealed class ContextGenerator(
             project.Language, repoPath);
 
         var keyFileContents = ReadKeyFiles(project.KeyFiles, repoPath);
-        var userPrompt = ContextUserPromptBuilder.Build(project, keyFileContents, snapshot);
+        var userPrompt = userPromptBuilder.Build(project, keyFileContents, snapshot);
+        var systemPrompt = prompts.Get("context-generator-system");
 
         var llmResponse = await llmClient.CompleteAsync(
-            ContextPromptTemplates.SystemPrompt, userPrompt,
-            TaskType.ContextGeneration, cancellationToken);
+            systemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
 
         var yaml = LlmResponseHelper.StripCodeFences(llmResponse.Text);
         logger.LogInformation("Generated .context.yaml ({Chars} chars)", yaml.Length);
@@ -56,9 +58,9 @@ public sealed class ContextGenerator(
             Return ONLY valid YAML, no explanation.
             """;
 
+        var systemPrompt = prompts.Get("context-generator-system");
         var llmResponse = await llmClient.CompleteAsync(
-            ContextPromptTemplates.SystemPrompt, retryPrompt,
-            TaskType.ContextGeneration, cancellationToken);
+            systemPrompt, retryPrompt, TaskType.ContextGeneration, cancellationToken);
 
         return LlmResponseHelper.StripCodeFences(llmResponse.Text);
     }

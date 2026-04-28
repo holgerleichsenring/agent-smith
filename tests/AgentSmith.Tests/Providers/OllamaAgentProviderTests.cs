@@ -1,4 +1,5 @@
 using AgentSmith.Infrastructure.Services.Providers.Agent;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -15,7 +16,8 @@ public sealed class OllamaAgentProviderTests
         var sut = new OllamaAgentProvider(
             "qwen2.5-coder:32b", CreateClient(),
             hasToolCalling: false, null,
-            NullLogger<OllamaAgentProvider>.Instance);
+            NullLogger<OllamaAgentProvider>.Instance,
+            new AgentPromptBuilder(new FakePromptCatalog()));
 
         sut.ProviderType.Should().Be("ollama");
     }
@@ -26,12 +28,14 @@ public sealed class OllamaAgentProviderTests
         var withTools = new OllamaAgentProvider(
             "qwen2.5-coder:32b", CreateClient(),
             hasToolCalling: true, null,
-            NullLogger<OllamaAgentProvider>.Instance);
+            NullLogger<OllamaAgentProvider>.Instance,
+            new AgentPromptBuilder(new FakePromptCatalog()));
 
         var withoutTools = new OllamaAgentProvider(
             "mistral-small:3.1", CreateClient(),
             hasToolCalling: false, null,
-            NullLogger<OllamaAgentProvider>.Instance);
+            NullLogger<OllamaAgentProvider>.Instance,
+            new AgentPromptBuilder(new FakePromptCatalog()));
 
         withTools.ProviderType.Should().Be("ollama");
         withoutTools.ProviderType.Should().Be("ollama");

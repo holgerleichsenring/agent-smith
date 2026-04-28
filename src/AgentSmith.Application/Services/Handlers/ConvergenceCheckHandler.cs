@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ConvergenceCheckHandler(
     PlanConsolidator planConsolidator,
     ILlmClientFactory llmClientFactory,
+    IPromptCatalog prompts,
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
 {
@@ -28,34 +29,6 @@ public sealed class ConvergenceCheckHandler(
     private static readonly Regex AgreePattern = new(
         @"AGREE|SUGGESTION",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    internal const string ConvergenceSystemPrompt = """
-        You are analyzing a set of typed observations from multiple specialist agents to determine consensus.
-
-        Your job:
-        1. Identify relationships between observations (duplicates, contradictions, dependencies, extensions).
-        2. Determine if additional specialist roles are needed for uncovered concern areas.
-        3. Assess overall consensus.
-
-        Respond with ONLY a JSON object:
-        {
-          "consensus": true/false,
-          "links": [
-            {
-              "observationId": <int>,
-              "relatedObservationId": <int>,
-              "relationship": "duplicates" | "contradicts" | "dependsOn" | "extends"
-            }
-          ],
-          "additionalRoles": ["role_name"]
-        }
-
-        Rules:
-        - consensus = true when blocking observations do not contradict each other
-        - consensus = false when any blocking observations with the same concern area contradict
-        - Only suggest additionalRoles if a concern area has observations but no active role covers it
-        - Do NOT repeat observations — only produce links and consensus assessment
-        """;
 
     public async Task<CommandResult> ExecuteAsync(
         ConvergenceCheckContext context, CancellationToken cancellationToken)
@@ -111,7 +84,7 @@ public sealed class ConvergenceCheckHandler(
 
         var llmClient = llmClientFactory.Create(context.AgentConfig);
         var llmResponse = await llmClient.CompleteAsync(
-            ConvergenceSystemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+            prompts.Get("convergence-system"), userPrompt, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
 
         var result = ConvergenceResultParser.Parse(llmResponse.Text, observations, logger);

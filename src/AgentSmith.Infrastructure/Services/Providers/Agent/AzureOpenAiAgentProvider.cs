@@ -22,8 +22,9 @@ public sealed class AzureOpenAiAgentProvider(
     RetryConfig retryConfig,
     IModelRegistry? modelRegistry,
     PricingConfig pricingConfig,
-    ILogger<AzureOpenAiAgentProvider> logger)
-    : OpenAiAgentProvider(apiKey, model, retryConfig, modelRegistry, pricingConfig, logger)
+    ILogger<AzureOpenAiAgentProvider> logger,
+    AgentPromptBuilder promptBuilder)
+    : OpenAiAgentProvider(apiKey, model, retryConfig, modelRegistry, pricingConfig, logger, promptBuilder)
 {
     private const string DefaultApiVersion = "2025-01-01-preview";
 

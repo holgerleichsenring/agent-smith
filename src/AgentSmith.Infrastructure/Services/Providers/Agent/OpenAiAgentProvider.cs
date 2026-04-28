@@ -25,6 +25,7 @@ public class OpenAiAgentProvider(
     IModelRegistry? modelRegistry,
     PricingConfig pricingConfig,
     ILogger<OpenAiAgentProvider> logger,
+    AgentPromptBuilder promptBuilder,
     Uri? endpoint = null) : IAgentProvider
 {
     public virtual string ProviderType => "OpenAI";
@@ -53,8 +54,8 @@ public class OpenAiAgentProvider(
         var planModel = ResolveModel(TaskType.Planning);
         var client = CreateChatClient(planModel);
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var systemPrompt = promptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var contentParts = new List<ChatMessageContentPart>();
 
@@ -111,8 +112,8 @@ public class OpenAiAgentProvider(
         var loop = new OpenAiAgenticLoop(
             client, toolExecutor, logger, tracker, progressReporter, 25);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userMessage = promptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
         var decisions = toolExecutor.GetDecisions();

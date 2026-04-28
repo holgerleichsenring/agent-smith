@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -276,7 +277,7 @@ public sealed class SkillManagerTests : IDisposable
     public async Task EvaluateSkills_NoCandidates_ReturnsEmpty()
     {
         var llmClient = new Mock<ILlmClient>();
-        var handler = new EvaluateSkillsHandler(llmClient.Object, NullLogger<EvaluateSkillsHandler>.Instance);
+        var handler = new EvaluateSkillsHandler(llmClient.Object, new FakePromptCatalog(), NullLogger<EvaluateSkillsHandler>.Instance);
         var pipeline = new PipelineContext();
         var context = new EvaluateSkillsContext([], [], pipeline);
 

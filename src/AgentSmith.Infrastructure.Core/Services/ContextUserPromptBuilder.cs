@@ -1,14 +1,14 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Builds the user prompt for .context.yaml generation from detected project metadata.
 /// </summary>
-internal static class ContextUserPromptBuilder
+public sealed class ContextUserPromptBuilder(IPromptCatalog prompts)
 {
-    internal static string Build(
-        DetectedProject project, string keyFileContents, RepoSnapshot snapshot)
+    public string Build(DetectedProject project, string keyFileContents, RepoSnapshot snapshot)
     {
         var detectedYaml = $"""
             language: {project.Language}
@@ -26,6 +26,7 @@ internal static class ContextUserPromptBuilder
 
         var snapshotSection = BuildSnapshotSection(snapshot);
         const string emptyObj = "{}";
+        var qualityTemplate = prompts.Get("context-quality-template");
 
         return $"""
             ## Detected Stack
@@ -64,7 +65,7 @@ internal static class ContextUserPromptBuilder
                 - <layer1>
                 - <layer2>
 
-            {ContextPromptTemplates.QualityTemplate}
+            {qualityTemplate}
 
             state:
               done: {emptyObj}
@@ -76,7 +77,7 @@ internal static class ContextUserPromptBuilder
             """;
     }
 
-    internal static string BuildSnapshotSection(RepoSnapshot snapshot)
+    public string BuildSnapshotSection(RepoSnapshot snapshot)
     {
         var lines = new List<string>();
         if (snapshot.ConfigFileContents.Count > 0)

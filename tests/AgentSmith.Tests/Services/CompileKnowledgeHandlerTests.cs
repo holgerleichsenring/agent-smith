@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -19,8 +20,10 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
 
     public CompileKnowledgeHandlerTests()
     {
+        var prompts = new FakePromptCatalog().WithPrompt("knowledge-system", "knowledge system");
         _sut = new CompileKnowledgeHandler(
             _llmClient.Object,
+            new KnowledgePromptBuilder(prompts),
             NullLogger<CompileKnowledgeHandler>.Instance);
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-wiki-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
@@ -229,7 +232,7 @@ public sealed class CompileKnowledgeHandlerTests : IDisposable
             new(1, "r01-feature", "## Plan\nAdd auth", "## Result\nSuccess"),
         };
 
-        var prompt = KnowledgePromptBuilder.BuildUserPrompt("# Existing Wiki", runs);
+        var prompt = new KnowledgePromptBuilder(new FakePromptCatalog()).BuildUserPrompt("# Existing Wiki", runs);
 
         prompt.Should().Contain("Existing Wiki");
         prompt.Should().Contain("r01");
