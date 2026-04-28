@@ -12,7 +12,7 @@ all other categories run only against the working tree.
 ## Where patterns live
 
 Default patterns ship as part of the
-[agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills)
+[agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills)
 release tarball — the same artefact the server pulls at boot for skills.
 After a successful pull, the catalog cache (e.g. `/var/lib/agentsmith/skills`)
 contains both:
@@ -87,7 +87,7 @@ Two paths depending on whether the pattern is for everyone or just your
 deployment:
 
 **For everyone — contribute upstream:** open a PR against
-[agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills),
+[agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills),
 add or extend a YAML under `patterns/`. The next release ships it.
 
 **For your deployment only — operator override:** point
