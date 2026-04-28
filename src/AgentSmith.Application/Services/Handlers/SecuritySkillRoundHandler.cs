@@ -19,8 +19,9 @@ public sealed class SecuritySkillRoundHandler(
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
+    StructuredOutputInstructionBuilder instructionBuilder,
     ILogger<SecuritySkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
       ICommandHandler<SecuritySkillRoundContext>
 {
     protected override ILogger Logger => logger;

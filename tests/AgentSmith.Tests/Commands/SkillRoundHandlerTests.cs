@@ -31,6 +31,7 @@ public sealed class SkillRoundHandlerTests
                 new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
                 NullLogger<GateRetryCoordinator>.Instance),
             new UpstreamContextBuilder(),
+            new StructuredOutputInstructionBuilder(new FakePromptCatalog()),
             NullLogger<SkillRoundHandler>.Instance);
     }
 

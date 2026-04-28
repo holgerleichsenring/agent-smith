@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class CompileKnowledgeHandler(
     ILlmClient llmClient,
+    KnowledgePromptBuilder promptBuilder,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
 {
@@ -60,8 +61,8 @@ public sealed class CompileKnowledgeHandler(
         var existingWiki = RunDirectoryReader.ReadExistingWiki(wikiDir);
         var runData = await RunDirectoryReader.ReadRunDataAsync(newRuns, cancellationToken);
 
-        var systemPrompt = KnowledgePromptBuilder.BuildSystemPrompt();
-        var userPrompt = KnowledgePromptBuilder.BuildUserPrompt(existingWiki, runData);
+        var systemPrompt = promptBuilder.BuildSystemPrompt();
+        var userPrompt = promptBuilder.BuildUserPrompt(existingWiki, runData);
 
         logger.LogInformation(
             "Compiling {Count} new run(s) into knowledge base (r{From:D2}..r{To:D2})",

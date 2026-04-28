@@ -23,7 +23,8 @@ public sealed class GeminiAgentProvider(
     string model,
     IModelRegistry? modelRegistry,
     PricingConfig pricingConfig,
-    ILogger<GeminiAgentProvider> logger) : IAgentProvider
+    ILogger<GeminiAgentProvider> logger,
+    AgentPromptBuilder promptBuilder) : IAgentProvider
 {
     public string ProviderType => "Gemini";
 
@@ -52,8 +53,8 @@ public sealed class GeminiAgentProvider(
         var planModel = ResolveModel(TaskType.Planning);
         var genModel = CreateModel(planModel.Model);
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var systemPrompt = promptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var response = await genModel.GenerateContentAsync(
             new GenerateContentRequest
@@ -101,8 +102,8 @@ public sealed class GeminiAgentProvider(
         var loop = new GeminiAgenticLoop(
             genModel, toolExecutor, logger, tracker, progressReporter, 25);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userMessage = promptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
         var decisions = toolExecutor.GetDecisions();

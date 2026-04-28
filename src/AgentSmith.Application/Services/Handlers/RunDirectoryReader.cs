@@ -1,6 +1,6 @@
 namespace AgentSmith.Application.Services.Handlers;
 
-internal static class RunDirectoryReader
+public static class RunDirectoryReader
 {
     private const string LastCompiledFile = ".last-compiled";
     private const string IndexFile = "index.md";
@@ -69,6 +69,6 @@ internal static class RunDirectoryReader
         await File.WriteAllTextAsync(path, runNumber.ToString(), ct);
     }
 
-    internal sealed record RunDirectoryInfo(string Path, int RunNumber, string Name);
-    internal sealed record RunData(int RunNumber, string DirName, string Plan, string Result);
+    public sealed record RunDirectoryInfo(string Path, int RunNumber, string Name);
+    public sealed record RunData(int RunNumber, string DirName, string Plan, string Result);
 }

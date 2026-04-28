@@ -1,44 +1,25 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Builds LLM output format instructions based on the skill's orchestration role.
 /// </summary>
-public sealed class StructuredOutputInstructionBuilder
+public sealed class StructuredOutputInstructionBuilder(IPromptCatalog prompts)
 {
     public string Build(SkillOrchestration orchestration)
     {
         return orchestration.Role switch
         {
-            SkillRole.Contributor => ContributorInstruction,
-            SkillRole.Gate when orchestration.Output == SkillOutputType.List => GateListInstruction,
-            SkillRole.Gate when orchestration.Output == SkillOutputType.Verdict => GateVerdictInstruction,
+            SkillRole.Contributor => prompts.Get("structured-output-contributor"),
+            SkillRole.Gate when orchestration.Output == SkillOutputType.List
+                => prompts.Get("structured-output-gate-list"),
+            SkillRole.Gate when orchestration.Output == SkillOutputType.Verdict
+                => prompts.Get("structured-output-gate-verdict"),
             SkillRole.Lead => "Synthesize the findings into a structured assessment. Respond with a clear, numbered summary.",
             SkillRole.Executor => "Based on the plan/assessment, produce your output.",
             _ => "Respond concisely."
         };
     }
-
-    private const string MinifiedJsonInstruction =
-        "Output minified JSON on a single line — no whitespace between tokens, no indentation, no newlines.";
-
-    private const string ContributorInstruction =
-        "Respond with a JSON array of findings. Each finding: " +
-        "{ \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"details\": \"\", " +
-        "\"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. " +
-        "Use apiPath for endpoint-level findings and schemaName for schema-level findings. " +
-        "Omit both for file-based findings. Max 50 items. " +
-        MinifiedJsonInstruction;
-
-    private const string GateListInstruction =
-        "Review all findings. Respond with JSON: { \"confirmed\": [...], \"rejected\": [...] }. " +
-        "Each item: { \"file\": \"\", \"line\": 0, \"title\": \"\", \"severity\": \"\", \"reason\": \"\", " +
-        "\"apiPath\": \"METHOD /path\", \"schemaName\": \"SchemaName\" }. " +
-        "Preserve apiPath/schemaName from contributor findings when present. " +
-        MinifiedJsonInstruction;
-
-    private const string GateVerdictInstruction =
-        "Review the analysis. Respond with JSON: { \"pass\": true/false, \"reason\": \"\" }. " +
-        MinifiedJsonInstruction;
 }

@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapDocumentHandler(
     ILlmClientFactory llmClientFactory,
     ISkillLoader skillLoader,
+    IPromptCatalog prompts,
     ILogger<BootstrapDocumentHandler> logger) : ICommandHandler<BootstrapDocumentContext>
 {
     private const int ContractTypeDetectionMaxChars = 2000;
@@ -102,18 +103,10 @@ public sealed class BootstrapDocumentHandler(
 
         var llmClient = llmClientFactory.Create(agentConfig);
 
-        const string systemPrompt =
-            """
-            You are a contract type classifier. Given the beginning of a contract document,
-            respond with exactly one of these types:
-            nda, werkvertrag, dienstleistungsvertrag, saas-agb, kaufvertrag, mietvertrag, unknown
-
-            Respond with only the type, nothing else.
-            """;
-
         try
         {
-            var llmResponse = await llmClient.CompleteAsync(systemPrompt, snippet, TaskType.Scout, cancellationToken);
+            var llmResponse = await llmClient.CompleteAsync(
+                prompts.Get("contract-classifier-system"), snippet, TaskType.Scout, cancellationToken);
             var contractType = llmResponse.Text.Trim().ToLowerInvariant();
 
             string[] validTypes = ["nda", "werkvertrag", "dienstleistungsvertrag", "saas-agb", "kaufvertrag", "mietvertrag"];

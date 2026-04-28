@@ -1,30 +1,13 @@
 using System.Text;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
 
-internal static class KnowledgePromptBuilder
+public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
 {
-    public static string BuildSystemPrompt() =>
-        """
-        You are a technical writer compiling a project knowledge base from AI agent run history.
-        Your output must be a JSON object with a single key "wiki_updates" containing filename-content pairs.
-        Each file should be valid Markdown. Create or update these files as needed:
-        - index.md: Table of contents linking to all wiki pages
-        - decisions.md: Architectural and design decisions made across runs
-        - known-issues.md: Known bugs, limitations, and workarounds discovered
-        - patterns.md: Coding patterns, conventions, and best practices established
-        - Additional concept articles as warranted by the content
+    public string BuildSystemPrompt() => prompts.Get("knowledge-system");
 
-        Rules:
-        - Synthesize information, don't just copy run data
-        - Group related decisions together
-        - Note when a later run supersedes an earlier decision
-        - Use clear headings and bullet points
-        - All text must be in English
-        - Output ONLY valid JSON, no markdown fences or other text
-        """;
-
-    public static string BuildUserPrompt(
+    public string BuildUserPrompt(
         string existingWiki, List<RunDirectoryReader.RunData> runs)
     {
         var sb = new StringBuilder();
