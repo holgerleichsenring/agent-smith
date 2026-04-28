@@ -1,0 +1,60 @@
+# Example: agent-smith server in an air-gapped environment.
+#
+# The server pulls from an internal mirror. The default GitHub release URL is
+# overridden via AGENTSMITH_SKILLS_REPOSITORY_URL — the same release semantics
+# (vX.Y.Z release path layout) just point at a different host.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentsmith-config-airgap
+  namespace: agentsmith
+data:
+  agentsmith.yml: |
+    skills:
+      source: default          # still uses the version-pinned default flow
+      version: v1.0.0          # pinned release on the internal mirror
+      cacheDir: /var/lib/agentsmith/skills
+      sha256: ""               # optional; recommended in airgap to detect mirror tampering
+    projects: {}
+    secrets:
+      anthropic_api_key: ${ANTHROPIC_API_KEY}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-server
+  namespace: agentsmith
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentsmith-server
+  template:
+    metadata:
+      labels:
+        app: agentsmith-server
+    spec:
+      serviceAccountName: agentsmith
+      containers:
+        - name: server
+          image: holgerleichsenring/agent-smith-server:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: AGENTSMITH_SKILLS_REPOSITORY_URL
+              value: "https://internal-mirror.example.com/agentsmith-skills"
+            - name: AGENTSMITH_SKILLS_DIR
+              value: "/var/lib/agentsmith/skills"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: skills-cache
+              mountPath: /var/lib/agentsmith/skills
+      volumes:
+        - name: config
+          configMap:
+            name: agentsmith-config-airgap
+        - name: skills-cache
+          emptyDir:
+            sizeLimit: 64Mi

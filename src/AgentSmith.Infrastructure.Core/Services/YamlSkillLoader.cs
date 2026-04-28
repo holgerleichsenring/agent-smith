@@ -10,7 +10,9 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// <summary>
 /// Loads skill configuration and role definitions from SKILL.md directories or legacy YAML files.
 /// </summary>
-public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoader
+public sealed class YamlSkillLoader(
+    ISkillsCatalogPath catalogPath,
+    ILogger<YamlSkillLoader> logger) : ISkillLoader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -47,17 +49,18 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
 
     public IReadOnlyList<RoleSkillDefinition> LoadRoleDefinitions(string skillsDirectory)
     {
-        if (!Directory.Exists(skillsDirectory))
+        var resolved = ResolveDirectory(skillsDirectory);
+        if (!Directory.Exists(resolved))
         {
-            logger.LogDebug("Skills directory not found: {Path}", skillsDirectory);
+            logger.LogDebug("Skills directory not found: {Path}", resolved);
             return [];
         }
 
         var roles = new List<RoleSkillDefinition>();
-        LoadFromSkillMdDirectories(skillsDirectory, roles);
-        LoadFromLegacyYaml(skillsDirectory, roles);
+        LoadFromSkillMdDirectories(resolved, roles);
+        LoadFromLegacyYaml(resolved, roles);
 
-        logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, skillsDirectory);
+        logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, resolved);
         return roles;
     }
 
@@ -145,6 +148,24 @@ public sealed class YamlSkillLoader(ILogger<YamlSkillLoader> logger) : ISkillLoa
             {
                 logger.LogWarning(ex, "Failed to load role definition from {File}", file);
             }
+        }
+    }
+
+    private string ResolveDirectory(string skillsDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(skillsDirectory))
+            return skillsDirectory;
+        if (Path.IsPathRooted(skillsDirectory))
+            return skillsDirectory;
+
+        try
+        {
+            return Path.Combine(catalogPath.Root, skillsDirectory);
+        }
+        catch (InvalidOperationException)
+        {
+            // Bootstrap hasn't run yet (e.g. CLI tooling that bypasses the server lifecycle).
+            return skillsDirectory;
         }
     }
 }
