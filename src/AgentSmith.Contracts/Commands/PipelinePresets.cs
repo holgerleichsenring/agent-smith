@@ -122,7 +122,6 @@ public static class PipelinePresets
         CommandNames.BootstrapProject,
         CommandNames.LoadContext,
         CommandNames.LoadCodeMap,
-        CommandNames.LoadVision,
         CommandNames.LoadRuns,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,

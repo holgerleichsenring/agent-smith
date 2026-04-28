@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -31,7 +32,7 @@ public sealed class ApiSkillRoundHandlerPrefixTests
         llmFactory.Setup(f => f.Create(It.IsAny<AgentConfig>())).Returns(llmClient.Object);
 
         var prefixBuilder = new PromptPrefixBuilder();
-        var promptBuilder = new SkillPromptBuilder(prefixBuilder);
+        var promptBuilder = new SkillPromptBuilder(prefixBuilder, new FakePromptCatalog());
         var gateRetry = new GateRetryCoordinator(
             new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
             NullLogger<GateRetryCoordinator>.Instance);

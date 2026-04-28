@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0103c
+goal: "Successor to p0089b — pins its open format-decision step: all LLM prompts become embedded .md resources accessed via injected IPromptCatalog. Drops the dead project-vision pipeline along the way. Numbered in p0103-range to reflect chronology of when this work was planned, not topical proximity to p0103/a/b."
+
+requires: ["p0089a", "p0089b"]
+
+decisions:
+  - key: "Pins the format-decision left open in p0089b — embedded .md resources under src/AgentSmith.Application/Prompts/Resources/, single physical layout, no scattering across config/ and code"
+  - key: "Access via instance IPromptCatalog injected as Transient — no static class. Static-only-for-Map/extensions rule applies; catalogs hold state (cache, override source, logger)"
+  - key: "Templating: catalog.Render(name, tokens) replaces {{token}} placeholders — same semantic as today's FilePromptTemplateProvider, just embedded-backed"
+  - key: "Override mechanism: optional EnvDirectoryPromptOverrideSource — if AGENTSMITH_PROMPT_OVERRIDES env var points at a directory, files there shadow embedded resources. Dev-only, undocumented for operators"
+  - key: "Builders stay — each prompt builder retains its single composition responsibility, only its prompt content moves out. Builders gain IPromptCatalog as a constructor dependency"
+  - key: "FilePromptTemplateProvider deleted, IPromptTemplateProvider replaced by IPromptCatalog — cleaner name for the same job, no shim left behind"
+  - key: "project-vision pipeline removed — dead code path: LoadVisionHandler writes ContextKeys.ProjectVision but no consumer reads it. Bundled here because it eliminates one prompt-shaped file and shares the cleanup wave"
+  - key: "Snapshot tests guard behavior — captured before extraction in p0089b's snapshot-baseline step, must remain byte-equal after"
+
+steps:
+  - id: drop-vision-pipeline
+    action: "Remove the dead project-vision code path before touching prompts — unrelated cleanup but in scope as it eliminates one prompt-shaped file."
+    delete:
+      - "LoadVisionHandler.cs"
+      - "LoadVisionContext.cs"
+      - "LoadVisionContextBuilder (in AutonomousContextBuilders.cs)"
+      - "ContextKeys.ProjectVision constant"
+      - "config/templates/project-vision.md"
+    modify:
+      - "PipelinePresets.cs: remove LoadVision step from any preset"
+      - "ServiceCollectionExtensions.cs (Application): drop LoadVisionHandler/Builder registrations"
+      - "AutonomousPipelineTests.cs: drop vision-related test cases (lines 86, 97, 115)"
+      - "CommandNames.cs: drop LoadVision constant if present"
+
+  - id: catalog-abstraction
+    action: "Define IPromptCatalog and supporting types. No implementation yet."
+    new:
+      - "IPromptCatalog: Get(name), Render(name, tokens) — both synchronous, exception on missing"
+      - "IPromptOverrideSource: TryGet(name, out content) — returns false if no override applies"
+    path: "src/AgentSmith.Application/Prompts/"
+
+  - id: embedded-catalog
+    action: "Implement EmbeddedPromptCatalog backed by Assembly.GetManifestResourceStream. Reads Resources/Prompts/{name}.md from AgentSmith.Application assembly, caches results, applies override source first."
+    new:
+      - "EmbeddedPromptCatalog: ctor(IPromptOverrideSource, ILogger), Get/Render impl, cache by name"
+      - "NoOverridePromptSource: default DI registration when AGENTSMITH_PROMPT_OVERRIDES not set"
+      - "EnvDirectoryPromptOverrideSource: reads AGENTSMITH_PROMPT_OVERRIDES, looks up {dir}/{name}.md"
+    path: "src/AgentSmith.Application/Prompts/"
+
+  - id: di-registration
+    action: "Wire catalog into DI. Switch override source based on env var presence. Log active override directory at startup."
+    modify:
+      - "ServiceCollectionExtensions (Application): register IPromptCatalog as Transient"
+      - "Program.cs (Server) and Cli Program.cs: log if AGENTSMITH_PROMPT_OVERRIDES is active"
+
+  - id: csproj-glob
+    action: "Add EmbeddedResource glob for Resources/Prompts/*.md to AgentSmith.Application.csproj."
+    modify:
+      - "src/AgentSmith.Application/AgentSmith.Application.csproj: add <EmbeddedResource Include=\"Prompts/Resources/**/*.md\" />"
+
+  - id: extract-external-prompts
+    action: "Move plan-consolidator-system.md and plan-consolidator-user.md from config/prompts/ to src/AgentSmith.Application/Prompts/Resources/. Update PlanConsolidator to use IPromptCatalog instead of IPromptTemplateProvider."
+    modify:
+      - "PlanConsolidator: ctor takes IPromptCatalog, Get/Render replaces template provider calls"
+    delete:
+      - "config/prompts/"
+
+  - id: extract-skill-prompts
+    action: "Extract observation schema and skill-related prompts."
+    new:
+      - "Resources/Prompts/observation-schema.md"
+    modify:
+      - "SkillPromptBuilder: ObservationSchemaInstruction → catalog.Get(\"observation-schema\")"
+      - "SkillYamlGenerator: extract inline format strings if applicable"
+    delete:
+      - "config/skills/observation-schema.md"
+
+  - id: extract-context-prompts
+    action: "Extract context-generator prompts. Builder retains composition logic, content moves out."
+    new:
+      - "Resources/Prompts/context-generator-system.md"
+      - "Resources/Prompts/context-generator-user.md (with {{stack}}, {{tree}}, {{key_files}} placeholders)"
+      - "Resources/Prompts/context-quality-template.md"
+    modify:
+      - "ContextPromptTemplates: remove SystemPrompt/QualityTemplate constants, become thin lookup over catalog"
+      - "ContextUserPromptBuilder: ctor takes IPromptCatalog, builds via Render(tokens)"
+
+  - id: extract-knowledge-prompts
+    action: "Extract knowledge/wiki prompts."
+    new:
+      - "Resources/Prompts/knowledge-system.md"
+      - "Resources/Prompts/knowledge-user.md (with {{wiki}}, {{runs}} placeholders)"
+    modify:
+      - "KnowledgePromptBuilder: ctor takes IPromptCatalog, Build composes via Render"
+
+  - id: extract-agent-prompts
+    action: "Extract the four AgentPromptBuilder prompts (plan/execute × system/user). Largest single extraction (~173 lines)."
+    new:
+      - "Resources/Prompts/agent-plan-system.md"
+      - "Resources/Prompts/agent-plan-user.md"
+      - "Resources/Prompts/agent-execute-system.md"
+      - "Resources/Prompts/agent-execute-user.md"
+    modify:
+      - "AgentPromptBuilder: ctor takes IPromptCatalog, four BuildXxx methods compose via Render"
+
+  - id: extract-discussion-prompts
+    action: "Extract discussion/triage/convergence prompts."
+    new:
+      - "Resources/Prompts/discussion-prefix.md"
+      - "Resources/Prompts/discussion-suffix.md"
+      - "Resources/Prompts/triage-system.md"
+      - "Resources/Prompts/triage-user.md"
+      - "Resources/Prompts/convergence-system.md"
+      - "Resources/Prompts/api-security-triage.md"
+      - "Resources/Prompts/structured-output-json.md"
+      - "Resources/Prompts/structured-output-contributor-findings.md"
+      - "Resources/Prompts/structured-output-gate-list.md"
+      - "Resources/Prompts/structured-output-gate-verdict.md"
+    modify:
+      - "PromptPrefixBuilder: ctor takes IPromptCatalog"
+      - "TriageResponseParser: ctor takes IPromptCatalog"
+      - "ConvergenceCheckHandler: ctor takes IPromptCatalog"
+      - "ApiSecurityTriagePromptBuilder: ctor takes IPromptCatalog"
+      - "StructuredOutputInstructionBuilder: ctor takes IPromptCatalog"
+
+  - id: extract-evaluation-prompts
+    action: "Extract skill-evaluation and bootstrap-classifier prompts."
+    new:
+      - "Resources/Prompts/skill-evaluation.md"
+      - "Resources/Prompts/contract-classifier.md"
+    modify:
+      - "EvaluateSkillsHandler: ctor takes IPromptCatalog"
+      - "BootstrapDocumentHandler: ctor takes IPromptCatalog"
+
+  - id: cleanup
+    action: "Delete the old IPromptTemplateProvider and FilePromptTemplateProvider. Verify no inline LLM prompt string literals remain in src."
+    delete:
+      - "IPromptTemplateProvider.cs"
+      - "FilePromptTemplateProvider.cs"
+    modify:
+      - "ServiceCollectionExtensions (Infrastructure.Core): remove FilePromptTemplateProvider registration"
+      - "All builder/handler classes from previous steps: drop now-dead inline string constants"
+
+tests:
+  - "EmbeddedPromptCatalog_GetByName_ReturnsResourceContent"
+  - "EmbeddedPromptCatalog_RenderWithTokens_SubstitutesPlaceholders"
+  - "EmbeddedPromptCatalog_UnknownName_Throws"
+  - "EmbeddedPromptCatalog_OverrideSourceProvidesValue_PrefersOverride"
+  - "EmbeddedPromptCatalog_OverrideSourceReturnsFalse_FallsBackToEmbedded"
+  - "EnvDirectoryPromptOverrideSource_EnvVarUnset_ReturnsFalseAlways"
+  - "EnvDirectoryPromptOverrideSource_FileExists_ReturnsContent"
+  - "EnvDirectoryPromptOverrideSource_FileMissing_ReturnsFalse"
+  - "PromptSnapshot_AllPromptsBytesEqualBaseline (one per prompt, ~17 cases — reuses p0089b snapshot baseline)"
+  - "PlanConsolidator_UsesCatalog_SystemAndUserResolved"
+  - "AutonomousPipeline_NoVisionHandler_PipelineSucceeds"
+
+done:
+  - "All 17 prompts extracted to Resources/Prompts/*.md"
+  - "No inline LLM prompt string literals remain in src/**/*.cs (grep verified)"
+  - "IPromptCatalog injected as Transient in all builders/handlers that emit prompts"
+  - "FilePromptTemplateProvider, IPromptTemplateProvider, config/prompts/ removed"
+  - "AGENTSMITH_PROMPT_OVERRIDES env var works for dev iteration; absence is silent default"
+  - "project-vision pipeline fully removed (handler, context, builder, key, template, tests)"
+  - "Snapshot tests pass — assembled prompts byte-equal to pre-phase baseline"
+  - "dotnet build and dotnet test clean"

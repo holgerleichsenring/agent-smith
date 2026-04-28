@@ -43,7 +43,6 @@ public sealed class AutonomousPipelineTests : IDisposable
     public void Autonomous_PresetContainsExpectedCommands()
     {
         PipelinePresets.Autonomous.Should().Contain(CommandNames.CheckoutSource);
-        PipelinePresets.Autonomous.Should().Contain(CommandNames.LoadVision);
         PipelinePresets.Autonomous.Should().Contain(CommandNames.LoadRuns);
         PipelinePresets.Autonomous.Should().Contain(CommandNames.WriteTickets);
         PipelinePresets.Autonomous.Should().Contain(CommandNames.WriteRunResult);
@@ -71,48 +70,6 @@ public sealed class AutonomousPipelineTests : IDisposable
         config.MinConfidence.Should().Be(7);
         config.LookbackRuns.Should().Be(10);
         config.Roles.Should().Be("auto");
-    }
-
-    #endregion
-
-    #region LoadVisionHandler
-
-    [Fact]
-    public async Task LoadVisionHandler_ReadsFile()
-    {
-        var agentDir = Path.Combine(_tempDir, ".agentsmith");
-        Directory.CreateDirectory(agentDir);
-        await File.WriteAllTextAsync(
-            Path.Combine(agentDir, "project-vision.md"),
-            "# Vision\nBuild great software");
-
-        var handler = new LoadVisionHandler(NullLogger<LoadVisionHandler>.Instance);
-        var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), string.Empty);
-        var context = new LoadVisionContext(repo, pipeline);
-
-        var result = await handler.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        pipeline.TryGet<string>(ContextKeys.ProjectVision, out var vision).Should().BeTrue();
-        vision.Should().Contain("Build great software");
-    }
-
-    [Fact]
-    public async Task LoadVisionHandler_HandlesMissingGracefully()
-    {
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
-
-        var handler = new LoadVisionHandler(NullLogger<LoadVisionHandler>.Instance);
-        var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), string.Empty);
-        var context = new LoadVisionContext(repo, pipeline);
-
-        var result = await handler.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No project vision found");
-        pipeline.Has(ContextKeys.ProjectVision).Should().BeFalse();
     }
 
     #endregion
@@ -315,7 +272,6 @@ public sealed class AutonomousPipelineTests : IDisposable
     [Fact]
     public void CommandNames_HasAutonomousCommands()
     {
-        CommandNames.LoadVision.Should().Be("LoadVisionCommand");
         CommandNames.LoadRuns.Should().Be("LoadRunsCommand");
         CommandNames.WriteTickets.Should().Be("WriteTicketsCommand");
     }
@@ -323,7 +279,6 @@ public sealed class AutonomousPipelineTests : IDisposable
     [Fact]
     public void CommandNames_HasLabelsForAutonomousCommands()
     {
-        CommandNames.GetLabel(CommandNames.LoadVision).Should().Be("Loading project vision");
         CommandNames.GetLabel(CommandNames.LoadRuns).Should().Be("Loading run history");
         CommandNames.GetLabel(CommandNames.WriteTickets).Should().Be("Writing tickets");
     }

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Prompts;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
@@ -18,6 +19,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentSmithCommands(this IServiceCollection services)
     {
         services.AddSingleton<ICommandExecutor, CommandExecutor>();
+        services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
+        services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
@@ -89,7 +92,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<InstallSkillsContext>, InstallSkillsHandler>();
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
-        services.AddTransient<ICommandHandler<LoadVisionContext>, LoadVisionHandler>();
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
@@ -155,7 +157,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<InstallSkillsContextBuilder>(services, CommandNames.InstallSkills);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
-        AddBuilder<LoadVisionContextBuilder>(services, CommandNames.LoadVision);
         AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
     }
