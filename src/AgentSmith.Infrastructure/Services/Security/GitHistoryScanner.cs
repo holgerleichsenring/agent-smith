@@ -8,11 +8,18 @@ namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Scans git commit history for secrets that were committed and later deleted.
-/// Delegates diff parsing, pattern matching and masking to <see cref="GitDiffSecretMatcher"/>.
+/// Loads the same secret patterns as the static scanner (category=secrets) and
+/// delegates diff parsing, pattern matching and masking to <see cref="GitDiffSecretMatcher"/>.
 /// </summary>
-public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitHistoryScanner
+public sealed class GitHistoryScanner(
+    PatternDefinitionLoader loader,
+    PatternsDirectoryResolver directoryResolver,
+    PatternCompiler compiler,
+    GitDiffSecretMatcher matcher,
+    ILogger<GitHistoryScanner> logger) : IGitHistoryScanner
 {
     private const int MaxCommits = 500;
+    private const string SecretsCategory = "secrets";
 
     public Task<GitHistoryScanResult> ScanAsync(string repoPath, CancellationToken cancellationToken)
     {
@@ -20,10 +27,17 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
         var findings = new List<HistoryFinding>();
         var commitsScanned = 0;
 
+        var secretPatterns = LoadSecretPatterns();
+        if (secretPatterns.Count == 0)
+        {
+            logger.LogWarning("No secret patterns loaded, git history scan returns empty result");
+            return Task.FromResult(new GitHistoryScanResult([], 0, (int)sw.ElapsedMilliseconds));
+        }
+
         try
         {
             using var repo = new Repository(repoPath);
-            var headContent = GitDiffSecretMatcher.BuildHeadContentIndex(repo);
+            var headContent = matcher.BuildHeadContentIndex(repo, secretPatterns);
             var seenSecrets = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var commit in repo.Commits.Take(MaxCommits))
@@ -39,7 +53,7 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
                     if (change.Status == LibGit2Sharp.ChangeKind.Deleted)
                         continue;
 
-                    ScanChange(change, commit.Sha, headContent, seenSecrets, findings);
+                    ScanChange(change, commit.Sha, secretPatterns, headContent, seenSecrets, findings);
                 }
             }
         }
@@ -62,18 +76,29 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
             findings, commitsScanned, (int)sw.ElapsedMilliseconds));
     }
 
-    private static void ScanChange(
+    private IReadOnlyList<CompiledPattern> LoadSecretPatterns()
+    {
+        var dir = directoryResolver.Resolve();
+        var definitions = loader.LoadFromDirectory(dir);
+        var secretsOnly = definitions
+            .Where(d => string.Equals(d.Category, SecretsCategory, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return compiler.Compile(secretsOnly);
+    }
+
+    private void ScanChange(
         PatchEntryChanges change, string commitSha,
+        IReadOnlyList<CompiledPattern> secretPatterns,
         HashSet<string> headContent, HashSet<string> seenSecrets,
         List<HistoryFinding> findings)
     {
-        var addedLines = GitDiffSecretMatcher.ExtractAddedLines(change.Patch);
+        var addedLines = matcher.ExtractAddedLines(change.Patch);
 
         foreach (var (lineNumber, line) in addedLines)
         {
-            foreach (var (id, title, pattern) in GitDiffSecretMatcher.SecretPatterns)
+            foreach (var pattern in secretPatterns)
             {
-                var match = pattern.Match(line);
+                var match = pattern.Regex.Match(line);
                 if (!match.Success) continue;
 
                 var matchedText = match.Value;
@@ -81,22 +106,21 @@ public sealed class GitHistoryScanner(ILogger<GitHistoryScanner> logger) : IGitH
 
                 var stillInTree = headContent.Contains(matchedText);
                 var severity = stillInTree ? "HIGH" : "CRITICAL";
-                var provider = SecretProviderRegistry.Lookup(id);
 
                 findings.Add(new HistoryFinding(
-                    PatternId: id,
+                    PatternId: pattern.Definition.Id,
                     Severity: severity,
                     CommitHash: commitSha,
                     File: change.Path,
                     Line: lineNumber,
-                    Title: title,
+                    Title: pattern.Definition.Title,
                     Description: stillInTree
                         ? "Secret found in commit history and still present in working tree"
                         : "Secret found in commit history but removed from working tree",
-                    MatchedText: GitDiffSecretMatcher.MaskSecret(matchedText),
+                    MatchedText: matcher.MaskSecret(matchedText),
                     StillInWorkingTree: stillInTree,
-                    Provider: provider?.Name,
-                    RevokeUrl: provider?.RevokeUrl));
+                    Provider: pattern.Definition.Provider,
+                    RevokeUrl: pattern.Definition.RevocationUrl));
             }
         }
     }

@@ -11,7 +11,9 @@ public sealed record PatternDefinition(
     int Confidence,
     string Title,
     string Description,
-    string? Cwe);
+    string? Cwe,
+    string? Provider = null,
+    string? RevocationUrl = null);
 
 /// <summary>
 /// A collection of patterns loaded from a YAML file.

@@ -1,18 +1,17 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Matches compiled regex patterns against individual file contents.
 /// </summary>
-internal static class PatternFileMatcher
+public sealed class PatternFileMatcher
 {
-    public static async Task<List<PatternFinding>> ScanFileAsync(
+    public async Task<List<PatternFinding>> ScanFileAsync(
         string filePath,
         string relativePath,
-        List<CompiledPattern> patterns,
+        IReadOnlyList<CompiledPattern> patterns,
         CancellationToken cancellationToken)
     {
         var findings = new List<PatternFinding>();
@@ -44,8 +43,6 @@ internal static class PatternFileMatcher
                             ? match.Value[..200] + "..."
                             : match.Value;
 
-                        var provider = SecretProviderRegistry.Lookup(pattern.Definition.Id);
-
                         findings.Add(new PatternFinding(
                             PatternId: pattern.Definition.Id,
                             Category: pattern.Definition.Category,
@@ -57,19 +54,16 @@ internal static class PatternFileMatcher
                             Description: pattern.Definition.Description,
                             Cwe: pattern.Definition.Cwe,
                             MatchedText: matchedText,
-                            Provider: provider?.Name,
-                            RevokeUrl: provider?.RevokeUrl));
+                            Provider: pattern.Definition.Provider,
+                            RevokeUrl: pattern.Definition.RevocationUrl));
                     }
                 }
                 catch (RegexMatchTimeoutException)
                 {
-                    // Pattern took too long on this line, skip it
                 }
             }
         }
 
         return findings;
     }
-
-    internal sealed record CompiledPattern(Regex Regex, PatternDefinition Definition);
 }
