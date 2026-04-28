@@ -63,7 +63,9 @@ public sealed class PatternDefinitionLoader(ILogger<PatternDefinitionLoader> log
                         Confidence: p.Confidence,
                         Title: p.Title ?? p.Id ?? "Untitled",
                         Description: p.Description ?? string.Empty,
-                        Cwe: p.Cwe));
+                        Cwe: p.Cwe,
+                        Provider: p.Provider,
+                        RevocationUrl: p.RevocationUrl));
                 }
 
                 logger.LogDebug("Loaded {Count} patterns from {File}", parsed.Patterns.Count, file);
@@ -96,6 +98,8 @@ public sealed class PatternDefinitionLoader(ILogger<PatternDefinitionLoader> log
         public string? Cwe { get; set; }
         public string? Title { get; set; }
         public string? Description { get; set; }
+        public string? Provider { get; set; }
+        public string? RevocationUrl { get; set; }
     }
     // ReSharper restore ClassNeverInstantiated.Local
 }
