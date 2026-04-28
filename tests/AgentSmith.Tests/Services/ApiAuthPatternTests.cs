@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Services.Security;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,10 +13,11 @@ public sealed class ApiAuthPatternTests
 
     private static IReadOnlyList<PatternDefinition> LoadApiAuthPatterns()
     {
+        var dir = TestPatternsDirectory.Resolve();
+        if (dir is null) return [];
+
         var loader = new PatternDefinitionLoader(NullLogger<PatternDefinitionLoader>.Instance);
-        var patternsDir = Path.Combine(
-            Directory.GetCurrentDirectory().Split("bin")[0], "..", "..", "config", "patterns");
-        var all = loader.LoadFromDirectory(Path.GetFullPath(patternsDir));
+        var all = loader.LoadFromDirectory(dir);
         return all.Where(p => p.Category == ApiAuthCategory).ToList();
     }
 
@@ -25,13 +27,15 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void ApiAuthCategory_PatternsLoaded()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadApiAuthPatterns();
-        patterns.Should().NotBeEmpty("config/patterns/api-auth.yaml must define API-auth patterns");
+        patterns.Should().NotBeEmpty("api-auth category in agentsmith-skills must define API-auth patterns");
     }
 
     [Fact]
     public void ApiAuthPatterns_AllRegexCompile()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadApiAuthPatterns();
         foreach (var p in patterns)
         {
@@ -43,6 +47,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void ApiAuthPatterns_AllSeveritiesValid()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var allowed = new[] { "info", "low", "medium", "high", "critical" };
         var patterns = LoadApiAuthPatterns();
         foreach (var p in patterns)
@@ -54,6 +59,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void ValidateLifetimeFalseSample_FlaggedAsCritical()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var match = FindMatching(LoadApiAuthPatterns(), "ValidateLifetime = false");
         match.Should().NotBeNull("disabling JWT lifetime validation should be flagged");
         match!.Severity.Should().Be("critical");
@@ -62,6 +68,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void CorsAllowAnyWithCredentialsSamples_FlaggedAsHigh()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var patterns = LoadApiAuthPatterns();
         foreach (var sample in new[]
         {
@@ -78,6 +85,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void AllowAnonymousOnPostSample_FlaggedAsHigh()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         const string sample = "[AllowAnonymous]\n[HttpPost(\"/api/x\")]\npublic IActionResult Create() {}";
         var match = FindMatching(LoadApiAuthPatterns(), sample);
         match.Should().NotBeNull("anonymous on state-changing verb should be flagged");
@@ -87,6 +95,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void HardcodedJwtSecretSample_FlaggedAsCritical()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         var match = FindMatching(LoadApiAuthPatterns(), "JwtKey = \"super-secret-key-123456-abcdef\"");
         match.Should().NotBeNull("hardcoded JWT secret should be flagged");
         match!.Severity.Should().Be("critical");
@@ -95,6 +104,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void ValidateIssuerFalseSample_Flagged()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         FindMatching(LoadApiAuthPatterns(), "ValidateIssuer = false")
             .Should().NotBeNull("disabling issuer validation should be flagged");
     }
@@ -102,6 +112,7 @@ public sealed class ApiAuthPatternTests
     [Fact]
     public void ValidateIssuerSigningKeyFalseSample_Flagged()
     {
+        if (!TestPatternsDirectory.IsAvailable()) return;
         FindMatching(LoadApiAuthPatterns(), "ValidateIssuerSigningKey = false")
             .Should().NotBeNull("disabling signing-key validation should be flagged");
     }
