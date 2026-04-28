@@ -35,7 +35,7 @@ The pipeline has 18 base steps, with dynamic expansion during the skill rounds p
 
 ## Static Pattern Scan
 
-The `StaticPatternScan` step runs 91 regex patterns organized into 6 categories. Patterns are loaded from YAML files under `config/patterns/`:
+The `StaticPatternScan` step runs 91 regex patterns organized into 6 categories. Patterns ship in the [agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills) release tarball alongside skills, and are loaded from `{cacheDir}/patterns/*.yaml` after the catalog is pulled at boot:
 
 | Category | Patterns | Examples |
 |----------|----------|----------|
@@ -46,7 +46,7 @@ The `StaticPatternScan` step runs 91 regex patterns organized into 6 categories.
 | **compliance** | 10 | PII logging, missing encryption, weak hashing algorithms |
 | **ai-security** | 11 | Prompt injection, unsafe deserialization of model output, API key in prompts |
 
-Pattern files are extensible -- add custom YAML files to `config/patterns/` and they are automatically picked up. See [Tool Configuration](../configuration/tools.md#pattern-definition-files) for the pattern file format.
+Pattern files are extensible -- contribute upstream via a PR against [agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills), or override per-deployment via `AGENTSMITH_CONFIG_DIR`. See [Custom Security Patterns](../security/custom-patterns.md) for both paths.
 
 ## Git History Scan
 
