@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0103
+goal: "Skills live in a separate agentsmith-skills repo, distributed as versioned tarballs. Server pulls them at boot based on agentsmith.yaml. No deployment-tool-specific orchestration."
+
+requires: ["p0057a", "p0057b", "p0092"]
+
+decisions:
+  - key: "Skills extracted to separate agentsmith-skills repo — independent versioning from code"
+  - key: "Distribution via GitHub Releases tarball with SHA256 sidecar — no Docker/registry dependency"
+  - key: "Server pulls skills itself at boot — no operator-side InitContainer, sidecar, or mount choreography mandated"
+  - key: "Three source modes in agentsmith.yaml — default (server pulls official), path (operator-mounted), url (server pulls custom)"
+  - key: "AGENTSMITH_SKILLS_REPOSITORY_URL env overrides default release URL — air-gap support without yaml changes"
+  - key: "Cache marker .pulled contains version string — re-pull only on mismatch, idempotent across restarts"
+  - key: "agentsmith skills pull CLI verb is shared between CLI and server — single download/verify/extract code path"
+
+steps:
+  - id: extract-repo
+    action: "Create agentsmith-skills repo, migrate skills, tag v1.0.0"
+    new:
+      - "agentsmith-skills/skills/ (copied from config/skills/)"
+      - "agentsmith-skills/README.md"
+      - "agentsmith-skills/CHANGELOG.md"
+
+  - id: release-artifacts
+    action: "Reproducible tarball builds published on GitHub Releases"
+    new:
+      - "agentsmith-skills/scripts/package.sh: deterministic tar (sorted, fixed mtimes)"
+      - "agentsmith-skills/.github/workflows/release.yml: on tag v*, upload .tar.gz + .sha256"
+      - "agentsmith-skills/.github/workflows/edge.yml: on push main, upload edge.tar.gz + .sha256"
+
+  - id: skills-config
+    action: "Add skills section to agentsmith.yaml schema"
+    new:
+      - "SkillsConfig record (Source enum, Version, Path, Url, Sha256, CacheDir)"
+    modify:
+      - "context_schema.json: skills section with discriminated union on source"
+      - "context.yaml: example with source: default"
+
+  - id: cli-pull
+    action: "agentsmith skills pull subcommand"
+    new:
+      - "SkillsPullCommand: --version, --url, --output, --sha256, --force"
+      - "SkillsRepositoryClient: URL resolution via env or default, download, verify, atomic extract"
+      - "SkillsCacheMarker: read/write .pulled with version"
+    modify:
+      - "Program.cs: register skills pull verb"
+      - "ServiceCollectionExtensions: register SkillsRepositoryClient, SkillsCacheMarker"
+
+  - id: server-bootstrap
+    action: "Server pulls skills at boot before SkillLoader runs"
+    new:
+      - "SkillsBootstrapHostedService: dispatches on SkillsConfig.Source"
+      - "DefaultSourceHandler: pull if marker missing or version mismatch"
+      - "PathSourceHandler: validate path, no download"
+      - "UrlSourceHandler: pull from explicit URL"
+    modify:
+      - "SkillLoader: takes resolved skills directory from bootstrap service"
+      - "Program.cs: register SkillsBootstrapHostedService before SkillLoader"
+
+  - id: remove-bundled-skills
+    action: "Drop config/skills/ from main repo, fetch externally for tests"
+    delete:
+      - "config/skills/"
+    new:
+      - "scripts/fetch-skills.sh: agentsmith skills pull --version $SKILLS_VERSION --output ./test-skills/"
+    modify:
+      - ".github/workflows/ci.yml: run fetch-skills.sh before dotnet test"
+      - "tests/**: SkillLoader tests use ./test-skills"
+
+  - id: ado-template
+    action: "ADO pipeline template for skill consumption"
+    new:
+      - "agentsmith-skills/ado/templates/pull-skills.yml: parameterized skillsVersion, runs CLI pull"
+
+  - id: k8s-manifests
+    action: "Update K8s manifests and Helm chart for default-source pulling"
+    new:
+      - "deploy/k8s/examples/path-mode-deployment.yaml"
+      - "deploy/k8s/examples/airgap-deployment.yaml"
+    modify:
+      - "deploy/k8s/8-deployment-server.yaml: add skills-cache emptyDir volume mounted at /var/lib/agentsmith/skills, AGENTSMITH_SKILLS_DIR env, raise memory limit to 512Mi"
+      - "deploy/k8s/3-configmap.yaml: agentsmith.yaml includes skills section (source: default, pinned version)"
+      - "helm/agentsmith/values.yaml: skills.source, skills.version, skills.cacheDir, skills.repositoryUrl"
+      - "helm/agentsmith/templates/deployment.yaml: volumes and env templated from values.skills"
+
+  - id: docs
+    action: "Documentation for skill lifecycle and source modes"
+    new:
+      - "docs/skills/source-modes.md"
+      - "docs/skills/airgap.md"
+      - "docs/skills/local-iteration.md"
+    modify:
+      - "README.md: reference agentsmith-skills repo"
+
+  - id: skill-manager-update
+    action: "Point p57b skill manager at new repo"
+    modify:
+      - "InstallSkillsHandler: PRs against agentsmith-skills, not main repo"
+      - "SkillManagerConfig: target_repo (default agentsmith-skills)"
+
+tests:
+  - "SkillsRepositoryClient_DefaultUrl_BuildsExpectedReleaseUrl"
+  - "SkillsRepositoryClient_RepositoryUrlEnvSet_OverridesDefault"
+  - "SkillsRepositoryClient_Sha256Mismatch_Throws"
+  - "SkillsRepositoryClient_AtomicExtract_PartialFailure_LeavesNoCorruptedDir"
+  - "SkillsCacheMarker_VersionMismatch_TriggersRepull"
+  - "SkillsCacheMarker_MarkerMissing_TriggersRepull"
+  - "DefaultSourceHandler_FirstBoot_PullsAndWritesMarker"
+  - "DefaultSourceHandler_RestartSameVersion_SkipsPull"
+  - "DefaultSourceHandler_VersionChanged_RepullsAndUpdatesMarker"
+  - "PathSourceHandler_PathMissing_ThrowsClearError"
+  - "UrlSourceHandler_CustomUrl_DownloadsAndVerifies"
+  - "SkillsBootstrapHostedService_RunsBeforeSkillLoader"
+  - "SkillsPullCommand_VersionAndUrl_BothProvided_Errors"
+
+done:
+  - "agentsmith-skills repo at v1.0.0, .tar.gz + .sha256 on GitHub Releases"
+  - "Tarball SHA256 reproducible across rebuilds of same commit"
+  - "config/skills/ removed from main repo"
+  - "agentsmith skills pull works standalone"
+  - "Server boots with source: default, pulls on first boot, skips on restart with same version"
+  - "Server boots with source: path and source: url"
+  - "AGENTSMITH_SKILLS_REPOSITORY_URL override verified"
+  - "K8s default-mode deployment works without InitContainer"
+  - "K8s path-mode example works with plain YAML + ArgoCD"
+  - "Helm upgrade with bumped skills.version triggers re-pull"
+  - "ADO pull-skills.yml usable from central pipeline repo"
+  - "p57b opens PRs against agentsmith-skills"
+  - "dotnet build and dotnet test clean"
