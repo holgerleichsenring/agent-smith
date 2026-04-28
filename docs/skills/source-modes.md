@@ -5,7 +5,7 @@ sources, configured under `skills:` in `agentsmith.yml`:
 
 | Mode | Use case | What happens |
 |---|---|---|
-| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
+| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cache_dir`. Re-pulls only if `version` changes. |
 | `path` | Operator-managed mount (PVC, sidecar copy, GitOps) | Server validates the directory contains `skills/` and uses it as-is. No download. |
 | `url` | Custom mirror or one-off override | Server pulls from an explicit URL with optional SHA256 verification. |
 
@@ -15,7 +15,7 @@ sources, configured under `skills:` in `agentsmith.yml`:
 skills:
   source: default
   version: v1.0.0
-  cacheDir: /var/lib/agentsmith/skills
+  cache_dir: /var/lib/agentsmith/skills
   # sha256: <hex>    # optional: verify against a known release SHA
 ```
 
@@ -24,7 +24,7 @@ Override the base repository for air-gap mirrors via the
 `AGENTSMITH_SKILLS_REPOSITORY_URL` environment variable — see
 [airgap.md](airgap.md).
 
-The server writes a `.pulled` marker into `cacheDir` after a successful pull.
+The server writes a `.pulled` marker into `cache_dir` after a successful pull.
 On restart, if the marker matches `version` and `skills/` exists, the pull is
 skipped. Bumping `version` triggers a fresh pull.
 
@@ -52,7 +52,7 @@ skills:
   source: url
   url: https://example.com/internal/agentsmith-skills.tar.gz
   sha256: 3f1a8b…              # strongly recommended for non-default URLs
-  cacheDir: /var/lib/agentsmith/skills
+  cache_dir: /var/lib/agentsmith/skills
 ```
 
 Pulls the tarball from the explicit URL. Use `sha256` to pin to a known build
@@ -62,7 +62,7 @@ re-pulls (use `path` if you want stable mounted catalogs).
 ## CLI parity
 
 The same code path runs from the command line. With a config file present,
-`pull` reads `skills.version` / `skills.url` / `skills.cacheDir` /
+`pull` reads `skills.version` / `skills.url` / `skills.cache_dir` /
 `skills.sha256` from `agentsmith.yml` and runs the same pull the server would
 do at boot:
 
