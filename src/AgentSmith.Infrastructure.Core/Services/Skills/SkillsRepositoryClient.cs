@@ -46,6 +46,15 @@ public sealed class SkillsRepositoryClient(
             ExtractAtomically(tarballPath, stagingDir, outputDir);
             logger.LogInformation("Catalog extracted to {OutputDir} from {Url}", outputDir, tarballUrl);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException(
+                $"Cannot write to skill catalog cache directory '{outputDir}'. " +
+                "Set 'skills.cache_dir' in agentsmith.yml to a writable path " +
+                "(default per-user is $HOME/.cache/agentsmith/skills); the " +
+                "configured directory needs write permission for the running user.",
+                ex);
+        }
         finally
         {
             TryDelete(tarballPath);

@@ -14,7 +14,7 @@ skills:
   source: default
   version: v1.0.0
   sha256: 3f1a8b…    # pin against tampering
-  cacheDir: /var/lib/agentsmith/skills
+  cache_dir: /var/lib/agentsmith/skills
 ```
 
 ```bash
