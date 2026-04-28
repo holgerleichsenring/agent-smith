@@ -30,7 +30,7 @@ https://internal-mirror.example.com/agentsmith-skills/releases/download/v1.0.0/a
 Your mirror needs to expose that exact path layout. Copying the release
 artefacts (`.tar.gz` + `.sha256`) into the matching directory tree is enough.
 
-See [deploy/k8s/examples/airgap-deployment.yaml](../../deploy/k8s/examples/airgap-deployment.yaml).
+See [deploy/k8s/examples/airgap-deployment.yaml](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/examples/airgap-deployment.yaml).
 
 ## Pattern 2: Pre-populate the cache
 
