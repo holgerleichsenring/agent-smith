@@ -62,7 +62,15 @@ public sealed class ConsoleDialogueTransport(
             return null;
         }
 
-        var readTask = Task.Run(() => input.ReadLine(), CancellationToken.None);
+        // Run ReadLine on a dedicated thread (LongRunning) instead of the thread
+        // pool — the readers we wrap (Console.In, BlockingTextReader in tests)
+        // can park indefinitely, and racing the read against Task.Delay on the
+        // pool starves out under CI parallelism.
+        var readTask = Task.Factory.StartNew(
+            () => input.ReadLine(),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
         var delayTask = Task.Delay(timeout, cancellationToken);
 
         var completed = await Task.WhenAny(readTask, delayTask);
