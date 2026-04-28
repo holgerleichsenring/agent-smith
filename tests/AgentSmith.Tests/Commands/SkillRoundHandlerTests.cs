@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -25,7 +26,7 @@ public sealed class SkillRoundHandlerTests
             .Returns(_llmClientMock.Object);
         _handler = new SkillRoundHandler(
             _llmFactoryMock.Object,
-            new SkillPromptBuilder(new PromptPrefixBuilder()),
+            new SkillPromptBuilder(new PromptPrefixBuilder(), new FakePromptCatalog()),
             new GateRetryCoordinator(
                 new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
                 NullLogger<GateRetryCoordinator>.Instance),

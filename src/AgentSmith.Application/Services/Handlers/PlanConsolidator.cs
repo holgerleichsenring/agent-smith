@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class PlanConsolidator(
     ILlmClientFactory llmClientFactory,
-    IPromptTemplateProvider promptTemplates,
+    IPromptCatalog prompts,
     ILogger<PlanConsolidator> logger)
 {
     private const string AssessmentJsonExample =
@@ -35,7 +35,7 @@ public sealed class PlanConsolidator(
 
         context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket);
 
-        var systemPrompt = promptTemplates.Get("plan-consolidator-system");
+        var systemPrompt = prompts.Get("plan-consolidator-system");
 
         var inputSection = ticket is not null
             ? $"## Ticket\n{ticket.Title}\n{ticket.Description}"
@@ -45,11 +45,13 @@ public sealed class PlanConsolidator(
             ? "\n\n## Escalation\nNOTE: Not all roles agreed. Note the dissenting views in the summary."
             : "";
 
-        var userPrompt = promptTemplates.Get("plan-consolidator-user")
-            .Replace("{InputSection}", inputSection)
-            .Replace("{DiscussionText}", discussionText)
-            .Replace("{EscalationNote}", escalationNote)
-            .Replace("{AssessmentJsonExample}", AssessmentJsonExample);
+        var userPrompt = prompts.Render("plan-consolidator-user", new Dictionary<string, string>
+        {
+            ["InputSection"] = inputSection,
+            ["DiscussionText"] = discussionText,
+            ["EscalationNote"] = escalationNote,
+            ["AssessmentJsonExample"] = AssessmentJsonExample,
+        });
 
         var llmResponse = await llmClient.CompleteAsync(
             systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
