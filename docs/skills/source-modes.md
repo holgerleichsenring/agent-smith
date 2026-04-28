@@ -15,7 +15,10 @@ sources, configured under `skills:` in `agentsmith.yml`:
 skills:
   source: default
   version: v1.0.0
-  cache_dir: /var/lib/agentsmith/skills
+  # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills (or $HOME/.cache/...,
+  # then {tmp}/agentsmith/skills) — set explicitly only when the OS path is
+  # operator-managed (e.g. /var/lib/agentsmith/skills with a K8s volume mount).
+  # cache_dir: /var/lib/agentsmith/skills
   # sha256: <hex>    # optional: verify against a known release SHA
 ```
 
