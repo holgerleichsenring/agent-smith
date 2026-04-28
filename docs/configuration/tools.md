@@ -111,7 +111,7 @@ rules:
 
 ## Pattern Definition Files
 
-The **security-scan** pipeline uses regex pattern files to detect vulnerabilities before the AI panel reviews the code. Default patterns ship as part of the [agentsmith-skills](https://github.com/holgerleichsenring/agentsmith-skills) release tarball — the same artefact that carries the skill catalog. After the catalog is pulled, patterns live alongside skills under the cache directory (`{cacheDir}/patterns/*.yaml`) and are loaded automatically by the `StaticPatternScan` step.
+The **security-scan** pipeline uses regex pattern files to detect vulnerabilities before the AI panel reviews the code. Default patterns ship as part of the [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills) release tarball — the same artefact that carries the skill catalog. After the catalog is pulled, patterns live alongside skills under the cache directory (`{cacheDir}/patterns/*.yaml`) and are loaded automatically by the `StaticPatternScan` step.
 
 For per-deployment overrides, point `AGENTSMITH_CONFIG_DIR` at a directory that contains a `patterns/` subfolder — see [Custom Security Patterns](../security/custom-patterns.md).
 
