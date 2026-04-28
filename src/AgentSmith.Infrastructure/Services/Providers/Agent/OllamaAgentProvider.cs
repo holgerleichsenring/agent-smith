@@ -19,7 +19,8 @@ public sealed class OllamaAgentProvider(
     OpenAiCompatibleClient client,
     bool hasToolCalling,
     IModelRegistry? modelRegistry,
-    ILogger<OllamaAgentProvider> logger) : IAgentProvider
+    ILogger<OllamaAgentProvider> logger,
+    AgentPromptBuilder promptBuilder) : IAgentProvider
 {
     public string ProviderType => "ollama";
 
@@ -41,9 +42,9 @@ public sealed class OllamaAgentProvider(
         var planModel = ResolveModel(TaskType.Planning);
         logger.LogInformation("Generating plan via Ollama ({Model})", planModel.Model);
 
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(
+        var systemPrompt = promptBuilder.BuildPlanSystemPrompt(
             codingPrinciples, codeMap, projectContext);
-        var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
 
         var messages = new System.Text.Json.Nodes.JsonArray
         {
@@ -76,9 +77,9 @@ public sealed class OllamaAgentProvider(
         var toolExecutor = new ToolExecutor(
             repository.LocalPath, logger, fileReadTracker, progressReporter);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             codingPrinciples, codeMap, projectContext);
-        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository);
+        var userMessage = promptBuilder.BuildExecutionUserPrompt(plan, repository);
 
         IReadOnlyList<CodeChange> changes;
 

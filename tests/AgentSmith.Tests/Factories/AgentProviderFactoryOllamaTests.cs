@@ -3,7 +3,9 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -19,7 +21,8 @@ public sealed class AgentProviderFactoryOllamaTests
             new SecretsProvider(),
             NullLoggerFactory.Instance,
             Mock.Of<IDialogueTransport>(),
-            new InMemoryDialogueTrail());
+            new InMemoryDialogueTrail(),
+            new AgentPromptBuilder(new FakePromptCatalog()));
 
         var config = new AgentConfig
         {
@@ -41,7 +44,8 @@ public sealed class AgentProviderFactoryOllamaTests
             new SecretsProvider(),
             NullLoggerFactory.Instance,
             Mock.Of<IDialogueTransport>(),
-            new InMemoryDialogueTrail());
+            new InMemoryDialogueTrail(),
+            new AgentPromptBuilder(new FakePromptCatalog()));
 
         var config = new AgentConfig
         {

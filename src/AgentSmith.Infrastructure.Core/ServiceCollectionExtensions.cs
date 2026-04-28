@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProjectDetector, ProjectDetector>();
         services.AddSingleton<IRepoSnapshotCollector, RepoSnapshotCollector>();
         services.AddSingleton<IContextValidator, ContextValidator>();
+        services.AddSingleton<ContextUserPromptBuilder>();
         services.AddSingleton<IContextGenerator, ContextGenerator>();
         services.AddSingleton<ICodeMapGenerator, CodeMapGenerator>();
         services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();

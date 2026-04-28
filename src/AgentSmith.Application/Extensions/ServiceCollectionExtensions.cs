@@ -90,6 +90,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DraftSkillFilesContext>, DraftSkillFilesHandler>();
         services.AddTransient<ICommandHandler<ApproveSkillsContext>, ApproveSkillsHandler>();
         services.AddTransient<ICommandHandler<InstallSkillsContext>, InstallSkillsHandler>();
+        services.AddSingleton<KnowledgePromptBuilder>();
+        services.AddSingleton<StructuredOutputInstructionBuilder>();
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();

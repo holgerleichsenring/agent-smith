@@ -16,10 +16,12 @@ public sealed class ApiSecurityTriageHandler(
     ISkillGraphBuilder skillGraphBuilder,
     ApiSecurityTriagePromptBuilder promptBuilder,
     ApiSecuritySkillFilter skillFilter,
+    IPromptCatalog prompts,
     ILogger<ApiSecurityTriageHandler> logger)
     : TriageHandlerBase, ICommandHandler<ApiSecurityTriageContext>
 {
     protected override ILogger Logger => logger;
+    protected override IPromptCatalog Prompts => prompts;
     protected override string SkillRoundCommandName => "ApiSecuritySkillRoundCommand";
     protected override ISkillGraphBuilder? GraphBuilder => skillGraphBuilder;
 

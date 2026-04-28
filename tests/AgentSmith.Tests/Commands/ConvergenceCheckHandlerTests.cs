@@ -36,6 +36,7 @@ public sealed class ConvergenceCheckHandlerTests
         _handler = new ConvergenceCheckHandler(
             planConsolidator,
             _llmFactoryMock.Object,
+            prompts,
             NullLogger<ConvergenceCheckHandler>.Instance);
     }
 

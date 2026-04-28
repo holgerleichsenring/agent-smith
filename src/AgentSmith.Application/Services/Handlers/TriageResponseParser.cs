@@ -1,16 +1,15 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
-internal sealed class TriageResponseParser(ILogger logger)
+internal sealed class TriageResponseParser(IPromptCatalog prompts, ILogger logger)
 {
-    internal const string SystemPrompt =
-        "You are triaging work to determine which specialist roles " +
-        "should participate. Respond with valid JSON only, no markdown.";
+    public string SystemPrompt => prompts.Get("triage-system");
 
-    public static string BuildPrompt(string userPrompt, string rolesDescription) => $$"""
+    public string BuildPrompt(string userPrompt, string rolesDescription) => $$"""
         {{userPrompt}}
 
         ## Available Roles

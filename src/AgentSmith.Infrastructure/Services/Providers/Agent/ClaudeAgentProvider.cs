@@ -25,7 +25,8 @@ public sealed class ClaudeAgentProvider(
     PricingConfig pricingConfig,
     ILogger<ClaudeAgentProvider> logger,
     IDialogueTransport dialogueTransport,
-    IDialogueTrail dialogueTrail) : IAgentProvider
+    IDialogueTrail dialogueTrail,
+    AgentPromptBuilder promptBuilder) : IAgentProvider
 {
     public string ProviderType => "Claude";
 
@@ -51,8 +52,8 @@ public sealed class ClaudeAgentProvider(
         CancellationToken cancellationToken)
     {
         using var client = CreateResilientClient();
-        var systemPrompt = AgentPromptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userPrompt = AgentPromptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var systemPrompt = promptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
         var planModel = ResolveModel(TaskType.Planning);
 
         var userContent = new List<ContentBase>();
@@ -123,8 +124,8 @@ public sealed class ClaudeAgentProvider(
             cacheConfig, tracker, compactionConfig,
             ctxFactory.CreateCompactor(tracker, costTracker), progressReporter, 25);
 
-        var systemPrompt = AgentPromptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userMessage = AgentPromptBuilder.BuildExecutionUserPrompt(plan, repository, scoutResult);
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
+        var userMessage = promptBuilder.BuildExecutionUserPrompt(plan, repository, scoutResult);
         var changes = await loop.RunAsync(systemPrompt, userMessage, cancellationToken);
         sw.Stop();
         logger.LogInformation(

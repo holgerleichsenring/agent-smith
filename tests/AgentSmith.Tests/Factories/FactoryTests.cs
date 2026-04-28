@@ -4,6 +4,8 @@ using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -85,7 +87,8 @@ public class FactoryTests
     {
         var secrets = new SecretsProvider();
         var factory = new AgentProviderFactory(secrets, NullLoggerFactory.Instance,
-            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail());
+            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail(),
+            new AgentPromptBuilder(new FakePromptCatalog()));
         var config = new AgentConfig { Type = "unknown" };
 
         var act = () => factory.Create(config);

@@ -13,10 +13,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class TriageHandler(
     ILlmClientFactory llmClientFactory,
+    IPromptCatalog prompts,
     ILogger<TriageHandler> logger)
     : TriageHandlerBase, ICommandHandler<TriageContext>
 {
     protected override ILogger Logger => logger;
+    protected override IPromptCatalog Prompts => prompts;
 
     protected override string BuildUserPrompt(PipelineContext pipeline)
     {

@@ -16,18 +16,19 @@ public sealed class AgentProviderFactory(
     SecretsProvider secrets,
     ILoggerFactory loggerFactory,
     IDialogueTransport dialogueTransport,
-    IDialogueTrail dialogueTrail) : IAgentProviderFactory
+    IDialogueTrail dialogueTrail,
+    AgentPromptBuilder promptBuilder) : IAgentProviderFactory
 {
     private readonly Dictionary<string, Func<AgentConfig, IAgentProvider>> _creators = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["claude"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
-        ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail),
-        ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory),
-        ["azure-openai"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
-        ["azure"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
-        ["gemini"] = config => CreateGemini(config, secrets, loggerFactory),
-        ["google"] = config => CreateGemini(config, secrets, loggerFactory),
-        ["ollama"] = config => CreateOllama(config, loggerFactory),
+        ["claude"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail, promptBuilder),
+        ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory, dialogueTransport, dialogueTrail, promptBuilder),
+        ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory, promptBuilder),
+        ["azure-openai"] = config => CreateAzureOpenAi(config, secrets, loggerFactory, promptBuilder),
+        ["azure"] = config => CreateAzureOpenAi(config, secrets, loggerFactory, promptBuilder),
+        ["gemini"] = config => CreateGemini(config, secrets, loggerFactory, promptBuilder),
+        ["google"] = config => CreateGemini(config, secrets, loggerFactory, promptBuilder),
+        ["ollama"] = config => CreateOllama(config, loggerFactory, promptBuilder),
     };
 
     public IAgentProvider Create(AgentConfig config)
@@ -43,18 +44,20 @@ public sealed class AgentProviderFactory(
 
     private static ClaudeAgentProvider CreateClaude(
         AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory,
-        IDialogueTransport dialogueTransport, IDialogueTrail dialogueTrail)
+        IDialogueTransport dialogueTransport, IDialogueTrail dialogueTrail,
+        AgentPromptBuilder promptBuilder)
     {
         var apiKey = secrets.GetRequired("ANTHROPIC_API_KEY");
         var registry = CreateModelRegistry(config, loggerFactory);
         return new ClaudeAgentProvider(
             apiKey, config.Model, config.Retry, config.Cache, config.Compaction,
             registry, config.Pricing, loggerFactory.CreateLogger<ClaudeAgentProvider>(),
-            dialogueTransport, dialogueTrail);
+            dialogueTransport, dialogueTrail, promptBuilder);
     }
 
     private static OpenAiAgentProvider CreateOpenAi(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory,
+        AgentPromptBuilder promptBuilder)
     {
         var secretName = config.ApiKeySecret ?? "OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
@@ -62,11 +65,12 @@ public sealed class AgentProviderFactory(
         var endpoint = config.Endpoint is not null ? new Uri(config.Endpoint) : null;
         return new OpenAiAgentProvider(
             apiKey, config.Model, config.Retry,
-            registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>(), endpoint);
+            registry, config.Pricing, loggerFactory.CreateLogger<OpenAiAgentProvider>(), promptBuilder, endpoint);
     }
 
     private static AzureOpenAiAgentProvider CreateAzureOpenAi(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory,
+        AgentPromptBuilder promptBuilder)
     {
         var logger = loggerFactory.CreateLogger("AzureOpenAiSetup");
         var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
@@ -84,21 +88,22 @@ public sealed class AgentProviderFactory(
             apiKey, config.Model ?? "", deployment, new Uri(endpoint),
             config.ApiVersion ?? "2025-01-01-preview",
             config.Retry, registry, config.Pricing,
-            loggerFactory.CreateLogger<AzureOpenAiAgentProvider>());
+            loggerFactory.CreateLogger<AzureOpenAiAgentProvider>(), promptBuilder);
     }
 
     private static GeminiAgentProvider CreateGemini(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory,
+        AgentPromptBuilder promptBuilder)
     {
         var apiKey = secrets.GetRequired("GEMINI_API_KEY");
         var registry = CreateModelRegistry(config, loggerFactory);
         return new GeminiAgentProvider(
             apiKey, config.Model,
-            registry, config.Pricing, loggerFactory.CreateLogger<GeminiAgentProvider>());
+            registry, config.Pricing, loggerFactory.CreateLogger<GeminiAgentProvider>(), promptBuilder);
     }
 
     private static OllamaAgentProvider CreateOllama(
-        AgentConfig config, ILoggerFactory loggerFactory)
+        AgentConfig config, ILoggerFactory loggerFactory, AgentPromptBuilder promptBuilder)
     {
         var endpoint = config.Endpoint ?? "http://localhost:11434";
         var ollamaLogger = loggerFactory.CreateLogger<OllamaAgentProvider>();
@@ -110,7 +115,7 @@ public sealed class AgentProviderFactory(
 
         return new OllamaAgentProvider(
             config.Model, client, hasToolCalling,
-            registry, ollamaLogger);
+            registry, ollamaLogger, promptBuilder);
     }
 
     private static bool CheckOllamaCapabilities(

@@ -19,9 +19,10 @@ public sealed class ApiSkillRoundHandler(
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
+    StructuredOutputInstructionBuilder instructionBuilder,
     HttpProbeRunner? httpProbeRunner,
     ILogger<ApiSkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
     private readonly SwaggerSpecCompressor _compressor = new();

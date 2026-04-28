@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Core.Services;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -27,7 +28,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("C#");
         result.Should().Contain(".NET 8");
@@ -41,7 +42,7 @@ public class ContextGeneratorTests : IDisposable
             readmeExcerpt: "This is a Django web application.");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("README (excerpt)");
         result.Should().Contain("Django web application");
@@ -53,7 +54,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("TypeScript", "Node.js", "npm");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().NotContain("README (excerpt)");
     }
@@ -99,7 +100,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: [],
             DirectoryTree: "");
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("Config Files");
         result.Should().Contain(".editorconfig");
@@ -115,7 +116,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: ["### src/Program.cs\nusing System;\nConsole.WriteLine(\"Hello\");"],
             DirectoryTree: "");
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("Code Samples");
         result.Should().Contain("Program.cs");
@@ -131,7 +132,7 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: [],
             DirectoryTree: "src/\n  Program.cs\nREADME.md");
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("src/");
         result.Should().Contain("Program.cs");
@@ -144,7 +145,7 @@ public class ContextGeneratorTests : IDisposable
         var project = CreateDetectedProject("C#", ".NET 8", "NuGet");
         var snapshot = CreateEmptySnapshot();
 
-        var result = ContextUserPromptBuilder.Build(project, "", snapshot);
+        var result = NewBuilder().Build(project, "", snapshot);
 
         result.Should().Contain("detected-style");
         result.Should().Contain("architecture");
@@ -157,7 +158,7 @@ public class ContextGeneratorTests : IDisposable
     {
         var snapshot = CreateEmptySnapshot();
 
-        ContextUserPromptBuilder.BuildSnapshotSection(snapshot).Should().BeEmpty();
+        NewBuilder().BuildSnapshotSection(snapshot).Should().BeEmpty();
     }
 
     [Fact]
@@ -168,13 +169,28 @@ public class ContextGeneratorTests : IDisposable
             CodeSamples: ["### src/Main.cs\nclass Main {}"],
             DirectoryTree: "");
 
-        var result = ContextUserPromptBuilder.BuildSnapshotSection(snapshot);
+        var result = NewBuilder().BuildSnapshotSection(snapshot);
 
         result.Should().Contain("Config Files");
         result.Should().Contain("Code Samples");
         result.Should().Contain(".editorconfig");
         result.Should().Contain("Main.cs");
     }
+
+    private const string QualityTemplate = """
+            quality:
+              lang: english-only
+              detected-style:
+                naming: { classes: <PascalCase|camelCase|snake_case>, variables: <camelCase|snake_case>, files: <pattern> }
+              architecture:
+                style: [<DDD|CleanArch|Hexagonal|MVC|Layered|ad-hoc>]
+              methodology:
+                testing: <test-first|test-after|no-tests>
+              quality-score: <high|medium|low>
+            """;
+
+    private static ContextUserPromptBuilder NewBuilder() =>
+        new(new FakePromptCatalog().WithPrompt("context-quality-template", QualityTemplate));
 
     private static RepoSnapshot CreateEmptySnapshot() =>
         new(ConfigFileContents: [], CodeSamples: [], DirectoryTree: "");
