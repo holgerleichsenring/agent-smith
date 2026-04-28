@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
@@ -12,37 +11,16 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// </summary>
 public sealed class StaticPatternScanner(
     PatternDefinitionLoader loader,
+    PatternsDirectoryResolver directoryResolver,
+    PatternCompiler compiler,
+    PatternFileMatcher fileMatcher,
     ILogger<StaticPatternScanner> logger) : IStaticPatternScanner
 {
-    /// <summary>
-    /// Resolves the patterns directory from standard config locations.
-    /// </summary>
-    private static string ResolvePatternsDirectory()
-    {
-        var candidates = new[]
-        {
-            Path.Combine("config", "patterns"),
-            Path.Combine(AppContext.BaseDirectory, "config", "patterns"),
-        };
-
-        var configDir = Environment.GetEnvironmentVariable("AGENTSMITH_CONFIG_DIR");
-        if (!string.IsNullOrEmpty(configDir))
-        {
-            return Directory.Exists(Path.Combine(configDir, "patterns"))
-                ? Path.Combine(configDir, "patterns")
-                : Directory.Exists(Path.Combine(configDir, "config", "patterns"))
-                    ? Path.Combine(configDir, "config", "patterns")
-                    : candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
-        }
-
-        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
-    }
-
     public async Task<StaticScanResult> ScanAsync(string repoPath, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
 
-        var patternsDirectory = ResolvePatternsDirectory();
+        var patternsDirectory = directoryResolver.Resolve();
         var definitions = loader.LoadFromDirectory(patternsDirectory);
         if (definitions.Count == 0)
         {
@@ -50,7 +28,7 @@ public sealed class StaticPatternScanner(
             return new StaticScanResult([], 0, 0, (int)sw.ElapsedMilliseconds);
         }
 
-        var compiledPatterns = CompilePatterns(definitions);
+        var compiledPatterns = compiler.Compile(definitions);
 
         logger.LogInformation(
             "Scanning {RepoPath} with {PatternCount} compiled patterns",
@@ -66,7 +44,7 @@ public sealed class StaticPatternScanner(
             cancellationToken.ThrowIfCancellationRequested();
 
             var relativePath = Path.GetRelativePath(repoPath, filePath);
-            var fileFindings = await PatternFileMatcher.ScanFileAsync(
+            var fileFindings = await fileMatcher.ScanFileAsync(
                 filePath, relativePath, compiledPatterns, cancellationToken);
             findings.AddRange(fileFindings);
             filesScanned++;
@@ -79,32 +57,5 @@ public sealed class StaticPatternScanner(
             findings.Count, filesScanned, sw.ElapsedMilliseconds);
 
         return new StaticScanResult(findings, filesScanned, compiledPatterns.Count, (int)sw.ElapsedMilliseconds);
-    }
-
-    private List<PatternFileMatcher.CompiledPattern> CompilePatterns(IReadOnlyList<PatternDefinition> definitions)
-    {
-        var compiled = new List<PatternFileMatcher.CompiledPattern>();
-
-        foreach (var def in definitions)
-        {
-            if (string.IsNullOrWhiteSpace(def.Regex))
-                continue;
-
-            try
-            {
-                var regex = new Regex(
-                    def.Regex,
-                    RegexOptions.Compiled | RegexOptions.CultureInvariant,
-                    TimeSpan.FromMilliseconds(500));
-
-                compiled.Add(new PatternFileMatcher.CompiledPattern(regex, def));
-            }
-            catch (RegexParseException ex)
-            {
-                logger.LogWarning(ex, "Invalid regex in pattern {PatternId}: {Regex}", def.Id, def.Regex);
-            }
-        }
-
-        return compiled;
     }
 }
