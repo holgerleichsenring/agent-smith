@@ -111,12 +111,14 @@ rules:
 
 ## Pattern Definition Files
 
-The **security-scan** pipeline uses regex pattern files to detect vulnerabilities before the AI panel reviews the code. Pattern files are YAML files stored in `config/patterns/` and are loaded automatically by the `StaticPatternScan` step.
+The **security-scan** pipeline uses regex pattern files to detect vulnerabilities before the AI panel reviews the code. Default patterns ship as part of the [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills) release tarball — the same artefact that carries the skill catalog. After the catalog is pulled, patterns live alongside skills under the cache directory (`{cacheDir}/patterns/*.yaml`) and are loaded automatically by the `StaticPatternScan` step.
+
+For per-deployment overrides, point `AGENTSMITH_CONFIG_DIR` at a directory that contains a `patterns/` subfolder — see [Custom Security Patterns](../security/custom-patterns.md).
 
 ### Format
 
 ```yaml
-# config/patterns/secrets.yaml
+# patterns/secrets.yaml
 name: secrets
 patterns:
   - id: aws-access-key
@@ -164,10 +166,10 @@ Agent Smith ships with 91 patterns across 6 categories:
 
 ### Custom Patterns
 
-Add custom pattern files to `config/patterns/` and they are automatically loaded on the next scan. Use any filename ending in `.yaml`:
+Add custom pattern files to a directory you control and point `AGENTSMITH_CONFIG_DIR` at it (the resolver looks for a `patterns/` subfolder there). Files are auto-discovered on the next scan; use any filename ending in `.yaml`:
 
 ```yaml
-# config/patterns/custom-internal.yaml
+# ${AGENTSMITH_CONFIG_DIR}/patterns/custom-internal.yaml
 name: internal-rules
 patterns:
   - id: internal-api-endpoint

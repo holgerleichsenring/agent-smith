@@ -5,7 +5,7 @@ sources, configured under `skills:` in `agentsmith.yml`:
 
 | Mode | Use case | What happens |
 |---|---|---|
-| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agentsmith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
+| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
 | `path` | Operator-managed mount (PVC, sidecar copy, GitOps) | Server validates the directory contains `skills/` and uses it as-is. No download. |
 | `url` | Custom mirror or one-off override | Server pulls from an explicit URL with optional SHA256 verification. |
 
@@ -43,7 +43,7 @@ boot and fails fast if the layout is wrong. No download is attempted.
 This is the right mode when the catalog is provisioned by something other than
 the server itself — for example an ArgoCD sync hook that populates a PVC, or a
 sidecar container that copies from a bundled image. See
-[deploy/k8s/examples/path-mode-deployment.yaml](../../deploy/k8s/examples/path-mode-deployment.yaml).
+[deploy/k8s/examples/path-mode-deployment.yaml](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/examples/path-mode-deployment.yaml).
 
 ## `url`
 
@@ -61,11 +61,23 @@ re-pulls (use `path` if you want stable mounted catalogs).
 
 ## CLI parity
 
-The same code path runs from the command line:
+The same code path runs from the command line. With a config file present,
+`pull` reads `skills.version` / `skills.url` / `skills.cacheDir` /
+`skills.sha256` from `agentsmith.yml` and runs the same pull the server would
+do at boot:
 
 ```bash
-agentsmith skills pull --version v1.0.0 --output ./test-skills
+agentsmith skills pull --config agentsmith.yml
+```
+
+Any flag overrides its config counterpart:
+
+```bash
+agentsmith skills pull --config agentsmith.yml --version v1.1.0   # try a newer release
+agentsmith skills pull --config agentsmith.yml --output /tmp/skills
+agentsmith skills pull --version v1.0.0 --output ./test-skills    # no config file at all
 agentsmith skills pull --url https://… --sha256 <hex> --output ./skills
 ```
 
-This is what `scripts/fetch-skills.sh` uses for CI.
+`scripts/fetch-skills.sh` uses explicit `--version` and `--output` so CI works
+without a project config file.
