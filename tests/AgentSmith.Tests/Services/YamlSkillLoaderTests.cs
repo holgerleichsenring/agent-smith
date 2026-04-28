@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,7 +15,7 @@ public sealed class YamlSkillLoaderTests : IDisposable
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-skill-" + Guid.NewGuid());
         Directory.CreateDirectory(_tempDir);
-        _loader = new YamlSkillLoader(NullLogger<YamlSkillLoader>.Instance);
+        _loader = new YamlSkillLoader(new StubSkillsCatalogPath(), NullLogger<YamlSkillLoader>.Instance);
     }
 
     public void Dispose()

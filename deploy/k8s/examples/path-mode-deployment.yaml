@@ -1,0 +1,70 @@
+# Example: agent-smith server with skill catalog mounted from a PVC.
+#
+# Use case: GitOps environments where the catalog is provisioned out-of-band
+# (e.g. ArgoCD pre-sync hook populates a PVC, or an InitContainer copies from a
+# bundled image). The server itself does no download — it just trusts the mount.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentsmith-skills-pvc
+  namespace: agentsmith
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 64Mi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentsmith-config-pathmode
+  namespace: agentsmith
+data:
+  agentsmith.yml: |
+    skills:
+      source: path
+      path: /var/lib/agentsmith/skills
+    projects: {}
+    secrets:
+      anthropic_api_key: ${ANTHROPIC_API_KEY}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-server
+  namespace: agentsmith
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentsmith-server
+  template:
+    metadata:
+      labels:
+        app: agentsmith-server
+    spec:
+      serviceAccountName: agentsmith
+      containers:
+        - name: server
+          image: holgerleichsenring/agent-smith-server:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: AGENTSMITH_SKILLS_DIR
+              value: "/var/lib/agentsmith/skills"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: skills
+              mountPath: /var/lib/agentsmith/skills
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: agentsmith-config-pathmode
+        - name: skills
+          persistentVolumeClaim:
+            claimName: agentsmith-skills-pvc
