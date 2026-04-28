@@ -1,0 +1,71 @@
+# Skill Catalog Source Modes
+
+The agent-smith server resolves the skill catalog at boot from one of three
+sources, configured under `skills:` in `agentsmith.yml`:
+
+| Mode | Use case | What happens |
+|---|---|---|
+| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agentsmith-skills` and caches it in `cacheDir`. Re-pulls only if `version` changes. |
+| `path` | Operator-managed mount (PVC, sidecar copy, GitOps) | Server validates the directory contains `skills/` and uses it as-is. No download. |
+| `url` | Custom mirror or one-off override | Server pulls from an explicit URL with optional SHA256 verification. |
+
+## `default`
+
+```yaml
+skills:
+  source: default
+  version: v1.0.0
+  cacheDir: /var/lib/agentsmith/skills
+  # sha256: <hex>    # optional: verify against a known release SHA
+```
+
+The release URL is `${repo}/releases/download/${version}/agentsmith-skills-${version}.tar.gz`.
+Override the base repository for air-gap mirrors via the
+`AGENTSMITH_SKILLS_REPOSITORY_URL` environment variable — see
+[airgap.md](airgap.md).
+
+The server writes a `.pulled` marker into `cacheDir` after a successful pull.
+On restart, if the marker matches `version` and `skills/` exists, the pull is
+skipped. Bumping `version` triggers a fresh pull.
+
+## `path`
+
+```yaml
+skills:
+  source: path
+  path: /var/lib/agentsmith/skills
+```
+
+`path` must be a directory containing a `skills/` subtree (the structure the
+agentsmith-skills release tarball expands into). The server validates this on
+boot and fails fast if the layout is wrong. No download is attempted.
+
+This is the right mode when the catalog is provisioned by something other than
+the server itself — for example an ArgoCD sync hook that populates a PVC, or a
+sidecar container that copies from a bundled image. See
+[deploy/k8s/examples/path-mode-deployment.yaml](../../deploy/k8s/examples/path-mode-deployment.yaml).
+
+## `url`
+
+```yaml
+skills:
+  source: url
+  url: https://example.com/internal/agentsmith-skills.tar.gz
+  sha256: 3f1a8b…              # strongly recommended for non-default URLs
+  cacheDir: /var/lib/agentsmith/skills
+```
+
+Pulls the tarball from the explicit URL. Use `sha256` to pin to a known build
+— the server fails fast on hash mismatch. No version-based caching: every boot
+re-pulls (use `path` if you want stable mounted catalogs).
+
+## CLI parity
+
+The same code path runs from the command line:
+
+```bash
+agentsmith skills pull --version v1.0.0 --output ./test-skills
+agentsmith skills pull --url https://… --sha256 <hex> --output ./skills
+```
+
+This is what `scripts/fetch-skills.sh` uses for CI.

@@ -135,6 +135,11 @@ data:
           default_pipeline: fix-bug
           comment_keyword: "@agent-smith"
 
+    skills:
+      source: default
+      version: v1.0.0
+      cacheDir: /var/lib/agentsmith/skills
+
     secrets:
       anthropic_api_key: ${ANTHROPIC_API_KEY}
       azure_openai_api_key: ${AZURE_OPENAI_API_KEY}

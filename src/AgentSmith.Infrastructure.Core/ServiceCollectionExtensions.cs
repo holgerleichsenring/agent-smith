@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Detection;
+using AgentSmith.Infrastructure.Core.Services.Skills;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Core;
@@ -28,6 +29,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
+
+        services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
+        services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();
+        services.AddSingleton<SkillsCatalogPath>();
+        services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
+        services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
+        services.AddSingleton<ISkillsSourceHandler, PathSourceHandler>();
+        services.AddSingleton<ISkillsSourceHandler, UrlSourceHandler>();
+        services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
+
         return services;
     }
 }
