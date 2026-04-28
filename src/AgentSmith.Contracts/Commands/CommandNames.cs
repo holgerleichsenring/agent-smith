@@ -58,7 +58,6 @@ public static class CommandNames
     public const string InstallSkills = "InstallSkillsCommand";
     public const string CompileKnowledge = "CompileKnowledgeCommand";
     public const string QueryKnowledge = "QueryKnowledgeCommand";
-    public const string LoadVision = "LoadVisionCommand";
     public const string LoadRuns = "LoadRunsCommand";
     public const string WriteTickets = "WriteTicketsCommand";
     public const string SessionSetup = "SessionSetupCommand";
@@ -133,7 +132,6 @@ public static class CommandNames
         [InstallSkills] = "Installing approved skills",
         [CompileKnowledge] = "Compiling knowledge base",
         [QueryKnowledge] = "Querying knowledge base",
-        [LoadVision] = "Loading project vision",
         [LoadRuns] = "Loading run history",
         [WriteTickets] = "Writing tickets",
         [SessionSetup] = "Authenticating API personas",

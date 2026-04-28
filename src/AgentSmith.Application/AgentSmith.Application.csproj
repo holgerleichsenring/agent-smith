@@ -22,4 +22,8 @@
     <InternalsVisibleTo Include="AgentSmith.Cli" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts/Resources/**/*.md" />
+  </ItemGroup>
+
 </Project>

@@ -7,15 +7,6 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Builders;
 
-public sealed class LoadVisionContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new LoadVisionContext(repo, pipeline);
-    }
-}
-
 public sealed class LoadRunsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
