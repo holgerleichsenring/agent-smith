@@ -37,6 +37,54 @@ public sealed class SkillsConfigYamlTests : IDisposable
     }
 
     [Fact]
+    public void DefaultCacheDir_PrefersXdgCacheHome()
+    {
+        var prev = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+        try
+        {
+            Environment.SetEnvironmentVariable("XDG_CACHE_HOME", "/some/xdg");
+            SkillsConfig.ResolveDefaultCacheDir().Should().Be("/some/xdg/agentsmith/skills");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_CACHE_HOME", prev);
+        }
+    }
+
+    [Fact]
+    public void DefaultCacheDir_FallsBackToHomeCache()
+    {
+        var prevXdg = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+        var prevHome = Environment.GetEnvironmentVariable("HOME");
+        try
+        {
+            Environment.SetEnvironmentVariable("XDG_CACHE_HOME", null);
+            Environment.SetEnvironmentVariable("HOME", "/home/user");
+            SkillsConfig.ResolveDefaultCacheDir().Should().Be("/home/user/.cache/agentsmith/skills");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_CACHE_HOME", prevXdg);
+            Environment.SetEnvironmentVariable("HOME", prevHome);
+        }
+    }
+
+    [Fact]
+    public void SkillsBlock_DefaultCacheDir_IsUserScoped()
+    {
+        var cfg = Load("""
+            projects: {}
+            skills:
+              source: default
+              version: v1.0.0
+            secrets: {}
+            """);
+
+        cfg.Skills.CacheDir.Should().NotBe("/var/lib/agentsmith/skills");
+        cfg.Skills.CacheDir.Should().Contain("agentsmith").And.Contain("skills");
+    }
+
+    [Fact]
     public void SkillsBlock_CacheDir_RequiresSnakeCase()
     {
         var cfg = Load("""
