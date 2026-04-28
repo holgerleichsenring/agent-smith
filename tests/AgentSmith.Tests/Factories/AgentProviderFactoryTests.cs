@@ -5,6 +5,7 @@ using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
+using AgentSmith.Tests.TestSupport;
 using Moq;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,7 +24,8 @@ public class AgentProviderFactoryTests : IDisposable
         Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", "test-key");
         _sut = new AgentProviderFactory(_secrets, NullLoggerFactory.Instance,
-            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail());
+            Mock.Of<IDialogueTransport>(), new InMemoryDialogueTrail(),
+            new AgentPromptBuilder(new FakePromptCatalog()));
     }
 
     public void Dispose()

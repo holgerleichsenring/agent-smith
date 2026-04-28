@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public abstract class TriageHandlerBase
 {
     protected abstract ILogger Logger { get; }
+    protected abstract IPromptCatalog Prompts { get; }
     protected abstract string BuildUserPrompt(PipelineContext pipeline);
     protected virtual string SkillRoundCommandName => "SkillRoundCommand";
     protected virtual ISkillGraphBuilder? GraphBuilder => null;
@@ -61,13 +62,13 @@ public abstract class TriageHandlerBase
         var rolesDescription = string.Join("\n", roles.Select(r =>
             $"- {r.Name}: {r.Description} (triggers: {string.Join(", ", r.Triggers)})"));
 
-        var fullPrompt = TriageResponseParser.BuildPrompt(BuildUserPrompt(pipeline), rolesDescription);
-        var parser = new TriageResponseParser(Logger);
+        var parser = new TriageResponseParser(Prompts, Logger);
+        var fullPrompt = parser.BuildPrompt(BuildUserPrompt(pipeline), rolesDescription);
 
         try
         {
             var llmResponse = await llmClient.CompleteAsync(
-                TriageResponseParser.SystemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
+                parser.SystemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
             PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
             return parser.Parse(llmResponse.Text, roles);
         }

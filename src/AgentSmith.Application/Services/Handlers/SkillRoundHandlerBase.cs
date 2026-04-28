@@ -17,13 +17,14 @@ namespace AgentSmith.Application.Services.Handlers;
 public abstract class SkillRoundHandlerBase(
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
-    IUpstreamContextBuilder upstreamContextBuilder)
+    IUpstreamContextBuilder upstreamContextBuilder,
+    StructuredOutputInstructionBuilder instructionBuilder)
 {
     private static readonly Regex ObjectionPattern = new(
         @"OBJECTION\s*\[?\s*(\S+)\s*\]?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private readonly StructuredOutputInstructionBuilder _instructionBuilder = new();
+    private readonly StructuredOutputInstructionBuilder _instructionBuilder = instructionBuilder;
 
     protected abstract ILogger Logger { get; }
     protected abstract string BuildDomainSection(PipelineContext pipeline);

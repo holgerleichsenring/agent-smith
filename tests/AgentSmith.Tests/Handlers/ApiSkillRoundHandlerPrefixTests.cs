@@ -39,8 +39,9 @@ public sealed class ApiSkillRoundHandlerPrefixTests
         var handler = new ApiSkillRoundHandler(
             llmFactory.Object, promptBuilder, gateRetry,
             new UpstreamContextBuilder(),
+            new StructuredOutputInstructionBuilder(new FakePromptCatalog()),
             httpProbeRunner: null,
-            NullLogger<ApiSkillRoundHandler>.Instance);
+            logger: NullLogger<ApiSkillRoundHandler>.Instance);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.PipelineTypeName, PipelineType.Discussion);
