@@ -61,10 +61,14 @@ spec:
               value: "IfNotPresent"      # prod: Always
             - name: K8S_SECRET_NAME
               value: "agentsmith-secrets"
+            - name: AGENTSMITH_SKILLS_DIR
+              value: "/var/lib/agentsmith/skills"
           volumeMounts:
             - name: config
               mountPath: /app/config
               readOnly: true
+            - name: skills-cache
+              mountPath: /var/lib/agentsmith/skills
           livenessProbe:
             httpGet:
               path: /health
@@ -84,10 +88,10 @@ spec:
           resources:
             requests:
               cpu: "100m"              # prod: 200m
-              memory: "256Mi"          # prod: 384Mi
+              memory: "320Mi"          # prod: 448Mi (raised for skill catalog cache)
             limits:
               cpu: "500m"              # prod: 1000m
-              memory: "512Mi"          # prod: 768Mi
+              memory: "640Mi"          # prod: 896Mi (raised for skill catalog cache)
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -95,4 +99,7 @@ spec:
         - name: config
           configMap:
             name: agentsmith-config
+        - name: skills-cache
+          emptyDir:
+            sizeLimit: 64Mi
       restartPolicy: Always
