@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.25.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.24.0...v0.25.0) (2026-04-28)
+
+
+### Features
+
+* **cli:** `agentsmith skills pull` reads config when flags omitted ([299915d](https://github.com/holgerleichsenring/agent-smith/commit/299915de9c3aef4e575fd16e68ea91c72d9abe5d))
+* **security:** patterns ship via agentsmith-skills tarball; remove config/patterns/ ([ff19300](https://github.com/holgerleichsenring/agent-smith/commit/ff193003e51dfcf5f4f0593c8417b6dfde0a3ca0))
+
+
+### Bug Fixes
+
+* **dialogue:** run ReadLine on dedicated thread to avoid CI thread-pool starvation ([f180112](https://github.com/holgerleichsenring/agent-smith/commit/f18011206f63a81e35f751aca80526c8ecdb390d))
+* **skills:** use correct GitHub repo URL holgerleichsenring/agent-smith-skills ([6fc1789](https://github.com/holgerleichsenring/agent-smith/commit/6fc17899b145efff191ebd142c59074e90bff300))
+
 ## [0.24.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.23.0...v0.24.0) (2026-04-28)
 
 
