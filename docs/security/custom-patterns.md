@@ -1,9 +1,9 @@
 # Custom Security Patterns
 
 Pattern files under `config/patterns/*.yaml` are consumed by the static scanner
-([`StaticPatternScanner`](../../src/AgentSmith.Infrastructure/Services/Security/StaticPatternScanner.cs))
+([`StaticPatternScanner`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/StaticPatternScanner.cs))
 and the git-history scanner
-([`GitHistoryScanner`](../../src/AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs)).
+([`GitHistoryScanner`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs)).
 
 Both scanners load the same YAML — there is no parallel hardcoded list. Patterns
 in category `secrets` are additionally used by the git-history scanner; all other
@@ -91,10 +91,10 @@ new file. The shipped patterns are sensible defaults, not a frozen contract.
 
 ## Where patterns flow
 
-- Static scan → [`PatternFileMatcher`](../../src/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs)
-  emits [`PatternFinding`](../../src/AgentSmith.Contracts/Models/PatternFinding.cs)s
+- Static scan → [`PatternFileMatcher`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs)
+  emits [`PatternFinding`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Contracts/Models/PatternFinding.cs)s
   carrying `provider` and `revokeUrl` directly from the YAML.
-- Git history scan → [`GitDiffSecretMatcher`](../../src/AgentSmith.Infrastructure/Services/Security/GitDiffSecretMatcher.cs)
+- Git history scan → [`GitDiffSecretMatcher`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/AgentSmith.Infrastructure/Services/Security/GitDiffSecretMatcher.cs)
   uses the same YAMLs filtered to `category=secrets`.
 - SARIF / Markdown / JSON reports include `provider` and `revokeUrl` whenever
   the matched pattern provides them.

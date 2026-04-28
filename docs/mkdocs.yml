@@ -108,6 +108,11 @@ nav:
     - Tool Configuration: configuration/tools.md
     - Webhooks: configuration/webhooks.md
     - Security Scan Config: configuration/security-scan.md
+    - Custom Security Patterns: security/custom-patterns.md
+  - Skill Catalog:
+    - Source Modes: skills/source-modes.md
+    - Air-gap Installs: skills/airgap.md
+    - Local Iteration: skills/local-iteration.md
   - AI Providers:
     - providers/index.md
     - Claude: providers/claude.md
@@ -126,11 +131,13 @@ nav:
     - Docker: deployment/docker.md
     - Kubernetes: deployment/kubernetes.md
     - Chat Gateway: deployment/chat-gateway.md
+    - Docker + K8s Troubleshooting: docker-k8s-troubleshooting.md
   - Operations:
     - Server Resilience: operations/server-resilience.md
   - Setup Guides:
     - setup/README.md
     - Slack: setup/slack.md
+    - Slack Setup (Walkthrough): slack-setup.md
     - Teams: setup/teams.md
     - Webhooks:
       - GitHub: setup/webhooks/github.md
@@ -147,6 +154,10 @@ nav:
     - Clean Architecture: architecture/layers.md
     - Project Structure: architecture/project-structure.md
     - Phase Workflow: architecture/phase-workflow.md
+    - Design System: DESIGN.md
+  - Run Logs:
+    - First End-to-End Test: run-log-001-first-e2e-test.md
+    - Azure DevOps Docker: run-log-002-azure-devops-docker.md
   - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
   - Community: https://github.com/holgerleichsenring/agent-smith/issues

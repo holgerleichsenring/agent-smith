@@ -43,7 +43,7 @@ boot and fails fast if the layout is wrong. No download is attempted.
 This is the right mode when the catalog is provisioned by something other than
 the server itself — for example an ArgoCD sync hook that populates a PVC, or a
 sidecar container that copies from a bundled image. See
-[deploy/k8s/examples/path-mode-deployment.yaml](../../deploy/k8s/examples/path-mode-deployment.yaml).
+[deploy/k8s/examples/path-mode-deployment.yaml](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/examples/path-mode-deployment.yaml).
 
 ## `url`
 
