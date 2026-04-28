@@ -259,12 +259,14 @@ tool_runner:
 # Skill catalog source. The server pulls or mounts the catalog at boot
 # based on this section. See docs/skills/source-modes.md.
 skills:
-  source: default                      # default | path | url
-  version: v1.0.0                      # required when source: default
-  cacheDir: /var/lib/agentsmith/skills # where downloaded tarballs are extracted
-  # path: /opt/skills                  # source: path — pre-mounted directory containing skills/
-  # url: https://...                   # source: url — explicit tarball URL
-  # sha256: <hex>                      # SHA256 verification (any download mode)
+  source: default                         # default | path | url
+  version: v1.0.0                         # required when source: default
+  # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then $HOME/.cache/agentsmith/skills,
+  # then {tmp}/agentsmith/skills — set explicitly only for system-managed paths (e.g. K8s mount).
+  # cache_dir: /var/lib/agentsmith/skills
+  # path: /opt/skills                     # source: path — pre-mounted directory containing skills/
+  # url: https://...                      # source: url — explicit tarball URL
+  # sha256: <hex>                         # SHA256 verification (any download mode)
 
 secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
