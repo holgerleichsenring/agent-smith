@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0103b
+goal: "Successor to p0103: extend the external content tarball to include patterns alongside skills. Repo renames from agentsmith-skills to agentsmith-content. Single tarball, single source-mode resolution, single bootstrap."
+
+requires: ["p0103", "p0103a"]
+
+decisions:
+  - key: "Repo renamed agentsmith-skills → agentsmith-content — both skills and patterns are user-extensible content with the same lifecycle, naming reflects the broader scope. Done as part of p0103b rather than retroactively to p0103 because p0103 ships first and works standalone for skills"
+  - key: "Single tarball ships skills/ and patterns/ together — same release cadence, same maintainers, same source-mode resolution. One SHA256, one cache marker. Splitting into two repos is a small refactor if cadence diverges later"
+  - key: "Depends on p0103a — patterns must already carry provider metadata in YAML (SecretProviderRegistry deleted) before they leave the main repo, otherwise the hardcoding gets dragged along"
+  - key: "Bootstrap service resolves one content root, two consumers — SkillLoader reads {root}/skills, StaticPatternScanner reads {root}/patterns. AGENTSMITH_CONFIG_DIR remains as user-pattern override on top"
+  - key: "CLI verb renamed agentsmith skills pull → agentsmith content pull — old verb stays as deprecation alias for one minor version"
+  - key: "Config section renamed skills: → content: in agentsmith.yaml — old key stays as deprecated alias readable for one minor version, logs warning"
+
+steps:
+  - id: rename-repo
+    action: "Rename agentsmith-skills repo to agentsmith-content. GitHub auto-redirects clones; release URLs need explicit migration."
+    modify:
+      - "agentsmith-content/README.md: update repo name references"
+      - "agentsmith-content/scripts/package.sh: rename internal references skills → content where the artifact is the whole archive (file naming agentsmith-content-vX.Y.Z.tar.gz)"
+      - "agentsmith-content/.github/workflows/release.yml: artifact name agentsmith-content-${{ github.ref_name }}.tar.gz"
+
+  - id: add-patterns-to-tarball
+    action: "Migrate patterns from main repo into agentsmith-content. Tarball root gains patterns/ next to skills/."
+    new:
+      - "agentsmith-content/patterns/ (copied from config/patterns/, post-p0103a with provider metadata in YAML)"
+    modify:
+      - "agentsmith-content/scripts/package.sh: include patterns/ in the deterministic tar"
+      - "agentsmith-content/README.md: document patterns/ structure, link to docs/security/custom-patterns.md from p0103a"
+      - "agentsmith-content/CHANGELOG.md: v2.0.0 entry — patterns added, repo renamed"
+
+  - id: content-config
+    action: "Rename SkillsConfig → ContentConfig in agentsmith.yaml schema. Old skills: key still readable for one minor version with deprecation log."
+    modify:
+      - "context_schema.json: content section replaces skills section, skills section retained as deprecated"
+      - "context.yaml: example uses content: source: default"
+      - "ContentConfig record (renamed from SkillsConfig): same fields"
+
+  - id: cli-rename
+    action: "Rename CLI verb skills pull → content pull. Old verb prints deprecation warning, dispatches to new code."
+    modify:
+      - "Program.cs: register content pull verb, keep skills pull as deprecated alias"
+      - "ContentPullCommand (renamed from SkillsPullCommand)"
+      - "ContentRepositoryClient (renamed from SkillsRepositoryClient): default URL points at agentsmith-content"
+      - "ContentCacheMarker (renamed from SkillsCacheMarker)"
+      - "ServiceCollectionExtensions: registrations renamed"
+
+  - id: bootstrap-extension
+    action: "ContentBootstrapHostedService resolves one root, exposes paths to both SkillLoader and StaticPatternScanner."
+    modify:
+      - "ContentBootstrapHostedService (renamed from SkillsBootstrapHostedService): resolves content root, exposes ContentRoot.SkillsPath and ContentRoot.PatternsPath"
+      - "DefaultSourceHandler/PathSourceHandler/UrlSourceHandler: validate both subdirs exist after extraction/mount"
+      - "StaticPatternScanner: takes resolved patterns directory from bootstrap, AGENTSMITH_CONFIG_DIR remains as user-pattern override on top"
+      - "SkillLoader: path now {root}/skills instead of {root} directly"
+      - "Program.cs: register before SkillLoader and StaticPatternScanner"
+
+  - id: remove-bundled-patterns
+    action: "Drop config/patterns/ from main repo, fetch externally for tests."
+    delete:
+      - "config/patterns/"
+    new:
+      - "scripts/fetch-content.sh (renamed from fetch-skills.sh): agentsmith content pull --version $CONTENT_VERSION --output ./test-content/"
+    modify:
+      - ".github/workflows/ci.yml: run fetch-content.sh, replaces fetch-skills.sh"
+      - "tests/**: PatternDefinitionLoader tests use ./test-content/patterns; SkillLoader tests use ./test-content/skills"
+
+  - id: env-var-rename
+    action: "Rename env vars to align with content naming. Old vars stay as fallbacks for one minor version."
+    modify:
+      - "AGENTSMITH_CONTENT_REPOSITORY_URL replaces AGENTSMITH_SKILLS_REPOSITORY_URL"
+      - "AGENTSMITH_CONTENT_DIR replaces AGENTSMITH_SKILLS_DIR"
+      - "Settings reader: warn if old vars set, prefer new"
+
+  - id: k8s-helm-update
+    action: "Update K8s manifests and Helm chart to content-naming."
+    modify:
+      - "deploy/k8s/8-deployment-server.yaml: volume content-cache, mount /var/lib/agentsmith/content, env AGENTSMITH_CONTENT_DIR, raise memory limit if needed"
+      - "deploy/k8s/3-configmap.yaml: agentsmith.yaml content: section"
+      - "helm/agentsmith/values.yaml: content.source/version/cacheDir/repositoryUrl (skills.* removed)"
+      - "helm/agentsmith/templates/deployment.yaml: templated from values.content"
+      - "deploy/k8s/examples/path-mode-deployment.yaml and airgap-deployment.yaml: updated"
+
+  - id: ado-template-update
+    action: "ADO pipeline template renamed and extended."
+    rename:
+      - "agentsmith-content/ado/templates/pull-skills.yml → pull-content.yml"
+    modify:
+      - "pull-content.yml: parameterized contentVersion (replaces skillsVersion), pulls full tarball"
+
+  - id: docs
+    action: "Documentation updated for content-as-aggregate."
+    new:
+      - "docs/content/source-modes.md (replaces docs/skills/source-modes.md)"
+      - "docs/content/airgap.md (replaces docs/skills/airgap.md)"
+      - "docs/content/local-iteration.md (replaces docs/skills/local-iteration.md)"
+    modify:
+      - "README.md: reference agentsmith-content repo"
+      - "Migration note in CHANGELOG: agentsmith-skills → agentsmith-content, skills: → content: in agentsmith.yaml, both with deprecation period"
+
+  - id: skill-manager-retarget
+    action: "p57b skill manager targets agentsmith-content for both skills and patterns."
+    modify:
+      - "InstallSkillsHandler: PRs against agentsmith-content"
+      - "SkillManagerConfig: target_repo default agentsmith-content"
+
+tests:
+  - "ContentRepositoryClient_DefaultUrl_BuildsAgentsmithContentReleaseUrl"
+  - "ContentRepositoryClient_ExtractedTarball_ContainsSkillsAndPatternsDirs"
+  - "PathSourceHandler_PathExistsButNoPatternsSubdir_ThrowsClearError"
+  - "PathSourceHandler_PathExistsButNoSkillsSubdir_ThrowsClearError"
+  - "ContentBootstrapHostedService_RunsBeforeSkillLoader"
+  - "ContentBootstrapHostedService_RunsBeforeStaticPatternScanner"
+  - "ContentBootstrapHostedService_ContentRoot_ExposesSkillsAndPatternsPaths"
+  - "StaticPatternScanner_ResolvedRoot_LoadsFromBootstrappedPath"
+  - "StaticPatternScanner_AgentsmithConfigDirSet_UserPatternsLayerOnTopOfBootstrap"
+  - "DeprecatedSkillsKey_StillReadable_LogsWarning"
+  - "DeprecatedSkillsPullVerb_StillFunctional_LogsWarning"
+  - "DeprecatedAgentsmithSkillsRepositoryUrl_FallsBackToOldVar_LogsWarning"
+
+done:
+  - "agentsmith-skills repo renamed to agentsmith-content"
+  - "Tarball at v2.0.0 contains skills/ and patterns/ side by side"
+  - "config/patterns/ removed from main repo"
+  - "agentsmith content pull works; agentsmith skills pull still works (deprecated)"
+  - "agentsmith.yaml content: section works; skills: still readable (deprecated)"
+  - "ContentBootstrapHostedService resolves once, both loaders consume"
+  - "AGENTSMITH_CONTENT_REPOSITORY_URL and AGENTSMITH_CONTENT_DIR active; old vars still fall through"
+  - "Helm upgrade with bumped content.version triggers re-pull of skills+patterns"
+  - "K8s path-mode example mounts a directory containing both skills/ and patterns/"
+  - "p57b PRs against agentsmith-content"
+  - "Pattern findings produced from externalized YAML byte-equal to pre-phase output (snapshot-verified)"
+  - "dotnet build and dotnet test clean"

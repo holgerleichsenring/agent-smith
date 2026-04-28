@@ -1,0 +1,15 @@
+date: 2026-04-23T12:49:51Z
+branch: main
+findings_critical: 38
+findings_high: 58
+findings_medium: 518
+findings_retained: 647
+findings_auto_fixed: 0
+scan_types:
+  - StaticPatternScan
+  - GitHistoryScan
+  - DependencyAudit
+new_since_last: 0
+resolved_since_last: 0
+top_categories:
+cost_usd: 0.0000

@@ -61,11 +61,23 @@ re-pulls (use `path` if you want stable mounted catalogs).
 
 ## CLI parity
 
-The same code path runs from the command line:
+The same code path runs from the command line. With a config file present,
+`pull` reads `skills.version` / `skills.url` / `skills.cacheDir` /
+`skills.sha256` from `agentsmith.yml` and runs the same pull the server would
+do at boot:
 
 ```bash
-agentsmith skills pull --version v1.0.0 --output ./test-skills
+agentsmith skills pull --config agentsmith.yml
+```
+
+Any flag overrides its config counterpart:
+
+```bash
+agentsmith skills pull --config agentsmith.yml --version v1.1.0   # try a newer release
+agentsmith skills pull --config agentsmith.yml --output /tmp/skills
+agentsmith skills pull --version v1.0.0 --output ./test-skills    # no config file at all
 agentsmith skills pull --url https://… --sha256 <hex> --output ./skills
 ```
 
-This is what `scripts/fetch-skills.sh` uses for CI.
+`scripts/fetch-skills.sh` uses explicit `--version` and `--output` so CI works
+without a project config file.
