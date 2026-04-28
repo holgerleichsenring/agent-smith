@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0103a
+goal: "Patterns become pure data — provider metadata moves into YAML, tests no longer assert specific pattern IDs. Prerequisite for externalizing patterns in p0103."
+
+decisions:
+  - key: "Provider metadata moves into pattern YAML (provider, revocation_url fields) — pattern IDs become opaque identifiers, no longer hardcoded keys in code"
+  - key: "SecretProviderRegistry deleted — was a hardcoded ID→provider map; now each pattern carries its own provider metadata as data"
+  - key: "Tests assert mechanics, not specific IDs — loader/matcher behavior, regex compiles, severity ranges, category counts; no Assert.Equal on pattern IDs"
+  - key: "GitDiffSecretMatcher consumes the same YAML — eliminates the parallel hardcoded pattern list, one source of truth for secret detection"
+  - key: "Pattern ID contract documented as opaque — pattern IDs are not a public API; users may add custom patterns but should not expect ID stability across versions"
+
+steps:
+  - id: extend-pattern-schema
+    action: "Add optional provider and revocation_url fields to pattern YAML schema. PatternDefinition record gains Provider and RevocationUrl properties."
+    modify:
+      - "PatternDefinition: add Provider (string?), RevocationUrl (string?)"
+      - "PatternFileDto: add provider, revocation_url YAML fields"
+      - "PatternDefinitionLoader: map new fields"
+
+  - id: migrate-provider-metadata
+    action: "Move all entries from SecretProviderRegistry into the corresponding pattern YAML files (config/patterns/secrets.yaml etc.). Each affected pattern gets provider and revocation_url fields."
+    modify:
+      - "config/patterns/secrets.yaml: add provider/revocation_url to aws-access-key, github-token, github-oauth, stripe-live-key, stripe-restricted, slack-token, slack-webhook, discord-token, twilio-api-key, sendgrid-api-key, openai-api-key, google-api-key, npm-token, pypi-token, mailchimp-api-key, generic-connection-string, private-key-rsa, private-key-generic"
+
+  - id: data-driven-lookup
+    action: "PatternFileMatcher reads provider metadata from PatternDefinition directly instead of calling SecretProviderRegistry."
+    modify:
+      - "PatternFileMatcher: replace SecretProviderRegistry.Lookup(pattern.Definition.Id) with pattern.Definition.Provider/RevocationUrl"
+    delete:
+      - "SecretProviderRegistry.cs"
+
+  - id: unify-git-secret-matcher
+    action: "GitDiffSecretMatcher consumes the same pattern definitions instead of its own hardcoded tuple list. Receives IPatternDefinitionLoader via DI."
+    modify:
+      - "GitDiffSecretMatcher: inject IPatternDefinitionLoader, filter to category=secrets, drop hardcoded (id,title,regex) tuples"
+      - "GitHistoryScanner: pass-through, no behavior change"
+
+  - id: decouple-tests
+    action: "Rewrite pattern tests to assert mechanics, not specific IDs. AuthPatternTests and ApiAuthPatternTests verify: file loads, regex compiles, severity in valid range, category populated, expected count per category — without naming individual patterns."
+    modify:
+      - "AuthPatternTests.cs: drop p.Id == \"...\" assertions, replace with category-level invariants"
+      - "ApiAuthPatternTests.cs: drop Get(\"id\") assertions, verify behavioral invariants instead"
+
+  - id: document-contract
+    action: "Document the pattern ID contract: IDs are opaque, custom patterns supported, provider/revocation_url optional."
+    new:
+      - "docs/security/custom-patterns.md: how to add custom patterns, schema reference, ID stability disclaimer"
+    modify:
+      - "config/patterns/secrets.yaml: header comment links to docs"
+
+tests:
+  - "PatternDefinitionLoader_ProviderField_LoadsCorrectly"
+  - "PatternDefinitionLoader_RevocationUrlField_LoadsCorrectly"
+  - "PatternDefinitionLoader_MissingProvider_ReturnsNull"
+  - "PatternFileMatcher_PatternWithProvider_FindingCarriesProvider"
+  - "PatternFileMatcher_PatternWithoutProvider_FindingHasNullProvider"
+  - "GitDiffSecretMatcher_LoadsFromYaml_DetectsAwsKey"
+  - "GitDiffSecretMatcher_LoadsFromYaml_DetectsGithubToken"
+  - "AuthPatterns_AllPatternsLoad_RegexCompiles"
+  - "AuthPatterns_SeverityInValidRange"
+  - "ApiAuthPatterns_CategoryHasExpectedPatternCount"
+
+done:
+  - "PatternDefinition record has Provider and RevocationUrl properties"
+  - "All 18 secrets patterns in config/patterns/secrets.yaml carry provider/revocation_url metadata"
+  - "SecretProviderRegistry.cs deleted"
+  - "PatternFileMatcher reads provider data from PatternDefinition only"
+  - "GitDiffSecretMatcher consumes IPatternDefinitionLoader, no hardcoded tuples"
+  - "AuthPatternTests and ApiAuthPatternTests assert no specific pattern IDs"
+  - "Findings serialized in SARIF/Markdown/JSON carry provider metadata identical to before (snapshot-verified)"
+  - "Custom patterns documentation published"
+  - "dotnet build and dotnet test clean"

@@ -68,6 +68,10 @@ public static class ServiceCollectionExtensions
 
         // Security scanners (p54)
         services.AddSingleton<PatternDefinitionLoader>();
+        services.AddSingleton<PatternsDirectoryResolver>();
+        services.AddSingleton<PatternCompiler>();
+        services.AddTransient<PatternFileMatcher>();
+        services.AddTransient<GitDiffSecretMatcher>();
         services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
