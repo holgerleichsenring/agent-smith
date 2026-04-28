@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -26,6 +27,7 @@ public class ExecutePipelineUseCaseTests
             _intentMock.Object,
             _pipelineMock.Object,
             _sourceOverriderMock.Object,
+            new StubSkillsCatalogResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

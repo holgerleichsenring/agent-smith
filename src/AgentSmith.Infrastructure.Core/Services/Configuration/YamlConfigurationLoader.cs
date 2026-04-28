@@ -16,7 +16,6 @@ public sealed class YamlConfigurationLoader : IConfigurationLoader
         var yaml = ReadFile(configPath);
         var config = Deserialize(yaml, configPath);
         ResolveSecrets(config);
-        ResolveRelativePaths(config, configPath);
         return config;
     }
 
@@ -54,17 +53,6 @@ public sealed class YamlConfigurationLoader : IConfigurationLoader
             resolved[key] = ResolveEnvironmentVariable(value);
 
         config.Secrets = resolved;
-    }
-
-    private static void ResolveRelativePaths(AgentSmithConfig config, string configPath)
-    {
-        var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".";
-
-        foreach (var project in config.Projects.Values)
-        {
-            if (!Path.IsPathRooted(project.SkillsPath))
-                project.SkillsPath = Path.GetFullPath(Path.Combine(configDir, project.SkillsPath));
-        }
     }
 
     private static string ResolveEnvironmentVariable(string value)
