@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.25.0...v0.25.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **config:** use snake_case cache_dir in YAML examples ([07849c6](https://github.com/holgerleichsenring/agent-smith/commit/07849c6ef3c45ecf8023d63d5989e173eaa2c526))
+* **skills:** portable cache_dir default + snake_case YAML key ([63f7484](https://github.com/holgerleichsenring/agent-smith/commit/63f74846b87d63a18fd3e61bc3d8832f43ae1024))
+* **skills:** portable default cache_dir, friendly permission-denied error ([846416a](https://github.com/holgerleichsenring/agent-smith/commit/846416ab471ae7ec903141d74d6422e9c1608ed7))
+
 ## [0.25.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.24.0...v0.25.0) (2026-04-28)
 
 
