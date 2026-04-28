@@ -4,42 +4,26 @@ using LibGit2Sharp;
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
-/// Diff parsing, secret-pattern matching, and masking utilities
-/// extracted from <see cref="GitHistoryScanner"/>.
+/// Diff parsing, secret-pattern matching, and masking utilities used by
+/// <see cref="GitHistoryScanner"/>. Patterns are passed in by the caller so this
+/// stays a pure transformer over data — same pattern source as the static scanner.
 /// </summary>
-internal static class GitDiffSecretMatcher
+public sealed class GitDiffSecretMatcher
 {
-    internal static readonly (string Id, string Title, Regex Pattern)[] SecretPatterns =
-    [
-        ("aws-key", "AWS Access Key", new Regex(@"AKIA[0-9A-Z]{16}", RegexOptions.Compiled)),
-        ("github-token", "GitHub Token", new Regex(@"gh[pors]_[A-Za-z0-9]{36}", RegexOptions.Compiled)),
-        ("generic-api-key", "Generic API Key", new Regex(@"(api[_\-]?key|apikey|api[_\-]?secret)\s*[:=]\s*[""'][A-Za-z0-9/+=]{20,}", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        ("private-key", "Private Key", new Regex(@"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----", RegexOptions.Compiled)),
-        ("connection-string", "Connection String", new Regex(@"(mongodb(\+srv)?|postgres(ql)?|mysql|redis|amqp)://[^\s""']+:[^\s""']+@", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        ("generic-secret", "Generic Secret", new Regex(@"(secret|password|passwd|token|credential)\s*[:=]\s*[""'][^\s""']{8,}", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        ("stripe-key", "Stripe Secret Key", new Regex(@"sk_live_[A-Za-z0-9]{24,}", RegexOptions.Compiled)),
-        ("slack-token", "Slack Token", new Regex(@"xox[bpors]-[A-Za-z0-9\-]{10,}", RegexOptions.Compiled)),
-    ];
-
-    /// <summary>
-    /// Builds a searchable index of all secret-matching text found in HEAD blobs.
-    /// </summary>
-    internal static HashSet<string> BuildHeadContentIndex(Repository repo)
+    public HashSet<string> BuildHeadContentIndex(
+        Repository repo,
+        IReadOnlyList<CompiledPattern> patterns)
     {
         var index = new HashSet<string>(StringComparer.Ordinal);
 
         if (repo.Head?.Tip?.Tree is null)
             return index;
 
-        CollectBlobContent(repo.Head.Tip.Tree, index);
+        CollectBlobContent(repo.Head.Tip.Tree, patterns, index);
         return index;
     }
 
-    /// <summary>
-    /// Extracts added lines (lines starting with '+') from a unified diff patch,
-    /// returning tuples of (approximate line number, line content).
-    /// </summary>
-    internal static List<(int LineNumber, string Content)> ExtractAddedLines(string patch)
+    public List<(int LineNumber, string Content)> ExtractAddedLines(string patch)
     {
         var result = new List<(int, string)>();
         if (string.IsNullOrEmpty(patch))
@@ -50,7 +34,6 @@ internal static class GitDiffSecretMatcher
         {
             if (line.StartsWith("@@", StringComparison.Ordinal))
             {
-                // Parse new-file line number from hunk header: @@ -a,b +c,d @@
                 var plusIndex = line.IndexOf('+');
                 var commaIndex = line.IndexOf(',', plusIndex);
                 var endIndex = commaIndex > 0 ? commaIndex : line.IndexOf(' ', plusIndex);
@@ -77,10 +60,7 @@ internal static class GitDiffSecretMatcher
         return result;
     }
 
-    /// <summary>
-    /// Masks a secret value, keeping only the first 4 and last 2 characters visible.
-    /// </summary>
-    internal static string MaskSecret(string secret)
+    public string MaskSecret(string secret)
     {
         if (secret.Length <= 8)
             return secret[..2] + new string('*', secret.Length - 2);
@@ -88,7 +68,10 @@ internal static class GitDiffSecretMatcher
         return secret[..4] + new string('*', secret.Length - 6) + secret[^2..];
     }
 
-    private static void CollectBlobContent(Tree tree, HashSet<string> index)
+    private static void CollectBlobContent(
+        Tree tree,
+        IReadOnlyList<CompiledPattern> patterns,
+        HashSet<string> index)
     {
         foreach (var entry in tree)
         {
@@ -98,9 +81,9 @@ internal static class GitDiffSecretMatcher
                 using var reader = new StreamReader(blob.GetContentStream());
                 var content = reader.ReadToEnd();
 
-                foreach (var (_, _, pattern) in SecretPatterns)
+                foreach (var pattern in patterns)
                 {
-                    foreach (Match match in pattern.Matches(content))
+                    foreach (Match match in pattern.Regex.Matches(content))
                     {
                         index.Add(match.Value);
                     }
@@ -108,7 +91,7 @@ internal static class GitDiffSecretMatcher
             }
             else if (entry.TargetType == TreeEntryTargetType.Tree)
             {
-                CollectBlobContent((Tree)entry.Target, index);
+                CollectBlobContent((Tree)entry.Target, patterns, index);
             }
         }
     }

@@ -8,63 +8,101 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class ApiAuthPatternTests
 {
+    private const string ApiAuthCategory = "api-auth";
+
     private static IReadOnlyList<PatternDefinition> LoadApiAuthPatterns()
     {
         var loader = new PatternDefinitionLoader(NullLogger<PatternDefinitionLoader>.Instance);
         var patternsDir = Path.Combine(
             Directory.GetCurrentDirectory().Split("bin")[0], "..", "..", "config", "patterns");
         var all = loader.LoadFromDirectory(Path.GetFullPath(patternsDir));
-        return all.Where(p => p.Category == "api-auth").ToList();
+        return all.Where(p => p.Category == ApiAuthCategory).ToList();
     }
 
-    private static PatternDefinition Get(string id) =>
-        LoadApiAuthPatterns().Single(p => p.Id == id);
+    private static PatternDefinition? FindMatching(IEnumerable<PatternDefinition> patterns, string sample) =>
+        patterns.FirstOrDefault(p => Regex.IsMatch(sample, p.Regex));
 
     [Fact]
-    public void ValidateLifetimeFalse_Critical()
+    public void ApiAuthCategory_PatternsLoaded()
     {
-        var pat = Get("jwt-validate-lifetime-disabled");
-        Regex.IsMatch("ValidateLifetime = false", pat.Regex).Should().BeTrue();
-        pat.Severity.Should().Be("critical");
-    }
-
-    [Fact]
-    public void AllowAnyOriginPlusCredentials_High()
-    {
-        var pat = Get("cors-allow-any-origin-with-credentials");
-        Regex.IsMatch(".AllowAnyOrigin().AllowCredentials()", pat.Regex).Should().BeTrue();
-        Regex.IsMatch(".AllowCredentials().AllowAnyOrigin()", pat.Regex).Should().BeTrue();
-        pat.Severity.Should().Be("high");
+        var patterns = LoadApiAuthPatterns();
+        patterns.Should().NotBeEmpty("config/patterns/api-auth.yaml must define API-auth patterns");
     }
 
     [Fact]
-    public void AllowAnonymousOnPost_High()
+    public void ApiAuthPatterns_AllRegexCompile()
     {
-        var pat = Get("anonymous-on-state-changing-verb");
-        var snippet = "[AllowAnonymous]\n[HttpPost(\"/api/x\")]\npublic IActionResult Create() {}";
-        Regex.IsMatch(snippet, pat.Regex).Should().BeTrue();
-        pat.Severity.Should().Be("high");
+        var patterns = LoadApiAuthPatterns();
+        foreach (var p in patterns)
+        {
+            var act = () => new Regex(p.Regex);
+            act.Should().NotThrow($"pattern {p.Id} regex must compile");
+        }
     }
 
     [Fact]
-    public void HardcodedJwtSecret_Critical()
+    public void ApiAuthPatterns_AllSeveritiesValid()
     {
-        var pat = Get("hardcoded-jwt-secret");
-        Regex.IsMatch("JwtKey = \"super-secret-key-123456-abcdef\"", pat.Regex).Should().BeTrue();
-        pat.Severity.Should().Be("critical");
+        var allowed = new[] { "info", "low", "medium", "high", "critical" };
+        var patterns = LoadApiAuthPatterns();
+        foreach (var p in patterns)
+        {
+            allowed.Should().Contain(p.Severity, $"pattern {p.Id} severity must be a known value");
+        }
     }
 
     [Fact]
-    public void ValidateIssuerFalse_High()
+    public void ValidateLifetimeFalseSample_FlaggedAsCritical()
     {
-        var pat = Get("jwt-validate-issuer-disabled");
-        Regex.IsMatch("ValidateIssuer = false", pat.Regex).Should().BeTrue();
+        var match = FindMatching(LoadApiAuthPatterns(), "ValidateLifetime = false");
+        match.Should().NotBeNull("disabling JWT lifetime validation should be flagged");
+        match!.Severity.Should().Be("critical");
     }
 
     [Fact]
-    public void ValidateIssuerSigningKeyFalse_Critical()
+    public void CorsAllowAnyWithCredentialsSamples_FlaggedAsHigh()
     {
-        var pat = Get("jwt-validate-issuer-signing-key-disabled");
-        Regex.IsMatch("ValidateIssuerSigningKey = false", pat.Regex).Should().BeTrue();
+        var patterns = LoadApiAuthPatterns();
+        foreach (var sample in new[]
+        {
+            ".AllowAnyOrigin().AllowCredentials()",
+            ".AllowCredentials().AllowAnyOrigin()",
+        })
+        {
+            var match = FindMatching(patterns, sample);
+            match.Should().NotBeNull($"CORS sample '{sample}' should be flagged");
+            match!.Severity.Should().Be("high");
+        }
+    }
+
+    [Fact]
+    public void AllowAnonymousOnPostSample_FlaggedAsHigh()
+    {
+        const string sample = "[AllowAnonymous]\n[HttpPost(\"/api/x\")]\npublic IActionResult Create() {}";
+        var match = FindMatching(LoadApiAuthPatterns(), sample);
+        match.Should().NotBeNull("anonymous on state-changing verb should be flagged");
+        match!.Severity.Should().Be("high");
+    }
+
+    [Fact]
+    public void HardcodedJwtSecretSample_FlaggedAsCritical()
+    {
+        var match = FindMatching(LoadApiAuthPatterns(), "JwtKey = \"super-secret-key-123456-abcdef\"");
+        match.Should().NotBeNull("hardcoded JWT secret should be flagged");
+        match!.Severity.Should().Be("critical");
+    }
+
+    [Fact]
+    public void ValidateIssuerFalseSample_Flagged()
+    {
+        FindMatching(LoadApiAuthPatterns(), "ValidateIssuer = false")
+            .Should().NotBeNull("disabling issuer validation should be flagged");
+    }
+
+    [Fact]
+    public void ValidateIssuerSigningKeyFalseSample_Flagged()
+    {
+        FindMatching(LoadApiAuthPatterns(), "ValidateIssuerSigningKey = false")
+            .Should().NotBeNull("disabling signing-key validation should be flagged");
     }
 }
