@@ -1,11 +1,14 @@
-# Run from repo root:  docker compose -f deploy/docker-compose.yml up
-# One-shot mode:       docker compose -f deploy/docker-compose.yml run --rm agentsmith run --headless "fix #1 in my-project"
-# Security scan:       docker compose -f deploy/docker-compose.yml run --rm agentsmith security-scan --repo /app/repo --output console
-# Server mode:         docker compose -f deploy/docker-compose.yml up -d server
+# Run from repo root:
+#   docker compose -f deploy/docker-compose.yml up -d                        # server + redis
+#   docker compose -f deploy/docker-compose.yml run --rm agentsmith run --headless "fix #1 in my-project"
+#   docker compose -f deploy/docker-compose.yml run --rm agentsmith security-scan --repo /app/repo --output console
 #
-# p0107: the Server is now the single long-running container — Slack/Teams chat,
-# webhook routes, polling, queue consumer, and lifecycle reconcilers all run in
-# one process (AgentSmith.Server.dll). The CLI's `server` subcommand was removed.
+# Two images, two roles:
+#   - agentsmith-cli (one-shot CLI for ad-hoc runs / pipelines)
+#   - agentsmith-server (single long-running container: Slack/Teams chat,
+#     webhooks, polling, queue consumer, lifecycle reconcilers — all in one
+#     process via AgentSmith.Server.dll, since p0107)
+
 services:
   agentsmith:
     build:
@@ -13,43 +16,17 @@ services:
       dockerfile: src/AgentSmith.Cli/Dockerfile
     image: agentsmith-cli:latest
     restart: "no"
-    stdin_open: false
     env_file:
       - ../.env
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - AZURE_DEVOPS_TOKEN=${AZURE_DEVOPS_TOKEN:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - ../config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
       - /var/run/docker.sock:/var/run/docker.sock    # for Nuclei/Spectral tool containers
 
-  ollama:
-    image: ollama/ollama
-    profiles: [local-models]
-    volumes:
-      - ollama-data:/root/.ollama
-    ports:
-      - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command:
-      - "--maxmemory"
-      - "256mb"
-      - "--maxmemory-policy"
-      - "allkeys-lru"
-      - "--save"
-      - ""
+    command: ["--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
     ports:
       - "6379:6379"
     healthcheck:
@@ -64,7 +41,7 @@ services:
       context: ..
       dockerfile: src/AgentSmith.Server/Dockerfile
     restart: unless-stopped
-    user: root # needed for Docker socket write access in local dev (SPAWNER_TYPE=docker)
+    user: root  # docker socket access for SPAWNER_TYPE=docker (local dev)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -74,20 +51,12 @@ services:
       - ../.env
     environment:
       - REDIS_URL=redis:6379
-      - SPAWNER_TYPE=docker
-      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
-      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
-      - TEAMS_APP_ID=${TEAMS_APP_ID:-}
-      - TEAMS_APP_PASSWORD=${TEAMS_APP_PASSWORD:-}
-      - TEAMS_TENANT_ID=${TEAMS_TENANT_ID:-}
-      - ASPNETCORE_URLS=http://+:8081
+      - SPAWNER_TYPE=${SPAWNER_TYPE:-docker}
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - K8S_NAMESPACE=${K8S_NAMESPACE:-default}
       - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:latest}
       - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
-      - K8S_SECRET_NAME=${K8S_SECRET_NAME:-agentsmith-secrets}
     ports:
-      - "${DISPATCHER_PORT:-6000}:8081"
+      - "${SERVER_PORT:-8081}:8081"
     volumes:
       - ../config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
@@ -97,6 +66,19 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  ollama:
+    image: ollama/ollama
+    profiles: [local-models]
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
 
 volumes:
   ollama-data:

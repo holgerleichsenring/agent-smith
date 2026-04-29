@@ -60,25 +60,7 @@ services:
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
       - /var/run/docker.sock:/var/run/docker.sock
 
-  # Webhook server (persistent, listens for GitHub/GitLab/AzDO events)
-  # REDIS_URL is optional — without it, the server stays up but webhook POSTs reply 503
-  # and /health/ready reports the degraded state. Set REDIS_URL=redis:6379 for end-to-end
-  # ticket processing. depends_on:redis is not required: the multiplexer reconnects when
-  # Redis becomes reachable (p0101).
-  agentsmith-server:
-    image: holgerleichsenring/agent-smith:latest
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      - REDIS_URL=redis:6379
-    ports:
-      - "${WEBHOOK_PORT:-8081}:8081"
-    volumes:
-      - ./config:/app/config
-      - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
-    command: ["server", "--port", "8081"]
-
-  # Redis (required for Dispatcher)
+  # Redis (required by Server for queue + leader election + dialogue routing)
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -91,11 +73,11 @@ services:
       timeout: 3s
       retries: 3
 
-  # Dispatcher (Slack/Teams gateway, spawns Docker containers per request)
-  dispatcher:
-    build:
-      context: .
-      dockerfile: src/AgentSmith.Server/Dockerfile
+  # Server: single long-running container — Slack/Teams chat, webhook routes,
+  # polling, queue consumer, and lifecycle reconcilers (since p0107).
+  # Spawns Docker/K8s containers for each pipeline run.
+  server:
+    image: holgerleichsenring/agent-smith-server:latest
     restart: unless-stopped
     depends_on:
       redis:
@@ -108,7 +90,7 @@ services:
       - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
       - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-holgerleichsenring/agent-smith:latest}
     ports:
-      - "${DISPATCHER_PORT:-6000}:8081"
+      - "${SERVER_PORT:-8081}:8081"
     volumes:
       - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
@@ -140,15 +122,15 @@ docker compose run --rm agentsmith fix --repo https://github.com/org/repo --tick
 # One-shot: security scan
 docker compose run --rm agentsmith security-scan --repo /app/repo --output console
 
-# Start webhook server (Redis optional — see Health endpoints below)
-docker compose up -d agentsmith-server
+# Start the full stack (server + redis)
+docker compose up -d
 
-# Liveness (always 200 if listener alive) and readiness (503 unless every subsystem is Up)
+# Liveness (always 200 if Server is alive) and readiness (503 unless every subsystem is Up)
 curl http://localhost:8081/health
 curl -i http://localhost:8081/health/ready
 
-# Start full stack (dispatcher + redis)
-docker compose up -d dispatcher redis
+# Webhook routes are on the same Server, same port:
+#   POST http://localhost:8081/webhook/{github,gitlab,azuredevops,jira}
 
 # Start with local Ollama models
 docker compose --profile local-models up -d
