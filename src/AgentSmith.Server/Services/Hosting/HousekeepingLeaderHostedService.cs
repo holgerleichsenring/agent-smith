@@ -16,8 +16,7 @@ namespace AgentSmith.Server.Services.Hosting;
 public sealed class HousekeepingLeaderHostedService(
     IServiceProvider services,
     ServerContext serverContext,
-    IConfigurationLoader configLoader,
-    ILogger<LeaderElectedHostedService> leaderLogger) : BackgroundService
+    IConfigurationLoader configLoader) : BackgroundService
 {
     private const string LeaseKey = "agentsmith:leader:housekeeping";
     private readonly SubsystemHealth _health = new("housekeeping");

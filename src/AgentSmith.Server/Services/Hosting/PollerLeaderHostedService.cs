@@ -14,8 +14,7 @@ namespace AgentSmith.Server.Services.Hosting;
 public sealed class PollerLeaderHostedService(
     IServiceProvider services,
     ServerContext serverContext,
-    IConfigurationLoader configLoader,
-    ILogger<LeaderElectedHostedService> leaderLogger) : BackgroundService
+    IConfigurationLoader configLoader) : BackgroundService
 {
     private const string LeaseKey = "agentsmith:leader:poller";
     private readonly SubsystemHealth _health = new("poller");

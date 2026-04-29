@@ -1,26 +1,30 @@
 # Server Resilience
 
-The CLI server (`agent-smith server`) is split into four subsystems with independent
-health states. Three of them depend on Redis; the webhook listener does not. The
-server boots even when Redis is missing or unreachable — it stays up and reports
-*why* it is degraded via the `/health` endpoints, instead of crashing the container.
+The Server (`AgentSmith.Server.dll`, the single long-running deployment since p0107)
+is split into independent subsystems with separate health states. Most depend on
+Redis; the webhook routing path does not. The server boots even when Redis is
+missing or unreachable — it stays up and reports *why* it is degraded via the
+`/health` endpoints, instead of crashing the container.
 
 ## Subsystems
 
 | Subsystem        | Needs Redis | Purpose                                                |
 |------------------|-------------|--------------------------------------------------------|
-| `webhook`        | No          | HTTP listener accepting webhook POSTs and `/health`.   |
 | `redis`          | Yes         | StackExchange.Redis multiplexer connection state.      |
 | `queue_consumer` | Yes         | Pulls `PipelineRequest`s off the queue and runs them.  |
 | `housekeeping`   | Yes         | Stale-job detector + enqueued reconciler (leader-elected). |
 | `poller`         | Yes         | Per-platform ticket polling (leader-elected).          |
+
+The webhook routes (`/webhook/{github,gitlab,azuredevops,jira}`) are served by
+the same Kestrel as `/health` and the chat-platform endpoints — no separate
+listener subsystem since p0107.
 
 Each subsystem is in one of four states:
 
 - **Up** — running normally.
 - **Degraded** — temporarily impaired (Redis is configured but disconnected;
   task crashed and is retrying).
-- **Down** — listener stopped or fatal error.
+- **Down** — fatal error.
 - **Disabled** — `REDIS_URL` is not configured. The subsystem will never start
   in this process; restart with `REDIS_URL` set to enable it.
 
@@ -35,7 +39,6 @@ describing every subsystem:
 {
   "status": "degraded",
   "subsystems": [
-    { "name": "webhook",        "state": "up",       "reason": null,                          "last_changed_utc": "2026-04-26T12:00:01Z" },
     { "name": "queue_consumer", "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
     { "name": "housekeeping",   "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
     { "name": "poller",         "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
