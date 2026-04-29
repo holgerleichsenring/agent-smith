@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
@@ -21,6 +22,7 @@ public sealed class AzureDevOpsTicketProvider(
     string project,
     string personalAccessToken,
     AzureDevOpsAttachmentLoader attachmentLoader,
+    ILogger<AzureDevOpsTicketProvider> logger,
     IReadOnlyList<string>? openStates = null,
     string? doneStatus = null,
     IReadOnlyList<string>? extraFields = null) : ITicketProvider
@@ -51,13 +53,22 @@ public sealed class AzureDevOpsTicketProvider(
     public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
     {
+        var label = LifecycleLabels.For(status);
+        logger.LogInformation(
+            "AzDO ListByLifecycleStatus: project={Project} status={Status} (tag '{Label}')",
+            project, status, label);
         try
         {
-            var label = LifecycleLabels.For(status);
-            return await ListWiqlAsync(extraWhere: $"[System.Tags] CONTAINS '{label}'", cancellationToken);
+            var tickets = await ListWiqlAsync(extraWhere: $"[System.Tags] CONTAINS '{label}'", cancellationToken);
+            logger.LogInformation(
+                "AzDO ListByLifecycleStatus: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex,
+                "AzDO ListByLifecycleStatus failed for project={Project} status={Status}",
+                project, status);
             return [];
         }
     }
@@ -84,8 +95,12 @@ public sealed class AzureDevOpsTicketProvider(
                 """
         };
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        logger.LogDebug("AzDO WIQL query: {Where}", whereClause);
         var result = await client.QueryByWiqlAsync(wiql, project, top: 50,
             cancellationToken: cancellationToken);
+        logger.LogDebug("AzDO WIQL query completed in {Ms}ms, {Count} ids returned",
+            sw.ElapsedMilliseconds, result.WorkItems?.Count() ?? 0);
 
         if (result.WorkItems is null || !result.WorkItems.Any())
             return Array.Empty<Ticket>();

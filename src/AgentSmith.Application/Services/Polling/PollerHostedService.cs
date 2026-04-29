@@ -54,17 +54,28 @@ public sealed class PollerHostedService(
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(PerPollerTimeout);
-        try { return await poller.PollAsync(cts.Token); }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        logger.LogInformation("Polling {Platform}/{Project}…", poller.PlatformName, poller.ProjectName);
+        try
+        {
+            var result = await poller.PollAsync(cts.Token);
+            logger.LogInformation(
+                "Polled {Platform}/{Project}: {Count} candidate(s) in {Ms}ms",
+                poller.PlatformName, poller.ProjectName, result.Count, sw.ElapsedMilliseconds);
+            return result;
+        }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Poller {Platform}/{Project} timed out",
-                poller.PlatformName, poller.ProjectName);
+            logger.LogWarning(
+                "Poller {Platform}/{Project} timed out after {Ms}ms",
+                poller.PlatformName, poller.ProjectName, sw.ElapsedMilliseconds);
             return [];
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Poller {Platform}/{Project} failed",
-                poller.PlatformName, poller.ProjectName);
+            logger.LogError(ex,
+                "Poller {Platform}/{Project} failed after {Ms}ms",
+                poller.PlatformName, poller.ProjectName, sw.ElapsedMilliseconds);
             return [];
         }
     }
