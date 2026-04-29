@@ -39,7 +39,20 @@ public sealed class StaleJobDetector(
     {
         var config = configLoader.LoadConfig(configPath);
         foreach (var (name, project) in config.Projects)
-            await ScanProjectAsync(name, project, ct);
+            await ScanProjectSafeAsync(name, project, ct);
+    }
+
+    private async Task ScanProjectSafeAsync(
+        string projectName, ProjectConfig project, CancellationToken ct)
+    {
+        try { await ScanProjectAsync(projectName, project, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "StaleJobDetector skipped project {Project} (Tickets.Type={Type}): {Message}",
+                projectName, project.Tickets.Type, ex.Message);
+        }
     }
 
     private async Task ScanProjectAsync(
