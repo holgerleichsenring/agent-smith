@@ -16,6 +16,7 @@ public sealed class AzureDevOpsWorkItemPoller(
     ProjectConfig projectConfig,
     ITicketProviderFactory ticketFactory,
     ITicketStatusTransitioner transitioner,
+    IPipelineConfigResolver pipelineConfigResolver,
     ILogger<AzureDevOpsWorkItemPoller> logger) : IEventPoller
 {
     public string PlatformName => "AzureDevOps";
@@ -31,17 +32,24 @@ public sealed class AzureDevOpsWorkItemPoller(
         if (tickets.Count == 0) return [];
 
         var trigger = projectConfig.AzuredevopsTrigger;
+        var fallbackPipeline = TryResolveDefault();
         var requests = tickets
             .Select(t => new ClaimRequest(
                 "AzureDevOps", projectName, t.Id,
                 trigger is null
-                    ? "fix-bug"
-                    : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
+                    ? fallbackPipeline
+                    : PipelineResolver.Resolve(trigger, t.Labels) ?? fallbackPipeline))
             .ToList();
 
         logger.LogDebug("AzureDevOps poll for {Project}: {Count} pending candidates",
             projectName, requests.Count);
         _ = transitioner;
         return requests;
+    }
+
+    private string TryResolveDefault()
+    {
+        try { return pipelineConfigResolver.ResolveDefaultPipelineName(projectConfig); }
+        catch (InvalidOperationException) { return "fix-bug"; }
     }
 }

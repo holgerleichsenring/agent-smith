@@ -18,6 +18,7 @@ internal static class PollerFactory
     {
         var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
         var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
+        var resolver = provider.GetRequiredService<IPipelineConfigResolver>();
         var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger("ServerCommand.BuildPollers");
 
@@ -25,7 +26,7 @@ internal static class PollerFactory
         {
             if (!project.Polling.Enabled) continue;
 
-            var poller = BuildOne(name, project, ticketFactory, transitionerFactory, loggerFactory);
+            var poller = BuildOne(name, project, ticketFactory, transitionerFactory, resolver, loggerFactory);
             if (poller is null)
             {
                 logger.LogWarning(
@@ -41,6 +42,7 @@ internal static class PollerFactory
         string name, ProjectConfig project,
         ITicketProviderFactory ticketFactory,
         ITicketStatusTransitionerFactory transitionerFactory,
+        IPipelineConfigResolver resolver,
         ILoggerFactory loggerFactory)
     {
         var transitioner = transitionerFactory.Create(project.Tickets);
@@ -50,7 +52,7 @@ internal static class PollerFactory
                 name, project, ticketFactory, transitioner,
                 loggerFactory.CreateLogger<GitHubIssuePoller>()),
             "azuredevops" => new AzureDevOpsWorkItemPoller(
-                name, project, ticketFactory, transitioner,
+                name, project, ticketFactory, transitioner, resolver,
                 loggerFactory.CreateLogger<AzureDevOpsWorkItemPoller>()),
             "gitlab" => new GitLabIssuePoller(
                 name, project, ticketFactory, transitioner,
