@@ -89,7 +89,8 @@ internal static class ServerCommand
             heartbeat, ticketFactory, transitionerFactory, configLoader, configPath,
             provider.GetRequiredService<ILogger<StaleJobDetector>>());
         var reconciler = new EnqueuedReconciler(
-            heartbeat, queue, ticketFactory, configLoader, configPath,
+            heartbeat, queue, ticketFactory, configLoader,
+            provider.GetRequiredService<IPipelineConfigResolver>(), configPath,
             provider.GetRequiredService<ILogger<EnqueuedReconciler>>());
         return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct));
     }
