@@ -2,13 +2,18 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.Logging;
 using AgentSmith.Server.Extensions;
+using Microsoft.Extensions.Logging.Console;
 
 DispatcherBanner.Print();
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddConsole();
+builder.Logging.AddConsole(options => options.FormatterName = CompactConsoleFormatter.FormatterName);
+builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOptions>();
+builder.Logging.AddFilter("Microsoft", LogLevel.Information);
+builder.Logging.AddFilter("System", LogLevel.Information);
 builder.Logging.SetMinimumLevel(
     builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 

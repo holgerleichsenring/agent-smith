@@ -16,7 +16,8 @@ namespace AgentSmith.Server.Services.Hosting;
 public sealed class HousekeepingLeaderHostedService(
     IServiceProvider services,
     ServerContext serverContext,
-    IConfigurationLoader configLoader) : BackgroundService
+    IConfigurationLoader configLoader,
+    ILogger<HousekeepingLeaderHostedService> logger) : BackgroundService
 {
     private const string LeaseKey = "agentsmith:leader:housekeeping";
     private readonly SubsystemHealth _health = new("housekeeping");
@@ -25,6 +26,7 @@ public sealed class HousekeepingLeaderHostedService(
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation("HousekeepingLeaderHostedService.ExecuteAsync entered (lease key: {Key})", LeaseKey);
         var retry = configLoader.LoadConfig(serverContext.ConfigPath).Queue.RedisRetryIntervalSeconds;
         return LeaderSubsystemRunner.RunAsync(
             services, _health, LeaseKey, RunHousekeepingAsync, retry, stoppingToken);
@@ -32,6 +34,7 @@ public sealed class HousekeepingLeaderHostedService(
 
     private Task RunHousekeepingAsync(CancellationToken ct)
     {
+        logger.LogInformation("RunHousekeepingAsync entered — building StaleJobDetector + EnqueuedReconciler");
         var heartbeat = services.GetRequiredService<IJobHeartbeatService>();
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
