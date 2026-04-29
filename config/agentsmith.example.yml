@@ -222,7 +222,7 @@ projects:
     #   done_status: "In Review"
     #   pipeline_from_label:
     #     bug: fix-bug
-    #     feature: implement-feature
+    #     feature: add-feature
     #     security-review: security-scan
     #   default_pipeline: fix-bug
     #   comment_keyword: "@agent-smith"
