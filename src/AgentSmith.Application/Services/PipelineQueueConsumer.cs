@@ -32,6 +32,10 @@ public sealed class PipelineQueueConsumer(
             await foreach (var request in queue.ConsumeAsync(cancellationToken))
             {
                 await semaphore.WaitAsync(cancellationToken);
+                logger.LogInformation(
+                    "Dequeued: {Project}/#{Ticket} pipeline={Pipeline} (in-flight: {InFlight}/{Max})",
+                    request.ProjectName, request.TicketId?.Value ?? "—",
+                    request.PipelineName, inFlight.Count(t => !t.IsCompleted) + 1, maxParallelJobs);
                 var task = Task.Run(
                     () => RunOneAsync(request, semaphore, cancellationToken),
                     cancellationToken);
