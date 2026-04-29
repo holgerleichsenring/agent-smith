@@ -8,11 +8,15 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Loads skill role definitions from the configured skills path.
-/// Resolves paths relative to the config file directory.
+/// Loads skill role definitions from the configured skills path. Tries the
+/// external skill catalog (post-p0103) first since that's where skills now
+/// live; falls back to config-dir / repo-root / CWD for dev-from-source
+/// setups. The pre-p0103 catalog-blind resolution missed the cache entirely
+/// and silently soft-failed with zero skills loaded.
 /// </summary>
 public sealed class LoadSkillsHandler(
     ISkillLoader skillLoader,
+    ISkillsCatalogPath catalogPath,
     ILogger<LoadSkillsHandler> logger)
     : ICommandHandler<LoadSkillsContext>
 {
@@ -40,14 +44,29 @@ public sealed class LoadSkillsHandler(
     {
         var skillsPath = context.SkillsPath;
 
-        // 1. If the path exists as-is (absolute or already correct relative), use it
+        // 1. Absolute path or correct CWD-relative
         if (Directory.Exists(skillsPath))
         {
             logger.LogDebug("Skills path exists as-is: {Dir}", skillsPath);
             return skillsPath;
         }
 
-        // 2. Resolve relative to config file directory
+        // 2. External skill catalog (post-p0103) — typical production path
+        try
+        {
+            var catalogRelative = Path.Combine(catalogPath.Root, skillsPath);
+            if (Directory.Exists(catalogRelative))
+            {
+                logger.LogDebug("Skills path resolved via skill catalog: {Dir}", catalogRelative);
+                return catalogRelative;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Catalog not yet bootstrapped (CLI tooling running before bootstrap).
+        }
+
+        // 3. Resolve relative to config file directory
         if (context.Pipeline.TryGet<string>(ContextKeys.ConfigDir, out var configDir)
             && !string.IsNullOrEmpty(configDir))
         {
@@ -59,7 +78,7 @@ public sealed class LoadSkillsHandler(
             }
         }
 
-        // 3. Try relative to repo root
+        // 4. Try relative to repo root
         if (context.Pipeline.TryGet<Domain.Entities.Repository>(ContextKeys.Repository, out var repo)
             && repo is not null)
         {
@@ -71,7 +90,7 @@ public sealed class LoadSkillsHandler(
             }
         }
 
-        // 4. Fallback: CWD/config/
+        // 5. Fallback: CWD/config/
         var cwdRelative = Path.Combine("config", skillsPath);
         logger.LogDebug("Skills path fallback to CWD: {Dir}", cwdRelative);
         return cwdRelative;
