@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Prompts;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Claim;
@@ -177,5 +178,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddScoped<ITicketClaimService, TicketClaimService>();
+        services.AddSingleton<ILlmClient>(sp =>
+            sp.GetRequiredService<ILlmClientFactory>().Create(new AgentConfig { Type = "claude" }));
     }
 }

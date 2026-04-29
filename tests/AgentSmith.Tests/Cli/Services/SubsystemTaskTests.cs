@@ -1,5 +1,5 @@
 using AgentSmith.Application.Services.Health;
-using AgentSmith.Cli.Services;
+using AgentSmith.Server.Services;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;

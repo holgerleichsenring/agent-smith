@@ -1,4 +1,4 @@
-using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Server.Services.Webhooks;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;

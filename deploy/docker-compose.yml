@@ -2,6 +2,10 @@
 # One-shot mode:       docker compose -f deploy/docker-compose.yml run --rm agentsmith run --headless "fix #1 in my-project"
 # Security scan:       docker compose -f deploy/docker-compose.yml run --rm agentsmith security-scan --repo /app/repo --output console
 # Server mode:         docker compose -f deploy/docker-compose.yml up -d server
+#
+# p0107: the Server is now the single long-running container — Slack/Teams chat,
+# webhook routes, polling, queue consumer, and lifecycle reconcilers all run in
+# one process (AgentSmith.Server.dll). The CLI's `server` subcommand was removed.
 services:
   agentsmith:
     build:
@@ -22,21 +26,6 @@ services:
       - ../config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
       - /var/run/docker.sock:/var/run/docker.sock    # for Nuclei/Spectral tool containers
-
-  agentsmith-server:
-    build:
-      context: ..
-      dockerfile: src/AgentSmith.Cli/Dockerfile
-    restart: unless-stopped
-    stdin_open: false
-    env_file:
-      - ../.env
-    ports:
-      - "${WEBHOOK_PORT:-8081}:8081"
-    volumes:
-      - ../config:/app/config
-      - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
-    command: ["server", "--port", "8081"]
 
   ollama:
     image: ollama/ollama

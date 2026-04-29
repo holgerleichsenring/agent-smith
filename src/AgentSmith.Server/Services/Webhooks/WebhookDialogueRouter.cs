@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Routes dialogue answers from webhook events to waiting agent jobs
