@@ -28,14 +28,15 @@ public sealed class PollerLeaderHostedService(
             services, _health, LeaseKey, RunPollerAsync, retry, stoppingToken);
     }
 
-    private Task RunPollerAsync(CancellationToken ct)
+    private async Task RunPollerAsync(CancellationToken ct)
     {
+        using var scope = services.CreateScope();
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         var host = new PollerHostedService(
             PollerFactory.Build(services, config),
-            services.GetRequiredService<ITicketClaimService>(),
+            scope.ServiceProvider.GetRequiredService<ITicketClaimService>(),
             configLoader, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<PollerHostedService>>());
-        return host.RunAsync(ct);
+        await host.RunAsync(ct);
     }
 }

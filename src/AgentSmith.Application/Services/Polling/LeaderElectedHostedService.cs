@@ -58,7 +58,14 @@ public sealed class LeaderElectedHostedService(
         finally
         {
             inner.Cancel();
-            try { await workTask; } catch { /* expected */ }
+            try { await workTask; }
+            catch (OperationCanceledException) { /* expected on shutdown / lease loss */ }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Leader-elected work for '{Key}' ended with an unhandled exception",
+                    leaseKey);
+            }
             await lease.ReleaseAsync(leaseKey, token, CancellationToken.None);
         }
     }
