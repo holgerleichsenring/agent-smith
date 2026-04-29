@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.25.1...v0.26.0) (2026-04-29)
+
+
+### Features
+
+* **p0104:** api-scan project-brief + finding↔handler correlation + 2 new skills ([dd9fd1d](https://github.com/holgerleichsenring/agent-smith/commit/dd9fd1dadf5cd4ac137c54cbb055c9584a703753))
+* **p0105:** security-scan adopts project-brief; retire LoadDomainRules name ([80acd9d](https://github.com/holgerleichsenring/agent-smith/commit/80acd9d329daa31050fac0e4da34739679593dc0))
+
 ## [0.25.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.25.0...v0.25.1) (2026-04-28)
 
 
