@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.31.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.30.0...v0.31.0) (2026-04-29)
+
+
+### Features
+
+* **logging:** per-ticket visibility across discovery → claim → enqueue ([3b948e1](https://github.com/holgerleichsenring/agent-smith/commit/3b948e1f026a3b7858705a3160493c229d7ed482))
+
+
+### Bug Fixes
+
+* **azdo:** VssConnection cache resilience — TTL + transport-failure eviction ([2a5e26f](https://github.com/holgerleichsenring/agent-smith/commit/2a5e26f0b0ac466af80f0de6fbefaa159b217548))
+
+
+### Performance Improvements
+
+* **azdo:** cache VssConnection process-wide; first-call ~10s no longer per-cycle ([9f658ad](https://github.com/holgerleichsenring/agent-smith/commit/9f658adca26b0a08c16fff130b8e730638548b5d))
+
 ## [0.30.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.29.0...v0.30.0) (2026-04-29)
 
 
