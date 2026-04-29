@@ -28,6 +28,7 @@ public class ExecutePipelineUseCaseTests
             _pipelineMock.Object,
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
+            new PipelineConfigResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

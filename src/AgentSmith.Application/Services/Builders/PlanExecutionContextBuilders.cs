@@ -25,7 +25,7 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GeneratePlanContext(ticket, analysis, principles, project.Agent, pipeline, codeMap, projectContext);
+        return new GeneratePlanContext(ticket, analysis, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
     }
 }
 
@@ -47,7 +47,7 @@ public sealed class AgenticExecuteContextBuilder : IContextBuilder
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new AgenticExecuteContext(plan, repo, principles, project.Agent, pipeline, codeMap, projectContext);
+        return new AgenticExecuteContext(plan, repo, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
     }
 }
 
@@ -102,7 +102,7 @@ public sealed class GenerateTestsContextBuilder : IContextBuilder
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateTestsContext(repo, changes, principles, project.Agent, pipeline, codeMap, projectContext);
+        return new GenerateTestsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
     }
 }
 
@@ -115,6 +115,6 @@ public sealed class GenerateDocsContextBuilder : IContextBuilder
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateDocsContext(repo, changes, principles, project.Agent, pipeline, codeMap, projectContext);
+        return new GenerateDocsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
     }
 }

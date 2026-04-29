@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Configuration;
 
 public class YamlConfigurationLoaderTests
 {
-    private readonly YamlConfigurationLoader _loader = new();
+    private readonly YamlConfigurationLoader _loader = new(new ProjectConfigNormalizer());
 
     private static string TestDataPath(string fileName)
     {

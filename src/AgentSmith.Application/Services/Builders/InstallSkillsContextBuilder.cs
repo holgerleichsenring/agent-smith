@@ -16,11 +16,7 @@ public sealed class InstallSkillsContextBuilder : IContextBuilder
     {
         var approved = pipeline.Get<IReadOnlyList<SkillEvaluation>>(ContextKeys.ApprovedSkills);
         var draftDir = pipeline.Get<string>(ContextKeys.SkillInstallPath);
-
-        var installPath = pipeline.TryGet<string>(ContextKeys.SkillsPathOverride, out var overridePath)
-            ? overridePath!
-            : project.SkillsPath;
-
+        var installPath = pipeline.Resolved().SkillsPath;
         return new InstallSkillsContext(approved, draftDir, installPath, pipeline);
     }
 }

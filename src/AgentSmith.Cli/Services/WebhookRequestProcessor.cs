@@ -66,17 +66,30 @@ internal sealed class WebhookRequestProcessor(
     {
         var claimService = services.GetRequiredService<ITicketClaimService>();
         var configLoader = services.GetRequiredService<IConfigurationLoader>();
+        var resolver = services.GetRequiredService<IPipelineConfigResolver>();
         var config = configLoader.LoadConfig(configPath);
 
         var claim = new ClaimRequest(
             result.Platform!,
             result.ProjectName!,
             new TicketId(result.TicketId!),
-            result.Pipeline ?? "fix-bug",
+            ResolvePipelineName(result.Pipeline, config, result.ProjectName!, resolver),
             result.InitialContext);
 
         var outcome = await claimService.ClaimAsync(claim, config, CancellationToken.None);
         return MapClaim(outcome, result);
+    }
+
+    private static string ResolvePipelineName(
+        string? webhookPipeline,
+        Contracts.Models.Configuration.AgentSmithConfig config,
+        string projectName,
+        IPipelineConfigResolver resolver)
+    {
+        if (!string.IsNullOrEmpty(webhookPipeline)) return webhookPipeline;
+        if (!config.Projects.TryGetValue(projectName, out var project)) return "fix-bug";
+        try { return resolver.ResolveDefaultPipelineName(project); }
+        catch (InvalidOperationException) { return "fix-bug"; }
     }
 
     private static (int, string) MapClaim(ClaimResult outcome, WebhookResult result) => outcome.Outcome switch

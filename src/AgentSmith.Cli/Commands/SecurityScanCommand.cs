@@ -41,7 +41,6 @@ internal static class SecurityScanCommand
             var scanContext = new Dictionary<string, object>
             {
                 [ContextKeys.OutputFormat] = output,
-                [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("security-scan"),
             };
             sourceOptions.ApplyTo(ctx, scanContext);
 
