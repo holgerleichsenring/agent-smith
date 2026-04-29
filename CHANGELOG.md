@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.3...v0.29.0) (2026-04-29)
+
+
+### Features
+
+* **logging:** compact single-line console formatter + entry-logs in polling chain ([9625da9](https://github.com/holgerleichsenring/agent-smith/commit/9625da957cd501462c57ae891c2af35d7266526c))
+
 ## [0.28.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.2...v0.28.3) (2026-04-29)
 
 
