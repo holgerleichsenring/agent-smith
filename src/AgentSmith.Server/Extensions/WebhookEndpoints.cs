@@ -13,10 +13,10 @@ internal static class WebhookEndpoints
 {
     internal static WebApplication MapWebhookEndpoints(this WebApplication app)
     {
-        app.MapPost("/webhook", HandleWebhookAsync);
-        app.MapPost("/webhook/github", HandleWebhookAsync);
-        app.MapPost("/webhook/gitlab", HandleWebhookAsync);
-        app.MapPost("/webhook/jira", HandleWebhookAsync);
+        app.MapPost("/webhook", (Delegate)HandleWebhookAsync);
+        app.MapPost("/webhook/github", (Delegate)HandleWebhookAsync);
+        app.MapPost("/webhook/gitlab", (Delegate)HandleWebhookAsync);
+        app.MapPost("/webhook/jira", (Delegate)HandleWebhookAsync);
         return app;
     }
 

@@ -57,11 +57,11 @@ cp .env.example .env  # add your API keys
 docker compose -f deploy/docker-compose.yml run --rm agentsmith \
   fix --ticket 42 --project my-api
 
-# Webhook server + Redis
-docker compose -f deploy/docker-compose.yml up -d agentsmith-server redis
+# Long-running stack (Server + Redis)
+docker compose -f deploy/docker-compose.yml up -d server redis
 ```
 
-See [`deploy/docker-compose.yml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/docker-compose.yml) for the full service set (CLI, server, Redis, optional Ollama).
+The Server container handles Slack/Teams chat, webhooks, polling, and queue consumption in one process (single long-running deployment since p0107). See [`deploy/docker-compose.yml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/docker-compose.yml) for the full service set (CLI one-shot, Server, Redis, optional Ollama).
 
 ### 3. Kubernetes
 

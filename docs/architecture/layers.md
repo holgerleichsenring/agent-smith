@@ -303,11 +303,11 @@ Each provider has its own agentic loop implementation (`AgenticLoop`, `OpenAiAge
 
 ---
 
-## Host
+## CLI
 
 **Project:** `AgentSmith.Cli` | **Dependencies:** All layers (DI wiring)
 
-The CLI entry point and webhook server. Wires all dependencies, defines CLI commands, routes webhooks.
+The console-tool entry point. Wires CLI dependencies, defines one-shot subcommands. Since p0107, the CLI carries no long-running services — webhooks, polling, queue consumption all live in `AgentSmith.Server`.
 
 ### CLI Commands
 
@@ -321,33 +321,24 @@ The CLI entry point and webhook server. Wires all dependencies, defines CLI comm
 | `MadCommand` | `mad` | Run MAD discussion |
 | `InitCommand` | `init` | Initialize `.agentsmith/` in a project |
 | `RunCommand` | `run` | Generic pipeline execution |
-| `ServerCommand` | `server` | Start webhook listener |
-
-### Webhook Handlers
-
-| Handler | Event |
-|---------|-------|
-| `GitHubIssueWebhookHandler` | `issues.labeled` |
-| `GitHubPrLabelWebhookHandler` | `pull_request.labeled` |
-| `GitLabMrLabelWebhookHandler` | GitLab MR label events |
-| `AzureDevOpsWorkItemWebhookHandler` | Azure DevOps work item updates |
-| `WebhookSignatureValidator` | Validates webhook signatures (HMAC) |
+| `AutonomousCommand` | `autonomous` | Autonomous run from project vision |
+| `SkillsCommand` | `skills pull` | Pull/update skill catalog |
 
 ### Other
 
 | Service | Purpose |
 |---------|---------|
-| `ConfigDiscovery` | Implements the 4-step config file discovery |
-| `ServiceProviderFactory` | Builds the DI container |
-| `WebhookListener` | ASP.NET Core minimal API for webhook endpoints |
+| `ConfigDiscovery` | 4-step config file discovery |
+| `ServiceProviderFactory` | Builds the CLI DI container (interactive Console mode + spawned-job Redis mode) |
+| `ConsoleDialogueTransport` | Reads dialogue answers from stdin / writes prompts to stdout |
 
 ---
 
-## Dispatcher
+## Server
 
-**Project:** `AgentSmith.Server` | **Dependencies:** Own contracts, Redis, platform SDKs
+**Project:** `AgentSmith.Server` | **Dependencies:** All layers (DI wiring)
 
-A separate ASP.NET Core process that bridges chat platforms to Agent Smith via ephemeral containers.
+The single long-running deployment. Bridges chat platforms (Slack/Teams) to pipeline execution via ephemeral CLI containers, hosts webhook routes, runs polling + queue consumption + lifecycle reconcilers — all in one process. Single Kestrel, single DI tree.
 
 ### Contracts
 
@@ -358,8 +349,9 @@ A separate ASP.NET Core process that bridges chat platforms to Agent Smith via e
 | `IMessageBus` | Redis pub/sub abstraction |
 | `ILlmIntentParser` | LLM-based intent parsing |
 | `IProjectResolver` | Maps project names to configuration |
+| `IWebhookHandler` | Platform-specific webhook event handler |
 
-### Services
+### Chat / Job Spawning
 
 | Service | Purpose |
 |---------|---------|
@@ -373,6 +365,26 @@ A separate ASP.NET Core process that bridges chat platforms to Agent Smith via e
 | `ProjectResolver` | Resolves project names from configuration |
 | `OrphanJobDetector` | Detects and cleans up stale jobs |
 | `RedisMessageBus` | Redis pub/sub implementation |
+
+### Webhooks (since p0107)
+
+| Service / Handler | Purpose |
+|-------------------|---------|
+| `MapWebhookEndpoints` | Registers POST `/webhook/{github,gitlab,azuredevops,jira}` on Server's `WebApplication` |
+| `WebhookRequestProcessor` | Detects platform → verifies signature → dispatches to handler → routes result |
+| `WebhookPlatformDetector` / `WebhookSignatureVerifier` | Platform routing + HMAC validation |
+| `GitHubIssueWebhookHandler` etc. | 13 handlers across GitHub/GitLab/AzDO/Jira × Issue/PR/Comment events |
+
+### Long-Running Hosted Services (since p0107)
+
+| Service | Purpose |
+|---------|---------|
+| `QueueConsumerHostedService` | Pulls `PipelineRequest`s off Redis queue, spawns pipeline runs (bounded concurrency) |
+| `HousekeepingLeaderHostedService` | Under leader election (`agentsmith:leader:housekeeping`): runs `StaleJobDetector` + `EnqueuedReconciler` |
+| `PollerLeaderHostedService` | Under leader election (`agentsmith:leader:poller`): runs `PollerHostedService` over all configured pollers |
+| `LeaderSubsystemRunner` / `LeaderElectedHostedService` | Redis-lease-based leader election with renewal + idle-reacquire |
+| `SubsystemTask.RunRedisGatedAsync` | Wraps Redis-dependent work with health-state tracking + retry-on-disconnect |
+| `RedisConnectionHealth` / `HealthResponseBuilder` | `/health` (liveness) and `/health/ready` (readiness aggregating subsystem state) |
 
 ### Slack Integration
 
