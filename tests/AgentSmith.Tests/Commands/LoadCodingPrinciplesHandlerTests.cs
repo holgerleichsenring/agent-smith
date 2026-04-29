@@ -9,11 +9,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Commands;
 
-public class LoadDomainRulesHandlerTests
+public class LoadCodingPrinciplesHandlerTests
 {
-    private readonly LoadDomainRulesHandler _handler = new(
+    private readonly LoadCodingPrinciplesHandler _handler = new(
         new ProjectMetaResolver(),
-        NullLogger<LoadDomainRulesHandler>.Instance);
+        NullLogger<LoadCodingPrinciplesHandler>.Instance);
 
     [Fact]
     public async Task ExecuteAsync_FileExists_LoadsContent()
@@ -27,7 +27,7 @@ public class LoadDomainRulesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadDomainRulesContext(relativePath, repo, pipeline);
+        var context = new LoadCodingPrinciplesContext(relativePath, repo, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -45,7 +45,7 @@ public class LoadDomainRulesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadDomainRulesContext("nonexistent/path.md", repo, pipeline);
+        var context = new LoadCodingPrinciplesContext("nonexistent/path.md", repo, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -65,7 +65,7 @@ public class LoadDomainRulesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadDomainRulesContext(".agentsmith/coding-principles.md", repo, pipeline);
+        var context = new LoadCodingPrinciplesContext(".agentsmith/coding-principles.md", repo, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -87,7 +87,7 @@ public class LoadDomainRulesHandlerTests
 
         var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
         var pipeline = new PipelineContext();
-        var context = new LoadDomainRulesContext(relativePath, repo, pipeline);
+        var context = new LoadCodingPrinciplesContext(relativePath, repo, pipeline);
 
         await _handler.ExecuteAsync(context, CancellationToken.None);
 

@@ -27,7 +27,7 @@ You:           "fix #54 in todo-list"
  [2/13] CheckoutSource       → Clones repo, creates branch fix/54
  [3/13] BootstrapProject     → Detects language, framework, project type
  [4/13] LoadCodeMap          → Generates navigable code map
- [5/13] LoadDomainRules      → Loads your coding standards & domain rules
+ [5/13] LoadCodingPrinciples      → Loads your coding standards & domain rules
  [6/13] LoadContext          → Loads project context (.agentsmith/context.yaml)
  [7/13] AnalyzeCode          → Scout agent maps the codebase, identifies relevant files
  [8/13] GeneratePlan         → AI generates a step-by-step implementation plan

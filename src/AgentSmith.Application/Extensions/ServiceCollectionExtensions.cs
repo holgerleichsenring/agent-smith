@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
         services.AddTransient<ICommandHandler<CheckoutSourceContext>, CheckoutSourceHandler>();
-        services.AddTransient<ICommandHandler<LoadDomainRulesContext>, LoadDomainRulesHandler>();
+        services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeCodeHandler>();
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
@@ -107,8 +107,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
-        AddBuilder<LoadDomainRulesContextBuilder>(services, CommandNames.LoadDomainRules);
-        AddBuilder<LoadDomainRulesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
+        AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<LoadCodeMapContextBuilder>(services, CommandNames.LoadCodeMap);
         AddBuilder<BootstrapProjectContextBuilder>(services, CommandNames.BootstrapProject);
