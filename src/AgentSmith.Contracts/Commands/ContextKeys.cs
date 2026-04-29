@@ -90,4 +90,5 @@ public static class ContextKeys
     public const string DeferredBuffers = "DeferredBuffers";
     public const string ApiCodeContext = "ApiCodeContext";
     public const string ApiSourceAvailable = "ApiSourceAvailable";
+    public const string FindingHandlerCorrelations = "FindingHandlerCorrelations";
 }

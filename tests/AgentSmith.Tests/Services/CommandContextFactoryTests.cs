@@ -17,8 +17,7 @@ public class CommandContextFactoryTests
     [
         new(CommandNames.FetchTicket, new FetchTicketContextBuilder()),
         new(CommandNames.CheckoutSource, new CheckoutSourceContextBuilder()),
-        new(CommandNames.LoadDomainRules, new LoadDomainRulesContextBuilder()),
-        new(CommandNames.LoadCodingPrinciples, new LoadDomainRulesContextBuilder()),
+        new(CommandNames.LoadCodingPrinciples, new LoadCodingPrinciplesContextBuilder()),
         new(CommandNames.LoadContext, new LoadContextContextBuilder()),
         new(CommandNames.LoadCodeMap, new LoadCodeMapContextBuilder()),
         new(CommandNames.BootstrapProject, new BootstrapProjectContextBuilder()),

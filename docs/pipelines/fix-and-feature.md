@@ -12,7 +12,7 @@ The **fix-bug** and **add-feature** pipelines are Agent Smith's core coding work
     | 2 | CheckoutSource | Clones repo, creates `fix/{id}` branch |
     | 3 | BootstrapProject | Detects language, framework, build system |
     | 4 | LoadCodeMap | Generates LLM-navigable code map |
-    | 5 | LoadDomainRules | Loads coding standards from repo |
+    | 5 | LoadCodingPrinciples | Loads coding standards from repo |
     | 6 | LoadContext | Loads `.agentsmith/context.yaml` |
     | 7 | AnalyzeCode | Scout agent identifies relevant files |
     | 8 | Triage | Selects specialist roles for the task |
