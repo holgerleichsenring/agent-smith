@@ -40,8 +40,10 @@ public sealed class GitHubIssuePoller(
                     : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
-        logger.LogDebug("GitHub poll for {Project}: {Count} pending candidates",
-            projectName, requests.Count);
+        logger.LogInformation(
+            "GitHub poll for {Project}: building {Count} claim request(s) — {Tickets}",
+            projectName, requests.Count,
+            string.Join(", ", requests.Select(r => $"#{r.TicketId.Value}→{r.PipelineName}")));
         _ = transitioner; // reserved for per-ticket status refinement in follow-up
         return requests;
     }

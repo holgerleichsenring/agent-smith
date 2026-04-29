@@ -40,8 +40,10 @@ public sealed class JiraIssuePoller(
                     : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
-        logger.LogDebug("Jira poll for {Project}: {Count} pending candidates",
-            projectName, requests.Count);
+        logger.LogInformation(
+            "Jira poll for {Project}: building {Count} claim request(s) — {Tickets}",
+            projectName, requests.Count,
+            string.Join(", ", requests.Select(r => $"#{r.TicketId.Value}→{r.PipelineName}")));
         _ = transitioner;
         return requests;
     }
