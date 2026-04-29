@@ -174,6 +174,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
+        services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddScoped<ITicketClaimService, TicketClaimService>();
     }

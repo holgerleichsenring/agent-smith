@@ -21,6 +21,7 @@ public sealed class ExecutePipelineUseCase(
     IPipelineExecutor pipelineExecutor,
     ISourceConfigOverrider sourceConfigOverrider,
     ISkillsCatalogResolver catalogResolver,
+    IPipelineConfigResolver pipelineConfigResolver,
     ILogger<ExecutePipelineUseCase> logger)
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -39,11 +40,14 @@ public sealed class ExecutePipelineUseCase(
         var commands = PipelinePresets.TryResolve(request.PipelineName)
             ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
 
+        var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
+
         var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
-        pipeline.Set("ProjectPricing", projectConfig.Agent.Pricing);
+        pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
 
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
@@ -121,30 +125,31 @@ public sealed class ExecutePipelineUseCase(
         {
             var config = configLoader.LoadConfig(configPath);
             var projectName = ticketlessMatch.Groups[1].Value.ToLowerInvariant();
-            var pipeline = pipelineOverride;
-            if (string.IsNullOrWhiteSpace(pipeline) && config.Projects.TryGetValue(projectName, out var pc))
-                pipeline = pc.Pipeline;
+            var pipeline = ResolvePipelineName(pipelineOverride, config, projectName, fallback: "security-scan");
 
             return new PipelineRequest(
-                projectName,
-                pipeline ?? "security-scan",
-                Headless: headless,
-                Context: initialContext);
+                projectName, pipeline,
+                Headless: headless, Context: initialContext);
         }
 
         var intent = await intentParser.ParseAsync(userInput, cancellationToken);
         var config2 = configLoader.LoadConfig(configPath);
         var projName = intent.ProjectName.Value;
-        var pipelineName = pipelineOverride;
-        if (string.IsNullOrWhiteSpace(pipelineName) && config2.Projects.TryGetValue(projName, out var pc2))
-            pipelineName = pc2.Pipeline;
+        var pipelineName = ResolvePipelineName(pipelineOverride, config2, projName, fallback: "fix-bug");
 
         return new PipelineRequest(
-            projName,
-            pipelineName ?? "fix-bug",
+            projName, pipelineName,
             TicketId: intent.TicketId,
-            Headless: headless,
-            Context: initialContext);
+            Headless: headless, Context: initialContext);
+    }
+
+    private string ResolvePipelineName(
+        string? pipelineOverride, AgentSmithConfig config, string projectName, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(pipelineOverride)) return pipelineOverride;
+        if (!config.Projects.TryGetValue(projectName, out var project)) return fallback;
+        try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
+        catch (InvalidOperationException) { return fallback; }
     }
 
     private void LogResult(CommandResult result, string projectName)

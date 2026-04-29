@@ -39,7 +39,7 @@ public sealed class SpawnZapContextBuilder : IContextBuilder
 public sealed class ApiSecurityTriageContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new ApiSecurityTriageContext(project.Agent, pipeline);
+        => new ApiSecurityTriageContext(pipeline.Resolved().Agent, pipeline);
 }
 
 public sealed class DeliverFindingsContextBuilder : IContextBuilder
@@ -60,13 +60,7 @@ public sealed class DeliverFindingsContextBuilder : IContextBuilder
 public sealed class LoadSkillsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-    {
-        // Allow pipeline-specific override (e.g. security-scan sets skills/security)
-        var skillsPath = pipeline.TryGet<string>(ContextKeys.SkillsPathOverride, out var overridePath)
-            ? overridePath!
-            : project.SkillsPath;
-        return new LoadSkillsContext(skillsPath, pipeline);
-    }
+        => new LoadSkillsContext(pipeline.Resolved().SkillsPath, pipeline);
 }
 
 public sealed class CompileFindingsContextBuilder : IContextBuilder
@@ -81,7 +75,7 @@ public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
     {
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;
-        return new ApiSecuritySkillRoundContext(skillName, round, project.Agent, pipeline);
+        return new ApiSecuritySkillRoundContext(skillName, round, pipeline.Resolved().Agent, pipeline);
     }
 }
 

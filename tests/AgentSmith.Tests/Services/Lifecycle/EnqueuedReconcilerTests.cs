@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -71,7 +72,7 @@ public sealed class EnqueuedReconcilerTests
 
         public EnqueuedReconciler BuildSut() => new(
             Heartbeat.Object, JobQueue.Object, TicketFactory.Object,
-            ConfigLoader.Object, "config.yml",
+            ConfigLoader.Object, new PipelineConfigResolver(), "config.yml",
             NullLogger<EnqueuedReconciler>.Instance);
     }
 }
