@@ -38,6 +38,7 @@ public sealed class LeaderElectedHostedService(
 
     private async Task LeadAsync(string token, CancellationToken ct)
     {
+        logger.LogInformation("Lease '{Key}' active — starting work delegate", leaseKey);
         using var inner = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var workTask = Task.Run(() => work(inner.Token), inner.Token);
         try
