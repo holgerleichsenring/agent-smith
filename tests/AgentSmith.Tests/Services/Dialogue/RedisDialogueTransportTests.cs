@@ -184,9 +184,8 @@ public sealed class RedisDialogueTransportTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
-        // Should not throw, just return null
-        var act = async () => await _sut.WaitForAnswerAsync("job-1", "q-1", TimeSpan.FromSeconds(30), cts.Token);
+        var result = await _sut.WaitForAnswerAsync("job-1", "q-1", TimeSpan.FromSeconds(30), cts.Token);
 
-        await act.Should().ThrowAsync<TaskCanceledException>();
+        result.Should().BeNull("cancellation maps to null return — never throws");
     }
 }
