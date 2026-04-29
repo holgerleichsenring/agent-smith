@@ -20,6 +20,7 @@ public sealed class SecuritySkillRoundHandler(
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
+    IProjectBriefBuilder projectBriefBuilder,
     ILogger<SecuritySkillRoundHandler> logger)
     : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
       ICommandHandler<SecuritySkillRoundContext>
@@ -29,23 +30,37 @@ public sealed class SecuritySkillRoundHandler(
 
     protected override string BuildDomainSection(PipelineContext pipeline)
     {
-        pipeline.TryGet<CodeAnalysis>(ContextKeys.CodeAnalysis, out var codeAnalysis);
+        var (stable, perSkill) = BuildDomainSectionParts(pipeline);
+        return string.IsNullOrEmpty(perSkill) ? stable : $"{stable}\n\n{perSkill}";
+    }
+
+    protected override (string Stable, string PerSkill) BuildDomainSectionParts(PipelineContext pipeline)
+    {
         pipeline.TryGet<string>(ContextKeys.SecurityFindingsSummary, out var findingsSummary);
+
+        var stable = $"""
+            {projectBriefBuilder.Build(pipeline)}
+
+            ## Security Scan Target
+            {findingsSummary ?? ""}
+
+            Focus your analysis on security vulnerabilities, not functionality.
+            Validate the automated findings above. Add context, confirm or dispute
+            severity, and identify issues the pattern scanner missed.
+            """.Trim();
+
+        var perSkill = BuildPerSkillSection(pipeline);
+        return (stable, perSkill);
+    }
+
+    private static string BuildPerSkillSection(PipelineContext pipeline)
+    {
         pipeline.TryGet<Dictionary<string, string>>(ContextKeys.SecurityFindingsByCategory, out var categorySlices);
         pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var activeSkill);
 
-        var filesSummary = codeAnalysis is not null
-            ? $"Language: {codeAnalysis.Language}, Framework: {codeAnalysis.Framework}\n" +
-              $"Files: {codeAnalysis.FileStructure.Count} total\n" +
-              $"Key files: {string.Join(", ", codeAnalysis.FileStructure.Take(30))}\n" +
-              $"Dependencies: {string.Join(", ", codeAnalysis.Dependencies.Take(20))}"
-            : "Code analysis not available";
-
-        // Get skill-specific findings slice using ActiveSkill (set by SkillRoundHandlerBase)
         var skillFindings = "";
         if (categorySlices is not null && activeSkill is not null)
         {
-            // Prefer orchestration-declared input categories over hardcoded mapping
             var roles = pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var r) ? r : null;
             var inputCategories = roles?.FirstOrDefault(x => x.Name == activeSkill)
@@ -54,25 +69,12 @@ public sealed class SecuritySkillRoundHandler(
                 activeSkill, categorySlices, inputCategories);
         }
 
-        // p80: chain-analyst (executor) receives full commodity findings
-        var commoditySection = "";
-        if (IsChainAnalyst(activeSkill, pipeline))
-            commoditySection = BuildCommodityFindingsSection(pipeline);
+        var commoditySection = IsChainAnalyst(activeSkill, pipeline)
+            ? BuildCommodityFindingsSection(pipeline) : "";
 
-        return $"""
-            ## Security Scan Target
-            {filesSummary}
-
-            {findingsSummary ?? ""}
-
-            {(string.IsNullOrEmpty(skillFindings) ? "" : $"## Detailed Findings (your focus area)\n{skillFindings}")}
-
-            {commoditySection}
-
-            Focus your analysis on security vulnerabilities, not functionality.
-            Validate the automated findings above. Add context, confirm or dispute
-            severity, and identify issues the pattern scanner missed.
-            """;
+        var detailedFindings = string.IsNullOrEmpty(skillFindings)
+            ? "" : $"## Detailed Findings (your focus area)\n{skillFindings}";
+        return $"{detailedFindings}\n\n{commoditySection}".Trim();
     }
 
     private static bool IsChainAnalyst(string? activeSkill, PipelineContext pipeline)

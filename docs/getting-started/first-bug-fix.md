@@ -51,7 +51,7 @@ Agent Smith runs 13 steps:
 2. **CheckoutSource** — clones the repo, creates `fix/42` branch
 3. **BootstrapProject** — detects language, framework, conventions
 4. **LoadCodeMap** — generates a navigable code map
-5. **LoadDomainRules** — loads coding standards from `.agentsmith/coding-principles.md`
+5. **LoadCodingPrinciples** — loads coding standards from `.agentsmith/coding-principles.md`
 6. **LoadContext** — loads project context from `.agentsmith/context.yaml`
 7. **AnalyzeCode** — scout agent identifies relevant files
 8. **GeneratePlan** — AI writes a step-by-step plan

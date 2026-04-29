@@ -12,7 +12,7 @@ Pipeline: fix-bug
 ├── CheckoutSourceCommand    → CheckoutSourceHandler
 ├── BootstrapProjectCommand  → BootstrapProjectHandler
 ├── LoadCodeMapCommand       → LoadCodeMapHandler
-├── LoadDomainRulesCommand   → LoadDomainRulesHandler
+├── LoadCodingPrinciplesCommand   → LoadCodingPrinciplesHandler
 ├── LoadContextCommand       → LoadContextHandler
 ├── AnalyzeCodeCommand       → AnalyzeCodeHandler
 ├── GeneratePlanCommand      → GeneratePlanHandler

@@ -29,7 +29,7 @@ Pipeline: fix-bug
 ├── CheckoutSource       → clones repo, creates branch
 ├── BootstrapProject     → detects language, framework, project type
 ├── LoadCodeMap          → generates navigable code map
-├── LoadDomainRules      → loads coding standards from repo
+├── LoadCodingPrinciples      → loads coding standards from repo
 ├── LoadContext           → loads .agentsmith/context.yaml
 ├── AnalyzeCode          → scout agent maps relevant files
 ├── Triage               → selects specialist roles (coding pipeline)
