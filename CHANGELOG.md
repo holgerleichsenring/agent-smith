@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.0...v0.28.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **lifecycle:** scanners fail-soft per project + startup summary log ([c905d84](https://github.com/holgerleichsenring/agent-smith/commit/c905d8432d256029f7482cea7b09f8afa8fce849))
+
 ## [0.28.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.2...v0.28.0) (2026-04-29)
 
 
