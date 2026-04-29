@@ -37,6 +37,12 @@ app.MapHealthEndpoints()
    .MapTeamsEndpoints()
    .MapWebhookEndpoints();
 
+var startupConfig = app.Services.GetRequiredService<IConfigurationLoader>()
+    .LoadConfig(configPath);
+StartupSummaryLogger.Log(
+    startupConfig,
+    app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AgentSmith.Server.Startup"));
+
 app.Run();
 
 public partial class Program;

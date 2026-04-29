@@ -26,7 +26,19 @@ internal static class PollerFactory
         {
             if (!project.Polling.Enabled) continue;
 
-            var poller = BuildOne(name, project, ticketFactory, transitionerFactory, resolver, loggerFactory);
+            IEventPoller? poller;
+            try
+            {
+                poller = BuildOne(name, project, ticketFactory, transitionerFactory, resolver, loggerFactory);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Polling enabled for project {Project} but poller could not be built (Tickets.Type={Type}): {Message}",
+                    name, project.Tickets.Type, ex.Message);
+                continue;
+            }
+
             if (poller is null)
             {
                 logger.LogWarning(
