@@ -92,6 +92,9 @@ public static class PipelinePresets
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
+        CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
+        CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
+        CommandNames.LoadCodeMap,           // p0104: target's .agentsmith/code-map.yaml — soft-fail if absent
         CommandNames.LoadSwagger,
         CommandNames.ApiCodeContext,        // p0102: route → handler mapping when source resolved
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
@@ -99,6 +102,7 @@ public static class PipelinePresets
         CommandNames.SpawnSpectral,
         CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
         CommandNames.CompressApiScanFindings, // p67: category slices for skill-specific findings
+        CommandNames.CorrelateFindings,     // p0104: deterministic Nuclei/ZAP → handler mapping
         CommandNames.LoadSkills,
         CommandNames.ApiSecurityTriage,
         CommandNames.ConvergenceCheck,

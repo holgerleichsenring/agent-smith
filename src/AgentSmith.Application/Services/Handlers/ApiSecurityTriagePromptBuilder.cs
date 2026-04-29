@@ -18,6 +18,8 @@ public sealed class ApiSecurityTriagePromptBuilder
         pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var activeMode);
         pipeline.TryGet<bool>(ContextKeys.ApiSourceAvailable, out var sourceAvailable);
         pipeline.TryGet<ApiCodeContext>(ContextKeys.ApiCodeContext, out var code);
+        var hasCorrelated = HasCorrelatedFindings(pipeline);
+        var hasHeaders = HasHeaderFindings(pipeline);
 
         return $"""
             ## API Overview
@@ -30,7 +32,7 @@ public sealed class ApiSecurityTriagePromptBuilder
             {AuthDetails(spec)}
 
             ## Signals
-            {SignalAnalysis(spec, activeMode, sourceAvailable, code)}
+            {SignalAnalysis(spec, activeMode, sourceAvailable, code, hasCorrelated, hasHeaders)}
 
             ## Nuclei Scan Results
             {NucleiSummary(nuclei)}
@@ -40,6 +42,15 @@ public sealed class ApiSecurityTriagePromptBuilder
             Only exclude a role if there is genuinely nothing for it to review.
             """;
     }
+
+    private static bool HasCorrelatedFindings(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyList<FindingHandlerCorrelation>>(
+            ContextKeys.FindingHandlerCorrelations, out var c)
+        && c is { Count: > 0 } && c.Any(x => x.Handler is not null);
+
+    private static bool HasHeaderFindings(PipelineContext pipeline) =>
+        pipeline.TryGet<Dictionary<string, string>>(ContextKeys.ApiScanFindingsByCategory, out var s)
+        && s is not null && s.TryGetValue("headers", out var v) && !string.IsNullOrWhiteSpace(v);
 
     private static string SpecSummary(SwaggerSpec? spec) => spec is null
         ? "Swagger spec not available"
@@ -56,7 +67,8 @@ public sealed class ApiSecurityTriagePromptBuilder
             : "  No security schemes defined";
 
     private static string SignalAnalysis(
-        SwaggerSpec? spec, bool activeMode, bool sourceAvailable, ApiCodeContext? code)
+        SwaggerSpec? spec, bool activeMode, bool sourceAvailable, ApiCodeContext? code,
+        bool hasCorrelatedFindings, bool hasHeaderFindings)
     {
         if (spec is null) return $"- Active mode: {activeMode}\n- Source available: {sourceAvailable}";
 
@@ -86,6 +98,8 @@ public sealed class ApiSecurityTriagePromptBuilder
             - Auth bootstrap blocks found in source: {hasAuthBootstrap}
             - Upload handlers found in source: {hasUploadHandlers}
             - State-changing routes mapped to handlers: {hasStateChangingMapped}
+            - Correlated findings (Nuclei/ZAP → handler): {hasCorrelatedFindings}
+            - Header findings present: {hasHeaderFindings}
             """;
     }
 

@@ -65,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
         services.AddTransient<ICommandHandler<TryCheckoutSourceContext>, TryCheckoutSourceHandler>();
+        services.AddTransient<ICommandHandler<CorrelateFindingsContext>, CorrelateFindingsHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
@@ -134,6 +135,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<SessionSetupContextBuilder>(services, CommandNames.SessionSetup);
         AddBuilder<LoadSwaggerContextBuilder>(services, CommandNames.LoadSwagger);
         AddBuilder<ApiCodeContextContextBuilder>(services, CommandNames.ApiCodeContext);
+        AddBuilder<CorrelateFindingsContextBuilder>(services, CommandNames.CorrelateFindings);
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);

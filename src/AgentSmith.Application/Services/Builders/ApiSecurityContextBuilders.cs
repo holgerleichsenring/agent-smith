@@ -90,3 +90,9 @@ public sealed class ApiCodeContextContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
         => new ApiCodeContextCommandContext(pipeline);
 }
+
+public sealed class CorrelateFindingsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        => new CorrelateFindingsContext(pipeline);
+}
