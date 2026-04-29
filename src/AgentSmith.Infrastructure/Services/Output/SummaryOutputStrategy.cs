@@ -18,14 +18,9 @@ public sealed partial class SummaryOutputStrategy(
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
         var consolidated = GetConsolidatedOutput(context);
-
-        if (string.IsNullOrWhiteSpace(consolidated))
-        {
-            Console.WriteLine("No findings to summarize.");
-            return Task.CompletedTask;
-        }
-
-        var findings = ParseFindings(consolidated);
+        var findings = string.IsNullOrWhiteSpace(consolidated)
+            ? new List<SummaryFinding>()
+            : ParseFindings(consolidated);
 
         var sb = new StringBuilder();
         sb.AppendLine();
@@ -34,16 +29,24 @@ public sealed partial class SummaryOutputStrategy(
         sb.AppendLine("═══════════════════════════════════════");
         sb.AppendLine();
 
-        var grouped = findings
-            .GroupBy(f => f.Severity)
-            .OrderBy(g => SeverityOrder(g.Key));
-
-        foreach (var group in grouped)
+        if (findings.Count == 0)
         {
-            sb.AppendLine($"{group.Key.ToUpperInvariant()} ({group.Count()})");
-            foreach (var f in group)
-                sb.AppendLine($"  {f.Title}{(f.Confidence > 0 ? $" — confidence {f.Confidence}" : "")}");
+            sb.AppendLine("No findings.");
             sb.AppendLine();
+        }
+        else
+        {
+            var grouped = findings
+                .GroupBy(f => f.Severity)
+                .OrderBy(g => SeverityOrder(g.Key));
+
+            foreach (var group in grouped)
+            {
+                sb.AppendLine($"{group.Key.ToUpperInvariant()} ({group.Count()})");
+                foreach (var f in group)
+                    sb.AppendLine($"  {f.Title}{(f.Confidence > 0 ? $" — confidence {f.Confidence}" : "")}");
+                sb.AppendLine();
+            }
         }
 
         sb.AppendLine($"Total: {findings.Count} findings");
