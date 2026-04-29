@@ -28,12 +28,12 @@ behavior:
     fix-bug:
       trigger: [cli, slack, webhook]
       steps: [FetchTicket, CheckoutSource, BootstrapProject, LoadCodeMap,
-              LoadDomainRules, LoadContext, AnalyzeCode, Triage, GeneratePlan,
+              LoadCodingPrinciples, LoadContext, AnalyzeCode, Triage, GeneratePlan,
               Approve, AgenticExecute, Test, WriteRunResult, CommitAndPR]
       error: stop-on-first-failure
     security-scan:
       trigger: [cli, slack, webhook]
-      steps: [CheckoutSource, BootstrapProject, LoadDomainRules, AnalyzeCode,
+      steps: [CheckoutSource, BootstrapProject, LoadCodingPrinciples, AnalyzeCode,
               Triage, ConvergenceCheck, CompileDiscussion, DeliverOutput]
     mad-discussion:
       trigger: [cli, slack]
@@ -41,7 +41,7 @@ behavior:
               Triage, ConvergenceCheck, CompileDiscussion, WriteRunResult, CommitAndPR]
     legal-analysis:
       trigger: [cli, slack, inbox-polling]
-      steps: [AcquireSource, BootstrapDocument, LoadDomainRules,
+      steps: [AcquireSource, BootstrapDocument, LoadCodingPrinciples,
               Triage, ConvergenceCheck, CompileDiscussion, DeliverOutput]
 
 quality:

@@ -42,13 +42,13 @@ public sealed class TryCheckoutSourceContextBuilder : IContextBuilder
     }
 }
 
-public sealed class LoadDomainRulesContextBuilder : IContextBuilder
+public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var path = project.CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new LoadDomainRulesContext(path, repo, pipeline);
+        return new LoadCodingPrinciplesContext(path, repo, pipeline);
     }
 }
 
