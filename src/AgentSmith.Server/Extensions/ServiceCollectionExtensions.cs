@@ -1,3 +1,5 @@
+using AgentSmith.Application.Prompts;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
@@ -6,6 +8,10 @@ using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services;
 using AgentSmith.Infrastructure;
+using AgentSmith.Infrastructure.Services.Dialogue;
+using AgentSmith.Infrastructure.Services.Lifecycle;
+using AgentSmith.Infrastructure.Services.Queue;
+using AgentSmith.Infrastructure.Services.Webhooks;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
@@ -15,7 +21,14 @@ internal static class ServiceCollectionExtensions
     internal static IServiceCollection AddRedis(this IServiceCollection services)
     {
         var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
-        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisUrl));
+        var multiplexer = ConnectionMultiplexer.Connect(redisUrl);
+        services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+        services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
+        services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
+        services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
+        services.AddSingleton<IJobHeartbeatService, JobHeartbeatService>();
+        services.AddSingleton<IConversationLookup, RedisConversationLookup>();
+        services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         return services;
     }
 
@@ -30,6 +43,8 @@ internal static class ServiceCollectionExtensions
         services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
         services.AddHostedService<OrphanJobDetector>();
         services.AddAgentSmithInfrastructure();
+        services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
+        services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
         services.AddIntentEngine();
         return services;
     }
