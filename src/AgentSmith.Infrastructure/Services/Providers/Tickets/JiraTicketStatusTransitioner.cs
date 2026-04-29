@@ -42,11 +42,21 @@ public sealed class JiraTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        logger.LogInformation(
+            "Jira Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
+
         var mode = catalog.GetModeForProject(projectKey);
         if (mode == JiraLifecycleMode.Native)
+        {
+            logger.LogWarning(
+                "Jira Transition #{Ticket}: Native-mode not implemented", ticketId.Value);
             return TransitionResult.Failed("Native-mode transitions land in p95c");
+        }
 
-        return await TransitionViaLabelsAsync(ticketId, from, to, cancellationToken);
+        var result = await TransitionViaLabelsAsync(ticketId, from, to, cancellationToken);
+        logger.LogInformation(
+            "Jira Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
+        return result;
     }
 
     private async Task<TransitionResult> TransitionViaLabelsAsync(
@@ -55,17 +65,31 @@ public sealed class JiraTicketStatusTransitioner(
     {
         var lockKey = $"agentsmith:jira-label-lock:{ticketId.Value}";
         var token = await labelLock.TryAcquireAsync(lockKey, LabelLockTtl, ct);
-        if (token is null) return TransitionResult.PreconditionFailed("label-lock held");
+        if (token is null)
+        {
+            logger.LogWarning(
+                "Jira Transition #{Ticket}: label-lock held by another worker", ticketId.Value);
+            return TransitionResult.PreconditionFailed("label-lock held");
+        }
 
         try
         {
             var labels = await FetchLabelsAsync(ticketId, ct);
-            if (labels is null) return TransitionResult.NotFound();
+            if (labels is null)
+            {
+                logger.LogWarning("Jira Transition #{Ticket}: ticket not found", ticketId.Value);
+                return TransitionResult.NotFound();
+            }
 
             var current = ParseLifecycle(labels);
             if (!Matches(current, from))
+            {
+                logger.LogWarning(
+                    "Jira Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
+                    ticketId.Value, from, current?.ToString() ?? "<none>");
                 return TransitionResult.PreconditionFailed(
                     $"Expected {from}, found {current?.ToString() ?? "<none>"}");
+            }
 
             return await PutLabelsAsync(ticketId, current, to, ct);
         }

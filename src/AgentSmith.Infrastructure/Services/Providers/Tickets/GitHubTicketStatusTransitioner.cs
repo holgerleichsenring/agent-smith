@@ -47,16 +47,31 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "GitHub Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
+
         var (issue, etag) = await FetchIssueAsync(ticketId, cancellationToken);
-        if (issue is null) return TransitionResult.NotFound();
+        if (issue is null)
+        {
+            _logger.LogWarning("GitHub Transition #{Ticket}: ticket not found", ticketId.Value);
+            return TransitionResult.NotFound();
+        }
 
         var current = ReadLifecycleLabel(issue.Value);
         if (!Matches(current, from))
+        {
+            _logger.LogWarning(
+                "GitHub Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
+                ticketId.Value, from, current?.ToString() ?? "<none>");
             return TransitionResult.PreconditionFailed(
                 $"Expected {from}, found {(current?.ToString() ?? "<none>")}");
+        }
 
         var newLabels = BuildLabels(issue.Value, to);
-        return await PatchLabelsAsync(ticketId, newLabels, etag, cancellationToken);
+        var result = await PatchLabelsAsync(ticketId, newLabels, etag, cancellationToken);
+        _logger.LogInformation(
+            "GitHub Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
+        return result;
     }
 
     private static bool Matches(TicketLifecycleStatus? current, TicketLifecycleStatus expected)

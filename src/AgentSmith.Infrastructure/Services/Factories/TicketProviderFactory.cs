@@ -58,7 +58,8 @@ public sealed class TicketProviderFactory(
         var loader = new GitHubAttachmentLoader(
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubAttachmentLoader>());
-        return new GitHubTicketProvider(config.Url!, token, loader);
+        return new GitHubTicketProvider(config.Url!, token, loader,
+            loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
 
     private JiraTicketProvider CreateJira(TicketConfig config)
@@ -85,6 +86,7 @@ public sealed class TicketProviderFactory(
         var loader = new GitLabAttachmentLoader(
             baseUrl, escapedPath, token, httpClient,
             loggerFactory.CreateLogger<GitLabAttachmentLoader>());
-        return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader);
+        return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader,
+            loggerFactory.CreateLogger<GitLabTicketProvider>());
     }
 }

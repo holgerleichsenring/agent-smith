@@ -95,7 +95,8 @@ public sealed class GitLabTicketProviderListByLifecycleTests
             "https://gitlab.com", "group%2Fproj", "token", httpClient,
             NullLogger<GitLabAttachmentLoader>.Instance);
         return new GitLabTicketProvider(
-            "https://gitlab.com", "group%2Fproj", "token", httpClient, loader);
+            "https://gitlab.com", "group%2Fproj", "token", httpClient, loader,
+            NullLogger<GitLabTicketProvider>.Instance);
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)

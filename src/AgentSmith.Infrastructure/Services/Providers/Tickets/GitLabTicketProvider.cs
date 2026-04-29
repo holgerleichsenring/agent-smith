@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -18,18 +19,21 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly string _privateToken;
     private readonly HttpClient _httpClient;
     private readonly GitLabAttachmentLoader _attachmentLoader;
+    private readonly ILogger<GitLabTicketProvider> _logger;
 
     public string ProviderType => "GitLab";
 
     public GitLabTicketProvider(
         string baseUrl, string projectPath, string privateToken,
-        HttpClient httpClient, GitLabAttachmentLoader attachmentLoader)
+        HttpClient httpClient, GitLabAttachmentLoader attachmentLoader,
+        ILogger<GitLabTicketProvider> logger)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _projectPath = projectPath;
         _privateToken = privateToken;
         _httpClient = httpClient;
         _attachmentLoader = attachmentLoader;
+        _logger = logger;
     }
 
     public async Task<Ticket> GetTicketAsync(
@@ -62,16 +66,26 @@ public sealed class GitLabTicketProvider : ITicketProvider
     public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
     {
+        var rawLabel = LifecycleLabels.For(status);
+        _logger.LogInformation(
+            "GitLab ListByLifecycleStatus: project={Project} status={Status} (label '{Label}')",
+            _projectPath, status, rawLabel);
         try
         {
-            var label = Uri.EscapeDataString(LifecycleLabels.For(status));
+            var label = Uri.EscapeDataString(rawLabel);
             var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?labels={label}&state=opened&per_page=100";
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("PRIVATE-TOKEN", _privateToken);
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode) return [];
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "GitLab ListByLifecycleStatus: HTTP {Status} for project={Project}",
+                    (int)response.StatusCode, _projectPath);
+                return [];
+            }
 
             using var json = await JsonDocument.ParseAsync(
                 await response.Content.ReadAsStreamAsync(cancellationToken),
@@ -101,10 +115,14 @@ public sealed class GitLabTicketProvider : ITicketProvider
                     : new List<string>();
                 tickets.Add(new Ticket(new TicketId(iid), title, description, null, state, "GitLab", labels));
             }
+            _logger.LogInformation("GitLab ListByLifecycleStatus: returned {Count} ticket(s)", tickets.Count);
             return tickets;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex,
+                "GitLab ListByLifecycleStatus failed for project={Project} status={Status}",
+                _projectPath, status);
             return [];
         }
     }
