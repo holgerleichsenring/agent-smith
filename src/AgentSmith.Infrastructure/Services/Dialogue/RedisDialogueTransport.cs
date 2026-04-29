@@ -78,8 +78,11 @@ public sealed class RedisDialogueTransport(
                 }
             }
 
-            await Task.Delay(PollInterval, cancellationToken);
+            try { await Task.Delay(PollInterval, cancellationToken); }
+            catch (OperationCanceledException) { return null; }
         }
+
+        if (cancellationToken.IsCancellationRequested) return null;
 
         logger.LogWarning("WaitForAnswerAsync timed out for question {QuestionId} on job {JobId}", questionId, jobId);
         return null;
