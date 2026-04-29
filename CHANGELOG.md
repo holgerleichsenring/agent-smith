@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.29.0...v0.30.0) (2026-04-29)
+
+
+### Features
+
+* **logging:** poll-cycle heartbeat + factory + provider HTTP-call traces ([97f2910](https://github.com/holgerleichsenring/agent-smith/commit/97f2910b7520580e1259f2726bad01456f230c47))
+
 ## [0.29.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.3...v0.29.0) (2026-04-29)
 
 
