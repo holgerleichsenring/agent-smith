@@ -63,6 +63,7 @@ public static class CommandNames
     public const string SessionSetup = "SessionSetupCommand";
     public const string ApiCodeContext = "ApiCodeContextCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
+    public const string CorrelateFindings = "CorrelateFindingsCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -137,5 +138,6 @@ public static class CommandNames
         [SessionSetup] = "Authenticating API personas",
         [ApiCodeContext] = "Mapping API routes to source",
         [TryCheckoutSource] = "Resolving source",
+        [CorrelateFindings] = "Correlating findings to handlers",
     };
 }

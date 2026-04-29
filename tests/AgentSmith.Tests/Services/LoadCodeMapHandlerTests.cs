@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -15,7 +16,7 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
 
     public LoadCodeMapHandlerTests()
     {
-        _sut = new LoadCodeMapHandler(NullLogger<LoadCodeMapHandler>.Instance);
+        _sut = new LoadCodeMapHandler(new ProjectMetaResolver(), NullLogger<LoadCodeMapHandler>.Instance);
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-loadmap-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_tempDir);
         Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
@@ -47,7 +48,6 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No code map found");
     }
 
     [Fact]

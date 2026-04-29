@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,7 @@ public sealed class TryCheckoutSourceHandler(
     {
         if (!pipeline.TryGet<string>(ContextKeys.SourcePath, out var path)) return false;
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return false;
+        PublishLocalRepository(pipeline, path);
         logger.LogInformation("Source: {Path} (CLI override)", path);
         EmitBanner(pipeline, sourcePath: path);
         return true;
@@ -53,10 +55,14 @@ public sealed class TryCheckoutSourceHandler(
             return WarnPassive(pipeline, $"Local source path missing or absent: {source.Path}");
         var absolute = Path.GetFullPath(source.Path);
         pipeline.Set(ContextKeys.SourcePath, absolute);
+        PublishLocalRepository(pipeline, absolute);
         logger.LogInformation("Source: {Path} (local)", absolute);
         EmitBanner(pipeline, sourcePath: absolute);
         return Ok();
     }
+
+    private static void PublishLocalRepository(PipelineContext pipeline, string localPath) =>
+        pipeline.Set(ContextKeys.Repository, new Repository(localPath, new BranchName("(local)"), ""));
 
     private async Task<CommandResult> CloneRemoteAsync(
         TryCheckoutSourceContext context, CancellationToken cancellationToken)
@@ -70,6 +76,7 @@ public sealed class TryCheckoutSourceHandler(
             var provider = factory.Create(source);
             var repo = await provider.CheckoutAsync(context.Branch, cancellationToken);
             pipeline.Set(ContextKeys.SourcePath, repo.LocalPath);
+            pipeline.Set(ContextKeys.Repository, repo);
             logger.LogInformation("Source: {Path} (cloned from {Type})", repo.LocalPath, source.Type);
             EmitBanner(pipeline, sourcePath: repo.LocalPath);
         }
