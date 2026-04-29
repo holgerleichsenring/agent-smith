@@ -21,6 +21,14 @@ internal static class ApiScanFindingsFormatter
     private static readonly string[] AuthNucleiKeywords =
         ["auth", "jwt", "token", "session", "cookie", "oauth", "bearer"];
 
+    private static readonly string[] HeaderKeywords =
+    [
+        "csp", "content-security-policy", "hsts", "strict-transport-security",
+        "x-content-type-options", "x-frame-options", "referrer-policy",
+        "permissions-policy", "x-xss-protection", "cookie-flag", "samesite",
+        "secure-cookie", "httponly",
+    ];
+
     internal static bool IsAuthSpectral(SpectralFinding f)
     {
         if (AuthSpectralCodes.Contains(f.Code))
@@ -36,6 +44,20 @@ internal static class ApiScanFindingsFormatter
         var templateLower = f.TemplateId.ToLowerInvariant();
         var nameLower = f.Name.ToLowerInvariant();
         return AuthNucleiKeywords.Any(kw => templateLower.Contains(kw) || nameLower.Contains(kw));
+    }
+
+    internal static bool IsHeaderNuclei(NucleiFinding f)
+    {
+        var templateLower = f.TemplateId.ToLowerInvariant();
+        var nameLower = f.Name.ToLowerInvariant();
+        return HeaderKeywords.Any(kw => templateLower.Contains(kw) || nameLower.Contains(kw));
+    }
+
+    internal static bool IsHeaderZap(ZapFinding f)
+    {
+        var nameLower = f.Name.ToLowerInvariant();
+        var descLower = (f.Description ?? "").ToLowerInvariant();
+        return HeaderKeywords.Any(kw => nameLower.Contains(kw) || descLower.Contains(kw));
     }
 
     internal static string FormatSpectralFindings(string label, List<SpectralFinding> findings)

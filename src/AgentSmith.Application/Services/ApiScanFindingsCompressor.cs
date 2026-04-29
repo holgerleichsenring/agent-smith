@@ -53,6 +53,7 @@ public static class ApiScanFindingsCompressor
         var authParts = new StringBuilder();
         var designParts = new StringBuilder();
         var runtimeParts = new StringBuilder();
+        var headerParts = new StringBuilder();
 
         if (spectral is not null && spectral.Findings.Count > 0)
         {
@@ -75,18 +76,34 @@ public static class ApiScanFindingsCompressor
 
         if (nuclei is not null && nuclei.Findings.Count > 0)
         {
-            runtimeParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings(nuclei.Findings));
+            // p0104: header findings get their own slice; everything else stays in runtime
+            var headerNuclei = nuclei.Findings.Where(ApiScanFindingsFormatter.IsHeaderNuclei).ToList();
+            var nonHeaderNuclei = nuclei.Findings.Except(headerNuclei).ToList();
+
+            if (nonHeaderNuclei.Count > 0)
+                runtimeParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings(nonHeaderNuclei));
+            if (headerNuclei.Count > 0)
+                headerParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings("Headers", headerNuclei));
+
             var authNuclei = nuclei.Findings.Where(ApiScanFindingsFormatter.IsAuthNuclei).ToList();
             if (authNuclei.Count > 0)
                 authParts.Append(ApiScanFindingsFormatter.FormatNucleiFindings("Auth", authNuclei));
         }
 
         if (zap is not null && zap.Findings.Count > 0)
-            runtimeParts.Append(ApiScanFindingsFormatter.FormatZapFindings(zap.Findings));
+        {
+            var headerZap = zap.Findings.Where(ApiScanFindingsFormatter.IsHeaderZap).ToList();
+            var nonHeaderZap = zap.Findings.Except(headerZap).ToList();
+            if (nonHeaderZap.Count > 0)
+                runtimeParts.Append(ApiScanFindingsFormatter.FormatZapFindings(nonHeaderZap));
+            if (headerZap.Count > 0)
+                headerParts.Append(ApiScanFindingsFormatter.FormatZapFindings(headerZap));
+        }
 
         if (authParts.Length > 0) slices["auth"] = authParts.ToString();
         if (designParts.Length > 0) slices["design"] = designParts.ToString();
         if (runtimeParts.Length > 0) slices["runtime"] = runtimeParts.ToString();
+        if (headerParts.Length > 0) slices["headers"] = headerParts.ToString();
 
         return slices;
     }
