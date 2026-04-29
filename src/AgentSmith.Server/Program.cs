@@ -13,6 +13,15 @@ builder.Logging.SetMinimumLevel(
     builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
 var configPath = Environment.GetEnvironmentVariable("CONFIG_PATH") ?? "/app/config/agentsmith.yml";
+if (!File.Exists(configPath))
+{
+    Console.Error.WriteLine(
+        $"FATAL: agentsmith config not found at '{configPath}'.\n" +
+        $"  • K8s: mount your ConfigMap as a volume at /app/config (see deploy/k8s/8-deployment-server.yaml).\n" +
+        $"  • Docker: -v /path/to/agentsmith.yml:/app/config/agentsmith.yml\n" +
+        $"  • Custom path: set CONFIG_PATH=/path/to/agentsmith.yml.");
+    Environment.Exit(78);   // EX_CONFIG: configuration error
+}
 builder.Services.AddSingleton(new ServerContext(configPath));
 builder.Services.AddSingleton<IProgressReporter>(sp =>
     new ConsoleProgressReporter(
