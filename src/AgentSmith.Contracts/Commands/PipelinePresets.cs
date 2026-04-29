@@ -11,7 +11,7 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
@@ -22,7 +22,7 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
@@ -39,7 +39,7 @@ public static class PipelinePresets
     [
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-        CommandNames.LoadDomainRules, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
@@ -61,7 +61,7 @@ public static class PipelinePresets
     [
         CommandNames.AcquireSource,
         CommandNames.BootstrapDocument,
-        CommandNames.LoadDomainRules,
+        CommandNames.LoadCodingPrinciples,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
@@ -72,7 +72,9 @@ public static class PipelinePresets
     [
         CommandNames.CheckoutSource,
         CommandNames.BootstrapProject,
-        CommandNames.LoadDomainRules,
+        CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
+        CommandNames.LoadCodingPrinciples,
+        CommandNames.LoadCodeMap,             // p0105: code-map.yaml for module structure
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,

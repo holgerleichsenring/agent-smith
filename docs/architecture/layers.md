@@ -137,7 +137,7 @@ Each handler implements `ICommandHandler<TContext>` and handles one pipeline ste
 - `AcquireSourceHandler` — Acquire source for legal pipeline
 - `LoadCodeMapHandler` — Generate/load code map
 - `LoadContextHandler` — Load `.agentsmith/` context files
-- `LoadDomainRulesHandler` — Load domain-specific rules/skills
+- `LoadCodingPrinciplesHandler` — Load domain-specific rules/skills
 - `LoadSkillsHandler` — Load skill definitions for multi-skill rounds
 - `LoadSwaggerHandler` — Load and compress OpenAPI specs
 

@@ -8,7 +8,7 @@ The **legal-analysis** pipeline reviews contracts and legal documents using a pa
 |---|---------|-------------|
 | 1 | AcquireSource | Picks up a document from the inbox folder, creates a workspace |
 | 2 | BootstrapDocument | Converts to Markdown via MarkItDown, detects contract type, loads legal skills |
-| 3 | LoadDomainRules | Loads `legal-principles.md` with analysis guidelines |
+| 3 | LoadCodingPrinciples | Loads `legal-principles.md` with analysis guidelines |
 | 4 | Triage | AI selects which legal specialist roles should participate |
 | 5 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
 | 6 | CompileDiscussion | Consolidates all role analyses into a final document |
