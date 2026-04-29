@@ -39,8 +39,10 @@ public sealed class GitLabIssuePoller(
                     : PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"))
             .ToList();
 
-        logger.LogDebug("GitLab poll for {Project}: {Count} pending candidates",
-            projectName, requests.Count);
+        logger.LogInformation(
+            "GitLab poll for {Project}: building {Count} claim request(s) — {Tickets}",
+            projectName, requests.Count,
+            string.Join(", ", requests.Select(r => $"#{r.TicketId.Value}→{r.PipelineName}")));
         _ = transitioner;
         return requests;
     }

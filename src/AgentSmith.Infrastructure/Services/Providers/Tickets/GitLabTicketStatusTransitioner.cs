@@ -34,15 +34,30 @@ public sealed class GitLabTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        logger.LogInformation(
+            "GitLab Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
+
         var labels = await FetchLabelsAsync(ticketId, cancellationToken);
-        if (labels is null) return TransitionResult.NotFound();
+        if (labels is null)
+        {
+            logger.LogWarning("GitLab Transition #{Ticket}: ticket not found", ticketId.Value);
+            return TransitionResult.NotFound();
+        }
 
         var current = ParseLifecycle(labels);
         if (!Matches(current, from))
+        {
+            logger.LogWarning(
+                "GitLab Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
+                ticketId.Value, from, current?.ToString() ?? "<none>");
             return TransitionResult.PreconditionFailed(
                 $"Expected {from}, found {current?.ToString() ?? "<none>"}");
+        }
 
-        return await UpdateLabelsAsync(ticketId, current, to, cancellationToken);
+        var result = await UpdateLabelsAsync(ticketId, current, to, cancellationToken);
+        logger.LogInformation(
+            "GitLab Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
+        return result;
     }
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)

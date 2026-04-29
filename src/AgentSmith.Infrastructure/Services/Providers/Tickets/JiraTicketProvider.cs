@@ -95,9 +95,12 @@ public sealed class JiraTicketProvider : ITicketProvider
     public async Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
     {
+        var label = LifecycleLabels.For(status);
+        _logger.LogInformation(
+            "Jira ListByLifecycleStatus: project={Project} status={Status} (label '{Label}')",
+            _projectKey ?? "<all>", status, label);
         try
         {
-            var label = LifecycleLabels.For(status);
             var jql = _projectKey is null
                 ? $"labels = \"{label}\""
                 : $"project = \"{_projectKey}\" AND labels = \"{label}\"";
@@ -112,7 +115,13 @@ public sealed class JiraTicketProvider : ITicketProvider
 
             var content = new StringContent(body, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync(url, content, cancellationToken);
-            if (!response.IsSuccessStatusCode) return [];
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Jira ListByLifecycleStatus: HTTP {Status} for project={Project}",
+                    (int)response.StatusCode, _projectKey ?? "<all>");
+                return [];
+            }
 
             using var doc = JsonDocument.Parse(
                 await response.Content.ReadAsStringAsync(cancellationToken));

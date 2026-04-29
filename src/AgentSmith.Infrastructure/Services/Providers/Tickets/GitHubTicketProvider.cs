@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -16,14 +17,18 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly string _repo;
     private readonly GitHubClient _client;
     private readonly GitHubAttachmentLoader _attachmentLoader;
+    private readonly ILogger<GitHubTicketProvider> _logger;
 
     public string ProviderType => "GitHub";
 
-    public GitHubTicketProvider(string repoUrl, string token, GitHubAttachmentLoader attachmentLoader)
+    public GitHubTicketProvider(
+        string repoUrl, string token, GitHubAttachmentLoader attachmentLoader,
+        ILogger<GitHubTicketProvider> logger)
     {
         (_owner, _repo) = ParseGitHubUrl(repoUrl);
         _client = CreateClient(token);
         _attachmentLoader = attachmentLoader;
+        _logger = logger;
     }
 
     public async Task<Ticket> GetTicketAsync(
@@ -113,6 +118,9 @@ public sealed class GitHubTicketProvider : ITicketProvider
         TicketLifecycleStatus status, CancellationToken cancellationToken)
     {
         var label = LifecycleLabels.For(status);
+        _logger.LogInformation(
+            "GitHub ListByLifecycleStatus: repo={Owner}/{Repo} status={Status} (label '{Label}')",
+            _owner, _repo, status, label);
         try
         {
             var request = new RepositoryIssueRequest
@@ -121,10 +129,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
                 Labels = { label }
             };
             var issues = await _client.Issue.GetAllForRepository(_owner, _repo, request);
-            return issues.Select(i => MapToTicket(new TicketId(i.Number.ToString()), i)).ToList();
+            var tickets = issues.Select(i => MapToTicket(new TicketId(i.Number.ToString()), i)).ToList();
+            _logger.LogInformation("GitHub ListByLifecycleStatus: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex,
+                "GitHub ListByLifecycleStatus failed for {Owner}/{Repo} status={Status}",
+                _owner, _repo, status);
             return [];
         }
     }
