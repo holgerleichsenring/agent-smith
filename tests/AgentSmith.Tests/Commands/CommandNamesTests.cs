@@ -39,7 +39,7 @@ public class CommandNamesTests
         {
             CommandNames.FetchTicket, CommandNames.CheckoutSource,
             CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
-            CommandNames.LoadDomainRules, CommandNames.LoadCodingPrinciples,
+            CommandNames.LoadCodingPrinciples,
             CommandNames.LoadContext,
             CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
             CommandNames.Approval, CommandNames.AgenticExecute,

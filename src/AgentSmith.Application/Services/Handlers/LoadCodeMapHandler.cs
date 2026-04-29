@@ -1,35 +1,44 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Loads .agentsmith/code-map.yaml from the repository into the pipeline context.
-/// Returns Ok when file is missing — the code map is optional.
+/// Loads code-map.yaml from the target's .agentsmith/ directory into the pipeline.
+/// Path resolved via IProjectMetaResolver — supports mono-repo layouts.
+/// Returns Ok when missing.
 /// </summary>
 public sealed class LoadCodeMapHandler(
+    IProjectMetaResolver metaResolver,
     ILogger<LoadCodeMapHandler> logger)
     : ICommandHandler<LoadCodeMapContext>
 {
-    private const string CodeMapPath = ".agentsmith/code-map.yaml";
+    private const string FileName = "code-map.yaml";
 
     public async Task<CommandResult> ExecuteAsync(
         LoadCodeMapContext context, CancellationToken cancellationToken)
     {
-        var codeMapPath = Path.Combine(context.Repository.LocalPath, CodeMapPath);
-
-        if (!File.Exists(codeMapPath))
+        var metaDir = metaResolver.Resolve(context.Repository.LocalPath);
+        if (metaDir is null)
         {
-            logger.LogInformation("No {File} found, continuing without code map", CodeMapPath);
-            return CommandResult.Ok("No code map found, continuing without");
+            logger.LogInformation("No .agentsmith/ found under {Source}, continuing without code map", context.Repository.LocalPath);
+            return CommandResult.Ok("No .agentsmith/ found, continuing without");
         }
 
-        var content = await File.ReadAllTextAsync(codeMapPath, cancellationToken);
+        var path = Path.Combine(metaDir, FileName);
+        if (!File.Exists(path))
+        {
+            logger.LogInformation("No {File} in {Dir}, continuing without code map", FileName, metaDir);
+            return CommandResult.Ok($"No {FileName}, continuing without");
+        }
+
+        var content = await File.ReadAllTextAsync(path, cancellationToken);
         context.Pipeline.Set(ContextKeys.CodeMap, content);
 
-        logger.LogInformation("Loaded {File} ({Chars} chars)", CodeMapPath, content.Length);
+        logger.LogInformation("Loaded {Path} ({Chars} chars)", path, content.Length);
         return CommandResult.Ok($"Loaded code map ({content.Length} chars)");
     }
 }

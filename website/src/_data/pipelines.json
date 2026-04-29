@@ -448,7 +448,7 @@
       {
         "type": "step",
         "num": " [3/18]",
-        "name": "LoadDomainRules  ",
+        "name": "LoadCodingPrinciples  ",
         "desc": "security-principles.md"
       },
       {

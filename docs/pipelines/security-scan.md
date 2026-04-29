@@ -13,7 +13,7 @@ The pipeline has 18 base steps, with dynamic expansion during the skill rounds p
 |---|---------|-------------|
 | 1 | CheckoutSource | Clones repo, optionally scopes to a PR diff or branch |
 | 2 | BootstrapProject | Detects language, framework, dependencies |
-| 3 | LoadDomainRules | Loads `security-principles.md` with exclusion rules |
+| 3 | LoadCodingPrinciples | Loads `security-principles.md` with exclusion rules |
 | 4 | StaticPatternScan | Runs 91 regex patterns across 6 categories against source files |
 | 5 | GitHistoryScan | Scans last 500 commits for secrets in git history via LibGit2Sharp |
 | 6 | DependencyAudit | Runs `npm audit` / `pip-audit` / `dotnet audit` + structural checks |
@@ -233,7 +233,7 @@ agent-smith security-scan --repo ./my-project --output sarif,markdown,console --
 
 ## Exclusion Rules
 
-The `security-principles.md` file (loaded by `LoadDomainRules`) controls what the False Positive Filter removes. Common exclusions:
+The `security-principles.md` file (loaded by `LoadCodingPrinciples`) controls what the False Positive Filter removes. Common exclusions:
 
 - Test-only code paths
 - Placeholder/example credentials
