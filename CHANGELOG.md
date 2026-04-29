@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.0...v0.27.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **p0106:** server DI registration + loosen trigger validation ([d608b4d](https://github.com/holgerleichsenring/agent-smith/commit/d608b4def33c237d50f9450bd80182b8cbc09853))
+
 ## [0.27.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.26.1...v0.27.0) (2026-04-29)
 
 
