@@ -83,15 +83,18 @@ public sealed class PollerHostedService(
     private async Task ProcessClaimAsync(
         ClaimRequest request, AgentSmithConfig config, CancellationToken ct)
     {
+        logger.LogInformation(
+            "Processing claim: {Platform}/{Project}/#{Ticket} → pipeline={Pipeline}",
+            request.Platform, request.ProjectName, request.TicketId.Value, request.PipelineName);
         try
         {
             var result = await claimService.ClaimAsync(request, config, ct);
-            logger.LogDebug("Poll-claim {Outcome}: {Project}/{Ticket}",
-                result.Outcome, request.ProjectName, request.TicketId.Value);
+            logger.LogInformation("Claim outcome: {Outcome} for {Platform}/{Project}/#{Ticket}",
+                result.Outcome, request.Platform, request.ProjectName, request.TicketId.Value);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "ClaimAsync failed for polled candidate {Project}/{Ticket}",
+            logger.LogError(ex, "ClaimAsync failed for polled candidate {Project}/#{Ticket}",
                 request.ProjectName, request.TicketId.Value);
         }
     }

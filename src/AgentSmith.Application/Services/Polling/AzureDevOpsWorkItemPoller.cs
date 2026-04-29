@@ -41,8 +41,10 @@ public sealed class AzureDevOpsWorkItemPoller(
                     : PipelineResolver.Resolve(trigger, t.Labels) ?? fallbackPipeline))
             .ToList();
 
-        logger.LogDebug("AzureDevOps poll for {Project}: {Count} pending candidates",
-            projectName, requests.Count);
+        logger.LogInformation(
+            "AzureDevOps poll for {Project}: building {Count} claim request(s) — {Tickets}",
+            projectName, requests.Count,
+            string.Join(", ", requests.Select(r => $"#{r.TicketId.Value}→{r.PipelineName}")));
         _ = transitioner;
         return requests;
     }
