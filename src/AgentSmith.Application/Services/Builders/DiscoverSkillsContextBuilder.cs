@@ -13,9 +13,7 @@ public sealed class DiscoverSkillsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
-        var skillsPath = pipeline.TryGet<string>(ContextKeys.SkillsPathOverride, out var overridePath)
-            ? overridePath!
-            : project.SkillsPath;
+        var skillsPath = pipeline.Resolved().SkillsPath;
 
         // Collect names of already-installed skills
         var installedNames = new List<string>();

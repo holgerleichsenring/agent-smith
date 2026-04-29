@@ -46,7 +46,7 @@ public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
-        var path = project.CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
+        var path = pipeline.Resolved().CodingPrinciplesPath ?? ".agentsmith/coding-principles.md";
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadCodingPrinciplesContext(path, repo, pipeline);
     }
@@ -75,6 +75,7 @@ public sealed class BootstrapProjectContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new BootstrapProjectContext(repo, project.Agent, project.SkillsPath, pipeline);
+        var resolved = pipeline.Resolved();
+        return new BootstrapProjectContext(repo, resolved.Agent, resolved.SkillsPath, pipeline);
     }
 }

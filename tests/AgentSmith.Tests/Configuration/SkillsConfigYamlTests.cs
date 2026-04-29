@@ -17,7 +17,7 @@ public sealed class SkillsConfigYamlTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader().LoadConfig(_tempFile);
+        return new YamlConfigurationLoader(new ProjectConfigNormalizer()).LoadConfig(_tempFile);
     }
 
     [Fact]

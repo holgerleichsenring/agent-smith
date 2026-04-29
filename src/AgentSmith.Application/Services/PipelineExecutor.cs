@@ -47,7 +47,10 @@ public sealed class PipelineExecutor(
 
         var commands = new LinkedList<PipelineCommand>(
             commandNames.Select(PipelineCommand.Simple));
-        var maxConcurrent = projectConfig.Agent.Parallelism.MaxConcurrentSkillRounds;
+        var resolvedAgent = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
+            ? rp!.Agent
+            : projectConfig.Agent;
+        var maxConcurrent = resolvedAgent.Parallelism.MaxConcurrentSkillRounds;
         var current = commands.First;
         var executionCount = 0;
 

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -122,6 +123,7 @@ public sealed class AzureDevOpsWorkItemPollerTests
         return new AzureDevOpsWorkItemPoller(
             "proj", project, factory.Object,
             new Mock<ITicketStatusTransitioner>().Object,
+            new PipelineConfigResolver(),
             NullLogger<AzureDevOpsWorkItemPoller>.Instance);
     }
 }
