@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.2...v0.28.3) (2026-04-29)
+
+
+### Bug Fixes
+
+* **dialogue:** RedisDialogueTransport cancellation deterministic + test ([8f0bc7d](https://github.com/holgerleichsenring/agent-smith/commit/8f0bc7dd30e474a76b800dcdc56e813952b6a28a))
+
 ## [0.28.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.1...v0.28.2) (2026-04-29)
 
 
