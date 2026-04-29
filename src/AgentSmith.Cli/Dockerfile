@@ -33,7 +33,12 @@ RUN groupadd --gid 1000 agentsmith && \
     chown -R agentsmith:agentsmith /home/agentsmith
 
 COPY --from=build /app/publish .
-COPY config/ ./config/
+
+# Config is NOT baked into the image (p0107a). Either pass --config <path>
+# explicitly, or mount your agentsmith.yml at /app/config/agentsmith.yml
+# (matches ConfigDiscovery's fallback search path). Without one of those
+# the CLI fails fast at command time with a clear error.
+RUN mkdir -p /app/config && chown agentsmith:agentsmith /app/config
 
 # Output directory for reports (markdown, sarif)
 RUN mkdir -p /output && chown agentsmith:agentsmith /output
