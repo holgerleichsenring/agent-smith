@@ -10,13 +10,13 @@ namespace AgentSmith.Application.Services.Builders;
 public sealed class TriageContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new TriageContext(project.Agent, pipeline);
+        => new TriageContext(pipeline.Resolved().Agent, pipeline);
 }
 
 public sealed class SecurityTriageContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new SecurityTriageContext(project.Agent, pipeline);
+        => new SecurityTriageContext(pipeline.Resolved().Agent, pipeline);
 }
 
 public sealed class SwitchSkillContextBuilder : IContextBuilder
@@ -34,7 +34,7 @@ public sealed class SkillRoundContextBuilder : IContextBuilder
     {
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;
-        return new SkillRoundContext(skillName, round, project.Agent, pipeline);
+        return new SkillRoundContext(skillName, round, pipeline.Resolved().Agent, pipeline);
     }
 }
 
@@ -44,14 +44,14 @@ public sealed class SecuritySkillRoundContextBuilder : IContextBuilder
     {
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;
-        return new SecuritySkillRoundContext(skillName, round, project.Agent, pipeline);
+        return new SecuritySkillRoundContext(skillName, round, pipeline.Resolved().Agent, pipeline);
     }
 }
 
 public sealed class ConvergenceCheckContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new ConvergenceCheckContext(project.Agent, pipeline);
+        => new ConvergenceCheckContext(pipeline.Resolved().Agent, pipeline);
 }
 
 public sealed class CompileDiscussionContextBuilder : IContextBuilder
