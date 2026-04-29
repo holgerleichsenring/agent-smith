@@ -67,7 +67,7 @@ projects:
     #   done_status: "In Review"              # transition after PR creation
     #   pipeline_from_label:                  # label → pipeline mapping
     #     bug: fix-bug
-    #     feature: implement-feature
+    #     feature: add-feature
     #     security-review: security-scan
     #   default_pipeline: fix-bug             # fallback if no label matches
     #   comment_keyword: "@agent-smith"       # optional: re-trigger via comment
@@ -189,7 +189,7 @@ projects:
       # lifecycle tags are filtered before matching.
       pipeline_from_label:
         bug: fix-bug
-        feature: implement-feature
+        feature: add-feature
         security-review: security-scan
       default_pipeline: fix-bug             # fallback when no pipeline_from_label key matches
       # comment_keyword: "@agent-smith"     # webhook-only; polling does not see comments

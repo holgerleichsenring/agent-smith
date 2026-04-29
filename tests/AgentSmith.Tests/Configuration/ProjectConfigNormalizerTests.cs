@@ -42,7 +42,7 @@ public class ProjectConfigNormalizerTests
     }
 
     [Fact]
-    public void Normalize_BothLegacyAndPipelinesSet_PrefersExplicitWithoutSynth()
+    public void Normalize_BothLegacyAndPipelinesSet_LegacyAddedAsAdditionalPipeline()
     {
         var project = new ProjectConfig
         {
@@ -52,8 +52,25 @@ public class ProjectConfigNormalizerTests
 
         _sut.Normalize("p", project);
 
-        project.Pipelines.Should().ContainSingle()
-            .Which.Name.Should().Be("security-scan");
+        project.Pipelines.Should().HaveCount(2);
+        project.Pipelines.Should().Contain(p => p.Name == "fix-bug");
+        project.Pipelines.Should().Contain(p => p.Name == "security-scan");
+        project.DefaultPipeline.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public void Normalize_LegacyPipelineAlreadyInPipelinesList_NotDuplicated()
+    {
+        var project = new ProjectConfig
+        {
+            Pipeline = "fix-bug",
+            Pipelines = [new PipelineDefinition { Name = "fix-bug", SkillsPath = "skills/custom" }],
+        };
+
+        _sut.Normalize("p", project);
+
+        project.Pipelines.Should().HaveCount(1);
+        project.Pipelines[0].SkillsPath.Should().Be("skills/custom");
     }
 
     [Fact]
@@ -72,7 +89,7 @@ public class ProjectConfigNormalizerTests
     }
 
     [Fact]
-    public void Normalize_TriggerPipelineFromLabelReferencesUnknown_ThrowsConfigurationException()
+    public void Normalize_TriggerPipelineFromLabelReferencesUndeclaredPipeline_DoesNotThrow()
     {
         var project = new ProjectConfig
         {
@@ -85,23 +102,7 @@ public class ProjectConfigNormalizerTests
 
         Action act = () => _sut.Normalize("proj", project);
 
-        act.Should().Throw<ConfigurationException>()
-            .WithMessage("*github_trigger*security-scan*");
-    }
-
-    [Fact]
-    public void Normalize_TriggerDefaultPipelineNotDeclared_ThrowsConfigurationException()
-    {
-        var project = new ProjectConfig
-        {
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
-            GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "ghost" }
-        };
-
-        Action act = () => _sut.Normalize("proj", project);
-
-        act.Should().Throw<ConfigurationException>()
-            .WithMessage("*github_trigger*ghost*");
+        act.Should().NotThrow();
     }
 
     [Fact]

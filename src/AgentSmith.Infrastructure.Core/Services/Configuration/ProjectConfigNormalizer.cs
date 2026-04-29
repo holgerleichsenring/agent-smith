@@ -4,9 +4,12 @@ using AgentSmith.Domain.Exceptions;
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
-/// Synthesizes a single-element Pipelines list from the legacy
-/// Pipeline + SkillsPath fields when Pipelines is empty, and validates that
-/// trigger pipeline references resolve to declared pipeline names.
+/// Adds the legacy single-string Pipeline to the Pipelines list (if not already
+/// declared) so it acts as a default that pipeline_from_label can route to.
+/// Per-pipeline overrides go in Pipelines explicitly; pipelines without
+/// overrides inherit project defaults via the resolver. Validates only the
+/// project-level DefaultPipeline against the declared list — trigger label
+/// values are not pre-validated since they may route to any system pipeline.
 /// </summary>
 public sealed class ProjectConfigNormalizer
 {
@@ -16,27 +19,28 @@ public sealed class ProjectConfigNormalizer
     {
         ApplyLegacyShim(project);
         ValidateDefaultPipeline(projectName, project);
-        ValidateTriggers(projectName, project);
     }
 
     private static void ApplyLegacyShim(ProjectConfig project)
     {
-        if (project.Pipelines.Count > 0) return;
         if (string.IsNullOrEmpty(project.Pipeline)) return;
-
-        var skillsPathOverride = string.Equals(
-            project.SkillsPath, DefaultProjectSkillsPath, StringComparison.Ordinal)
-            ? null
-            : project.SkillsPath;
-
-        project.Pipelines.Add(new PipelineDefinition
+        if (!project.Pipelines.Any(p => string.Equals(
+            p.Name, project.Pipeline, StringComparison.OrdinalIgnoreCase)))
         {
-            Name = project.Pipeline,
-            SkillsPath = skillsPathOverride,
-            CodingPrinciplesPath = project.CodingPrinciplesPath,
-        });
+            project.Pipelines.Add(new PipelineDefinition
+            {
+                Name = project.Pipeline,
+                SkillsPath = NonDefaultSkillsPath(project),
+                CodingPrinciplesPath = project.CodingPrinciplesPath,
+            });
+        }
         project.DefaultPipeline ??= project.Pipeline;
     }
+
+    private static string? NonDefaultSkillsPath(ProjectConfig project) =>
+        string.Equals(project.SkillsPath, DefaultProjectSkillsPath, StringComparison.Ordinal)
+            ? null
+            : project.SkillsPath;
 
     private static void ValidateDefaultPipeline(string projectName, ProjectConfig project)
     {
@@ -47,35 +51,5 @@ public sealed class ProjectConfigNormalizer
         throw new ConfigurationException(
             $"Project '{projectName}': default_pipeline '{project.DefaultPipeline}' " +
             $"is not declared in pipelines.");
-    }
-
-    private static void ValidateTriggers(string projectName, ProjectConfig project)
-    {
-        if (project.Pipelines.Count == 0) return;
-        var declared = new HashSet<string>(
-            project.Pipelines.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
-
-        ValidateTrigger(projectName, "github_trigger", project.GithubTrigger, declared);
-        ValidateTrigger(projectName, "gitlab_trigger", project.GitlabTrigger, declared);
-        ValidateTrigger(projectName, "azuredevops_trigger", project.AzuredevopsTrigger, declared);
-        ValidateTrigger(projectName, "jira_trigger", project.JiraTrigger, declared);
-    }
-
-    private static void ValidateTrigger(
-        string projectName, string triggerName, WebhookTriggerConfig? trigger,
-        HashSet<string> declared)
-    {
-        if (trigger is null) return;
-
-        foreach (var (label, pipeline) in trigger.PipelineFromLabel)
-            if (!declared.Contains(pipeline))
-                throw new ConfigurationException(
-                    $"Project '{projectName}' {triggerName}: pipeline_from_label['{label}'] " +
-                    $"references unknown pipeline '{pipeline}'.");
-
-        if (!string.IsNullOrEmpty(trigger.DefaultPipeline) && !declared.Contains(trigger.DefaultPipeline))
-            throw new ConfigurationException(
-                $"Project '{projectName}' {triggerName}: default_pipeline " +
-                $"'{trigger.DefaultPipeline}' is not declared in pipelines.");
     }
 }
