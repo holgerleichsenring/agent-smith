@@ -45,7 +45,20 @@ public sealed class EnqueuedReconciler(
     {
         var config = configLoader.LoadConfig(configPath);
         foreach (var (name, project) in config.Projects)
-            await ReconcileProjectAsync(name, project, ct);
+            await ReconcileProjectSafeAsync(name, project, ct);
+    }
+
+    private async Task ReconcileProjectSafeAsync(
+        string projectName, ProjectConfig project, CancellationToken ct)
+    {
+        try { await ReconcileProjectAsync(projectName, project, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "EnqueuedReconciler skipped project {Project} (Tickets.Type={Type}): {Message}",
+                projectName, project.Tickets.Type, ex.Message);
+        }
     }
 
     private async Task ReconcileProjectAsync(
