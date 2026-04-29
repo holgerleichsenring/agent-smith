@@ -1,5 +1,5 @@
 using System.Text.Json;
-using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Server.Services.Webhooks;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;

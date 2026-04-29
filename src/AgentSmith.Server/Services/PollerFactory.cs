@@ -5,7 +5,7 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Builds platform-specific IEventPoller instances from AgentSmithConfig.

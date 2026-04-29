@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;

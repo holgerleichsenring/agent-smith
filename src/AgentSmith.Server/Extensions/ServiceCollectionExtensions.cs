@@ -1,17 +1,20 @@
-using AgentSmith.Application.Prompts;
+using AgentSmith.Application;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Server.Contracts;
-using AgentSmith.Server.Models;
-using AgentSmith.Server.Services.Adapters;
-using AgentSmith.Server.Services.Handlers;
-using AgentSmith.Server.Services;
 using AgentSmith.Infrastructure;
+using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Services.Hosting;
+using AgentSmith.Server.Services.Webhooks;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
@@ -43,9 +46,50 @@ internal static class ServiceCollectionExtensions
         services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
         services.AddHostedService<OrphanJobDetector>();
         services.AddAgentSmithInfrastructure();
-        services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
-        services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
+        services.AddAgentSmithCommands();
         services.AddIntentEngine();
+        return services;
+    }
+
+    internal static IServiceCollection AddWebhookHandlers(this IServiceCollection services)
+    {
+        services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitHubPrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitLabIssueWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitLabIssueCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitLabMrLabelWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, GitLabMrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, AzureDevOpsWorkItemWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, AzureDevOpsWorkItemCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, AzureDevOpsPrCommentWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, JiraAssigneeWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, JiraCommentWebhookHandler>();
+        return services;
+    }
+
+    internal static IServiceCollection AddLongRunningServices(this IServiceCollection services)
+    {
+        services.AddSingleton<QueueConsumerHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<QueueConsumerHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp =>
+            sp.GetRequiredService<QueueConsumerHostedService>().Health);
+
+        services.AddSingleton<HousekeepingLeaderHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<HousekeepingLeaderHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp =>
+            sp.GetRequiredService<HousekeepingLeaderHostedService>().Health);
+
+        services.AddSingleton<PollerLeaderHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<PollerLeaderHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp =>
+            sp.GetRequiredService<PollerLeaderHostedService>().Health);
+
+        services.AddSingleton<RedisConnectionHealth>();
+        services.AddSingleton<ISubsystemHealth>(sp =>
+            sp.GetRequiredService<RedisConnectionHealth>().Health);
+
         return services;
     }
 

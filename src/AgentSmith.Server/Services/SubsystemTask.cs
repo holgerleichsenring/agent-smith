@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Wraps a Redis-dependent server task with health-state tracking and a wait-for-redis

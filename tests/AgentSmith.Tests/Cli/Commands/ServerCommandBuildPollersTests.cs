@@ -1,6 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Polling;
-using AgentSmith.Cli.Services;
+using AgentSmith.Server.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
