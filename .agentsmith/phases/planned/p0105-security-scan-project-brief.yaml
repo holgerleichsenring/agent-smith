@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0105
+goal: "security-scan adopts the same project-brief setup as p0104: shared ProjectMetaResolver + ProjectBriefBuilder, brief in cached prefix, deduplicate LoadDomainRules / LoadCodingPrinciples, drop redundant CodeAnalysis filesSummary"
+
+requires: ["p0104", "p0086", "p0094b"]
+
+decisions:
+  - key: "Reuse ProjectMetaResolver, ProjectBriefBuilder verbatim from p0104 — same brief shape, same .agentsmith/ resolution, same fallback. Two implementations would drift; one shared service is the win"
+  - key: "Keep BootstrapProject in security-scan preset — security-scan already accepts the auto-bootstrap cost (creates .agentsmith/ if missing on target). api-security-scan deliberately omitted it for speed; the asymmetry stays. After BootstrapProject runs, the loaders read what bootstrap just wrote"
+  - key: "LoadDomainRules and LoadCodingPrinciples are today aliases for the same handler (DI registers LoadDomainRulesHandler under both keys). p0105 deletes LoadDomainRules and standardizes on LoadCodingPrinciples — single name across both pipelines, no behavior change"
+  - key: "Reverting p34's rename (LoadCodingPrinciples → LoadDomainRules). p34 motivated the abstract name with 'fits other rule types', but two years later all consumers load coding-principles.md and the abstraction earned nothing — only DI aliasing complexity. Single concrete name reduces friction, no future rule type ever materialized"
+  - key: "CodeAnalysis stays in the pipeline — audit found 3 active consumers (PlanExecutionContextBuilder, SecurityTriageHandler, SecuritySkillRoundHandler) plus the producer (AnalyzeCodeHandler). Only SecuritySkillRoundHandler stops reading it. AnalyzeCode preset entry, ContextKeys.CodeAnalysis, AnalyzeCodeHandler all remain"
+  - key: "Skills-Pfad-Asymmetrie: ApiSkillRoundHandler overrides BuildDomainSectionParts (Stable+PerSkill split → cached prefix). SecuritySkillRoundHandler only overrides BuildDomainSection (single string → no caching). p0105 splits SecuritySkillRoundHandler the same way; otherwise the brief is paid per skill instead of per round. Verified post-p0086+p0094b: SkillRoundHandlerBase fallback is unchanged, the split mechanism is still the standard cache-enabling path"
+  - key: "No header-baseline equivalent in security-scan — that's API-specific. The shared infrastructure is ProjectMetaResolver + ProjectBriefBuilder; baselines/ stays an api-security-scan concern"
+  - key: "Standard-layout (.agentsmith/ at repo root) test coverage inherits from p0104 via ProjectMetaResolver (LoadContext_TargetWithAgentsmithDir_LoadsFromCheckedOutPath). p0105 only adds the security-scan-specific monorepo regression — duplicating the standard-layout case would be noise"
+  - key: "Behavior-preservation baseline (FILL BEFORE PHASE START): Repo: <TBD>. Commit-SHA: <TBD>. Excludes: <TBD>. Findings: critical=<N>, high=<N>, medium=<N>. Pre-phase snapshot of one full security-scan run on this fixed baseline. Post-phase run on identical inputs must match counts and Finding IDs. Without the fixed values written here the gate is not reproducible — same shape as p0094b's Baseline: key. Phase does not move to active/ until the four <TBD> values are filled"
+
+steps:
+  - id: preset-rationalize
+    action: "security-scan preset uses the same loader chain as p0104; LoadDomainRules name retired"
+    modify:
+      - "PipelinePresets.SecurityScan: replace LoadDomainRules with LoadCodingPrinciples (single name post-p0105). Insert LoadContext + LoadCodeMap after BootstrapProject so all three artifacts are loaded after auto-bootstrap"
+      - "PipelinePresets: also retire LoadDomainRules in FixBug, FixNoTest, AddFeature, and any other preset that still references it (audit shows 5 hits in PipelinePresets.cs). All become LoadCodingPrinciples"
+      - "CommandNames: delete LoadDomainRules constant + ProgressLabels entry. ServiceCollectionExtensions: drop the duplicate registration of LoadDomainRulesContextBuilder under CommandNames.LoadDomainRules (only LoadCodingPrinciples remains)"
+      - "Rename LoadDomainRulesHandler → LoadCodingPrinciplesHandler, LoadDomainRulesContext → LoadCodingPrinciplesContext, LoadDomainRulesContextBuilder → LoadCodingPrinciplesContextBuilder. Existing tests adjusted by symbol rename. Test file LoadDomainRulesHandlerTests.cs → LoadCodingPrinciplesHandlerTests.cs"
+
+  - id: historical-strings-sweep
+    action: "Update LoadDomainRules string occurrences in docs and generated artifacts; do not touch phases/done/"
+    modify:
+      - "docs/index.md, docs/getting-started/first-bug-fix.md, docs/concepts/pipeline-system.md, docs/architecture/index.md, docs/architecture/layers.md, docs/pipelines/index.md, docs/pipelines/security-scan.md, docs/pipelines/fix-and-feature.md, docs/pipelines/legal-analysis.md: rename LoadDomainRules → LoadCodingPrinciples in all step listings"
+      - "README.md: rename in pipeline diagram (line 30)"
+      - "website/src/_data/pipelines.json: rename in step 'name' fields (line 451)"
+      - "reports/dry-run-summary.md: regenerated by build, no manual edit"
+      - ".agentsmith/context.yaml: behavior.pipelines step lists — rename LoadDomainRules → LoadCodingPrinciples"
+      - "phases/done/*: NOT TOUCHED (history preserved); phases/active/* and phases/planned/* renamed where they reference the symbol"
+
+  - id: handler-port
+    action: "SecuritySkillRoundHandler injects project-brief via shared ProjectBriefBuilder, splits domain section for prefix caching"
+    modify:
+      - "SecuritySkillRoundHandler: override BuildDomainSectionParts (not just BuildDomainSection) to return Stable + PerSkill — closes the cache-asymmetry gap with ApiSkillRoundHandler. Stable prefix carries Project Brief + filesSummary-replacement; PerSkill carries findings-slice + commodity-section for chain-analyst"
+      - "SecuritySkillRoundHandler: inject ProjectBriefBuilder via constructor; project-brief at top of Stable prefix (same shape as ApiSkillRoundHandler — meta + stack + arch + quality.naming + quality.principles + code-map + coding-principles when present)"
+      - "SecuritySkillRoundHandler: remove the filesSummary block built from CodeAnalysis. CodeAnalysis stays in pipeline (3 other consumers per audit); the prompt no longer rebuilds the heuristic summary"
+      - "DI: SecuritySkillRoundHandler picks up ProjectBriefBuilder from p0104 registration; constructor change is the only DI delta"
+
+  - id: docs
+    action: "Document unified project-brief story across both pipelines"
+    modify:
+      - "docs/concepts/project-brief.md (created in p0104): add section showing both api-security-scan and security-scan use the same brief loader chain"
+      - "docs/pipelines/security-scan.md: project-brief replaces filesSummary, mention BootstrapProject auto-creates .agentsmith/ if missing"
+
+tests:
+  - "PipelinePresets_SecurityScan_LoadersAfterBootstrapProject"
+  - "PipelinePresets_SecurityScan_DoesNotReferenceLoadDomainRules"
+  - "PipelinePresets_FixBug_FixNoTest_AddFeature_LegalAnalysis_DoNotReferenceLoadDomainRules"
+  - "CommandNames_LoadDomainRulesConstant_Deleted"
+  - "ServiceCollectionExtensions_NoDuplicateBuilderRegistrationForLoadCodingPrinciples"
+  - "SecuritySkillRoundHandler_OverridesBuildDomainSectionParts"
+  - "SecuritySkillRoundHandler_ProjectBrief_InStablePrefix_NotPerSkill"
+  - "SecuritySkillRoundHandler_NoCodeAnalysisFilesSummary"
+  - "SecuritySkillRoundHandler_StablePrefix_StructurallyMatchesApiSkillRoundHandler"
+  - "SecurityScan_TargetWithAgentsmithDir_BriefMatchesContextYaml"
+  - "SecurityScan_TargetWithoutAgentsmithDir_BootstrapRunsThenBriefBuilds"
+  - "SecurityScan_MonorepoLayout_FindsAgentsmithViaProjectMetaResolver"
+  - "SecurityScan_BehaviorPreservation_FindingsCountUnchangedVsFixedBaseline"
+  - "CodeAnalysis_StillProducedByAnalyzeCodeHandler"
+  - "PlanExecutionContextBuilder_StillReadsCodeAnalysis"
+  - "SecurityTriageHandler_StillReadsCodeAnalysis"
+
+done:
+  - "security-scan loads context.yaml + coding-principles.md + code-map.yaml after BootstrapProject"
+  - "SecuritySkillRoundHandler overrides BuildDomainSectionParts; project-brief is in the Stable prefix (verified by cache_read dominating cache_create from skill 2 onwards in the same way as p0102's prefix-cache verification)"
+  - "LoadDomainRules name removed across CommandNames / ProgressLabels / DI / Handler / Context / Builder symbols and across all preset entries (FixBug, FixNoTest, AddFeature, LegalAnalysis, SecurityScan). Single canonical name LoadCodingPrinciples"
+  - "Historical strings sweep: docs/* / README.md / website/src/_data/pipelines.json / .agentsmith/context.yaml updated to LoadCodingPrinciples. phases/done/* untouched"
+  - "CodeAnalysis filesSummary removed from SecuritySkillRoundHandler prompt; AnalyzeCodeHandler + ContextKeys.CodeAnalysis remain (3 other consumers verified in audit, locked into decisions)"
+  - "Behavior-preservation: post-phase scan on the fixed baseline (decision-key) matches counts and Finding IDs from the pre-phase snapshot"
+  - "Token-cost regression: project-brief inflation < 15% per round vs. pre-p0105 baseline (brief is in cached prefix)"
+  - "dotnet build zero warnings, all tests green"

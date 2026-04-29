@@ -40,6 +40,8 @@ public sealed class ApiSkillRoundHandlerPrefixTests
             llmFactory.Object, promptBuilder, gateRetry,
             new UpstreamContextBuilder(),
             new StructuredOutputInstructionBuilder(new FakePromptCatalog()),
+            new AgentSmith.Infrastructure.Services.ProjectBriefBuilder(),
+            new NullBaselineLoader(),
             httpProbeRunner: null,
             logger: NullLogger<ApiSkillRoundHandler>.Instance);
 

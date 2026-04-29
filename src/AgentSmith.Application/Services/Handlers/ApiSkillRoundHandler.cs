@@ -20,6 +20,8 @@ public sealed class ApiSkillRoundHandler(
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
+    IProjectBriefBuilder projectBriefBuilder,
+    IBaselineLoader baselineLoader,
     HttpProbeRunner? httpProbeRunner,
     ILogger<ApiSkillRoundHandler> logger)
     : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
@@ -41,8 +43,11 @@ public sealed class ApiSkillRoundHandler(
     {
         pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec);
         pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var activeMode);
+        pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var activeSkill);
 
         var stable = $"""
+            {projectBriefBuilder.Build(pipeline)}
+
             ## API Security Scan Target
             Title: {spec?.Title ?? "Unknown"}
             Version: {spec?.Version ?? "Unknown"}
@@ -50,7 +55,7 @@ public sealed class ApiSkillRoundHandler(
             ## Swagger Specification (compressed)
             {(spec is not null ? _compressor.Compress(spec) : "Not available")}
 
-            {BuildSummarySection(pipeline)}{BuildCodeContextSection(pipeline)}{BuildProbeResultsSection(pipeline)}
+            {BuildSummarySection(pipeline)}{BuildCodeContextSection(pipeline)}{BuildProbeResultsSection(pipeline)}{BuildHeadersBaselineSection(activeSkill)}
             """.Trim();
 
         var perSkill = $"""
@@ -72,6 +77,14 @@ public sealed class ApiSkillRoundHandler(
             || string.IsNullOrWhiteSpace(summary))
             return "";
         return $"\n## Findings Summary\n{summary}\n";
+    }
+
+    private string BuildHeadersBaselineSection(string? activeSkill)
+    {
+        if (activeSkill is null) return "";
+        if (!activeSkill.Equals("security-headers-auditor", StringComparison.OrdinalIgnoreCase)) return "";
+        var baseline = baselineLoader.Load("api-headers");
+        return baseline is null ? "" : $"\n## Headers Baseline\n```yaml\n{baseline.TrimEnd()}\n```\n";
     }
 
     private string BuildCodeContextSection(PipelineContext pipeline)
@@ -99,13 +112,35 @@ public sealed class ApiSkillRoundHandler(
             "ownership-checker" => code.RoutesToHandlers
                 .Where(r => r.Confidence >= 0.5 && r.Method is "POST" or "PUT" or "DELETE" or "PATCH" or "GET")
                 .Select(r => new SourceFileExcerpt(r.File, r.StartLine, r.EndLine, r.HandlerSnippet, $"handler for {r.Method} {r.Path}")),
+            "controller-implementation-reviewer" => code.RoutesToHandlers
+                .Where(r => r.Confidence >= 0.5 && r.Method is "POST" or "PUT" or "DELETE" or "PATCH")
+                .Select(r => new SourceFileExcerpt(r.File, r.StartLine, r.EndLine, r.HandlerSnippet, $"handler for {r.Method} {r.Path}")),
+            "security-headers-auditor" => code.AuthBootstrapFiles.Concat(code.SecurityMiddlewareRegistrations),
             _ => null
         };
         if (excerpts is null) return "";
 
         var rendered = string.Join("\n\n", excerpts.Take(20).Select(e =>
             $"### {e.File}:{e.StartLine} — {e.Reason}\n```\n{e.Content}\n```"));
-        return string.IsNullOrEmpty(rendered) ? "" : $"\n## Source Excerpts\n{rendered}\n\n";
+        var correlationsSection = BuildCorrelationsForSkill(pipeline, active);
+        var combined = $"{(string.IsNullOrEmpty(rendered) ? "" : $"\n## Source Excerpts\n{rendered}\n")}{correlationsSection}";
+        return string.IsNullOrEmpty(combined) ? "" : $"{combined}\n";
+    }
+
+    private static string BuildCorrelationsForSkill(PipelineContext pipeline, string? active)
+    {
+        if (active is null) return "";
+        if (!active.Equals("controller-implementation-reviewer", StringComparison.OrdinalIgnoreCase)) return "";
+        if (!pipeline.TryGet<IReadOnlyList<FindingHandlerCorrelation>>(
+                ContextKeys.FindingHandlerCorrelations, out var correlations)
+            || correlations is null) return "";
+
+        var withHandler = correlations.Where(c => c.Handler is not null).Take(20).ToList();
+        if (withHandler.Count == 0) return "";
+
+        var lines = withHandler.Select(c =>
+            $"- [{c.Severity.ToUpperInvariant()}] {c.FindingSource}/{c.FindingId} — {c.Method} {c.Url} → {c.Handler!.File}:{c.Handler.StartLine}");
+        return $"\n## Correlated Findings (for handlers above)\n{string.Join("\n", lines)}\n";
     }
 
     private static string BuildPerSkillFindingsSection(PipelineContext pipeline)

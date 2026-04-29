@@ -84,6 +84,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAuthBootstrapExtractor, Services.Security.Code.AuthBootstrapExtractor>();
         services.AddSingleton<IUploadHandlerExtractor, Services.Security.Code.UploadHandlerExtractor>();
 
+        // Project-meta resolution under target SourcePath (p0104)
+        services.AddSingleton<IProjectMetaResolver, Services.ProjectMetaResolver>();
+        services.AddSingleton<IProjectBriefBuilder, Services.ProjectBriefBuilder>();
+        services.AddSingleton<IFindingHandlerCorrelator, Services.Security.FindingHandlerCorrelator>();
+        services.AddSingleton<IBaselineLoader, Services.BaselineLoader>();
+
         // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
