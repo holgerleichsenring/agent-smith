@@ -126,10 +126,16 @@ public sealed class AzureDevOpsTicketProvider(
             .ToList();
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, VssConnection> _connectionCache = new();
+
     private WorkItemTrackingHttpClient CreateClient()
     {
-        var credentials = new VssBasicCredential(string.Empty, personalAccessToken);
-        var connection = new VssConnection(new Uri(organizationUrl), credentials);
+        var connection = _connectionCache.GetOrAdd(organizationUrl, url =>
+        {
+            logger.LogInformation("Initializing VssConnection for {Url} (one-time)", url);
+            var credentials = new VssBasicCredential(string.Empty, personalAccessToken);
+            return new VssConnection(new Uri(url), credentials);
+        });
         return connection.GetClient<WorkItemTrackingHttpClient>();
     }
 
