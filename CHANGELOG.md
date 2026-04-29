@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.26.1...v0.27.0) (2026-04-29)
+
+
+### Features
+
+* **p0106:** multi-pipeline projects with per-pipeline overrides ([6e10787](https://github.com/holgerleichsenring/agent-smith/commit/6e107872aa7d451e71c583ca965907044cbfe894))
+* **p0106:** multi-pipeline projects with per-pipeline overrides ([bed957b](https://github.com/holgerleichsenring/agent-smith/commit/bed957bf3beb88e458d19e790a43c0ea2e6ea068))
+
 ## [0.26.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.26.0...v0.26.1) (2026-04-29)
 
 
