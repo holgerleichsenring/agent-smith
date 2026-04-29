@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.1...v0.27.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* **p0106:** IAgentProviderFactory lifetime + decisions update ([1cf15c4](https://github.com/holgerleichsenring/agent-smith/commit/1cf15c41b3a583a7083306e2c6fa76e21661ca06))
+
 ## [0.27.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.0...v0.27.1) (2026-04-29)
 
 
