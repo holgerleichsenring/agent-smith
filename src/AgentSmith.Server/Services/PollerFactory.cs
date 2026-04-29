@@ -20,11 +20,19 @@ internal static class PollerFactory
         var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
         var resolver = provider.GetRequiredService<IPipelineConfigResolver>();
         var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("ServerCommand.BuildPollers");
+        var logger = loggerFactory.CreateLogger("AgentSmith.Server.PollerFactory");
+
+        logger.LogInformation(
+            "PollerFactory.Build: scanning {ProjectCount} projects for polling=enabled",
+            config.Projects.Count);
 
         foreach (var (name, project) in config.Projects)
         {
-            if (!project.Polling.Enabled) continue;
+            if (!project.Polling.Enabled)
+            {
+                logger.LogDebug("  skip {Project}: polling disabled", name);
+                continue;
+            }
 
             IEventPoller? poller;
             try
@@ -46,6 +54,7 @@ internal static class PollerFactory
                     name, project.Tickets.Type);
                 continue;
             }
+            logger.LogInformation("  built poller for {Project} (Tickets.Type={Type})", name, project.Tickets.Type);
             yield return poller;
         }
     }
