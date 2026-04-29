@@ -34,16 +34,31 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        logger.LogInformation(
+            "AzDO Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
+
         var (tags, rev) = await FetchTagsAsync(ticketId, cancellationToken);
-        if (tags is null) return TransitionResult.NotFound();
+        if (tags is null)
+        {
+            logger.LogWarning("AzDO Transition #{Ticket}: ticket not found", ticketId.Value);
+            return TransitionResult.NotFound();
+        }
 
         var current = ParseLifecycle(tags);
         if (!Matches(current, from))
+        {
+            logger.LogWarning(
+                "AzDO Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
+                ticketId.Value, from, current?.ToString() ?? "<none>");
             return TransitionResult.PreconditionFailed(
                 $"Expected {from}, found {current?.ToString() ?? "<none>"}");
+        }
 
         var newTags = BuildTags(tags, to);
-        return await PatchTagsAsync(ticketId, newTags, rev, cancellationToken);
+        var result = await PatchTagsAsync(ticketId, newTags, rev, cancellationToken);
+        logger.LogInformation(
+            "AzDO Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
+        return result;
     }
 
     private async Task<(string[]?, int)> FetchTagsAsync(TicketId ticketId, CancellationToken ct)
