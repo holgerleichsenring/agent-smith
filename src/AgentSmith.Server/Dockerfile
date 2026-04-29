@@ -31,9 +31,12 @@ RUN groupadd --gid 1000 dispatcher && \
     useradd --uid 1000 --gid 1000 --no-create-home dispatcher
 
 COPY --from=build /app/publish .
-COPY config/ ./config/
 
-RUN mkdir -p /tmp/agentsmith && chown dispatcher:dispatcher /tmp/agentsmith
+# Config is NOT baked into the image (p0107a). Mount agentsmith.yml at
+# /app/config/agentsmith.yml via a K8s ConfigMap volume or a Docker bind-mount.
+# If the file is missing, Server fails fast at startup with a clear error.
+RUN mkdir -p /app/config /tmp/agentsmith && \
+    chown -R dispatcher:dispatcher /app/config /tmp/agentsmith
 
 USER dispatcher
 
