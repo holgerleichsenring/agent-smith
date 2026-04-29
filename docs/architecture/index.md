@@ -75,10 +75,10 @@ Agent Smith supports multiple pipelines, each classified by orchestration type (
 
 | Pipeline | Type | Steps | Trigger |
 |----------|------|-------|---------|
-| **fix-bug** | hierarchical | FetchTicket → CheckoutSource → BootstrapProject → LoadCodeMap → LoadDomainRules → LoadContext → AnalyzeCode → Triage → GeneratePlan → Approve → AgenticExecute → Test → WriteRunResult → CommitAndPR | CLI, Slack, webhook |
-| **security-scan** | structured | CheckoutSource → BootstrapProject → LoadDomainRules → AnalyzeCode → SecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → DeliverFindings | CLI, Slack, webhook |
+| **fix-bug** | hierarchical | FetchTicket → CheckoutSource → BootstrapProject → LoadCodeMap → LoadCodingPrinciples → LoadContext → AnalyzeCode → Triage → GeneratePlan → Approve → AgenticExecute → Test → WriteRunResult → CommitAndPR | CLI, Slack, webhook |
+| **security-scan** | structured | CheckoutSource → BootstrapProject → LoadCodingPrinciples → AnalyzeCode → SecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → DeliverFindings | CLI, Slack, webhook |
 | **api-scan** | structured | LoadSwagger → SpawnNuclei → SpawnSpectral → SpawnZap → LoadSkills → ApiSecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → CompileFindings → DeliverFindings | CLI, Slack, webhook |
-| **legal-analysis** | discussion | AcquireSource → BootstrapDocument → LoadDomainRules → Triage (LLM) → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, inbox |
+| **legal-analysis** | discussion | AcquireSource → BootstrapDocument → LoadCodingPrinciples → Triage (LLM) → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, inbox |
 | **mad-discussion** | discussion | FetchTicket → CheckoutSource → BootstrapProject → LoadContext → Triage (LLM) → ConvergenceCheck → CompileDiscussion → WriteRunResult → CommitAndPR | CLI, Slack |
 
 ## AI Provider Support
