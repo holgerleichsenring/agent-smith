@@ -22,6 +22,7 @@ public sealed class QueueConsumerHostedService(
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation("QueueConsumerHostedService.ExecuteAsync entered");
         var config = configLoader.LoadConfig(serverContext.ConfigPath).Queue;
         return SubsystemTask.RunRedisGatedAsync<IRedisJobQueue>(
             services, _health, config.RedisRetryIntervalSeconds,
