@@ -169,9 +169,36 @@ Each key under `projects` defines a project. Use `--project <key>` on the CLI to
 | `tickets.done_status` | No | Target state when closing a ticket (default: `Closed` for ADO, `Done` for Jira) |
 | `tickets.close_transition_name` | No | Jira only: transition name for closing (default: `Close`) |
 | `tickets.extra_fields` | No | Additional fields to fetch from work items (ADO only, e.g. custom fields). Missing fields map to null |
-| `pipeline` | Yes | Default pipeline name |
-| `skills_path` | No | Path to skill definitions (default: `skills/coding`) |
-| `coding_principles_path` | No | Path to coding conventions file |
+| `pipeline` | Legacy* | Single-pipeline form: pipeline name. Translated by the loader into a single-element `pipelines:` list with `default_pipeline = <name>`. *Use `pipelines:` for new configs. |
+| `pipelines` | Yes** | Multi-pipeline form (p0106): list of `{ name, agent?, skills_path?, coding_principles_path? }`. Each entry's optional fields override the project-level value. **Required if `pipeline:` is not set. |
+| `default_pipeline` | No | Pipeline name to use when CLI / fallback paths omit an explicit choice. Required when `pipelines:` has more than one entry; auto-set from `pipeline:` for legacy configs. |
+| `skills_path` | No | Project-level skills directory. Optional — `pipelines[].skills_path` overrides; otherwise the per-pipeline default applies (`security-scan` → `skills/security`, etc.). |
+| `coding_principles_path` | No | Path to coding conventions file (overridable per pipeline). |
+
+#### Multiple pipelines per project (p0106)
+
+A project that runs more than one pipeline (e.g. both `fix-bug` and `security-scan` on the same repo) declares them under `pipelines:`. Per-pipeline overrides shadow the project-level defaults; missing fields inherit:
+
+```yaml
+projects:
+  my-project:
+    source: { type: GitHub, url: ..., auth: token }
+    tickets: { type: GitHub, url: ..., auth: token }
+    agent: { type: Claude, model: claude-sonnet-4-20250514 }
+    pipelines:
+      - name: fix-bug                       # uses project agent, skills/coding default
+      - name: security-scan                 # uses project agent, skills/security default
+        skills_path: skills/my-custom-security
+      - name: api-security-scan
+        agent: { type: OpenAI, model: gpt-4.1 }   # different model just for this pipeline
+    default_pipeline: fix-bug               # picked by CLI when --pipeline is omitted
+```
+
+**Skills-path resolution chain:** `pipelines[].skills_path` → preset default for the pipeline name (`fix-bug` → `skills/coding`, `security-scan` → `skills/security`, `api-security-scan` → `skills/api-security`, `legal-analysis` → `skills/legal`, `mad-discussion` → `skills/mad`) → `skills/coding`.
+
+**Pipeline-name selection chain (CLI / fallback):** explicit `--pipeline` flag → `default_pipeline` → single-element shortcut (only when `pipelines:` has exactly one entry) → error listing declared pipelines.
+
+The legacy `pipeline: <name>` single-string form continues to work — the loader synthesizes `pipelines: [{ name: <name> }]` and `default_pipeline: <name>` automatically. Trigger references (`pipeline_from_label`, `default_pipeline` in trigger blocks) are validated at load time and fail loud on unknown pipeline names.
 
 ### agent
 

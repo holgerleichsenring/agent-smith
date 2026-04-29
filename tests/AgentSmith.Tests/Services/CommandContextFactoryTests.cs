@@ -82,6 +82,8 @@ public class CommandContextFactoryTests
     {
         var project = CreateProjectConfig();
         var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
+            "fix-bug", project.Agent, "skills/coding", project.CodingPrinciplesPath));
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             new TicketId("1"), "Title", "Desc", null, "Open", "GitHub"));
         pipeline.Set(ContextKeys.CodeAnalysis, new CodeAnalysis(

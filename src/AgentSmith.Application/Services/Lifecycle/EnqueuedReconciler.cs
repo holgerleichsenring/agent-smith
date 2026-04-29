@@ -17,6 +17,7 @@ public sealed class EnqueuedReconciler(
     IRedisJobQueue jobQueue,
     ITicketProviderFactory ticketFactory,
     IConfigurationLoader configLoader,
+    IPipelineConfigResolver pipelineConfigResolver,
     string configPath,
     ILogger<EnqueuedReconciler> logger)
 {
@@ -58,7 +59,7 @@ public sealed class EnqueuedReconciler(
         {
             if (await heartbeat.IsAliveAsync(ticket.Id, ct)) continue;
 
-            var pipeline = project.Pipeline is { Length: > 0 } p ? p : "fix-bug";
+            var pipeline = TryResolveDefaultPipeline(project) ?? "fix-bug";
             var request = new PipelineRequest(
                 projectName, pipeline,
                 TicketId: ticket.Id,
@@ -68,5 +69,11 @@ public sealed class EnqueuedReconciler(
                 "Reconciler re-enqueued orphan Enqueued ticket {Project}/{Ticket}",
                 projectName, ticket.Id.Value);
         }
+    }
+
+    private string? TryResolveDefaultPipeline(ProjectConfig project)
+    {
+        try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
+        catch (InvalidOperationException) { return null; }
     }
 }

@@ -56,7 +56,7 @@ public static class ContextKeys
     public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
     public const string SwaggerPath = "SwaggerPath";
     public const string CheckoutBranch = "CheckoutBranch";
-    public const string SkillsPathOverride = "SkillsPathOverride";
+    public const string ResolvedPipeline = "ResolvedPipeline";
     public const string StaticScanResult = "StaticScanResult";
     public const string GitHistoryScanResult = "GitHistoryScanResult";
     public const string DependencyAuditResult = "DependencyAuditResult";

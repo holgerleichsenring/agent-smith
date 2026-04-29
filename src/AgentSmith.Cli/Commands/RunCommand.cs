@@ -47,10 +47,11 @@ internal static class RunCommand
                 var intentParser = provider.GetRequiredService<IIntentParser>();
                 var intent = await intentParser.ParseAsync(input, CancellationToken.None);
                 var configLoader = provider.GetRequiredService<IConfigurationLoader>();
+                var resolver = provider.GetRequiredService<IPipelineConfigResolver>();
                 var config = configLoader.LoadConfig(configPath);
                 var projName = intent.ProjectName.Value;
                 config.Projects.TryGetValue(projName, out var pc);
-                var pipeline = string.IsNullOrWhiteSpace(pipelineOverride) ? pc?.Pipeline ?? "fix-bug" : pipelineOverride;
+                var pipeline = ResolveDryRunPipeline(pipelineOverride, pc, resolver);
 
                 DryRunPrinter.Print(new PipelineRequest(projName, pipeline, intent.TicketId, Headless: headless));
                 return;
@@ -85,5 +86,16 @@ internal static class RunCommand
         });
 
         return cmd;
+    }
+
+    private static string ResolveDryRunPipeline(
+        string? pipelineOverride,
+        Contracts.Models.Configuration.ProjectConfig? project,
+        IPipelineConfigResolver resolver)
+    {
+        if (!string.IsNullOrWhiteSpace(pipelineOverride)) return pipelineOverride;
+        if (project is null) return "fix-bug";
+        try { return resolver.ResolveDefaultPipelineName(project); }
+        catch (InvalidOperationException) { return "fix-bug"; }
     }
 }
