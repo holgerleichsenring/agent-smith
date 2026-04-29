@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<Services.Providers.Agent.AgentPromptBuilder>();
-        services.AddSingleton<IAgentProviderFactory, AgentProviderFactory>();
+        services.AddScoped<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
