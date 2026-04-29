@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services.Webhooks;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Handles Jira comment_created webhooks. Triggers a pipeline when

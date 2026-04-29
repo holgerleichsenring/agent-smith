@@ -1,12 +1,13 @@
 using AgentSmith.Application.Models;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Processes validated webhook requests: detects platform, verifies signature,
@@ -82,7 +83,7 @@ internal sealed class WebhookRequestProcessor(
 
     private static string ResolvePipelineName(
         string? webhookPipeline,
-        Contracts.Models.Configuration.AgentSmithConfig config,
+        AgentSmithConfig config,
         string projectName,
         IPipelineConfigResolver resolver)
     {

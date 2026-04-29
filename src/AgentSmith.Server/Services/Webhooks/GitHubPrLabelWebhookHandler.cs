@@ -2,7 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services.Webhooks;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Handles GitHub pull_request labeled events. Triggers the security-scan

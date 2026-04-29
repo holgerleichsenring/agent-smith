@@ -1,10 +1,9 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Cli.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Validates webhook request signatures by delegating to

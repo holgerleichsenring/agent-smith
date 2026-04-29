@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services.Webhooks;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Handles GitLab Issue Hook events. Triggers a pipeline based on

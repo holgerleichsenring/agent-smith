@@ -1,4 +1,4 @@
-using AgentSmith.Cli.Services.Webhooks;
+using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Determines the source platform and event type from webhook
