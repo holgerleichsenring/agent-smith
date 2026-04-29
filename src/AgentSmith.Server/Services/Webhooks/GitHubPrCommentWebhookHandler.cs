@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services.Webhooks;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Handles GitHub PR comment events (issue_comment on PRs, pull_request_review_comment).

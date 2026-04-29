@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0107
+goal: "Move webhook + polling + queue infrastructure from AgentSmith.Cli into AgentSmith.Server. CLI returns to pure console-tool role; Server is the single long-running deployment. Eliminates dual-container K8s pattern and the DI fragmentation that bit p0106."
+
+requires: ["p0106", "p0069"]
+
+decisions:
+  - key: "Single long-running deployment, not two. Pre-phase: K8s ran the Dispatcher (Server.dll) AND a CLI-with-server-subcommand container side by side, each binding port 8081 with different responsibilities. Post-phase: Server.dll is the only long-running binary; webhook endpoints + polling + queue + lifecycle reconcilers live in the same process as Slack/Teams/intent-routing. CLI keeps only one-shot subcommands (run, fix, feature, init, security-scan, api-scan, mad, legal, autonomous, skills-pull). The dual-container pattern was historical drift (p0014 added webhook listener as CLI subcommand because Dispatcher rename came later in p0069) — it never had architectural justification."
+  - key: "WebhookListener class is deleted, not moved. Pre-phase: WebhookListener wraps WebApplication.CreateBuilder + custom Kestrel setup just to host webhook routes. The Server project already runs Kestrel via WebApplication. Webhook routes register directly via a new MapWebhookEndpoints() extension alongside the existing MapSlackEndpoints / MapTeamsEndpoints. One Kestrel, three endpoint groups."
+  - key: "DI consolidation: Server.Extensions.ServiceCollectionExtensions absorbs CLI's ServiceProviderFactory.RegisterRedis / RegisterWebhookHandlers / RegisterProgressReporter. The patchwork from the p0106 hotfix (where I had to register IPromptCatalog + Redis services in two places) collapses into one. Single DI tree, single ValidateOnBuild surface."
+  - key: "Progress reporter registration splits along container boundaries. Implementations already live where they belong: ConsoleProgressReporter in AgentSmith.Application, RedisProgressReporter in AgentSmith.Infrastructure (note: a duplicate copy exists at src/AgentSmith.Server/Services/RedisProgressReporter.cs — delete that one in this phase, the Infrastructure copy is the source of truth). What changes is registration: Server registers IProgressReporter→RedisProgressReporter unconditionally; CLI registers IProgressReporter→ConsoleProgressReporter unconditionally. CLI's RegisterProgressReporter helper (which switched based on jobId presence) is deleted."
+  - key: "Dialogue transport registration follows the same per-container pattern. RedisDialogueTransport already lives in AgentSmith.Infrastructure.Services.Dialogue (no file move needed). ConsoleDialogueTransport stays in AgentSmith.Cli.Services. CLI's ServiceProviderFactory registers Console; Server's ServiceCollectionExtensions registers Redis. No factory-pattern switch — registration is per-container."
+  - key: "Application-layer services (PollerHostedService, EnqueuedReconciler, StaleJobDetector, PipelineQueueConsumer) are NOT moved — they already live in AgentSmith.Application, instantiated by ServerCommand. ServerCommand's instantiation logic is what moves: it becomes part of Server's Program.cs / hosted-service registration. The application-layer code is reusable; only the *wiring* relocates."
+  - key: "Test-namespace migration follows code-namespace migration. tests/AgentSmith.Tests/Webhooks/*, tests/AgentSmith.Tests/Cli/Commands/ServerCommandBuildPollersTests, tests/AgentSmith.Tests/Cli/Services/HealthResponseBuilderTests rebase onto Server namespaces. No behavior changes — purely move + namespace-update."
+  - key: "K8s manifest collapse: `deploy/k8s/8-deployment-server.yaml` becomes the single long-running deployment, exposing Slack/Teams chat AND webhook routes on port 8081. The proposed second deployment (webhook-server) is not needed. Ingress routes /webhook/* to the Server service, same Service object."
+  - key: "docker-compose.yml: the `agentsmith-server` service (CLI with `server` subcommand) is deleted. The `server` service (Server.dll) is now the single long-running container alongside Redis. The `agentsmith` service (one-shot CLI runs) stays unchanged."
+  - key: "CLI binary retains the same surface MINUS the `server` subcommand. Users who scripted `dotnet AgentSmith.Cli.dll server` get a clear error pointing them to the Server image. Migration note in the README. No silent fallback — explicit deprecation message."
+  - key: "Behavior-preservation gate: webhook endpoints return identical (status_code, body) pairs as before. Polling produces identical claim requests for identical inputs. Test suite green count unchanged (or higher with consolidated tests). No new feature work in this phase — pure relocation."
+
+steps:
+  - id: webhook-handlers-move
+    action: "Move all 13 webhook handlers + signature validators from AgentSmith.Cli to AgentSmith.Server"
+    rename:
+      - "src/AgentSmith.Cli/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitHubIssueWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitHubPrCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitHubPrLabelWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitLabIssueWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitLabMrCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitLabMrCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/GitLabMrLabelWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/JiraAssigneeWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/JiraAssigneeWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/JiraCommentWebhookHandler.cs → src/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs"
+      - "src/AgentSmith.Cli/Services/Webhooks/WebhookSignatureValidator.cs → src/AgentSmith.Server/Services/Webhooks/WebhookSignatureValidator.cs"
+    modify:
+      - "All 14 files: namespace AgentSmith.Cli.Services.Webhooks → AgentSmith.Server.Services.Webhooks"
+
+  - id: webhook-infrastructure-move
+    action: "Move webhook glue (request processor, dispatcher, signature verifier, platform detector, dialogue router) from CLI to Server"
+    rename:
+      - "src/AgentSmith.Cli/Services/WebhookRequestProcessor.cs → src/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs"
+      - "src/AgentSmith.Cli/Services/WebhookPlatformDetector.cs → src/AgentSmith.Server/Services/Webhooks/WebhookPlatformDetector.cs"
+      - "src/AgentSmith.Cli/Services/WebhookDialogueRouter.cs → src/AgentSmith.Server/Services/Webhooks/WebhookDialogueRouter.cs"
+      - "src/AgentSmith.Cli/Services/WebhookSignatureVerifier.cs → src/AgentSmith.Server/Services/Webhooks/WebhookSignatureVerifier.cs"
+    delete:
+      - "src/AgentSmith.Cli/Services/WebhookListener.cs (logic absorbed by Server's WebApplication via MapWebhookEndpoints)"
+    new:
+      - "src/AgentSmith.Server/Extensions/WebhookEndpoints.cs: extension method MapWebhookEndpoints(this WebApplication) that registers POST /webhook/{platform} routes via WebhookRequestProcessor — analogous to existing MapSlackEndpoints / MapTeamsEndpoints"
+
+  - id: polling-and-lifecycle-wiring
+    action: "Move the wiring (factory + leader-runner + redis-gated subsystem helper) into Server. Application-layer services themselves stay where they are."
+    rename:
+      - "src/AgentSmith.Cli/Services/PollerFactory.cs → src/AgentSmith.Server/Services/PollerFactory.cs"
+      - "src/AgentSmith.Cli/Services/LeaderSubsystemRunner.cs → src/AgentSmith.Server/Services/LeaderSubsystemRunner.cs"
+      - "src/AgentSmith.Cli/Services/SubsystemTask.cs → src/AgentSmith.Server/Services/SubsystemTask.cs"
+      - "src/AgentSmith.Cli/Services/HealthResponseBuilder.cs → src/AgentSmith.Server/Services/HealthResponseBuilder.cs"
+      - "src/AgentSmith.Cli/Services/RedisConnectionHealth.cs → src/AgentSmith.Server/Services/RedisConnectionHealth.cs"
+    modify:
+      - "Namespace updates: AgentSmith.Cli.Services → AgentSmith.Server.Services for all 5 files"
+      - "PollerFactory: receives IServiceProvider via DI parameter, no static call site change needed"
+
+  - id: dialogue-and-progress-split
+    action: "Register dialogue + progress transports per-container; eliminate the runtime-switching factory; drop the duplicate RedisProgressReporter"
+    delete:
+      - "src/AgentSmith.Server/Services/RedisProgressReporter.cs (duplicate of src/AgentSmith.Infrastructure/Services/Bus/RedisProgressReporter.cs — keep the Infrastructure copy, delete the Server copy)"
+      - "AgentSmith.Cli/ServiceProviderFactory.RegisterProgressReporter method (factory-pattern switch by jobId is no longer needed)"
+    modify:
+      - "AgentSmith.Cli/ServiceProviderFactory: register IDialogueTransport → ConsoleDialogueTransport and IProgressReporter → ConsoleProgressReporter unconditionally; do NOT register Redis-backed alternatives (Server owns those)"
+      - "AgentSmith.Server/Extensions/ServiceCollectionExtensions: register IDialogueTransport → RedisDialogueTransport (already in Infrastructure) and IProgressReporter → RedisProgressReporter (Infrastructure copy) unconditionally"
+
+  - id: server-program-absorbs-server-command
+    action: "Server's Program.cs absorbs the long-running orchestration logic from CLI's ServerCommand"
+    modify:
+      - "src/AgentSmith.Server/Program.cs: register PipelineQueueConsumer as IHostedService; register LeaderSubsystemRunner instances for housekeeping + poller; call app.MapWebhookEndpoints() alongside MapSlackEndpoints / MapTeamsEndpoints; reads QueueConfig + LifecycleConfig at boot"
+      - "src/AgentSmith.Server/Extensions/ServiceCollectionExtensions: extend AddCoreDispatcherServices to register all webhook handlers (IWebhookHandler keyed) + IDialogueRouter + WebhookRequestProcessor + PollerFactory + LeaderSubsystemRunner. Absorbs CLI's RegisterWebhookHandlers method"
+      - "src/AgentSmith.Server/Extensions/HealthEndpoints.cs (existing): augment with /health/ready that aggregates ISubsystemHealth services (Redis, queue, poller) — same shape as p0101 but now Server-owned"
+    delete:
+      - "src/AgentSmith.Cli/Commands/ServerCommand.cs (replaced by Server's Program.cs orchestration)"
+
+  - id: cli-cleanup
+    action: "Remove server subcommand from CLI; keep one-shot commands"
+    modify:
+      - "src/AgentSmith.Cli/Program.cs: remove ServerCommand.Create() registration. Other commands (Run/Fix/Feature/Init/Security/Api/Mad/Legal/Autonomous/SkillsPull) stay registered"
+      - "src/AgentSmith.Cli/ServiceProviderFactory.cs: shrink to one-shot DI only. Keeps: AddAgentSmithInfrastructure, AddAgentSmithCommands, ConsoleDialogueTransport registration, ConsoleProgressReporter registration. Drops: RegisterRedis (the lazy-or-null-fallback pattern is now Server's concern), RegisterWebhookHandlers, RegisterProgressReporter (the jobId-switching factory)"
+
+  - id: tests-migration
+    action: "Move webhook + server-command tests; rebase namespaces"
+    rename:
+      - "tests/AgentSmith.Tests/Webhooks/* → tests/AgentSmith.Tests/Server/Webhooks/*"
+      - "tests/AgentSmith.Tests/Cli/Commands/ServerCommandBuildPollersTests.cs → tests/AgentSmith.Tests/Server/PollerFactoryTests.cs (rename to match new code location)"
+      - "tests/AgentSmith.Tests/Cli/Services/HealthResponseBuilderTests.cs → tests/AgentSmith.Tests/Server/HealthResponseBuilderTests.cs"
+    modify:
+      - "Namespace updates in moved test files (AgentSmith.Tests.Cli.* → AgentSmith.Tests.Server.* where applicable)"
+      - "Moq setups for IServiceProvider where they referenced CLI namespaces → Server namespaces"
+    new:
+      - "tests/AgentSmith.Tests/Server/MapWebhookEndpointsTests.cs: WebApplicationFactory<Program>-based integration test; POSTs to /webhook/{github,gitlab,azuredevops,jira} return same status codes / bodies as before"
+
+  - id: deployment-cleanup
+    action: "Collapse K8s + docker-compose to single long-running container"
+    modify:
+      - "deploy/k8s/8-deployment-server.yaml: webhook routes now reachable; no manifest content change required (Server already binds 8081)"
+      - "deploy/k8s/9-ingress.yaml: add path /webhook → service-agentsmith-server (or rely on existing wildcard if present)"
+      - "deploy/docker-compose.yml: delete the `agentsmith-server` service (was CLI with `server` cmd). The existing `server` service (Server.dll) is now the only long-running container. The `agentsmith` service (one-shot CLI) stays. Update header comment to reflect the simpler topology"
+      - "deploy/DOCKERHUB_DESCRIPTION.md: drop references to two separate containers; describe single Server image as the deployment unit"
+
+  - id: docs-and-context
+    action: "Update docs to reflect single-container deployment + remove dual-container references"
+    modify:
+      - "docs/setup/server.md (or similar): rewrite to describe Server as the single long-running deployment; remove dual-container guidance"
+      - "docs/configuration/webhooks.md: webhook routes now served by Server; update curl examples / port references if any"
+      - "docs/architecture/layers.md: update component diagram — collapse the two-server box into one"
+      - ".agentsmith/context.yaml: behavior section — note that Server now handles webhooks + polling + queue + chat in one process"
+      - "README.md: update quickstart if it currently mentions running two containers"
+
+tests:
+  - "MapWebhookEndpoints_GitHubIssueOpened_AcceptedAndDispatched"
+  - "MapWebhookEndpoints_GitLabIssueOpened_AcceptedAndDispatched"
+  - "MapWebhookEndpoints_AzureDevOpsWorkItemCreated_AcceptedAndDispatched"
+  - "MapWebhookEndpoints_JiraIssueAssigned_AcceptedAndDispatched"
+  - "MapWebhookEndpoints_InvalidSignature_Returns401"
+  - "MapWebhookEndpoints_RedisUnavailable_Returns503"
+  - "Server_StartsWithPollersWhenAtLeastOneProjectHasPollingEnabled"
+  - "Server_StartsWithoutPollers_LogsIdleMessage"
+  - "Server_AbsorbsLeaderElection_HousekeepingAndPollerLeasesAcquiredIndependently"
+  - "Server_DI_BuildUnderDevelopmentEnvWithValidateOnBuild_AllSingletonsResolve_NoLifetimeViolations"
+  - "Server_DI_PromptCatalog_RedisServices_DialogueTransport_AllRegisteredFromOnePlace"
+  - "Cli_ServerSubcommand_Removed_HelpDoesNotListIt"
+  - "Cli_OneShotRun_StillWorksAfterRedisServicesMovedToServer"
+  - "PollerFactory_BuildFromConfig_ReturnsExpectedPlatformPollers (test moved from CLI)"
+  - "BehaviorPreservation_WebhookEndpoints_ReturnIdenticalResponsesPrePostMove"
+
+done:
+  - "AgentSmith.Cli has no Webhook/Polling/Queue/Lifecycle/Server subcommand code; CLI is purely console-tool"
+  - "AgentSmith.Server is the single long-running deployment: handles Slack/Teams chat + webhooks + polling + queue + lifecycle reconcilers"
+  - "WebhookListener class deleted; webhook routes registered via MapWebhookEndpoints extension on Server's WebApplication"
+  - "DI consolidates: Server.Extensions.ServiceCollectionExtensions absorbs RegisterRedis / RegisterWebhookHandlers / RegisterProgressReporter from CLI's ServiceProviderFactory; ValidateOnBuild passes in Development env"
+  - "K8s manifests collapse: deploy/k8s/8-deployment-server.yaml is the only long-running deployment; ingress routes /webhook/* to it; no second deployment needed"
+  - "docker-compose.yml: agentsmith-server service deleted; `server` service is the single long-running container; agentsmith one-shot service unchanged"
+  - "Behavior-preservation: webhook endpoints return identical (status_code, body) pairs for identical inputs as pre-phase; polling produces identical claim requests"
+  - "All existing tests pass after namespace migration; ~5 new MapWebhookEndpoints integration tests added; 3 new DI lifetime tests; ~8 tests rebased onto Server namespaces"
+  - "dotnet build zero warnings; ASPNETCORE_ENVIRONMENT=Development boots cleanly with ValidateOnBuild on (no DI lifetime violations, no missing services). Test Server_DI_BuildUnderDevelopmentEnvWithValidateOnBuild_* explicitly forces the env var so the regression-guard fires regardless of how the test host is otherwise configured"
+  - "CLI server subcommand removed from `--help`; users running it get a clear deprecation error pointing to the Server image"
+  - "Docs updated: docs/setup/server.md, docs/configuration/webhooks.md, docs/architecture/layers.md, README.md no longer reference dual-container topology"

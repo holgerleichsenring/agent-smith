@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Wraps a leader-elected subsystem (housekeeping, poller) with health-state tracking and the

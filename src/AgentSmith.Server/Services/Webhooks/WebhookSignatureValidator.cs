@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AgentSmith.Cli.Services.Webhooks;
+namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Validates webhook payload signatures for GitHub, GitLab, and Azure DevOps.

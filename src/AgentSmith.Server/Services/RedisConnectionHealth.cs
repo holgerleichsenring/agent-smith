@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Subscribes to IConnectionMultiplexer connection events and mirrors them into a SubsystemHealth

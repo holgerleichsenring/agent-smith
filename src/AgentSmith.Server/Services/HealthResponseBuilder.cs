@@ -1,7 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Services;
 
-namespace AgentSmith.Cli.Services;
+namespace AgentSmith.Server.Services;
 
 /// <summary>
 /// Serialises the per-subsystem health snapshot into the JSON body used by /health and
