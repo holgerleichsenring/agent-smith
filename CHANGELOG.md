@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.26.0...v0.26.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **scan:** LoadSkillsHandler catalog resolution + summary on zero fin… ([c49c3ca](https://github.com/holgerleichsenring/agent-smith/commit/c49c3ca16e5c0c9ed4091d59c39766f1a7755a40))
+* **scan:** LoadSkillsHandler catalog resolution + summary on zero findings ([6fc51e1](https://github.com/holgerleichsenring/agent-smith/commit/6fc51e135b29fce0fefc3ad31594e0e8c38ac1f7))
+
 ## [0.26.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.25.1...v0.26.0) (2026-04-29)
 
 
