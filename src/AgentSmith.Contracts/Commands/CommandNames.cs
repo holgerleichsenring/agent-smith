@@ -9,7 +9,6 @@ public static class CommandNames
     public const string CheckoutSource = "CheckoutSourceCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
-    public const string LoadDomainRules = "LoadDomainRulesCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";
     public const string LoadContext = "LoadContextCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";
@@ -63,6 +62,7 @@ public static class CommandNames
     public const string SessionSetup = "SessionSetupCommand";
     public const string ApiCodeContext = "ApiCodeContextCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
+    public const string CorrelateFindings = "CorrelateFindingsCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -83,8 +83,7 @@ public static class CommandNames
         [CheckoutSource] = "Checking out source",
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
-        [LoadDomainRules] = "Loading domain rules",
-        [LoadCodingPrinciples] = "Loading domain rules",
+        [LoadCodingPrinciples] = "Loading coding principles",
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [GeneratePlan] = "Generating plan",
@@ -137,5 +136,6 @@ public static class CommandNames
         [SessionSetup] = "Authenticating API personas",
         [ApiCodeContext] = "Mapping API routes to source",
         [TryCheckoutSource] = "Resolving source",
+        [CorrelateFindings] = "Correlating findings to handlers",
     };
 }
