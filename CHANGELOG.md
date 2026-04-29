@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.1...v0.28.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* **docker:** stop baking config/ into images; fail loudly when missing ([a4f4ec0](https://github.com/holgerleichsenring/agent-smith/commit/a4f4ec0498923c93068d21fe869e0eccf22d026d))
+* **polling:** scope-leak in PollerLeaderHostedService + leader exceptions ([afcbb46](https://github.com/holgerleichsenring/agent-smith/commit/afcbb4615f9acdf459b32540e5e885197a66ef44))
+
 ## [0.28.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.28.0...v0.28.1) (2026-04-29)
 
 
