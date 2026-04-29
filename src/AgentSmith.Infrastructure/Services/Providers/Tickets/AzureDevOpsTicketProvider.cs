@@ -66,12 +66,19 @@ public sealed class AzureDevOpsTicketProvider(
         }
         catch (Exception ex)
         {
+            if (IsTransportFailure(ex)) InvalidateConnection(ex);
             logger.LogWarning(ex,
                 "AzDO ListByLifecycleStatus failed for project={Project} status={Status}",
                 project, status);
             return [];
         }
     }
+
+    private static bool IsTransportFailure(Exception ex) => ex is
+        System.Net.Http.HttpRequestException
+        or System.Net.Sockets.SocketException
+        or TaskCanceledException
+        or Microsoft.VisualStudio.Services.Common.VssServiceException;
 
     private async Task<IReadOnlyList<Ticket>> ListWiqlAsync(
         string? extraWhere, CancellationToken cancellationToken)
@@ -126,17 +133,47 @@ public sealed class AzureDevOpsTicketProvider(
             .ToList();
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, VssConnection> _connectionCache = new();
+    private static readonly TimeSpan ConnectionTtl = TimeSpan.FromMinutes(30);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedConnection> _connectionCache = new();
+
+    private sealed record CachedConnection(VssConnection Connection, DateTimeOffset CreatedAt)
+    {
+        public bool IsStale(TimeSpan ttl) => DateTimeOffset.UtcNow - CreatedAt > ttl;
+    }
 
     private WorkItemTrackingHttpClient CreateClient()
     {
-        var connection = _connectionCache.GetOrAdd(organizationUrl, url =>
-        {
-            logger.LogInformation("Initializing VssConnection for {Url} (one-time)", url);
-            var credentials = new VssBasicCredential(string.Empty, personalAccessToken);
-            return new VssConnection(new Uri(url), credentials);
-        });
-        return connection.GetClient<WorkItemTrackingHttpClient>();
+        var entry = _connectionCache.AddOrUpdate(
+            organizationUrl,
+            addValueFactory: url => Build(url),
+            updateValueFactory: (url, existing) => existing.IsStale(ConnectionTtl)
+                ? RebuildAfterTtl(url, existing)
+                : existing);
+        return entry.Connection.GetClient<WorkItemTrackingHttpClient>();
+    }
+
+    /// <summary>Evicts the cached connection so the next CreateClient rebuilds it.</summary>
+    private void InvalidateConnection(Exception cause)
+    {
+        if (_connectionCache.TryRemove(organizationUrl, out _))
+            logger.LogWarning(cause,
+                "Evicting cached VssConnection for {Url} after transport failure: {Message}",
+                organizationUrl, cause.Message);
+    }
+
+    private CachedConnection Build(string url)
+    {
+        logger.LogInformation("Initializing VssConnection for {Url}", url);
+        var credentials = new VssBasicCredential(string.Empty, personalAccessToken);
+        return new CachedConnection(new VssConnection(new Uri(url), credentials), DateTimeOffset.UtcNow);
+    }
+
+    private CachedConnection RebuildAfterTtl(string url, CachedConnection old)
+    {
+        logger.LogInformation("Refreshing VssConnection for {Url} (TTL {TtlMinutes}min reached)",
+            url, ConnectionTtl.TotalMinutes);
+        try { old.Connection.Dispose(); } catch { /* best-effort */ }
+        return Build(url);
     }
 
     private async Task<Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItem> FetchWorkItem(
