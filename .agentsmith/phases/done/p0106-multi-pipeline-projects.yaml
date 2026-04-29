@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0106
+goal: "ProjectConfig.Pipeline (single string) → ProjectConfig.Pipelines (list with per-pipeline overrides for Agent, SkillsPath, CodingPrinciplesPath); eliminates duplicated project blocks where multiple pipelines run on the same source/tickets"
+
+requires: ["p0099a", "p0105"]
+
+decisions:
+  - key: "Backward compat via loader-shim, not breaking change. ProjectConfig keeps Pipeline + SkillsPath as legacy string fields; ConfigLoader synthesizes a single PipelineDefinition from them when Pipelines is empty. Existing configs run unchanged, no migration pressure. Why: today's config/agentsmith.yml has 4 duplicate agent-smith-* projects; forcing migration in the same phase that introduces the mechanism doubles blast radius and risk"
+  - key: "Single resolver service IPipelineConfigResolver.Resolve(project, pipelineName) → ResolvedPipelineConfig. The 30 production read sites all become resolved.X instead of project.X. Why: per-site `pipelineDef?.Agent ?? project.Agent` would ship merge logic 30 times and drift; one merge function is the only honest design"
+  - key: "Skills-path fallback chain becomes pipelineDef.SkillsPath → PipelinePresets.GetDefaultSkillsPath(pipelineName) → \"skills/coding\". This fixes the known asymmetry where 5 CLI subcommands set SkillsPathOverride from the pipeline name but webhook/polling paths fall back to project.SkillsPath. The directory-naming convention (skills/security, skills/api-security, skills/legal, skills/mad) is already the binding — explicit field becomes opt-in for genuinely non-standard paths"
+  - key: "ContextKeys.SkillsPathOverride retired. The 5 CLI subcommands (Autonomous/ApiScan/Mad/SecurityScan/Legal) stop setting it; the 4 context builders (EvaluateSkills/Discover/Install/ApiSecurity) read from ResolvedPipelineConfig.SkillsPath. Why: the override was a workaround for the asymmetry; resolver subsumes it. Keeping both = two truth sources"
+  - key: "Trigger validation at config load: every pipeline_from_label value + default_pipeline must reference a name in pipelines:. Fail loud with config error. Why: silent route to hardcoded \"fix-bug\" is what motivated this whole phase; declarative configs deserve declarative validation. Errors at boot beat mystery routing at runtime"
+  - key: "Parallelism stays inside AgentConfig — not lifted to PipelineDefinition. Per-pipeline parallelism is achievable by overriding the whole Agent block. Why: one less moving part for p0106. If usage shows users want different parallelism with the same Agent, extract it then. Premature extraction violates the YAGNI heuristic"
+  - key: "Live-config migration (config/agentsmith.yml: agent-smith / agent-smith-security / agent-smith-api-security-claude / agent-smith-security-scan-azure-openai → single multi-pipeline agent-smith) is OUT of scope. Lands as opt-in follow-up p0106a. Why: mechanism vs. data; landing both in one phase doubles review surface and conflates regression risk"
+  - key: "ProjectConfig.SkillsPath legacy field retained, not deleted. Tagged for warning at config load when set alongside Pipelines. Hard removal in a later phase once migration window has passed. Why: same reasoning as Pipeline — graceful deprecation over breaking change"
+  - key: "RunCommand pipeline-selection chain (CLI): explicit --pipeline flag → ProjectConfig.DefaultPipeline (new top-level field) → single-element shortcut (use it iff Pipelines.Count == 1) → error listing declared pipelines. Why: explicit beats config; declared default beats inference; single-pipeline projects keep ergonomics; multi-pipeline projects without a default must disambiguate. The new top-level DefaultPipeline is distinct from WebhookTriggerConfig.DefaultPipeline (label-routing fallback) — same idea, different scope. Loader-shim sets DefaultPipeline = legacy.Pipeline when migrating, so existing single-pipeline configs preserve ergonomics under the new chain"
+  - key: "Behavior-preservation baseline (filled from config/agentsmith.yml at planning time, snapshot date 2026-04-29). Post-phase resolver must produce identical (pipelineName, Agent.Type, SkillsPath, CodingPrinciplesPath) tuples for each of the four agent-smith-* projects via legacy-shim path: agent-smith → (fix-bug, Claude, skills/coding, .agentsmith/coding-principles.md); agent-smith-security → (security-scan, OpenAI, skills/security, null); agent-smith-api-security-claude → (api-security-scan, Claude, skills/api-security, null); agent-smith-security-scan-azure-openai → (security-scan, azure-openai, skills/security, null). 16 values total. Post-phase run must match byte-for-byte. Why: configs are committed; pipeline routing is a user-facing contract; any drift is a regression. Without the values inline the gate is not reproducible — same shape as p0094b's Baseline: key"
+
+steps:
+  - id: contracts
+    action: "Introduce PipelineDefinition; extend ProjectConfig with Pipelines list while retaining legacy single-pipeline fields"
+    new:
+      - "PipelineDefinition: { Name: string (required), Agent: AgentConfig? (override), SkillsPath: string?, CodingPrinciplesPath: string? } in src/AgentSmith.Contracts/Models/Configuration/"
+    modify:
+      - "ProjectConfig: add Pipelines: List<PipelineDefinition> = []. Add DefaultPipeline: string? — name of the pipeline that wins when CLI omits --pipeline and Pipelines has more than one entry. Keep Pipeline and SkillsPath as legacy fields, document in XML comment as 'set Pipelines + DefaultPipeline for new configs'"
+
+  - id: resolver
+    action: "Add ResolvedPipelineConfig view + IPipelineConfigResolver service that merges project base + per-pipeline override"
+    new:
+      - "ResolvedPipelineConfig: { PipelineName: string, Agent: AgentConfig (non-null), SkillsPath: string (non-null), CodingPrinciplesPath: string? } in src/AgentSmith.Contracts/Models/Configuration/"
+      - "IPipelineConfigResolver: { ResolvedPipelineConfig Resolve(ProjectConfig project, string pipelineName) } in src/AgentSmith.Contracts/Services/"
+      - "PipelineConfigResolver: implementation in src/AgentSmith.Application/Services/. Merges PipelineDefinition over project-level Agent/SkillsPath/CodingPrinciplesPath. Computes SkillsPath via fallback chain (pipelineDef → PipelinePresets.GetDefaultSkillsPath → 'skills/coding')"
+    modify:
+      - "ServiceCollectionExtensions: register IPipelineConfigResolver as singleton (DI in AgentSmith.Application)"
+
+  - id: loader-shim
+    action: "ConfigLoader synthesizes a PipelineDefinition from legacy fields and validates trigger references"
+    modify:
+      - "ConfigLoader / AgentSmithConfigLoader: post-load pass per project — if Pipelines is empty and legacy Pipeline is set, materialize Pipelines = [{ Name = legacy.Pipeline, SkillsPath = legacy.SkillsPath when non-default }] AND set DefaultPipeline = legacy.Pipeline. Log INFO that legacy shim was applied. Why DefaultPipeline is set: existing single-pipeline configs already had implicit selection; the new chain must preserve that without forcing --pipeline on every CLI invocation"
+      - "ConfigLoader: validation — if DefaultPipeline is set, it must reference a name in Pipelines. Mismatch throws ConfigValidationException with the project name and the offending value"
+      - "ConfigLoader: post-load validation — for each project, every value in (Github|Gitlab|Azuredevops|Jira)Trigger.PipelineFromLabel + DefaultPipeline must equal a Pipelines[i].Name. On mismatch throw ConfigValidationException with message naming the project, label, and unknown pipeline name"
+      - "ConfigLoader: warn (not error) when both legacy Pipeline and explicit Pipelines are set — explicit wins"
+
+  - id: read-site-migration
+    action: "Replace direct project.Agent / project.SkillsPath / project.CodingPrinciplesPath reads with resolver-merged values across the application layer"
+    modify:
+      - "EvaluateSkillsContextBuilder.cs: inject IPipelineConfigResolver; replace project.SkillsPath read at line 22"
+      - "DiscoverSkillsContextBuilder.cs: same — line 18"
+      - "InstallSkillsContextBuilder.cs: same — line 22"
+      - "ApiSecurityContextBuilders.cs: lines 42, 65, 67, 84 — Agent and SkillsPath through resolver"
+      - "SourceContextBuilders.cs: lines 49, 78 — CodingPrinciplesPath and BootstrapProjectContext.SkillsPath through resolver"
+      - "LegalContextBuilders.cs: line 21 — Agent and SkillsPath through resolver"
+      - "PlanExecutionContextBuilders.cs: lines 28, 50, 105, 118 — Agent through resolver"
+      - "SkillContextBuilders.cs: lines 13, 19, 37, 47, 54 — Agent through resolver"
+      - "BootstrapProjectHandler.cs: lines 46, 53, 76 — SkillsPath through context (already injected)"
+      - "ExecutePipelineUseCase.cs: lines 126, 140 — pipeline-name selection from project.Pipelines (first when one, else explicit input or DefaultPipeline)"
+      - "EnqueuedReconciler.cs: line 61 — same pipeline-name selection"
+      - "RunCommand.cs: line 52 — pipeline-selection chain: --pipeline flag → ProjectConfig.DefaultPipeline → Pipelines.Count == 1 single-element shortcut → error listing declared pipeline names. Same chain in ExecutePipelineUseCase.cs lines 126/140 and EnqueuedReconciler.cs line 61 (no --pipeline flag in their contexts; first two steps apply)"
+      - "WebhookRequestProcessor.cs: 3 sites — pipeline-name passes through; resolver invoked downstream"
+
+  - id: trigger-handlers-resolver
+    action: "Webhook handlers + polling integrate with resolver after label-to-pipeline-name resolution; trigger config keeps its label-routing role unchanged"
+    modify:
+      - "AzureDevOpsWorkItemPoller.cs: line 33 — after PipelineResolver.Resolve(trigger, t.Labels), pass pipelineName through IPipelineConfigResolver before claim. Hardcoded 'fix-bug' fallback removed; falls back to project's first pipeline when trigger is null"
+      - "GitHubIssueWebhookHandler.cs (lines 109-117), GitHubIssueCommentWebhookHandler.cs (101-106), GitLabIssueWebhookHandler.cs (111-116), GitLabIssueCommentWebhookHandler.cs (64), AzureDevOpsWorkItemWebhookHandler.cs (112-117), AzureDevOpsWorkItemCommentWebhookHandler.cs (60), JiraAssigneeWebhookHandler.cs (148-154): unchanged label-matching, but downstream consumers use resolver"
+      - "ClaimPreChecker.cs: line 32, 35 — DefaultPipeline + PipelineFromLabel.Values must intersect declared Pipelines (validation already enforced at load; this becomes assert-style sanity check)"
+
+  - id: skills-path-fallback-fix
+    action: "Retire SkillsPathOverride context-key path; resolver becomes single source for SkillsPath"
+    delete:
+      - "ContextKeys.SkillsPathOverride constant in src/AgentSmith.Contracts/Commands/ContextKeys.cs:59"
+    modify:
+      - "AutonomousCommand.cs: line 36 — remove SkillsPathOverride context entry"
+      - "ApiScanCommand.cs: line 69 — remove SkillsPathOverride context entry"
+      - "MadCommand.cs: line 39 — remove SkillsPathOverride context entry"
+      - "SecurityScanCommand.cs: line 44 — remove SkillsPathOverride context entry"
+      - "LegalCommand.cs: line 40 — remove SkillsPathOverride context entry"
+      - "EvaluateSkillsContextBuilder.cs / DiscoverSkillsContextBuilder.cs / InstallSkillsContextBuilder.cs / ApiSecurityContextBuilders.cs: drop pipeline.TryGet(SkillsPathOverride) branch — only resolver path remains"
+
+  - id: tests-migration
+    action: "Update test fixtures + add resolver coverage"
+    modify:
+      - "24 test files referencing ProjectConfig.Pipeline / SkillsPath: keep most via legacy shim (no change). Tests that exercise multi-pipeline behavior switch to building Pipelines explicitly"
+      - "BootstrapProjectHandlerTests.cs / EvaluateSkillsContextBuilderTests.cs / Discover/InstallSkillsContextBuilderTests.cs / ApiSecurityContextBuildersTests.cs: inject IPipelineConfigResolver mock; assert resolver called with expected pipelineName"
+    new:
+      - "PipelineConfigResolverTests.cs: covers override merge, fallback chain (3 layers), legacy shim, missing pipeline lookup"
+      - "ConfigLoaderTests.cs additions: legacy-pipeline-string-translates / both-set-warns / unknown-trigger-pipeline-fails"
+      - "WebhookHandlerResolverTests.cs (or extension to existing): label-routes-through-resolver"
+
+  - id: docs-and-example
+    action: "Surface the new shape and document the legacy form as legacy"
+    modify:
+      - "config/agentsmith.example.yml: replace single 'pipeline: fix-bug' + 'skills_path: ...' under my-project with a 'pipelines:' block showing two examples — one bare (fix-bug, no overrides) and one with agent + skills_path override. Keep a commented-out single-pipeline form for legacy reference"
+      - "docs/configuration/agentsmith-yml.md: new section 'Multiple pipelines per project' explaining Pipelines list, override semantics, and fallback chain"
+      - "docs/concepts/pipeline-system.md (if present): cross-link to multi-pipeline config"
+      - ".agentsmith/context.yaml: behavior section — note that ProjectConfig now hosts Pipelines list and resolver merges per-pipeline overrides on top of project base"
+
+tests:
+  - "Resolver_PipelineWithoutOverrides_ReturnsProjectDefaults"
+  - "Resolver_PipelineWithAgentOverride_MergesOverrideOnTop"
+  - "Resolver_PipelineWithSkillsPathOverride_ReturnsExplicitPath"
+  - "Resolver_NoExplicitSkillsPath_FallsBackToPipelinePresetsDefault"
+  - "Resolver_UnknownPipelineWithoutPreset_FallsBackToCodingDefault"
+  - "Resolver_PipelineNotInProjectPipelines_ThrowsArgumentException"
+  - "ConfigLoader_LegacyPipelineString_TranslatesToSinglePipelineDefinition"
+  - "ConfigLoader_LegacySkillsPathString_AppliedToSyntheticPipelineDefinition"
+  - "ConfigLoader_BothLegacyAndPipelinesSet_PrefersExplicitAndWarns"
+  - "ConfigLoader_TriggerLabelReferencesUndeclaredPipeline_FailsLoad"
+  - "ConfigLoader_DefaultPipelineNotDeclared_FailsLoad"
+  - "ConfigLoader_PipelinesEmptyAndLegacyEmpty_FailsLoadWithGuidance"
+  - "AzureDevOpsWorkItemPoller_TriggerNull_FallsBackToFirstDeclaredPipeline_NotHardcodedFixBug"
+  - "WebhookHandler_LabelMatch_DownstreamReadsAgentFromResolver"
+  - "RunCommand_NoExplicitPipelineAndSinglePipelineDeclared_UsesIt"
+  - "RunCommand_NoExplicitPipelineAndDefaultPipelineSet_UsesDefaultPipeline"
+  - "RunCommand_ExplicitPipelineFlag_OverridesDefaultPipeline"
+  - "RunCommand_NoExplicitPipelineAndMultiplePipelinesAndNoDefault_FailsWithChoiceList"
+  - "ConfigLoader_DefaultPipelineNotInPipelinesList_FailsLoad"
+  - "ConfigLoader_LegacyPipelineString_PopulatesBothPipelinesAndDefaultPipeline"
+  - "SecurityScanCommand_NoLongerSetsSkillsPathOverride"
+  - "ApiScanCommand_NoLongerSetsSkillsPathOverride"
+  - "LegalCommand_NoLongerSetsSkillsPathOverride"
+  - "MadCommand_NoLongerSetsSkillsPathOverride"
+  - "AutonomousCommand_NoLongerSetsSkillsPathOverride"
+  - "EvaluateSkillsContextBuilder_ReadsSkillsPathFromResolver_NotFromOverrideKey"
+  - "DiscoverSkillsContextBuilder_ReadsSkillsPathFromResolver_NotFromOverrideKey"
+  - "InstallSkillsContextBuilder_ReadsSkillsPathFromResolver_NotFromOverrideKey"
+  - "ApiSecurityContextBuilders_ReadAgentAndSkillsPathFromResolver"
+  - "PlanExecutionContextBuilders_ReadAgentFromResolver"
+  - "SkillContextBuilders_ReadAgentFromResolver"
+  - "ContextKeys_SkillsPathOverride_Constant_Deleted"
+  - "BehaviorPreservation_LegacyConfigShimPath_ResolvesIdenticallyToPrePhase"
+  - "BehaviorPreservation_FourAgentSmithProjects_RouteToSamePipelineNames_AsBeforePhase"
+
+done:
+  - "ProjectConfig.Pipelines: List<PipelineDefinition> + ProjectConfig.DefaultPipeline: string? exist; ProjectConfig.Pipeline + SkillsPath retained as legacy fields, populated only via shim or explicit user input. Loader-shim sets DefaultPipeline = legacy.Pipeline when migrating"
+  - "IPipelineConfigResolver registered in DI (AgentSmith.Application); all 30 production read sites consume resolved.Agent / resolved.SkillsPath / resolved.CodingPrinciplesPath"
+  - "ContextKeys.SkillsPathOverride deleted; 5 CLI subcommands no longer set it; 4 context builders read SkillsPath only from resolver"
+  - "Webhook handlers (6) + polling (1) feed pipelineName into resolver after label-to-name routing; hardcoded 'fix-bug' fallback in AzureDevOpsWorkItemPoller removed"
+  - "ConfigLoader rejects unknown pipeline references in pipeline_from_label and default_pipeline at load time; warns when both legacy and explicit forms are set"
+  - "agentsmith.example.yml shows multi-pipeline shape with override; docs/configuration/agentsmith-yml.md has 'Multiple pipelines' section"
+  - "Behavior-preservation gate: post-phase resolver matches the inline baseline (16 values) for the 4 agent-smith-* projects byte-for-byte (pipelineName, Agent.Type, SkillsPath, CodingPrinciplesPath)"
+  - "RunCommand pipeline-selection chain (--pipeline → DefaultPipeline → single-element shortcut → error) is the only path; no other fallback to hardcoded pipeline names anywhere in the CLI / webhook / polling code"
+  - "config/agentsmith.yml's existing 4 duplicate-projects continue to function via legacy shim — their migration to a single multi-pipeline agent-smith is deferred to p0106a"
+  - "dotnet build zero warnings; all existing tests + ~30 new tests green"

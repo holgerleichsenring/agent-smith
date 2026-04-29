@@ -17,9 +17,7 @@ public sealed class EvaluateSkillsContextBuilder : IContextBuilder
         var candidates = pipeline.Get<IReadOnlyList<SkillCandidate>>(ContextKeys.SkillCandidates);
 
         var installedNames = new List<string>();
-        var skillsPath = pipeline.TryGet<string>(ContextKeys.SkillsPathOverride, out var overridePath)
-            ? overridePath!
-            : project.SkillsPath;
+        var skillsPath = pipeline.Resolved().SkillsPath;
 
         if (Directory.Exists(skillsPath))
         {

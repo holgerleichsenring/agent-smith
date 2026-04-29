@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Models.Configuration;
@@ -108,7 +109,7 @@ public sealed class ServerCommandBuildPollersTests
 
         try
         {
-            var config = new YamlConfigurationLoader().LoadConfig(path);
+            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer()).LoadConfig(path);
 
             var ticketFactory = new Mock<ITicketProviderFactory>();
             var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();
@@ -118,6 +119,7 @@ public sealed class ServerCommandBuildPollersTests
             var services = new ServiceCollection();
             services.AddSingleton(ticketFactory.Object);
             services.AddSingleton(transitionerFactory.Object);
+            services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
             services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
 
             var pollers = PollerFactory.Build(services.BuildServiceProvider(), config).ToList();
@@ -147,6 +149,7 @@ public sealed class ServerCommandBuildPollersTests
         var services = new ServiceCollection();
         services.AddSingleton(ticketFactory.Object);
         services.AddSingleton(transitionerFactory.Object);
+        services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         var provider = services.BuildServiceProvider();
 

@@ -31,10 +31,7 @@ internal static class AutonomousCommand
 
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
 
-            var context = new Dictionary<string, object>
-            {
-                [ContextKeys.SkillsPathOverride] = PipelinePresets.GetDefaultSkillsPath("autonomous"),
-            };
+            var context = new Dictionary<string, object>();
             sourceOptions.ApplyTo(ctx, context);
 
             var request = new PipelineRequest(

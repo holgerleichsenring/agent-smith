@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentSmithCore(this IServiceCollection services)
     {
         services.AddSingleton<SecretsProvider>();
+        services.AddSingleton<ProjectConfigNormalizer>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
         services.AddSingleton<ILanguageDetector, DotNetLanguageDetector>();
         services.AddSingleton<ILanguageDetector, TypeScriptLanguageDetector>();

@@ -7,16 +7,24 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
-/// Loads configuration from a YAML file and resolves environment variable placeholders.
+/// Loads configuration from a YAML file, resolves environment variable placeholders,
+/// and normalizes per-project pipeline declarations (legacy-shim + trigger validation).
 /// </summary>
-public sealed class YamlConfigurationLoader : IConfigurationLoader
+public sealed class YamlConfigurationLoader(ProjectConfigNormalizer normalizer) : IConfigurationLoader
 {
     public AgentSmithConfig LoadConfig(string configPath)
     {
         var yaml = ReadFile(configPath);
         var config = Deserialize(yaml, configPath);
         ResolveSecrets(config);
+        NormalizeProjects(config);
         return config;
+    }
+
+    private void NormalizeProjects(AgentSmithConfig config)
+    {
+        foreach (var (name, project) in config.Projects)
+            normalizer.Normalize(name, project);
     }
 
     private static string ReadFile(string configPath)

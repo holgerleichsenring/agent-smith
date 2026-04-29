@@ -18,7 +18,8 @@ public sealed class BootstrapDocumentContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new BootstrapDocumentContext(repo, project.Agent, project.SkillsPath, pipeline);
+        var resolved = pipeline.Resolved();
+        return new BootstrapDocumentContext(repo, resolved.Agent, resolved.SkillsPath, pipeline);
     }
 }
 

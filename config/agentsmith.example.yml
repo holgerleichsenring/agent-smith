@@ -154,8 +154,31 @@ projects:
     #         input_per_million: 0.15
     #         output_per_million: 0.60
 
+    # --- Single-pipeline form (legacy, still supported) ---
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
+
+    # --- Multi-pipeline form (p0106) ---
+    # Multiple pipelines per project share the same source/tickets/agent.
+    # Each entry can override agent / skills_path / coding_principles_path.
+    # default_pipeline picks the one that runs when --pipeline is omitted.
+    # pipelines:
+    #   - name: fix-bug
+    #   - name: security-scan
+    #     agent:
+    #       type: OpenAI
+    #       model: gpt-4.1
+    #     skills_path: skills/security
+    # default_pipeline: fix-bug
+
+    # --- Ticket polling (alternative/complement to webhooks) ---
+    # Disabled by default — webhook-only deployments keep working unchanged.
+    # Enable when webhooks are unavailable (firewalled hosts, no public ingress)
+    # or as a safety net so missed webhook deliveries are still picked up.
+    # polling:
+    #   enabled: false           # default
+    #   interval_seconds: 60     # default
+    #   jitter_percent: 10       # default — randomizes interval to avoid thundering-herd
 
     # --- Webhook triggers (uncomment ONE that matches your platform) ---
 
