@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.28.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.2...v0.28.0) (2026-04-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **p0107:** The CLI's `server` subcommand has been removed. Users running `dotnet AgentSmith.Cli.dll server` (or the agentsmith-cli image with `command: ["server", ...]`) must switch to the agentsmith-server image. The two-container K8s deployment pattern is no longer needed — one Server container handles everything.
+
+### Features
+
+* **p0107:** server is now the single long-running deployment ([b347168](https://github.com/holgerleichsenring/agent-smith/commit/b347168e7b1a8831bcb06aa494f29cd277cb6b96))
+
 ## [0.27.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.27.1...v0.27.2) (2026-04-29)
 
 
