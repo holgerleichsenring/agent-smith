@@ -76,10 +76,24 @@ public sealed class AgenticAnalyzerFactory(
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint
             ?? throw new ConfigurationException("Azure OpenAI requires 'endpoint' in agent config");
-        var deployment = config.Deployment ?? config.Model;
+        var deployment = ResolveAzureDeployment(config)
+            ?? throw new ConfigurationException(
+                "Azure OpenAI requires a deployment name. Set agent.deployment in agentsmith.yml, " +
+                "OR set agent.models.Planning.deployment (the analyzer falls back to the Planning task's deployment).");
         return new AzureOpenAiAgenticAnalyzer(
             apiKey, new Uri(endpoint), deployment, config.Retry,
             loggerFactory.CreateLogger<AzureOpenAiAgenticAnalyzer>());
+    }
+
+    private static string? ResolveAzureDeployment(AgentConfig config)
+    {
+        // The analyzer is plan-like: prefer the Planning task's deployment if set.
+        // Falls back to the agent-wide deployment, then to the agent-wide model name.
+        if (!string.IsNullOrWhiteSpace(config.Models?.Planning?.Deployment))
+            return config.Models.Planning.Deployment;
+        if (!string.IsNullOrWhiteSpace(config.Deployment))
+            return config.Deployment;
+        return string.IsNullOrWhiteSpace(config.Model) ? null : config.Model;
     }
 
     private static GeminiAgenticAnalyzer CreateGemini(
