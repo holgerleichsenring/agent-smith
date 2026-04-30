@@ -15,7 +15,7 @@ public static class GeminiToolDefinitions
     {
         FunctionDeclarations = new List<FunctionDeclaration>
         {
-            ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
+            ReadFile, WriteFile, ListFiles, Grep, RunCommand, LogDecision
         }
     };
 
@@ -23,7 +23,7 @@ public static class GeminiToolDefinitions
     {
         FunctionDeclarations = new List<FunctionDeclaration>
         {
-            ReadFile, ListFiles
+            ReadFile, ListFiles, Grep
         }
     };
 
@@ -70,6 +70,22 @@ public static class GeminiToolDefinitions
                 ["path"] = new() { Type = TypeString, Description = "Relative directory path, empty string for root." }
             },
             Required = new List<string> { "path" }
+        }
+    };
+
+    private static FunctionDeclaration Grep => new()
+    {
+        Name = "grep",
+        Description = "Search files for a regex pattern. Returns up to 200 matching lines as JSON {matches:[{path,line,text}], truncated}.",
+        Parameters = new Schema
+        {
+            Type = TypeObject,
+            Properties = new Dictionary<string, Schema>
+            {
+                ["pattern"] = new() { Type = TypeString, Description = "Regex pattern to match against each line." },
+                ["glob"] = new() { Type = TypeString, Description = "Optional glob to limit files (e.g. '**/*.cs'). Defaults to '**/*'." }
+            },
+            Required = new List<string> { "pattern" }
         }
     };
 
