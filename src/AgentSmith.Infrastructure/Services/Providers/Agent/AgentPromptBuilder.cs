@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Models;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
@@ -21,10 +22,18 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
-    public string BuildPlanUserPrompt(Ticket ticket, CodeAnalysis codeAnalysis)
+    public string BuildPlanUserPrompt(Ticket ticket, ProjectMap projectMap)
     {
-        var files = string.Join('\n', codeAnalysis.FileStructure.Take(AgentDefaults.MaxFileStructureLines));
-        var deps = string.Join('\n', codeAnalysis.Dependencies);
+        var modules = string.Join('\n', projectMap.Modules
+            .Where(m => m.Role == ModuleRole.Production)
+            .Select(m => $"  - {m.Path}"));
+        var testProjects = projectMap.TestProjects.Count == 0 ? "(none)" :
+            string.Join('\n', projectMap.TestProjects.Select(t =>
+                $"  - {t.Path} ({t.Framework}, {t.FileCount} test file(s))"));
+        var entryPoints = projectMap.EntryPoints.Count == 0 ? "(none discovered)" :
+            string.Join('\n', projectMap.EntryPoints.Select(e => $"  - {e}"));
+        var frameworks = projectMap.Frameworks.Count == 0 ? "Unknown" :
+            string.Join(", ", projectMap.Frameworks);
 
         return $"""
             ## Ticket
@@ -34,14 +43,17 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
 
             ## Codebase Analysis
-            **Language:** {codeAnalysis.Language ?? "Unknown"}
-            **Framework:** {codeAnalysis.Framework ?? "Unknown"}
+            **Language:** {projectMap.PrimaryLanguage}
+            **Frameworks:** {frameworks}
 
-            ### Dependencies
-            {deps}
+            ### Modules (production)
+            {modules}
 
-            ### File Structure
-            {files}
+            ### Test Projects
+            {testProjects}
+
+            ### Entry Points
+            {entryPoints}
             """;
     }
 

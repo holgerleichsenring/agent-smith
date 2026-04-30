@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Models;
 
@@ -9,7 +10,7 @@ namespace AgentSmith.Application.Models;
 /// </summary>
 public sealed record GeneratePlanContext(
     Ticket Ticket,
-    CodeAnalysis CodeAnalysis,
+    ProjectMap ProjectMap,
     string CodingPrinciples,
     AgentConfig AgentConfig,
     PipelineContext Pipeline,
