@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.32.1...v0.33.0) (2026-04-30)
+
+
+### Features
+
+* **p0109:** jira label-lock as decorator — CLI clear of IRedisClaimLock ([74080d3](https://github.com/holgerleichsenring/agent-smith/commit/74080d3867c98dfaf2e3127fc42fb627bea3ce67))
+* **p0110a:** IAgenticAnalyzer abstraction + grep tool ([5d22ce8](https://github.com/holgerleichsenring/agent-smith/commit/5d22ce8d0ec55c437bd9542c257a5c256389d06e))
+
 ## [0.32.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.32.0...v0.32.1) (2026-04-30)
 
 
