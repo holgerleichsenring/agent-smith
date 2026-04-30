@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAgentProviderFactory, AgentProviderFactory>();
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
         services.AddSingleton<IAgenticAnalyzerFactory, AgenticAnalyzerFactory>();
+        services.AddSingleton<IRepositoryToolDispatcher, Services.Providers.Agent.RepositoryToolDispatcher>();
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
         // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
