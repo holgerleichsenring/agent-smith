@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0109a
+goal: "Decouple Server-only lifecycle deps (IJobHeartbeatService, ITicketStatusTransitionerFactory, ITicketClaimService) from the Application-layer services that the CLI consumes. Closes the second crash that surfaced after p0109 — apiscan failed on missing IJobHeartbeatService because PipelineExecutor took it as a hard ctor dep even though the CLI path never invokes it."
+
+requires: ["p0109"]
+
+decisions:
+  - key: "Why a coordinator instead of more decorators. p0109 used a decorator for IRedisClaimLock because the Jira lock is a single conditional concern wrapping one method. PipelineExecutor's lifecycle wrap is more involved: a transitioner call, a heartbeat handle that lives across the whole pipeline run, and a deferred close-transition on dispose. Hiding all of that behind an IAsyncDisposable returned by an injected IPipelineLifecycleCoordinator separates it cleanly from the executor's main loop, lets the CLI compose with a NoOp implementation that has zero Redis dependencies, and keeps the executor's ctor signature stable as new lifecycle concerns get added later."
+  - key: "Why ITicketClaimService is moved (not decorated). Unlike PipelineExecutor (used by CLI for non-ticket pipelines like apiscan/security-scan), TicketClaimService is *purely* a Server concern — its only callers are WebhookRequestProcessor and PollerHostedService, both Server-instantiated. CLI never claims a ticket. Registering it in Application means CLI's DI graph carries IRedisJobQueue + IRedisClaimLock as transitive deps for nothing. Move the registration into Server.AddCoreDispatcherServices; CLI graph loses two more Redis edges."
+  - key: "PollerHostedService stays in Application. It depends on ITicketClaimService but is itself only instantiated by Server's PollerLeaderHostedService (via service-locator inside the leader scope). Application can register it as transient; nothing in CLI resolves it."
+  - key: "Composition entry point renamed: AddJiraLabelLockDecorator → AddServerCompositionOverrides. The Server-side overrides (locking transitioner factory + ticket-aware lifecycle coordinator + ticket claim service) are now multiple concerns; one method bundles them. Called after AddCoreDispatcherServices so all overrides win the last-write race against Application's defaults."
+  - key: "NullTicketClaimService deleted. Same Pre-p0107 leftover pattern as p0109's NullRedisClaimLock — only referenced by its own test, never wired in production. Doc-comment claims 'CLI server when Redis unavailable' which describes a fallback path that p0107 explicitly retired. Tests deleted along with it."
+  - key: "Behavior preservation in PipelineExecutor: identical lifecycle semantics for Server (Enqueued→InProgress at start, heartbeat pulse, InProgress→Done/Failed on dispose, status updates posted to ticket provider). The TicketAware coordinator is a verbatim relocation of the existing BeginLifecycleAsync + LifecycleScope code — same try/catch fallbacks, same logging shapes. PipelineExecutor's other behavior (batching, command insertion, progress reporting, fail-fast) untouched."
+  - key: "End-to-end regression guard: CliShapedDiTests gains an explicit assertion that resolves PipelineExecutor end-to-end without throwing. p0109's test only resolved the factory; that gap is what let the IJobHeartbeatService crash slip through. Two further assertions confirm IJobHeartbeatService and ITicketClaimService are NOT in the CLI graph at all (GetService returns null)."
+
+steps:
+  - id: coordinator-contract
+    action: "Add IPipelineLifecycleCoordinator interface to Contracts"
+    new:
+      - "src/AgentSmith.Contracts/Services/IPipelineLifecycleCoordinator.cs: `Task<IAsyncPipelineLifecycle> BeginAsync(ProjectConfig projectConfig, PipelineContext context, CancellationToken cancellationToken);`"
+      - "src/AgentSmith.Contracts/Services/IAsyncPipelineLifecycle.cs: extends IAsyncDisposable; `void MarkFailed();` so the executor can signal failed runs without exposing the internal disposable type"
+
+  - id: coordinator-implementations
+    action: "Implement NoOp + TicketAware coordinators in Application"
+    new:
+      - "src/AgentSmith.Application/Services/Lifecycle/NoOpPipelineLifecycleCoordinator.cs: returns a singleton NoOpScope (DisposeAsync is a no-op, MarkFailed is ignored). No deps."
+      - "src/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs: ctor (ITicketStatusTransitionerFactory, IJobHeartbeatService, ILogger). Verbatim relocation of PipelineExecutor.BeginLifecycleAsync — guard on TicketId, transition Enqueued→InProgress, start heartbeat, return scope. The internal scope class moves with it (was PipelineExecutor.LifecycleScope)."
+
+  - id: pipeline-executor-refactor
+    action: "PipelineExecutor depends only on IPipelineLifecycleCoordinator for lifecycle concerns"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: drop IJobHeartbeatService and ITicketStatusTransitionerFactory from ctor. Keep ITicketProviderFactory (used by PostTicketStatusAsync — unrelated to lifecycle). Replace BeginLifecycleAsync body with `await using var lifecycle = await coordinator.BeginAsync(...)`. Delete the inner LifecycleScope class (moved to TicketAwarePipelineLifecycleCoordinator)."
+
+  - id: di-trennung
+    action: "Move Server-only registrations out of Application; rename and extend the Server-side override method"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: drop `services.AddScoped<ITicketClaimService, TicketClaimService>();`. Add `services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();` as the safe default."
+      - "src/AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs: rename AddJiraLabelLockDecorator → AddServerCompositionOverrides. Inside, add `services.AddScoped<ITicketClaimService, TicketClaimService>()` and rebind `IPipelineLifecycleCoordinator` to a lambda that constructs TicketAwarePipelineLifecycleCoordinator using GetRequiredService. Keep the existing locking-factory rebind. Doc-comment notes the method must run AFTER AddCoreDispatcherServices."
+      - "src/AgentSmith.Server/Program.cs: rename `AddJiraLabelLockDecorator()` call to `AddServerCompositionOverrides()`."
+
+  - id: cleanup-orphan
+    action: "Delete NullTicketClaimService and its dedicated test"
+    delete:
+      - "src/AgentSmith.Application/Services/Claim/NullTicketClaimService.cs"
+      - "tests/AgentSmith.Tests/Services/Claim/NullTicketClaimServiceTests.cs"
+
+  - id: tests
+    action: "Cover coordinator behavior + add the real regression-guard at the PipelineExecutor level"
+    new:
+      - "tests/AgentSmith.Tests/Services/Lifecycle/NoOpPipelineLifecycleCoordinatorTests.cs: BeginAsync returns a disposable that does nothing; MarkFailed has no observable side effect."
+      - "tests/AgentSmith.Tests/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinatorTests.cs: (a) no TicketId → returns Noop scope, no transitioner/heartbeat calls; (b) TicketId → Enqueued→InProgress transition, heartbeat started, on Dispose InProgress→Done; (c) MarkFailed flips dispose target to Failed; (d) transition failure logs + returns Noop scope (graceful fallback)."
+    modify:
+      - "tests/AgentSmith.Tests/Integration/CliShapedDiTests.cs: add `Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow` — resolves IPipelineExecutor end-to-end and asserts construction does not throw on missing Redis services. Add `Cli_IJobHeartbeatService_NotRegistered` and `Cli_ITicketClaimService_NotRegistered` to make the absence explicit."
+      - "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs: add `ServerDi_PipelineExecutor_UsesTicketAwareCoordinator` — resolves IPipelineLifecycleCoordinator and asserts BeOfType<TicketAwarePipelineLifecycleCoordinator>."
+
+  - id: smoke
+    action: "Run the actual CLI commands that previously crashed to confirm the DI tree is sound"
+    modify:
+      - "tests/AgentSmith.Tests/Integration/CliShapedDiTests.cs: add explicit smoke that builds the production CLI ServiceProvider via AgentSmith.Cli.ServiceProviderFactory.Build(verbose: false, headless: false) — same call as Program.cs — and asserts PipelineExecutor + ITicketStatusTransitionerFactory + IPipelineLifecycleCoordinator all resolve. This is the closest unit-test equivalent of running `dotnet AgentSmith.Cli.dll api-scan`."
+
+tests:
+  - "NoOpCoordinator_BeginAsync_ReturnsNoopScope_NoCalls"
+  - "TicketAwareCoordinator_NoTicketId_ReturnsNoopScope"
+  - "TicketAwareCoordinator_WithTicketId_TransitionsEnqueuedToInProgress_StartsHeartbeat"
+  - "TicketAwareCoordinator_DisposeWithoutFailure_TransitionsInProgressToDone"
+  - "TicketAwareCoordinator_MarkFailedThenDispose_TransitionsToFailed"
+  - "TicketAwareCoordinator_TransitionFailure_FallsBackToNoopScope_LogsWarning"
+  - "Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow"
+  - "Cli_IJobHeartbeatService_NotRegistered"
+  - "Cli_ITicketClaimService_NotRegistered"
+  - "Cli_RealServiceProviderFactoryBuild_ResolvesPipelineExecutor"
+  - "ServerDi_PipelineExecutor_UsesTicketAwareCoordinator"
+  - "PipelineExecutor_NoCoordinatorCalls_WhenScopeIsNoop_BehaviorIdenticalToPrePhase"
+
+done:
+  - "PipelineExecutor depends on IPipelineLifecycleCoordinator only — no IJobHeartbeatService, no ITicketStatusTransitionerFactory."
+  - "TicketAwarePipelineLifecycleCoordinator carries the lifecycle concerns; NoOpPipelineLifecycleCoordinator is the CLI default."
+  - "ITicketClaimService registration moved from Application to Server. CLI's DI graph no longer carries IRedisJobQueue, IRedisClaimLock, IJobHeartbeatService transitively."
+  - "Server-side overrides bundled in AddServerCompositionOverrides (renamed from AddJiraLabelLockDecorator)."
+  - "NullTicketClaimService orphan deleted."
+  - "CliShapedDiTests resolves PipelineExecutor end-to-end without Redis. Asserts IJobHeartbeatService and ITicketClaimService are not in the CLI graph."
+  - "Real production CLI ServiceProvider (AgentSmith.Cli.ServiceProviderFactory.Build) resolves PipelineExecutor in a test, mirroring the actual apiscan boot path."
+  - "End-to-end smoke: dotnet run --project src/AgentSmith.Cli -- api-scan --swagger ... --target ... --dry-run boots without DI exception. Same for security-scan --dry-run."
+  - "1240+ tests pass (was 1238 post-p0109; net +6 coordinator + DI tests). Zero warnings."
