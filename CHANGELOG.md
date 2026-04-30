@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.33.0...v0.34.0) (2026-04-30)
+
+
+### Features
+
+* **p0109a:** decouple server-only lifecycle deps from application layer ([c331317](https://github.com/holgerleichsenring/agent-smith/commit/c331317cf0513d432ea75fc868631a71824f9671))
+* **p0110b:** ProjectAnalyzer + ProjectMap ([f91a9cd](https://github.com/holgerleichsenring/agent-smith/commit/f91a9cdd96ebee78458b6df2f229a597c574230b))
+
 ## [0.33.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.32.1...v0.33.0) (2026-04-30)
 
 
