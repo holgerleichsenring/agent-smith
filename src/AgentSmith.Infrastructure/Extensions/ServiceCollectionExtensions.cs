@@ -27,7 +27,9 @@ public static class ServiceCollectionExtensions
         services.AddAgentSmithCore();
         services.AddHttpClient();
         services.AddSingleton<ITicketProviderFactory, TicketProviderFactory>();
-        services.AddSingleton<ITicketStatusTransitionerFactory, TicketStatusTransitionerFactory>();
+        services.AddSingleton<TicketStatusTransitionerFactory>();
+        services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
+            sp.GetRequiredService<TicketStatusTransitionerFactory>());
         services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<Services.Providers.Agent.AgentPromptBuilder>();

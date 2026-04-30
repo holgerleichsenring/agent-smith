@@ -11,11 +11,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
 /// Jira lifecycle transitioner. Delegates mode selection to JiraWorkflowCatalog.
-/// p95b ships Label-mode only — updates fields.labels via PUT. Takes an extra SETNX
-/// label-lock around the PATCH because Jira labels are not atomic (no If-Match),
-/// layered on top of the global claim-lock that TicketClaimService already holds.
-/// Native-mode (POST /transitions) lands in p95c once LifecycleConfig defines the
-/// workflow status names.
+/// p95b ships Label-mode only — updates fields.labels via PUT. Native-mode
+/// (POST /transitions) lands in p95c once LifecycleConfig defines the workflow
+/// status names. Concurrent-writer serialization is the decorator's concern
+/// (LockedTicketStatusTransitioner, Server-only) — Jira labels are not atomic
+/// (no If-Match), but a single CLI process cannot race with itself, so the lock
+/// only attaches in the multi-pod Server composition.
 /// </summary>
 public sealed class JiraTicketStatusTransitioner(
     string baseUrl,
@@ -23,12 +24,9 @@ public sealed class JiraTicketStatusTransitioner(
     string apiToken,
     string projectKey,
     JiraWorkflowCatalog catalog,
-    IRedisClaimLock labelLock,
     HttpClient httpClient,
     ILogger<JiraTicketStatusTransitioner> logger) : ITicketStatusTransitioner
 {
-    private static readonly TimeSpan LabelLockTtl = TimeSpan.FromSeconds(10);
-
     public string ProviderType => "Jira";
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
@@ -63,40 +61,24 @@ public sealed class JiraTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken ct)
     {
-        var lockKey = $"agentsmith:jira-label-lock:{ticketId.Value}";
-        var token = await labelLock.TryAcquireAsync(lockKey, LabelLockTtl, ct);
-        if (token is null)
+        var labels = await FetchLabelsAsync(ticketId, ct);
+        if (labels is null)
+        {
+            logger.LogWarning("Jira Transition #{Ticket}: ticket not found", ticketId.Value);
+            return TransitionResult.NotFound();
+        }
+
+        var current = ParseLifecycle(labels);
+        if (!Matches(current, from))
         {
             logger.LogWarning(
-                "Jira Transition #{Ticket}: label-lock held by another worker", ticketId.Value);
-            return TransitionResult.PreconditionFailed("label-lock held");
+                "Jira Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
+                ticketId.Value, from, current?.ToString() ?? "<none>");
+            return TransitionResult.PreconditionFailed(
+                $"Expected {from}, found {current?.ToString() ?? "<none>"}");
         }
 
-        try
-        {
-            var labels = await FetchLabelsAsync(ticketId, ct);
-            if (labels is null)
-            {
-                logger.LogWarning("Jira Transition #{Ticket}: ticket not found", ticketId.Value);
-                return TransitionResult.NotFound();
-            }
-
-            var current = ParseLifecycle(labels);
-            if (!Matches(current, from))
-            {
-                logger.LogWarning(
-                    "Jira Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
-                    ticketId.Value, from, current?.ToString() ?? "<none>");
-                return TransitionResult.PreconditionFailed(
-                    $"Expected {from}, found {current?.ToString() ?? "<none>"}");
-            }
-
-            return await PutLabelsAsync(ticketId, current, to, ct);
-        }
-        finally
-        {
-            await labelLock.ReleaseAsync(lockKey, token, ct);
-        }
+        return await PutLabelsAsync(ticketId, current, to, ct);
     }
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)

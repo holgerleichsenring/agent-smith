@@ -14,7 +14,6 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 public sealed class TicketStatusTransitionerFactory(
     SecretsProvider secrets,
     JiraWorkflowCatalog jiraCatalog,
-    IRedisClaimLock claimLock,
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory) : ITicketStatusTransitionerFactory
 {
@@ -68,7 +67,7 @@ public sealed class TicketStatusTransitionerFactory(
         var token = secrets.GetRequired("JIRA_TOKEN");
         var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
         return new JiraTicketStatusTransitioner(
-            url, email, token, projectKey, jiraCatalog, claimLock,
+            url, email, token, projectKey, jiraCatalog,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<JiraTicketStatusTransitioner>());
     }
