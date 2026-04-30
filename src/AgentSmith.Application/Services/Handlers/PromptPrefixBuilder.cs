@@ -9,9 +9,13 @@ public sealed class PromptPrefixBuilder
 {
     public (string Prefix, string Suffix) BuildDiscussionParts(
         string domainStable, string domainVariable,
-        string? projectContext, string? domainRules, string? codeMap,
+        string? projectContext, string? domainRules, string? codeMap, string? existingTests,
         string discussionSoFar, int round)
     {
+        var existingTestsBlock = string.IsNullOrEmpty(existingTests)
+            ? ""
+            : $"\n\n## Existing Tests\n{existingTests}";
+
         var prefix = $"""
             {domainStable}
 
@@ -22,7 +26,7 @@ public sealed class PromptPrefixBuilder
             {domainRules ?? "Not available"}
 
             ## Code Map
-            {codeMap ?? "Not available"}
+            {codeMap ?? "Not available"}{existingTestsBlock}
             """.Trim();
 
         var suffix = $"""
@@ -40,10 +44,15 @@ public sealed class PromptPrefixBuilder
 
     public (string Prefix, string Suffix) BuildStructuredParts(
         string domainStable, string domainVariable,
-        string upstreamContext, string outputInstruction)
+        string upstreamContext, string outputInstruction,
+        string? existingTests = null)
     {
+        var existingTestsBlock = string.IsNullOrEmpty(existingTests)
+            ? ""
+            : $"## Existing Tests\n{existingTests}\n\n";
+
         var suffix = $"""
-            {(string.IsNullOrEmpty(domainVariable) ? "" : domainVariable + "\n\n")}{(string.IsNullOrEmpty(upstreamContext) ? "" : $"## Upstream Analysis\n{upstreamContext}\n\n")}## Output Format
+            {(string.IsNullOrEmpty(domainVariable) ? "" : domainVariable + "\n\n")}{existingTestsBlock}{(string.IsNullOrEmpty(upstreamContext) ? "" : $"## Upstream Analysis\n{upstreamContext}\n\n")}## Output Format
             {outputInstruction}
             """.Trim();
         return (domainStable.Trim(), suffix);

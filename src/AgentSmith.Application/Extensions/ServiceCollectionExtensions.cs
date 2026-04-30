@@ -33,7 +33,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
         services.AddTransient<ICommandHandler<CheckoutSourceContext>, CheckoutSourceHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
-        services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeCodeHandler>();
+        services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
+        services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
