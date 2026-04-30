@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0110b
+goal: "Build ProjectAnalyzer service on top of IAgenticAnalyzer (from p0110a) — replaces RepoSnapshotCollector + CodeMapGenerator's heuristic discovery with tool-driven LLM analysis emitting structured JSON. Define ProjectMap schema in Domain, persist to .agentsmith/project-map.json, render TestProjects in skill prompts. Old paths (CodeAnalysis, code-map.yaml) stay populated transitionally so unmigrated downstream consumers still work — p0110c does the cleanup."
+
+requires: ["p0110a", "agentsmith-skills repo PR (Tester SKILL.md gets {{ExistingTests}} placeholder) — must be merged before this phase ships"]
+
+decisions:
+  - key: "Cross-repo dependency is a hard precondition, not a soft note. The {{ExistingTests}} placeholder in the Tester (and other) skill prompts must exist in agentsmith-skills BEFORE this phase ships, otherwise the regression test fails: an un-substituted placeholder gets rendered into the LLM prompt as literal text, which is worse than the pre-phase behavior. Document the ordering in the phase requires; do not merge p0110b's PR until skills PR is in main and the version pin moves forward."
+  - key: "ProjectMap persisted to .agentsmith/project-map.json IN THE ANALYZED REPO. Same convention as context.yaml/code-map.yaml/coding-principles.md — the agent commits these files in the final CommitAndPRCommand step. Operator-facing change: a new file appears in their .agentsmith/ directory, listed in PR diffs. NOT in .gitignore — by design consistent with the existing meta-files pattern. Documented for operators in docs/concepts/project-analysis.md."
+  - key: "Cache invalidation by content hash of dependency manifests (csproj, package.json, pyproject.toml, go.mod, Cargo.toml). The cache-key is SHA-256 over the SORTED concatenation of (manifest-relpath, manifest-content) tuples. Re-runs without manifest changes skip the LLM call and return the persisted JSON. Re-runs with even one manifest changed re-run the analyzer. Top-level filenames are NOT in the hash — they change too easily and would over-invalidate."
+  - key: "AnalyzeCodeCommand DSL name preserved at the pipeline-spec layer for backwards compat. The handler underneath becomes AnalyzeProjectHandler — operators see no change in agentsmith.yml. The internal command class name is still AnalyzeCodeCommand for the same reason; renaming would ripple through every pipeline definition file and is unrelated to this phase's value."
+  - key: "Transitional dual-population: AnalyzeProjectHandler writes BOTH the new ContextKeys.ProjectMap (primary, for new consumers) AND the legacy ContextKeys.CodeAnalysis + ContextKeys.CodeMap (derived from ProjectMap). LoadCodeMapHandler, BootstrapProjectHandler, and any other downstream consumers continue working unchanged. p0110c removes the dual-population once consumers migrate. Risk: the derivation isn't lossless — fields like 'modules with dependencies' present in ProjectMap won't always have a clean code-map.yaml equivalent. Acceptable trade for transitional safety."
+  - key: "JSON parsing: 2 attempts total (one initial, one retry with parse-error feedback appended to user prompt). After the second failure, return CommandResult.Fail — pipeline stops, operator sees both attempts in the log. 2 is a pragmatic default for LLM JSON-output, not borrowed from anywhere — chosen because (a) one retry catches most format slips, (b) more retries waste tokens for a structural problem the model isn't going to figure out."
+  - key: "Skill prompts get a NEW {{ExistingTests}} block, not a generic {{ProjectMap}} dump. Reason: roles need targeted information. Tester wants test_projects[].framework + file_count + a sample test path. Architect wants modules + entry_points. Dumping the full ProjectMap into every prompt wastes context. SkillPromptBuilder picks per-role slices: Tester gets ExistingTests; Architect gets Modules+EntryPoints; Backend-developer gets Conventions+Frameworks. Per-role slicing logic lives in agent-smith side (where the data is), not in the skills repo (which only declares placeholders)."
+  - key: "AuthPort regression test is the acceptance criterion for the whole phase. Fixture repo: a real-shape .NET solution with one production csproj (RHS.AuthPort.API or equivalent stub) and one .Tests.Integration.csproj with N test files. ProjectMap.TestProjects[0].FileCount must equal N. Tester gate run on a test-coverage ticket, with this ProjectMap rendered into its prompt, must NOT veto with 'no test strategy specified'. If this test fails, ship is gated regardless of other green tests."
+  - key: "ProjectAnalyzer is in Application layer. The analyzer service orchestrates IAgenticAnalyzer + JSON parsing + caching — domain-aware logic that depends on Contracts but not Infrastructure. Keeps the Domain/Application separation that the rest of the codebase honors. Infrastructure provides only the IAgenticAnalyzer adapters and the ToolExecutor."
+  - key: "Tool set passed to the analyzer is read-only: list_files, read_file, grep. Write operations (write_file, run_command) are deliberately excluded for the analysis use case — the analyst should not modify the repo. Implemented at the IToolCallHandler level: the handler ProjectAnalyzer constructs filters incoming ToolCalls to the read-only set, refusing others with 'tool not allowed in analysis mode'."
+
+steps:
+  - id: domain-schema
+    action: "Define ProjectMap and friends in Domain"
+    new:
+      - "src/AgentSmith.Domain/Models/ProjectMap.cs: record(PrimaryLanguage, IReadOnlyList<string> Frameworks, IReadOnlyList<Module>, IReadOnlyList<TestProject>, IReadOnlyList<string> EntryPoints, Conventions, CiConfig)"
+      - "src/AgentSmith.Domain/Models/Module.cs: record(Path, ModuleRole Role, IReadOnlyList<string> DependsOn) — Role enum {Production, Test, Tool, Generated, Other}"
+      - "src/AgentSmith.Domain/Models/TestProject.cs: record(Path, Framework, FileCount, SampleTestPath)"
+      - "src/AgentSmith.Domain/Models/Conventions.cs: record(NamingPattern, TestLayout, ErrorHandling) — free-form strings populated from analyzer output"
+      - "src/AgentSmith.Domain/Models/CiConfig.cs: record(HasCi, BuildCommand, TestCommand, CiSystem)"
+
+  - id: analyzer-prompt
+    action: "Embed the analyst system prompt as a resource"
+    new:
+      - "src/AgentSmith.Application/Prompts/ProjectAnalyzerSystemPrompt.md: explicit analyst role, evidence-based instruction ('every field must derive from a tool call result'), JSON schema embedded in the prompt body, glob-pattern hints (look for *Tests.csproj, package.json, pyproject.toml, etc.), failure-mode guidance ('if you cannot determine a field with high confidence, omit it from the JSON; do not guess')"
+      - "Resource embedded via .csproj <EmbeddedResource> element"
+
+  - id: project-analyzer
+    action: "Implement ProjectAnalyzer service + cache key"
+    new:
+      - "src/AgentSmith.Application/Services/ProjectAnalyzer.cs: takes IAgenticAnalyzer + repo path, runs Analyze(systemPrompt, userPrompt, [list_files, read_file, grep], readOnlyHandler, maxIterations=15) → parses FinalText as JSON → ProjectMap. Retries once on JsonException with parse-error feedback. Returns Result<ProjectMap, string error>"
+      - "src/AgentSmith.Application/Services/ProjectMapCacheKey.cs: SHA-256 over sorted (manifest-relpath, manifest-content) tuples. Manifest pattern set: *.csproj, package.json, pyproject.toml, requirements.txt, go.mod, Cargo.toml, pom.xml, build.gradle, build.gradle.kts"
+      - "src/AgentSmith.Application/Services/ReadOnlyToolCallHandler.cs: implements IToolCallHandler, dispatches list_files/read_file/grep to ToolExecutor (read_file paths bounded under repoPath), refuses write tools with structured error"
+
+  - id: handler-integration
+    action: "AnalyzeProjectHandler replaces AnalyzeCodeHandler at the handler level"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs: orchestrates cache-lookup → analyzer-on-miss → write project-map.json + ContextKeys.ProjectMap → ALSO populate transitional ContextKeys.CodeAnalysis + ContextKeys.CodeMap (derived view from ProjectMap)"
+      - "src/AgentSmith.Application/Services/ProjectMapToCodeAnalysisAdapter.cs: derives the legacy CodeAnalysis shape from ProjectMap for transitional consumers"
+      - "src/AgentSmith.Application/Services/ProjectMapToCodeMapYamlAdapter.cs: emits the legacy code-map.yaml shape from ProjectMap for transitional consumers"
+    modify:
+      - "src/AgentSmith.Contracts/Models/ContextKeys.cs: add ProjectMap key"
+      - "src/AgentSmith.Application/Pipelines/CommandRegistry.cs: AnalyzeCodeCommand → AnalyzeProjectHandler (was AnalyzeCodeHandler)"
+
+  - id: skill-prompt-rendering
+    action: "Render ProjectMap-derived blocks into skill prompts"
+    modify:
+      - "src/AgentSmith.Application/Services/SkillPromptBuilder.cs: per-role slicing — Tester gets ExistingTests block, Architect gets Modules+EntryPoints, Backend-developer gets Conventions+Frameworks. Lookup table by role name, default empty"
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs: feed ProjectMap into the prompt context alongside existing CodeMap/ProjectContext (read from ContextKeys.ProjectMap)"
+
+  - id: tests
+    action: "Coverage for analyzer + cache + integration regression"
+    new:
+      - "tests/AgentSmith.Tests/Services/ProjectAnalyzerTests.cs: happy path with mocked IAgenticAnalyzer (returns valid JSON); retry-on-malformed-JSON happy path (1st returns malformed → 2nd returns valid → success); retry-then-fail (both attempts malformed → CommandResult.Fail); read-only handler refuses write_file"
+      - "tests/AgentSmith.Tests/Services/ProjectMapCacheKeyTests.cs: same manifest content → same hash; new dependency added → different hash; manifests in different order → same hash; non-manifest file changes → same hash"
+      - "tests/AgentSmith.Tests/Services/Handlers/AnalyzeProjectHandlerTests.cs: cache hit skips analyzer (verifies IAgenticAnalyzer.AnalyzeAsync NOT called); cache miss invokes analyzer; transitional dual-population (CodeAnalysis + CodeMap derived from ProjectMap)"
+      - "tests/AgentSmith.Tests/Services/SkillPromptBuilderTests.cs: Tester role gets ExistingTests block; Architect gets Modules+EntryPoints; unknown role gets none"
+      - "tests/AgentSmith.Tests/Integration/AuthPortFixtureRegressionTests.cs: fixture-shaped repo with .Tests.csproj — uses a stub IAgenticAnalyzer that returns deterministic JSON (no real LLM call) — asserts (a) ProjectMap.TestProjects.Count == 1 with FileCount > 0, (b) Tester gate prompt rendered with ExistingTests block does not produce 'no test strategy' veto in a stubbed gate run"
+
+  - id: docs
+    action: "Operator-facing + architecture docs"
+    new:
+      - "docs/concepts/project-analysis.md: how ProjectAnalyzer replaces heuristics; the JSON schema; cache invalidation; .agentsmith/project-map.json as a committed artifact"
+    modify:
+      - "docs/architecture/layers.md: AnalyzeCode step now uses agentic discovery (mention ProjectAnalyzer + IAgenticAnalyzer)"
+      - "docs/concepts/ticket-lifecycle.md: AnalyzeCode step description updated"
+      - ".agentsmith/context.yaml: behavior section — AnalyzeCode now produces ProjectMap + .agentsmith/project-map.json"
+
+done:
+  - "ProjectMap is the primary repo-analysis representation. AnalyzeProjectHandler is the active handler for AnalyzeCodeCommand."
+  - "ProjectMap persisted to .agentsmith/project-map.json in the analyzed repo, committed alongside other meta files. Cache invalidation by manifest-content hash."
+  - "Tester (and other) skill prompts surface ProjectMap-derived blocks. AuthPort fixture regression test passes: Tester gate sees TestProjects with FileCount > 0 and does not falsely veto on 'no test strategy specified'."
+  - "Cross-repo precondition met: agentsmith-skills repo has been updated with {{ExistingTests}} placeholder; agent-smith pins to the new skills version."
+  - "Transitional dual-population: ContextKeys.CodeAnalysis + ContextKeys.CodeMap still emitted (derived from ProjectMap) so LoadCodeMapHandler/BootstrapProjectHandler/etc. unchanged. p0110c removes this."
+  - "JSON parsing: 2 attempts total, fail-loud on second failure as CommandResult.Fail. No silent fallback to heuristics."
+  - "Read-only tool set enforced for analyzer (list_files, read_file, grep). Write attempts refused with structured error."
+  - "~7 new test files including the AuthPort fixture-based integration test as ship gate."
+  - "Build green, zero warnings, all existing tests pass."
+  - "Docs updated: docs/concepts/project-analysis.md (new), docs/architecture/layers.md, docs/concepts/ticket-lifecycle.md."

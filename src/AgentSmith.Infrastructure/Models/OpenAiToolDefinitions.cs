@@ -11,12 +11,12 @@ public static class OpenAiToolDefinitions
 {
     public static IList<ChatTool> All => new List<ChatTool>
     {
-        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision
+        ReadFile, WriteFile, ListFiles, Grep, RunCommand, LogDecision
     };
 
     public static IList<ChatTool> ScoutTools => new List<ChatTool>
     {
-        ReadFile, ListFiles
+        ReadFile, ListFiles, Grep
     };
 
     public static ChatTool ReadFile => ChatTool.CreateFunctionTool(
@@ -56,6 +56,20 @@ public static class OpenAiToolDefinitions
                     "path": { "type": "string", "description": "Relative directory path, empty string for root." }
                 },
                 "required": ["path"]
+            }
+            """));
+
+    public static ChatTool Grep => ChatTool.CreateFunctionTool(
+        functionName: "grep",
+        functionDescription: "Search files for a regex pattern. Returns up to 200 matching lines as JSON {matches:[{path,line,text}], truncated}.",
+        functionParameters: BinaryData.FromString("""
+            {
+                "type": "object",
+                "properties": {
+                    "pattern": { "type": "string", "description": "Regex pattern to match against each line." },
+                    "glob": { "type": "string", "description": "Optional glob to limit which files are searched (e.g. '**/*.cs'). Defaults to '**/*'." }
+                },
+                "required": ["pattern"]
             }
             """));
 

@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Models;
 public static class OllamaToolDefinitions
 {
     public static JsonArray All => new(
-        ReadFile(), WriteFile(), ListFiles(), RunCommand(), LogDecision());
+        ReadFile(), WriteFile(), ListFiles(), Grep(), RunCommand(), LogDecision());
 
     private static JsonObject ReadFile() => Fn("read_file",
         "Read the contents of a file in the repository.",
@@ -25,6 +25,13 @@ public static class OllamaToolDefinitions
         "List files and directories at the given path.",
         Props(("path", "string", "Relative path (default: root)")),
         []);
+
+    private static JsonObject Grep() => Fn("grep",
+        "Search files for a regex pattern. Returns up to 200 matching lines as JSON.",
+        Props(
+            ("pattern", "string", "Regex pattern to match"),
+            ("glob", "string", "Optional glob to limit files (default '**/*')")),
+        ["pattern"]);
 
     private static JsonObject RunCommand() => Fn("run_command",
         "Run a shell command in the repository directory.",

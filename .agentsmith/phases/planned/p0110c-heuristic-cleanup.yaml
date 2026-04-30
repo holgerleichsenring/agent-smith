@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0110c
+goal: "Delete the heuristic-era code now that ProjectMap is in production. Remove RepoSnapshotCollector, CodeMapGenerator, AnalyzeCodeHandler, RepoSnapshot, CodeAnalysis. Migrate the remaining consumers (LoadCodeMapHandler, BootstrapProjectHandler, MetaFileBootstrapper) from CodeAnalysis to ProjectMap. Migrate ScoutAgent to IAgenticAnalyzer (becomes provider-agnostic). End state: a single repo-analysis path."
+
+requires:
+  - "p0110b"
+  - "operational precondition: at least one project has run through p0110b in production and produced a sensible project-map.json — not enforced in CI, an operator-judgment-call before merging this phase"
+
+decisions:
+  - key: "Operational precondition is a judgment call, not a CI gate. The reason for the wait: the AuthPort regression test in p0110b validates one fixture-shaped scenario; production traffic across multiple project shapes (different language stacks, different test layouts) reveals failure modes the fixture won't catch. Wait for at least one real-world cycle. Not enforced in code because we'd need a feature-flag stack with no clear flip criterion — the human reviewing this PR is the gate."
+  - key: "Delete-not-deprecate. The transitional dual-population in p0110b was scoped specifically to bridge to this cleanup. Keeping CodeAnalysis around past p0110c would mean dual maintenance burden indefinitely. Direct delete with consumers migrated in the same diff."
+  - key: "ScoutAgent migration: rebuild on IAgenticAnalyzer, drops ~110 lines of Anthropic-specific loop code. Side effect: scout becomes provider-agnostic — same code path works for Claude/OpenAi/AzureOpenAi/Gemini. Ollama scout case throws NotSupportedException at construction time consistent with p0110a's factory contract; the IAgentProvider plan-execute path remains unchanged for Ollama."
+  - key: "Test contract for ScoutAgent migration: adapter round-trip + tool calls executed on stubbed provider. NOT 'same files discovered for same plan input'. Provider-specific behaviors (Anthropic ephemeral-cache headers, Anthropic-specific prompt formatting) won't survive the lift to a provider-neutral abstraction; behavior-equivalence testing on a stochastic LLM with provider differences is a fool's errand. Tests assert (a) the analyzer is invoked with the expected system+user prompt + tool set, (b) FileReadTracker records each read_file call's path, (c) the resulting ScoutResult.RelevantFiles matches what the stubbed analyzer's tool calls produced — pure mechanical round-trip."
+  - key: "DI cleanup is part of the diff. Removing services without removing their registrations leaves DI containers with broken bindings — caught at boot via ValidateOnBuild but messy to debug. Delete the registration calls in ServiceCollectionExtensions in the same commit as the code-delete."
+  - key: "MetaFileBootstrapper: stop generating code-map.yaml. project-map.json is the artifact now. If external tooling depends on the YAML form, generate code-map.yaml as a derived view from ProjectMap (the adapter from p0110b is reusable). Default: emit project-map.json only — operators relying on code-map.yaml file directly can re-enable the YAML output via a config flag if it surfaces (none expected)."
+
+steps:
+  - id: consumer-migration
+    action: "Migrate remaining CodeAnalysis/code-map.yaml consumers to ProjectMap"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/LoadCodeMapHandler.cs: read ContextKeys.ProjectMap (was ContextKeys.CodeMap); rename to LoadProjectMapHandler if scope permits, or keep name for backwards compat"
+      - "src/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs: any references to CodeAnalysis migrate to ProjectMap (Frameworks, PrimaryLanguage)"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapProjectHandler.cs: stop generating .agentsmith/code-map.yaml as a separate step; project-map.json from AnalyzeProject is the source"
+      - "src/AgentSmith.Application/Services/Handlers/MetaFileBootstrapper.cs: drop the code-map.yaml generation block; coding-principles.md and skill.yaml generation unchanged"
+      - "src/AgentSmith.Infrastructure.Core/Services/ContextGenerator.cs (if it references CodeAnalysis): migrate to ProjectMap"
+      - "Remove transitional ContextKeys.CodeAnalysis + ContextKeys.CodeMap population from AnalyzeProjectHandler"
+      - "Remove ProjectMapToCodeAnalysisAdapter.cs and ProjectMapToCodeMapYamlAdapter.cs (transitional adapters from p0110b — no longer needed)"
+
+  - id: scout-migration
+    action: "Rebuild ScoutAgent on IAgenticAnalyzer"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ScoutAgent.cs: replace ~110 lines of provider-specific loop code with a thin IAgenticAnalyzer caller. Constructor takes IAgenticAnalyzer + FileReadTracker; DiscoverAsync builds the scout prompt, runs Analyze with read_file/list_files/grep tools, returns ScoutResult derived from the FileReadTracker"
+      - "DI registration of ScoutAgent: now constructed via IAgenticAnalyzerFactory (resolves correct adapter at runtime per AgentConfig)"
+    delete:
+      - "Anthropic-specific scout loop code that's no longer needed (currently inlined in ScoutAgent — extracted as part of the rewrite)"
+
+  - id: code-delete
+    action: "Remove the heuristic-era files and their tests"
+    delete:
+      - "src/AgentSmith.Infrastructure.Core/Services/RepoSnapshotCollector.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/CodeMapGenerator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/AnalyzeCodeHandler.cs"
+      - "src/AgentSmith.Domain/Models/RepoSnapshot.cs"
+      - "src/AgentSmith.Domain/Models/CodeAnalysis.cs"
+      - "src/AgentSmith.Contracts/Services/IRepoSnapshotCollector.cs"
+      - "src/AgentSmith.Contracts/Services/ICodeMapGenerator.cs"
+      - "tests/AgentSmith.Tests/Services/RepoSnapshotCollectorTests.cs"
+      - "tests/AgentSmith.Tests/Services/CodeMapGeneratorTests.cs"
+      - "tests/AgentSmith.Tests/Services/Handlers/AnalyzeCodeHandlerTests.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Models/ContextKeys.cs: remove CodeAnalysis and CodeMap keys (after migration confirmed)"
+      - "src/AgentSmith.Infrastructure.Core/DependencyInjection (or wherever RepoSnapshotCollector/CodeMapGenerator are registered): drop the registrations"
+      - "src/AgentSmith.Infrastructure/DependencyInjection: drop AnalyzeCodeHandler registration if separate from AnalyzeProjectHandler's"
+
+  - id: tests
+    action: "Coverage for migration + scout adapter round-trip"
+    new:
+      - "tests/AgentSmith.Tests/Providers/Agent/ScoutAgentMigrationTests.cs: stub IAgenticAnalyzer returns a deterministic sequence of read_file tool calls; assert FileReadTracker captures paths in order; assert ScoutResult.RelevantFiles matches those paths; verify Analyze was called with read_file/list_files/grep tools (no write tools)"
+      - "tests/AgentSmith.Tests/Services/Handlers/LoadCodeMapHandlerMigrationTests.cs: handler reads ContextKeys.ProjectMap correctly; pipeline still produces the downstream context shape that subsequent steps expect"
+      - "tests/AgentSmith.Tests/Services/Handlers/MetaFileBootstrapperMigrationTests.cs: code-map.yaml no longer generated as separate file; coding-principles.md + skill.yaml generation unchanged"
+
+  - id: docs-finalization
+    action: "Remove dual-path references from docs"
+    modify:
+      - "docs/architecture/layers.md: remove any 'CodeAnalysis' or 'code-map.yaml' references; ProjectMap is the only term"
+      - "docs/concepts/ticket-lifecycle.md: AnalyzeCode step description aligned with ProjectMap-only flow"
+      - "docs/concepts/project-analysis.md (from p0110b): remove the 'transitional dual-population' note now that it's gone"
+      - ".agentsmith/context.yaml: behavior section reflects single-path ProjectMap analysis"
+
+done:
+  - "Single path: ProjectMap is the only repo-analysis representation."
+  - "RepoSnapshotCollector, CodeMapGenerator, AnalyzeCodeHandler, RepoSnapshot, CodeAnalysis, ContextKeys.CodeAnalysis, ContextKeys.CodeMap deleted along with their tests."
+  - "ScoutAgent rewritten on IAgenticAnalyzer — provider-agnostic, ~110 lines lighter. Test contract: adapter round-trip + tool calls, NOT model-output equivalence."
+  - "DI registrations cleaned up; ValidateOnBuild stays green at boot."
+  - "MetaFileBootstrapper no longer emits code-map.yaml. project-map.json is the analysis artifact."
+  - "Build green, zero warnings, all tests pass after migration. The total test count goes down (deleted tests > new tests) — the codebase is smaller and simpler."
+  - "Docs no longer mention CodeAnalysis or code-map.yaml; ProjectMap is the sole term."

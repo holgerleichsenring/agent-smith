@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0110a
+goal: "Lift the per-provider AgenticLoop implementations (Claude, OpenAi, AzureOpenAi, Gemini) into a generic IAgenticAnalyzer<TResult> interface in Contracts, with thin per-provider adapters in Infrastructure. Add `grep` as 7th tool in ToolExecutor. Pure infrastructure phase — ScoutAgent unchanged, Ollama not migrated, no consumers yet. Validates the abstraction in isolation before p0110b builds on it."
+
+requires: ["p0108"]
+
+decisions:
+  - key: "Why split: keeping the abstraction commit isolated lets us validate per-provider round-trip translation in unit tests before any pipeline consumer depends on it. Adapter regressions surface at build/test time, not via downstream pipeline failures with hard-to-attribute root causes."
+  - key: "Ollama explicitly NOT migrated in this phase. Ollama's tool-use API is model-dependent and inconsistent across underlying models. We don't add an OllamaAgenticAnalyzer adapter; consumers that resolve IAgenticAnalyzer when AgentConfig.Type='ollama' get a clear NotSupportedException from the factory at boot/wiring time — not a silent fallback. Ollama's existing OllamaAgenticLoop continues to serve the IAgentProvider/plan-execute path unchanged. Migration to IAgenticAnalyzer is its own future phase, gated on Ollama tool-use stability."
+  - key: "ScoutAgent unchanged in this phase. The migration to IAgenticAnalyzer comes in p0110c after the abstraction has stabilized through p0110b's first real consumer (ProjectAnalyzer). Premature migration would bundle abstraction risk and consumer risk into the same diff."
+  - key: "Provider-neutral tool format: ToolDefinition{name, description, inputSchema}, ToolCall{id, name, jsonInput}, ToolResult{id, content, isError}. Each adapter translates between these tuples and the provider's native SDK shape (Anthropic ContentBase blocks, OpenAI tool_calls array, Gemini functionCalls array, AzureOpenAi tool_calls). Tuple format is JSON-aligned so it serializes cleanly into AnalysisResult for downstream introspection."
+  - key: "Adapter pattern, not unified loop. Each existing AgenticLoop has provider-specific quirks (Anthropic ephemeral cache headers, OpenAI tool_choice, Gemini system-instruction placement, Azure deployment routing). Lifting to one giant unified loop would either lose those features or pile up if-else per provider. Adapter wraps the existing loop, exposes the generic Run signature, leaves provider quirks where they belong."
+  - key: "grep tool: pattern + glob, bounded result count (200 matches max), available to all agents (not gated to a specific role). The agentic loop runs on flat tools — analyzer/scout/executor each decide which to call from the registered tool set. Bounded output prevents an unbounded grep from filling the LLM context window."
+  - key: "Factory dispatch is explicit: AgenticAnalyzerFactory.Create(AgentConfig) switches on Type → returns the appropriate adapter, throws NotSupportedException with a clear message for 'ollama'. Same pattern as ILlmClientFactory + IAgentProviderFactory. The Ollama branch is a single line — no fallback, no degradation."
+  - key: "AnalysisResult exposes FinalText + Iterations + ToolCallCount + TokenUsage. ToolCallCount is the count, not the call list — adapters don't need to surface every tool call to the consumer (the LLM session already saw them). Consumers needing the trail can pass a custom ITransitionLogger via constructor injection (deferred — not in this phase)."
+
+steps:
+  - id: contracts
+    action: "Define provider-neutral tool + analyzer types in Contracts"
+    new:
+      - "src/AgentSmith.Contracts/Services/ToolDefinition.cs: record(Name, Description, InputSchema) — InputSchema is JsonNode for provider-side translation"
+      - "src/AgentSmith.Contracts/Services/ToolCall.cs: record(Id, Name, JsonInput)"
+      - "src/AgentSmith.Contracts/Services/ToolResult.cs: record(Id, Content, IsError)"
+      - "src/AgentSmith.Contracts/Services/AnalysisResult.cs: record(FinalText, Iterations, ToolCallCount, AnalyzerTokenUsage{Input,Output,CacheRead,CacheCreate})"
+      - "src/AgentSmith.Contracts/Services/IAgenticAnalyzer.cs: Task<AnalysisResult> AnalyzeAsync(string systemPrompt, string userPrompt, IReadOnlyList<ToolDefinition> tools, IToolCallHandler handler, int maxIterations, CancellationToken ct)"
+      - "src/AgentSmith.Contracts/Services/IToolCallHandler.cs: Task<ToolResult> HandleAsync(ToolCall call, CancellationToken ct) — caller-provided executor so the analyzer doesn't bake in a specific tool registry"
+      - "src/AgentSmith.Contracts/Services/IAgenticAnalyzerFactory.cs: IAgenticAnalyzer Create(AgentConfig config)"
+
+  - id: grep-tool
+    action: "Add grep as 7th tool in ToolExecutor"
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/GrepToolHandler.cs: Search(pattern, glob='**/*', repoPath) → JSON {matches:[{path,line,text}]} bounded at 200 matches; uses System.Text.RegularExpressions on file contents filtered by glob"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ToolExecutor.cs: add 'grep' switch case dispatching to GrepToolHandler"
+      - "src/AgentSmith.Infrastructure/Models/ToolDefinitions.cs: add Grep tool definition; include in All AND ScoutTools"
+      - "src/AgentSmith.Infrastructure/Models/GeminiToolDefinitions.cs: add grep entry to per-provider mapping"
+
+  - id: provider-adapters
+    action: "Per-provider adapter implementations of IAgenticAnalyzer"
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/ClaudeAgenticAnalyzer.cs: wraps existing AgenticLoop.cs, translates ToolDefinition ↔ Anthropic.SDK Tool/ContentBase types"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs: wraps OpenAiAgenticLoop.cs, translates to OpenAI tool_calls/tool_choice JSON shape"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/AzureOpenAiAgenticAnalyzer.cs: same shape as OpenAi adapter, deployment-aware via AgentConfig"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/GeminiAgenticAnalyzer.cs: wraps GeminiAgenticLoop.cs, translates to Gemini functionDeclarations/functionCalls"
+      - "src/AgentSmith.Infrastructure/Services/Factories/AgenticAnalyzerFactory.cs: dispatches by AgentConfig.Type. 'claude'/'openai'/'azure-openai'/'gemini' return adapter; 'ollama' throws NotSupportedException with message pointing operators to the deferral note in docs/configuration/agents.md"
+
+  - id: di-wiring
+    action: "Register IAgenticAnalyzerFactory in the DI container"
+    modify:
+      - "src/AgentSmith.Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs (or wherever IAgentProviderFactory is registered): add singleton IAgenticAnalyzerFactory → AgenticAnalyzerFactory"
+
+  - id: tests
+    action: "Per-adapter round-trip tests + factory dispatch + grep tool"
+    new:
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/ClaudeAgenticAnalyzerTests.cs: stub AnthropicClient response sequence, assert (a) ToolDefinition translates to expected Anthropic Tool shape, (b) tool calls returned by the mock SDK arrive as ToolCall records, (c) IToolCallHandler invocations round-trip back as ToolResultContent, (d) FinalText and ToolCallCount populate correctly when the loop terminates without a tool_use"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/OpenAiAgenticAnalyzerTests.cs: same shape with stubbed HttpClient returning chat.completions JSON"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/AzureOpenAiAgenticAnalyzerTests.cs: deployment routing + tool round-trip"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/GeminiAgenticAnalyzerTests.cs: functionDeclarations translation + functionCalls round-trip"
+      - "tests/AgentSmith.Tests/Services/Factories/AgenticAnalyzerFactoryTests.cs: 4 supported types resolve; 'ollama' throws NotSupportedException with descriptive message"
+      - "tests/AgentSmith.Tests/Providers/Agent/GrepToolHandlerTests.cs: pattern match returns paths+lines+text, glob filters, bounded result count truncates at 200"
+
+done:
+  - "Contracts: ToolDefinition, ToolCall, ToolResult, AnalysisResult, IAgenticAnalyzer, IToolCallHandler, IAgenticAnalyzerFactory exist. Round-trip tuple format is the only place tool-shape lives at the contract layer."
+  - "4/5 providers (Claude, OpenAi, AzureOpenAi, Gemini) have IAgenticAnalyzer adapters wrapping their existing AgenticLoop implementations. Ollama explicitly NOT migrated; factory throws NotSupportedException for it with a documented deferral note."
+  - "ScoutAgent + the IAgentProvider plan-execute path are unchanged. No consumers of IAgenticAnalyzer yet — that's p0110b's first integration."
+  - "ToolExecutor has grep as 7th tool, available to all agents (not role-gated). Bounded at 200 matches per call."
+  - "Factory wired into DI; resolving IAgenticAnalyzerFactory.Create() works for all 4 supported types."
+  - "~6 new test files; all 1222+ existing tests still pass; build green; zero warnings."
+  - "No operator-facing changes (no agentsmith.yml schema changes, no new env vars). Pure infrastructure addition."
