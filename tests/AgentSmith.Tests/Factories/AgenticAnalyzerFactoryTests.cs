@@ -3,11 +3,13 @@ using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Providers.Agent.Adapters;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Factories;
 
+[Collection(EnvVarCollection.Name)]
 public class AgenticAnalyzerFactoryTests : IDisposable
 {
     private readonly SecretsProvider _secrets = new();
