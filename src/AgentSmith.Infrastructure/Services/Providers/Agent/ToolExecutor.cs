@@ -22,6 +22,7 @@ public sealed class ToolExecutor(
 {
     private readonly CommandRunner _commandRunner = new(repositoryPath, logger, progressReporter);
     private readonly FileToolHandler _fileHandler = new(repositoryPath, logger, fileReadTracker, progressReporter);
+    private readonly GrepToolHandler _grepHandler = new(repositoryPath, logger);
     private readonly HumanQuestionToolHandler _humanHandler = new(dialogueTransport, dialogueTrail, jobId, logger, progressReporter);
     private readonly List<PlanDecision> _decisions = new();
 
@@ -37,6 +38,7 @@ public sealed class ToolExecutor(
                 "read_file" => _fileHandler.ReadFile(input),
                 "write_file" => _fileHandler.WriteFile(input),
                 "list_files" => _fileHandler.ListFiles(input),
+                "grep" => _grepHandler.Grep(input),
                 "run_command" => await _commandRunner.RunAsync(input),
                 "log_decision" => LogDecision(input),
                 "ask_human" => await _humanHandler.HandleAsync(input),

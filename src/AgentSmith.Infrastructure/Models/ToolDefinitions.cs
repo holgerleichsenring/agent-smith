@@ -10,12 +10,12 @@ public static class ToolDefinitions
 {
     public static IList<Tool> All => new List<Tool>
     {
-        ReadFile, WriteFile, ListFiles, RunCommand, LogDecision, AskHuman
+        ReadFile, WriteFile, ListFiles, Grep, RunCommand, LogDecision, AskHuman
     };
 
     public static IList<Tool> ScoutTools => new List<Tool>
     {
-        ReadFile, ListFiles
+        ReadFile, ListFiles, Grep
     };
 
     public static Tool ReadFile => CreateTool(
@@ -72,6 +72,28 @@ public static class ToolDefinitions
                 }
             },
             ["required"] = new JsonArray("path")
+        });
+
+    public static Tool Grep => CreateTool(
+        "grep",
+        "Search files for a regex pattern. Returns up to 200 matching lines as JSON {matches:[{path,line,text}], truncated}.",
+        new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["pattern"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Regex pattern to match against each line."
+                },
+                ["glob"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Optional glob to limit which files are searched (e.g. '**/*.cs', '**/*Tests*.csproj'). Defaults to '**/*'."
+                }
+            },
+            ["required"] = new JsonArray("pattern")
         });
 
     public static Tool RunCommand => CreateTool(
