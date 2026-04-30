@@ -59,7 +59,30 @@ public sealed class ServerDiLifetimeTests
         var factory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
 
         factory.Should().BeOfType<LockingTicketStatusTransitionerFactory>(
-            "Server's AddJiraLabelLockDecorator must override Infrastructure's plain binding");
+            "Server's AddServerCompositionOverrides must override Infrastructure's plain binding");
+    }
+
+    [Fact]
+    public void ServerDi_PipelineLifecycleCoordinator_ResolvesToTicketAwareVariant()
+    {
+        var services = BuildServerLikeServices();
+        var provider = services.BuildServiceProvider();
+
+        var coordinator = provider.GetRequiredService<IPipelineLifecycleCoordinator>();
+
+        coordinator.GetType().Name.Should().Be("TicketAwarePipelineLifecycleCoordinator",
+            "Server's AddServerCompositionOverrides must rebind to the ticket-aware coordinator");
+    }
+
+    [Fact]
+    public void ServerDi_TicketClaimService_IsRegistered()
+    {
+        var services = BuildServerLikeServices();
+        var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetService<ITicketClaimService>().Should().NotBeNull(
+            "Server-side composition registers ITicketClaimService (not Application — see p0109a)");
     }
 
     [Fact]
@@ -143,7 +166,7 @@ public sealed class ServerDiLifetimeTests
         AddNullRedisStack(services);
         services.AddSingleton(Mock.Of<IJobSpawner>());
         services.AddCoreDispatcherServices()
-                .AddJiraLabelLockDecorator()
+                .AddServerCompositionOverrides()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()

@@ -35,7 +35,7 @@ builder.Services.AddSingleton<IProgressReporter>(sp =>
 builder.Services
     .AddRedis()
     .AddCoreDispatcherServices()
-    .AddJiraLabelLockDecorator()
+    .AddServerCompositionOverrides()
     .AddSlackAdapter()
     .AddTeamsAdapter()
     .AddIntentHandlers()

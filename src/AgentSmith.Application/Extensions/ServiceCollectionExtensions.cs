@@ -4,8 +4,8 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
-using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -177,7 +177,11 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
-        services.AddScoped<ITicketClaimService, TicketClaimService>();
+        // ITicketClaimService moved to Server.AddCoreDispatcherServices in p0109a — it
+        // depends on IRedisJobQueue + IRedisClaimLock + IJobHeartbeatService, none of
+        // which are in the CLI graph. Application's PipelineExecutor delegates lifecycle
+        // wrapping to IPipelineLifecycleCoordinator (NoOp by default; Server overrides).
+        services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<ILlmClient>(sp =>
             sp.GetRequiredService<ILlmClientFactory>().Create(new AgentConfig { Type = "claude" }));
     }
