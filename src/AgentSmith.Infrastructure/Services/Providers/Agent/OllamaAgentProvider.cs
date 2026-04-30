@@ -25,18 +25,18 @@ public sealed class OllamaAgentProvider(
     public string ProviderType => "ollama";
 
     public Task<Plan> GeneratePlanAsync(
-        Ticket ticket, CodeAnalysis codeAnalysis, string codingPrinciples,
+        Ticket ticket, ProjectMap projectMap, string codingPrinciples,
         string? codeMap, string? projectContext,
         IReadOnlyList<TicketImageAttachment>? images,
         CancellationToken cancellationToken)
     {
         if (images is { Count: > 0 })
             logger.LogWarning("Ollama vision for ticket images not yet implemented, {Count} image(s) ignored", images.Count);
-        return GeneratePlanCoreAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, cancellationToken);
+        return GeneratePlanCoreAsync(ticket, projectMap, codingPrinciples, codeMap, projectContext, cancellationToken);
     }
 
     private async Task<Plan> GeneratePlanCoreAsync(
-        Ticket ticket, CodeAnalysis codeAnalysis, string codingPrinciples,
+        Ticket ticket, ProjectMap projectMap, string codingPrinciples,
         string? codeMap, string? projectContext, CancellationToken cancellationToken)
     {
         var planModel = ResolveModel(TaskType.Planning);
@@ -44,7 +44,7 @@ public sealed class OllamaAgentProvider(
 
         var systemPrompt = promptBuilder.BuildPlanSystemPrompt(
             codingPrinciples, codeMap, projectContext);
-        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, projectMap);
 
         var messages = new System.Text.Json.Nodes.JsonArray
         {

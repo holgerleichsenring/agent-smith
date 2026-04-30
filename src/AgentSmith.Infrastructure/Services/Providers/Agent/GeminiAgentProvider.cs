@@ -30,7 +30,7 @@ public sealed class GeminiAgentProvider(
 
     public Task<Plan> GeneratePlanAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
@@ -39,12 +39,12 @@ public sealed class GeminiAgentProvider(
     {
         if (images is { Count: > 0 })
             logger.LogWarning("Gemini vision for ticket images not yet implemented, {Count} image(s) ignored", images.Count);
-        return GeneratePlanCoreAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, cancellationToken);
+        return GeneratePlanCoreAsync(ticket, projectMap, codingPrinciples, codeMap, projectContext, cancellationToken);
     }
 
     private async Task<Plan> GeneratePlanCoreAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
@@ -54,7 +54,7 @@ public sealed class GeminiAgentProvider(
         var genModel = CreateModel(planModel.Model);
 
         var systemPrompt = promptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, projectMap);
 
         var response = await genModel.GenerateContentAsync(
             new GenerateContentRequest

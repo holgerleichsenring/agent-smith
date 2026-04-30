@@ -21,11 +21,11 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        var analysis = pipeline.Get<CodeAnalysis>(ContextKeys.CodeAnalysis);
+        var projectMap = pipeline.Get<ProjectMap>(ContextKeys.ProjectMap);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GeneratePlanContext(ticket, analysis, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
+        return new GeneratePlanContext(ticket, projectMap, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
     }
 }
 

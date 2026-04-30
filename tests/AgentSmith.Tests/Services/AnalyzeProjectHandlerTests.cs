@@ -69,7 +69,7 @@ public sealed class AnalyzeProjectHandlerTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_TransitionalDualPopulation_FillsCodeAnalysisAndCodeMap()
+    public async Task ExecuteAsync_PopulatesCodeMapTextRendering()
     {
         File.WriteAllText(Path.Combine(_repoPath, "App.csproj"), "<Project></Project>");
         var map = new ProjectMap("C#", [".NET 8"],
@@ -83,13 +83,10 @@ public sealed class AnalyzeProjectHandlerTests : IDisposable
         var (sut, ctx) = BuildSut();
         await sut.ExecuteAsync(ctx, CancellationToken.None);
 
-        ctx.Pipeline.TryGet<CodeAnalysis>(ContextKeys.CodeAnalysis, out var legacy)
-            .Should().BeTrue("legacy ContextKeys.CodeAnalysis must remain populated until p0110c");
-        legacy!.Language.Should().Be("C#");
-
         ctx.Pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMapText)
             .Should().BeTrue();
         codeMapText.Should().Contain("primary_language: C#");
+        codeMapText.Should().Contain("src/App");
     }
 
     [Fact]
