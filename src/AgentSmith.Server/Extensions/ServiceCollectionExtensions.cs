@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
+using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
@@ -32,6 +33,23 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IJobHeartbeatService, JobHeartbeatService>();
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
+        return services;
+    }
+
+    /// <summary>
+    /// Rebinds ITicketStatusTransitionerFactory to the locking decorator.
+    /// Must be called AFTER AddCoreDispatcherServices (which calls
+    /// AddAgentSmithInfrastructure and registers the plain binding) so the
+    /// last-wins override sticks. The plain TicketStatusTransitionerFactory
+    /// stays registered as the concrete type so the decorator can pull it.
+    /// </summary>
+    internal static IServiceCollection AddJiraLabelLockDecorator(this IServiceCollection services)
+    {
+        services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
+            new LockingTicketStatusTransitionerFactory(
+                sp.GetRequiredService<TicketStatusTransitionerFactory>(),
+                sp.GetRequiredService<IRedisClaimLock>(),
+                sp.GetRequiredService<ILoggerFactory>()));
         return services;
     }
 

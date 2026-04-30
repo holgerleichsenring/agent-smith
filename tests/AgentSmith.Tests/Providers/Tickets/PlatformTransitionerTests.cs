@@ -5,7 +5,6 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
 
 namespace AgentSmith.Tests.Providers.Tickets;
 
@@ -113,24 +112,16 @@ public sealed class PlatformTransitionerTests
     }
 
     [Fact]
-    public async Task Jira_LabelMode_AcquiresLabelLockAndPutsLabels()
+    public async Task Jira_LabelMode_PutsLabels()
     {
         var handler = new SequentialHandler();
         handler.Enqueue(JsonResponse("{\"fields\":{\"labels\":[]}}"));
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.NoContent));
 
-        var claimLock = new Mock<IRedisClaimLock>();
-        claimLock.Setup(l => l.TryAcquireAsync(
-            It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("tok");
-        claimLock.Setup(l => l.ReleaseAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         var catalog = new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance);
         var sut = new JiraTicketStatusTransitioner(
             "https://jira.com", "x@y", "tok", "PROJ",
-            catalog, claimLock.Object,
+            catalog,
             new HttpClient(handler),
             NullLogger<JiraTicketStatusTransitioner>.Instance);
 
@@ -138,32 +129,6 @@ public sealed class PlatformTransitionerTests
             TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        claimLock.Verify(l => l.TryAcquireAsync(
-            It.Is<string>(k => k.StartsWith("agentsmith:jira-label-lock:")),
-            It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
-        claimLock.Verify(l => l.ReleaseAsync(
-            It.IsAny<string>(), "tok", It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Jira_LabelLockHeld_ReturnsPreconditionFailed()
-    {
-        var claimLock = new Mock<IRedisClaimLock>();
-        claimLock.Setup(l => l.TryAcquireAsync(
-            It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-
-        var catalog = new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance);
-        var sut = new JiraTicketStatusTransitioner(
-            "https://jira.com", "x@y", "tok", "PROJ",
-            catalog, claimLock.Object,
-            new HttpClient(new SequentialHandler()),
-            NullLogger<JiraTicketStatusTransitioner>.Instance);
-
-        var result = await sut.TransitionAsync(new TicketId("PROJ-1"),
-            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
-
-        result.Outcome.Should().Be(TransitionOutcome.PreconditionFailed);
     }
 
     [Fact]

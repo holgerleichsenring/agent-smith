@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0109
+goal: "Extract Jira's label-lock into a decorator. Server wraps the Jira transitioner with cross-process serialization; CLI uses the plain factory. Stops IRedisClaimLock from leaking into the CLI DI graph."
+
+requires: ["p0107"]
+
+decisions:
+  - key: "Why the lock is a Server concern, not a Jira concern. The label-lock guards a fetch-then-PUT race between *concurrent writers* on the same ticket. That race only exists in the Server cluster (multiple pods, poller + webhook handler running in parallel). A single CLI process cannot race with itself, and two parallel CLI invocations have no shared Redis to coordinate through anyway. Jira *needs* the lock only because Jira's labels API has no If-Match — but that need is conditioned on multi-writer reality, which is Server-only."
+  - key: "Why decorator over inline-with-optional-lock. An optional/nullable lock parameter keeps the antipattern (platform class still references a coordination primitive). A decorator separates concerns cleanly: JiraTicketStatusTransitioner speaks Jira HTTP; LockedTicketStatusTransitioner adds cross-process serialization. Each class has one reason to change."
+  - key: "Why decorating-factory (variant A) over Scrutor.Decorate or service-locator. (1) Construction pattern stays as today — factory does `new XxxTransitioner(svc, configData)`. Scrutor would force routing through DI for instances, which doesn't fit the (svc, configData) split. (2) IServiceProvider+GetService inside the factory is service-locator smell. (3) Decorating-factory is explicit and compositional: Server registers a wrapper that delegates to the plain factory and wraps Jira. CLI registers only the plain one."
+  - key: "Decorator scope: only TransitionAsync wraps the lock. ReadCurrentAsync stays pass-through — it's a read, no race to guard. ProviderType is a property pass-through. The lock contract (TTL, key shape `agentsmith:jira-label-lock:{ticketId}`, PreconditionFailed on unavailable lock) moves verbatim from JiraTicketStatusTransitioner.TransitionViaLabelsAsync into the decorator."
+  - key: "Why the decorator wraps only Jira (not a generic ITicketStatusTransitioner decorator). Other platforms (GitHub/GitLab use ETag/If-Match-equivalent semantics, AzDO uses op:test on rev) have native optimistic concurrency at the API level — wrapping them with the same lock would be unnecessary serialization and would convert API-level retries into queueing. The decorator class accepts ITicketStatusTransitioner as inner type but the factory only applies it to the Jira branch."
+  - key: "Construction pattern stays as today. JiraTicketStatusTransitioner keeps its primary constructor (baseUrl, email, apiToken, projectKey, JiraWorkflowCatalog, HttpClient, ILogger) — minus IRedisClaimLock. Factory keeps `new JiraTicketStatusTransitioner(...)`. The IInitializable refactor (DI-resolve + Initialize-method) is explicitly out of scope — it solves a different problem (factory pass-through deps) and would have introduced uninitialized-state hazards. With the lock removed, the factory's remaining deps (SecretsProvider, JiraWorkflowCatalog, IHttpClientFactory, ILoggerFactory) are either universal or benign passive singletons."
+  - key: "NullRedisClaimLock orphan deleted in this phase. It was a Pre-p0107 leftover that this approach makes meaningless: the CLI no longer carries IRedisClaimLock at all, so a null-fallback isn't needed. ServerDiLifetimeTests fixture rebases onto Mock<IRedisClaimLock>."
+  - key: "Behavior preservation: Jira transitions in Server produce identical TransitionResult shapes pre/post phase, including the 'label-lock held' PreconditionFailed branch. The lock acquisition/release sequence is byte-identical — just lifted one frame up the call stack. Concurrent-writer integration test (two parallel TransitionAsync calls, second gets PreconditionFailed) covers the regression-guard."
+
+steps:
+  - id: strip-lock
+    action: "Remove IRedisClaimLock from JiraTicketStatusTransitioner. The lock-acquisition/release in TransitionViaLabelsAsync becomes a plain fetch-then-PUT. Move the lock-key constant + TTL + PreconditionFailed-on-unavailable-lock semantics OUT of this class — they belong to the decorator now."
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs: drop IRedisClaimLock parameter; drop LabelLockTtl constant; drop the lockKey/TryAcquireAsync/ReleaseAsync wrapping in TransitionViaLabelsAsync (the try/finally goes; the inner FetchLabelsAsync→Matches→PutLabelsAsync sequence stays). Update doc-comment: 'Concurrent-writer serialization is handled by LockedTicketStatusTransitioner decorator (Server-only).'"
+
+  - id: decorator
+    action: "Add LockedTicketStatusTransitioner decorator. Wraps any ITicketStatusTransitioner; applies SETNX label-lock around TransitionAsync only."
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/LockedTicketStatusTransitioner.cs: sealed class implementing ITicketStatusTransitioner. Ctor: (ITicketStatusTransitioner inner, IRedisClaimLock labelLock, ILogger<LockedTicketStatusTransitioner> logger). ProviderType pass-through to inner. ReadCurrentAsync pass-through. TransitionAsync: build lockKey from ticketId, TryAcquireAsync with 10s TTL, on null token return TransitionResult.PreconditionFailed('label-lock held'), on success call inner.TransitionAsync in try/finally with ReleaseAsync."
+
+  - id: locking-factory
+    action: "Add LockingTicketStatusTransitionerFactory — Server-only decorating wrapper around the plain factory."
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Factories/LockingTicketStatusTransitionerFactory.cs: sealed class implementing ITicketStatusTransitionerFactory. Ctor: (TicketStatusTransitionerFactory inner, IRedisClaimLock labelLock, ILoggerFactory loggerFactory). Create(config): delegates to inner.Create(config); if config.Type.Equals('jira', OrdinalIgnoreCase) wraps result in new LockedTicketStatusTransitioner(...) and returns; otherwise returns the inner result unchanged."
+
+  - id: factory-cleanup
+    action: "Remove IRedisClaimLock from TicketStatusTransitionerFactory's constructor. CreateJira no longer threads claimLock into the JiraTicketStatusTransitioner ctor call."
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Factories/TicketStatusTransitionerFactory.cs: drop IRedisClaimLock claimLock parameter from primary constructor; remove claimLock argument from the new JiraTicketStatusTransitioner(...) call in CreateJira (line 71). Class doc-comment unchanged otherwise — still 'platform-specific transitioner factory'."
+
+  - id: di-registration
+    action: "Register the plain factory in Infrastructure (everyone gets it). Register the decorating factory in Server only — overrides the ITicketStatusTransitionerFactory binding."
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: keep services.AddSingleton<ITicketStatusTransitionerFactory, TicketStatusTransitionerFactory>() AND additionally register the concrete: services.AddSingleton<TicketStatusTransitionerFactory>(sp => (TicketStatusTransitionerFactory)sp.GetRequiredService<ITicketStatusTransitionerFactory>()) — or rebind cleanly via a factory-lambda so both the interface and the concrete resolve to the same instance. Goal: Server can pull the concrete out by type to wrap it."
+      - "src/AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs: in AddRedis() (where IRedisClaimLock is already registered), add services.AddSingleton<ITicketStatusTransitionerFactory>(sp => new LockingTicketStatusTransitionerFactory(sp.GetRequiredService<TicketStatusTransitionerFactory>(), sp.GetRequiredService<IRedisClaimLock>(), sp.GetRequiredService<ILoggerFactory>())) — last-wins overrides the Infrastructure binding, so Server consumers transparently get the locking variant. CLI never calls AddRedis(), so it keeps the plain factory."
+
+  - id: cleanup-orphan
+    action: "Delete NullRedisClaimLock — Pre-p0107 leftover; this approach makes a null-fallback meaningless because CLI no longer carries IRedisClaimLock at all."
+    delete:
+      - "src/AgentSmith.Application/Services/RedisDisabled/NullRedisClaimLock.cs"
+      - "src/AgentSmith.Application/Services/RedisDisabled/ (directory if empty after deletion)"
+    modify:
+      - "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:74: replace `services.AddSingleton<IRedisClaimLock, NullRedisClaimLock>()` with a Mock<IRedisClaimLock>.Object registration."
+
+  - id: tests
+    action: "Test the decorator + the wiring + the regression-guard for the apiscan-crash class of bug."
+    new:
+      - "tests/AgentSmith.Tests/Providers/Tickets/LockedTicketStatusTransitionerTests.cs: covers (a) TransitionAsync acquires lock, calls inner, releases lock — happy path; (b) TryAcquireAsync returns null → TransitionResult.PreconditionFailed('label-lock held'), inner is NOT called; (c) inner throws → lock is still released (finally branch); (d) ReadCurrentAsync passes through, no lock involvement; (e) ProviderType passes through."
+      - "tests/AgentSmith.Tests/Providers/Tickets/LockingTicketStatusTransitionerFactoryTests.cs: covers (a) Create('jira', cfg) returns a LockedTicketStatusTransitioner wrapping the inner factory's Jira result; (b) Create('github'|'gitlab'|'azuredevops', cfg) returns the inner factory's result unwrapped; (c) Create('unknown', cfg) propagates NotSupportedException from inner."
+      - "tests/AgentSmith.Tests/Integration/CliShapedDiTests.cs: build a ServiceCollection that mirrors AgentSmith.Cli.ServiceProviderFactory's interactive (non-spawned) wiring — AddAgentSmithInfrastructure + AddAgentSmithCommands + Console transports — without any Redis registrations. Resolve ITicketStatusTransitionerFactory and call Create for github/gitlab/azuredevops without throwing. Asserts the apiscan-crash class of bug is gone."
+    modify:
+      - "tests/AgentSmith.Tests/Providers/Tickets/JiraTicketStatusTransitionerTests.cs (or PlatformTransitionerTests if that's where Jira lives): drop IRedisClaimLock from constructor calls; remove the 'label-lock held → PreconditionFailed' test case (it moves to LockedTicketStatusTransitionerTests). Keep all other test cases — they assert the platform protocol, which is unchanged."
+      - "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs: add an assertion that ITicketStatusTransitionerFactory resolves to LockingTicketStatusTransitionerFactory in the Server-shaped collection (proves the override took effect)."
+
+tests:
+  - "LockedTransitioner_TransitionAsync_HappyPath_AcquiresLockCallsInnerReleasesLock"
+  - "LockedTransitioner_LockUnavailable_ReturnsPreconditionFailed_InnerNotCalled"
+  - "LockedTransitioner_InnerThrows_LockStillReleased"
+  - "LockedTransitioner_ReadCurrentAsync_PassesThrough_NoLockInvolved"
+  - "LockingFactory_CreateJira_ReturnsLockedDecoratorWrappingInner"
+  - "LockingFactory_CreateGitHub_ReturnsInnerResultUnwrapped"
+  - "LockingFactory_CreateGitLab_ReturnsInnerResultUnwrapped"
+  - "LockingFactory_CreateAzureDevOps_ReturnsInnerResultUnwrapped"
+  - "JiraTransitioner_NoLockDep_TransitionViaLabels_BehaviorIdenticalToPrePhase"
+  - "CliShapedDi_ResolvesFactoryAndCreatesNonJiraTransitioners_DoesNotThrow"
+  - "CliShapedDi_ITicketStatusTransitionerFactory_ResolvesToPlainFactory_NotLockingVariant"
+  - "ServerShapedDi_ITicketStatusTransitionerFactory_ResolvesToLockingVariant"
+  - "ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed"
+
+done:
+  - "JiraTicketStatusTransitioner has no IRedisClaimLock dependency; transitions via fetch-then-PUT directly. Class doc-comment notes that concurrent-writer serialization is the decorator's concern."
+  - "LockedTicketStatusTransitioner decorator added; wraps any ITicketStatusTransitioner; applies SETNX lock around TransitionAsync only."
+  - "LockingTicketStatusTransitionerFactory added; wraps the plain factory; selectively decorates Jira results."
+  - "TicketStatusTransitionerFactory's constructor no longer takes IRedisClaimLock — only universal/benign deps remain."
+  - "Infrastructure DI registers the plain factory under both ITicketStatusTransitionerFactory and the concrete type. Server's AddRedis() rebinds ITicketStatusTransitionerFactory to LockingTicketStatusTransitionerFactory (last-wins). CLI gets the plain factory transparently."
+  - "CLI apiscan boot path resolves PipelineExecutor → ITicketStatusTransitionerFactory without throwing — IRedisClaimLock is not in the CLI graph at all anymore."
+  - "NullRedisClaimLock orphan deleted; ServerDiLifetimeTests fixture uses Mock<IRedisClaimLock>."
+  - "All existing transitioner protocol tests pass. New tests cover (a) decorator behavior including failure paths, (b) factory selectivity (Jira-only wrapping), (c) CLI-shape DI regression-guard, (d) Server-shape concurrent-Jira-transition guard."
+  - "dotnet build zero warnings; ValidateOnBuild on Server passes; CliShapedDiTests covers the CLI-side regression-guard."

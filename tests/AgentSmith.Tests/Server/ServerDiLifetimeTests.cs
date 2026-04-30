@@ -1,8 +1,13 @@
+using System.Collections.Concurrent;
 using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Extensions;
 using FluentAssertions;
@@ -45,6 +50,86 @@ public sealed class ServerDiLifetimeTests
         provider.GetServices<IWebhookHandler>().Should().HaveCount(13, "all 13 webhook handlers register from a single AddWebhookHandlers call");
     }
 
+    [Fact]
+    public void ServerDi_TicketStatusTransitionerFactory_ResolvesToLockingVariant()
+    {
+        var services = BuildServerLikeServices();
+        var provider = services.BuildServiceProvider();
+
+        var factory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
+
+        factory.Should().BeOfType<LockingTicketStatusTransitionerFactory>(
+            "Server's AddJiraLabelLockDecorator must override Infrastructure's plain binding");
+    }
+
+    [Fact]
+    public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
+    {
+        // Real concurrency through the Server-shape lock decorator: the inner
+        // transitioner gates inside TransitionAsync so we can launch two parallel
+        // calls and observe the second hit a held lock.
+        var lockImpl = new InMemoryClaimLock();
+        var gated = new GatedTransitioner();
+        var sut = new LockedTicketStatusTransitioner(
+            gated, lockImpl,
+            NullLogger<LockedTicketStatusTransitioner>.Instance);
+
+        var ticket = new TicketId("PROJ-1");
+        var first = sut.TransitionAsync(ticket,
+            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued,
+            CancellationToken.None);
+        await gated.AcquiredSignal.Task;
+
+        var second = await sut.TransitionAsync(ticket,
+            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued,
+            CancellationToken.None);
+
+        second.Outcome.Should().Be(TransitionOutcome.PreconditionFailed,
+            "second concurrent transition must observe the label-lock held by the first");
+        gated.Release();
+        var firstResult = await first;
+        firstResult.IsSuccess.Should().BeTrue();
+    }
+
+    private sealed class InMemoryClaimLock : IRedisClaimLock
+    {
+        private readonly ConcurrentDictionary<string, string> _holders = new();
+
+        public Task<string?> TryAcquireAsync(string key, TimeSpan ttl, CancellationToken ct)
+        {
+            var token = Guid.NewGuid().ToString("N");
+            return Task.FromResult(_holders.TryAdd(key, token) ? token : null);
+        }
+
+        public Task ReleaseAsync(string key, string token, CancellationToken ct)
+        {
+            if (_holders.TryGetValue(key, out var held) && held == token)
+                _holders.TryRemove(new KeyValuePair<string, string>(key, held));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class GatedTransitioner : ITicketStatusTransitioner
+    {
+        public TaskCompletionSource AcquiredSignal { get; } = new();
+        private readonly TaskCompletionSource _gate = new();
+        public string ProviderType => "Jira";
+
+        public async Task<TransitionResult> TransitionAsync(
+            TicketId ticketId, TicketLifecycleStatus from,
+            TicketLifecycleStatus to, CancellationToken ct)
+        {
+            AcquiredSignal.TrySetResult();
+            await _gate.Task.WaitAsync(ct);
+            return TransitionResult.Succeeded();
+        }
+
+        public Task<TicketLifecycleStatus?> ReadCurrentAsync(TicketId ticketId, CancellationToken ct)
+            => Task.FromResult<TicketLifecycleStatus?>(null);
+
+        public void Release() => _gate.TrySetResult();
+    }
+
     private static IServiceCollection BuildServerLikeServices()
     {
         var services = new ServiceCollection();
@@ -58,6 +143,7 @@ public sealed class ServerDiLifetimeTests
         AddNullRedisStack(services);
         services.AddSingleton(Mock.Of<IJobSpawner>());
         services.AddCoreDispatcherServices()
+                .AddJiraLabelLockDecorator()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()
@@ -71,7 +157,7 @@ public sealed class ServerDiLifetimeTests
     {
         services.AddSingleton(Mock.Of<IConnectionMultiplexer>());
         services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
-        services.AddSingleton<IRedisClaimLock, NullRedisClaimLock>();
+        services.AddSingleton(Mock.Of<IRedisClaimLock>());
         services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
         services.AddSingleton<IJobHeartbeatService, NullJobHeartbeatService>();
         services.AddSingleton<IConversationLookup, NullConversationLookup>();
