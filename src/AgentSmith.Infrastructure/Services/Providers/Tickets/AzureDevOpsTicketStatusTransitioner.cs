@@ -82,10 +82,12 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         TicketId ticketId, string[] newTags, int rev, CancellationToken ct)
     {
         var url = $"{orgUrl.TrimEnd('/')}/{project}/_apis/wit/workitems/{ticketId.Value}?api-version=7.0";
+        // op:replace, not op:add — AzDO treats op:add on System.Tags as merge-into-existing-list,
+        // so the previous lifecycle tag would survive alongside the new one. p0108 bug.
         var patch = new object[]
         {
             new { op = "test", path = "/rev", value = (object)rev },
-            new { op = "add", path = "/fields/System.Tags", value = (object)string.Join("; ", newTags) }
+            new { op = "replace", path = "/fields/System.Tags", value = (object)string.Join("; ", newTags) }
         };
 
         using var req = new HttpRequestMessage(HttpMethod.Patch, url);

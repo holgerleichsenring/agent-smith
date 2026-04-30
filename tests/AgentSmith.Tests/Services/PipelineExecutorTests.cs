@@ -134,4 +134,36 @@ public class PipelineExecutorTests
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
+
+    [Fact]
+    public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment()
+    {
+        // Regression: failure comments were posted as raw markdown (## Agent Smith - Failed),
+        // which AzDO's System.History rendered as plain text. HTML is the lingua franca:
+        // AzDO interprets it directly and GitHub/GitLab markdown comments accept inline HTML.
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+            .Returns(ticketProviderMock.Object);
+
+        var commands = new[] { "BadCommand" };
+        var project = new ProjectConfig();
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
+            .Throws(new Exception("Gate veto (Tester): coverage incomplete"));
+
+        await _sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
+
+        ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+            It.Is<TicketId>(id => id.Value == "42"),
+            It.Is<string>(s =>
+                s.Contains("<b>Agent Smith — Failed</b>")
+                && s.Contains("<b>Step:</b>")
+                && s.Contains("<b>Error:</b>")
+                && s.Contains("<br/>")
+                && !s.Contains("## Agent Smith")
+                && !s.Contains("**Step:**")),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

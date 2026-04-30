@@ -83,6 +83,36 @@ public sealed class PlatformTransitionerTests
     }
 
     [Fact]
+    public async Task AzureDevOps_PatchUsesOpReplace_NotOpAdd_SoTagsAreReplacedNotMerged()
+    {
+        // Regression: AzDO treats op:add on /fields/System.Tags as merge-into-existing-list,
+        // which left the previous lifecycle tag (e.g. agent-smith:enqueued) on the ticket
+        // alongside the new one (agent-smith:in-progress). op:replace is the deterministic fix.
+        var handler = new RecordingSequentialHandler();
+        handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:enqueued; bug\",\"System.Rev\":5}}"));
+        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
+
+        var sut = new AzureDevOpsTicketStatusTransitioner(
+            "https://dev.azure.com/org", "proj", "pat",
+            new HttpClient(handler),
+            NullLogger<AzureDevOpsTicketStatusTransitioner>.Instance);
+
+        var result = await sut.TransitionAsync(new TicketId("42"),
+            TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+
+        var patchBody = handler.SentBodies.LastOrDefault();
+        patchBody.Should().NotBeNull();
+        patchBody.Should().Contain("\"op\":\"replace\"", "tags must be REPLACED, not merged");
+        patchBody.Should().NotContain("\"op\":\"add\"", "op:add on System.Tags merges in AzDO");
+        patchBody.Should().Contain("agent-smith:in-progress");
+        patchBody.Should().NotContain("agent-smith:enqueued",
+            "the previous lifecycle tag must be filtered out before sending");
+        patchBody.Should().Contain("bug", "non-lifecycle tags must be preserved");
+    }
+
+    [Fact]
     public async Task Jira_LabelMode_AcquiresLabelLockAndPutsLabels()
     {
         var handler = new SequentialHandler();
@@ -157,5 +187,23 @@ public sealed class PlatformTransitionerTests
             => Task.FromResult(_responses.Count > 0
                 ? _responses.Dequeue()
                 : new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    }
+
+    private sealed class RecordingSequentialHandler : HttpMessageHandler
+    {
+        private readonly Queue<HttpResponseMessage> _responses = new();
+        public List<string> SentBodies { get; } = new();
+        public void Enqueue(HttpResponseMessage response) => _responses.Enqueue(response);
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null
+                ? string.Empty
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            SentBodies.Add(body);
+            return _responses.Count > 0
+                ? _responses.Dequeue()
+                : new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        }
     }
 }
