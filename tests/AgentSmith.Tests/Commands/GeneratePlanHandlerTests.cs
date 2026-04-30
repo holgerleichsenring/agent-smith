@@ -34,17 +34,17 @@ public sealed class GeneratePlanHandlerTests
         var plan = new Plan("Test plan", new List<PlanStep>(), "{}");
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -57,17 +57,17 @@ public sealed class GeneratePlanHandlerTests
     {
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -81,21 +81,21 @@ public sealed class GeneratePlanHandlerTests
         var providerMock = new Mock<IAgentProvider>();
         string? capturedContext = null;
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
-            .Callback<Ticket, CodeAnalysis, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>(
+            .Callback<Ticket, ProjectMap, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>(
                 (_, _, _, _, ctx, _, _) => capturedContext = ctx)
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ConsolidatedPlan, "Architecture: use Strategy Pattern");
 
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline,
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline,
             ProjectContext: "existing context");
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
@@ -113,17 +113,17 @@ public sealed class GeneratePlanHandlerTests
         var plan = new Plan("Test plan", new List<PlanStep>(), "{}");
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -142,19 +142,19 @@ public sealed class GeneratePlanHandlerTests
         var plan = new Plan("Test plan", new List<PlanStep>(), "{}", decisions);
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var repo = new Repository("/tmp/repo", new BranchName("main"), "https://github.com/org/repo.git");
         pipeline.Set(ContextKeys.Repository, repo);
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -231,7 +231,7 @@ public sealed class GeneratePlanHandlerTests
         result.IsSuccess.Should().BeTrue();
         pipeline.Has(ContextKeys.Plan).Should().BeTrue();
         providerMock.Verify(p => p.GeneratePlanAsync(
-            It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+            It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
             It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
             It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -295,11 +295,11 @@ public sealed class GeneratePlanHandlerTests
 
     private Mock<IAgentProvider> SetupProvider(
         Plan plan,
-        Action<Ticket, CodeAnalysis, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>? callback = null)
+        Action<Ticket, ProjectMap, string, string?, string?, IReadOnlyList<TicketImageAttachment>?, CancellationToken>? callback = null)
     {
         var providerMock = new Mock<IAgentProvider>();
         var setup = providerMock.Setup(p => p.GeneratePlanAsync(
-            It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+            It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
             It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
             It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()));
 
@@ -317,9 +317,9 @@ public sealed class GeneratePlanHandlerTests
     private static GeneratePlanContext CreateContext(PipelineContext pipeline)
     {
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         return new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
     }
 
     [Fact]
@@ -332,17 +332,17 @@ public sealed class GeneratePlanHandlerTests
         var plan = new Plan("Test plan", new List<PlanStep>(), "{}", decisions);
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -364,17 +364,17 @@ public sealed class GeneratePlanHandlerTests
         var plan = new Plan("Test plan", new List<PlanStep>(), "{}", decisions);
         var providerMock = new Mock<IAgentProvider>();
         providerMock.Setup(p => p.GeneratePlanAsync(
-                It.IsAny<Ticket>(), It.IsAny<CodeAnalysis>(),
+                It.IsAny<Ticket>(), It.IsAny<ProjectMap>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IReadOnlyList<TicketImageAttachment>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
 
         var ticket = new Ticket(new TicketId("1"), "Title", "Desc", null, "Open", "github");
-        var codeAnalysis = new CodeAnalysis(new List<string>(), new List<string>(), "dotnet", "C#");
+        var projectMap = new ProjectMap("C#", [".NET 8"], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null));
         var pipeline = new PipelineContext();
         var context = new GeneratePlanContext(
-            ticket, codeAnalysis, "principles", new AgentConfig { Type = "claude" }, pipeline);
+            ticket, projectMap, "principles", new AgentConfig { Type = "claude" }, pipeline);
 
         await _handler.ExecuteAsync(context, CancellationToken.None);
 

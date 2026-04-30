@@ -26,31 +26,28 @@ public sealed class SecurityTriageHandler(
 
     protected override string BuildUserPrompt(PipelineContext pipeline)
     {
-        pipeline.TryGet<CodeAnalysis>(ContextKeys.CodeAnalysis, out var codeAnalysis);
+        pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap);
         pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var principles);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
 
-        var filesSummary = codeAnalysis is not null
-            ? $"Language: {codeAnalysis.Language}, Framework: {codeAnalysis.Framework}\n" +
-              $"Files: {codeAnalysis.FileStructure.Count} total\n" +
-              $"Dependencies: {string.Join(", ", codeAnalysis.Dependencies.Take(20))}"
-            : "Code analysis not available";
+        var filesSummary = projectMap is not null
+            ? $"Language: {projectMap.PrimaryLanguage}, Frameworks: {string.Join(", ", projectMap.Frameworks)}\n" +
+              $"Modules: {projectMap.Modules.Count} total ({projectMap.TestProjects.Count} test project(s))"
+            : "Project analysis not available";
 
-        // Code-area signals for skill selection
+        // Code-area signals derived from module paths for skill selection
         var signalAnalysis = "";
-        if (codeAnalysis is not null)
+        if (projectMap is not null)
         {
-            var files = codeAnalysis.FileStructure;
-            var fileNames = files.Select(f => f.ToLowerInvariant()).ToList();
-
-            var hasDirectObjectReferences = fileNames.Any(f =>
-                f.Contains("controller") || f.Contains("handler") || f.Contains("endpoint"));
-            var hasInputEntryPoints = fileNames.Any(f =>
-                f.Contains("request") || f.Contains("dto") || f.Contains("form") || f.Contains("input"));
-            var hasAuthGuardChanges = fileNames.Any(f =>
-                f.Contains("auth") || f.Contains("guard") || f.Contains("policy") || f.Contains("permission"));
-            var hasErrorHandlingChanges = fileNames.Any(f =>
-                f.Contains("exception") || f.Contains("error") || f.Contains("middleware"));
+            var paths = projectMap.Modules.Select(m => m.Path.ToLowerInvariant()).ToList();
+            var hasDirectObjectReferences = paths.Any(p =>
+                p.Contains("controller") || p.Contains("handler") || p.Contains("endpoint"));
+            var hasInputEntryPoints = paths.Any(p =>
+                p.Contains("request") || p.Contains("dto") || p.Contains("form") || p.Contains("input"));
+            var hasAuthGuardChanges = paths.Any(p =>
+                p.Contains("auth") || p.Contains("guard") || p.Contains("policy") || p.Contains("permission"));
+            var hasErrorHandlingChanges = paths.Any(p =>
+                p.Contains("exception") || p.Contains("error") || p.Contains("middleware"));
 
             signalAnalysis = $"""
                 ## Code-Area Signals

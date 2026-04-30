@@ -86,8 +86,9 @@ public class CommandContextFactoryTests
             "fix-bug", project.Agent, "skills/coding", project.CodingPrinciplesPath));
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             new TicketId("1"), "Title", "Desc", null, "Open", "GitHub"));
-        pipeline.Set(ContextKeys.CodeAnalysis, new CodeAnalysis(
-            Array.Empty<string>(), Array.Empty<string>(), null, null));
+        pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
+            "C#", [], [], [], [], new Conventions(null, null, null),
+            new CiConfig(false, null, null, null)));
         pipeline.Set(ContextKeys.CodingPrinciples, "principles");
 
         var result = _sut.Create(PipelineCommand.Simple(CommandNames.GeneratePlan), project, pipeline);

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0110c
-goal: "Delete the heuristic-era code now that ProjectMap is in production. Remove RepoSnapshotCollector, CodeMapGenerator, AnalyzeCodeHandler, RepoSnapshot, CodeAnalysis. Migrate the remaining consumers (LoadCodeMapHandler, BootstrapProjectHandler, MetaFileBootstrapper) from CodeAnalysis to ProjectMap. Migrate ScoutAgent to IAgenticAnalyzer (becomes provider-agnostic). End state: a single repo-analysis path."
+goal: "Migrate the IAgentProvider plan-execute path off CodeAnalysis onto ProjectMap. Delete the CodeAnalysis entity + AnalyzeCodeHandler + ContextKeys.CodeAnalysis. RepoSnapshotCollector / CodeMapGenerator / ScoutAgent stay in this phase — they're still used by BootstrapProjectHandler for one-time .agentsmith/ generation, and ScoutAgent runs alongside the plan-execute path; their removal is a deeper refactor (BootstrapProjectHandler would need to swap with AnalyzeProject in the pipeline order). Follow-up phase p0110d will handle that lift."
 
 requires:
   - "p0110b"
