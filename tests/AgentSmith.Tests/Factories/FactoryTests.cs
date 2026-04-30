@@ -12,6 +12,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Factories;
 
+[Collection(EnvVarCollection.Name)]
 public class FactoryTests
 {
     [Fact]
