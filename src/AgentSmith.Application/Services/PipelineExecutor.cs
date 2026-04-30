@@ -221,8 +221,13 @@ public sealed class PipelineExecutor(
     {
         logger.LogWarning("Pipeline stopped at step {Step}: {Command} failed - {Message}",
             executionCount, cmd.DisplayName, result.Message);
+        // HTML-formatted: AzDO System.History accepts HTML; GitHub/GitLab markdown comments
+        // render inline HTML; only Jira's ADF flattens it to plain text (acceptable fallback).
+        var safeMessage = System.Net.WebUtility.HtmlEncode(result.Message ?? "");
         await PostTicketStatusAsync(projectConfig, context,
-            $"## Agent Smith - Failed\n\n**Step:** {label} ({executionCount}/{total})\n**Error:** {result.Message}", ct);
+            $"<b>Agent Smith — Failed</b><br/>" +
+            $"<b>Step:</b> {System.Net.WebUtility.HtmlEncode(label)} ({executionCount}/{total})<br/>" +
+            $"<b>Error:</b> {safeMessage}", ct);
     }
 
     private void InsertFollowUps(
