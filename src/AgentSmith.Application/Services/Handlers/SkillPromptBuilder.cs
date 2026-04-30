@@ -15,26 +15,29 @@ public sealed class SkillPromptBuilder(
     public (string SystemPrompt, string UserPrompt) BuildDiscussionPrompt(
         RoleSkillDefinition role, string domainSection,
         string? projectContext, string? domainRules, string? codeMap,
-        IReadOnlyList<DiscussionEntry> discussionLog, int round)
+        IReadOnlyList<DiscussionEntry> discussionLog, int round,
+        string? existingTests = null)
     {
         var (system, prefix, suffix) = BuildDiscussionPromptParts(
-            role, domainSection, "", projectContext, domainRules, codeMap, discussionLog, round);
+            role, domainSection, "", projectContext, domainRules, codeMap, discussionLog, round, existingTests);
         return (system, $"{prefix}\n\n{suffix}");
     }
 
     public (string SystemPrompt, string UserPrompt) BuildStructuredPrompt(
         RoleSkillDefinition role, string domainSection,
-        string upstreamContext, string outputInstruction)
+        string upstreamContext, string outputInstruction,
+        string? existingTests = null)
     {
         var (system, prefix, suffix) = BuildStructuredPromptParts(
-            role, domainSection, "", upstreamContext, outputInstruction);
+            role, domainSection, "", upstreamContext, outputInstruction, existingTests);
         return (system, $"{prefix}\n\n{suffix}");
     }
 
     public (string SystemPrompt, string UserPrefix, string UserSuffix) BuildDiscussionPromptParts(
         RoleSkillDefinition role, string domainStable, string domainVariable,
         string? projectContext, string? domainRules, string? codeMap,
-        IReadOnlyList<DiscussionEntry> discussionLog, int round)
+        IReadOnlyList<DiscussionEntry> discussionLog, int round,
+        string? existingTests = null)
     {
         var system = $"""
             {BuildRolePrompt(role)}
@@ -43,18 +46,19 @@ public sealed class SkillPromptBuilder(
             """;
         var discussionSoFar = RenderDiscussion(discussionLog);
         var (prefix, suffix) = prefixBuilder.BuildDiscussionParts(
-            domainStable, domainVariable, projectContext, domainRules, codeMap,
+            domainStable, domainVariable, projectContext, domainRules, codeMap, existingTests,
             discussionSoFar, round);
         return (system, prefix, suffix);
     }
 
     public (string SystemPrompt, string UserPrefix, string UserSuffix) BuildStructuredPromptParts(
         RoleSkillDefinition role, string domainStable, string domainVariable,
-        string upstreamContext, string outputInstruction)
+        string upstreamContext, string outputInstruction,
+        string? existingTests = null)
     {
         var system = BuildRolePrompt(role);
         var (prefix, suffix) = prefixBuilder.BuildStructuredParts(
-            domainStable, domainVariable, upstreamContext, outputInstruction);
+            domainStable, domainVariable, upstreamContext, outputInstruction, existingTests);
         return (system, prefix, suffix);
     }
 

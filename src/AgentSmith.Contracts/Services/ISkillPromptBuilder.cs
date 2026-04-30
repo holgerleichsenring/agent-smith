@@ -15,13 +15,15 @@ public interface ISkillPromptBuilder
         string? domainRules,
         string? codeMap,
         IReadOnlyList<DiscussionEntry> discussionLog,
-        int round);
+        int round,
+        string? existingTests = null);
 
     (string SystemPrompt, string UserPrompt) BuildStructuredPrompt(
         RoleSkillDefinition role,
         string domainSection,
         string upstreamContext,
-        string outputInstruction);
+        string outputInstruction,
+        string? existingTests = null);
 
     /// <summary>
     /// Cache-aware variant. Returns (system, userPrefix, userSuffix) so the prefix
@@ -35,12 +37,14 @@ public interface ISkillPromptBuilder
         string? domainRules,
         string? codeMap,
         IReadOnlyList<DiscussionEntry> discussionLog,
-        int round);
+        int round,
+        string? existingTests = null);
 
     (string SystemPrompt, string UserPrefix, string UserSuffix) BuildStructuredPromptParts(
         RoleSkillDefinition role,
         string domainStable,
         string domainVariable,
         string upstreamContext,
-        string outputInstruction);
+        string outputInstruction,
+        string? existingTests = null);
 }

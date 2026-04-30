@@ -11,6 +11,7 @@ public static class ContextKeys
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
     public const string CodeAnalysis = "CodeAnalysis";
+    public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;
     public const string ActiveSkill = "ActiveSkill";

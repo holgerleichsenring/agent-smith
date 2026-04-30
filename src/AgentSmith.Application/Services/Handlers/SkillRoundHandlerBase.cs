@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -70,6 +71,7 @@ public abstract class SkillRoundHandlerBase(
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
         pipeline.TryGet<string>(ContextKeys.DomainRules, out var domainRules);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        var existingTests = ResolveExistingTests(pipeline);
 
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussionLog);
         var discussionForPrompt = (IReadOnlyList<DiscussionEntry>)(discussionLog ?? []);
@@ -77,7 +79,7 @@ public abstract class SkillRoundHandlerBase(
         var (domainStable, domainVariable) = BuildDomainSectionParts(pipeline);
         var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildDiscussionPromptParts(
             role, domainStable, domainVariable, projectContext, domainRules, codeMap,
-            discussionForPrompt, round);
+            discussionForPrompt, round, existingTests);
 
         var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
             systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
@@ -214,9 +216,10 @@ public abstract class SkillRoundHandlerBase(
         var (domainStable, domainVariable) = BuildDomainSectionParts(pipeline);
         var upstreamContext = upstreamContextBuilder.Build(orch.Role, pipeline, upstreamSnapshot);
         var outputInstruction = _instructionBuilder.Build(orch);
+        var existingTests = ResolveExistingTests(pipeline);
 
         var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildStructuredPromptParts(
-            role, domainStable, domainVariable, upstreamContext, outputInstruction);
+            role, domainStable, domainVariable, upstreamContext, outputInstruction, existingTests);
 
         if (orch.Role == SkillRole.Gate)
             return await ExecuteGateRoundAsync(
@@ -277,4 +280,9 @@ public abstract class SkillRoundHandlerBase(
         role.Orchestration is not null
         && pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
         && pipelineType is not PipelineType.Discussion;
+
+    private static string? ResolveExistingTests(PipelineContext pipeline) =>
+        pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) && map is not null
+            ? ProjectMapPromptRenderer.RenderExistingTests(map)
+            : null;
 }
