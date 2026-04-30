@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.34.0...v0.34.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **p0110b:** Azure OpenAI analyzer falls back to Planning task's deployment ([e29df1d](https://github.com/holgerleichsenring/agent-smith/commit/e29df1d4631ef0c7647bd5640e571f48ecdeb8d9))
+
 ## [0.34.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.33.0...v0.34.0) (2026-04-30)
 
 
