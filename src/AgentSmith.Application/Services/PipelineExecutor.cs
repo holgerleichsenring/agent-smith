@@ -16,14 +16,14 @@ namespace AgentSmith.Application.Services;
 /// otherwise the loop is sequential and behaves exactly as before.
 /// Stops on first failure. Supports runtime command insertion via CommandResult.InsertNext.
 /// Posts status updates and error reports to the ticket provider.
-/// Wraps execution with lifecycle transitions and a Redis heartbeat when a TicketId is present.
+/// Cross-process lifecycle (status transitions + Redis heartbeat) is delegated to
+/// IPipelineLifecycleCoordinator — Server uses a ticket-aware coordinator, CLI uses NoOp.
 /// </summary>
 public sealed class PipelineExecutor(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
-    ITicketStatusTransitionerFactory transitionerFactory,
-    IJobHeartbeatService heartbeat,
+    IPipelineLifecycleCoordinator lifecycleCoordinator,
     IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
@@ -43,7 +43,7 @@ public sealed class PipelineExecutor(
         await PostTicketStatusAsync(projectConfig, context,
             "Agent Smith is working on this issue...", cancellationToken);
 
-        await using var lifecycle = await BeginLifecycleAsync(projectConfig, context, cancellationToken);
+        await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
 
         var commands = new LinkedList<PipelineCommand>(
             commandNames.Select(PipelineCommand.Simple));
@@ -247,30 +247,6 @@ public sealed class PipelineExecutor(
             after.Value.DisplayName, follow.Count, string.Join(", ", follow));
     }
 
-    private async Task<LifecycleScope> BeginLifecycleAsync(
-        ProjectConfig projectConfig, PipelineContext context, CancellationToken ct)
-    {
-        if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
-            return LifecycleScope.Noop;
-
-        try
-        {
-            var transitioner = transitionerFactory.Create(projectConfig.Tickets);
-            var transition = await transitioner.TransitionAsync(
-                ticketId, TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, ct);
-            if (!transition.IsSuccess)
-                logger.LogWarning("Enqueued → InProgress transition {Outcome}: {Error}",
-                    transition.Outcome, transition.Error);
-
-            return new LifecycleScope(transitioner, heartbeat.Start(ticketId), ticketId, logger);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to start lifecycle tracking — continuing without it");
-            return LifecycleScope.Noop;
-        }
-    }
-
     private async Task PostSkillDetailAsync(
         PipelineCommand cmd, CommandResult result, CancellationToken cancellationToken)
     {
@@ -314,36 +290,4 @@ public sealed class PipelineExecutor(
         }
     }
 
-    private sealed class LifecycleScope(
-        ITicketStatusTransitioner? transitioner,
-        IAsyncDisposable? heartbeat,
-        TicketId? ticketId,
-        ILogger logger) : IAsyncDisposable
-    {
-        public static LifecycleScope Noop { get; } = new(null, null, null, NullLogger.Instance);
-        private bool _failed;
-
-        public void MarkFailed() => _failed = true;
-
-        public async ValueTask DisposeAsync()
-        {
-            if (heartbeat is not null) await heartbeat.DisposeAsync();
-            if (transitioner is null || ticketId is null) return;
-
-            var target = _failed ? TicketLifecycleStatus.Failed : TicketLifecycleStatus.Done;
-            var result = await transitioner.TransitionAsync(
-                ticketId, TicketLifecycleStatus.InProgress, target, CancellationToken.None);
-            if (!result.IsSuccess)
-                logger.LogWarning("InProgress → {Target} transition {Outcome}: {Error}",
-                    target, result.Outcome, result.Error);
-        }
-
-        private sealed class NullLogger : ILogger
-        {
-            public static NullLogger Instance { get; } = new();
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-            public bool IsEnabled(LogLevel logLevel) => false;
-            public void Log<TState>(LogLevel l, EventId e, TState s, Exception? ex, Func<TState, Exception?, string> f) { }
-        }
-    }
 }
