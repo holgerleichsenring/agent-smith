@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Providers;
 
@@ -11,16 +12,16 @@ public interface IAgentProvider : ITypedProvider
 {
     Task<Plan> GeneratePlanAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
         CancellationToken cancellationToken)
-        => GeneratePlanAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, null, cancellationToken);
+        => GeneratePlanAsync(ticket, projectMap, codingPrinciples, codeMap, projectContext, null, cancellationToken);
 
     Task<Plan> GeneratePlanAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,

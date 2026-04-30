@@ -32,19 +32,19 @@ public sealed class ClaudeAgentProvider(
 
     public Task<Plan> GeneratePlanAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
         IReadOnlyList<TicketImageAttachment>? images,
         CancellationToken cancellationToken)
     {
-        return GeneratePlanCoreAsync(ticket, codeAnalysis, codingPrinciples, codeMap, projectContext, images, cancellationToken);
+        return GeneratePlanCoreAsync(ticket, projectMap, codingPrinciples, codeMap, projectContext, images, cancellationToken);
     }
 
     private async Task<Plan> GeneratePlanCoreAsync(
         Ticket ticket,
-        CodeAnalysis codeAnalysis,
+        ProjectMap projectMap,
         string codingPrinciples,
         string? codeMap,
         string? projectContext,
@@ -53,7 +53,7 @@ public sealed class ClaudeAgentProvider(
     {
         using var client = CreateResilientClient();
         var systemPrompt = promptBuilder.BuildPlanSystemPrompt(codingPrinciples, codeMap, projectContext);
-        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, codeAnalysis);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(ticket, projectMap);
         var planModel = ResolveModel(TaskType.Planning);
 
         var userContent = new List<ContentBase>();
