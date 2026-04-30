@@ -62,6 +62,17 @@ public interface ITicketProvider : ITypedProvider
         => Task.FromResult<IReadOnlyList<Ticket>>(Array.Empty<Ticket>());
 
     /// <summary>
+    /// Lists tickets in open states whose label set matches ANY of the given labels.
+    /// Used by the poller's discovery pass to find newly-tagged tickets that have not
+    /// yet entered the lifecycle (no agent-smith:* tag). The provider populates the
+    /// returned ticket's Labels so the caller can filter by lifecycle in-process.
+    /// Default: empty list — providers that don't support label-search don't participate.
+    /// </summary>
+    Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
+        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<Ticket>>(Array.Empty<Ticket>());
+
+    /// <summary>
     /// Returns attachment references found on the ticket.
     /// Default: empty list (providers that have no attachments skip this).
     /// </summary>

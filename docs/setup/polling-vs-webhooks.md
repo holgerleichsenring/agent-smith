@@ -18,8 +18,9 @@ Both ingress paths feed the same `TicketClaimService` — once a claim succeeds,
 | **Latency from label to claim** | Sub-second (delivery time) | `interval_seconds ± jitter` (default 60s) |
 | **Network requirement** | Public HTTPS endpoint reachable from the platform | Outbound only — Agent Smith calls the platform's REST API |
 | **Setup per platform** | Webhook config in platform UI + secret in env | One YAML stanza, no platform-side changes |
-| **API call cost (steady state)** | Zero unless events fire | One listing per cycle per project, plus per-ticket ClaimAsync |
+| **API call cost (steady state)** | Zero unless events fire | Two listings per cycle per project (discovery + catchup) — bounded, project-scoped |
 | **API call cost (active)** | One per event | Same listing cost — events ride within the existing cycle |
+| **Ingress coverage** | Tickets entering with a trigger label fire immediately | Tickets entering with a trigger label are discovered next cycle (≤ `interval_seconds`) |
 | **Resilience to receiver pod restart** | Events delivered while pod down are lost (platform-dependent retry) | Next cycle catches up; no events to miss |
 | **Resilience to platform delivery delays** | Subject to platform's webhook queue health | Independent — pulls from current state |
 | **Multi-replica behaviour** | Every replica receives webhooks; whoever wins SETNX claims | Single leader polls; followers run consumer + housekeeping |

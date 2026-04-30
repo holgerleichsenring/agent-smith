@@ -142,6 +142,39 @@ public sealed class GitHubTicketProvider : ITicketProvider
         }
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
+        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
+    {
+        if (labels.Count == 0) return [];
+        _logger.LogInformation(
+            "GitHub ListByLabelsInOpenStates: repo={Owner}/{Repo} labels=[{Labels}]",
+            _owner, _repo, string.Join(", ", labels));
+        try
+        {
+            // Octokit's RepositoryIssueRequest ANDs the labels list. For OR-semantics we
+            // query each label separately and dedupe by issue number.
+            var deduped = new Dictionary<int, Ticket>();
+            foreach (var label in labels)
+            {
+                var req = new RepositoryIssueRequest { State = ItemStateFilter.Open };
+                req.Labels.Add(label);
+                var issues = await _client.Issue.GetAllForRepository(_owner, _repo, req);
+                foreach (var issue in issues)
+                    deduped[issue.Number] = MapToTicket(new TicketId(issue.Number.ToString()), issue);
+            }
+            _logger.LogInformation(
+                "GitHub ListByLabelsInOpenStates: returned {Count} ticket(s)", deduped.Count);
+            return [.. deduped.Values];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "GitHub ListByLabelsInOpenStates failed for {Owner}/{Repo} labels=[{Labels}]",
+                _owner, _repo, string.Join(", ", labels));
+            return [];
+        }
+    }
+
     public async Task TransitionToAsync(
         TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
