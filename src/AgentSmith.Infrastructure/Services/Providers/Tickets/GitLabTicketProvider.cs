@@ -127,6 +127,71 @@ public sealed class GitLabTicketProvider : ITicketProvider
         }
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
+        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
+    {
+        if (labels.Count == 0) return [];
+        _logger.LogInformation(
+            "GitLab ListByLabelsInOpenStates: project={Project} labels=[{Labels}]",
+            _projectPath, string.Join(", ", labels));
+        try
+        {
+            // GitLab's labels= filter ANDs (issue must have ALL listed labels). For
+            // OR-semantics across trigger labels we issue one request per label and
+            // dedupe by iid in-memory.
+            var deduped = new Dictionary<string, Ticket>();
+            foreach (var rawLabel in labels)
+            {
+                var label = Uri.EscapeDataString(rawLabel);
+                var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?labels={label}&state=opened&per_page=100";
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+
+                using var response = await _httpClient.SendAsync(request, cancellationToken);
+                if (!response.IsSuccessStatusCode) continue;
+
+                using var json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
+                    cancellationToken: cancellationToken);
+                if (json.RootElement.ValueKind != JsonValueKind.Array) continue;
+
+                foreach (var issue in json.RootElement.EnumerateArray())
+                {
+                    var iid = issue.TryGetProperty("iid", out var iidEl)
+                        ? iidEl.GetInt64().ToString() : null;
+                    if (iid is null) continue;
+
+                    var title = issue.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+                    var description = issue.TryGetProperty("description", out var d)
+                        && d.ValueKind != JsonValueKind.Null ? d.GetString() ?? "" : "";
+                    var state = issue.TryGetProperty("state", out var s) ? s.GetString() ?? "" : "";
+                    var issueLabels = issue.TryGetProperty("labels", out var lbl)
+                        && lbl.ValueKind == JsonValueKind.Array
+                            ? lbl.EnumerateArray()
+                                .Where(e => e.ValueKind == JsonValueKind.String)
+                                .Select(e => e.GetString() ?? string.Empty)
+                                .Where(s => !string.IsNullOrEmpty(s))
+                                .ToList()
+                            : new List<string>();
+
+                    deduped[iid] = new Ticket(
+                        new TicketId(iid), title, description, null, state, "GitLab", issueLabels);
+                }
+            }
+            _logger.LogInformation(
+                "GitLab ListByLabelsInOpenStates: returned {Count} ticket(s)", deduped.Count);
+            return [.. deduped.Values];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "GitLab ListByLabelsInOpenStates failed for project={Project} labels=[{Labels}]",
+                _projectPath, string.Join(", ", labels));
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
