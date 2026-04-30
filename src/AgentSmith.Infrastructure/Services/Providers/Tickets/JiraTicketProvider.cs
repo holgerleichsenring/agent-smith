@@ -171,6 +171,88 @@ public sealed class JiraTicketProvider : ITicketProvider
         }
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
+        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
+    {
+        if (labels.Count == 0) return [];
+        _logger.LogInformation(
+            "Jira ListByLabelsInOpenStates: project={Project} labels=[{Labels}]",
+            _projectKey ?? "<all>", string.Join(", ", labels));
+        try
+        {
+            var quotedLabels = string.Join(", ", labels.Select(l => $"\"{l.Replace("\"", "\\\"")}\""));
+            var jql = _projectKey is null
+                ? $"labels in ({quotedLabels}) AND statusCategory != Done"
+                : $"project = \"{_projectKey}\" AND labels in ({quotedLabels}) AND statusCategory != Done";
+
+            var url = $"{_baseUrl}/rest/api/3/search";
+            var body = JsonSerializer.Serialize(new
+            {
+                jql,
+                fields = new[] { "summary", "description", "status", "labels" },
+                maxResults = 100
+            });
+
+            var content = new StringContent(body, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(url, content, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Jira ListByLabelsInOpenStates: HTTP {Status} for project={Project}",
+                    (int)response.StatusCode, _projectKey ?? "<all>");
+                return [];
+            }
+
+            using var doc = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+
+            if (!doc.RootElement.TryGetProperty("issues", out var issuesEl)
+                || issuesEl.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var tickets = new List<Ticket>(issuesEl.GetArrayLength());
+            foreach (var issue in issuesEl.EnumerateArray())
+            {
+                var key = issue.TryGetProperty("key", out var keyEl) ? keyEl.GetString() : null;
+                if (key is null) continue;
+
+                var fields = issue.TryGetProperty("fields", out var f) ? f : default;
+                var title = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("summary", out var sEl)
+                        ? sEl.GetString() ?? "" : "";
+                var description = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("description", out var dEl)
+                    && dEl.ValueKind != JsonValueKind.Null
+                        ? JiraAdfParser.ExtractText(dEl) : "";
+                var statusName = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("status", out var stEl)
+                    && stEl.TryGetProperty("name", out var stNameEl)
+                        ? stNameEl.GetString() ?? "" : "";
+                var issueLabels = fields.ValueKind != JsonValueKind.Undefined
+                    && fields.TryGetProperty("labels", out var lblEl)
+                    && lblEl.ValueKind == JsonValueKind.Array
+                        ? lblEl.EnumerateArray()
+                            .Where(e => e.ValueKind == JsonValueKind.String)
+                            .Select(e => e.GetString() ?? string.Empty)
+                            .Where(s => !string.IsNullOrEmpty(s))
+                            .ToList()
+                        : new List<string>();
+
+                tickets.Add(new Ticket(new TicketId(key), title, description, null, statusName, "Jira", issueLabels));
+            }
+            _logger.LogInformation(
+                "Jira ListByLabelsInOpenStates: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Jira ListByLabelsInOpenStates failed for project={Project}",
+                _projectKey ?? "<all>");
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
