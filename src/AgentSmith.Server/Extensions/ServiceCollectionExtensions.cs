@@ -2,6 +2,8 @@ using AgentSmith.Application;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
@@ -37,19 +39,29 @@ internal static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Rebinds ITicketStatusTransitionerFactory to the locking decorator.
-    /// Must be called AFTER AddCoreDispatcherServices (which calls
-    /// AddAgentSmithInfrastructure and registers the plain binding) so the
-    /// last-wins override sticks. The plain TicketStatusTransitionerFactory
-    /// stays registered as the concrete type so the decorator can pull it.
+    /// Bundles the Server-side overrides on top of Application's CLI-safe defaults:
+    /// (1) ITicketStatusTransitionerFactory rebinds to the locking variant for Jira;
+    /// (2) IPipelineLifecycleCoordinator rebinds to the ticket-aware variant with
+    ///     heartbeat support;
+    /// (3) ITicketClaimService is registered (Server-only — depends on Redis services
+    ///     that the CLI never carries).
+    /// Must be called AFTER AddCoreDispatcherServices so the last-wins overrides
+    /// stick against the bindings AddAgentSmithInfrastructure / AddAgentSmithCommands
+    /// established.
     /// </summary>
-    internal static IServiceCollection AddJiraLabelLockDecorator(this IServiceCollection services)
+    internal static IServiceCollection AddServerCompositionOverrides(this IServiceCollection services)
     {
         services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
             new LockingTicketStatusTransitionerFactory(
                 sp.GetRequiredService<TicketStatusTransitionerFactory>(),
                 sp.GetRequiredService<IRedisClaimLock>(),
                 sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton<IPipelineLifecycleCoordinator>(sp =>
+            new TicketAwarePipelineLifecycleCoordinator(
+                sp.GetRequiredService<ITicketStatusTransitionerFactory>(),
+                sp.GetRequiredService<IJobHeartbeatService>(),
+                sp.GetRequiredService<ILogger<TicketAwarePipelineLifecycleCoordinator>>()));
+        services.AddScoped<ITicketClaimService, TicketClaimService>();
         return services;
     }
 

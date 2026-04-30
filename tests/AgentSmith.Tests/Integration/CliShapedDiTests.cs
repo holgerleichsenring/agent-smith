@@ -66,6 +66,66 @@ public sealed class CliShapedDiTests : IDisposable
             "CLI's interactive composition must not carry IRedisClaimLock — that's a Server concern");
     }
 
+    [Fact]
+    public void Cli_IJobHeartbeatService_NotRegistered()
+    {
+        var provider = BuildCliLikeProvider();
+
+        provider.GetService<IJobHeartbeatService>().Should().BeNull(
+            "CLI's interactive composition must not carry IJobHeartbeatService — only Server-side ticket lifecycle uses it");
+    }
+
+    [Fact]
+    public void Cli_ITicketClaimService_NotRegistered()
+    {
+        var provider = BuildCliLikeProvider();
+
+        provider.GetService<ITicketClaimService>().Should().BeNull(
+            "ITicketClaimService is Server-only since p0109a — webhook + poller are its only callers");
+    }
+
+    [Fact]
+    public void Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow()
+    {
+        var provider = BuildCliLikeProvider();
+
+        var act = () => provider.GetRequiredService<IPipelineExecutor>();
+
+        act.Should().NotThrow(
+            "regression-guard for the post-p0109 IJobHeartbeatService crash: PipelineExecutor must resolve in the CLI graph");
+    }
+
+    [Fact]
+    public void Cli_PipelineLifecycleCoordinator_ResolvesToNoOp()
+    {
+        var provider = BuildCliLikeProvider();
+
+        var coordinator = provider.GetRequiredService<IPipelineLifecycleCoordinator>();
+
+        coordinator.GetType().Name.Should().Be("NoOpPipelineLifecycleCoordinator",
+            "CLI default lifecycle coordinator is the no-op variant");
+    }
+
+    [Fact]
+    public void Cli_RealServiceProviderFactoryBuild_ResolvesPipelineExecutor()
+    {
+        // Mirrors AgentSmith.Cli's actual production composition (the same call
+        // that ApiScanCommand / SecurityScanCommand use). Catches DI-graph
+        // regressions before they crash an end-user CLI invocation.
+        using var provider = AgentSmith.Cli.ServiceProviderFactory.Build(
+            verbose: false, headless: true, jobId: "", redisUrl: "");
+
+        var act = () =>
+        {
+            _ = provider.GetRequiredService<IPipelineExecutor>();
+            _ = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
+            _ = provider.GetRequiredService<IPipelineLifecycleCoordinator>();
+        };
+
+        act.Should().NotThrow(
+            "the real CLI DI tree must resolve everything ApiScanCommand / SecurityScanCommand pull");
+    }
+
     private static ServiceProvider BuildCliLikeProvider()
     {
         var services = new ServiceCollection();

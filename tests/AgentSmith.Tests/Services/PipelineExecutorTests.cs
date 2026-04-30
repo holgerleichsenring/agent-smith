@@ -15,19 +15,20 @@ public class PipelineExecutorTests
     private readonly Mock<ICommandExecutor> _executorMock = new();
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
-    private readonly Mock<ITicketStatusTransitionerFactory> _transitionerFactoryMock = new();
-    private readonly Mock<IJobHeartbeatService> _heartbeatMock = new();
+    private readonly Mock<IPipelineLifecycleCoordinator> _lifecycleMock = new();
     private readonly Mock<IProgressReporter> _progressReporterMock = new();
     private readonly PipelineExecutor _sut;
 
     public PipelineExecutorTests()
     {
+        _lifecycleMock
+            .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Mock.Of<IAsyncPipelineLifecycle>());
         _sut = new PipelineExecutor(
             _executorMock.Object,
             _factoryMock.Object,
             _ticketFactoryMock.Object,
-            _transitionerFactoryMock.Object,
-            _heartbeatMock.Object,
+            _lifecycleMock.Object,
             _progressReporterMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }
