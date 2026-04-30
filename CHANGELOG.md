@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.31.0...v0.32.0) (2026-04-30)
+
+
+### Features
+
+* **logging:** per-ticket visibility for GitHub/GitLab/Jira providers + transitioners ([72f693c](https://github.com/holgerleichsenring/agent-smith/commit/72f693cd1878824ed8799f3cb158008114c28b7b))
+* **p0108:** poller discovery — closes the webhook-equivalence gap ([c4444b8](https://github.com/holgerleichsenring/agent-smith/commit/c4444b84f2da655d5f4b5d71226e5a7ab06d7266))
+
 ## [0.31.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.30.0...v0.31.0) (2026-04-29)
 
 
