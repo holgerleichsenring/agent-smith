@@ -99,8 +99,85 @@ public sealed class AzureDevOpsWorkItemPollerTests
         result[0].PipelineName.Should().Be("fix-bug");
     }
 
+    [Fact]
+    public async Task PollAsync_DiscoveryFindsNewTicketWithFixLabel_NoLifecycleTag_BuildsClaim()
+    {
+        var discovered = new[]
+        {
+            new Ticket(new TicketId("100"), "new", "", null, "New", "AzureDevOps", labels: ["fix"])
+        };
+        var sut = Build(
+            pendingTickets: [],
+            discoveredTickets: discovered,
+            defaultPipeline: "fix-bug",
+            pipelineFromLabel: new() { ["fix"] = "fix-bug" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result.Should().HaveCount(1);
+        result[0].TicketId.Value.Should().Be("100");
+        result[0].PipelineName.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task PollAsync_DiscoveryDropsTicketsWithLifecycleEnqueued()
+    {
+        var discovered = new[]
+        {
+            new Ticket(new TicketId("inflight"), "x", "", null, "Active", "AzureDevOps",
+                labels: ["fix", "agent-smith:enqueued"])
+        };
+        var sut = Build(
+            pendingTickets: [],
+            discoveredTickets: discovered,
+            pipelineFromLabel: new() { ["fix"] = "fix-bug" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PollAsync_DiscoveryAndPendingOverlap_DedupedToSingleClaim()
+    {
+        var sharedId = new TicketId("777");
+        var pending = new[] { new Ticket(sharedId, "t", "", null, "New", "AzureDevOps",
+            labels: ["agent-smith:pending", "fix"]) };
+        var discovered = new[] { new Ticket(sharedId, "t", "", null, "New", "AzureDevOps",
+            labels: ["agent-smith:pending", "fix"]) };
+
+        var sut = Build(
+            pendingTickets: pending,
+            discoveredTickets: discovered,
+            pipelineFromLabel: new() { ["fix"] = "fix-bug" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task PollAsync_NoPipelineFromLabel_DiscoverySkipped_LegacyPendingOnlyBehavior()
+    {
+        // Even if discovery would return matches, an empty PipelineFromLabel means
+        // the project relies on webhooks for ingress; poller stays catchup-only.
+        var pending = new[] { new Ticket(new TicketId("1"), "t", "", null, "New", "AzureDevOps") };
+        var sut = Build(
+            pendingTickets: pending,
+            discoveredTickets: [
+                new Ticket(new TicketId("999"), "noisy", "", null, "Active", "AzureDevOps", labels: ["fix"])
+            ],
+            pipelineFromLabel: null);
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result.Should().HaveCount(1);
+        result[0].TicketId.Value.Should().Be("1");
+    }
+
     private static AzureDevOpsWorkItemPoller Build(
         Ticket[] pendingTickets,
+        Ticket[]? discoveredTickets = null,
         string? defaultPipeline = "fix-bug",
         Dictionary<string, string>? pipelineFromLabel = null)
     {
@@ -108,6 +185,9 @@ public sealed class AzureDevOpsWorkItemPollerTests
         provider.Setup(p => p.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Pending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pendingTickets);
+        provider.Setup(p => p.ListByLabelsInOpenStatesAsync(
+            It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(discoveredTickets ?? []);
 
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);

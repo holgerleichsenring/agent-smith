@@ -74,6 +74,35 @@ public sealed class AzureDevOpsTicketProvider(
         }
     }
 
+    public async Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
+        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
+    {
+        if (labels.Count == 0) return [];
+
+        logger.LogInformation(
+            "AzDO ListByLabelsInOpenStates: project={Project} labels=[{Labels}]",
+            project, string.Join(", ", labels));
+        try
+        {
+            var tagOr = string.Join(" OR ",
+                labels.Select(l => $"[System.Tags] CONTAINS '{EscapeWiql(l)}'"));
+            var tickets = await ListWiqlAsync(extraWhere: $"({tagOr})", cancellationToken);
+            logger.LogInformation(
+                "AzDO ListByLabelsInOpenStates: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
+        }
+        catch (Exception ex)
+        {
+            if (IsTransportFailure(ex)) InvalidateConnection(ex);
+            logger.LogWarning(ex,
+                "AzDO ListByLabelsInOpenStates failed for project={Project} labels=[{Labels}]",
+                project, string.Join(", ", labels));
+            return [];
+        }
+    }
+
+    private static string EscapeWiql(string s) => s.Replace("'", "''");
+
     private static bool IsTransportFailure(Exception ex) => ex is
         System.Net.Http.HttpRequestException
         or System.Net.Sockets.SocketException

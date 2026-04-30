@@ -14,14 +14,21 @@ For the deeper comparison: [Polling vs Webhooks](polling-vs-webhooks.md).
 
 ## Current Platform Coverage
 
-All four platforms support polling. Listing is platform-native — each provider implements `ITicketProvider.ListByLifecycleStatusAsync(Pending)` against its own API. One listing call per project per cycle.
+All four platforms support polling. Each cycle does **two** listings per project:
 
-| Platform | Listing API | Status |
-|----------|-------------|--------|
-| GitHub | `GET /repos/{owner}/{repo}/issues?labels=agent-smith:pending&state=all` | Supported |
-| GitLab | `GET /projects/{id}/issues?labels=agent-smith:pending&state=opened` | Supported |
-| Azure DevOps | WIQL `[System.Tags] CONTAINS 'agent-smith:pending' AND [System.State] IN (...openStates...)` | Supported |
-| Jira | JQL `project = "{key}" AND labels = "agent-smith:pending"` (POST /rest/api/3/search) | Supported (label-mode) |
+1. **Discovery** — finds new tickets carrying any trigger label from `pipeline_from_label` (e.g. `fix`, `feature`, `security-review`) that have no `agent-smith:*` lifecycle label yet. Equivalent to what the webhook handler does on receipt of a label event.
+2. **Catchup** — finds tickets already tagged `agent-smith:pending`, for any case where a previous cycle claimed but didn't transition (crash, restart, transient API failure).
+
+Both result sets are deduped by ticket id and filtered to lifecycle ∈ {none, Pending} before producing claim requests, so a ticket already `enqueued`/`in-progress` is never reclaimed.
+
+| Platform | Discovery API | Catchup API |
+|----------|---------------|-------------|
+| GitHub | `GET /issues?labels={triggerLabel}&state=open` (one call per trigger label, deduped) | `GET /issues?labels=agent-smith:pending&state=all` |
+| GitLab | `GET /issues?labels={triggerLabel}&state=opened` (one call per trigger label, deduped) | `GET /issues?labels=agent-smith:pending&state=opened` |
+| Azure DevOps | WIQL `[System.Tags] CONTAINS '{l1}' OR [System.Tags] CONTAINS '{l2}' AND [System.State] IN (openStates)` | WIQL `[System.Tags] CONTAINS 'agent-smith:pending'` |
+| Jira | JQL `project = "{key}" AND labels in ({trigger labels}) AND statusCategory != Done` (single call) | JQL `project = "{key}" AND labels = "agent-smith:pending"` |
+
+Discovery is **off** when a project has no `pipeline_from_label` entries (e.g. webhook-only deployments) — only the catchup query runs, preserving legacy behavior.
 
 ### Required token scopes
 
@@ -174,7 +181,7 @@ Symptom: `polling.enabled: true`, ticket has the trigger label, but nothing happ
 
 Checks (in order):
 
-- The trigger label is exactly `agent-smith:pending` (not `agent-smith` alone).
+- The trigger label on the ticket is one of the keys in `pipeline_from_label` (e.g. `fix`, `feature`) — discovery picks it up automatically. Manually adding `agent-smith:pending` is no longer necessary.
 - The token has the listing scope from the table above.
 - For Jira, `tickets.project` is set if you have multiple projects on the same instance — otherwise the JQL search may match issues you didn't expect.
 - For Azure DevOps, the work item is in one of `tickets.open_states` (default `New`/`Active`/`Committed`).

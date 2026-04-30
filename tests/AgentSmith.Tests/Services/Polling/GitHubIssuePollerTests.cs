@@ -86,8 +86,28 @@ public sealed class GitHubIssuePollerTests
         result[0].PipelineName.Should().Be("fix-bug");
     }
 
+    [Fact]
+    public async Task PollAsync_DiscoveryFindsNewTicketWithFixLabel_BuildsClaim()
+    {
+        var discovered = new[]
+        {
+            new Ticket(new TicketId("100"), "x", "", null, "open", "GitHub", labels: ["fix"])
+        };
+        var sut = Build(
+            pendingTickets: [],
+            discoveredTickets: discovered,
+            pipelineFromLabel: new() { ["fix"] = "fix-bug" });
+
+        var result = await sut.PollAsync(CancellationToken.None);
+
+        result.Should().HaveCount(1);
+        result[0].TicketId.Value.Should().Be("100");
+        result[0].PipelineName.Should().Be("fix-bug");
+    }
+
     private static GitHubIssuePoller Build(
         Ticket[] pendingTickets,
+        Ticket[]? discoveredTickets = null,
         string? defaultPipeline = "fix-bug",
         Dictionary<string, string>? pipelineFromLabel = null)
     {
@@ -95,6 +115,9 @@ public sealed class GitHubIssuePollerTests
         provider.Setup(p => p.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Pending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pendingTickets);
+        provider.Setup(p => p.ListByLabelsInOpenStatesAsync(
+            It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(discoveredTickets ?? []);
 
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);

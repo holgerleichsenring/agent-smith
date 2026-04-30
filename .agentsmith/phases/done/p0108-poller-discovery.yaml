@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0108
+goal: "Poller discovers new tickets by trigger label (fix/feature/...) — not just by existing 'agent-smith:pending' lifecycle tag. Polling becomes a true webhook-equivalent ingress, not just a re-entry catchup."
+
+requires: ["p0107"]
+
+decisions:
+  - key: "Poller is webhook-equivalent ingress, not re-entry-only. Pre-phase: poller queries 'agent-smith:pending' lifecycle tag exclusively. New tickets carrying only user-intent labels (fix/feature/security-review) never enter the pipeline unless a webhook fires first to apply the lifecycle tag. In webhook-less deployments (AzDO behind firewall, no service-hook permissions, air-gapped K8s) the agent appears alive but ingests nothing — log-correct, behavior-broken. Post-phase: a single poll cycle picks up both (a) previously-tagged Pending tickets (catchup) and (b) brand-new tickets matching any pipeline_from_label key (discovery). Mental model collapses to: 'tag your ticket fix or feature, agent-smith picks it up' — same as webhooks."
+  - key: "Single union query over both lifecycles (null + Pending), not two passes. Pre-phase mental model would be: scan untagged → tag as Pending → next cycle enqueues. That's two cycles of latency. Cleaner: poller queries 'tickets in open states with any trigger label', then post-filters in C# to keep those with lifecycle ∈ {null, Pending}. TicketClaimService.ClaimAsync already accepts current ∈ {null, Pending} and transitions to Enqueued, so one cycle covers both ingress paths."
+  - key: "Per-platform provider gets one new method: ListByLabelsInOpenStatesAsync(IEnumerable<string> labels). Returns Ticket[] with their .Labels populated so the caller can resolve lifecycle status from labels in-process. Avoids the alternative of two provider queries per cycle (one per lifecycle). One round-trip per platform per cycle."
+  - key: "Empty pipeline_from_label means 'discovery off, fall back to legacy Pending-only behavior'. If a project has no PipelineFromLabel mappings, the poller skips discovery entirely and only does the Pending catchup query — no behavior regression for projects that rely on webhooks for ingress and use the poller purely for restart-recovery."
+  - key: "AzDO WIQL: query tags via OR-of-CONTAINS clauses, one per trigger label, joined inline. Example: [System.TeamProject]='X' AND [System.State] IN openStates AND ([System.Tags] CONTAINS 'fix' OR [System.Tags] CONTAINS 'feature'). Lifecycle filtering happens client-side after fetch. AzDO WIQL doesn't have efficient negative-tag predicates so client-side filter is the simpler path."
+  - key: "GitHub: GetAllForRepository accepts a list of labels but ANDs them. Discovery needs OR-semantics — issue tagged 'fix' OR 'feature'. Iterate one query per trigger label, deduplicate by issue number. Bounded cost (#trigger-labels per cycle, typically 1-5)."
+  - key: "GitLab: REST issues endpoint accepts comma-separated labels with AND-semantics. Same pattern as GitHub: one request per label, dedupe by iid. Per_page=100 cap retained — operators with >100 candidate tickets per label hit the cap; documented as known limit (matches existing Pending-query behavior)."
+  - key: "Jira: JQL natively supports 'labels in (X, Y, Z)' (OR-semantics). One query, multi-label filter — cleaner than the per-platform iteration the others need. Done in one call."
+  - key: "Logging mirrors p0107 visibility pattern. Each poll cycle logs: 'Discovery: found N candidate(s) by trigger labels [...] → M new (pending), K already-tagged (skipped)'. Then existing 'building N claim request(s) — #ID→pipeline' line covers both discovery + catchup tickets uniformly."
+
+steps:
+  - id: provider-method
+    action: "Add ListByLabelsInOpenStatesAsync to ITicketProvider, implement on all 4 providers"
+    modify:
+      - "ITicketProvider: add Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(IReadOnlyCollection<string> labels, CancellationToken ct)"
+      - "AzureDevOpsTicketProvider: WIQL with OR-of-CONTAINS over System.Tags, openStates filter retained. Returns Ticket with Labels populated. Logs entry/exit + count"
+      - "GitHubTicketProvider: iterate Octokit GetAllForRepository per label, dedupe by issue number, populate Labels. Logs entry/exit + count"
+      - "GitLabTicketProvider: iterate REST GET /issues?labels=X&state=opened per label, dedupe by iid, populate labels[]. Logs entry/exit + count"
+      - "JiraTicketProvider: single JQL 'project=X AND labels in (...)', populate fields.labels. Logs entry/exit + count"
+
+  - id: poller-discovery-pass
+    action: "Each platform poller queries discovery alongside catchup; merges results"
+    modify:
+      - "AzureDevOpsWorkItemPoller.PollAsync: call ListByLifecycleStatusAsync(Pending) (existing) AND, if AzuredevopsTrigger?.PipelineFromLabel.Count > 0, ListByLabelsInOpenStatesAsync(trigger.PipelineFromLabel.Keys). Merge by ticket id, keep tickets with lifecycle ∈ {null, Pending}, build ClaimRequests for the merged set"
+      - "GitHubIssuePoller.PollAsync: same merge pattern, GitHubTrigger config"
+      - "GitLabIssuePoller.PollAsync: same merge pattern, GitLabTrigger config"
+      - "JiraIssuePoller.PollAsync: same merge pattern, JiraTrigger config"
+
+  - id: lifecycle-filter-helper
+    action: "Extract the 'keep tickets where lifecycle is null or Pending' filter into a shared helper to avoid duplicating across 4 pollers"
+    new:
+      - "src/AgentSmith.Application/Services/Polling/LifecyclePollFilter.cs: static helper IsClaimableLifecycle(IEnumerable<string> labels) → bool, plus IEnumerable<Ticket> KeepClaimable(IEnumerable<Ticket>). Reads labels via LifecycleLabels.TryParse"
+
+  - id: logging-and-observability
+    action: "Add discovery-pass logging mirroring the per-ticket visibility from p0107"
+    modify:
+      - "Each of the 4 pollers: log 'Discovery: scanning labels [{Labels}] for new tickets' on entry to discovery branch; 'Discovery: {Total} candidate(s), {New} new + {Catchup} catchup → {Total} claim request(s)' before building requests"
+
+  - id: tests
+    action: "Provider-level + poller-level tests for the discovery path"
+    new:
+      - "tests/AgentSmith.Tests/Providers/Tickets/AzureDevOpsTicketProviderListByLabelsTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Tickets/GitHubTicketProviderListByLabelsTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Tickets/GitLabTicketProviderListByLabelsTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Tickets/JiraTicketProviderListByLabelsTests.cs"
+      - "tests/AgentSmith.Tests/Polling/AzureDevOpsWorkItemPollerDiscoveryTests.cs"
+      - "tests/AgentSmith.Tests/Polling/GitHubIssuePollerDiscoveryTests.cs"
+      - "tests/AgentSmith.Tests/Polling/GitLabIssuePollerDiscoveryTests.cs"
+      - "tests/AgentSmith.Tests/Polling/JiraIssuePollerDiscoveryTests.cs"
+      - "tests/AgentSmith.Tests/Polling/LifecyclePollFilterTests.cs"
+
+  - id: docs
+    action: "Update polling docs to reflect the new ingress-equivalent semantics"
+    modify:
+      - "docs/setup/polling.md: rewrite the 'how polling works' section — discovery + catchup, not just catchup. Clarify that polling is a complete webhook substitute. Drop any wording suggesting 'tickets must be marked agent-smith:pending first'"
+      - "docs/setup/polling-vs-webhooks.md: update tradeoff matrix — polling now has same ingress coverage as webhooks (latency-vs-realtime is the only delta)"
+      - "docs/configuration/label-triggers.md: add note that trigger labels work identically for webhook and poll ingress"
+      - ".agentsmith/context.yaml: behavior section — update polling description to 'discovery + catchup' instead of 'catchup'"
+
+tests:
+  - "AzureDevOpsTicketProvider_ListByLabels_ReturnsTicketsMatchingAnyLabelInOpenStates"
+  - "AzureDevOpsTicketProvider_ListByLabels_PopulatesLabelsField"
+  - "GitHubTicketProvider_ListByLabels_DeduplicatesAcrossLabels"
+  - "GitLabTicketProvider_ListByLabels_DeduplicatesAcrossLabels"
+  - "JiraTicketProvider_ListByLabels_UsesLabelsInJql"
+  - "AzureDevOpsWorkItemPoller_NewTicketWithFixLabel_NoLifecycleTag_ProducesClaimRequest"
+  - "AzureDevOpsWorkItemPoller_TicketWithEnqueuedTag_NotInDiscoveryResult"
+  - "AzureDevOpsWorkItemPoller_PendingTicket_StillPickedUpByCatchup_NoDoubleClaim"
+  - "AzureDevOpsWorkItemPoller_NoTriggerConfig_DiscoveryDisabled_LegacyBehavior"
+  - "GitHubIssuePoller_NewTicketWithFixLabel_ProducesClaimRequest"
+  - "GitLabIssuePoller_NewTicketWithFixLabel_ProducesClaimRequest"
+  - "JiraIssuePoller_NewTicketWithFixLabel_ProducesClaimRequest"
+  - "LifecyclePollFilter_KeepClaimable_DropsInProgressAndEnqueued"
+  - "LifecyclePollFilter_KeepClaimable_KeepsNullAndPending"
+  - "BehaviorPreservation_PendingOnlyTicket_ProducesSameClaimRequestAsBefore"
+
+done:
+  - "ITicketProvider has ListByLabelsInOpenStatesAsync; all 4 implementations honor open_states + label OR-semantics + populate Labels"
+  - "All 4 pollers query both lifecycle (Pending catchup) AND trigger labels (discovery) when project has pipeline_from_label entries; merged set deduped by ticket id and filtered to lifecycle ∈ {null, Pending}"
+  - "Projects with empty pipeline_from_label keep legacy Pending-only behavior (no regression for webhook-driven projects)"
+  - "Polling cycle log shows discovery counts: scanned labels, candidate count, new vs catchup split"
+  - "Tagging an AzDO ticket with 'fix' (no lifecycle tag, in 'New' or 'Active' state) results in a claim request within one poll interval — verified end-to-end in integration test"
+  - "docs/setup/polling.md, polling-vs-webhooks.md, label-triggers.md updated to reflect ingress-equivalent semantics"
+  - "All existing 1206 tests still pass; ~15 new tests added across providers + pollers + filter"
+  - "dotnet build zero warnings; behavior-preservation test confirms Pending-only tickets produce identical ClaimRequests as pre-phase"
