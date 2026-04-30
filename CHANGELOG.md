@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.32.0...v0.32.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **azdo:** replace tags atomically + HTML-format failure comments ([dc7f8c3](https://github.com/holgerleichsenring/agent-smith/commit/dc7f8c3cab0de5c3ffbc638ff844e4edcb804615))
+
 ## [0.32.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.31.0...v0.32.0) (2026-04-30)
 
 
