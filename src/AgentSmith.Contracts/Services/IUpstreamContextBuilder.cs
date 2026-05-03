@@ -9,7 +9,7 @@ namespace AgentSmith.Contracts.Services;
 public interface IUpstreamContextBuilder
 {
     string Build(
-        SkillRole role,
+        OrchestrationRole role,
         PipelineContext pipeline,
         Dictionary<string, string> skillOutputs);
 }

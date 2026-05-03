@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -9,9 +10,14 @@ namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Loads skill configuration and role definitions from SKILL.md directories or legacy YAML files.
+/// Strict-validates SKILL.md frontmatter (roles_supported, role bodies, references uniqueness)
+/// and aggregates per-category index files via SkillIndexBuilder.
 /// </summary>
 public sealed class YamlSkillLoader(
     ISkillsCatalogPath catalogPath,
+    ConceptVocabularyLoader vocabularyLoader,
+    ConceptVocabularyValidator vocabularyValidator,
+    SkillIndexBuilder indexBuilder,
     ILogger<YamlSkillLoader> logger) : ISkillLoader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -58,7 +64,10 @@ public sealed class YamlSkillLoader(
 
         var roles = new List<RoleSkillDefinition>();
         LoadFromSkillMdDirectories(resolved, roles);
-        LoadFromLegacyYaml(resolved, roles);
+
+        var vocabulary = vocabularyLoader.Load(FindVocabularyDirectory(resolved));
+        vocabularyValidator.Validate(roles, vocabulary);
+        indexBuilder.Build(resolved, roles);
 
         logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, resolved);
         return roles;
@@ -90,7 +99,14 @@ public sealed class YamlSkillLoader(
                     Rules = $"{role.Rules}\n\n## Project-Specific Rules\n{projectConfig.ExtraRules}",
                     ConvergenceCriteria = role.ConvergenceCriteria,
                     Source = role.Source,
-                    Orchestration = role.Orchestration
+                    Orchestration = role.Orchestration,
+                    RolesSupported = role.RolesSupported,
+                    Activation = role.Activation,
+                    RoleAssignments = role.RoleAssignments,
+                    References = role.References,
+                    OutputContract = role.OutputContract,
+                    RoleBodies = role.RoleBodies,
+                    SkillDirectory = role.SkillDirectory
                 });
             }
             else
@@ -106,17 +122,26 @@ public sealed class YamlSkillLoader(
     {
         foreach (var dir in Directory.GetDirectories(skillsDirectory).OrderBy(d => d))
         {
+            if (Path.GetFileName(dir).StartsWith('_')) continue; // skip _index/ etc.
             if (!File.Exists(Path.Combine(dir, "SKILL.md")))
                 continue;
 
             try
             {
                 var role = _skillMdParser.Parse(dir);
-                if (role is not null && !string.IsNullOrEmpty(role.Name))
+                if (role is null || string.IsNullOrEmpty(role.Name))
+                    continue;
+
+                if (!ValidateStrict(role, dir, out var error))
                 {
-                    roles.Add(role);
-                    logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
+                    logger.LogError(
+                        "Skill '{Skill}' at {Dir} rejected: {Error}. See docs/configuration/skills/migration.md",
+                        role.Name, dir, error);
+                    continue;
                 }
+
+                roles.Add(role);
+                logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
             }
             catch (InvalidOperationException ex)
             {
@@ -129,26 +154,74 @@ public sealed class YamlSkillLoader(
         }
     }
 
-    private void LoadFromLegacyYaml(string skillsDirectory, List<RoleSkillDefinition> roles)
+    /// <summary>
+    /// concept-vocabulary.yaml lives at the skills repo root (one or two levels above a per-category
+    /// skillsDirectory). Walk up at most three levels to find it; fall back to skillsDirectory if absent.
+    /// </summary>
+    private static string FindVocabularyDirectory(string skillsDirectory)
     {
-        foreach (var file in Directory.GetFiles(skillsDirectory, "*.yaml").OrderBy(f => f))
+        var current = skillsDirectory;
+        for (var depth = 0; depth < 3 && !string.IsNullOrEmpty(current); depth++)
         {
-            try
-            {
-                var yaml = File.ReadAllText(file);
-                var role = Deserializer.Deserialize<RoleSkillDefinition>(yaml);
+            if (File.Exists(Path.Combine(current, "concept-vocabulary.yaml")))
+                return current;
+            current = Path.GetDirectoryName(current) ?? string.Empty;
+        }
+        return skillsDirectory;
+    }
 
-                if (role is not null && !string.IsNullOrEmpty(role.Name))
-                {
-                    roles.Add(role);
-                    logger.LogDebug("Loaded role definition from YAML: {Name}", role.Name);
-                }
-            }
-            catch (Exception ex)
+    private static bool ValidateStrict(RoleSkillDefinition skill, string source, out string error)
+    {
+        if (skill.RolesSupported is null || skill.RolesSupported.Count == 0)
+        {
+            error = "frontmatter is missing 'roles_supported' — every skill must declare which roles it can take";
+            return false;
+        }
+
+        if (skill.RoleBodies is null || skill.RoleBodies.Count == 0)
+        {
+            error = "body has no '## as_<role>' sections — every skill with roles_supported must split body per role";
+            return false;
+        }
+
+        foreach (var role in skill.RolesSupported)
+        {
+            if (!skill.RoleBodies.ContainsKey(role))
             {
-                logger.LogWarning(ex, "Failed to load role definition from {File}", file);
+                error = $"declares role '{role}' but body has no '## as_{role.ToString().ToLowerInvariant()}' section";
+                return false;
             }
         }
+
+        if (skill.RoleAssignments is not null)
+        {
+            var supported = skill.RolesSupported.ToHashSet();
+            foreach (var ra in skill.RoleAssignments)
+            {
+                if (!supported.Contains(ra.Role))
+                {
+                    error = $"role_assignment declares role '{ra.Role}' which is not in roles_supported";
+                    return false;
+                }
+            }
+        }
+
+        if (skill.References is not null)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var r in skill.References)
+            {
+                if (!seen.Add(r.Id))
+                {
+                    error = $"references[] has duplicate id '{r.Id}'";
+                    return false;
+                }
+            }
+        }
+
+        _ = source; // reserved for future error reporting that includes the source path
+        error = string.Empty;
+        return true;
     }
 
     private string ResolveDirectory(string skillsDirectory)

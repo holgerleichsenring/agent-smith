@@ -3,7 +3,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <summary>
 /// Declares a skill's role within a typed orchestration pipeline.
 /// </summary>
-public enum SkillRole
+public enum OrchestrationRole
 {
     /// <summary>Analyzes input, appends to shared context, no blocking.</summary>
     Contributor,

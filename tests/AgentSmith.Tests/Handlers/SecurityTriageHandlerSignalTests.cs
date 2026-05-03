@@ -35,8 +35,8 @@ public sealed class SecurityTriageHandlerSignalTests
     public void ChainAnalyst_SkillDefinition_HasExecutorRole()
     {
         // chain-analyst is defined in config/skills/security/chain-analyst/agentsmith.md with role: executor
-        // This test verifies the SkillRole enum supports Executor
-        SkillRole.Executor.Should().NotBe(SkillRole.Contributor);
-        SkillRole.Executor.Should().NotBe(SkillRole.Gate);
+        // This test verifies the OrchestrationRole enum supports Executor
+        OrchestrationRole.Executor.Should().NotBe(OrchestrationRole.Contributor);
+        OrchestrationRole.Executor.Should().NotBe(OrchestrationRole.Gate);
     }
 }

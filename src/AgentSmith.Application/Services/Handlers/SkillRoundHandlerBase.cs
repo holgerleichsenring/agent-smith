@@ -221,7 +221,7 @@ public abstract class SkillRoundHandlerBase(
         var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildStructuredPromptParts(
             role, domainStable, domainVariable, upstreamContext, outputInstruction, existingTests);
 
-        if (orch.Role == SkillRole.Gate)
+        if (orch.Role == OrchestrationRole.Gate)
             return await ExecuteGateRoundAsync(
                 skillName, role, orch, systemPrompt, userPrefix, userSuffix, pipeline, llmClient, cancellationToken);
 
@@ -235,7 +235,7 @@ public abstract class SkillRoundHandlerBase(
         var buffer = new SkillRoundBuffer(skillName, 0, [], null, llmResponse.Text);
         DispatchBuffer(pipeline, buffer);
 
-        if (orch.Role == SkillRole.Lead)
+        if (orch.Role == OrchestrationRole.Lead)
             pipeline.Set(ContextKeys.ConsolidatedPlan, llmResponse.Text);
 
         return CommandResult.Ok($"{role.DisplayName} [{orch.Role}]: complete");

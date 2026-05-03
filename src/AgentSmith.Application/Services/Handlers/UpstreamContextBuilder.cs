@@ -13,15 +13,15 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class UpstreamContextBuilder : IUpstreamContextBuilder
 {
     public string Build(
-        SkillRole role,
+        OrchestrationRole role,
         PipelineContext pipeline,
         Dictionary<string, string> skillOutputs)
     {
         return role switch
         {
-            SkillRole.Gate => FormatOutputs(skillOutputs),
-            SkillRole.Lead => FormatOutputs(skillOutputs),
-            SkillRole.Executor => BuildExecutorContext(pipeline, skillOutputs),
+            OrchestrationRole.Gate => FormatOutputs(skillOutputs),
+            OrchestrationRole.Lead => FormatOutputs(skillOutputs),
+            OrchestrationRole.Executor => BuildExecutorContext(pipeline, skillOutputs),
             _ => string.Empty
         };
     }
