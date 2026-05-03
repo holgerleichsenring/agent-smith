@@ -1,5 +1,21 @@
 # Skills Reference
 
+!!! info "Phase p0111 — extended frontmatter (in progress)"
+    Skills are migrating to a richer SKILL.md frontmatter that declares
+    `roles_supported`, keyed `activation` criteria, per-role `role_assignment`,
+    `references`, and an `output_contract` with per-role output type.
+
+    The single-call triage assigns each skill a role and pipeline phase per
+    ticket, so the same skill (e.g. architect) can be `lead` in one ticket and
+    `reviewer` in another. The four roles are **lead** / **analyst** /
+    **reviewer** / **filter** — `executor` is gone (it is now a pipeline-step
+    type, not a skill role).
+
+    Canonical example until this page is rewritten:
+    [`skills/coding/architect/SKILL.md`](https://github.com/holgerleichsenring/agentsmith-skills/blob/main/skills/coding/architect/SKILL.md)
+    in the agent-smith-skills repo. The full migration guide lands in
+    `docs/configuration/skills/migration.md` when phase p0111c ships.
+
 Skills define the AI roles that participate in multi-skill pipelines. Each skill has a YAML file in the `config/skills/` directory (organized by category) and an optional `agentsmith.md` file that declares orchestration metadata.
 
 ## Directory Structure
