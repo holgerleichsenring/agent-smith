@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0111c
+goal: "New TriageHandler — single LLM call producing phase+role assignments. PipelineExecutor iterates Plan/AgenticStep/Review/Final. Confidence threshold filter. Pipeline presets switch to phase-based structure."
+
+requires: ["p0111a"]
+
+decisions:
+  - key: "Replace existing TriageHandler logic — no parallel handler. Old logic was role-aware (gate/lead/contributor) but did not assign per-phase, did not validate token-grammar rationale, did not honor strict role+phase constraints. The new TriageHandler is a clean rewrite with the same wiring (IPipelineHandler) but new internals."
+  - key: "Discussion pipelines (legal-analysis, mad-discussion) keep using the legacy p64 triage path — TriageHandler short-circuits when pipeline_type=discussion. New triage rejects mixed-mode work; discussion is its own pipeline_type with no role/phase assignment."
+  - key: "TriageOutput schema validated in two layers — JSON-schema (structure: roles in enum, rationale length cap, role/phase coherence per PhaseAssignment) and TriageOutputValidator (semantic: every role assignment references a skill whose roles_supported contains the assigned role; every rationale token references a key declared in the cited skill's activation or role_assignment)."
+  - key: "ProjectMapExcerptBuilder reads .agentsmith/project-map.json (from p0110b) and projects on the narrower TriageInput.ProjectMapExcerpt — concept matching against the vocabulary happens here, not in the LLM. The LLM sees a prefiltered concept list, not the full project map."
+  - key: "PlanArtifact stored in pipeline context after Plan phase, injected into Review phase prompts as {{plan}}. Reviewers without an assigned lead in the same run see a null plan and run as generic reviewers."
+  - key: "Confidence threshold (Blocking=true requires Confidence>=70) enforced in SkillRoundHandlerBase. Below-threshold blocking observations are auto-downgraded to Blocking=false with a structured log entry."
+  - key: "FilterRoundHandler is a separate handler (not a special case in SkillRoundHandlerBase) — its semantics are different (input is a List<SkillObservation>, output is a reduced list or an artifact). Output mode (list vs artifact) read from skill.OutputContract.OutputType[Filter]."
+  - key: "Pipeline-step type AgenticStep stays as it is today (handled by an Agentic*Handler running between Plan and Review). Triage does not assign skills to AgenticStep — it is purely a code-writing step. Tester pre-execute work moves to Plan phase as analyst (planning the test strategy); tester post-execute moves to Review phase as reviewer."
+  - key: "Pipeline presets: fix-bug, add-feature, security-scan, api-scan declare triage_phases [Plan, Review, Final]. fix-bug and add-feature run AgenticStep between Plan and Review. security-scan and api-scan have no AgenticStep (scans only). legal-analysis and mad-discussion remain pipeline_type=discussion, untouched."
+
+steps:
+  - id: contracts
+    action: "Add triage I/O contracts not yet in p0111a"
+    new:
+      - "src/AgentSmith.Contracts/Models/Skills/PhaseAssignment.cs: record(string? Lead, IReadOnlyList<string> Analysts, IReadOnlyList<string> Reviewers, string? Filter)"
+      - "src/AgentSmith.Contracts/Models/Skills/TriageInput.cs: record(string Ticket, ProjectMapExcerpt ProjectMapExcerpt, IReadOnlyList<SkillIndexEntry> AvailableSkills, IReadOnlyList<PipelinePhase> Phases, IReadOnlyList<string> TicketLabels)"
+      - "src/AgentSmith.Contracts/Models/Skills/TriageOutput.cs: record(IReadOnlyDictionary<PipelinePhase,PhaseAssignment> Phases, int Confidence, string Rationale)"
+      - "src/AgentSmith.Contracts/Models/Skills/ProjectMapExcerpt.cs: record(IReadOnlyList<string> Stack, string Type, IReadOnlyList<string> Concepts, TestCapability TestCapability, CiCapability CiCapability)"
+      - "src/AgentSmith.Contracts/Models/Skills/TestCapability.cs: record(bool HasTestSetup, string? TestCommand, bool RunnableInPipeline)"
+      - "src/AgentSmith.Contracts/Models/Skills/CiCapability.cs: record(bool HasPipeline, string? DeploymentTarget)"
+      - "src/AgentSmith.Contracts/Models/Skills/PlanArtifact.cs: record(string? LeadSkill, IReadOnlyList<SkillObservation> Observations, DateTimeOffset CreatedAt)"
+      - "src/AgentSmith.Contracts/Models/Skills/RationaleEntry.cs: record(SkillRole Role, string Skill, string Key, bool Negative)"
+
+  - id: triage-rewrite
+    action: "Replace TriageHandler internals; keep IPipelineHandler wiring"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TriageHandler.cs / TriageHandlerBase.cs: rewrite. Build TriageInput from ticket + ProjectMapExcerpt + _index/<category>.yaml + Ticket.Labels. Render triage-system.yaml + triage-user.yaml. Parse single-line JSON. Validate. Apply ticket-label overrides (agent-smith:skip:<skill>, agent-smith:no-test-adaption). Short-circuit for pipeline_type=discussion (defer to legacy triage)."
+    new:
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputValidator.cs: schema + key-existence checks; returns TriageValidationResult"
+      - "src/AgentSmith.Application/Services/Triage/TriageRationaleParser.cs: token grammar (<role>=<skill>:<key>; and -<skill>:<key>;) → IReadOnlyList<RationaleEntry>"
+      - "src/AgentSmith.Application/Services/Triage/ProjectMapExcerptBuilder.cs: reads .agentsmith/project-map.json and ConceptVocabulary, projects to ProjectMapExcerpt"
+
+  - id: prompts-and-schemas
+    action: "Author triage prompt resources and JSON schemas"
+    new:
+      - "src/AgentSmith.Application/Resources/Prompts/triage-system.yaml: imported from .agentsmith/phases/planned/p0111-triage-prompt.yaml"
+      - "src/AgentSmith.Application/Resources/Prompts/triage-user.yaml: input template with {{ticket}}, {{project_map_excerpt}}, {{available_skills}}, {{phases}}, {{labels}}"
+      - "src/AgentSmith.Application/Resources/Schemas/triage-output.schema.json: regex on rationale (token grammar), max length 300, enum role/phase values"
+
+  - id: pipeline-executor
+    action: "Phase-aware loop in PipelineExecutor"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: iterate triage_phases (Plan, Review, Final). Between Plan and Review run AgenticStep where the preset declares it. Lead's plan output stored in Context.PlanArtifact, injected into Review-phase prompts as {{plan}}."
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs: select prompt body by assigned role via ISkillBodyResolver. Enforce Confidence threshold (Blocking=true ⟹ Confidence>=70 else auto-downgrade)."
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs: takes List<SkillObservation>, dispatches to skill.OutputContract.OutputType[Filter] (List → reduced list, Artifact → synthesized object). No veto."
+
+  - id: pipeline-presets
+    action: "Update presets to phase-based structure"
+    modify:
+      - "src/AgentSmith.Application/Configuration/PipelinePresets.cs (or equivalent): fix-bug, add-feature → triage_phases [Plan, Review, Final], AgenticStep between Plan and Review. security-scan, api-scan → triage_phases [Plan, Review, Final], no AgenticStep. legal-analysis, mad-discussion untouched (pipeline_type=discussion)."
+
+  - id: tests
+    action: "Replace existing TriageHandler tests with role+phase assignment tests"
+    new:
+      - "TriageHandler_FrontendBugTicket_AssignsArchitectAsLeadAndReviewer"
+      - "TriageHandler_DbMigrationTicket_AssignsDbaAsLead_ArchitectAsAnalystAndReviewer"
+      - "TriageHandler_PureBugfixTicket_DoesNotActivateArchitect"
+      - "TriageHandler_TicketWithSkipLabel_OmitsSkill"
+      - "TriageHandler_NoTestAdaptionLabel_RemovesTesterFromAllRoles"
+      - "TriageHandler_DiscussionPipelineType_SkipsTriage"
+      - "TriageOutputValidator_RoleNotInRolesSupported_RejectsOutput"
+      - "TriageOutputValidator_RationaleKeyNotInSkill_RejectsOutput"
+      - "TriageOutputValidator_RationaleExceedsMaxLength_RejectsOutput"
+      - "TriageOutputValidator_OutputContainsNewlines_RejectsOutput"
+      - "TriageRationaleParser_TokenGrammar_ProducesStructuredEntries"
+      - "TriageHandler_FirstParseFailure_RetriesWithStricterPrompt"
+      - "PipelineExecutor_PlanPhaseLeadOutput_InjectedIntoReviewers"
+      - "PipelineExecutor_NoLeadAssigned_ReviewersHandleNullPlanArtifact"
+      - "SkillRoundHandler_BlockingTrueAndConfidenceBelow70_DowngradesToBlockingFalse"
+      - "FilterRoundHandler_OutputList_ReducesObservations"
+      - "FilterRoundHandler_OutputArtifact_ProducesArtifact"
+      - "ProjectMapExcerptBuilder_DotnetWithDb_ProducesPersistenceConcept"
+      - "ProjectMapExcerptBuilder_FrontendOnly_OmitsPersistence"
+      - "AuthPortRegression_PreExecuteTesterAsAnalyst_NoSpeculativeVeto"
+
+  - id: cleanup
+    action: "Remove agentsmith.md orchestration metadata path now that SKILL.md frontmatter is authoritative"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: stop reading the ## orchestration section from agentsmith.md (still read display-name/emoji/triggers/convergence_criteria — those drive the discussion pipeline). Remove SkillOrchestration parsing logic."
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillOrchestrationParser.cs: deleted (or kept as no-op if downstream code still imports it)"
+      - "Skill agentsmith.md files: ## orchestration section becomes obsolete — discussion-pipeline-only fields remain"
+
+  - id: docs
+    action: "Document the new triage and role model"
+    new:
+      - "docs/concepts/triage.md: token grammar, rationale format, schema validation, ticket label overrides, project concept vocabulary"
+      - "docs/configuration/skills/migration.md: how to migrate a SKILL.md to the new frontmatter; before/after examples"
+      - "docs/configuration/concept-vocabulary.md: vocabulary file format, sections, how to extend"
+    modify:
+      - "docs/concepts/multi-agent-orchestration.md: replace four-role model (contributor/lead/gate/executor) with new model (lead/analyst/reviewer/filter); document phase model (Plan/Review/Final + AgenticStep as pipeline step)"
+      - "docs/configuration/skills.md: full rewrite — extended frontmatter reference, lazy body loading, references/, role_assignment with activation keys, no legacy fallback"
+
+  - id: verify
+    action: "dotnet build && dotnet test green; manual e2e on AuthPort regression ticket and a fresh fix-bug run"
+
+done:
+  - "TriageHandler is one LLM call, single-line JSON, validated against schema and skill-key existence"
+  - "Triage rationale uses token grammar with declared keys only — schema rejects unknown keys"
+  - "Triage assigns architect as lead+reviewer in frontend-bug ticket; as analyst+reviewer in db-migration ticket"
+  - "Triage skipped entirely for discussion pipelines (legacy p64 path retained)"
+  - "Tester pre-execute is analyst (no veto power); tester post-execute is reviewer (evidence-required)"
+  - "Ticket labels agent-smith:skip:<skill> and agent-smith:no-test-adaption respected as hard overrides"
+  - "Confidence threshold filter: Blocking=true requires Confidence>=70, otherwise auto-downgraded to Blocking=false with log"
+  - "Lead plan output injected into review-phase reviewer prompts as {{plan}}; reviewers handle null plan case"
+  - "PipelineExecutor iterates Plan → AgenticStep → Review → Final per preset"
+  - "FilterRoundHandler dispatches to list or artifact output based on output_type[Filter]"
+  - "ProjectMapExcerptBuilder produces concept list from project-map.json — works for dotnet, F#, Salesforce, embedded projects"
+  - "Pipeline presets fix-bug, add-feature, security-scan, api-scan switched to phase-based structure"
+  - "agentsmith.md orchestration section no longer read; SkillOrchestrationParser removed"
+  - "AuthPort regression: pre-execute tester produces analyst observations (Blocking=false), no 'likely' speculation, pipeline proceeds to AgenticStep"
+  - "docs/concepts/triage.md, docs/concepts/multi-agent-orchestration.md, docs/configuration/skills.md, docs/configuration/skills/migration.md, docs/configuration/concept-vocabulary.md updated or created"
+  - "dotnet build zero warnings, dotnet test green"
