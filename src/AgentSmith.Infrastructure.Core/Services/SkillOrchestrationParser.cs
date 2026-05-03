@@ -45,8 +45,8 @@ internal static class SkillOrchestrationParser
             return null;
 
         if (!fields.TryGetValue("role", out var roleStr) ||
-            !Enum.TryParse<SkillRole>(roleStr, ignoreCase: true, out var role))
-            role = SkillRole.Contributor;
+            !Enum.TryParse<OrchestrationRole>(roleStr, ignoreCase: true, out var role))
+            role = OrchestrationRole.Contributor;
 
         if (!fields.TryGetValue("output", out var outputStr) ||
             !Enum.TryParse<SkillOutputType>(outputStr, ignoreCase: true, out var output))
@@ -54,7 +54,7 @@ internal static class SkillOrchestrationParser
 
         var inputCategories = ParseCommaSeparated(fields.GetValueOrDefault("input_categories", ""));
 
-        if (role == SkillRole.Gate && output == SkillOutputType.List)
+        if (role == OrchestrationRole.Gate && output == SkillOutputType.List)
             ValidateGateListInputCategories(inputCategories);
 
         return new SkillOrchestration(
