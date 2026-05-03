@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0111a
+goal: "Strict SkillLoader reads extended SKILL.md frontmatter (roles_supported, activation, role_assignment, references, output_contract). Builds _index/<category>.yaml. Lazy-resolves {{ref:}} placeholders. Validates against concept-vocabulary."
+
+requires: ["p0111b"]
+
+decisions:
+  - key: "Extend in place — RoleSkillDefinition (Contracts) gains new fields, existing consumers ignore them. No parallel SkillLoaderV2. Single source of truth for skill metadata, additive to Contracts. Existing TriageHandler / SkillRoundHandler keep working unchanged in p0111a; they migrate to the new fields in p0111c."
+  - key: "Strict from day one — SkillLoader rejects any SKILL.md in coding/ or security/ that lacks roles_supported, with a migration hint. Discussion-pipeline categories (legal/, mad/) are exempt: they keep loading via the legacy code path with default RolesSupported=[Analyst]. Strict-mode gate is per-category, not global."
+  - key: "_index/<category>.yaml is written into the skills directory itself (alongside skills/<category>/), gitignored. Operators with read-only skill mounts (e.g. container deployments) can override the location via SkillsConfig.IndexPath; if writes fail the loader logs a warning and falls back to in-memory aggregation per process. Index is convenience for triage prompt size, not a hard requirement."
+  - key: "{{ref:<id>}} placeholder resolution is lazy and on-demand via SkillBodyResolver — invoked at prompt-build time when a role is assigned, not at skill-load time. Keeps loading cheap and deterministic; reference content never inflates the in-memory skill registry."
+  - key: "Body section extraction by H2 header — the parser splits the body on '## as_lead', '## as_analyst', '## as_reviewer', '## as_filter' headers into a dictionary keyed by SkillRole. Sections are stored verbatim (no template processing). Skills without per-role sections fall back to the whole body for any assigned role (used by legacy skills in legal/, mad/)."
+  - key: "ConceptVocabularyValidator warns (does not fail) when an activation positive references an unknown concept. Vocabulary is operator-extensible — strict failure would block legitimate operator additions during the same session as the skill update. Warning preserves visibility without blocking."
+  - key: "SkillIndexBuilder runs on SkillLoader startup. No file watcher in p0111a — re-loading skills requires a process restart. Watch-mode is a follow-up if it proves needed; keeping the lifecycle simple for now."
+  - key: "RoleSkillDefinition stays a class (not a record) for backward compat — it is mutated post-construction by SkillMdParser today. New fields added as nullable properties. Switch to record + immutability is a follow-up refactor, not gated on p0111a."
+
+steps:
+  - id: contracts
+    action: "Add new types to Contracts/Models/Skills/ and extend RoleSkillDefinition"
+    new:
+      - "src/AgentSmith.Contracts/Models/Skills/SkillRole.cs: enum { Lead, Analyst, Reviewer, Filter }"
+      - "src/AgentSmith.Contracts/Models/Skills/PipelinePhase.cs: enum { Plan, Review, Final }"
+      - "src/AgentSmith.Contracts/Models/Skills/OutputForm.cs: enum { List, Plan, Artifact }"
+      - "src/AgentSmith.Contracts/Models/Skills/ActivationKey.cs: record(string Key, string Desc)"
+      - "src/AgentSmith.Contracts/Models/Skills/ActivationCriteria.cs: record(IReadOnlyList<ActivationKey> Positive, IReadOnlyList<ActivationKey> Negative)"
+      - "src/AgentSmith.Contracts/Models/Skills/RoleAssignment.cs: record(SkillRole Role, ActivationCriteria Criteria)"
+      - "src/AgentSmith.Contracts/Models/Skills/OutputContract.cs: record(string SchemaRef, int MaxObservations, int MaxCharsPerField, IReadOnlyDictionary<SkillRole,OutputForm> OutputType)"
+      - "src/AgentSmith.Contracts/Models/Skills/SkillReference.cs: record(string Id, string Path)"
+      - "src/AgentSmith.Contracts/Models/Skills/ProjectConcept.cs: record(string Key, string Desc)"
+      - "src/AgentSmith.Contracts/Models/Skills/ConceptVocabulary.cs: record(IReadOnlyDictionary<string,ProjectConcept> Concepts) — flat lookup after section flattening"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/RoleSkillDefinition.cs: add nullable properties RolesSupported:IReadOnlyList<SkillRole>?, Activation:ActivationCriteria?, RoleAssignments:IReadOnlyList<RoleAssignment>?, References:IReadOnlyList<SkillReference>?, OutputContract:OutputContract?, RoleBodies:IReadOnlyDictionary<SkillRole,string>?"
+
+  - id: skill-md-parser
+    action: "Extend SkillMdParser to read new frontmatter fields and split body by H2 role headers"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdFrontmatter.cs: add RolesSupported, Activation, RoleAssignment, References, OutputContract fields (snake_case YAML maps to PascalCase via existing UnderscoredNamingConvention deserializer)"
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: parse new fields; map snake_case role keys to SkillRole enum; build RoleAssignments list; split body by H2 headers '## as_lead', '## as_analyst', '## as_reviewer', '## as_filter' into RoleBodies dictionary"
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillBodySplitter.cs: static helper, takes body string, returns IReadOnlyDictionary<SkillRole,string> by H2 header. Skills without per-role sections return single-entry map keyed by null/default with full body."
+
+  - id: skill-loader-strict
+    action: "Strict-mode validation for coding/ and security/ categories"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: when scanning a strict-mode category, reject SKILL.md files lacking roles_supported with a clear migration-hint error message. Discussion categories (legal/, mad/) keep current permissive behavior."
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: validate frontmatter — every key in role_assignment.<role>.positive/negative exists in activation.positive ∪ activation.negative; references[].id is unique within the skill. Validation failure logs error + skips skill (does not crash boot)."
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/StrictModeCategories.cs: static readonly set { 'coding', 'security' }. Extracted so the list is easy to extend or override via config later."
+
+  - id: concept-vocabulary
+    action: "Load and validate concept-vocabulary.yaml at SkillLoader startup"
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs: reads skills/concept-vocabulary.yaml from skillsDirectory. Parses three sections (project_concepts, change_signals, run_context) into a flat lookup. Rejects duplicate keys across sections (validator-detected error)."
+      - "src/AgentSmith.Application/Skills/ConceptVocabularyValidator.cs: cross-checks each loaded skill's activation.positive keys against the vocabulary lookup. Logs warning per unknown key (skill name + key + section guess); never fails the load."
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: on LoadRoleDefinitions, call ConceptVocabularyLoader once, then ConceptVocabularyValidator over loaded skills. Vocabulary is exposed via a new property on YamlSkillLoader for downstream consumers."
+
+  - id: skill-index-builder
+    action: "Aggregate skill frontmatter into _index/<category>.yaml at startup"
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillIndexBuilder.cs: takes skillsDirectory + loaded skills grouped by category. Writes _index/<category>.yaml containing compact projections of each skill's frontmatter (name, description, roles_supported, activation, role_assignment, output_type). Handles read-only filesystem by logging a warning and continuing — index is best-effort cache."
+      - "src/AgentSmith.Contracts/Models/Skills/SkillIndexEntry.cs: record(string Name, string Description, IReadOnlyList<SkillRole> RolesSupported, ActivationCriteria Activation, IReadOnlyList<RoleAssignment> RoleAssignments, IReadOnlyDictionary<SkillRole,OutputForm> OutputType)"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: after LoadRoleDefinitions completes, invoke SkillIndexBuilder per category. Failures are warnings, never errors."
+
+  - id: skill-body-resolver
+    action: "Lazy resolution of role-specific body and {{ref:<id>}} placeholders"
+    new:
+      - "src/AgentSmith.Application/Skills/ISkillBodyResolver.cs: string ResolveBody(RoleSkillDefinition skill, SkillRole role) — returns the role-specific body section with {{ref:<id>}} placeholders inlined"
+      - "src/AgentSmith.Application/Skills/SkillBodyResolver.cs: implementation. Looks up skill.RoleBodies[role] (falls back to full Rules string if missing). Replaces {{ref:<id>}} tokens by reading the file at skill.References.First(r => r.Id == id).Path, resolved relative to the skill's directory. Cached per (skill, role) tuple for the process lifetime to avoid repeated file reads."
+
+  - id: tests
+    action: "Unit tests for new parser logic, strict-mode validation, vocabulary validator, index builder"
+    new:
+      - "tests/AgentSmith.Tests/Infrastructure/SkillMdParserExtendedTests.cs: parses new frontmatter; rejects on missing roles_supported (strict cat); accepts on missing roles_supported (legal/, mad/); body split into per-role sections; references parsed; output_contract.output_type parsed"
+      - "tests/AgentSmith.Tests/Infrastructure/ConceptVocabularyLoaderTests.cs: loads three-section yaml; rejects duplicate keys across sections; flat-namespace lookup"
+      - "tests/AgentSmith.Tests/Infrastructure/SkillIndexBuilderTests.cs: writes _index/coding.yaml; round-trip; read-only filesystem warning path"
+      - "tests/AgentSmith.Tests/Application/SkillBodyResolverTests.cs: returns role section; resolves {{ref:<id>}}; falls back to full Rules when no per-role section; caches"
+      - "tests/AgentSmith.Tests/Application/ConceptVocabularyValidatorTests.cs: warns on unknown activation positive; does not fail load"
+      - "tests/AgentSmith.Tests/Infrastructure/YamlSkillLoaderStrictModeTests.cs: rejects coding/missing-roles-supported skill with migration hint; accepts legal/legacy skill"
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual: load agent-smith-skills repo, verify _index/coding.yaml + _index/security.yaml are produced; verify all 17 migrated skills load; verify legal/ + mad/ unchanged"
+
+tests:
+  - "SkillMdParser_RolesSupportedFrontmatter_ParsesAllRoles"
+  - "SkillMdParser_BodySplitByH2Header_ProducesRoleBodyMap"
+  - "SkillMdParser_OutputTypePerRole_ParsesIntoDictionary"
+  - "SkillMdParser_References_ParsedWithIdAndPath"
+  - "YamlSkillLoader_CodingSkillMissingRolesSupported_RejectsWithMigrationHint"
+  - "YamlSkillLoader_SecuritySkillMissingRolesSupported_RejectsWithMigrationHint"
+  - "YamlSkillLoader_LegalSkillMissingRolesSupported_LoadsWithDefaultAnalystRole"
+  - "YamlSkillLoader_RoleAssignmentReferencesUnknownActivationKey_RejectsValidation"
+  - "YamlSkillLoader_DuplicateReferenceId_RejectsValidation"
+  - "ConceptVocabularyLoader_LoadsThreeSections_FlattensIntoNamespace"
+  - "ConceptVocabularyLoader_DuplicateKeyAcrossSections_ThrowsValidation"
+  - "ConceptVocabularyValidator_UnknownActivationPositiveKey_LogsWarning"
+  - "ConceptVocabularyValidator_UnknownKey_DoesNotFailLoad"
+  - "SkillIndexBuilder_WritesPerCategoryYaml_RoundTripsThroughLoader"
+  - "SkillIndexBuilder_ReadOnlySkillsDirectory_LogsWarningContinues"
+  - "SkillBodyResolver_RoleAssigned_ReturnsMatchingBodySection"
+  - "SkillBodyResolver_RefPlaceholder_ResolvesAgainstReferenceFile"
+  - "SkillBodyResolver_NoPerRoleSection_FallsBackToFullBody"
+  - "SkillBodyResolver_RepeatedCalls_CachesResult"
+
+done:
+  - "Contracts: SkillRole, PipelinePhase, OutputForm, ActivationKey, ActivationCriteria, RoleAssignment, OutputContract, SkillReference, ProjectConcept, ConceptVocabulary, SkillIndexEntry shipped"
+  - "RoleSkillDefinition extended with new nullable fields; existing consumers unchanged"
+  - "SkillMdParser parses new frontmatter; body split by ## as_<role> headers"
+  - "YamlSkillLoader strict-rejects coding/ and security/ skills missing roles_supported"
+  - "Discussion-pipeline categories (legal/, mad/) keep loading via legacy code path with default RolesSupported=[Analyst]"
+  - "ConceptVocabularyLoader loads three-section yaml from skills/concept-vocabulary.yaml; duplicate keys across sections are an error"
+  - "ConceptVocabularyValidator warns on unknown activation positive; never fails the load"
+  - "SkillIndexBuilder writes _index/<category>.yaml; read-only filesystem produces a warning, not a crash"
+  - "SkillBodyResolver lazy-resolves role body section + {{ref:<id>}} placeholders at prompt-build time, caches per (skill,role)"
+  - "All shipped agent-smith-skills load successfully; legal/ and mad/ unaffected"
+  - "dotnet build zero warnings, dotnet test green"

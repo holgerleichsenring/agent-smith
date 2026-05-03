@@ -50,7 +50,7 @@ public sealed class SkillOrchestrationParserTests
         var result = SkillOrchestrationParser.Parse(content);
 
         result.Should().NotBeNull();
-        result!.Role.Should().Be(SkillRole.Gate);
+        result!.Role.Should().Be(OrchestrationRole.Gate);
         result.InputCategories.Should().ContainSingle().Which.Should().Be("*");
     }
 
@@ -115,7 +115,7 @@ public sealed class SkillOrchestrationParserTests
         var result = SkillOrchestrationParser.Parse(content);
 
         result.Should().NotBeNull();
-        result!.Role.Should().Be(SkillRole.Contributor);
+        result!.Role.Should().Be(OrchestrationRole.Contributor);
         result.InputCategories.Should().BeEmpty();
     }
 
