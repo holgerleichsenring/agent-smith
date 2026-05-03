@@ -553,6 +553,9 @@ projects:
   #       bug: fix-bug
   #     default_pipeline: fix-bug
   #     comment_keyword: "@agent-smith"
+skills:
+  source: default                      # default | path | url
+  version: v1.0.0                      # required when source: default
 
 secrets:
   azure_devops_token: ${AZURE_DEVOPS_TOKEN}
