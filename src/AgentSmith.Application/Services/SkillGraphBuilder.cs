@@ -37,7 +37,7 @@ public sealed class SkillGraphBuilder : ISkillGraphBuilder
 
             foreach (var dep in entry.Orch.RunsAfter)
             {
-                if (Enum.TryParse<SkillRole>(dep, ignoreCase: true, out var role))
+                if (Enum.TryParse<OrchestrationRole>(dep, ignoreCase: true, out var role))
                 {
                     // Role reference → expand to all skills with that role
                     if (skillsByRole.TryGetValue(role, out var roleSkills))
@@ -65,7 +65,7 @@ public sealed class SkillGraphBuilder : ISkillGraphBuilder
             {
                 IEnumerable<string> targets;
 
-                if (Enum.TryParse<SkillRole>(dep, ignoreCase: true, out var role))
+                if (Enum.TryParse<OrchestrationRole>(dep, ignoreCase: true, out var role))
                 {
                     targets = skillsByRole.TryGetValue(role, out var roleSkills)
                         ? roleSkills.Where(s => s != entry.Name)
@@ -167,9 +167,9 @@ public sealed class SkillGraphBuilder : ISkillGraphBuilder
 
         foreach (var group in byRole)
         {
-            var isGate = group.Key == SkillRole.Gate;
-            var isLead = group.Key == SkillRole.Lead;
-            var isExecutor = group.Key == SkillRole.Executor;
+            var isGate = group.Key == OrchestrationRole.Gate;
+            var isLead = group.Key == OrchestrationRole.Lead;
+            var isExecutor = group.Key == OrchestrationRole.Executor;
             yield return new ExecutionStage(group.ToList(), isGate, isLead, isExecutor);
         }
     }
@@ -177,12 +177,12 @@ public sealed class SkillGraphBuilder : ISkillGraphBuilder
     /// <summary>
     /// Execution priority: Lead first, then Contributors, then Gates, then Executors.
     /// </summary>
-    private static int RolePriority(SkillRole role) => role switch
+    private static int RolePriority(OrchestrationRole role) => role switch
     {
-        SkillRole.Lead => 0,
-        SkillRole.Contributor => 1,
-        SkillRole.Gate => 2,
-        SkillRole.Executor => 3,
+        OrchestrationRole.Lead => 0,
+        OrchestrationRole.Contributor => 1,
+        OrchestrationRole.Gate => 2,
+        OrchestrationRole.Executor => 3,
         _ => 4,
     };
 }

@@ -29,7 +29,7 @@ public sealed class GateRetryCoordinatorTests
     };
 
     private static SkillOrchestration CreateOrchestration() => new(
-        SkillRole.Gate,
+        OrchestrationRole.Gate,
         SkillOutputType.List,
         Array.Empty<string>(),
         Array.Empty<string>(),
