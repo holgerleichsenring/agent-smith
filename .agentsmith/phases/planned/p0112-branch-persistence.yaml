@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0112
+goal: "Persist work-in-progress branches across pipeline runs. When a run fails after producing local changes, push the branch and re-checkout it on the next run for the same ticket — preserve tokens already spent and code already written."
+
+requires: []
+
+decisions:
+  - key: "Push the work branch on every run that produced commits, regardless of pipeline outcome. Today CommitAndPRHandler is a late pipeline step — if the run fails before it (e.g. TestCommand fails, AgenticExecute crashes), all local work is in /tmp inside the Server (or job) container and disappears with it. Push-on-failure makes the branch a durable artifact tied to the ticket, not the run."
+  - key: "Branch identity is `agent-smith/<platform>/<project>/<ticketId>` (or the existing fix/<ticketId> convention from CheckoutSourceHandler — confirm with operator). One branch per ticket, regardless of run count. Subsequent runs for the same ticket fast-forward to the existing remote branch instead of branching off main again. Avoids force-push by design."
+  - key: "PR may or may not exist when the work branch is pushed. If a PR already exists, the push extends it. If not, the next successful run (or a manual operator trigger) creates the PR. Decoupling branch push from PR creation is the key insight — losing tokens because a PR was never opened is the wrong trade-off."
+  - key: "Resume strategy: CheckoutSourceHandler first checks remote for an existing `agent-smith/.../<ticketId>` branch. If present, fetch + checkout. Else create fresh from main. Triage / Plan / AgenticExecute see whatever state the previous run left — if the lead's plan is already on disk via PlanArtifact-in-context (p0111c), the next run can short-circuit; if not, they re-run but with the prior code-state intact."
+  - key: "Push failures are non-fatal warnings, not pipeline failures. Auth errors, network blips, divergent remote — log loud, leave local changes in place if /tmp persists, but don't mask the original pipeline failure cause. The pipeline already failed; can't make it worse."
+  - key: "No force-push, ever. If the remote branch has commits the local doesn't (rare — e.g. a developer pushed manually to the same branch), abort the persistence step with a clear message and leave the local state for inspection. Operators can resolve manually."
+
+steps:
+  - id: branch-naming-contract
+    action: "Lock down branch naming so resume + push find the same ref"
+    new:
+      - "src/AgentSmith.Contracts/Services/ITicketBranchNamer.cs: { string Compose(string platform, string projectName, TicketId ticketId) }"
+      - "src/AgentSmith.Application/Services/TicketBranchNamer.cs: implementation. Pattern: agent-smith/<platform>/<projectSlug>/<ticketId>. Slugifies project name, validates ticketId."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: replace inline `fix/<ticketId>` with namer.Compose(...). Default branch name still computable from the ticket alone — no surprise migration for projects already using fix/<id>."
+
+  - id: resume-existing-branch
+    action: "On checkout, check remote for an existing work branch and resume from it"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/{GitHub,AzureRepos,GitLab,Local}SourceProvider.cs: extend CheckoutBranchAsync to first try fetch + checkout of an existing remote branch matching the namer's pattern. If absent, fall back to current behavior (branch off main + create new)."
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: log `resumed from existing branch <name> (N commits ahead of main)` vs. `created fresh branch <name>` so operators see which path ran."
+
+  - id: persist-on-failure
+    action: "Push the work branch even when the pipeline fails after local modifications"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: ICommandHandler<PersistWorkBranchContext>. Reads the repo from PipelineContext, checks `git status` via LibGit2Sharp for staged + unstaged changes, commits with a 'work-in-progress' message + ticketId trailer, pushes the branch. Non-fatal: catches GitException + AuthException, logs warning, returns Ok with the failure message embedded so the surrounding result still surfaces it."
+      - "src/AgentSmith.Application/Models/PersistWorkBranchContext.cs: record(Repository Repository, TicketId TicketId, AgentConfig AgentConfig, PipelineContext Pipeline) : ICommandContext"
+      - "src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs: IContextBuilder, registered for new CommandNames.PersistWorkBranch"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: on pipeline failure, before lifecycle.MarkFailed(), insert + execute a PersistWorkBranch command if the pipeline has a Repository in context AND repo has uncommitted/unpushed changes. The persistence call is best-effort and logs its own outcome."
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: add PersistWorkBranch = \"PersistWorkBranchCommand\"."
+
+  - id: pr-aware-push
+    action: "If a PR for this branch is already open, push extends it; if not, leave PR creation to the next successful run"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: after push, call ITicketProvider/IPullRequestProvider (whichever surfaces in context) to check if PR exists for this branch. If yes, log 'extended existing PR #<n>'. If no, log 'branch pushed; PR will be created by the next successful run'. No PR creation here — that stays in CommitAndPRHandler so the same logic gates both happy + recovery paths."
+
+  - id: avoid-force-push
+    action: "Detect divergent remote and abort persistence rather than overwrite"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: before push, fetch remote ref. If remote has commits not present locally (operator pushed manually, or another run finished first), log error with both SHAs, skip push, leave local state untouched. Subsequent runs hit the same divergence — operator must reconcile."
+
+  - id: tests
+    new:
+      - "PersistWorkBranchHandler_RepoHasUncommittedChanges_CommitsAndPushes"
+      - "PersistWorkBranchHandler_RepoClean_NoOp"
+      - "PersistWorkBranchHandler_PushAuthFails_LogsWarningContinues"
+      - "PersistWorkBranchHandler_RemoteDivergent_AbortsWithoutForce"
+      - "CheckoutSourceHandler_ExistingRemoteBranch_ResumesFromIt"
+      - "CheckoutSourceHandler_NoRemoteBranch_FallsBackToFreshBranch"
+      - "PipelineExecutor_FailureWithLocalChanges_InsertsPersistWorkBranch"
+      - "PipelineExecutor_FailureWithCleanRepo_SkipsPersistWorkBranch"
+      - "TicketBranchNamer_ConsistentAcrossPlatforms_StableForSameTicket"
+
+  - id: docs
+    new:
+      - "docs/concepts/branch-persistence.md: explain the work-branch model, when push fires, how resume works, what operators see in logs, recovery for divergent-remote case"
+    modify:
+      - "docs/concepts/ticket-lifecycle.md: add section linking to branch-persistence; clarify that a failed run leaves the branch on the remote, not just /tmp."
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual: trigger a run that fails mid-AgenticExecute (e.g. point AOAI to a deployment with no quota), confirm branch lands on remote with WIP commit, re-trigger the same ticket, confirm checkout resumes from that branch"
+
+done:
+  - "TicketBranchNamer produces stable branch names: agent-smith/<platform>/<project>/<ticketId>"
+  - "CheckoutSourceHandler resumes from existing remote branch when present, falls back to fresh branch otherwise"
+  - "PersistWorkBranchHandler commits + pushes uncommitted changes when pipeline fails after local modifications"
+  - "PipelineExecutor inserts PersistWorkBranch on failure, before lifecycle.MarkFailed"
+  - "Push extends existing PR if one is open; defers PR creation to next successful run otherwise"
+  - "Divergent remote (operator pushed manually) aborts persistence cleanly — no force push"
+  - "Push auth failures are warnings, not pipeline failures — original error reason preserved in run result"
+  - "docs/concepts/branch-persistence.md + ticket-lifecycle.md updated"
+  - "9 new tests covering namer, resume, persist, divergence, executor integration"
+  - "dotnet build zero warnings, dotnet test green"
+  - "manual: failure-then-retry on same ticket reuses the WIP branch instead of starting fresh"
