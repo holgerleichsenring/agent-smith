@@ -283,7 +283,7 @@ tool_runner:
 # based on this section. See docs/skills/source-modes.md.
 skills:
   source: default                         # default | path | url
-  version: v1.0.0                         # required when source: default
+  version: v1.1.0                         # required when source: default
   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then $HOME/.cache/agentsmith/skills,
   # then {tmp}/agentsmith/skills — set explicitly only for system-managed paths (e.g. K8s mount).
   # cache_dir: /var/lib/agentsmith/skills
