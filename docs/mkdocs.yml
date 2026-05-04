@@ -93,10 +93,13 @@ nav:
     - concepts/index.md
     - Pipeline System: concepts/pipeline-system.md
     - Ticket Lifecycle: concepts/ticket-lifecycle.md
+    - Branch Persistence: concepts/branch-persistence.md
+    - Spawned Jobs: concepts/spawned-jobs.md
     - Phases & Runs: concepts/phases-and-runs.md
     - Self-Documentation: concepts/self-documentation.md
     - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
     - Triage: concepts/triage.md
+    - Context Compaction: concepts/context-compaction.md
     - Multi-Skill Architecture: concepts/multi-skill.md
     - Decision Logging: concepts/decisions.md
     - Cost Tracking: concepts/cost-tracking.md
