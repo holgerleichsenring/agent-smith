@@ -1,7 +1,8 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// Git branch name, with factory method for ticket-based naming.
+/// Git branch name. For ticket-based naming, use
+/// <c>AgentSmith.Application.Services.TicketBranchNamer.Compose</c>.
 /// </summary>
 public sealed record BranchName
 {
@@ -11,11 +12,6 @@ public sealed record BranchName
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         Value = value;
-    }
-
-    public static BranchName FromTicket(TicketId ticketId, string prefix = "fix")
-    {
-        return new BranchName($"{prefix}/{ticketId.Value}");
     }
 
     public override string ToString() => Value;
