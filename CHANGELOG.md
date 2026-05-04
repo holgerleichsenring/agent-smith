@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.36.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.35.0...v0.36.0) (2026-05-04)
+
+
+### Features
+
+* **pipeline:** per-run correlation id + cost reporting on completion ([5924ae8](https://github.com/holgerleichsenring/agent-smith/commit/5924ae8b99b09211765e51da261434564b945317))
+
+
+### Bug Fixes
+
+* **analyzer:** tolerate trailing commas + line comments in model JSON ([65a8cfc](https://github.com/holgerleichsenring/agent-smith/commit/65a8cfc449f87b215dbf34474e724c16530a1df6))
+* pipeline observability — correlation id, cost on failure, fail-fast on empty skill catalog ([8a4cb4b](https://github.com/holgerleichsenring/agent-smith/commit/8a4cb4b0a449f1ad21f026354dafb1f4ebedb7ea))
+* **triage:** StructuredTriageStrategy fails fast when no skills loaded ([1b04921](https://github.com/holgerleichsenring/agent-smith/commit/1b04921cb3e4d313d9eb91e30c1263c2b8e374f5))
+
 ## [0.35.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.34.1...v0.35.0) (2026-05-04)
 
 
