@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Services;
@@ -16,14 +17,18 @@ public interface ISkillPromptBuilder
         string? codeMap,
         IReadOnlyList<DiscussionEntry> discussionLog,
         int round,
-        string? existingTests = null);
+        string? existingTests = null,
+        SkillRole? assignedRole = null,
+        PlanArtifact? planArtifact = null);
 
     (string SystemPrompt, string UserPrompt) BuildStructuredPrompt(
         RoleSkillDefinition role,
         string domainSection,
         string upstreamContext,
         string outputInstruction,
-        string? existingTests = null);
+        string? existingTests = null,
+        SkillRole? assignedRole = null,
+        PlanArtifact? planArtifact = null);
 
     /// <summary>
     /// Cache-aware variant. Returns (system, userPrefix, userSuffix) so the prefix
@@ -38,7 +43,9 @@ public interface ISkillPromptBuilder
         string? codeMap,
         IReadOnlyList<DiscussionEntry> discussionLog,
         int round,
-        string? existingTests = null);
+        string? existingTests = null,
+        SkillRole? assignedRole = null,
+        PlanArtifact? planArtifact = null);
 
     (string SystemPrompt, string UserPrefix, string UserSuffix) BuildStructuredPromptParts(
         RoleSkillDefinition role,
@@ -46,5 +53,7 @@ public interface ISkillPromptBuilder
         string domainVariable,
         string upstreamContext,
         string outputInstruction,
-        string? existingTests = null);
+        string? existingTests = null,
+        SkillRole? assignedRole = null,
+        PlanArtifact? planArtifact = null);
 }
