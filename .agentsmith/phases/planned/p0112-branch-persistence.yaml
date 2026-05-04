@@ -1,0 +1,136 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0112
+goal: "Persist work-in-progress branches across pipeline runs. When a run fails after producing local changes, push the branch and re-checkout it on the next run for the same ticket — preserve tokens already spent and code already written."
+
+requires: []
+
+decisions:
+  - key: "Push the work branch on every run that produced commits, regardless of pipeline outcome. Today CommitAndPRHandler is a late pipeline step — if the run fails before it (e.g. TestCommand fails, AgenticExecute crashes), all local work is in /tmp inside the Server (or job) container and disappears with it. Push-on-failure makes the branch a durable artifact tied to the ticket, not the run."
+
+  - key: "Branch identity is `agent-smith/<platform>/<projectSlug>/<ticketId>`. One branch per ticket, regardless of run count. Subsequent runs for the same ticket fast-forward to the existing remote branch instead of branching off main again. Avoids force-push by design."
+
+  - key: "Branch-naming cutover: this phase moves from the legacy `fix/<ticketId>` convention to `agent-smith/<platform>/<projectSlug>/<ticketId>`. Operator confirms no in-flight work uses the legacy prefix at AAD-DEV — declared a hard cutover, not a fallback-search migration. Documented as a known break for any other deployment that may need a one-time `fix/<id>` → `agent-smith/.../<id>` migration script before adopting this phase."
+
+  - key: "PR may or may not exist when the work branch is pushed. If a PR already exists, the push extends it. If not, the next successful run (or a manual operator trigger) creates the PR. Decoupling branch push from PR creation is the key insight — losing tokens because a PR was never opened is the wrong trade-off."
+
+  - key: "Resume strategy: CheckoutSourceHandler first checks remote for an existing `agent-smith/<platform>/<projectSlug>/<ticketId>` branch. If present, fetch + checkout. Else create fresh from main. Triage / Plan / AgenticExecute see whatever state the previous run left — if the lead's plan is already on disk via PlanArtifact-in-context (p0111c), the next run can short-circuit; if not, they re-run but with the prior code-state intact."
+
+  - key: "Push failures are non-fatal warnings, not pipeline failures. Pipeline already failed — can't make it worse. BUT: distinguish transient (network blip, single 5xx) from persistent (auth misconfigured, branch protection blocked, divergent remote that won't ever resolve). Counter on (project, ticket): each push attempt that fails for non-transient reasons increments. After ConsecutiveFailureThreshold=3, the next failure escalates to error-level log + a structured 'persist-blocked' marker on the ticket lifecycle (visible to operators) so the system doesn't silently swallow recurring auth/permission issues."
+
+  - key: "WIP commits are clearly marked. Subject prefix `[wip] agent-smith run <runId>` — any reviewer seeing the commit on a PR knows it's not human-authored, knows it's mid-pipeline, and knows the runId for log correlation. Trailer block with `Run-Id: <runId>`, `Pipeline: <name>`, `Failed-Step: <stepName>` so future tooling can parse it. Where the provider supports it (GitHub, GitLab MR), the persist also flips the PR/MR to Draft state so it's not accidentally reviewed before a clean run lands. Azure DevOps: PR has no native Draft equivalent — log INFO that the PR remains in its current state."
+
+  - key: "PersistWorkBranchHandler returns CommandResult.Fail with a typed FailureKind on every error path — handler does not log-and-return-Ok to hide its own failures. PipelineExecutor decides what the failure means for the run-level result: when PersistWorkBranch fails inside the failure-recovery wrapper, it logs the persist failure but does not overwrite the original pipeline failure cause that's already in `result`. This makes the handler honest (Result-pattern consistent) and the executor explicit about override semantics."
+
+  - key: "PipelineExecutor wraps the persist invocation in its OWN try/catch — separate from the pipeline's normal command-loop catch. Reason: PersistWorkBranchHandler runs in the failure path AFTER the original failure is already captured in `result`. If the handler throws (unhandled GitException, OutOfMemory mid-LibGit2 call, anything), the original failure cause must not be replaced by the persist exception. The wrapper logs the persist exception loud and continues with the original `result` intact for lifecycle.MarkFailed()."
+
+  - key: "Git layer consistency: this phase commits to LibGit2Sharp for PersistWorkBranchHandler because the existing GitHub/AzureRepos/GitLab/Local SourceProviders already use LibGit2Sharp (StageAllChanges + Repository + push via UsernamePasswordCredentials). Mixing in shell-out git would diverge the codebase — confirmed from p0001 onward that LibGit2Sharp is the project-wide choice. PersistWorkBranchHandler reuses the existing IGitOperations/SourceProvider seam where possible (e.g. AzureGitOperations.StageAllChanges) rather than duplicating LibGit2Sharp wiring."
+
+  - key: "Slugify is operator-controlled but spec'd: lowercase ASCII, replace whitespace + non-ASCII with `-`, collapse runs of `-`, strip leading/trailing `-`, max 64 chars. Empty result throws ConfigurationException at namer call time (not silent fallback). Total branch length capped at 200 chars (Azure Repos limit is 200 bytes for refs); ticketId truncation forbidden — if the slug + prefix already exceeds, projectSlug is shortened first via SHA-1 prefix appended to a 32-char slice. Docs/configuration/branch-naming.md table covers the rules per provider with examples."
+
+  - key: "Out-of-scope: container kills (OOM, eviction, SIGKILL, kernel panic). Persist runs only when the pipeline cleanly handed control to PipelineExecutor's failure path. A process crash dies before the handler runs — the local repo state in /tmp dies with the container. Documented as a known gap; mitigation belongs to a follow-up phase (e.g. periodic checkpoint-push during AgenticExecute, or a sidecar/watchdog reading the running container's repo and pushing on the parent's behalf). Not deferred-by-omission — explicit gap in done."
+
+  - key: "Test reproducibility: manual verify needs a deterministic failure injection point. New env var `AGENTSMITH_TEST_FAIL_AFTER=<stepName>` (recognized only when ASPNETCORE_ENVIRONMENT=Development OR a test-only feature flag is set) makes PipelineExecutor fail synthetically after the named step completes. Lets CI exercise the persist path without depending on actual quota exhaustion, network outages, or other environmental flakes. Production builds gate this off — the env-var check only runs when the gate is active."
+
+steps:
+  - id: branch-naming-contract
+    action: "Lock down branch naming so resume + push find the same ref"
+    new:
+      - "src/AgentSmith.Contracts/Services/ITicketBranchNamer.cs: { string Compose(string platform, string projectName, TicketId ticketId) }"
+      - "src/AgentSmith.Application/Services/TicketBranchNamer.cs: implementation. Pattern: agent-smith/<platform>/<projectSlug>/<ticketId>. Applies the slugify rules from the decisions block: lowercase ASCII, non-ASCII → `-`, collapsed `-`, stripped edges, 64-char cap on the slug, 200-char cap total. Empty projectName after slugify throws ConfigurationException. Long projectName: first slugify, take first 32 chars, append `-<sha1[..7]>` so collisions stay distinct."
+      - "tests/AgentSmith.Tests/Services/TicketBranchNamerTests.cs: explicit cases for unicode, punctuation, leading/trailing whitespace, empty, max-length-overflow with truncation."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: replace inline `fix/<ticketId>` with namer.Compose(...). The legacy `fix/<id>` convention is RETIRED — see decisions for cutover rationale."
+
+  - id: resume-existing-branch
+    action: "On checkout, check remote for an existing work branch and resume from it"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/{GitHub,AzureRepos,GitLab,Local}SourceProvider.cs: extend CheckoutBranchAsync to first try fetch + checkout of the new namer's pattern. If absent, fall back to current behavior (branch off main + create new). NOTE: legacy `fix/<id>` branches are NOT searched — see decisions cutover rationale."
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: log `resumed from existing branch <name> (N commits ahead of main, last commit by <author> at <isoDate>)` vs. `created fresh branch <name>` so operators see which path ran AND who wrote the prior state (helps diagnose divergent-remote cases later)."
+
+  - id: persist-on-failure
+    action: "Push the work branch even when the pipeline fails after local modifications — Result-pattern, executor decides override semantics"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: ICommandHandler<PersistWorkBranchContext>. Reads the repo from PipelineContext, checks LibGit2Sharp Repository.RetrieveStatus() for staged + unstaged changes, commits with the `[wip] agent-smith run <runId>` subject + trailer block (Run-Id, Pipeline, Failed-Step), pushes the branch. Returns CommandResult.Fail with FailureKind ∈ {NoChanges, AuthDenied, RemoteDivergent, NetworkBlip, Unknown} on every error path. Never returns Ok to hide a failure."
+      - "src/AgentSmith.Application/Models/PersistWorkBranchContext.cs: record(Repository Repository, TicketId TicketId, string RunId, string PipelineName, string FailedStep, AgentConfig AgentConfig, PipelineContext Pipeline) : ICommandContext"
+      - "src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs: IContextBuilder, registered for new CommandNames.PersistWorkBranch. Reads RunId / PipelineName / FailedStep from PipelineContext."
+      - "src/AgentSmith.Contracts/Commands/PersistFailureKind.cs: enum { NoChanges, AuthDenied, RemoteDivergent, NetworkBlip, Unknown }."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: on pipeline failure, BEFORE lifecycle.MarkFailed(), call a new private TryPersistWorkBranchAsync wrapper. The wrapper has its OWN try/catch — any exception inside the persist handler (including unhandled LibGit2 exceptions) is logged and swallowed. Original `result` (the pipeline failure cause) is preserved untouched. If persist returns CommandResult.Fail with a known FailureKind, executor logs at appropriate level (Warn for NetworkBlip, Error for AuthDenied/RemoteDivergent after threshold)."
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: add PersistWorkBranch = \"PersistWorkBranchCommand\"."
+
+  - id: pr-aware-push
+    action: "If a PR for this branch is already open, push extends it AND flips it to Draft (where supported); if not, leave PR creation to the next successful run"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: after push, call IPullRequestProvider (resolved from project's source provider) to check if PR exists for this branch. If yes: log 'extended existing PR #<n> with WIP commit' AND attempt to flip it to Draft state. GitHub: REST `convertPullRequestToDraft` mutation. GitLab: PUT MR with `wip: true`. Azure DevOps: NO native draft state — log INFO 'PR #<n> remains in current state (Azure DevOps has no Draft API)'. If no PR: log 'branch pushed; PR will be created by the next successful run'."
+
+  - id: avoid-force-push
+    action: "Detect divergent remote and abort persistence rather than overwrite"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: before push, fetch remote ref. If remote has commits not present locally (operator pushed manually, or another run finished first), log error with both SHAs + the remote-side last commit author/timestamp, return CommandResult.Fail(FailureKind.RemoteDivergent), leave local state untouched. Subsequent runs hit the same divergence — operator must reconcile manually."
+
+  - id: persistent-failure-escalation
+    action: "Track consecutive non-transient failures per (project, ticket); escalate after threshold"
+    new:
+      - "src/AgentSmith.Application/Services/Lifecycle/PersistFailureCounter.cs: { void RecordSuccess(...), int RecordFailure(... FailureKind), bool IsEscalated(...) }. Backed by Redis key `agentsmith:persist-failures:<project>:<ticketId>` with 7-day TTL. Auto-resets on next successful persist. Counter increments only on AuthDenied + RemoteDivergent + Unknown — NetworkBlip does not count (transient by definition)."
+      - "src/AgentSmith.Contracts/Models/Lifecycle/PersistEscalation.cs: record(string Project, TicketId TicketId, FailureKind LastKind, int ConsecutiveFailures, DateTimeOffset FirstSeen) — emitted via ITicketLifecycleEventSink so the ticket gets a structured comment after threshold (provider-specific writeback). 'agent-smith persist blocked: 3 consecutive AuthDenied failures since 2026-05-04T...'."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: on success, RecordSuccess. On non-transient failure, RecordFailure; if returned count >= ConsecutiveFailureThreshold (default 3, configurable via QueueConfig.PersistFailureThreshold), elevates the log level to Error, emits the PersistEscalation event."
+
+  - id: test-fail-injection
+    action: "Make the manual verify reproducible — synthetic failure injection in PipelineExecutor"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: after each step's success result, check if the step's name matches `Environment.GetEnvironmentVariable(\"AGENTSMITH_TEST_FAIL_AFTER\")`. The check only fires when `Environment.GetEnvironmentVariable(\"ASPNETCORE_ENVIRONMENT\") == \"Development\"` OR the IFeatureFlags service exposes `EnablePipelineFailureInjection = true`. When matched, returns a synthetic CommandResult.Fail(\"injected failure after step '<name>' for testing\"). Production builds with the flag off see no behavior change."
+    new:
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorFailInjectionTests.cs: env-var causes synthetic fail after the named step; persistence handler runs in the resulting failure path; original synthetic-fail message is preserved in run result."
+
+  - id: tests
+    new:
+      - "PersistWorkBranchHandler_RepoHasUncommittedChanges_CommitsAndPushesWithWipPrefix"
+      - "PersistWorkBranchHandler_CommitMessage_IncludesRunIdPipelineFailedStepTrailers"
+      - "PersistWorkBranchHandler_RepoClean_NoOpReturnsOk"
+      - "PersistWorkBranchHandler_PushAuthFails_ReturnsFailWithAuthDeniedKind"
+      - "PersistWorkBranchHandler_NetworkBlip_ReturnsFailWithNetworkBlipKind"
+      - "PersistWorkBranchHandler_RemoteDivergent_AbortsWithoutForce_ReturnsFailWithDivergentKind"
+      - "PersistWorkBranchHandler_GitHubPRExists_FlipsToDraftAndExtends"
+      - "PersistWorkBranchHandler_AzureDevOpsPRExists_LeavesStateLogsInfo"
+      - "PersistFailureCounter_ThirdConsecutiveAuthDenied_EscalatesEmitsLifecycleEvent"
+      - "PersistFailureCounter_NetworkBlipsDoNotIncrementCounter"
+      - "PersistFailureCounter_SuccessAfterFailures_ResetsCounter"
+      - "CheckoutSourceHandler_ExistingRemoteBranch_ResumesFromIt"
+      - "CheckoutSourceHandler_NoRemoteBranch_FallsBackToFreshBranch"
+      - "PipelineExecutor_FailureWithLocalChanges_RunsPersistInOwnTryCatch_OriginalFailurePreserved"
+      - "PipelineExecutor_PersistHandlerThrows_OriginalFailureCausePreservedInResult"
+      - "PipelineExecutor_FailureWithCleanRepo_SkipsPersist"
+      - "TicketBranchNamer_UnicodeProjectName_SlugifiesToAscii"
+      - "TicketBranchNamer_TooLongProjectName_TruncatesAndAppendsSha1"
+      - "TicketBranchNamer_EmptyProjectName_ThrowsConfigurationException"
+      - "TicketBranchNamer_ConsistentAcrossPlatforms_StableForSameTicket"
+
+  - id: docs
+    new:
+      - "docs/concepts/branch-persistence.md: explain the work-branch model, when push fires, how resume works, what operators see in logs, recovery for divergent-remote case, the consecutive-failure escalation policy, the WIP commit format + Draft semantics per provider"
+      - "docs/configuration/branch-naming.md: slugify rules + provider-specific length limits + example tables; documents the cutover from `fix/<id>` and notes operators of OTHER deployments may need a one-time migration script."
+    modify:
+      - "docs/concepts/ticket-lifecycle.md: add section linking to branch-persistence; clarify that a failed run leaves the branch on the remote, not just /tmp; clarify the OOM/eviction gap."
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual verify via `AGENTSMITH_TEST_FAIL_AFTER=AgenticExecute` env-var (NOT a flaky AOAI quota dependency): trigger fix-bug, confirm pipeline fails synthetically, confirm `[wip] agent-smith run <id>` commit lands on remote with correct trailer block, confirm PR (if exists) flipped to Draft (GitHub/GitLab) or logs Azure-no-draft INFO. Re-trigger same ticket, confirm checkout resumes from that branch."
+
+done:
+  - "TicketBranchNamer produces stable branch names: agent-smith/<platform>/<projectSlug>/<ticketId> with explicit slugify + length rules"
+  - "Slugify rejects empty input with ConfigurationException; truncates oversized input via SHA-1-suffix; ASCII-only output"
+  - "CheckoutSourceHandler resumes from existing remote branch when present, falls back to fresh branch otherwise — log line discloses author + ISO timestamp of last remote commit"
+  - "PersistWorkBranchHandler returns CommandResult.Fail with typed FailureKind on every error path — never log-and-return-Ok to hide a failure"
+  - "PipelineExecutor wraps PersistWorkBranch in its own try/catch — original pipeline failure cause is preserved even if the persist handler throws"
+  - "PersistWorkBranch only runs when pipeline failed AND repo has local changes — clean repo skips silently"
+  - "WIP commit subject: `[wip] agent-smith run <runId>`. Trailer block: Run-Id, Pipeline, Failed-Step. Anyone reading the PR sees the bot signature immediately."
+  - "PR-Draft flip: GitHub + GitLab supported; Azure DevOps logs INFO (no native Draft API)"
+  - "Divergent remote (operator pushed manually) aborts persistence cleanly — no force push, returns FailureKind.RemoteDivergent"
+  - "PersistFailureCounter tracks consecutive non-transient failures per (project, ticket) in Redis; escalates after threshold (default 3) with structured PersistEscalation lifecycle event + ticket-comment writeback. NetworkBlip does NOT increment the counter."
+  - "AGENTSMITH_TEST_FAIL_AFTER env-var (Development-only or feature-flagged) makes manual + CI verification reproducible without depending on actual environment failures"
+  - "docs/concepts/branch-persistence.md + configuration/branch-naming.md + ticket-lifecycle.md updated"
+  - "Out-of-scope explicitly noted in docs + done: container kills (OOM/eviction/SIGKILL/kernel-panic) bypass the persist handler. Mitigation is a follow-up phase (e.g. periodic checkpoint-push during AgenticExecute, or a sidecar watcher)."
+  - "Branch-naming cutover from legacy `fix/<id>` documented; AAD-DEV deployment confirmed no in-flight migration needed; other deployments may need a one-time rename script."
+  - "20 new tests covering namer (unicode/oversize/empty), persist (all FailureKinds, Draft semantics), counter (threshold/transient/reset), executor (own try/catch, original-failure-preservation), fail-injection (env-var honored)"
+  - "dotnet build zero warnings, dotnet test green"
+  - "manual: failure-then-retry on same ticket reuses the WIP branch instead of starting fresh"
