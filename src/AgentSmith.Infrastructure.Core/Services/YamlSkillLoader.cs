@@ -18,6 +18,7 @@ public sealed class YamlSkillLoader(
     ConceptVocabularyLoader vocabularyLoader,
     ConceptVocabularyValidator vocabularyValidator,
     SkillIndexBuilder indexBuilder,
+    IProviderOverrideResolver overrideResolver,
     ILogger<YamlSkillLoader> logger) : ISkillLoader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -25,7 +26,7 @@ public sealed class YamlSkillLoader(
         .IgnoreUnmatchedProperties()
         .Build();
 
-    private readonly SkillMdParser _skillMdParser = new(logger);
+    private readonly SkillMdParser _skillMdParser = new(overrideResolver, logger);
 
     public SkillConfig? LoadProjectSkills(string agentSmithDirectory)
     {

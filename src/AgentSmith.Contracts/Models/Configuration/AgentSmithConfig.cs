@@ -19,4 +19,12 @@ public sealed class AgentSmithConfig
     /// based on this section. See <see cref="SkillsConfig"/>.
     /// </summary>
     public SkillsConfig Skills { get; set; } = new();
+
+    /// <summary>
+    /// Active provider for skill resolution (claude, openai, azure-openai, gemini, ollama).
+    /// When set, SKILL.&lt;provider&gt;.md files in skill directories are picked up as
+    /// overrides over the base SKILL.md. Null/empty disables provider overrides
+    /// (default — base SKILL.md always wins).
+    /// </summary>
+    public string? PrimaryProvider { get; set; }
 }
