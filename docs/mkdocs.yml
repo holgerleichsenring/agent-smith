@@ -96,6 +96,7 @@ nav:
     - Phases & Runs: concepts/phases-and-runs.md
     - Self-Documentation: concepts/self-documentation.md
     - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
+    - Triage: concepts/triage.md
     - Multi-Skill Architecture: concepts/multi-skill.md
     - Decision Logging: concepts/decisions.md
     - Cost Tracking: concepts/cost-tracking.md
@@ -105,6 +106,8 @@ nav:
     - configuration/index.md
     - agentsmith.yml Reference: configuration/agentsmith-yml.md
     - Skills Reference: configuration/skills.md
+    - SKILL.md Migration: configuration/skills/migration.md
+    - Concept Vocabulary: configuration/concept-vocabulary.md
     - Tool Configuration: configuration/tools.md
     - Webhooks: configuration/webhooks.md
     - Security Scan Config: configuration/security-scan.md

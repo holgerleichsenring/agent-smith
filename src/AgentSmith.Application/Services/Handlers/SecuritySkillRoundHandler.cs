@@ -86,7 +86,7 @@ public sealed class SecuritySkillRoundHandler(
         {
             var role = roles.FirstOrDefault(r =>
                 r.Name.Equals(activeSkill, StringComparison.OrdinalIgnoreCase));
-            return role?.Orchestration?.Role == SkillRole.Executor;
+            return role?.Orchestration?.Role == OrchestrationRole.Executor;
         }
 
         return "chain-analyst".Equals(activeSkill, StringComparison.OrdinalIgnoreCase);

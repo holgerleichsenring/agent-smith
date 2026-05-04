@@ -29,13 +29,11 @@ public static class CommandNames
     public const string AcquireSource = "AcquireSourceCommand";
     public const string BootstrapDocument = "BootstrapDocumentCommand";
     public const string DeliverOutput = "DeliverOutputCommand";
-    public const string SecurityTriage = "SecurityTriageCommand";
     public const string SecuritySkillRound = "SecuritySkillRoundCommand";
     public const string LoadSwagger = "LoadSwaggerCommand";
     public const string SpawnNuclei = "SpawnNucleiCommand";
     public const string SpawnSpectral = "SpawnSpectralCommand";
     public const string SpawnZap = "SpawnZapCommand";
-    public const string ApiSecurityTriage = "ApiSecurityTriageCommand";
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
     public const string CompileFindings = "CompileFindingsCommand";
     public const string LoadSkills = "LoadSkillsCommand";
@@ -63,6 +61,11 @@ public static class CommandNames
     public const string ApiCodeContext = "ApiCodeContextCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
     public const string CorrelateFindings = "CorrelateFindingsCommand";
+
+    // p0111c: phase-based triage
+    public const string FilterRound = "FilterRoundCommand";
+    public const string RunReviewPhase = "RunReviewPhaseCommand";
+    public const string RunFinalPhase = "RunFinalPhaseCommand";
 
     public static string GetLabel(string commandName)
     {
@@ -103,13 +106,11 @@ public static class CommandNames
         [AcquireSource] = "Acquiring source document",
         [BootstrapDocument] = "Bootstrapping document",
         [DeliverOutput] = "Delivering output",
-        [SecurityTriage] = "Triaging security scan",
         [SecuritySkillRound] = "Security skill round",
         [LoadSwagger] = "Loading swagger spec",
         [SpawnNuclei] = "Running Nuclei scan",
         [SpawnSpectral] = "Running Spectral lint",
         [SpawnZap] = "Running ZAP scan",
-        [ApiSecurityTriage] = "Triaging API security scan",
         [ApiSecuritySkillRound] = "API security skill round",
         [CompileFindings] = "Compiling findings",
         [LoadSkills] = "Loading skills",
@@ -137,5 +138,8 @@ public static class CommandNames
         [ApiCodeContext] = "Mapping API routes to source",
         [TryCheckoutSource] = "Resolving source",
         [CorrelateFindings] = "Correlating findings to handlers",
+        [FilterRound] = "Filter round",
+        [RunReviewPhase] = "Running review phase",
+        [RunFinalPhase] = "Running final phase",
     };
 }

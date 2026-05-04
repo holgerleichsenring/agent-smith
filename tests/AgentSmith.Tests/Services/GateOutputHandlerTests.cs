@@ -20,7 +20,7 @@ public sealed class GateOutputHandlerTests
     };
 
     private static SkillOrchestration CreateOrchestration(params string[] inputCategories) => new(
-        SkillRole.Gate,
+        OrchestrationRole.Gate,
         SkillOutputType.List,
         Array.Empty<string>(),
         Array.Empty<string>(),
@@ -189,7 +189,7 @@ public sealed class GateOutputHandlerTests
     {
         var pipeline = new PipelineContext();
         var orch = new SkillOrchestration(
-            SkillRole.Gate, SkillOutputType.Verdict,
+            OrchestrationRole.Gate, SkillOutputType.Verdict,
             Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(),
             Array.Empty<string>());
 
@@ -204,7 +204,7 @@ public sealed class GateOutputHandlerTests
     {
         var pipeline = new PipelineContext();
         var orch = new SkillOrchestration(
-            SkillRole.Gate, SkillOutputType.Verdict,
+            OrchestrationRole.Gate, SkillOutputType.Verdict,
             Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(),
             Array.Empty<string>());
 

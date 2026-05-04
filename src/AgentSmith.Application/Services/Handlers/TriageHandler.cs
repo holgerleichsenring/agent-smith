@@ -1,44 +1,32 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Triages based on ticket description to determine which specialist roles
-/// should participate in planning. Used by fix-bug, add-feature, MAD pipelines.
+/// Thin adapter for the TriageCommand. Picks the appropriate ITriageStrategy
+/// (legacy LLM discussion vs phase-based structured) based on the pipeline_type
+/// in context, then delegates. All triage logic lives in the strategies.
 /// </summary>
 public sealed class TriageHandler(
     ILlmClientFactory llmClientFactory,
-    IPromptCatalog prompts,
-    ILogger<TriageHandler> logger)
-    : TriageHandlerBase, ICommandHandler<TriageContext>
+    ITriageStrategySelector strategySelector,
+    ILogger<TriageHandler> logger) : ICommandHandler<TriageContext>
 {
-    protected override ILogger Logger => logger;
-    protected override IPromptCatalog Prompts => prompts;
-
-    protected override string BuildUserPrompt(PipelineContext pipeline)
-    {
-        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-
-        return $"""
-            ## Ticket
-            {ticket.Title}
-            {ticket.Description}
-
-            ## Project Context
-            {projectContext ?? "Not available"}
-            """;
-    }
-
     public async Task<CommandResult> ExecuteAsync(
         TriageContext context, CancellationToken cancellationToken)
     {
+        var pipeline = context.Pipeline;
+        var pipelineType = pipeline.TryGet<PipelineType>(
+            ContextKeys.PipelineTypeName, out var t) ? t : PipelineType.Discussion;
+        var strategy = strategySelector.Select(pipelineType);
+        logger.LogDebug("Triage strategy selected: {Strategy} (pipeline_type={PipelineType})",
+            strategy.GetType().Name, pipelineType);
         var llmClient = llmClientFactory.Create(context.AgentConfig);
-        return await TriageAsync(context.Pipeline, llmClient, cancellationToken);
+        return await strategy.ExecuteAsync(pipeline, llmClient, cancellationToken);
     }
 }
