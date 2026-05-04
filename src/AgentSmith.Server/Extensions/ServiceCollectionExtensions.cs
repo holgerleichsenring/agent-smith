@@ -30,6 +30,7 @@ internal static class ServiceCollectionExtensions
         var multiplexer = ConnectionMultiplexer.Connect(redisUrl);
         services.AddSingleton<IConnectionMultiplexer>(multiplexer);
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
+        services.AddSingleton<IPipelineRequestStore, RedisPipelineRequestStore>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
         services.AddSingleton<IJobHeartbeatService, JobHeartbeatService>();
@@ -78,6 +79,9 @@ internal static class ServiceCollectionExtensions
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddIntentEngine();
+        // p0113: queue-driven dispatch goes through ephemeral CLI containers,
+        // not in-process pipeline execution.
+        services.AddSingleton<IPipelineJobDispatcher, JobSpawnerPipelineDispatcher>();
         return services;
     }
 
