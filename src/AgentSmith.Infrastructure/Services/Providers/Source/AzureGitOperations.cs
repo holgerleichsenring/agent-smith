@@ -30,10 +30,53 @@ internal sealed class AzureGitOperations(string personalAccessToken, ILogger log
 
     public Branch CheckoutBranch(Repository repo, string branchName)
     {
-        var existingBranch = repo.Branches[branchName];
-        var targetBranch = existingBranch ?? repo.CreateBranch(branchName);
-        Commands.Checkout(repo, targetBranch);
-        return targetBranch;
+        // p0112: resume from existing remote work-branch when present.
+        // Walk: (1) local exists → checkout. (2) remote tracking origin/<name> exists →
+        //   create local tracking branch + checkout (preserves prior WIP commits from
+        //   PersistWorkBranchHandler on a previous run for the same ticket).
+        // (3) neither → fresh branch from current HEAD (legacy behavior).
+        var local = repo.Branches[branchName];
+        if (local is not null)
+        {
+            Commands.Checkout(repo, local);
+            logger.LogInformation("Checked out existing local branch {Branch}", branchName);
+            return local;
+        }
+
+        FetchAllRemotes(repo);
+        var remote = repo.Branches[$"origin/{branchName}"];
+        if (remote is not null)
+        {
+            var resumed = repo.CreateBranch(branchName, remote.Tip);
+            repo.Branches.Update(resumed, b => b.TrackedBranch = remote.CanonicalName);
+            Commands.Checkout(repo, resumed);
+            logger.LogInformation(
+                "Resumed work branch {Branch} from origin (last commit {Sha} by {Author} at {When})",
+                branchName, remote.Tip.Sha[..7], remote.Tip.Author.Name, remote.Tip.Author.When.ToString("o"));
+            return resumed;
+        }
+
+        var fresh = repo.CreateBranch(branchName);
+        Commands.Checkout(repo, fresh);
+        logger.LogInformation("Created fresh branch {Branch} from HEAD", branchName);
+        return fresh;
+    }
+
+    private void FetchAllRemotes(Repository repo)
+    {
+        try
+        {
+            var remote = repo.Network.Remotes["origin"]
+                ?? throw new ProviderException("AzureRepos", "No 'origin' remote configured.");
+            var refSpecs = remote.FetchRefSpecs.Select(r => r.Specification);
+            var fetchOptions = new FetchOptions { CredentialsProvider = GetCredentialsHandler() };
+            Commands.Fetch(repo, remote.Name, refSpecs, fetchOptions, logMessage: null);
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: if fetch fails, we proceed with fresh-branch fallback.
+            logger.LogWarning(ex, "Fetch failed during checkout — proceeding without remote-resume probe");
+        }
     }
 
     public void StageAllChanges(Repository repo) =>

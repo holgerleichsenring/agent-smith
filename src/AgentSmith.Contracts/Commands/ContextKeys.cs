@@ -100,4 +100,12 @@ public static class ContextKeys
     /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
     /// log scope so concurrent runs are filterable in shared log streams.</summary>
     public const string RunId = "RunId";
+
+    /// <summary>Display label of the pipeline step that failed (set by PipelineExecutor before
+    /// the failure-recovery wrapper invokes PersistWorkBranchHandler). Used in WIP commit trailer.</summary>
+    public const string FailedStepName = "FailedStepName";
+
+    /// <summary>Typed PersistFailureKind set by PersistWorkBranchHandler before returning Fail.
+    /// Read by PipelineExecutor's wrapper for log-level routing and counter escalation.</summary>
+    public const string PersistFailureKind = "PersistFailureKind";
 }

@@ -58,6 +58,100 @@ public sealed class KubernetesJobSpawner(
         }
     }
 
+    public async Task SpawnQueueJobAsync(
+        string jobId, string redisUrl, string configPath, CancellationToken cancellationToken)
+    {
+        var jobName = $"agentsmith-{jobId}";
+        var job = BuildQueueJob(jobName, jobId, redisUrl, configPath);
+
+        await k8sClient.BatchV1.CreateNamespacedJobAsync(
+            job, options.Namespace, cancellationToken: cancellationToken);
+
+        logger.LogInformation(
+            "Spawned K8s queue Job {JobName} (id={JobId})", jobName, jobId);
+    }
+
+    private V1Job BuildQueueJob(string jobName, string jobId, string redisUrl, string configPath) => new()
+    {
+        Metadata = new V1ObjectMeta
+        {
+            Name = jobName,
+            NamespaceProperty = options.Namespace,
+            Labels = new Dictionary<string, string>
+            {
+                ["app"] = "agentsmith",
+                ["job-id"] = jobId,
+                ["spawned-from"] = "queue"
+            }
+        },
+        Spec = new V1JobSpec
+        {
+            TtlSecondsAfterFinished = options.TtlSecondsAfterFinished,
+            BackoffLimit = 0,
+            Template = new V1PodTemplateSpec
+            {
+                Metadata = new V1ObjectMeta
+                {
+                    Labels = new Dictionary<string, string>
+                    {
+                        ["app"] = "agentsmith",
+                        ["job-id"] = jobId,
+                        ["spawned-from"] = "queue"
+                    }
+                },
+                Spec = new V1PodSpec
+                {
+                    RestartPolicy = "Never",
+                    Containers =
+                    [
+                        new V1Container
+                        {
+                            Name = "agentsmith",
+                            Image = options.Image,
+                            ImagePullPolicy = options.ImagePullPolicy,
+                            Args =
+                            [
+                                "run-claimed-job",
+                                "--job-id", jobId,
+                                "--redis-url", redisUrl,
+                                "--config", configPath,
+                            ],
+                            Env = BuildQueueEnv(jobId, redisUrl),
+                            Resources = new V1ResourceRequirements
+                            {
+                                Requests = new Dictionary<string, ResourceQuantity>
+                                {
+                                    ["cpu"] = new("250m"),
+                                    ["memory"] = new("512Mi")
+                                },
+                                Limits = new Dictionary<string, ResourceQuantity>
+                                {
+                                    ["cpu"] = new("1000m"),
+                                    ["memory"] = new("1Gi")
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    };
+
+    private List<V1EnvVar> BuildQueueEnv(string jobId, string redisUrl) =>
+    [
+        EnvFromSecret("ANTHROPIC_API_KEY", options.SecretName, "anthropic-api-key"),
+        EnvFromSecret("AZURE_DEVOPS_TOKEN", options.SecretName, "azure-devops-token"),
+        EnvFromSecret("GITHUB_TOKEN", options.SecretName, "github-token"),
+        EnvFromSecret("OPENAI_API_KEY", options.SecretName, "openai-api-key"),
+        EnvFromSecret("AZURE_OPENAI_API_KEY", options.SecretName, "azure-openai-api-key"),
+        EnvFromSecret("GEMINI_API_KEY", options.SecretName, "gemini-api-key"),
+        EnvFromSecret("GITLAB_TOKEN", options.SecretName, "gitlab-token"),
+        EnvFromSecret("JIRA_TOKEN", options.SecretName, "jira-token"),
+        EnvFromSecret("JIRA_EMAIL", options.SecretName, "jira-email"),
+        new V1EnvVar { Name = "REDIS_URL", Value = redisUrl },
+        new V1EnvVar { Name = "JOB_ID", Value = jobId },
+    ];
+
     private V1Job BuildJob(string jobName, string jobId, JobRequest request, string redisUrl) => new()
     {
         Metadata = new V1ObjectMeta

@@ -67,6 +67,9 @@ public static class CommandNames
     public const string RunReviewPhase = "RunReviewPhaseCommand";
     public const string RunFinalPhase = "RunFinalPhaseCommand";
 
+    // p0112: branch persistence — pipeline-failure recovery commit + push
+    public const string PersistWorkBranch = "PersistWorkBranchCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -141,5 +144,6 @@ public static class CommandNames
         [FilterRound] = "Filter round",
         [RunReviewPhase] = "Running review phase",
         [RunFinalPhase] = "Running final phase",
+        [PersistWorkBranch] = "Persisting work branch",
     };
 }

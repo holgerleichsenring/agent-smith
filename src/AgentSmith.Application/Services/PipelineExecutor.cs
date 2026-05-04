@@ -72,6 +72,7 @@ public sealed class PipelineExecutor(
 
             if (!result.IsSuccess)
             {
+                await TryPersistWorkBranchAsync(projectConfig, context, result, cancellationToken);
                 lifecycle.MarkFailed();
                 return result;
             }
@@ -81,6 +82,40 @@ public sealed class PipelineExecutor(
 
         logger.LogInformation("Pipeline completed successfully");
         return CommandResult.Ok("Pipeline completed successfully");
+    }
+
+    /// <summary>
+    /// Best-effort persist of the WIP branch when the pipeline fails after producing
+    /// local changes (p0112). Wrapped in its OWN try/catch so any persist exception
+    /// can NEVER overwrite the original failure cause already in <paramref name="originalFailure"/>.
+    /// </summary>
+    private async Task TryPersistWorkBranchAsync(
+        ProjectConfig projectConfig, PipelineContext context,
+        CommandResult originalFailure, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Stamp the failed step name into context for the WIP commit's trailer block.
+            context.Set(ContextKeys.FailedStepName, originalFailure.StepName);
+
+            // Skip persist for source-less / discussion-style runs.
+            if (!context.TryGet<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository, out _))
+                return;
+
+            var persistCmd = PipelineCommand.Simple(CommandNames.PersistWorkBranch);
+            var persistContext = contextFactory.Create(persistCmd, projectConfig, context);
+            var persistResult = await commandExecutor.ExecuteAsync(persistContext, cancellationToken);
+
+            if (persistResult.IsSuccess)
+                logger.LogInformation("Work branch persisted: {Message}", persistResult.Message);
+            else
+                logger.LogWarning("Work branch persist did not complete: {Message}", persistResult.Message);
+        }
+        catch (Exception ex)
+        {
+            // Never let a persist failure mask the original pipeline failure cause.
+            logger.LogError(ex, "Work branch persist threw an exception — original failure cause preserved");
+        }
     }
 
     internal static List<LinkedListNode<PipelineCommand>> PeelBatch(
