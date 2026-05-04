@@ -1,157 +1,78 @@
 # Multi-Agent Orchestration
 
-Agent Smith coordinates multiple specialized AI skills to analyze, filter, and synthesize results. Skills don't "discuss" freely — they have defined roles, typed inputs, and typed outputs.
+Agent Smith coordinates multiple specialized AI skills to analyze, plan, review, and synthesize results. Each skill has typed inputs, typed outputs, and a role that's assigned per ticket by the [triage step](triage.md).
 
-This approach reduces token costs by approximately 80% compared to free-form discussion while producing more reliable, accountable results.
+The model has two layers: **roles** (what a skill does in a given run) and **phases** (when in the pipeline a role acts).
 
-## Pipeline Types
+## Roles
 
-Agent Smith uses three orchestration patterns, each suited to different kinds of work.
+| Role | What it does | Output | Veto? |
+|---|---|---|---|
+| `Lead` | Sets the plan downstream skills compare against. One per phase. | `plan` (typed observations) | No |
+| `Analyst` | Contributes perspective. No veto power. | `list` of observations | No |
+| `Reviewer` | Compares actual code/diff against the plan. Evidence-required. | `list` of observations | No |
+| `Filter` | Reduces a finding list (drops duplicates/false positives) or synthesizes a final artifact. | `list` or `artifact` | No |
 
-### Structured Pipeline (Security Scan, API Scan)
+A single skill may declare multiple supported roles (`roles_supported: [lead, analyst, reviewer]`); triage picks one role per phase based on activation criteria.
 
-Tool steps produce raw findings. Contributors analyze their category slice in parallel. A gate filters false positives. An executor synthesizes the final report.
+## Phases
 
-```mermaid
-graph LR
-    Tools["Tool Steps<br/>(Scanner, History, Deps)"] --> Contributors
+Structured pipelines (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`) declare three phases.
 
-    subgraph Stage 1 - Contributors
-        C1[secrets-detector]
-        C2[injection-checker]
-        C3[config-auditor]
-        C4[compliance-checker]
-        C5[ai-security-reviewer]
-        C6[supply-chain-auditor]
-        C7[auth-reviewer]
-    end
-
-    Contributors --> Gate["false-positive-filter<br/>[Gate]"]
-    Gate -->|"confirmed findings only"| Executor["chain-analyst<br/>[Executor]"]
-    Executor --> Output[Findings Report]
-
-    style Gate fill:#c0392b,color:#fff
-    style Executor fill:#2980b9,color:#fff
-```
-
-**Real numbers** (security-scan on Agent Smith, 2026-04-24, after p0094a gitignore-aware enumeration + p0094b skill reduction):
-
-- 269 raw findings from static scan (245), git history (24), dependencies (0)
-- 7 contributors analyzed category-sliced findings in parallel
-- Gate confirmed **14 of 269** findings — 95% noise eliminated
-- Duration: ~4 minutes wall-clock (Azure OpenAI GPT-4.1)
-- Skill count reduced 15 → 9 in p0094b: overlapping attacker-perspective skills (recon, low-priv, input-abuser, idor-prober, response, vuln) deleted. auth-reviewer's scope extended to cover IDOR/BOLA; a static IDOR pattern (`config/patterns/auth.yaml`) complements the LLM reasoning. The deleted skills remain in `api-security` where HTTP probing is a distinct capability.
-
-### Discussion Pipeline (MAD, Legal Analysis)
-
-Personas with different perspectives debate a topic. A triage step selects participants. Convergence checking determines if another round is needed.
+| Phase | Round # | Typical roles | What happens |
+|---|---|---|---|
+| `Plan` | 1 | Lead, Analysts | Lead emits a plan; analysts contribute perspective. |
+| `AgenticStep` | — | (no triage roles) | Developer agent writes code following the plan. Only in `fix-bug` / `add-feature`. |
+| `Review` | 2 | Lead (sometimes), Reviewers | Reviewers compare diff against the plan via `{{plan}}` template token. |
+| `Final` | 3 | Filter | Reduces or synthesizes the run's output. |
 
 ```mermaid
 graph LR
-    Input --> Triage
-    Triage -->|selects personas| D[devils-advocate]
-    Triage --> Ph[philosopher]
-    Triage --> R[realist]
-    Triage --> Dr[dreamer]
-    Triage --> S[silencer]
-    D & Ph & R & Dr & S --> Convergence
-    Convergence --> Output[Discussion Document]
+    Triage --> Plan
+    Plan --> AgenticStep
+    AgenticStep --> Review
+    Review --> Final
+    Final --> Output
 
     style Triage fill:#4a4a4a,color:#fff
-    style Convergence fill:#4a4a4a,color:#fff
+    style Plan fill:#27ae60,color:#fff
+    style Review fill:#2980b9,color:#fff
+    style Final fill:#c0392b,color:#fff
 ```
 
-Each persona responds with AGREE, OBJECTION, SUGGESTION, or SILENCE. If objections remain, another round runs. Maximum 3 rounds by default.
+For `security-scan` and `api-security-scan` the `AgenticStep` is omitted — they read-only-scan, so phases run back-to-back.
 
-### Hierarchical Pipeline (Fix Bug, Add Feature)
+For `legal-analysis`, `mad-discussion`, `init-project`, `skill-manager`, and `autonomous`, triage falls back to the legacy LLM strategy that picks Lead + Participants. Phases don't apply; the run is one open round driven by `ConvergenceCheck`.
 
-A lead skill produces a plan that gets injected into all subsequent skills. Gates can block progression.
+## Plan artifact threading
 
-```mermaid
-graph TD
-    Ticket --> Lead["architect<br/>[Lead]"]
-    Lead -->|"plan injected into all"| C1[backend-developer]
-    Lead --> C2[frontend-developer]
-    Lead --> C3[dba]
-    Lead --> C4[devops]
-    Lead --> C5[product-owner]
-    C1 & C2 & C3 & C4 & C5 --> G1["security-reviewer<br/>[Gate]"]
-    G1 -->|verdict: proceed| Execute[AgenticExecute]
-    Execute --> G2["tester<br/>[Gate]"]
-    G2 -->|verdict: pass| PR[Create PR]
+After the Plan phase, the Lead's observations are stored in `PipelineContext` as a `PlanArtifact`. Review-phase skills with a `{{plan}}` placeholder in their `## as_reviewer` body get it substituted at prompt-build time. Reviewers without a same-run lead see `(no plan provided)` and run as generic reviewers.
 
-    style Lead fill:#27ae60,color:#fff
-    style G1 fill:#c0392b,color:#fff
-    style G2 fill:#c0392b,color:#fff
-```
+## Confidence threshold
 
-The lead's plan becomes part of every contributor's domain rules, ensuring all skills work toward the same architecture.
+Every observation carries a `Confidence` (0–100) and `Blocking` flag. Observations with `Blocking=true` and `Confidence<70` are auto-downgraded to `Blocking=false` with a structured log entry. The high-confidence threshold prevents speculation from breaking the pipeline; low-confidence concerns still surface in the final report but don't gate.
 
-## Role Reference
+## Filter mode
 
-Every skill in a pipeline has one of four roles. The role determines when it runs, what it receives, and whether it can block the pipeline.
+Filter skills execute as a separate `FilterRoundCommand` (not a `SkillRoundCommand`). The output mode is read from `output_contract.output_type[Filter]`:
 
-| Role | Symbol | Behavior | Output Type | Veto? |
-|---|---|---|---|---|
-| `contributor` | ⚙️ | Analyzes its category slice, produces structured list | `list` | No |
-| `lead` | 🏗 | Runs first, produces plan injected into all subsequent skills | `plan` | Implicit |
-| `gate` | 🧹 | Receives all contributor outputs, filters, blocks on empty result | `list` or `verdict` | **Yes** |
-| `executor` | 🔍 | Receives gate output only, produces final artifact | `artifact` | No |
+- `List` → the LLM returns a reduced JSON observation list; the framework replaces the in-context observation list with the reduced one (IDs reassigned).
+- `Artifact` → the LLM returns synthesized text; the framework stores it under `SkillOutputs[skillName]` for downstream consumption (final report, deliver step).
 
-## How Output Types Flow
+Unlike the legacy `Gate` role, Filter has no veto. Reductions and syntheses are observable and downstream pipeline steps continue regardless.
 
-Skills communicate through typed JSON. Each stage receives only what it needs.
+## Skill contract
 
-```mermaid
-graph LR
-    Contributor -->|"list: [{file, line, pattern, severity}]"| Gate
-    Gate -->|"list: confirmed[] + rejected[reason]"| Executor
-    Lead -->|"plan: injected into DomainRules"| Contributor
-    Executor -->|"artifact: stored, not forwarded"| Output
+Skills declare their roles, activation criteria, and output contract in `SKILL.md` frontmatter. See the [skills.md reference](../configuration/skills.md) and the [migration guide](../configuration/skills/migration.md) for the full schema and a before/after example.
 
-    style Gate fill:#c0392b,color:#fff
-```
+The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` enum (`Lead`/`Contributor`/`Gate`/`Executor`), and the deterministic `SkillGraphBuilder` are all retired in p0111c. The current pipeline order is decided per ticket by the LLM-driven triage step, not by topological sort over skill metadata.
 
-### Token Efficiency
+## Pipelines using this pattern
 
-The structured pipeline dramatically reduces token consumption by giving each skill only its relevant slice:
-
-| Stage | Receives | Typical tokens |
+| Pipeline | Triage strategy | Phases |
 |---|---|---|
-| Contributor | Only its category slice | ~800 |
-| Gate | All contributor JSON outputs merged | ~2,000 |
-| Executor | Gate-confirmed list only | ~1,500 |
-
-Compare to free-form discussion where each skill receives ~5,000 tokens (all findings + full discussion log), totaling ~40,000 tokens for 9 skills.
-
-**Result: ~80% token reduction** with more reliable, reproducible output.
-
-## Skill Contract (agentsmith.md)
-
-Each skill declares its role and execution order in its YAML metadata:
-
-```yaml
-## orchestration
-role: gate
-runs_after: [contributor]
-runs_before: [executor]
-output: list
-
-## output_format
-{
-  "confirmed": [{"file": "", "line": 0, "pattern": "", "severity": "", "reason": ""}],
-  "rejected":  [{"file": "", "line": 0, "pattern": "", "reason": ""}]
-}
-```
-
-The `SkillGraphBuilder` reads these declarations and constructs a deterministic execution graph — no LLM call needed for triage. Skills are topologically sorted into stages based on `runs_after`/`runs_before` dependencies.
-
-## Pipelines Using This Pattern
-
-Each pipeline page has a "How Skills Collaborate" section with a pipeline-specific diagram:
-
-- [Security Scan](../pipelines/security-scan.md) — structured pipeline, 9 skills
-- [API Scan](../pipelines/api-scan.md) — structured pipeline, 4 skills
-- [Fix Bug / Add Feature](../pipelines/fix-and-feature.md) — hierarchical pipeline
-- [Legal Analysis](../pipelines/legal-analysis.md) — discussion pipeline, 5 roles
-- [MAD Discussion](../pipelines/mad-discussion.md) — discussion pipeline, 5 personas
+| `fix-bug`, `add-feature`, `fix-no-test` | Structured | Plan → AgenticStep → Review → Final |
+| `security-scan` | Structured | Plan → Review → Final |
+| `api-security-scan` | Structured | Plan → Review → Final |
+| `legal-analysis`, `mad-discussion` | Legacy (Discussion) | Single open round |
+| `init-project`, `skill-manager`, `autonomous` | Legacy (Discussion) | Single open round |

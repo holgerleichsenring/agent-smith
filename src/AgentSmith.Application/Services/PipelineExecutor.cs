@@ -254,7 +254,7 @@ public sealed class PipelineExecutor(
         {
             var detail = cmd.Name switch
             {
-                CommandNames.Triage or CommandNames.SecurityTriage or CommandNames.ApiSecurityTriage
+                CommandNames.Triage
                     => $"Triage: {result.Message}",
                 CommandNames.SkillRound or CommandNames.SecuritySkillRound or CommandNames.ApiSecuritySkillRound
                     => $"Skill Round: {result.Message}",
