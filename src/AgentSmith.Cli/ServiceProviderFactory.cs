@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
+using AgentSmith.Infrastructure.Services.Queue;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -53,6 +54,7 @@ internal static class ServiceProviderFactory
             services.AddSingleton<IConnectionMultiplexer>(multiplexer);
             services.AddSingleton<IMessageBus, RedisMessageBus>();
             services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
+            services.AddSingleton<IPipelineRequestStore, RedisPipelineRequestStore>();
             services.AddSingleton<IProgressReporter>(sp =>
                 new RedisProgressReporter(
                     sp.GetRequiredService<IMessageBus>(), jobId,

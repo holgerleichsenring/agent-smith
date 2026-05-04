@@ -6,10 +6,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Pulls PipelineRequests off IRedisJobQueue and runs them with bounded concurrency
-/// (SemaphoreSlim = backpressure knob). On shutdown, stops pulling and waits up to
-/// shutdownGraceSeconds for in-flight pipelines to finish (so they can transition to Failed
-/// and release their heartbeat once p95c lands).
+/// p0113: Pulls PipelineRequests off IRedisJobQueue and dispatches them to
+/// ephemeral CLI containers via IPipelineJobDispatcher. The Server pod is
+/// orchestration-only — language toolchains live in the per-run job container.
+///
+/// SemaphoreSlim bounds concurrent dispatch calls (fast — SETEX + spawn API).
+/// In-flight pipeline count downstream is governed by the cluster (K8s/Docker
+/// capacity), not this knob. On shutdown, waits up to shutdownGraceSeconds
+/// for in-flight dispatch calls to settle.
 /// </summary>
 public sealed class PipelineQueueConsumer(
     IServiceProvider services,
@@ -19,12 +23,17 @@ public sealed class PipelineQueueConsumer(
     int shutdownGraceSeconds,
     ILogger<PipelineQueueConsumer> logger)
 {
+    // configPath is unused post-p0113 (dispatch carries the path through the
+    // Server's ServerContext). Retained on the constructor so the hosted-service
+    // wiring stays stable; can be dropped in a follow-up.
+    private readonly string _configPath = configPath;
+
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         using var semaphore = new SemaphoreSlim(maxParallelJobs);
         var inFlight = new List<Task>();
         logger.LogInformation(
-            "PipelineQueueConsumer started (max parallel: {Max}, grace: {Grace}s)",
+            "PipelineQueueConsumer started (max parallel dispatches: {Max}, grace: {Grace}s)",
             maxParallelJobs, shutdownGraceSeconds);
 
         try
@@ -33,7 +42,7 @@ public sealed class PipelineQueueConsumer(
             {
                 await semaphore.WaitAsync(cancellationToken);
                 logger.LogInformation(
-                    "Dequeued: {Project}/#{Ticket} pipeline={Pipeline} (in-flight: {InFlight}/{Max})",
+                    "Dequeued: {Project}/#{Ticket} pipeline={Pipeline} (in-flight dispatch: {InFlight}/{Max})",
                     request.ProjectName, request.TicketId?.Value ?? "—",
                     request.PipelineName, inFlight.Count(t => !t.IsCompleted) + 1, maxParallelJobs);
                 var task = Task.Run(
@@ -55,19 +64,17 @@ public sealed class PipelineQueueConsumer(
         try
         {
             using var scope = services.CreateScope();
-            var useCase = scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>();
-            var result = await useCase.ExecuteAsync(request, configPath, ct);
-            logger.Log(
-                result.IsSuccess ? LogLevel.Information : LogLevel.Warning,
-                "Pipeline {Outcome}: {Project}/{Ticket} — {Msg}",
-                result.IsSuccess ? "succeeded" : "failed",
-                request.ProjectName, request.TicketId?.Value, result.Message);
+            var dispatcher = scope.ServiceProvider.GetRequiredService<IPipelineJobDispatcher>();
+            var jobId = await dispatcher.DispatchAsync(request, ct);
+            logger.LogInformation(
+                "Dispatched: {Project}/{Ticket} job={JobId}",
+                request.ProjectName, request.TicketId?.Value ?? "—", jobId);
         }
         catch (Exception ex)
         {
             logger.LogError(ex,
-                "Pipeline execution error for {Project}/{Ticket}",
-                request.ProjectName, request.TicketId?.Value);
+                "Dispatch failed for {Project}/{Ticket} — request remains claimed; reconciler will recover",
+                request.ProjectName, request.TicketId?.Value ?? "—");
         }
         finally
         {
