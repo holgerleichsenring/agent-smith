@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0113
+goal: "Spawn ephemeral CLI containers for queue-driven pipeline runs (polling + webhook) instead of executing the pipeline in-process inside the Server pod. Aligns the queue path with the Slack-intent path that already uses IJobSpawner — Server returns to pure orchestration, language toolchains live in the per-run job container."
+
+requires: []
+
+decisions:
+  - key: "The Server pod is fundamentally orchestration: poll, claim, queue, dispatch, lifecycle. Running pipelines in-process means Server's container needs every language's toolchain (dotnet SDK, npm, python, …) for steps like TestCommand. That's a fool's errand for a multi-language platform — and the architectural intent has always been ephemeral job containers per run. Slack-intent flow already does this via IJobSpawner; queue flow is the gap."
+  - key: "PipelineQueueConsumer becomes a dispatcher, not an executor. Its current call `useCase.ExecuteAsync(...)` becomes `jobSpawner.SpawnAsync(jobRequest)`. The CLI container picks up the work via existing CLI surface (e.g. RunCommand or a new internal `agentsmith run-claimed-job <id>` form) and writes lifecycle/heartbeat through Redis. Server keeps its in-flight backpressure (SemaphoreSlim) — limit how many simultaneous jobs to spawn, not how many to run."
+  - key: "JobRequest gets the same fields it has today (ProjectName, PipelineName, TicketId, Headless, optional context dictionary) plus a stable JobId so the spawned container reports back via Redis under that id. The OrphanJobDetector + IJobHeartbeatService machinery from p0095/p0109a already supports this — we're closing the gap, not building from scratch."
+  - key: "Server's Dockerfile drops to runtime-only (mcr.microsoft.com/dotnet/aspnet:8.0). Job container is the existing CLI image (mcr.microsoft.com/dotnet/sdk:8.0 + git, libgit2-dev, gosu, plus future per-language additions in operator overlays). Image bloat moves where it belongs: the executor, not the dispatcher. The CLI Dockerfile's TODO `p4x: dotnet SDK required until TestCommand spawns ephemeral job containers` is exactly this phase."
+  - key: "Backwards compatibility: Slack-intent path stays untouched. Both paths converge on IJobSpawner.SpawnAsync — the spawner picks DockerJobSpawner or KubernetesJobSpawner via JobSpawnerSetup based on environment, exactly as today. Two callers, one spawner abstraction."
+  - key: "TestHandler stops being a per-process mystery. Each spawned job runs in a container that has the toolchain for the project's language — Server doesn't care, the container does. Operator-defined K8s job templates carry per-pipeline image overrides if the default CLI image lacks (say) Python."
+
+steps:
+  - id: cli-claimed-job-entry
+    action: "Add a CLI subcommand the spawned container uses to pick up a queue-claimed job"
+    new:
+      - "src/AgentSmith.Cli/Commands/RunClaimedJobCommand.cs: --job-id <id> --redis-url <url> [--config <path>]. Reads the JobRequest from Redis, runs ExecutePipelineUseCase.ExecuteAsync(...) under the existing PipelineLifecycleCoordinator + heartbeat, exits with 0/1."
+    modify:
+      - "src/AgentSmith.Cli/Program.cs: register RunClaimedJobCommand. Hidden from --help (internal entry point) but discoverable for debugging."
+      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: consumer dequeues JobRequest, hands it to IJobSpawner.SpawnAsync(...) instead of resolving ExecutePipelineUseCase from a scope and running in-process. SemaphoreSlim still gates concurrent spawn count."
+
+  - id: jobrequest-redis-handoff
+    action: "Decouple JobRequest payload from CLI args — store in Redis, container reads it by JobId"
+    new:
+      - "src/AgentSmith.Server/Services/RedisJobRequestStore.cs: { Task SaveAsync(JobRequest, ttl), Task<JobRequest> LoadAsync(JobId) }. SETEX with 1h default TTL — claim service writes; spawned container reads. CLI args stay short (job-id + redis-url + config-path)."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: SaveAsync the JobRequest before SpawnAsync. Spawn timeout aborts the save."
+      - "src/AgentSmith.Cli/Commands/RunClaimedJobCommand.cs: LoadAsync at startup, fail fast if request not found / expired."
+
+  - id: server-image-runtime-only
+    action: "Drop SDK from Server container; rely on spawned CLI container for execution"
+    modify:
+      - "src/AgentSmith.Server/Dockerfile: confirm runtime is aspnet:8.0 (already true). Document in the Dockerfile comment why no SDK lives here. Optionally delete the toolchain-specific apt-get lines if any leaked in (audit)."
+      - "src/AgentSmith.Cli/Dockerfile: keep sdk:8.0. Remove the `p4x` TODO comment — the gap is now intentional + closed-loop via spawn."
+
+  - id: docker-spawner-job-payload
+    action: "DockerJobSpawner / KubernetesJobSpawner pass JobId + RedisUrl as the only essential CLI args, plus the per-job image override"
+    modify:
+      - "src/AgentSmith.Server/Services/DockerJobSpawner.cs: invocation becomes `dotnet AgentSmith.Cli.dll run-claimed-job --job-id <id> --redis-url <url> --config /app/config/agentsmith.yml`. Mounts /app/config (read-only) + /tmp/agentsmith (rw). Image from JobRequest.ImageOverride or DispatcherDefaults.CliImage."
+      - "src/AgentSmith.Server/Services/KubernetesJobSpawner.cs: same arg shape; Job spec applies operator-supplied per-pipeline image overrides (e.g. python-toolchain image for python projects)."
+
+  - id: lifecycle-handoff
+    action: "Verify ticket-lifecycle transitions still happen exactly once per run across the boundary"
+    modify:
+      - "src/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs: confirm BeginAsync (Enqueued → InProgress) fires in the spawned container, not in Server. Server side stays at the queue level; the lifecycle coordinator runs inside ExecutePipelineUseCase which now runs in CLI container."
+      - "src/AgentSmith.Server/Services/StaleJobDetector.cs: heartbeat-based stale detection still works — JobHeartbeatService writes from CLI container, StaleJobDetector reads in Server. No code change expected; document the cross-process flow."
+
+  - id: backpressure-and-cleanup
+    action: "Server's SemaphoreSlim now gates SPAWN count (not in-process executions); revisit timing"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: SemaphoreSlim with QueueConfig.MaxParallel still applies but bounds concurrent jobs-in-flight. Increase default? Container spin-up is cheap compared to LLM round-trips. Keep current default; note the difference in QueueConfig docs."
+      - "src/AgentSmith.Server/Services/Hosting/QueueConsumerHostedService.cs: graceful shutdown waits for in-flight spawns to acknowledge JobRequest receipt before stopping (timeout = 30s). Spawned containers continue independently — Server can restart without orphaning their work; OrphanJobDetector handles dangling state."
+
+  - id: tests
+    new:
+      - "PipelineQueueConsumer_DequeuedJob_DispatchesToJobSpawner_NoInProcessExecution"
+      - "PipelineQueueConsumer_SpawnFails_RedisRequestExpires_NoOrphan"
+      - "RedisJobRequestStore_RoundTrip_PreservesAllFields"
+      - "RunClaimedJobCommand_RequestMissing_FailsFast"
+      - "RunClaimedJobCommand_ValidRequest_RunsPipelineWithLifecycleCoordinator"
+      - "DockerJobSpawner_BuildsArgsWithJobIdAndRedisUrl_NotFullPayload"
+      - "ServerDi_AfterPhase_ExecutePipelineUseCaseNotResolvedFromQueueConsumer (regression: ensures Server graph no longer pulls in pipeline-executor transitive deps)"
+    modify:
+      - "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs: assert Server's DI graph no longer requires Application's IPipelineExecutor / IAgentProviderFactory transitively after the consumer becomes a pure dispatcher."
+
+  - id: docs
+    modify:
+      - "docs/concepts/pipeline-system.md: rewrite the dispatcher-vs-executor section. Server orchestrates; CLI container executes. Diagram updated."
+      - "docs/concepts/ticket-lifecycle.md: clarify that the Enqueued → InProgress transition fires inside the spawned container, not in Server."
+      - "docs/setup/k8s.md: per-pipeline image override pattern for projects needing extra toolchains (Python, Go, etc.)."
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual: trigger fix-bug on a real .NET project, confirm Server pod logs end at 'Spawned job <id>' and CLI pod logs show the actual pipeline execution + dotnet test step succeeding"
+
+done:
+  - "PipelineQueueConsumer dispatches to IJobSpawner.SpawnAsync — never executes pipelines in-process"
+  - "Slack-intent flow + queue flow both converge on IJobSpawner — single execution path"
+  - "JobRequest payload stored in Redis by JobId; CLI container loads it on startup"
+  - "Server image confirmed runtime-only (aspnet:8.0); CLI image keeps sdk:8.0 + per-language overlays"
+  - "TestCommand step runs in the spawned container which has the project's toolchain — no more 'dotnet test not found' in Server"
+  - "TicketLifecycleCoordinator + JobHeartbeatService work cross-process unchanged (already designed for this)"
+  - "ServerDiLifetimeTests assert Server's DI graph no longer carries pipeline-executor transitives"
+  - "Backpressure: SemaphoreSlim now bounds concurrent SPAWNS, not in-process executions"
+  - "OrphanJobDetector still cleans up stale jobs (no behavior change)"
+  - "docs/concepts/pipeline-system.md + ticket-lifecycle.md + setup/k8s.md updated"
+  - "dotnet build zero warnings, dotnet test green"
+  - "manual: end-to-end fix-bug flow runs successfully with dotnet test inside the spawned CLI container"
