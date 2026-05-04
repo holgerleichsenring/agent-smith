@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -12,8 +13,9 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// Parses SKILL.md + agentsmith.md + source.md files into a RoleSkillDefinition.
 /// Reads p0111 extended frontmatter (roles_supported, activation, role_assignment, references,
 /// output_contract) and splits the body into per-role sections.
+/// Honors per-provider SKILL.&lt;provider&gt;.md overrides via IProviderOverrideResolver.
 /// </summary>
-internal sealed class SkillMdParser(ILogger logger)
+internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, ILogger logger)
 {
     private static readonly IDeserializer FrontmatterDeserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -22,21 +24,58 @@ internal sealed class SkillMdParser(ILogger logger)
 
     internal RoleSkillDefinition? Parse(string skillDirectory)
     {
-        var skillMdPath = Path.Combine(skillDirectory, "SKILL.md");
-        var content = File.ReadAllText(skillMdPath);
+        var paths = overrideResolver.Resolve(skillDirectory);
+        var role = paths.BasePath is null
+            ? BuildFromFile(paths.EffectivePath, skillDirectory)
+            : BuildFromOverride(paths, skillDirectory);
+        if (role is null) return null;
 
+        LoadAgentSmithExtensions(skillDirectory, role);
+        LoadSource(skillDirectory, role);
+        return role;
+    }
+
+    private RoleSkillDefinition? BuildFromFile(string skillMdPath, string skillDirectory)
+    {
+        var (meta, body) = ReadFrontmatterAndBody(skillMdPath);
+        return meta is null ? null : BuildRole(meta, body, skillDirectory, skillMdPath);
+    }
+
+    private RoleSkillDefinition? BuildFromOverride(ProviderOverridePaths paths, string skillDirectory)
+    {
+        var (baseMeta, _) = ReadFrontmatterAndBody(paths.BasePath!);
+        var (overMeta, overBody) = ReadFrontmatterAndBody(paths.EffectivePath);
+        if (baseMeta is null)
+            throw new InvalidOperationException(
+                $"Provider override at '{paths.EffectivePath}' loaded but base SKILL.md at '{paths.BasePath}' is missing or invalid.");
+        if (overMeta is null) return null;
+
+        ValidateOverrideMatchesBase(overMeta, baseMeta, paths);
+        var merged = MergeFrontmatter(baseMeta, overMeta);
+        var role = BuildRole(merged, overBody, skillDirectory, paths.EffectivePath);
+        if (role is not null)
+            logger.LogInformation(
+                "Provider override loaded for skill '{Skill}' from {Path}", role.Name, paths.EffectivePath);
+        return role;
+    }
+
+    private (SkillMdFrontmatter? Meta, string Body) ReadFrontmatterAndBody(string skillMdPath)
+    {
+        var content = File.ReadAllText(skillMdPath);
         var (frontmatter, body) = ParseFrontmatter(content);
         if (string.IsNullOrWhiteSpace(frontmatter))
         {
             logger.LogWarning("No frontmatter found in {Path}", skillMdPath);
-            return null;
+            return (null, body);
         }
-
         var meta = FrontmatterDeserializer.Deserialize<SkillMdFrontmatter>(frontmatter);
-        if (meta is null || string.IsNullOrEmpty(meta.Name))
-            return null;
+        if (meta is null || string.IsNullOrEmpty(meta.Name)) return (null, body);
+        return (meta, body);
+    }
 
-        var role = new RoleSkillDefinition
+    private RoleSkillDefinition BuildRole(
+        SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath) =>
+        new()
         {
             Name = meta.Name,
             DisplayName = meta.DisplayName ?? string.Empty,
@@ -53,11 +92,41 @@ internal sealed class SkillMdParser(ILogger logger)
             RoleBodies = SkillBodySplitter.Split(body)
         };
 
-        LoadAgentSmithExtensions(skillDirectory, role);
-        LoadSource(skillDirectory, role);
+    private static void ValidateOverrideMatchesBase(
+        SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
+    {
+        if (!string.Equals(over.Name, @base.Name, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Provider override at '{paths.EffectivePath}' has name='{over.Name}' but base SKILL.md has name='{@base.Name}'. Names must match.");
 
-        return role;
+        if (over.RolesSupported is null)
+            throw new InvalidOperationException(
+                $"Provider override at '{paths.EffectivePath}' must declare roles_supported; cannot inherit it from base.");
+
+        var overSet = over.RolesSupported.ToHashSet();
+        var baseSet = (@base.RolesSupported ?? []).ToHashSet();
+        if (!overSet.SetEquals(baseSet))
+            throw new InvalidOperationException(
+                $"Provider override at '{paths.EffectivePath}' has roles_supported=[{string.Join(",", overSet)}] " +
+                $"but base SKILL.md has roles_supported=[{string.Join(",", baseSet)}]. They must match.");
     }
+
+    private static SkillMdFrontmatter MergeFrontmatter(
+        SkillMdFrontmatter @base, SkillMdFrontmatter over) => new()
+        {
+            Name = over.Name,
+            DisplayName = over.DisplayName ?? @base.DisplayName,
+            Emoji = over.Emoji ?? @base.Emoji,
+            Description = over.Description ?? @base.Description,
+            Triggers = over.Triggers ?? @base.Triggers,
+            Version = over.Version ?? @base.Version,
+            AllowedTools = over.AllowedTools ?? @base.AllowedTools,
+            RolesSupported = over.RolesSupported,
+            Activation = over.Activation ?? @base.Activation,
+            RoleAssignment = over.RoleAssignment ?? @base.RoleAssignment,
+            References = over.References ?? @base.References,
+            OutputContract = over.OutputContract ?? @base.OutputContract,
+        };
 
     private IReadOnlyList<SkillRole>? MapRolesSupported(List<string>? raw, string skillMdPath)
     {
