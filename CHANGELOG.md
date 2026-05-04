@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.35.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.34.1...v0.35.0) (2026-05-04)
+
+
+### Features
+
+* **p0111a:** strict SkillLoader for extended frontmatter ([f617601](https://github.com/holgerleichsenring/agent-smith/commit/f6176018fd48ee4335081e604327783c82161b90))
+* **p0111b:** spec set + skills.md callout + p0111 cleanup ([ec0d4c3](https://github.com/holgerleichsenring/agent-smith/commit/ec0d4c3fe3d811620ccb0a8f53505b3cfa8433a6))
+* **p0111c:** phase-based triage and pipeline rewrite ([1bf57d3](https://github.com/holgerleichsenring/agent-smith/commit/1bf57d372786158a6ee925ff9f92f1fc90e38d8d))
+* **p0111d:** per-provider SKILL.md overrides ([a69a54e](https://github.com/holgerleichsenring/agent-smith/commit/a69a54e2315de925a4ed04107eef3f951dc3c586))
+* **p0111d:** per-provider SKILL.md overrides ([09c8688](https://github.com/holgerleichsenring/agent-smith/commit/09c8688b9d8b33792da22d9d5d6914dd45b10fcd))
+
+
+### Bug Fixes
+
+* CommandExecutor lifetime Singleton → Transient ([5639106](https://github.com/holgerleichsenring/agent-smith/commit/5639106a69fdf3301d72f4d61b902b1f18232568))
+* CommandExecutor scope lifetime + bump skills catalog to v1.1.0 ([eb9cf66](https://github.com/holgerleichsenring/agent-smith/commit/eb9cf6666fcae18d4c887e13a6300435ff29ed39))
+
 ## [0.34.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.34.0...v0.34.1) (2026-04-30)
 
 
