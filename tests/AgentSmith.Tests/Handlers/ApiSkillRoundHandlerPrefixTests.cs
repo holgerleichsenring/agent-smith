@@ -32,7 +32,7 @@ public sealed class ApiSkillRoundHandlerPrefixTests
         llmFactory.Setup(f => f.Create(It.IsAny<AgentConfig>())).Returns(llmClient.Object);
 
         var prefixBuilder = new PromptPrefixBuilder();
-        var promptBuilder = new SkillPromptBuilder(prefixBuilder, new FakePromptCatalog());
+        var promptBuilder = new SkillPromptBuilder(prefixBuilder, new FakePromptCatalog(), new Mock<ISkillBodyResolver>().Object);
         var gateRetry = new GateRetryCoordinator(
             new GateOutputHandler(NullLogger<GateOutputHandler>.Instance),
             NullLogger<GateRetryCoordinator>.Instance);

@@ -15,10 +15,6 @@ public sealed record SpawnSpectralContext(
 public sealed record SpawnZapContext(
     PipelineContext Pipeline) : ICommandContext;
 
-public sealed record ApiSecurityTriageContext(
-    AgentConfig AgentConfig,
-    PipelineContext Pipeline) : ICommandContext;
-
 public sealed record CompressApiScanFindingsContext(
     PipelineContext Pipeline) : ICommandContext;
 

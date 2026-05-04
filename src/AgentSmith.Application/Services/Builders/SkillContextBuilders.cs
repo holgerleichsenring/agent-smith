@@ -13,12 +13,6 @@ public sealed class TriageContextBuilder : IContextBuilder
         => new TriageContext(pipeline.Resolved().Agent, pipeline);
 }
 
-public sealed class SecurityTriageContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new SecurityTriageContext(pipeline.Resolved().Agent, pipeline);
-}
-
 public sealed class SwitchSkillContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
