@@ -78,7 +78,6 @@ public static class ContextKeys
     public const string WrittenTickets = "WrittenTickets";
     public const string FindingAssessments = "FindingAssessments";
     public const string PipelineTypeName = "PipelineType";
-    public const string SkillGraph = "SkillGraph";
     public const string SkillOutputs = "SkillOutputs";
     public const string ConfigDir = "ConfigDir";
     public const string DoneStatus = "DoneStatus";
@@ -91,4 +90,10 @@ public static class ContextKeys
     public const string ApiCodeContext = "ApiCodeContext";
     public const string ApiSourceAvailable = "ApiSourceAvailable";
     public const string FindingHandlerCorrelations = "FindingHandlerCorrelations";
+
+    // p0111c: phase-based triage
+    public const string TriageOutput = "TriageOutput";
+    public const string CurrentPhase = "CurrentPhase";
+    public const string PlanArtifact = "PlanArtifact";
+    public const string ConceptVocabulary = "ConceptVocabulary";
 }

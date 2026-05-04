@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0111d
+goal: "Optional per-provider SKILL.md overrides — SKILL.<provider>.md replaces the base SKILL.md when the active provider matches. Mechanism only; no overrides shipped."
+
+requires: ["p0111c"]
+
+decisions:
+  - key: "Active provider read from llm.primary.provider in agentsmith.yml. Multi-provider deployments (Planning=Claude, Coding=OpenAI) use the primary provider for skill resolution — skill content is shared across the run, not partitioned by task. Operators with strong per-task tuning needs can override via custom config."
+  - key: "Override frontmatter merging is shallow on top-level keys. activation, role_assignment, output_contract, references etc. are atomic — declared in the override means the override's value replaces base entirely; omitted means inherit from base. No deep merge inside activation.positive[] etc. — the operator manages a complete declaration when overriding."
+  - key: "Override file format is identical to SKILL.md. ProviderOverrideResolver returns a path; SkillMdParser is unchanged. Validation enforces the override declares the same name and roles_supported as base — otherwise the override is rejected with a clear error (sibling skills with different identities should be different skill directories, not overrides)."
+  - key: "INFO log when an override is loaded — operators see at boot which skills have provider-specific tuning. Default behavior (no override) is silent."
+  - key: "Zero overrides ship in this phase. Provider-tuning is opt-in per skill, opt-in per operator. The mechanism is the deliverable, not specific tuning."
+
+steps:
+  - id: provider-override-resolver
+    action: "Resolve which SKILL file to use for the active provider"
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/ProviderOverrideResolver.cs: { ResolvePath(skillDirectory, activeProvider) → string }. If <skillDirectory>/SKILL.<provider>.md exists, returns that path; else returns <skillDirectory>/SKILL.md."
+      - "src/AgentSmith.Contracts/Services/IActiveProviderResolver.cs: returns the active provider name from configuration (claude, openai, gemini, ollama, azure-openai)"
+      - "src/AgentSmith.Infrastructure.Core/Services/ActiveProviderResolver.cs: implementation reading llm.primary.provider from AgentSmithConfig"
+
+  - id: skill-loader-integration
+    action: "Plumb the resolver into SkillMdParser"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: take ProviderOverrideResolver via constructor; resolve the SKILL file path before reading"
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: pass the resolver to SkillMdParser"
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: when an override loads, validate name and roles_supported match base SKILL.md; reject with clear error otherwise"
+
+  - id: tests
+    new:
+      - "ProviderOverrideResolver_OverrideExists_ReturnsOverridePath"
+      - "ProviderOverrideResolver_OverrideMissing_FallsBackToBase"
+      - "ProviderOverrideResolver_DifferentProvider_IgnoresUnrelatedOverrides"
+      - "SkillMdParser_OverrideWithMismatchedName_RejectsWithClearError"
+      - "SkillMdParser_OverrideWithMismatchedRolesSupported_RejectsWithClearError"
+      - "SkillMdParser_OverrideLoaded_LogsInfo"
+      - "SkillMdParser_OverrideOmitsField_InheritsFromBaseFrontmatter"
+
+  - id: docs
+    modify:
+      - "docs/configuration/skills.md: add 'Per-provider overrides' section — when to author one, file naming convention, frontmatter merging rules, no overrides shipped initially"
+
+  - id: verify
+    action: "dotnet build + dotnet test green"
+
+done:
+  - "ProviderOverrideResolver returns <dir>/SKILL.<provider>.md when present, falls back to base"
+  - "Override frontmatter merging — declared fields replace base, omitted fields inherit; mismatched name or roles_supported rejected"
+  - "INFO log when an override is loaded; silent when none"
+  - "Zero overrides shipped — mechanism is the deliverable, not specific tuning"
+  - "docs/configuration/skills.md documents the override mechanism"
+  - "dotnet build zero warnings, dotnet test green"

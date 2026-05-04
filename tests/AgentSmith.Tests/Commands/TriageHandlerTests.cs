@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -23,9 +24,13 @@ public sealed class TriageHandlerTests
     {
         _llmFactoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(_llmClientMock.Object);
+        var legacyStrategy = new LegacyTriageStrategy(
+            new FakePromptCatalog(), NullLogger<LegacyTriageStrategy>.Instance);
+        var selectorMock = new Mock<ITriageStrategySelector>();
+        selectorMock.Setup(s => s.Select(It.IsAny<PipelineType>())).Returns(legacyStrategy);
         _handler = new TriageHandler(
             _llmFactoryMock.Object,
-            new FakePromptCatalog(),
+            selectorMock.Object,
             NullLogger<TriageHandler>.Instance);
     }
 

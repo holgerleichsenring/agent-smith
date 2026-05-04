@@ -15,6 +15,7 @@ public static class PipelinePresets
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
+        CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
@@ -26,6 +27,7 @@ public static class PipelinePresets
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticExecute,
+        CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
@@ -43,6 +45,7 @@ public static class PipelinePresets
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
+        CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.Test, CommandNames.GenerateDocs,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
@@ -82,7 +85,9 @@ public static class PipelinePresets
         CommandNames.CompressSecurityFindings,
         CommandNames.LoadSkills,
         CommandNames.AnalyzeCode,
-        CommandNames.SecurityTriage,
+        CommandNames.Triage,                // p0111c: unified triage replaces SecurityTriage
+        CommandNames.RunReviewPhase,
+        CommandNames.RunFinalPhase,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
         CommandNames.ExtractFindings,
@@ -106,7 +111,9 @@ public static class PipelinePresets
         CommandNames.CompressApiScanFindings, // p67: category slices for skill-specific findings
         CommandNames.CorrelateFindings,     // p0104: deterministic Nuclei/ZAP → handler mapping
         CommandNames.LoadSkills,
-        CommandNames.ApiSecurityTriage,
+        CommandNames.Triage,                // p0111c: unified triage replaces ApiSecurityTriage
+        CommandNames.RunReviewPhase,
+        CommandNames.RunFinalPhase,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileFindings,
         CommandNames.DeliverFindings,
@@ -199,4 +206,16 @@ public static class PipelinePresets
     /// </summary>
     public static string GetDefaultSkillsPath(string pipelineName) =>
         DefaultSkillsPaths.GetValueOrDefault(pipelineName, "skills/coding");
+
+    /// <summary>
+    /// Maps a pipeline name to the SkillRound-family command its handlers expect.
+    /// security-scan → SecuritySkillRoundCommand, api-security-scan → ApiSecuritySkillRoundCommand,
+    /// everything else → SkillRoundCommand. Filter assignments always emit FilterRoundCommand.
+    /// </summary>
+    public static string GetSkillRoundCommandName(string pipelineName) => pipelineName.ToLowerInvariant() switch
+    {
+        "security-scan" => CommandNames.SecuritySkillRound,
+        "api-security-scan" => CommandNames.ApiSecuritySkillRound,
+        _ => CommandNames.SkillRound
+    };
 }

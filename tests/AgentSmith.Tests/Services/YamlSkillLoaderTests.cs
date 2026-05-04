@@ -15,7 +15,12 @@ public sealed class YamlSkillLoaderTests : IDisposable
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-skill-" + Guid.NewGuid());
         Directory.CreateDirectory(_tempDir);
-        _loader = new YamlSkillLoader(new StubSkillsCatalogPath(), NullLogger<YamlSkillLoader>.Instance);
+        _loader = new YamlSkillLoader(
+            new StubSkillsCatalogPath(),
+            new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance),
+            new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
+            new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
+            NullLogger<YamlSkillLoader>.Instance);
     }
 
     public void Dispose()
@@ -72,74 +77,14 @@ public sealed class YamlSkillLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadRoleDefinitions_ValidYamlRoles_ReturnsAll()
-    {
-        var skillsDir = Path.Combine(_tempDir, "skills");
-        Directory.CreateDirectory(skillsDir);
-
-        File.WriteAllText(Path.Combine(skillsDir, "architect.yaml"), """
-            name: architect
-            display_name: Architect
-            emoji: "🏗️"
-            description: System architecture
-            triggers:
-              - architecture
-              - design
-            rules: Focus on clean architecture patterns
-            convergence_criteria:
-              - Architecture review complete
-            """);
-
-        File.WriteAllText(Path.Combine(skillsDir, "tester.yaml"), """
-            name: tester
-            display_name: Tester
-            emoji: "🧪"
-            description: Quality assurance
-            triggers:
-              - test
-            rules: Ensure test coverage
-            convergence_criteria:
-              - Tests defined
-            """);
-
-        var roles = _loader.LoadRoleDefinitions(skillsDir);
-
-        roles.Should().HaveCount(2);
-        roles.Should().Contain(r => r.Name == "architect");
-        roles.Should().Contain(r => r.Name == "tester");
-
-        var architect = roles.First(r => r.Name == "architect");
-        architect.DisplayName.Should().Be("Architect");
-        architect.Triggers.Should().Contain("architecture");
-        architect.Rules.Should().Contain("clean architecture");
-    }
-
-    [Fact]
     public void LoadRoleDefinitions_SkillMdFormat_ReturnsAll()
     {
         var skillsDir = Path.Combine(_tempDir, "skills");
         Directory.CreateDirectory(skillsDir);
 
-        var architectDir = Path.Combine(skillsDir, "architect");
-        Directory.CreateDirectory(architectDir);
-        File.WriteAllText(Path.Combine(architectDir, "SKILL.md"), """
-            ---
-            name: architect
-            display-name: "Architect"
-            emoji: "🏗️"
-            description: "System architecture"
-            triggers:
-              - architecture
-              - design
-            version: 1.0.0
-            ---
-
-            # Architect
-
-            Focus on clean architecture patterns.
-            Evaluate component boundaries.
-            """);
-        File.WriteAllText(Path.Combine(architectDir, "agentsmith.md"), """
+        WriteAnalystSkill(skillsDir, "architect", "System architecture",
+            "Focus on clean architecture patterns. Evaluate component boundaries.");
+        File.WriteAllText(Path.Combine(skillsDir, "architect", "agentsmith.md"), """
             # Agent Smith Extensions
 
             ## convergence_criteria
@@ -147,23 +92,7 @@ public sealed class YamlSkillLoaderTests : IDisposable
             - "Patterns are consistent"
             """);
 
-        var testerDir = Path.Combine(skillsDir, "tester");
-        Directory.CreateDirectory(testerDir);
-        File.WriteAllText(Path.Combine(testerDir, "SKILL.md"), """
-            ---
-            name: tester
-            display-name: "Tester"
-            emoji: "🧪"
-            description: "Quality assurance"
-            triggers:
-              - test
-            version: 1.0.0
-            ---
-
-            # Tester
-
-            Ensure test coverage.
-            """);
+        WriteAnalystSkill(skillsDir, "tester", "Quality assurance", "Ensure test coverage.");
 
         var roles = _loader.LoadRoleDefinitions(skillsDir);
 
@@ -172,73 +101,22 @@ public sealed class YamlSkillLoaderTests : IDisposable
         roles.Should().Contain(r => r.Name == "tester");
 
         var architect = roles.First(r => r.Name == "architect");
-        architect.DisplayName.Should().Be("Architect");
-        architect.Emoji.Should().Be("🏗️");
         architect.Description.Should().Be("System architecture");
-        architect.Triggers.Should().Contain("architecture");
         architect.Rules.Should().Contain("clean architecture");
+        architect.RolesSupported.Should().NotBeNull().And.ContainSingle();
+        architect.RoleBodies.Should().NotBeNull();
         architect.ConvergenceCriteria.Should().HaveCount(2);
         architect.ConvergenceCriteria.Should().Contain("Architecture review complete");
-    }
-
-    [Fact]
-    public void LoadRoleDefinitions_MixedFormats_LoadsBoth()
-    {
-        var skillsDir = Path.Combine(_tempDir, "skills");
-        Directory.CreateDirectory(skillsDir);
-
-        // SKILL.md format
-        var architectDir = Path.Combine(skillsDir, "architect");
-        Directory.CreateDirectory(architectDir);
-        File.WriteAllText(Path.Combine(architectDir, "SKILL.md"), """
-            ---
-            name: architect
-            display-name: "Architect"
-            description: "Architecture"
-            version: 1.0.0
-            ---
-
-            # Architect
-
-            Architecture rules.
-            """);
-
-        // Legacy YAML format
-        File.WriteAllText(Path.Combine(skillsDir, "tester.yaml"), """
-            name: tester
-            display_name: Tester
-            description: Testing
-            rules: Test rules
-            """);
-
-        var roles = _loader.LoadRoleDefinitions(skillsDir);
-
-        roles.Should().HaveCount(2);
-        roles.Should().Contain(r => r.Name == "architect");
-        roles.Should().Contain(r => r.Name == "tester");
     }
 
     [Fact]
     public void LoadRoleDefinitions_SkillMdWithSource_ParsesProvenance()
     {
         var skillsDir = Path.Combine(_tempDir, "skills");
-        var architectDir = Path.Combine(skillsDir, "architect");
-        Directory.CreateDirectory(architectDir);
+        Directory.CreateDirectory(skillsDir);
+        WriteAnalystSkill(skillsDir, "architect", "Architecture", "Architecture rules.");
 
-        File.WriteAllText(Path.Combine(architectDir, "SKILL.md"), """
-            ---
-            name: architect
-            display-name: "Architect"
-            description: "Architecture"
-            version: 1.0.0
-            ---
-
-            # Architect
-
-            Architecture rules.
-            """);
-
-        File.WriteAllText(Path.Combine(architectDir, "source.md"), """
+        File.WriteAllText(Path.Combine(skillsDir, "architect", "source.md"), """
             # Skill Source
 
             origin: https://github.com/example/skills
@@ -278,29 +156,33 @@ public sealed class YamlSkillLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadRoleDefinitions_DirectoryNotFound_ReturnsEmpty()
+    public void LoadRoleDefinitions_SkillMdMissingRolesSupported_RejectsWithMigrationHint()
     {
-        var roles = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "nonexistent"));
+        var skillsDir = Path.Combine(_tempDir, "skills");
+        var badDir = Path.Combine(skillsDir, "legacy-skill");
+        Directory.CreateDirectory(badDir);
+
+        File.WriteAllText(Path.Combine(badDir, "SKILL.md"), """
+            ---
+            name: legacy-skill
+            description: "Old skill without roles_supported"
+            version: 1.0.0
+            ---
+
+            # Legacy
+
+            Body without role sections.
+            """);
+
+        var roles = _loader.LoadRoleDefinitions(skillsDir);
         roles.Should().BeEmpty();
     }
 
     [Fact]
-    public void LoadRoleDefinitions_InvalidFile_SkipsIt()
+    public void LoadRoleDefinitions_DirectoryNotFound_ReturnsEmpty()
     {
-        var skillsDir = Path.Combine(_tempDir, "skills");
-        Directory.CreateDirectory(skillsDir);
-
-        File.WriteAllText(Path.Combine(skillsDir, "valid.yaml"), """
-            name: architect
-            display_name: Architect
-            description: Architecture
-            """);
-
-        File.WriteAllText(Path.Combine(skillsDir, "invalid.yaml"), ": [broken {{{}");
-
-        var roles = _loader.LoadRoleDefinitions(skillsDir);
-        roles.Should().HaveCount(1);
-        roles[0].Name.Should().Be("architect");
+        var roles = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "nonexistent"));
+        roles.Should().BeEmpty();
     }
 
     [Fact]
@@ -320,23 +202,10 @@ public sealed class YamlSkillLoaderTests : IDisposable
     public void LoadRoleDefinitions_ConvergenceCriteriaParsedFromAgentSmithMd()
     {
         var skillsDir = Path.Combine(_tempDir, "skills");
-        var skillDir = Path.Combine(skillsDir, "checker");
-        Directory.CreateDirectory(skillDir);
+        Directory.CreateDirectory(skillsDir);
+        WriteAnalystSkill(skillsDir, "checker", "Checks things", "Check all the things.");
 
-        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), """
-            ---
-            name: checker
-            display-name: "Checker"
-            description: "Checks things"
-            version: 1.0.0
-            ---
-
-            # Checker
-
-            Check all the things.
-            """);
-
-        File.WriteAllText(Path.Combine(skillDir, "agentsmith.md"), """
+        File.WriteAllText(Path.Combine(skillsDir, "checker", "agentsmith.md"), """
             # Agent Smith Extensions
 
             ## convergence_criteria
@@ -450,5 +319,28 @@ public sealed class YamlSkillLoaderTests : IDisposable
 
         active.Should().HaveCount(1);
         active[0].Name.Should().Be("architect");
+    }
+
+    /// <summary>
+    /// Writes a minimal valid SKILL.md (analyst-only, body section ## as_analyst) into
+    /// <paramref name="skillsDir"/>/<paramref name="name"/>/SKILL.md.
+    /// </summary>
+    private static void WriteAnalystSkill(string skillsDir, string name, string description, string analystBody)
+    {
+        var dir = Path.Combine(skillsDir, name);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "SKILL.md"), $"""
+            ---
+            name: {name}
+            version: 2.0.0
+            description: "{description}"
+
+            roles_supported: [analyst]
+            ---
+
+            ## as_analyst
+
+            {analystBody}
+            """);
     }
 }

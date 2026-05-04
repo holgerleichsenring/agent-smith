@@ -5,7 +5,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// Defines role, execution order, output type, and parallelism.
 /// </summary>
 public sealed record SkillOrchestration(
-    SkillRole Role,
+    OrchestrationRole Role,
     SkillOutputType Output,
     IReadOnlyList<string> RunsAfter,
     IReadOnlyList<string> RunsBefore,
@@ -14,7 +14,7 @@ public sealed record SkillOrchestration(
 {
     /// <summary>Default orchestration for skills without an explicit orchestration block.</summary>
     public static SkillOrchestration DefaultContributor => new(
-        SkillRole.Contributor,
+        OrchestrationRole.Contributor,
         SkillOutputType.Artifact,
         Array.Empty<string>(),
         Array.Empty<string>(),
