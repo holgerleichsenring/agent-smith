@@ -6,6 +6,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,7 +47,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
         services.AddTransient<ICommandHandler<TriageContext>, TriageHandler>();
-        services.AddTransient<ICommandHandler<SecurityTriageContext>, SecurityTriageHandler>();
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<PromptPrefixBuilder>();
         services.AddTransient<ISkillPromptBuilder, SkillPromptBuilder>();
@@ -55,6 +55,19 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
+        services.AddTransient<ICommandHandler<FilterRoundContext>, FilterRoundHandler>();
+
+        // p0111c phase-based triage machinery
+        services.AddTransient<TriageRationaleParser>();
+        services.AddTransient<TriageOutputValidator>();
+        services.AddTransient<TriageLabelOverrideApplier>();
+        services.AddTransient<ProjectMapExcerptBuilder>();
+        services.AddTransient<PhaseCommandExpander>();
+        services.AddTransient<ITriageOutputProducer, TriageOutputProducer>();
+        services.AddTransient<LegacyTriageStrategy>();
+        services.AddTransient<StructuredTriageStrategy>();
+        services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
+        services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
         services.AddTransient<PlanConsolidator>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
@@ -71,9 +84,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
-        services.AddTransient<ApiSecurityTriagePromptBuilder>();
-        services.AddTransient<ApiSecuritySkillFilter>();
-        services.AddTransient<ICommandHandler<ApiSecurityTriageContext>, ApiSecurityTriageHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddTransient<ICommandHandler<LoadSkillsContext>, LoadSkillsHandler>();
@@ -100,7 +110,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
-        services.AddTransient<ISkillGraphBuilder, SkillGraphBuilder>();
         services.AddSingleton<HttpProbeRunner>();
     }
 
@@ -122,10 +131,12 @@ public static class ServiceCollectionExtensions
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
         AddBuilder<TriageContextBuilder>(services, CommandNames.Triage);
-        AddBuilder<SecurityTriageContextBuilder>(services, CommandNames.SecurityTriage);
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);
         AddBuilder<SecuritySkillRoundContextBuilder>(services, CommandNames.SecuritySkillRound);
+        AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
+        AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
+        AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
@@ -140,7 +151,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
-        AddBuilder<ApiSecurityTriageContextBuilder>(services, CommandNames.ApiSecurityTriage);
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
         AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);

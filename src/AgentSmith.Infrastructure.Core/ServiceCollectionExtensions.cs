@@ -28,6 +28,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContextGenerator, ContextGenerator>();
         services.AddSingleton<ICodeMapGenerator, CodeMapGenerator>();
         services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();
+        services.AddSingleton<ConceptVocabularyLoader>();
+        services.AddSingleton<ConceptVocabularyValidator>();
+        services.AddSingleton<SkillIndexBuilder>();
+        services.AddSingleton<ISkillBodyResolver, SkillBodyResolver>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
 
