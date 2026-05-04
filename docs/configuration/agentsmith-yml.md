@@ -40,12 +40,19 @@ projects:
         is_enabled: true
         strategy: automatic
 
-      compaction:                   # Context window management
+      compaction:                   # Context window management — see docs/concepts/context-compaction.md
         is_enabled: true
-        threshold_iterations: 8     # Compact after N agentic loop iterations
-        max_context_tokens: 80000   # Target token limit
-        keep_recent_iterations: 3   # Preserve last N iterations verbatim
-        summary_model: claude-haiku-4-5-20251001
+        threshold_iterations: 8     # Fire when iterations >= N (boolean OR with max_context_tokens)
+        max_context_tokens: 80000   # Fire when estimated tokens >= N (boolean OR with threshold_iterations)
+        keep_recent_iterations: 3   # Claude compactor knob; OpenAi compactor keeps 2 complete tool-call rounds
+        summary_model: claude-haiku-4-5-20251001  # Claude compactor — summarizer model
+        deployment_name: gpt-4o-mini-deployment   # OpenAI/Azure compactor — summarizer deployment override (cheaper than primary)
+        # Provider availability:
+        #   claude        ✓  ClaudeContextCompactor (p0008)
+        #   openai        ✓  OpenAiContextCompactor (p0114)
+        #   azure-openai  ✓  OpenAiContextCompactor (p0114)
+        #   gemini        ✗  NoOp placeholder — same long-loop cost; follow-up phase
+        #   ollama        ✗  NoOp placeholder — same long-loop cost; follow-up phase
 
       models:                       # Multi-model routing (optional)
         scout:

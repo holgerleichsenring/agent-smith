@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Compaction;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
@@ -11,19 +12,22 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent.Adapters;
 /// <summary>
 /// IAgenticAnalyzer for Azure OpenAI. Same shape as OpenAiAgenticAnalyzer but
 /// uses AzureOpenAIClient with deployment routing. Composes the OpenAi
-/// adapter via a custom ChatClient factory.
+/// adapter via a custom ChatClient factory. Optional context compaction (p0114)
+/// passes through to the inner OpenAi analyzer.
 /// </summary>
 public sealed class AzureOpenAiAgenticAnalyzer(
     string apiKey,
     Uri endpoint,
     string deployment,
     RetryConfig retryConfig,
-    ILogger<AzureOpenAiAgenticAnalyzer> logger) : IAgenticAnalyzer
+    ILogger<AzureOpenAiAgenticAnalyzer> logger,
+    IOpenAiContextCompactor? compactor = null) : IAgenticAnalyzer
 {
     private readonly OpenAiAgenticAnalyzer _inner = new(
         apiKey, deployment, endpoint, retryConfig,
         new TypedLogger<OpenAiAgenticAnalyzer>(logger),
-        () => CreateAzureChatClient(apiKey, endpoint, deployment, retryConfig, logger));
+        () => CreateAzureChatClient(apiKey, endpoint, deployment, retryConfig, logger),
+        compactor);
 
     public Task<AnalysisResult> AnalyzeAsync(
         string systemPrompt, string userPrompt,
