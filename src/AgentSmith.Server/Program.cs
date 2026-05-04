@@ -11,7 +11,8 @@ DispatcherBanner.Print();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddConsole(options => options.FormatterName = CompactConsoleFormatter.FormatterName);
-builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOptions>();
+builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOptions>(
+    options => options.IncludeScopes = true);
 builder.Logging.AddFilter("Microsoft", LogLevel.Information);
 builder.Logging.AddFilter("System", LogLevel.Information);
 builder.Logging.SetMinimumLevel(
