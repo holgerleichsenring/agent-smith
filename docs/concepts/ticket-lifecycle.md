@@ -92,6 +92,7 @@ The lifecycle is the source of truth, so transitions must be atomic against conc
 |---------|-------------|------------------|
 | Receiver pod crash mid-claim | Nothing — claim is atomic per ticket | Next webhook/poll re-claims; the lock TTL is 30s |
 | Consumer pod crash mid-pipeline | Heartbeat stops renewing; ticket is left InProgress | StaleJobDetector reverts to Pending within 1 minute after TTL |
+| Pipeline command fails mid-run | Working tree on the consumer's `/tmp` is gone when the pod restarts | `PersistWorkBranchHandler` pushes a `[wip]` commit on `agent-smith/{ticketId}` before MarkFailed; next run resumes from `origin/{branch}` — see [Branch Persistence](branch-persistence.md) |
 | Redis loss + restart | Queue is empty, all heartbeats gone | EnqueuedReconciler re-enqueues every Enqueued ticket within 10 minutes; StaleJobDetector reverts orphaned InProgress within ~3 minutes |
 | Network partition between receiver and consumer pods | Nothing — receiver only enqueues, consumer pulls when reachable | Self-heals once partition lifts |
 | Operator manually deletes lifecycle label | Ticket appears Pending again | Next webhook/poll re-claims it |
@@ -109,6 +110,7 @@ To inspect lifecycle state for a project at a glance, list issues by label in th
 
 ## Related
 
+- [Branch Persistence](branch-persistence.md) — how partial pipeline work survives mid-run failures
 - [Polling Setup](../setup/polling.md) — opt-in per project
 - [Webhook Configuration](../configuration/webhooks.md) — claim flow and HTTP responses
 - [Polling vs Webhooks](../setup/polling-vs-webhooks.md) — when to choose which

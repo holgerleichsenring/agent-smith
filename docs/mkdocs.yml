@@ -93,6 +93,7 @@ nav:
     - concepts/index.md
     - Pipeline System: concepts/pipeline-system.md
     - Ticket Lifecycle: concepts/ticket-lifecycle.md
+    - Branch Persistence: concepts/branch-persistence.md
     - Phases & Runs: concepts/phases-and-runs.md
     - Self-Documentation: concepts/self-documentation.md
     - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
