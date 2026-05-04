@@ -122,9 +122,55 @@ The resolver caches per `(skill, role)` for the process lifetime; references are
 
 `hard_limits.max_observations` caps how many observations the LLM may emit. `max_chars_per_field` caps each string field. Both are enforced by parsers downstream.
 
-## Per-provider overrides (planned, p0111d)
+## Per-provider overrides
 
-A future phase introduces optional `SKILL.<provider>.md` files that replace the base `SKILL.md` when the active provider matches (e.g. `SKILL.openai.md` overrides for OpenAI deployments). The mechanism is opt-in per skill, opt-in per operator. Zero overrides ship initially. Authoring a `SKILL.<provider>.md` requires the override to declare the same `name` and `roles_supported` as base; mismatches are rejected with a clear error.
+Optional `SKILL.<provider>.md` files in a skill directory replace the base `SKILL.md` when the active provider matches. The active provider is read from `primary_provider:` at the root of `agentsmith.yml`; when unset (the default) the base `SKILL.md` always wins.
+
+```
+<skills-root>/coding/architect/
+├── SKILL.md            # base — used unless an override matches
+├── SKILL.openai.md     # used when primary_provider: openai
+├── SKILL.claude.md     # used when primary_provider: claude
+└── references/
+```
+
+### File-naming convention
+
+`SKILL.<provider>.md` where `<provider>` matches one of: `claude`, `openai`, `azure-openai`, `gemini`, `ollama`. Matching is exact; an `openai` override is ignored when `primary_provider: claude`.
+
+### Frontmatter merge rules
+
+Top-level frontmatter keys merge **shallowly** between override and base:
+
+- A key declared in the override **replaces** base's value entirely (no deep merge inside `activation.positive[]`, `role_assignment[role].*`, etc. — the operator manages a complete declaration when overriding a key).
+- A key omitted from the override **inherits** base's value as-is.
+- The body is taken from the override's file (after splitting on `## as_<role>` headers).
+
+`name` and `roles_supported` are special: the override **must** declare both, and they must match base exactly. Mismatched name or `roles_supported` is rejected at boot with a clear error — sibling skills with different identities should be different skill directories, not overrides of the same one.
+
+### Active-provider configuration
+
+```yaml
+# agentsmith.yml
+primary_provider: openai
+
+projects:
+  agent-smith:
+    agent:
+      type: openai
+      model: gpt-4.1
+      ...
+```
+
+Multi-provider deployments where, say, Planning uses Claude and Coding uses OpenAI use the **single** `primary_provider` for skill resolution — skill content is shared across the run, not partitioned by task. Operators with strong per-task tuning needs can author finer-grained config in a follow-up.
+
+### Boot-time logging
+
+When an override loads, the framework logs at INFO level: `Provider override loaded for skill 'architect' from .../SKILL.openai.md`. Default behavior (no override matched, or no `primary_provider` set) is silent.
+
+### Zero overrides ship by default
+
+The mechanism is the deliverable. No `SKILL.<provider>.md` files ship in the agent-smith-skills catalog. Provider-tuning is opt-in per skill, opt-in per operator — author the override locally, version it alongside the base in your project's skills directory, and set `primary_provider` to activate it.
 
 ## Index files
 
