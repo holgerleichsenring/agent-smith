@@ -3,6 +3,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -72,6 +73,8 @@ public abstract class SkillRoundHandlerBase(
         pipeline.TryGet<string>(ContextKeys.DomainRules, out var domainRules);
         pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
         var existingTests = ResolveExistingTests(pipeline);
+        var assignedRole = ResolveAssignedRole(skillName, pipeline);
+        var planArtifact = ResolvePlanArtifact(pipeline);
 
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussionLog);
         var discussionForPrompt = (IReadOnlyList<DiscussionEntry>)(discussionLog ?? []);
@@ -79,13 +82,15 @@ public abstract class SkillRoundHandlerBase(
         var (domainStable, domainVariable) = BuildDomainSectionParts(pipeline);
         var (systemPrompt, userPrefix, userSuffix) = promptBuilder.BuildDiscussionPromptParts(
             role, domainStable, domainVariable, projectContext, domainRules, codeMap,
-            discussionForPrompt, round, existingTests);
+            discussionForPrompt, round, existingTests, assignedRole, planArtifact);
 
         var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
             systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
 
-        var parsed = ObservationParser.ParseWithoutIds(llmResponse.Text, skillName, Logger);
+        var rawParsed = ObservationParser.ParseWithoutIds(llmResponse.Text, skillName, Logger);
+        var parsed = ApplyConfidenceThreshold(rawParsed, skillName, Logger);
+        StorePlanArtifactIfPlanLead(skillName, assignedRole, pipeline, parsed);
         var renderedText = RenderObservationsAsText(parsed);
         var discussionEntry = new DiscussionEntry(
             skillName, role.DisplayName, role.Emoji, round, renderedText);
@@ -100,6 +105,56 @@ public abstract class SkillRoundHandlerBase(
         return DetectBlockingFollowUp(parsed, skillName, role, roles, round)
             ?? DetectObjection(renderedText, role, roles, round)
             ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): {parsed.Count} observations");
+    }
+
+    private static SkillRole? ResolveAssignedRole(string skillName, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<TriageOutput>(ContextKeys.TriageOutput, out var triage) || triage is null)
+            return null;
+        if (!pipeline.TryGet<PipelinePhase>(ContextKeys.CurrentPhase, out var phase))
+            return null;
+        if (!triage.Phases.TryGetValue(phase, out var assignment))
+            return null;
+        if (assignment.Lead == skillName) return SkillRole.Lead;
+        if (assignment.Analysts.Contains(skillName)) return SkillRole.Analyst;
+        if (assignment.Reviewers.Contains(skillName)) return SkillRole.Reviewer;
+        if (assignment.Filter == skillName) return SkillRole.Filter;
+        return null;
+    }
+
+    private static PlanArtifact? ResolvePlanArtifact(PipelineContext pipeline) =>
+        pipeline.TryGet<PlanArtifact>(ContextKeys.PlanArtifact, out var artifact) ? artifact : null;
+
+    private static List<SkillObservation> ApplyConfidenceThreshold(
+        List<SkillObservation> parsed, string skillName, ILogger logger)
+    {
+        var result = new List<SkillObservation>(parsed.Count);
+        foreach (var obs in parsed)
+        {
+            if (obs.Blocking && obs.Confidence < 70)
+            {
+                logger.LogInformation(
+                    "Skill {Skill}: blocking observation '{Concern}' downgraded to non-blocking (confidence {Confidence} < 70)",
+                    skillName, obs.Concern, obs.Confidence);
+                result.Add(obs with { Blocking = false });
+            }
+            else
+            {
+                result.Add(obs);
+            }
+        }
+        return result;
+    }
+
+    private static void StorePlanArtifactIfPlanLead(
+        string skillName, SkillRole? assignedRole, PipelineContext pipeline,
+        IReadOnlyList<SkillObservation> observations)
+    {
+        if (assignedRole != SkillRole.Lead) return;
+        if (!pipeline.TryGet<PipelinePhase>(ContextKeys.CurrentPhase, out var phase) ||
+            phase != PipelinePhase.Plan) return;
+        var artifact = new PlanArtifact(skillName, observations, DateTimeOffset.UtcNow);
+        pipeline.Set(ContextKeys.PlanArtifact, artifact);
     }
 
     private CommandResult? DetectBlockingFollowUp(
