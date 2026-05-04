@@ -27,8 +27,13 @@ public sealed class ExecutePipelineUseCase(
     public async Task<CommandResult> ExecuteAsync(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Executing pipeline '{Pipeline}' for project '{Project}'",
-            request.PipelineName, request.ProjectName);
+        var runId = Guid.NewGuid().ToString("N")[..8];
+        using var logScope = logger.BeginScope("run={RunId}", runId);
+
+        var ticketDesc = request.TicketId is not null ? $" ticket #{request.TicketId.Value}" : "";
+        logger.LogInformation(
+            "Executing pipeline '{Pipeline}' for project '{Project}'{TicketDesc} (run {RunId})",
+            request.PipelineName, request.ProjectName, ticketDesc, runId);
 
         var config = configLoader.LoadConfig(configPath);
         await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
@@ -43,6 +48,7 @@ public sealed class ExecutePipelineUseCase(
         var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
 
         var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, runId);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
@@ -79,7 +85,7 @@ public sealed class ExecutePipelineUseCase(
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
 
-        LogResult(result, projectName);
+        LogResult(result, projectName, pipeline);
         return result;
     }
 
@@ -152,15 +158,16 @@ public sealed class ExecutePipelineUseCase(
         catch (InvalidOperationException) { return fallback; }
     }
 
-    private void LogResult(CommandResult result, string projectName)
+    private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)
     {
+        var cost = PipelineCostTracker.GetOrCreate(pipeline);
         if (result.IsSuccess)
             logger.LogInformation(
-                "Project {Project} processed successfully: {Message}",
-                projectName, result.Message);
+                "Project {Project} processed successfully: {Message} | {Cost}",
+                projectName, result.Message, cost);
         else
             logger.LogWarning(
-                "Project {Project} processing failed: {Message}",
-                projectName, result.Message);
+                "Project {Project} processing failed: {Message} | {Cost}",
+                projectName, result.Message, cost);
     }
 }
