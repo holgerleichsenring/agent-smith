@@ -96,4 +96,8 @@ public static class ContextKeys
     public const string CurrentPhase = "CurrentPhase";
     public const string PlanArtifact = "PlanArtifact";
     public const string ConceptVocabulary = "ConceptVocabulary";
+
+    /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
+    /// log scope so concurrent runs are filterable in shared log streams.</summary>
+    public const string RunId = "RunId";
 }
