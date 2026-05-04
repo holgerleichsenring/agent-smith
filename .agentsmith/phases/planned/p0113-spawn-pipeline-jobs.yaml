@@ -6,84 +6,126 @@ requires: []
 
 decisions:
   - key: "The Server pod is fundamentally orchestration: poll, claim, queue, dispatch, lifecycle. Running pipelines in-process means Server's container needs every language's toolchain (dotnet SDK, npm, python, …) for steps like TestCommand. That's a fool's errand for a multi-language platform — and the architectural intent has always been ephemeral job containers per run. Slack-intent flow already does this via IJobSpawner; queue flow is the gap."
-  - key: "PipelineQueueConsumer becomes a dispatcher, not an executor. Its current call `useCase.ExecuteAsync(...)` becomes `jobSpawner.SpawnAsync(jobRequest)`. The CLI container picks up the work via existing CLI surface (e.g. RunCommand or a new internal `agentsmith run-claimed-job <id>` form) and writes lifecycle/heartbeat through Redis. Server keeps its in-flight backpressure (SemaphoreSlim) — limit how many simultaneous jobs to spawn, not how many to run."
-  - key: "JobRequest gets the same fields it has today (ProjectName, PipelineName, TicketId, Headless, optional context dictionary) plus a stable JobId so the spawned container reports back via Redis under that id. The OrphanJobDetector + IJobHeartbeatService machinery from p0095/p0109a already supports this — we're closing the gap, not building from scratch."
+
+  - key: "PipelineQueueConsumer becomes a dispatcher, not an executor. Its current call `useCase.ExecuteAsync(...)` becomes `jobSpawner.SpawnAsync(jobRequest)`. The CLI container picks up the work via existing CLI surface (a new internal `agentsmith run-claimed-job <id>` subcommand) and writes lifecycle/heartbeat through Redis. Server keeps its in-flight backpressure (SemaphoreSlim) — limit how many simultaneous jobs to spawn, not how many to run."
+
+  - key: "Lifecycle transition crosses the process boundary. TicketClaimService writes Pending→Enqueued on the Server side (BEFORE spawn). PipelineLifecycleCoordinator.BeginAsync writes Enqueued→InProgress INSIDE the spawned container, after RunClaimedJobCommand boots and resolves the coordinator. Between these two transitions sits the spawn window — if SpawnAsync fails (image pull error, K8s quota, Docker daemon down) or the container starts but RunClaimedJobCommand never reaches the coordinator, the ticket stays Enqueued forever. RECOVERY: EnqueuedReconciler (already shipped in p0095c) sweeps Enqueued tickets without active heartbeat back to Pending after the configured stale-window (default 10min). The reconciler is the load-bearing safety net for this gap; reducing the window tightens recovery time at the cost of false-positive resets for slow-starting containers. Documented as the explicit cross-boundary contract — not implicit via OrphanJobDetector."
+
+  - key: "Heartbeat-gap edge case: container started, RunClaimedJobCommand loaded JobRequest from Redis, but crashes BEFORE the first IJobHeartbeatService.Start() call (e.g. configuration load throws, DI graph fails to resolve, JIT crash). StaleJobDetector watches heartbeat TTL — it never sees a heartbeat for this run, so detection lag = full TTL window (default 5min). Mitigation: RunClaimedJobCommand writes its first heartbeat IMMEDIATELY after JobRequest load + before DI graph build. If the heartbeat write itself fails, the command fails fast and exits non-zero — Docker/K8s job marked failed, OrphanJobDetector picks it up via job-state-poll instead of heartbeat-poll. Two recovery paths so a heartbeat-write failure doesn't leave a ghost."
+
+  - key: "JobRequest payload moves to Redis (RedisJobRequestStore, SETEX with 1h TTL). CLI args stay short — only JobId + RedisUrl + ConfigPath. Reason: JobRequest.Context dictionary can grow (e.g. webhook payload metadata, scan-target overrides) and stuffing arbitrary structured data through CLI args is fragile (escaping, length limits). Redis is already a hard dependency for the queue itself; piggy-backing the payload there is zero new infra. TTL of 1h is a soft contract: spawn must complete + container must load within the hour; longer-running pipelines have already moved past the load-and-discard phase by then."
+
+  - key: "Backpressure default stays at 4 — but with new rationale. Pre-refactor the limit gated CPU/memory pressure on the Server pod (4 in-process pipelines burning tokens). Post-refactor each spawn is its own container so Server resources are unrelated. The real binding constraint becomes downstream LLM-deployment quota: 4 concurrent runs hammer one Azure OpenAI deployment in lockstep, and raising parallelism without raising quota just shifts queueing from the Redis layer to the API layer. Operators who scale their Azure quota or add provider-side parallelism should bump QueueConfig.MaxParallel; default is conservative on purpose."
+
+  - key: "RunClaimedJobCommand is a discoverable hidden subcommand, not env-var-bootstrap (no `JOB_ID env → branch in Program.cs`). Reason: explicit subcommand surface is debuggable — operators can manually invoke `agentsmith run-claimed-job --job-id <id>` against a specific Redis instance to reproduce a failure locally. Env-var-bootstrap would conditionally branch CLI startup based on whether JOB_ID is set, which spreads logic across Program.cs and is invisible to --help output. Subcommand stays out of public --help (CommandHandler.IsHidden = true) but is reachable for any caller who knows the name."
+
+  - key: "JobRequest gains an ImageOverride field (string?, default null). Resolution order at spawn time: (1) JobRequest.ImageOverride if explicitly set by the claim service from per-trigger metadata or per-pipeline config; (2) ProjectConfig.PipelineDef.ImageOverride if set on the matching pipeline definition; (3) DispatcherDefaults.CliImage as the registry default. First non-null wins. The override exists so operators with a Python project can map fix-bug for that project to a python-toolchain image without changing global defaults; default flow stays on the standard CLI image."
+
+  - key: "Secrets and config propagation must be EXPLICIT, not implicit through env-var inheritance. Server has provider tokens (ANTHROPIC_API_KEY, GITHUB_TOKEN, AZURE_DEVOPS_TOKEN, etc.) wired via DI from process env at boot. Spawned containers need the same set, scoped down. New SecretsForwardingPolicy (whitelist) names every env var that may cross the spawn boundary — anything outside the list is dropped. Implementation: KubernetesJobSpawner adds `envFrom: [secretRef: agentsmith-secrets]` (existing K8s Secret) + a configMap volume mount for /app/config; DockerJobSpawner reads the same whitelist and forwards explicit `-e` flags. Whitelist lives in Contracts (SecretsForwardingPolicy.Defaults) so test fixtures can override + the production list is grep-able. Adding a new provider that needs a new secret = whitelist update, never accidental leakage of unrelated env vars."
+
   - key: "Server's Dockerfile drops to runtime-only (mcr.microsoft.com/dotnet/aspnet:8.0). Job container is the existing CLI image (mcr.microsoft.com/dotnet/sdk:8.0 + git, libgit2-dev, gosu, plus future per-language additions in operator overlays). Image bloat moves where it belongs: the executor, not the dispatcher. The CLI Dockerfile's TODO `p4x: dotnet SDK required until TestCommand spawns ephemeral job containers` is exactly this phase."
+
   - key: "Backwards compatibility: Slack-intent path stays untouched. Both paths converge on IJobSpawner.SpawnAsync — the spawner picks DockerJobSpawner or KubernetesJobSpawner via JobSpawnerSetup based on environment, exactly as today. Two callers, one spawner abstraction."
-  - key: "TestHandler stops being a per-process mystery. Each spawned job runs in a container that has the toolchain for the project's language — Server doesn't care, the container does. Operator-defined K8s job templates carry per-pipeline image overrides if the default CLI image lacks (say) Python."
 
 steps:
+  - id: jobrequest-extension
+    action: "Extend JobRequest with ImageOverride; introduce SecretsForwardingPolicy whitelist"
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/SecretsForwardingPolicy.cs: { IReadOnlyList<string> AllowedEnvVarNames }. Defaults expose the curated list of provider-token env vars (ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GEMINI_API_KEY, GITHUB_TOKEN, GITLAB_TOKEN, AZURE_DEVOPS_TOKEN, JIRA_TOKEN, JIRA_EMAIL — plus REDIS_URL for the spawn handoff). Test fixtures override via constructor."
+    modify:
+      - "src/AgentSmith.Server/Models/JobRequest.cs: add `string? ImageOverride { get; init; }` with resolution-order documented in the record's XML doc."
+
   - id: cli-claimed-job-entry
     action: "Add a CLI subcommand the spawned container uses to pick up a queue-claimed job"
     new:
-      - "src/AgentSmith.Cli/Commands/RunClaimedJobCommand.cs: --job-id <id> --redis-url <url> [--config <path>]. Reads the JobRequest from Redis, runs ExecutePipelineUseCase.ExecuteAsync(...) under the existing PipelineLifecycleCoordinator + heartbeat, exits with 0/1."
+      - "src/AgentSmith.Cli/Commands/RunClaimedJobCommand.cs: --job-id <id> --redis-url <url> [--config <path>]. Hidden subcommand (IsHidden=true) so it's not in --help but reachable for debugging. Boot order: (1) parse args, (2) connect Redis, (3) write FIRST heartbeat IMMEDIATELY (heartbeat-gap mitigation), (4) load JobRequest from Redis, (5) build DI graph, (6) resolve PipelineLifecycleCoordinator, (7) BeginAsync (Enqueued→InProgress), (8) ExecutePipelineUseCase.ExecuteAsync, (9) coordinator dispose handles InProgress→Done/Failed."
     modify:
-      - "src/AgentSmith.Cli/Program.cs: register RunClaimedJobCommand. Hidden from --help (internal entry point) but discoverable for debugging."
-      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: consumer dequeues JobRequest, hands it to IJobSpawner.SpawnAsync(...) instead of resolving ExecutePipelineUseCase from a scope and running in-process. SemaphoreSlim still gates concurrent spawn count."
+      - "src/AgentSmith.Cli/Program.cs: register RunClaimedJobCommand via the existing System.CommandLine root."
+      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: consumer dequeues JobRequest, writes it to RedisJobRequestStore, then calls IJobSpawner.SpawnAsync(...) instead of resolving ExecutePipelineUseCase from a scope and running in-process. SemaphoreSlim still gates concurrent spawn count."
 
   - id: jobrequest-redis-handoff
     action: "Decouple JobRequest payload from CLI args — store in Redis, container reads it by JobId"
     new:
-      - "src/AgentSmith.Server/Services/RedisJobRequestStore.cs: { Task SaveAsync(JobRequest, ttl), Task<JobRequest> LoadAsync(JobId) }. SETEX with 1h default TTL — claim service writes; spawned container reads. CLI args stay short (job-id + redis-url + config-path)."
-    modify:
-      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: SaveAsync the JobRequest before SpawnAsync. Spawn timeout aborts the save."
-      - "src/AgentSmith.Cli/Commands/RunClaimedJobCommand.cs: LoadAsync at startup, fail fast if request not found / expired."
+      - "src/AgentSmith.Server/Services/RedisJobRequestStore.cs: { Task SaveAsync(JobRequest, ttl), Task<JobRequest?> LoadAsync(JobId) }. SETEX with 1h default TTL — claim service writes; spawned container reads. CLI args stay short (job-id + redis-url + config-path). LoadAsync returns null for missing/expired (RunClaimedJobCommand fails fast on null)."
 
-  - id: server-image-runtime-only
-    action: "Drop SDK from Server container; rely on spawned CLI container for execution"
+  - id: secrets-and-config-propagation
+    action: "Plumb provider tokens + config volume from Server into spawned containers"
+    new:
+      - "src/AgentSmith.Server/Services/SpawnedContainerEnvBuilder.cs: takes SecretsForwardingPolicy + the current process's env, returns a Dictionary<string,string> of env vars to forward to the spawned container. Filters strictly to the whitelist; logs (debug) which vars were forwarded by name (NEVER values). Used by both DockerJobSpawner + KubernetesJobSpawner."
     modify:
-      - "src/AgentSmith.Server/Dockerfile: confirm runtime is aspnet:8.0 (already true). Document in the Dockerfile comment why no SDK lives here. Optionally delete the toolchain-specific apt-get lines if any leaked in (audit)."
-      - "src/AgentSmith.Cli/Dockerfile: keep sdk:8.0. Remove the `p4x` TODO comment — the gap is now intentional + closed-loop via spawn."
+      - "src/AgentSmith.Server/Services/DockerJobSpawner.cs: explicit `-e <NAME>=<value>` flags from SpawnedContainerEnvBuilder. Mounts /app/config (read-only bind from host /app/config or a configurable path) + /tmp/agentsmith (rw)."
+      - "src/AgentSmith.Server/Services/KubernetesJobSpawner.cs: Job spec uses `envFrom: [secretRef: <name>]` referencing an existing operator-managed Kubernetes Secret. Plus configMap volume mount for /app/config. SecretsForwardingPolicy + the env builder are still consulted for cases where the secretRef is unset (dev-mode K8s with raw env vars)."
 
   - id: docker-spawner-job-payload
-    action: "DockerJobSpawner / KubernetesJobSpawner pass JobId + RedisUrl as the only essential CLI args, plus the per-job image override"
+    action: "DockerJobSpawner / KubernetesJobSpawner pass JobId + RedisUrl as the only essential CLI args, plus the resolved image"
     modify:
-      - "src/AgentSmith.Server/Services/DockerJobSpawner.cs: invocation becomes `dotnet AgentSmith.Cli.dll run-claimed-job --job-id <id> --redis-url <url> --config /app/config/agentsmith.yml`. Mounts /app/config (read-only) + /tmp/agentsmith (rw). Image from JobRequest.ImageOverride or DispatcherDefaults.CliImage."
-      - "src/AgentSmith.Server/Services/KubernetesJobSpawner.cs: same arg shape; Job spec applies operator-supplied per-pipeline image overrides (e.g. python-toolchain image for python projects)."
+      - "src/AgentSmith.Server/Services/DockerJobSpawner.cs: invocation becomes `dotnet AgentSmith.Cli.dll run-claimed-job --job-id <id> --redis-url <url> --config /app/config/agentsmith.yml`. Image resolved via the resolution order in the decisions block (JobRequest.ImageOverride → PipelineDef.ImageOverride → DispatcherDefaults.CliImage)."
+      - "src/AgentSmith.Server/Services/KubernetesJobSpawner.cs: same arg shape; same image resolution; Job spec applies operator-supplied per-pipeline image overrides (e.g. python-toolchain image for python projects)."
 
   - id: lifecycle-handoff
     action: "Verify ticket-lifecycle transitions still happen exactly once per run across the boundary"
     modify:
-      - "src/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs: confirm BeginAsync (Enqueued → InProgress) fires in the spawned container, not in Server. Server side stays at the queue level; the lifecycle coordinator runs inside ExecutePipelineUseCase which now runs in CLI container."
-      - "src/AgentSmith.Server/Services/StaleJobDetector.cs: heartbeat-based stale detection still works — JobHeartbeatService writes from CLI container, StaleJobDetector reads in Server. No code change expected; document the cross-process flow."
+      - "src/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs: confirm BeginAsync (Enqueued→InProgress) fires inside RunClaimedJobCommand BEFORE ExecutePipelineUseCase.ExecuteAsync. Add an explicit comment about the cross-process contract: Server side claim writes Pending→Enqueued; everything past Enqueued is the container's responsibility."
+      - "src/AgentSmith.Server/Services/StaleJobDetector.cs + EnqueuedReconciler.cs: confirm the recovery story for stuck-Enqueued (spawn failed) and stuck-InProgress-without-heartbeat (container crashed). EnqueuedReconciler stale-window default stays at 10min — short enough for actionable recovery, long enough that slow-starting containers don't get reset mid-spawn. Document the cross-process flow in code comments + the new docs page."
 
   - id: backpressure-and-cleanup
-    action: "Server's SemaphoreSlim now gates SPAWN count (not in-process executions); revisit timing"
+    action: "SemaphoreSlim gates SPAWN count (not in-process executions); document the new semantic"
     modify:
-      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: SemaphoreSlim with QueueConfig.MaxParallel still applies but bounds concurrent jobs-in-flight. Increase default? Container spin-up is cheap compared to LLM round-trips. Keep current default; note the difference in QueueConfig docs."
-      - "src/AgentSmith.Server/Services/Hosting/QueueConsumerHostedService.cs: graceful shutdown waits for in-flight spawns to acknowledge JobRequest receipt before stopping (timeout = 30s). Spawned containers continue independently — Server can restart without orphaning their work; OrphanJobDetector handles dangling state."
+      - "src/AgentSmith.Application/Services/PipelineQueueConsumer.cs: SemaphoreSlim with QueueConfig.MaxParallel still applies but bounds concurrent jobs-IN-FLIGHT (spawn-and-await-claim-of-handoff). Default stays 4 with the new rationale (LLM-quota bound, not Server-CPU bound) called out in QueueConfig docstring."
+      - "src/AgentSmith.Server/Services/Hosting/QueueConsumerHostedService.cs: graceful shutdown waits for in-flight spawns to acknowledge JobRequest receipt before stopping (timeout = 30s). Spawned containers continue independently — Server can restart without orphaning their work; OrphanJobDetector + EnqueuedReconciler handle dangling state."
+
+  - id: dockerfile-cleanup
+    action: "Drop SDK from Server container; close the p4x TODO loop in CLI"
+    modify:
+      - "src/AgentSmith.Server/Dockerfile: confirm runtime is aspnet:8.0 (already true). Replace the implicit-everything-runtime comment with explicit: 'Server is orchestration only; language toolchains live in the per-run CLI container spawned via IJobSpawner. See p0113.'"
+      - "src/AgentSmith.Cli/Dockerfile: keep sdk:8.0. Remove the `TODO p4x: dotnet SDK required until TestCommand spawns ephemeral job containers` comment — gap is closed."
 
   - id: tests
     new:
       - "PipelineQueueConsumer_DequeuedJob_DispatchesToJobSpawner_NoInProcessExecution"
-      - "PipelineQueueConsumer_SpawnFails_RedisRequestExpires_NoOrphan"
+      - "PipelineQueueConsumer_SaveAsyncBeforeSpawn_RedisRequestPersisted"
+      - "PipelineQueueConsumer_SpawnFails_RedisRequestExpiresAfterTtl_NoOrphan"
       - "RedisJobRequestStore_RoundTrip_PreservesAllFields"
       - "RunClaimedJobCommand_RequestMissing_FailsFast"
+      - "RunClaimedJobCommand_FirstHeartbeatBeforeDiBuild_HeartbeatGapClosed"
+      - "RunClaimedJobCommand_HeartbeatWriteFails_ProcessExitsNonZero (heartbeat-gap mitigation: process exit signals failure to the orchestrator)"
+      - "RunClaimedJobCommand_DiBuildFailsAfterHeartbeat_HeartbeatExpiresStaleDetectorPicks"
       - "RunClaimedJobCommand_ValidRequest_RunsPipelineWithLifecycleCoordinator"
-      - "DockerJobSpawner_BuildsArgsWithJobIdAndRedisUrl_NotFullPayload"
-      - "ServerDi_AfterPhase_ExecutePipelineUseCaseNotResolvedFromQueueConsumer (regression: ensures Server graph no longer pulls in pipeline-executor transitive deps)"
-    modify:
-      - "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs: assert Server's DI graph no longer requires Application's IPipelineExecutor / IAgentProviderFactory transitively after the consumer becomes a pure dispatcher."
+      - "DockerJobSpawner_ResolvesImageInOrder_RequestOverrideThenPipelineThenDefault"
+      - "DockerJobSpawner_ForwardsOnlyWhitelistedEnvVars_DropsUnrelated"
+      - "KubernetesJobSpawner_BuildsJobSpec_WithEnvFromSecretRefAndConfigMapMount"
+      - "SecretsForwardingPolicy_DefaultWhitelist_CoversAllProviderTokenEnvVarsButNotPATH"
+      - "EnqueuedReconciler_SpawnFailedTicket_RevertsToPending_AfterStaleWindow"
+      - "ServerDiLifetimeTests_AfterPhase_ExecutePipelineUseCaseNotResolvableFromQueueConsumer (regression: ensures Server graph no longer pulls in pipeline-executor transitive deps)"
 
   - id: docs
+    new:
+      - "docs/concepts/spawned-jobs.md: full lifecycle diagram (Server-side claim → spawn → container-side run → heartbeat → completion). Cross-boundary contract: who writes which lifecycle transition. Recovery flowchart: spawn-failed (EnqueuedReconciler), heartbeat-gap (process-exit), in-progress-stuck (StaleJobDetector). Backpressure rationale (LLM-quota bound, not Server-CPU bound)."
+      - "docs/configuration/secrets-forwarding.md: the whitelist concept, how to add a new provider's secret, per-spawner mechanics (Docker -e vs K8s envFrom)."
     modify:
       - "docs/concepts/pipeline-system.md: rewrite the dispatcher-vs-executor section. Server orchestrates; CLI container executes. Diagram updated."
-      - "docs/concepts/ticket-lifecycle.md: clarify that the Enqueued → InProgress transition fires inside the spawned container, not in Server."
-      - "docs/setup/k8s.md: per-pipeline image override pattern for projects needing extra toolchains (Python, Go, etc.)."
+      - "docs/concepts/ticket-lifecycle.md: clarify that the Enqueued→InProgress transition fires inside the spawned container, not in Server."
+      - "docs/setup/k8s.md: per-pipeline image override pattern for projects needing extra toolchains (Python, Go, etc.); Secret/ConfigMap mount expectations for the spawned-job template."
 
   - id: verify
-    action: "dotnet build + dotnet test green; manual: trigger fix-bug on a real .NET project, confirm Server pod logs end at 'Spawned job <id>' and CLI pod logs show the actual pipeline execution + dotnet test step succeeding"
+    action: "dotnet build + dotnet test green; manual: trigger fix-bug on a real .NET project, confirm Server pod logs end at 'Spawned job <id>' and CLI pod logs show the actual pipeline execution + dotnet test step succeeding. Plus failure paths: (a) point IJobSpawner at a non-pullable image → confirm EnqueuedReconciler reverts ticket to Pending after the stale window; (b) inject a startup crash in RunClaimedJobCommand BEFORE the heartbeat write → confirm process exits non-zero, K8s/Docker marks job failed, OrphanJobDetector cleans up; (c) inject a startup crash AFTER the heartbeat write → confirm StaleJobDetector reverts InProgress→Pending after heartbeat TTL."
 
 done:
   - "PipelineQueueConsumer dispatches to IJobSpawner.SpawnAsync — never executes pipelines in-process"
   - "Slack-intent flow + queue flow both converge on IJobSpawner — single execution path"
   - "JobRequest payload stored in Redis by JobId; CLI container loads it on startup"
-  - "Server image confirmed runtime-only (aspnet:8.0); CLI image keeps sdk:8.0 + per-language overlays"
+  - "JobRequest.ImageOverride field added; spawn resolves image via documented order (request → pipeline → default)"
+  - "RunClaimedJobCommand writes its first heartbeat IMMEDIATELY after JobRequest load + before DI graph build (heartbeat-gap mitigation)"
+  - "Lifecycle cross-process contract documented: Pending→Enqueued in Server; Enqueued→InProgress and beyond inside the spawned container; EnqueuedReconciler is the load-bearing recovery for spawn-fails"
+  - "Heartbeat-gap edge case has two recovery paths: process-exit-non-zero detected by job orchestrator, or heartbeat-TTL-expiry detected by StaleJobDetector"
+  - "Server image confirmed runtime-only (aspnet:8.0); CLI image keeps sdk:8.0 + per-language overlays; CLI's `p4x` TODO removed"
   - "TestCommand step runs in the spawned container which has the project's toolchain — no more 'dotnet test not found' in Server"
-  - "TicketLifecycleCoordinator + JobHeartbeatService work cross-process unchanged (already designed for this)"
+  - "SecretsForwardingPolicy whitelist controls which env vars cross the spawn boundary — never accidental leakage of unrelated env"
+  - "DockerJobSpawner: explicit -e flags per whitelisted env var; KubernetesJobSpawner: envFrom secretRef + configMap volume mount"
+  - "Backpressure default stays 4; rationale (LLM-quota bound) documented in QueueConfig docstring"
   - "ServerDiLifetimeTests assert Server's DI graph no longer carries pipeline-executor transitives"
-  - "Backpressure: SemaphoreSlim now bounds concurrent SPAWNS, not in-process executions"
-  - "OrphanJobDetector still cleans up stale jobs (no behavior change)"
-  - "docs/concepts/pipeline-system.md + ticket-lifecycle.md + setup/k8s.md updated"
+  - "OrphanJobDetector + StaleJobDetector + EnqueuedReconciler still clean up stale jobs (no behavior change beyond the new cross-process flow)"
+  - "docs/concepts/spawned-jobs.md (new), secrets-forwarding.md (new), pipeline-system.md (rewritten), ticket-lifecycle.md (updated), setup/k8s.md (updated)"
+  - "15 new tests including all three failure-recovery paths (spawn-fail, heartbeat-gap, in-progress-stuck)"
   - "dotnet build zero warnings, dotnet test green"
-  - "manual: end-to-end fix-bug flow runs successfully with dotnet test inside the spawned CLI container"
+  - "manual: end-to-end fix-bug flow runs successfully with dotnet test inside the spawned CLI container; all three failure-injection scenarios recover cleanly"
