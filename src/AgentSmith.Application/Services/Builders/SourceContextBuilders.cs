@@ -23,7 +23,7 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
         var branch = pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var b) && !string.IsNullOrWhiteSpace(b)
             ? new BranchName(b)
             : pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId)
-                ? BranchName.FromTicket(ticketId!)
+                ? TicketBranchNamer.Compose(ticketId!)
                 : null;
 
         return new CheckoutSourceContext(project.Source, branch, pipeline);

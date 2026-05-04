@@ -76,6 +76,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<StructuredTriageStrategy>();
         services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
+        services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
         services.AddTransient<PlanConsolidator>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
@@ -145,6 +146,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
         AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
         AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);
+        AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
