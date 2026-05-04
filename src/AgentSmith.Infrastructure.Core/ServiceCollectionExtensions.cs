@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -32,6 +33,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ConceptVocabularyValidator>();
         services.AddSingleton<SkillIndexBuilder>();
         services.AddSingleton<ISkillBodyResolver, SkillBodyResolver>();
+        // p0111d: provider-override plumbing. Default registration uses a fresh
+        // AgentSmithConfig (PrimaryProvider=null → no overrides). Composition roots
+        // that want to honor an operator-set PrimaryProvider register a populated
+        // AgentSmithConfig before this call to win the last-binding race.
+        services.AddSingleton<AgentSmithConfig>(_ => new AgentSmithConfig());
+        services.AddSingleton<IActiveProviderResolver, ActiveProviderResolver>();
+        services.AddSingleton<IProviderOverrideResolver, ProviderOverrideResolver>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
 
