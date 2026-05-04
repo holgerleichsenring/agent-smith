@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0114
+goal: "Implement IContextCompactor for OpenAI / Azure-OpenAI agentic loops. Long agentic runs (ProjectAnalyzer at 800k+ tokens, AgenticExecute over many iterations) accumulate the full conversation history each turn — quadratic cost. Compaction summarizes old tool-call rounds when a threshold is crossed, flat-lining the per-iteration token growth."
+
+requires: []
+
+decisions:
+  - key: "Why a separate phase from p0008's ClaudeContextCompactor: same conceptual algorithm, different SDK + caching semantics. Anthropic exposes cache_control: ephemeral for verifiable prefix-caching; OpenAI/Azure use opaque automatic prompt caching above 4096-token threshold without operator control. The compactor's input/output shape is identical (message list in, summarized message list out); the SDK glue + summarization-prompt tuning differ."
+  - key: "Compactor is selected by AgentConfig.Type at the IAgenticAnalyzer / IAgentProvider factory layer — same dispatch as p0110a's analyzer factory. ClaudeContextCompactor stays untouched. New OpenAiContextCompactor handles type=openai + type=azure-openai (Azure delegates to OpenAi's compactor via the same composition pattern AzureOpenAiAgenticAnalyzer uses today). type=gemini + type=ollama get no-op compactors for now (separate phase if proven necessary)."
+  - key: "Trigger threshold: max(iterations >= CompactionConfig.ThresholdIterations, accumulatedInputTokens >= CompactionConfig.MaxContextTokens). Existing CompactionConfig fields (ThresholdIterations=8, MaxContextTokens=80000) are reused — operators set them once per project, both compactors honor the same knobs."
+  - key: "Summarization prompt is a new prompt resource (Prompts/Resources/openai-context-compactor-system.md) — Claude's prompt is tuned for Claude's verbosity; OpenAI models need different framing. Prompt instructs the summarizer to preserve: (1) the original user task, (2) all file paths read so far, (3) all decisions made, (4) any in-flight error messages. Drops: raw file contents already digested, redundant tool results."
+  - key: "Compaction itself costs tokens — one extra LLM call per compaction event using the agent's Primary deployment. Net win when conversation > ~50k tokens. Below that threshold the compaction doesn't fire (CompactionConfig.IsEnabled gate). Operators can disable per project if they prefer to pay the linear cost (e.g. for traceability in regulated environments)."
+  - key: "Stays scoped to agentic loops, not to the simple CompleteAsync paths (TriageHandler, GeneratePlan first call, ContextGenerator, etc.). Those are single-shot and don't accumulate history. The agentic loop in OpenAiAgenticAnalyzer + OpenAiAgenticLoop is where the message list grows turn-on-turn — that's the only place where this compaction is applied."
+
+steps:
+  - id: contracts
+    action: "Locate compactor interface in Contracts so Application can depend without referencing Infrastructure"
+    modify:
+      - "src/AgentSmith.Contracts/Services/IContextCompactor.cs: lift the existing IContextCompactor interface (currently in Infrastructure/Services/Providers/Agent) up to Contracts/Services if not already there. Both Claude and OpenAi compactor implementations live in Infrastructure."
+    new:
+      - "src/AgentSmith.Contracts/Services/IContextCompactorFactory.cs: { IContextCompactor Create(AgentConfig config) }. Mirrors IAgenticAnalyzerFactory from p0110a — same dispatch-by-AgentConfig.Type pattern."
+
+  - id: openai-compactor-impl
+    action: "Implement OpenAiContextCompactor using the OpenAI / Azure-OpenAI SDK"
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiContextCompactor.cs: takes ChatClient (OpenAI or Azure), CompactionConfig, ILogger. CompactAsync(messageList) → summarized prefix + recent-tail messages. Tail is last N=2 user/assistant turns, kept verbatim for context continuity. Everything before is summarized into a single system-message describing the run state."
+      - "src/AgentSmith.Application/Prompts/Resources/openai-context-compactor-system.md: summarization prompt tuned for OpenAI verbosity. Instructs to preserve task, file-paths, decisions, in-flight errors; drop raw file contents + redundant tool results. Single-paragraph plain text, no JSON."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/CompactorFactory.cs: implements IContextCompactorFactory. AgentConfig.Type → claude | openai | azure-openai → matching impl. Unknown type → NoOpContextCompactor (returns input untouched)."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/NoOpContextCompactor.cs: returns input messages unchanged. Used for gemini/ollama until proven necessary."
+
+  - id: wire-into-agentic-loops
+    action: "Hook the compactor into both agentic execution paths"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgenticLoop.cs: take IContextCompactor via ctor. After each iteration, evaluate trigger threshold. If crossed, replace messages list with compactor.CompactAsync result. Log: 'Compacted N messages → 1 summary + M tail (saved ≈ X tokens)'."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs: same pattern — agentic analyzer's message-accumulation loop gets a compactor checkpoint after each iteration."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/AzureOpenAiAgenticAnalyzer.cs: composition unchanged (delegates to OpenAi adapter via custom ChatClient factory). The compactor is shared because both speak the same OpenAI SDK + chat-completions schema."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register IContextCompactorFactory (singleton). The factory is what AgenticLoop / AgenticAnalyzer inject."
+
+  - id: telemetry
+    action: "Make the savings visible — operators need a number, not a feeling"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiContextCompactor.cs: emit a CompactionEvent struct on each fire: { OldMessageCount, NewMessageCount, OldEstimatedTokens, NewEstimatedTokens, SummarizationCallTokens }. Logged at info level: 'Compacted 24→3 messages, ≈ 134k → ≈ 18k input tokens (summarization cost: 1.2k tokens)'."
+      - "src/AgentSmith.Application/Services/PipelineCostTracker.cs: track summarization-call tokens distinctly from primary-task tokens. Run-summary line shows them separately so operators see what compaction itself cost."
+
+  - id: tests
+    new:
+      - "OpenAiContextCompactor_BelowThreshold_ReturnsInputUnchanged"
+      - "OpenAiContextCompactor_CrossesIterationThreshold_SummarizesPrefix"
+      - "OpenAiContextCompactor_CrossesTokenThreshold_SummarizesPrefix"
+      - "OpenAiContextCompactor_PreservesLastTwoTurns_NoMatterPrefixSize"
+      - "OpenAiContextCompactor_SummarizationFails_FallsBackToOriginalMessages_LogsWarn"
+      - "CompactorFactory_DispatchesByAgentConfigType_ClaudeOpenAiAzureGeminiOllama"
+      - "OpenAiAgenticAnalyzer_WithCompaction_HandlesLongRunWithoutQuadraticGrowth"
+      - "PipelineCostTracker_SeparatesCompactionTokensFromPrimaryTokens"
+
+  - id: docs
+    new:
+      - "docs/concepts/context-compaction.md (or extend if exists): explain the trigger model, what's preserved vs. summarized, per-provider availability table, operator knobs (CompactionConfig)"
+    modify:
+      - "docs/configuration/agentsmith-yml.md: document compaction.is_enabled, compaction.threshold_iterations, compaction.max_context_tokens — call out that all four supported providers honor the knobs identically (no-op for gemini/ollama until separate phases)."
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual: rerun the AAD-DEV scenario that hit 864k tokens for ProjectAnalyzer; confirm with compaction enabled the same run lands in <300k tokens with comparable map quality"
+
+done:
+  - "IContextCompactor + IContextCompactorFactory in Contracts"
+  - "OpenAiContextCompactor implementation handles type=openai and type=azure-openai (via shared impl, AzureOpenAi delegates to same compactor)"
+  - "ClaudeContextCompactor unchanged — backwards compatible"
+  - "NoOpContextCompactor for gemini + ollama (until separate phases)"
+  - "OpenAiAgenticLoop + OpenAiAgenticAnalyzer + AzureOpenAiAgenticAnalyzer compact between iterations when CompactionConfig threshold crossed"
+  - "Summarization prompt tuned for OpenAI verbosity, preserves task / file-paths / decisions / errors"
+  - "Last 2 turns kept verbatim regardless of prefix size"
+  - "Summarization cost tracked distinctly in PipelineCostTracker — operators see compaction overhead vs. primary work"
+  - "Summarization failure (e.g. transient 429 on the summarizer) falls back to original messages with logged warning — never crashes the agentic loop"
+  - "docs/concepts/context-compaction.md + agentsmith-yml.md updated"
+  - "8 new tests including end-to-end long-run guard"
+  - "dotnet build zero warnings, dotnet test green"
+  - "manual: ProjectAnalyzer on AuthPort lands in <300k tokens with map fidelity matching pre-compaction baseline"
