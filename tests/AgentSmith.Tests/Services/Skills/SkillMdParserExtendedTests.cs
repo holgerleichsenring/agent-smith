@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Tests.TestSupport;
@@ -20,6 +21,7 @@ public sealed class SkillMdParserExtendedTests : IDisposable
             new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance),
             new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
             new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
+            new ProviderOverrideResolver(new ActiveProviderResolver(new AgentSmithConfig())),
             NullLogger<YamlSkillLoader>.Instance);
     }
 
