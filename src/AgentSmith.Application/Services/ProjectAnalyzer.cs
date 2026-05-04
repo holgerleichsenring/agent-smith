@@ -23,6 +23,15 @@ public sealed class ProjectAnalyzer(
     private const int MaxIterations = 25;
     private static readonly IReadOnlyList<ToolDefinition> Tools = BuildTools();
 
+    // Models occasionally emit trailing commas + line comments — both are common in
+    // hand-written JSON dialects and harmless to parse. Strict System.Text.Json
+    // defaults reject them and we'd burn a retry attempt for purely cosmetic noise.
+    private static readonly JsonDocumentOptions LenientJsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+    };
+
     public async Task<ProjectMap> AnalyzeAsync(
         string repositoryPath, AgentConfig agent, CancellationToken cancellationToken)
     {
@@ -84,7 +93,7 @@ public sealed class ProjectAnalyzer(
 
         try
         {
-            using var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(json, LenientJsonOptions);
             map = JsonToProjectMap(doc.RootElement);
             return true;
         }
