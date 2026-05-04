@@ -21,7 +21,7 @@ public class AgenticAnalyzerFactoryTests : IDisposable
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
         Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", "test-key");
-        _sut = new AgenticAnalyzerFactory(_secrets, NullLoggerFactory.Instance);
+        _sut = new AgenticAnalyzerFactory(_secrets, new FakePromptCatalog(), NullLoggerFactory.Instance);
     }
 
     public void Dispose()
