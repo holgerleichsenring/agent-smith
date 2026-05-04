@@ -1,5 +1,29 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0113
+status: superseded
+superseded_by: [p0115, p0116]
+superseded_reason: |
+  Conceptually wrong. This spec wanted to spawn `agentsmith-cli:latest`
+  containers — but the CLI is a developer-only console tool, never
+  deployed to K8s. Additionally, it would have run the entire pipeline
+  inside the spawned container, which is the wrong granularity (LLM
+  rounds and git ops belong to orchestration, not to a spawned worker).
+
+  An MVP implementation (p0113a) was experimentally merged to main and
+  reverted immediately afterwards. Operationally it would have broken
+  every queue ticket: ImagePullBackOff on the missing CLI image, the
+  EnqueuedReconciler reverting tickets to Pending after 10 min in an
+  infinite loop.
+
+  Correct architecture:
+  - p0115: Standalone sandbox agent (worker binary, Redis-driven, steps
+    are shell commands). Language-specific image (sandbox-dotnet:1.0
+    etc.), NOT the CLI. Standalone-testable.
+  - p0116: Server-pod-side migration — toolchain steps delegate to
+    sandbox pods instead of running in-process.
+
+  Kept as a historical document — DO NOT implement.
+
 goal: "Spawn ephemeral CLI containers for queue-driven pipeline runs (polling + webhook) instead of executing the pipeline in-process inside the Server pod. Aligns the queue path with the Slack-intent path that already uses IJobSpawner — Server returns to pure orchestration, language toolchains live in the per-run job container."
 
 requires: []
