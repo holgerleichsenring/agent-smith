@@ -1,10 +1,15 @@
+using System.ClientModel;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Providers.Agent.Adapters;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Compaction;
+using Azure.AI.OpenAI;
 using Microsoft.Extensions.Logging;
+using OpenAI;
+using OpenAI.Chat;
 
 namespace AgentSmith.Infrastructure.Services.Factories;
 
@@ -16,6 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// </summary>
 public sealed class AgenticAnalyzerFactory(
     SecretsProvider secrets,
+    IPromptCatalog promptCatalog,
     ILoggerFactory loggerFactory) : IAgenticAnalyzerFactory
 {
     private readonly Dictionary<string, Func<AgentConfig, IAgenticAnalyzer>> _creators =
@@ -23,9 +29,9 @@ public sealed class AgenticAnalyzerFactory(
         {
             ["claude"] = config => CreateClaude(config, secrets, loggerFactory),
             ["anthropic"] = config => CreateClaude(config, secrets, loggerFactory),
-            ["openai"] = config => CreateOpenAi(config, secrets, loggerFactory),
-            ["azure-openai"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
-            ["azure"] = config => CreateAzureOpenAi(config, secrets, loggerFactory),
+            ["openai"] = config => CreateOpenAi(config, secrets, promptCatalog, loggerFactory),
+            ["azure-openai"] = config => CreateAzureOpenAi(config, secrets, promptCatalog, loggerFactory),
+            ["azure"] = config => CreateAzureOpenAi(config, secrets, promptCatalog, loggerFactory),
             ["gemini"] = config => CreateGemini(config, secrets, loggerFactory),
             ["google"] = config => CreateGemini(config, secrets, loggerFactory),
         };
@@ -59,18 +65,23 @@ public sealed class AgenticAnalyzerFactory(
     }
 
     private static OpenAiAgenticAnalyzer CreateOpenAi(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, IPromptCatalog promptCatalog, ILoggerFactory loggerFactory)
     {
         var secretName = config.ApiKeySecret ?? "OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
         var endpoint = config.Endpoint is not null ? new Uri(config.Endpoint) : null;
+        var compactor = config.Compaction.IsEnabled
+            ? BuildOpenAiCompactor(apiKey, config, endpoint, promptCatalog, loggerFactory)
+            : null;
         return new OpenAiAgenticAnalyzer(
             apiKey, config.Model, endpoint, config.Retry,
-            loggerFactory.CreateLogger<OpenAiAgenticAnalyzer>());
+            loggerFactory.CreateLogger<OpenAiAgenticAnalyzer>(),
+            chatClientFactory: null,
+            compactor: compactor);
     }
 
     private static AzureOpenAiAgenticAnalyzer CreateAzureOpenAi(
-        AgentConfig config, SecretsProvider secrets, ILoggerFactory loggerFactory)
+        AgentConfig config, SecretsProvider secrets, IPromptCatalog promptCatalog, ILoggerFactory loggerFactory)
     {
         var secretName = config.ApiKeySecret ?? "AZURE_OPENAI_API_KEY";
         var apiKey = secrets.GetRequired(secretName);
@@ -80,9 +91,39 @@ public sealed class AgenticAnalyzerFactory(
             ?? throw new ConfigurationException(
                 "Azure OpenAI requires a deployment name. Set agent.deployment in agentsmith.yml, " +
                 "OR set agent.models.Planning.deployment (the analyzer falls back to the Planning task's deployment).");
+        var compactor = config.Compaction.IsEnabled
+            ? BuildAzureCompactor(apiKey, new Uri(endpoint), deployment, config, promptCatalog, loggerFactory)
+            : null;
         return new AzureOpenAiAgenticAnalyzer(
             apiKey, new Uri(endpoint), deployment, config.Retry,
-            loggerFactory.CreateLogger<AzureOpenAiAgenticAnalyzer>());
+            loggerFactory.CreateLogger<AzureOpenAiAgenticAnalyzer>(),
+            compactor: compactor);
+    }
+
+    private static IOpenAiContextCompactor BuildOpenAiCompactor(
+        string apiKey, AgentConfig config, Uri? endpoint,
+        IPromptCatalog promptCatalog, ILoggerFactory loggerFactory)
+    {
+        var summarizerModel = config.Compaction.DeploymentName ?? config.Model;
+        var options = new OpenAIClientOptions();
+        if (endpoint is not null) options.Endpoint = endpoint;
+        var client = new OpenAIClient(new ApiKeyCredential(apiKey), options);
+        var summarizer = client.GetChatClient(summarizerModel);
+        return new OpenAiContextCompactor(
+            summarizer, config.Compaction, promptCatalog,
+            loggerFactory.CreateLogger<OpenAiContextCompactor>());
+    }
+
+    private static IOpenAiContextCompactor BuildAzureCompactor(
+        string apiKey, Uri endpoint, string primaryDeployment,
+        AgentConfig config, IPromptCatalog promptCatalog, ILoggerFactory loggerFactory)
+    {
+        var summarizerDeployment = config.Compaction.DeploymentName ?? primaryDeployment;
+        var azureClient = new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey));
+        var summarizer = azureClient.GetChatClient(summarizerDeployment);
+        return new OpenAiContextCompactor(
+            summarizer, config.Compaction, promptCatalog,
+            loggerFactory.CreateLogger<OpenAiContextCompactor>());
     }
 
     private static string? ResolveAzureDeployment(AgentConfig config)
