@@ -12,7 +12,7 @@ it via env var:
 # agentsmith.yml — production config
 skills:
   source: default
-  version: v1.0.0
+  version: v1.1.0
   sha256: 3f1a8b…    # pin against tampering
   cache_dir: /var/lib/agentsmith/skills
 ```
