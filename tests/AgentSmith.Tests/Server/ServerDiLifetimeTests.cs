@@ -180,7 +180,6 @@ public sealed class ServerDiLifetimeTests
     {
         services.AddSingleton(Mock.Of<IConnectionMultiplexer>());
         services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
-        services.AddSingleton(Mock.Of<IPipelineRequestStore>());
         services.AddSingleton(Mock.Of<IRedisClaimLock>());
         services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
         services.AddSingleton<IJobHeartbeatService, NullJobHeartbeatService>();
