@@ -10,20 +10,10 @@ namespace AgentSmith.Server.Contracts;
 public interface IJobSpawner
 {
     /// <summary>
-    /// Spawns an ephemeral agent job for the given request (chat-intent flow:
-    /// Slack/Teams "fix #123 in my-project"). Returns the jobId so progress
-    /// can be tracked via Redis Streams.
+    /// Spawns an ephemeral agent job for the given request.
+    /// Returns the jobId that can be used to track progress via Redis Streams.
     /// </summary>
     Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// p0113: spawns an ephemeral agent job for a queue-claimed PipelineRequest.
-    /// The container picks up its work by reading from the IPipelineRequestStore
-    /// using the supplied jobId — CLI args stay short and structured request
-    /// data round-trips losslessly through Redis.
-    /// </summary>
-    Task SpawnQueueJobAsync(
-        string jobId, string redisUrl, string configPath, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks whether the container/pod for the given job is still running.
