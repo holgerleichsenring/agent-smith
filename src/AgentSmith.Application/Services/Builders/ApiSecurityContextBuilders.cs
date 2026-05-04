@@ -36,12 +36,6 @@ public sealed class SpawnZapContextBuilder : IContextBuilder
         => new SpawnZapContext(pipeline);
 }
 
-public sealed class ApiSecurityTriageContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new ApiSecurityTriageContext(pipeline.Resolved().Agent, pipeline);
-}
-
 public sealed class DeliverFindingsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)

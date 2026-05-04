@@ -184,8 +184,6 @@ internal sealed class SkillMdParser(ILogger logger)
         var triggers = MarkdownSectionParser.ParseListSection(content, "triggers");
         if (triggers.Count > 0)
             role.Triggers = triggers;
-
-        role.Orchestration = SkillOrchestrationParser.Parse(content);
     }
 
     private void LoadSource(string skillDirectory, RoleSkillDefinition role)
