@@ -21,6 +21,14 @@ public sealed class StructuredTriageStrategy(
     public async Task<CommandResult> ExecuteAsync(
         PipelineContext pipeline, ILlmClient llmClient, CancellationToken cancellationToken)
     {
+        if (!HasLoadedSkills(pipeline))
+        {
+            logger.LogWarning(
+                "Triage skipped — no skills loaded (skill catalog likely missing roles_supported, " +
+                "see SkillLoader rejection logs above). Pipeline cannot proceed past Plan phase.");
+            return CommandResult.Fail("No skills loaded — triage cannot assign roles");
+        }
+
         var triage = await producer.ProduceAsync(pipeline, llmClient, cancellationToken);
         pipeline.Set(ContextKeys.TriageOutput, triage);
         pipeline.Set(ContextKeys.CurrentPhase, PipelinePhase.Plan);
@@ -50,4 +58,9 @@ public sealed class StructuredTriageStrategy(
             : string.Empty;
         return PipelinePresets.GetSkillRoundCommandName(pipelineName);
     }
+
+    private static bool HasLoadedSkills(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out var roles)
+        && roles is { Count: > 0 };
 }
