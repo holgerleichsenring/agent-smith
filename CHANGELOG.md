@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.0...v0.37.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* triage no-ticket fallback + robust libgit2 staging + scan-pipeline persist guard ([#66](https://github.com/holgerleichsenring/agent-smith/issues/66)) ([36ec2cc](https://github.com/holgerleichsenring/agent-smith/commit/36ec2ccc38011278870c2fe2a7718faf72c14459))
+
 ## [0.37.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.36.0...v0.37.0) (2026-05-04)
 
 
