@@ -72,7 +72,7 @@ public sealed class PipelineExecutor(
 
             if (!result.IsSuccess)
             {
-                await TryPersistWorkBranchAsync(projectConfig, context, result, cancellationToken);
+                await TryPersistWorkBranchAsync(commandNames, projectConfig, context, result, cancellationToken);
                 lifecycle.MarkFailed();
                 return result;
             }
@@ -90,7 +90,7 @@ public sealed class PipelineExecutor(
     /// can NEVER overwrite the original failure cause already in <paramref name="originalFailure"/>.
     /// </summary>
     private async Task TryPersistWorkBranchAsync(
-        ProjectConfig projectConfig, PipelineContext context,
+        IReadOnlyList<string> commandNames, ProjectConfig projectConfig, PipelineContext context,
         CommandResult originalFailure, CancellationToken cancellationToken)
     {
         try
@@ -100,6 +100,14 @@ public sealed class PipelineExecutor(
 
             // Skip persist for source-less / discussion-style runs.
             if (!context.TryGet<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository, out _))
+                return;
+
+            // Skip persist for read-only pipelines (security-scan, api-security-scan, …).
+            // Without a code-modifying handler in the pipeline, the workdir contains scan
+            // artifacts (ZAP reports, findings JSON, …) that should NOT be staged into a
+            // WIP branch. Code-modifying handlers are AgenticExecute / GenerateTests /
+            // GenerateDocs — pipelines without any of those produce no source mutation.
+            if (!ContainsCodeModifyingHandler(commandNames))
                 return;
 
             var persistCmd = PipelineCommand.Simple(CommandNames.PersistWorkBranch);
@@ -117,6 +125,11 @@ public sealed class PipelineExecutor(
             logger.LogError(ex, "Work branch persist threw an exception — original failure cause preserved");
         }
     }
+
+    private static bool ContainsCodeModifyingHandler(IReadOnlyList<string> commandNames) =>
+        commandNames.Any(n => n == CommandNames.AgenticExecute
+                           || n == CommandNames.GenerateTests
+                           || n == CommandNames.GenerateDocs);
 
     internal static List<LinkedListNode<PipelineCommand>> PeelBatch(
         LinkedListNode<PipelineCommand> start, int maxConcurrent)
