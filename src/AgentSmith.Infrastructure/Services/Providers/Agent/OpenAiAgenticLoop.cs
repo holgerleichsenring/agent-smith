@@ -92,21 +92,22 @@ public sealed class OpenAiAgenticLoop(
         if (pending is null || completion.Usage is null) return pending;
         var finalized = pending.WithVerifiedTokens(completion.Usage.InputTokenCount);
 
-        // The summarizer's own LLM call is billed by the provider but otherwise
-        // invisible to the run cost \u2014 attribute it under a "compaction" phase so
-        // the run total matches what the provider charged.
-        if (finalized.SummarizationCallTokens > 0)
+        // Attribute the summarizer's own LLM call to the run total under a
+        // "compaction" phase so the cost calculation matches what the provider
+        // charged. Input and output tokens are tracked separately because their
+        // billing rates differ.
+        if (finalized.SummarizerInputTokens > 0 || finalized.SummarizerOutputTokens > 0)
         {
             tracker.SetPhase("compaction");
-            tracker.Track(finalized.SummarizationCallTokens, 0);
+            tracker.Track(finalized.SummarizerInputTokens, finalized.SummarizerOutputTokens);
             tracker.SetPhase("primary");
         }
 
         logger.LogInformation(
-            "Compacted {Old}\u2192{New} messages; verified {Verified} input tokens (saved est. {Saved}; summarizer cost {Summary} tokens; prompt {Hash})",
+            "Compacted {Old}\u2192{New} messages; verified {Verified} input tokens (saved est. {Saved}; summarizer cost {SumIn} input + {SumOut} output tokens; prompt {Hash})",
             finalized.OldMessageCount, finalized.NewMessageCount,
             finalized.PostCompactionVerifiedTokens, finalized.VerifiedSavedTokens,
-            finalized.SummarizationCallTokens, finalized.PromptHash);
+            finalized.SummarizerInputTokens, finalized.SummarizerOutputTokens, finalized.PromptHash);
         return null;
     }
 

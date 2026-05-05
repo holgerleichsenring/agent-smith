@@ -11,11 +11,16 @@ public sealed record CompactionEvent(
     int NewMessageCount,
     int PreCompactionEstimatedTokens,
     int? PostCompactionVerifiedTokens,
-    int SummarizationCallTokens,
+    int SummarizerInputTokens,
+    int SummarizerOutputTokens,
     string PromptHash,
     bool Failed,
     string? FailureReason)
 {
+    /// <summary>Total billed tokens for the summarizer's own LLM call (input + output combined).
+    /// Use the split fields when computing cost — input and output rates differ.</summary>
+    public int SummarizerTotalTokens => SummarizerInputTokens + SummarizerOutputTokens;
+
     public int? VerifiedSavedTokens =>
         PostCompactionVerifiedTokens is null ? null
         : PreCompactionEstimatedTokens - PostCompactionVerifiedTokens.Value;
@@ -29,7 +34,8 @@ public sealed record CompactionEvent(
             NewMessageCount: oldCount, // unchanged on failure
             PreCompactionEstimatedTokens: estimatedTokens,
             PostCompactionVerifiedTokens: null,
-            SummarizationCallTokens: 0,
+            SummarizerInputTokens: 0,
+            SummarizerOutputTokens: 0,
             PromptHash: promptHash,
             Failed: true,
             FailureReason: reason);

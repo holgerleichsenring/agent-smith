@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0118a
+goal: "Successor to p0118 — replace the combined SummarizationCallTokens field on CompactionEvent with separate SummarizerInputTokens + SummarizerOutputTokens fields so cost calculation uses each provider's input/output rates correctly. p0118 attributed all summarizer tokens as input (slight cost underestimate, ~10% off) as an interim fix; p0118a is the proper calculation."
+
+requires: ["p0118"]
+
+scope:
+  in: "CompactionEvent record gets SummarizerInputTokens + SummarizerOutputTokens fields (replacing the single combined SummarizationCallTokens). A computed SummarizerTotalTokens property keeps the combined value available for log convenience but the split is authoritative for cost. OpenAiContextCompactor.TrySummarize returns (text, inputTokens, outputTokens) — the split was already available from the OpenAI ChatCompletion.Usage but was being collapsed at construction. OpenAiAgenticLoop.FinalizePendingCompaction calls tracker.Track(input, output) under phase='compaction' so the per-phase breakdown shows real input/output figures. OpenAiAgenticAnalyzer's local totalIn/totalOut counters each pick up their respective split. CompactionEventTests + TokenUsageTrackerTests updated to use the split fields. Log lines on both call sites updated from 'summarizer cost X tokens' to 'summarizer cost X input + Y output tokens' so an operator reading logs can verify the split at a glance."
+  out: "Migrating Anthropic.SDK / Gemini / Ollama compaction paths to the same split — those go through ClaudeContextCompactor which already calls usageTracker.Track(response) with the full Anthropic Usage object (correct split since day one). Only the OpenAi paths needed this fix. Cross-provider cost computation (multiplying tokens by per-model $/1M rates) — that's a separate cost-reporting feature. Renaming the existing 'compaction' phase string to a constant — kept as a magic string for now; one source-edit if/when needed."
+
+decisions:
+  - key: "Successor phase letter (p0118a) per the project's phase-versioning convention — never mutate an existing phase spec, create a successor instead. p0118 was committed with the split-deferred scope; p0118a captures the proper calculation. Both phases ship as 'done' since the implementation is complete by the time p0118a's spec is written."
+  - key: "SummarizerTotalTokens is a computed property, not a stored field. Reason: the two stored fields are authoritative and never disagree with the sum, so storing the total would create a 'three sources of truth' problem on every code path that builds a CompactionEvent. Computed property keeps the convenience accessor for log lines + tests without inviting drift."
+  - key: "Phase string 'compaction' stays as a string literal at the call sites (OpenAiAgenticLoop, ClaudeContextCompactor). Reason: one-time tracker.SetPhase call at the only two locations that compact, no central registry needed. Could become a constant later if a third compaction codepath shows up — until then YAGNI."
+  - key: "The 'previousPhase' restore in OpenAiAgenticLoop hardcodes 'primary' (mirrors ClaudeContextCompactor). Reason: there's only one outer phase in the agentic loop today. If/when nested compaction or sub-phases are introduced, the tracker needs a stack-based pushPhase/popPhase API; for now the simple two-state model matches actual usage. Documented at call site."
+
+steps:
+  - id: split-event-fields
+    action: "Replace CompactionEvent.SummarizationCallTokens with SummarizerInputTokens + SummarizerOutputTokens"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Compaction/CompactionEvent.cs: replace the int SummarizationCallTokens record parameter with int SummarizerInputTokens + int SummarizerOutputTokens. Add public int SummarizerTotalTokens => SummarizerInputTokens + SummarizerOutputTokens. ForFailure factory zeroes both. WithVerifiedTokens unchanged (only touches PostCompactionVerifiedTokens)."
+
+  - id: compactor-returns-split
+    action: "OpenAiContextCompactor.TrySummarize returns (text, input, output) instead of (text, combined)"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Compaction/OpenAiContextCompactor.cs: TrySummarize signature becomes Task<(string SummaryText, int InputTokens, int OutputTokens)?>. Implementation reads completion.Usage.InputTokenCount + completion.Usage.OutputTokenCount separately (already separate at the source — the previous combined value was a manual addition). CompactionEvent constructor at the success path passes the split through."
+
+  - id: loop-and-analyzer-attribution
+    action: "OpenAiAgenticLoop and OpenAiAgenticAnalyzer attribute the split"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgenticLoop.cs: FinalizePendingCompaction calls tracker.Track(SummarizerInputTokens, SummarizerOutputTokens) under phase='compaction' (was: tracker.Track(SummarizationCallTokens, 0)). Log line updated to 'summarizer cost {SumIn} input + {SumOut} output tokens'."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs: pre-Finalize attribution does totalIn += SummarizerInputTokens AND totalOut += SummarizerOutputTokens (was: totalIn += SummarizationCallTokens only). Log line at the same shape as the loop's."
+
+  - id: tests
+    action: "Tests use the split fields"
+    modify:
+      - "tests/AgentSmith.Tests/Compaction/CompactionEventTests.cs: existing tests use both SummarizerInputTokens + SummarizerOutputTokens in their CompactionEvent constructions. New test SummarizerTotalTokens_SumsInputAndOutput verifies the computed accessor."
+      - "tests/AgentSmith.Tests/Providers/TokenUsageTrackerTests.cs: Track_CompactionPhase_AttributesInputAndOutputSeparately replaces the previous test that tracked the combined value as input only. Asserts both totalInput AND totalOutput include their respective compaction tokens, AND that the per-phase breakdown for 'compaction' has both InputTokens + OutputTokens populated."
+
+  - id: verify
+    action: "dotnet build zero warnings; dotnet test all green; cost summary in a real run shows the split."
+
+done:
+  - "CompactionEvent has SummarizerInputTokens + SummarizerOutputTokens fields; SummarizerTotalTokens is the computed sum."
+  - "OpenAiContextCompactor.TrySummarize returns the split; ForFailure zeroes both."
+  - "OpenAiAgenticLoop tracks input + output separately under phase='compaction'."
+  - "OpenAiAgenticAnalyzer adds split to totalIn + totalOut."
+  - "Log lines on both compaction codepaths print 'summarizer cost X input + Y output tokens'."
+  - "CompactionEventTests + TokenUsageTrackerTests updated; all 1356 tests green; build zero warnings."
+  - "Cost calculation now matches what the provider charged within rounding (no more ~10% systematic underestimate from collapsing input + output to a single bucket)."
