@@ -1,4 +1,4 @@
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 
 namespace AgentSmith.Sandbox.Agent.Tests.Models;

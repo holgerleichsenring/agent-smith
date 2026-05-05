@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AgentSmith.Sandbox.Agent.Models;
+namespace AgentSmith.Sandbox.Wire;
 
 public static class WireFormat
 {

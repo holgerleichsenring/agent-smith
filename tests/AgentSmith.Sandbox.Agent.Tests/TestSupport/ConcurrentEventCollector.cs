@@ -1,4 +1,4 @@
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 
 namespace AgentSmith.Sandbox.Agent.Tests.TestSupport;
 

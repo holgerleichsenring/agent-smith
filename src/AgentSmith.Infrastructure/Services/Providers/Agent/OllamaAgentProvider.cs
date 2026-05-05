@@ -2,6 +2,7 @@ using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -64,7 +65,8 @@ public sealed class OllamaAgentProvider(
     public async Task<AgentExecutionResult> ExecutePlanAsync(
         Plan plan, Repository repository, string codingPrinciples,
         string? codeMap, string? projectContext,
-        IProgressReporter progressReporter, CancellationToken cancellationToken)
+        IProgressReporter progressReporter, ISandbox? sandbox,
+        CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
         var primaryModel = ResolveModel(TaskType.Primary);
@@ -75,7 +77,8 @@ public sealed class OllamaAgentProvider(
 
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
-            repository.LocalPath, logger, fileReadTracker, progressReporter);
+            repository.LocalPath, logger, fileReadTracker, progressReporter,
+            sandbox: sandbox);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             codingPrinciples, codeMap, projectContext);

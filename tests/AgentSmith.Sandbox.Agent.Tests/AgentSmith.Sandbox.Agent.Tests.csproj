@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj" />
+    <ProjectReference Include="..\..\src\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj" />
   </ItemGroup>
 
 </Project>

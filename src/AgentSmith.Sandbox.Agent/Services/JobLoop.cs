@@ -1,4 +1,4 @@
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Sandbox.Agent.Services;
@@ -33,17 +33,19 @@ internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<
                 logger.LogInformation("Shutdown step received; exiting");
                 return ExitOk;
             }
-            await ProcessRunStepAsync(jobId, step, cancellationToken);
+            await ProcessExecutableStepAsync(jobId, step, cancellationToken);
         }
         cancellationToken.ThrowIfCancellationRequested();
         return ExitOk;
     }
 
-    private async Task ProcessRunStepAsync(string jobId, Step step, CancellationToken cancellationToken)
+    private async Task ProcessExecutableStepAsync(
+        string jobId, Step step, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(step.Command))
+        var (isValid, error) = step.Validate();
+        if (!isValid)
         {
-            await PushValidationFailureAsync(jobId, step, cancellationToken);
+            await PushValidationFailureAsync(jobId, step, error!, cancellationToken);
             return;
         }
 
@@ -53,12 +55,13 @@ internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<
         await bus.PushResultAsync(jobId, result, cancellationToken);
     }
 
-    private async Task PushValidationFailureAsync(string jobId, Step step, CancellationToken cancellationToken)
+    private async Task PushValidationFailureAsync(
+        string jobId, Step step, string error, CancellationToken cancellationToken)
     {
-        logger.LogError("Run step {StepId} has empty Command; pushing failure result", step.StepId);
+        logger.LogError("Step {StepId} kind {Kind} failed validation: {Error}",
+            step.StepId, step.Kind, error);
         var failure = new StepResult(StepResult.CurrentSchemaVersion, step.StepId,
-            ExitCode: -1, TimedOut: false, DurationSeconds: 0,
-            ErrorMessage: "Run step missing required Command field");
+            ExitCode: -1, TimedOut: false, DurationSeconds: 0, ErrorMessage: error);
         await bus.PushResultAsync(jobId, failure, cancellationToken);
     }
 }

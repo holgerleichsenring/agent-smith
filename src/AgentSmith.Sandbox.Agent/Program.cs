@@ -62,7 +62,8 @@ internal static class Program
 
         await using var bus = await RedisJobBus.ConnectAsync(redisUrl,
             loggerFactory.CreateLogger<RedisJobBus>(), cts.Token);
-        var executor = new StepExecutor(new ProcessRunner(), loggerFactory.CreateLogger<StepExecutor>());
+        var fileHandler = new FileStepHandler(loggerFactory.CreateLogger<FileStepHandler>());
+        var executor = new StepExecutor(new ProcessRunner(), fileHandler, loggerFactory.CreateLogger<StepExecutor>());
         var loop = new JobLoop(bus, executor, loggerFactory.CreateLogger<JobLoop>());
         return await loop.RunAsync(jobId, cts.Token);
     }

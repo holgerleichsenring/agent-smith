@@ -1,4 +1,4 @@
-namespace AgentSmith.Sandbox.Agent.Models;
+namespace AgentSmith.Sandbox.Wire;
 
 public sealed record StepResult(
     int SchemaVersion,
@@ -6,7 +6,8 @@ public sealed record StepResult(
     int ExitCode,
     bool TimedOut,
     double DurationSeconds,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    string? OutputContent = null)
 {
     public const int CurrentSchemaVersion = 1;
 }

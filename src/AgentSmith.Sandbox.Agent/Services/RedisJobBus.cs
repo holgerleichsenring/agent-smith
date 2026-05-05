@@ -1,5 +1,5 @@
 using System.Text.Json;
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 

@@ -1,4 +1,4 @@
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 using AgentSmith.Sandbox.Agent.Services;
 using FluentAssertions;
 

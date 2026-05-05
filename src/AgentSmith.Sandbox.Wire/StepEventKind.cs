@@ -1,4 +1,4 @@
-namespace AgentSmith.Sandbox.Agent.Models;
+namespace AgentSmith.Sandbox.Wire;
 
 public enum StepEventKind
 {

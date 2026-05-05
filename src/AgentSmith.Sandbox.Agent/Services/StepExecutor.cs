@@ -1,17 +1,34 @@
 using System.Diagnostics;
-using AgentSmith.Sandbox.Agent.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Sandbox.Agent.Services;
 
-internal sealed class StepExecutor(IProcessRunner runner, ILogger<StepExecutor> logger) : IStepExecutor
+internal sealed class StepExecutor(
+    IProcessRunner runner,
+    FileStepHandler fileHandler,
+    ILogger<StepExecutor> logger) : IStepExecutor
 {
-    public async Task<StepResult> ExecuteAsync(
+    public Task<StepResult> ExecuteAsync(
         Step step,
         Func<IReadOnlyList<StepEvent>, Task> onEvents,
         CancellationToken cancellationToken)
     {
-        EnsureRunStep(step);
+        return step.Kind switch
+        {
+            StepKind.Run => RunCommandAsync(step, onEvents, cancellationToken),
+            StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles
+                => fileHandler.HandleAsync(step, onEvents, cancellationToken),
+            _ => throw new ArgumentException(
+                $"StepExecutor does not handle Kind={step.Kind}", nameof(step))
+        };
+    }
+
+    private async Task<StepResult> RunCommandAsync(
+        Step step,
+        Func<IReadOnlyList<StepEvent>, Task> onEvents,
+        CancellationToken cancellationToken)
+    {
         await using var batcher = new OutputBatcher(
             OutputBatcher.DefaultThresholdCount,
             OutputBatcher.DefaultFlushInterval,
@@ -34,14 +51,6 @@ internal sealed class StepExecutor(IProcessRunner runner, ILogger<StepExecutor> 
             StepResult.CurrentSchemaVersion, step.StepId,
             outcome.ExitCode, outcome.TimedOut,
             stopwatch.Elapsed.TotalSeconds, outcome.ErrorMessage);
-    }
-
-    private static void EnsureRunStep(Step step)
-    {
-        if (step.Kind != StepKind.Run)
-            throw new ArgumentException("StepExecutor only handles Kind=Run", nameof(step));
-        if (string.IsNullOrEmpty(step.Command))
-            throw new ArgumentException("Step.Command must be set for Kind=Run", nameof(step));
     }
 
     private static StepEvent MakeEvent(Guid stepId, StepEventKind kind, string line) =>

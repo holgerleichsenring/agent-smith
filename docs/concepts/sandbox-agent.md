@@ -242,3 +242,8 @@ docker run --rm --network=host -v as-shared:/shared \
 
 If Smoke 2 succeeds against an unmodified upstream image, the
 init-container pattern works end-to-end without ever touching K8s.
+
+---
+
+For the Server-side orchestration (`ISandbox`, `KubernetesSandbox`, pod lifecycle,
+RBAC), see [Sandbox Architecture](./sandbox-architecture.md).

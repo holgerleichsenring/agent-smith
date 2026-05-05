@@ -104,6 +104,7 @@ nav:
     - Cost Tracking: concepts/cost-tracking.md
     - Interactive Dialogue: concepts/interactive-dialogue.md
     - Knowledge Base: concepts/knowledge-base.md
+    - Sandbox Architecture: concepts/sandbox-architecture.md
   - Configuration:
     - configuration/index.md
     - agentsmith.yml Reference: configuration/agentsmith-yml.md

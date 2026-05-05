@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
+using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
@@ -35,6 +36,7 @@ internal static class ServiceProviderFactory
         });
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
+        services.AddInProcessSandbox();
         RegisterDialogueAndProgress(services, headless, jobId, redisUrl);
 
         if (configPath is not null)
