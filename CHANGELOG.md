@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.2...v0.37.3) (2026-05-05)
+
+
+### Bug Fixes
+
+* **p0118:** lifecycle MarkFailed on exceptions, TestHandler fail-without-sandbox, OpenAi summarizer-token attribution ([d6b06ce](https://github.com/holgerleichsenring/agent-smith/commit/d6b06cee265749c1e531822bfec858aa482577bb))
+
 ## [0.37.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.1...v0.37.2) (2026-05-05)
 
 
