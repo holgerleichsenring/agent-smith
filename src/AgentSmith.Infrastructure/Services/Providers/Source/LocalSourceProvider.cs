@@ -78,10 +78,34 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         return remote?.Url ?? "";
     }
 
-    private static void StageAllChanges(LibGit2Sharp.Repository repo)
+    internal static void StageAllChanges(LibGit2Sharp.Repository repo)
     {
-        Commands.Stage(repo, "*");
+        // Per-file staging via RetrieveStatus instead of Commands.Stage(repo, "*").
+        // The "*" glob expands inside libgit2 and can return directory-shaped paths
+        // (e.g. "RHS.CICD/") that git_index_add_bypath then rejects with
+        // "invalid path: ...". Iterating workdir entries and staging each file path
+        // sidesteps the glob entirely.
+        var status = repo.RetrieveStatus(new StatusOptions
+        {
+            IncludeIgnored = false,
+            IncludeUntracked = true,
+            RecurseUntrackedDirs = true
+        });
+        foreach (var entry in status)
+        {
+            if (IsWorkdirChange(entry.State))
+            {
+                Commands.Stage(repo, entry.FilePath);
+            }
+        }
     }
+
+    private static bool IsWorkdirChange(FileStatus state) =>
+        state.HasFlag(FileStatus.NewInWorkdir) ||
+        state.HasFlag(FileStatus.ModifiedInWorkdir) ||
+        state.HasFlag(FileStatus.DeletedFromWorkdir) ||
+        state.HasFlag(FileStatus.RenamedInWorkdir) ||
+        state.HasFlag(FileStatus.TypeChangeInWorkdir);
 
     private static void CommitChanges(LibGit2Sharp.Repository repo, string message)
     {
