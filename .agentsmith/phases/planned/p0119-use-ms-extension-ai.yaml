@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0119
+goal: "Replace IAgentProvider, IAgenticAnalyzer, all 5 provider implementations, all 4 AgenticLoop classes, and all 4 ToolDefinitions files with Microsoft.Extensions.AI's IChatClient + FunctionInvokingChatClient. All 5 providers (Claude, OpenAI, AzureOpenAI, Gemini, Ollama) get equal first-class support via M.E.AI adapters. Tool definitions become a single .NET-method-based registration. Tool-loop, max-iterations logic, and tool-result-pushing all move into M.E.AI's middleware. Token aggregation bug (cumulative-context summing) gets fixed at the same time. Cache-hit-rate gets exposed correctly across providers. Compaction stays as a pre-step (not migrated to middleware — explicit decision)."
+
+requires: ["p0117"]
+
+scope:
+  in: "M.E.AI dependency added: Microsoft.Extensions.AI pinned EXACT to latest stable below 10.4.1 (sibling packages .OpenAI and .Ollama in lockstep — see decisions for Issue #197 reasoning). Plus Anthropic.SDK from tghamm and GenerativeAI.Microsoft for Gemini. Single AIFunctions registry replacing 4 provider-specific tool-definition files. IChatClientFactory replacing IAgentProviderFactory + IAgenticAnalyzerFactory. AgenticExecuteHandler + ScoutAgent + ProjectAnalyzer reworked to call IChatClient directly. ConfigBasedModelRegistry remains, but now produces (TaskType) → IChatClient instead of (TaskType) → ModelAssignment+Provider. TokenUsageTracker fixed: aggregation switches from sum-of-conversation-contexts to delta-per-call. Cache-hit-rate calculation added via UsageDetails.AdditionalCounts. Streaming via GetStreamingResponseAsync — server-side aggregated to ChatResponse so token-tracking, compaction, and cost calculations work identically to non-streaming. No client-side live rendering changes in V1. All 5 providers (including Ollama) supported equally via their respective IChatClient adapters."
+  out: "Live token-by-token rendering in CLI (Spectre Live), Slack adapter, and Redis progress reporter — UX redesign deferred to a separate phase. Streaming itself IS active in V1, but tokens are aggregated server-side; clients still see iteration/tool events as today. Compaction-as-middleware (kept as pre-step). Tool result caching (UseDistributedCache) — separate phase. OpenTelemetry middleware activation — separate phase. Removing IContextCompactor — stays as own abstraction. Removing CostTracker / TokenUsageTracker — kept as own layers above M.E.AI's UsageDetails. Migrating IChatClient calls inside skill-evaluation pipelines (BootstrapProjectHandler's LLM calls etc.) — done as follow-ups one at a time, this phase only migrates the agent-provider path."
+
+decisions:
+  - key: "All 5 providers go via M.E.AI in this phase, not staged. Half-migrated state is worse than current state because handlers would need to know whether to use IAgentProvider or IChatClient. One commit, all provider classes deleted, single new registration in DI."
+  - key: "tghamm/Anthropic.SDK as Anthropic adapter. Production track record (1.8M downloads), supports prompt caching (FineGrained 4-set-points + AutomaticToolsAndSystem), extended thinking, vision, MCP. Issue #197 (MissingMethodException with Microsoft.Extensions.AI 10.4.1) is open upstream and unresolved at phase-start. Mitigation: pin Microsoft.Extensions.AI (and all sibling packages: .OpenAI, .Ollama) to the latest stable release below 10.4.1 — a known-good version where #197 does not exist. Buddy verifies exact version on NuGet at implementation time (most likely 10.3.x or earlier 10.4.0; whichever tghamm currently advertises as compatible in its README/CI). Once tghamm closes #197 with a verified upstream fix, the version bump to current is a separate follow-up phase. Faster than waiting for upstream — unblocks migration immediately, defers the version-bump risk."
+  - key: "OpenAI + Azure OpenAI both produce IChatClient via Microsoft.Extensions.AI.OpenAI extension methods, but use different underlying SDK types. OpenAI: new OpenAIClient(apiKey).AsIChatClient(modelName). Azure: new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey)).AsIChatClient(deploymentName) — Azure.AI.OpenAI package, different SDK type, deployment-name routing instead of model-name routing. Both produce the same IChatClient abstraction downstream. No separate adapter or builder hierarchy needed beyond a switch on AgentConfig.Type inside OpenAiChatClientBuilder. Cuts AzureOpenAiAgentProvider + AzureOpenAiAgenticLoop entirely — those become roughly 8 lines of configuration in the builder."
+  - key: "Gemini via GenerativeAI.Microsoft NuGet package (community adapter, ~50k downloads). Less mature than tghamm/Anthropic.SDK but actively maintained. If breaking issue surfaces during migration, fallback is to write a thin custom adapter against Google's official SDK using Microsoft.Extensions.AI.Abstractions (the abstractions package, not full M.E.AI). Not expected to be needed, but documented as escape hatch."
+  - key: "Ollama via Microsoft.Extensions.AI.Ollama (official Microsoft adapter). Tool-calling support varies per underlying model — same caveat as today. Existing OllamaAgentProvider's auto-detection logic for tool-call capability moves into a small Ollama-specific configuration helper. Models without tool-calling get a NotSupportedException at registration time, not silent fallback (matches p43d's existing decision and makes the failure mode obvious)."
+  - key: "Tool registration via AIFunctionFactory.Create. Tool methods become regular C# methods on a SandboxToolHost class (or similar). [Description] attributes provide LLM-facing schema info. Method signature drives parameter schema via reflection. Single source of truth: change a method, all providers see the new schema. Existing 4 ToolDefinitions files deleted."
+  - key: "FunctionInvokingChatClient handles the tool-loop. MaximumIterationsPerRequest=25 (existing limit). The 4 manual loops in AgenticLoop.cs / OpenAiAgenticLoop.cs / GeminiAgenticLoop.cs / OllamaAgenticLoop.cs all delete. Tool-result push is internal to the middleware — your code never appends ToolMessages manually again."
+  - key: "ScoutTools subset stays. Same IChatClient instance, two different ChatOptions.Tools arrays. ScoutAgent gets scoutTools, AgenticExecute gets allTools. No separate Scout-IChatClient. The role-distinction is at call-site, not at provider-level."
+  - key: "ConfigBasedModelRegistry produces IChatClient per task. Today: GetModel(TaskType) returns ModelAssignment with model+max_tokens+optional deployment. Post-p0119: GetClient(TaskType) returns a configured IChatClient. The (Provider, Model, MaxTokens, Deployment) tuple is internal to the factory; consumers see IChatClient and ChatOptions, nothing else. Per-task ChatOptions.MaxOutputTokens carries the existing max_tokens config."
+  - key: "Compaction stays as IContextCompactor pre-step. Not migrated to middleware. Reasoning: compaction operates on the message-list-to-be-sent, not on the response. Pre-step is the natural place. M.E.AI middleware would require either a custom IChatClient wrapper that mutates messages before delegating (possible but uglier than a plain method call) or post-response handling (wrong place). Today's pattern works, leave it."
+  - key: "Token aggregation bug fix is bundled with M.E.AI migration, not separate. TokenUsageTracker.Track changes from incremental sum to delta calculation: it stores last_call_input_tokens per session/phase, computes delta = current - last (or full if first call), accumulates deltas. Plus reads UsageDetails.AdditionalCounts['cached_tokens'] when present to track cache hits separately from billable input. Yields correct billable totals AND correct cache-hit-rate AND correct conversation-final-context-size as three distinct numbers."
+  - key: "p0119 ships in two commit batches around the demo, both under the same phase number. Batch 1 (pre-demo, ~30 lines, no M.E.AI dependency): TokenUsageTracker switches to delta-aggregation only — fixes the 6-7× input-token inflation that would otherwise be visible in demo numbers. No cache-hit-rate yet, no provider changes, no DI changes. Lands as a single small commit. Batch 2 (post-demo): the rest of the phase scope — M.E.AI dependency, all provider replacements, AIFunctions registry, cache-hit-rate via UsageDetails, streaming, IChatClientFactory, DI rewrite, test refactor, docs. The hotfix is not a separate phase; it's the first commit of p0119 with a deliberate gap before the rest lands."
+  - key: "Streaming via GetStreamingResponseAsync from day one, but no live-rendering UX changes in V1. Reason: deferring streaming means migrating every GetResponseAsync call site a second time when streaming gets activated later. Switching now is ~5 LoC extra per call site (await foreach + aggregate to ChatResponse for token-tracking and compaction; UsageDetails arrive in the final chunk). Client-side: existing IProgressReporter event model unchanged — operators still see iteration-level and tool-level events as today, not live token deltas. Live rendering (Spectre Live, Slack token-streaming, Redis partial updates) is a separate future phase if/when the UX call is made. Aggregating server-side keeps token-tracking, compaction, and CostTracker semantics identical to non-streaming."
+  - key: "Existing tests get updated, not rewritten wholesale. Tool-execution semantics are unchanged from the LLM's perspective (same tools, same schemas, same return shapes). Test refactors target: factory-tests are deleted (no IAgentProviderFactory anymore), AgenticLoop-tests are deleted (no AgenticLoop anymore), ToolExecutor-tests change to invoke the AIFunction-wrapped methods directly (semantics same, test setup simpler). Compaction tests stay 1:1. ~16 test files touched, ~5 deleted, ~11 updated."
+
+steps:
+  - id: nuget-references
+    action: "Add M.E.AI dependencies to Infrastructure project"
+    modify:
+      - "src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj: add PackageReferences. Microsoft.Extensions.AI: pinned EXACT to the latest stable release below 10.4.1 (see decisions — bypassing the open Anthropic.SDK Issue #197 introduced at 10.4.1). Buddy looks up the actual NuGet version at implementation time and pins it as Version=\"x.y.z\" (NOT a range like '>=10.0' that could float into 10.4.1+). Same exact-version pin for Microsoft.Extensions.AI.OpenAI and Microsoft.Extensions.AI.Ollama (sibling packages, must move in lockstep). Anthropic.SDK from tghamm: pinned exact, look up the version that the author currently advertises as compatible with the chosen M.E.AI version. GenerativeAI.Microsoft (Gemini adapter): latest stable — no known coupling to M.E.AI version, document chosen version inline."
+      - "Add a code comment in the .csproj near the M.E.AI block: '<!-- Pinned below 10.4.1 due to tghamm/Anthropic.SDK#197. Bump in a follow-up phase once #197 is closed. -->' so future maintainers see the constraint without hunting through phase specs."
+      - "Removed PackageReferences (verify nothing else uses them): Anthropic.SDK direct (replaced by tghamm), OpenAI direct (replaced by Microsoft.Extensions.AI.OpenAI which still references it). Verify with `dotnet list package --include-transitive` after."
+
+  - id: tool-host
+    action: "Single SandboxToolHost class as the AIFunction registry"
+    new:
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHost.cs: class with one method per tool (ReadFile, WriteFile, ListFiles, Grep, RunCommand, LogDecision, AskHuman). Each method has [Description] for itself and per parameter. Constructor takes ISandbox, IDecisionLogger, IUserDialogue (or whatever AskHuman uses today). Methods do exactly what today's ToolExecutor.ExecuteToolAsync dispatches to."
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHostExtensions.cs: extension method GetAllTools(this SandboxToolHost) → IList<AIFunction> via AIFunctionFactory.Create on each method. Plus GetScoutTools() returning only the 3 read-side methods. Single source of truth replacing today's ToolDefinitions.All / ToolDefinitions.ScoutTools."
+    delete:
+      - "src/AgentSmith.Infrastructure/Models/ToolDefinitions.cs"
+      - "src/AgentSmith.Infrastructure/Models/OpenAiToolDefinitions.cs"
+      - "src/AgentSmith.Infrastructure/Models/GeminiToolDefinitions.cs"
+      - "src/AgentSmith.Infrastructure/Models/OllamaToolDefinitions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ToolExecutor.cs (replaced by SandboxToolHost)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/SandboxToolHandler.cs (the post-p0117 wrapper, now redundant)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/GrepToolHandler.cs (logic moves into SandboxToolHost.Grep method)"
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Tools/SandboxToolHostTests.cs: each tool method tested in isolation. ReadFile happy path, ReadFile missing file → exception with clear message. WriteFile, ListFiles with maxDepth, Grep with pattern + bound, RunCommand with sandbox dispatch verified, LogDecision via mocked IDecisionLogger, AskHuman via mocked IUserDialogue."
+      - "tests/AgentSmith.Tests/Tools/SandboxToolHostExtensionsTests.cs: GetAllTools returns 7 AIFunctions with correct names. GetScoutTools returns 3. Schema generation: ReadFile.JsonSchema contains 'path' parameter with description from [Description] attribute."
+
+  - id: chat-client-factory
+    action: "IChatClientFactory replaces IAgentProviderFactory + IAgenticAnalyzerFactory"
+    new:
+      - "src/AgentSmith.Contracts/Services/IChatClientFactory.cs: IChatClient Create(TaskType task). TaskType enum stays (Scout, Primary, Planning, Reasoning, Summary, ContextGeneration, CodeMapGeneration). Per-task assignment routes through ConfigBasedModelRegistry."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs: implementation. Resolves AgentConfig.Type per task → instantiates the right M.E.AI adapter. Wraps with FunctionInvokingChatClient for tasks that take tools (Primary, Scout, Planning). Bare IChatClient for tasks that don't (ContextGeneration, CodeMapGeneration, Summary)."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs: tghamm Anthropic.SDK → IChatClient. Configures prompt-caching policy (FineGrained or AutomaticToolsAndSystem based on AgentConfig)."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs: handles BOTH AgentConfig.Type='openai' AND 'azure-openai'. Internal switch: OpenAI path uses 'new OpenAIClient(new ApiKeyCredential(apiKey)).AsIChatClient(modelName)'. Azure path uses 'new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey)).AsIChatClient(deploymentName)' — note: Azure.AI.OpenAI package, different SDK type, deployment-name routing (not model-name routing). Both branches return IChatClient; downstream code is identical. The Microsoft.Extensions.AI.OpenAI package provides AsIChatClient() extension methods for both SDK types — that's what makes the unification clean. Existing AgentConfig fields used: ApiKey, Endpoint (Azure), Deployment (Azure, per-task from ConfigBasedModelRegistry), Model (OpenAI)."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/GeminiChatClientBuilder.cs: GenerativeAI.Microsoft adapter."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OllamaChatClientBuilder.cs: Microsoft.Extensions.AI.Ollama. Tool-calling-capability check happens at builder time; if disabled, returns IChatClient without FunctionInvokingChatClient wrap (caller's tool-bearing tasks throw NotSupportedException)."
+    delete:
+      - "src/AgentSmith.Contracts/Providers/IAgentProvider.cs"
+      - "src/AgentSmith.Contracts/Services/IAgenticAnalyzer.cs"
+      - "src/AgentSmith.Contracts/Services/IAgenticAnalyzerFactory.cs"
+      - "src/AgentSmith.Contracts/Services/IToolCallHandler.cs (replaced by AIFunction.InvokeAsync)"
+      - "src/AgentSmith.Contracts/Services/ToolDefinition.cs (replaced by M.E.AI's AIFunction)"
+      - "src/AgentSmith.Contracts/Services/ToolCall.cs (internal to FunctionInvokingChatClient now)"
+      - "src/AgentSmith.Contracts/Services/ToolResult.cs (internal to FunctionInvokingChatClient now)"
+      - "src/AgentSmith.Infrastructure/Services/Factories/AgentProviderFactory.cs"
+      - "src/AgentSmith.Infrastructure/Services/Factories/AgenticAnalyzerFactory.cs"
+
+  - id: provider-implementations-removal
+    action: "Delete all 5 provider classes + 4 AgenticLoops + 4 AgenticAnalyzer adapters"
+    delete:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ClaudeAgentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AgenticLoop.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgenticLoop.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AzureOpenAiAgentProvider.cs (was already a thin wrapper, now gone)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/GeminiAgentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/GeminiAgenticLoop.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OllamaAgentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OllamaAgenticLoop.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/ClaudeAgenticAnalyzer.cs (from p0110a)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/AzureOpenAiAgenticAnalyzer.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/GeminiAgenticAnalyzer.cs"
+
+  - id: handler-migration
+    action: "AgenticExecuteHandler + ScoutAgent + ProjectAnalyzer use IChatClient directly"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/AgenticExecuteHandler.cs: ctor takes IChatClientFactory + SandboxToolHost. ExecuteAsync resolves chat client via factory.Create(TaskType.Primary), constructs ChatOptions { Tools = toolHost.GetAllTools(), MaxOutputTokens = ..., MaximumIterationsPerRequest = 25 }. Calls GetStreamingResponseAsync (NOT GetResponseAsync) and aggregates the IAsyncEnumerable<ChatResponseUpdate> server-side via 'await foreach' into a final ChatResponse. Pattern: accumulate ChatMessage list from updates, capture UsageDetails from the final update where it surfaces, return the assembled ChatResponse to the rest of the handler. Tool-loop is gone — FunctionInvokingChatClient middleware handles it transparently within the streaming enumeration. Tool-results, max-iterations, message-appending — all gone. Use ChatResponseUpdateExtensions.ToChatResponseAsync() if Microsoft.Extensions.AI provides it (verify at implementation), otherwise hand-rolled aggregation. Token-tracking happens once on the final ChatResponse, identical to the non-streaming code path."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ScoutAgent.cs: same pattern as AgenticExecuteHandler — GetStreamingResponseAsync, server-side aggregation. Uses factory.Create(TaskType.Scout) and toolHost.GetScoutTools() in ChatOptions.Tools."
+      - "src/AgentSmith.Application/Services/ProjectAnalyzer.cs (from p0110b): same pattern — GetStreamingResponseAsync + server-side aggregation. TaskType resolved per its current usage. The IAgenticAnalyzer dependency becomes IChatClientFactory."
+      - "src/AgentSmith.Application/Services/AgentExecutionContextFactory.cs: builds ChatOptions per task, threads ISandbox into SandboxToolHost. The Plan + Repository + CodingPrinciples + CodeMap inputs become messages in the ChatMessage list, not custom-type properties on a Plan record."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Handlers/AgenticExecuteHandlerMeaiTests.cs: mocked IChatClientFactory returns a stub IChatClient that yields a known IAsyncEnumerable<ChatResponseUpdate> from GetStreamingResponseAsync. AgenticExecuteHandler dispatches with correct ChatOptions.Tools (all 7), correct MaxOutputTokens, MaximumIterationsPerRequest=25. Stub yields multiple updates ending with a UsageDetails-bearing final update — handler aggregates correctly, builds CommandResult, calls TokenUsageTracker.Track once with the aggregated usage."
+      - "tests/AgentSmith.Tests/Services/ScoutAgentMeaiTests.cs: same shape, asserts ChatOptions.Tools contains exactly 3 (read_file, list_files, grep)."
+
+  - id: token-tracking-fix
+    action: "TokenUsageTracker switches to delta-aggregation + cache-hit tracking"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Tracking/TokenUsageTracker.cs: per-(session, phase) state holds last_call_input_tokens. Track method computes delta = current_call_input - last_call_input (or full when first call), accumulates deltas to _totalInput. Reads UsageDetails.AdditionalCounts['cached_tokens'] when present, accumulates to _totalCachedInput. New computed property CacheHitRate = _totalCachedInput / (_totalInput + _totalCachedInput) — exposed for logging and result.md."
+      - "src/AgentSmith.Application/Services/Logging/RunCostSummary.cs: reads CacheHitRate from tracker, includes in YAML frontmatter as cache_hit_rate."
+      - "src/AgentSmith.Infrastructure/Services/Tracking/CostTracker.cs: when computing cost from tokens, applies cached-input-pricing where applicable (Anthropic 90% off, OpenAI/Azure 50% off — encoded in cost-config). Delta-aggregation means tokens are no longer 6-7× inflated, so costs become accurate."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Services/TokenUsageTrackerDeltaTests.cs: 3 sequential calls with cumulative-context input (1000, 5000, 12000 tokens) → tracker reports total_input = 12000 (last call's full context, equals sum-of-deltas if that interpretation is wanted), NOT 18000 (the wrong sum). Cache: call with cached_tokens=4000 → CacheHitRate increases correctly."
+
+  - id: di-and-config
+    action: "DI registration replaces all old factories with single IChatClientFactory"
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: AddAgentProviders() renamed to AddAiClients(). Registers IChatClientFactory, SandboxToolHost (scoped, takes ISandbox from PipelineContext via IServiceScopeFactory pattern), all 4 ChatClientBuilders. Removes registrations of IAgentProvider, IAgenticAnalyzer, IAgentProviderFactory, IAgenticAnalyzerFactory, individual AgenticLoop classes."
+      - "src/AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs + src/AgentSmith.Cli/ServiceProviderFactory.cs: call AddAiClients() instead of old method names."
+      - "config/agentsmith.yml + .env.example: schema unchanged for the operator (model_registry block stays YAML, env vars stay env vars). Internally the registry now produces IChatClient, but the YAML they edit is identical."
+      - "docs/configuration/agents.md: clarify that all 5 providers go through M.E.AI under the hood. Per-provider feature notes (Anthropic prompt caching enabled by default, Ollama tool-calling depends on model, etc.) — operator-facing reference."
+
+  - id: tests-cleanup
+    action: "Test refactor: delete obsolete, update relevant"
+    delete:
+      - "tests/AgentSmith.Tests/Services/Factories/AgentProviderFactoryTests.cs"
+      - "tests/AgentSmith.Tests/Services/Factories/AgentProviderFactoryOllamaTests.cs"
+      - "tests/AgentSmith.Tests/Services/Factories/AgenticAnalyzerFactoryTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/ClaudeAgenticAnalyzerTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/OpenAiAgenticAnalyzerTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/AzureOpenAiAgenticAnalyzerTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Agent/Adapters/GeminiAgenticAnalyzerTests.cs"
+      - "tests/AgentSmith.Tests/Providers/Agent/AgenticLoopTests.cs (and per-provider variants)"
+      - "tests/AgentSmith.Tests/Providers/ToolExecutorTests.cs (replaced by SandboxToolHostTests.cs created in the tool-host step — fresh tests, not a rename)"
+      - "tests/AgentSmith.Tests/Providers/ToolExecutorAskHumanTests.cs (folded into SandboxToolHostTests AskHuman cases)"
+      - "tests/AgentSmith.Tests/Providers/ToolExecutorFileTrackingTests.cs (folded into SandboxToolHostTests file-tracking cases)"
+    modify:
+      - "tests/AgentSmith.Tests/Compaction/* — remain 1:1, compaction unaffected."
+      - "tests/AgentSmith.Tests/Services/CostTrackerTests.cs + TokenUsageTrackerTests.cs: updated for delta-aggregation, cache-hit tracking. New test cases for cached-pricing application."
+
+  - id: docs
+    action: "Update documentation"
+    new:
+      - "docs/architecture/ai-clients.md: how IChatClientFactory + per-task IChatClient routing works. Per-provider adapter map. Where to add a new provider (NuGet adapter, ChatClientBuilder, factory case). Why we chose tghamm/Anthropic.SDK over Microsoft.Extensions.AI.Anthropic. Caching/streaming/extended-thinking notes per provider."
+    modify:
+      - "docs/architecture/layers.md: agent-provider layer renamed to ai-client layer, points at Microsoft.Extensions.AI."
+      - "docs/concepts/pipeline-system.md: AgenticExecute description updated — tool-loop now via FunctionInvokingChatClient, not custom AgenticLoop."
+      - "docs/mkdocs.yml: 'AI Clients' nav entry under Architecture."
+      - ".agentsmith/decisions.md: new entry — 'p0119 replaces 5 custom provider implementations + 4 agentic loops + 4 tool-definition formats with Microsoft.Extensions.AI's IChatClient + FunctionInvokingChatClient. Eliminates ~1500 lines of provider-specific code, fixes the token-aggregation bug, exposes correct cache-hit-rate. M.E.AI.Anthropic was rejected (immature, embedded SDK source). tghamm/Anthropic.SDK chosen for its production track record + caching support.'"
+
+  - id: validation
+    action: "Manual end-to-end smoke against AAD-DEV with all 5 providers"
+    action_detail:
+      - "Precondition: p0119 code merged to main."
+      - "1. Ticket #1001 fix-bug pipeline with type=azure-openai (the live-config). Run completes, PR created. Token counts in result.md frontmatter are 5-7× lower than pre-p0119 (delta vs sum). Cache-hit-rate appears (likely 0% for Azure OpenAI without caching enabled, but the field is there)."
+      - "2. Same with type=claude. Run completes. Token counts correct. Cache-hit-rate >0% (Anthropic caches by default with our config)."
+      - "3. type=openai run with cached prompt prefix (run twice, second run shows cache_hit_rate >0)."
+      - "4. type=ollama with mistral (tool-calling-capable) run. Tool-loop works."
+      - "5. type=gemini run. Tool-loop works."
+      - "Failure paths: ollama with model that doesn't support tools (e.g. llama3:8b base) — should NotSupportedException at startup, not silent degradation."
+
+done:
+  - "Microsoft.Extensions.AI pinned EXACT to latest stable below 10.4.1 (sibling packages .OpenAI and .Ollama in lockstep). Csproj comment documents the constraint and links to tghamm/Anthropic.SDK#197. Anthropic.SDK (tghamm), GenerativeAI.Microsoft (Gemini) added. End-of-phase validation step confirms all 5 adapters round-trip with tool-calls in AAD-DEV."
+  - "5 provider classes deleted (Claude, OpenAI, Azure OpenAI, Gemini, Ollama AgentProviders). 4 AgenticLoop classes deleted. 4 AgenticAnalyzer adapter classes from p0110a deleted. 4 ToolDefinitions files deleted."
+  - "Single SandboxToolHost class with 7 [Description]-annotated methods. AIFunctionFactory.Create generates schemas. GetAllTools / GetScoutTools as the only tool-set definitions."
+  - "IChatClientFactory replaces IAgentProviderFactory + IAgenticAnalyzerFactory. Per-task IChatClient routing via ConfigBasedModelRegistry (renamed semantically but YAML schema unchanged)."
+  - "AgenticExecuteHandler, ScoutAgent, ProjectAnalyzer all call IChatClient.GetStreamingResponseAsync (NOT GetResponseAsync) and aggregate updates server-side to a final ChatResponse. FunctionInvokingChatClient handles the tool-loop within the streaming enumeration. The 4× duplicated max-iterations-25 logic now lives in one place (ChatOptions.MaximumIterationsPerRequest)."
+  - "Streaming foundation in place: every IChatClient call site uses GetStreamingResponseAsync. Token-tracking and compaction operate on the aggregated final ChatResponse, semantically identical to non-streaming. IProgressReporter event model unchanged in V1 — no live token rendering yet, but the API layer is ready for it without a second migration."
+  - "TokenUsageTracker uses delta-aggregation. Reported input-tokens are correct (no 6-7× inflation). CacheHitRate exposed via UsageDetails.AdditionalCounts. CostTracker applies cached-pricing where applicable."
+  - "All 5 providers (including Ollama) supported equally — no asymmetric feature gaps from the abstraction."
+  - "DI cleaned: AddAiClients() replaces AddAgentProviders(). Single registration entry point."
+  - "Manual smoke tested across all 5 provider types in AAD-DEV. Token counts realistic (5-7× smaller than pre-fix). Cache-hit-rate visible in result.md."
+  - "Tests: ~5 deleted (factories, analyzer-adapters, agentic-loops), ~11 updated (tool-host, handler-migration, token-tracking-delta), ~4 new (M.E.AI smoke per provider, delta-aggregation, cache-hit). All existing pipeline tests stay green."
+  - "Docs: ai-clients.md as new architecture page, layers.md updated, decisions.md entry honest about why M.E.AI replaces 1.5 years of accumulated provider code."
+  - "p0119 shipped in two commit batches around the demo, both under the same phase. Batch 1 (pre-demo, ~30 lines, no M.E.AI dep): TokenUsageTracker delta-aggregation only — corrects the demo-visible 6-7× input-token inflation. Batch 2 (post-demo): full M.E.AI migration, AIFunctions, cache-hit-rate, streaming, IChatClientFactory, DI rewrite, test refactor, docs. The hotfix is part of p0119, not a separate phase."
