@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class InitCommitHandler(
     ISourceProviderFactory sourceFactory,
+    SandboxGitOperations gitOps,
     ILogger<InitCommitHandler> logger)
     : ICommandHandler<InitCommitContext>
 {
@@ -20,10 +22,13 @@ public sealed class InitCommitHandler(
     {
         logger.LogInformation("Committing .agentsmith/ files and creating PR...");
 
+        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+            return CommandResult.Fail("InitCommit requires an active sandbox; none in pipeline context.");
+
         var sourceProvider = sourceFactory.Create(context.SourceConfig);
 
         var message = "chore: initialize .agentsmith/ directory";
-        await sourceProvider.CommitAndPushAsync(context.Repository, message, cancellationToken);
+        await gitOps.CommitAndPushAsync(sandbox, context.Repository.CurrentBranch.Value, message, cancellationToken);
 
         var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,
