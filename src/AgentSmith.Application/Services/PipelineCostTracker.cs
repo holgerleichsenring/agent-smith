@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services;
 
@@ -61,6 +62,36 @@ public sealed class PipelineCostTracker
             if (response.Model != "unknown") _lastModel = response.Model;
         }
     }
+
+    /// <summary>
+    /// Tracks a Microsoft.Extensions.AI ChatResponse. Pulls input/output from
+    /// UsageDetails and reads cached/cache-creation counts from AdditionalCounts
+    /// (key names vary by provider — Anthropic: cache_read_input_tokens /
+    /// cache_creation_input_tokens; OpenAI: cached_tokens).
+    /// </summary>
+    public void Track(ChatResponse response)
+    {
+        if (response.Usage is null) return;
+        var input = (int)(response.Usage.InputTokenCount ?? 0);
+        var output = (int)(response.Usage.OutputTokenCount ?? 0);
+        var cacheRead = ReadAdditionalCount(response.Usage, "cache_read_input_tokens")
+            + ReadAdditionalCount(response.Usage, "cached_tokens");
+        var cacheCreate = ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
+        var billable = Math.Max(0, input - cacheRead);
+        var model = response.ModelId;
+        lock (_gate)
+        {
+            _totalInputTokens += billable;
+            _totalOutputTokens += output;
+            _totalCacheCreateTokens += cacheCreate;
+            _totalCacheReadTokens += cacheRead;
+            _callCount++;
+            if (!string.IsNullOrEmpty(model)) _lastModel = model;
+        }
+    }
+
+    private static int ReadAdditionalCount(UsageDetails usage, string key)
+        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
 
     public decimal EstimateCostUsd()
     {
