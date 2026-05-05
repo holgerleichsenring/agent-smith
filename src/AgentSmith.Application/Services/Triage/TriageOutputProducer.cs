@@ -44,15 +44,29 @@ public sealed class TriageOutputProducer(
 
     private TriageInput BuildInput(PipelineContext pipeline)
     {
-        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
+        var (ticketText, labels) = ResolveTicketOrSyntheticInput(pipeline);
         var excerpt = excerptBuilder.Build(pipeline);
         var skillIndex = LoadSkillIndex(pipeline);
         return new TriageInput(
-            Ticket: $"{ticket.Title}\n\n{ticket.Description}",
+            Ticket: ticketText,
             ProjectMapExcerpt: excerpt,
             AvailableSkills: skillIndex,
             Phases: DefaultPhases,
-            TicketLabels: ticket.Labels);
+            TicketLabels: labels);
+    }
+
+    internal static (string Ticket, IReadOnlyList<string> Labels) ResolveTicketOrSyntheticInput(
+        PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) && ticket is not null)
+        {
+            return ($"{ticket.Title}\n\n{ticket.Description}", ticket.Labels);
+        }
+
+        var synthetic = pipeline.TryGet<object>(ContextKeys.SwaggerSpec, out _)
+            ? "API security scan. No ticket context — triage based on the project map and available scan skills."
+            : "Security scan. No ticket context — triage based on the project map and available scan skills.";
+        return (synthetic, Array.Empty<string>());
     }
 
     private static IReadOnlyList<SkillIndexEntry> LoadSkillIndex(PipelineContext pipeline)
