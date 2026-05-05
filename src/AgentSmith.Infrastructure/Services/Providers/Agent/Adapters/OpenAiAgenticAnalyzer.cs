@@ -48,6 +48,10 @@ public sealed class OpenAiAgenticAnalyzer(
         for (; iteration < maxIterations; iteration++)
         {
             ChatCompletion completion = await client.CompleteChatAsync(messages, options, cancellationToken);
+            // Read summarizer tokens BEFORE Finalize zeroes out pending — otherwise the
+            // compactor's own LLM call is billed by the provider but invisible in totalIn.
+            if (pendingCompaction is not null && completion.Usage is not null)
+                totalIn += pendingCompaction.SummarizationCallTokens;
             pendingCompaction = FinalizePendingCompaction(pendingCompaction, completion, logger);
             totalIn += completion.Usage?.InputTokenCount ?? 0;
             totalOut += completion.Usage?.OutputTokenCount ?? 0;

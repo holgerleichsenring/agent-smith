@@ -91,6 +91,17 @@ public sealed class OpenAiAgenticLoop(
     {
         if (pending is null || completion.Usage is null) return pending;
         var finalized = pending.WithVerifiedTokens(completion.Usage.InputTokenCount);
+
+        // The summarizer's own LLM call is billed by the provider but otherwise
+        // invisible to the run cost \u2014 attribute it under a "compaction" phase so
+        // the run total matches what the provider charged.
+        if (finalized.SummarizationCallTokens > 0)
+        {
+            tracker.SetPhase("compaction");
+            tracker.Track(finalized.SummarizationCallTokens, 0);
+            tracker.SetPhase("primary");
+        }
+
         logger.LogInformation(
             "Compacted {Old}\u2192{New} messages; verified {Verified} input tokens (saved est. {Saved}; summarizer cost {Summary} tokens; prompt {Hash})",
             finalized.OldMessageCount, finalized.NewMessageCount,
