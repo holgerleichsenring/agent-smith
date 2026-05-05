@@ -1,7 +1,9 @@
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -24,10 +26,18 @@ public sealed class PipelineExecutor(
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
     IPipelineLifecycleCoordinator lifecycleCoordinator,
+    ISandboxFactory sandboxFactory,
+    SandboxSpecBuilder sandboxSpecBuilder,
     IProgressReporter progressReporter,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
+
+    private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
+    {
+        CommandNames.CheckoutSource, CommandNames.AgenticExecute, CommandNames.Test,
+        CommandNames.GenerateTests, CommandNames.GenerateDocs
+    };
 
     public async Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
@@ -44,6 +54,7 @@ public sealed class PipelineExecutor(
             "Agent Smith is working on this issue...", cancellationToken);
 
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
+        await using var sandbox = await TryCreateSandboxAsync(commandNames, projectConfig, context, cancellationToken);
 
         var commands = new LinkedList<PipelineCommand>(
             commandNames.Select(PipelineCommand.Simple));
@@ -82,6 +93,20 @@ public sealed class PipelineExecutor(
 
         logger.LogInformation("Pipeline completed successfully");
         return CommandResult.Ok("Pipeline completed successfully");
+    }
+
+    private async Task<ISandbox?> TryCreateSandboxAsync(
+        IReadOnlyList<string> commandNames, ProjectConfig projectConfig,
+        PipelineContext context, CancellationToken cancellationToken)
+    {
+        if (!commandNames.Any(SandboxRequiringCommands.Contains)) return null;
+
+        var projectMap = context.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var pm) ? pm : null;
+        var spec = sandboxSpecBuilder.Build(projectConfig, projectMap);
+        logger.LogInformation("Creating sandbox with toolchain image {Image}", spec.ToolchainImage);
+        var sandbox = await sandboxFactory.CreateAsync(spec, cancellationToken);
+        context.Set(ContextKeys.Sandbox, sandbox);
+        return sandbox;
     }
 
     /// <summary>

@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -16,6 +18,7 @@ public class PipelineExecutorTests
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
     private readonly Mock<IPipelineLifecycleCoordinator> _lifecycleMock = new();
+    private readonly Mock<ISandboxFactory> _sandboxFactoryMock = new();
     private readonly Mock<IProgressReporter> _progressReporterMock = new();
     private readonly PipelineExecutor _sut;
 
@@ -29,6 +32,8 @@ public class PipelineExecutorTests
             _factoryMock.Object,
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
+            _sandboxFactoryMock.Object,
+            new SandboxSpecBuilder(),
             _progressReporterMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }

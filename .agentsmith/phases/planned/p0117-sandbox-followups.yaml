@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0117
+goal: "Finish what p0116 deferred: Docker sandbox backend (DockerSandboxFactory + DockerSandbox via Docker.DotNet), GenerateTestsHandler + GenerateDocsHandler sandbox migration, TRX result-file parsing in TestHandler, full CheckoutSourceHandler migration (drop hybrid server-side LibGit2Sharp clone, push branch via Step), legacy ToolExecutor fallback removal once every caller threads ISandbox, and Helm chart updates for sandbox RBAC + securityContext. p0116 landed the K8s + InProcess + Wire foundation under explicit Option-C scope reduction; p0117 closes the gaps that scope reduction left open."
+
+requires: ["p0116"]
+
+scope:
+  in: "DockerSandboxFactory + DockerSandbox in Server (Docker.DotNet, container spec mirroring K8s pod with shared volume + agent-loader+toolchain pair, force-remove on dispose). GenerateTestsHandler + GenerateDocsHandler pull ISandbox from PipelineContext (replace sandbox=null), drop server-side Process.Start. TestHandler parses TRX file from /work/test-results, returns structured pass/fail counts. CheckoutSourceHandler drops the hybrid mode: LibGit2Sharp removed, git clone is the only Step, branch + commit + push migrated to Step-based git invocations against /work, server-side filesystem is no longer touched for source. PersistWorkBranchHandler + CommitAndPRHandler migrated alongside (Repository.LocalPath becomes a sandbox-managed concept, not a server-pod path). ScoutAgent migration: ToolExecutor's legacy repositoryPath constructor branch deleted once ScoutAgent threads a sandbox. Auto-detect updated to consider /var/run/docker.sock as the trigger for DockerSandboxFactory between KUBERNETES_SERVICE_HOST and inprocess fallback. Helm chart at deploy/helm/agentsmith (new) including role.yaml with sandbox RBAC, securityContext template variables, sandbox image tag. Tests: ~30 new (Docker mocks, TRX parser, CheckoutSource Step-only flow, Generate*Handler sandbox routing, ScoutAgent sandbox path)."
+  out: "Sandbox pooling/reuse across pipelines. Pre-spawn parallel to FetchTicket. Mid-step cancellation beyond pod-delete-as-hammer. Multi-step parallelism. Heartbeat / mid-pipeline recovery. Operator-customizable nodeSelector/tolerations/imagePullSecrets — Helm overrides cover the common cases, full pod-spec passthrough is a separate phase."
+
+decisions:
+  - key: "Docker backend keeps API surface aligned with K8s. DockerSandboxFactory creates two containers sharing a named volume; agent-loader copies /agent into the volume, toolchain runs with command=['/shared/agent']. Use Docker.DotNet for the API surface (already a documented choice; rejected ProcessStart-shelling-out-to-docker-cli for the same reasons p0019a chose Docker.DotNet over docker run shell-outs)."
+  - key: "TRX parsing uses the .NET-builtin XML reader against /work/test-results/*.trx. Pull <Counters passed=... failed=... /> + <UnitTestResult outcome=Failed> for the failure list. Surface as structured Counters in CommandResult.Detail; full per-test breakdown lands in TestResults context as JSON."
+  - key: "CheckoutSourceHandler full migration removes the hybrid mode introduced as a V1 acknowledged-limitation in p0116. After p0117: Repository.LocalPath becomes a logical /work-relative concept. CommitAndPRHandler builds branch+commit+push as Step{Kind=Run, Command='git', Args=...} against the same sandbox. PersistWorkBranchHandler likewise. Backward compat: nothing — by p0117 every code path goes through the sandbox; no callers depend on a server-side checkout."
+  - key: "ToolExecutor's legacy repositoryPath constructor branch goes away. After ScoutAgent migration the only constructor takes ISandbox + supporting deps. FileToolHandler + CommandRunner deleted; SandboxToolHandler is the only handler for the four file/list/run tools. GrepToolHandler keeps its server-side filesystem implementation for now (it operates on local-paths the LLM passed in; sandbox-routing for it is a separate concern)."
+  - key: "ScoutAgent migration. Today ScoutAgent constructs its own ToolExecutor with repository.LocalPath. Post-p0117: ScoutAgent receives ISandbox via constructor + uses sandbox-routed ToolExecutor. AgentExecutionContextFactory.TryRunScoutAsync passes through the sandbox parameter."
+  - key: "DockerSandboxFactory auto-detect via /var/run/docker.sock existence. Slot in between KUBERNETES_SERVICE_HOST and inprocess: K8s > Docker.sock > InProcess. SANDBOX_TYPE=docker explicit override always wins. Operators on Docker Desktop / Linux dev machines automatically land on Docker without flags."
+  - key: "Helm chart structure mirrors deploy/k8s/ flat-numbered YAMLs but as templates. role.yaml gets ${sandbox.rbac} block driven by values.yaml: enable: true (default) | false. securityContext template: {fsGroup: 1000, runAsUser: nullable}. agentsmith.image.tag controls server image; sandbox.agent.image.tag controls the carrier image; both default to chart appVersion. The helm/ directory is NEW — chart did not exist before p0117."
+  - key: "Generate{Tests,Docs}Handler migration is mechanical. The handlers today call provider.ExecutePlanAsync(..., sandbox: null). Replace null with context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, ...). One-line change each + their tests' mock setups update to pass non-null sandboxes through. The mock signature is already 8-arg from p0116, so no test-mock plumbing changes needed."
+
+steps:
+  - id: docker-sandbox
+    action: "Implement DockerSandboxFactory + DockerSandbox in Server"
+    new:
+      - "src/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs: Docker.DotNet implementation. CreateAsync builds shared volume name agentsmith-sandbox-{jobId}, creates two containers, starts toolchain, returns DockerSandbox."
+      - "src/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs: ISandbox impl mirroring KubernetesSandbox shape with DockerClient. DisposeAsync removes both containers + volume."
+      - "src/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs: builds CreateContainerParameters for agent-loader + toolchain pair."
+    modify:
+      - "src/AgentSmith.Server/Extensions/SandboxServiceCollectionExtensions.cs: extend ResolveBackend to consider /var/run/docker.sock; add SandboxBackend.Docker case + RegisterDocker helper."
+      - "src/AgentSmith.Server/AgentSmith.Server.csproj: add Docker.DotNet PackageReference."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Sandbox/DockerSandboxFactoryTests.cs: mocked DockerClient. Container spec correct (image / command / volumes / env). DisposeAsync removes containers + volume."
+      - "tests/AgentSmith.Tests/Sandbox/SandboxBackendDetectionTests.cs (extend): docker.sock present → Docker; SANDBOX_TYPE=docker overrides everything."
+
+  - id: generate-handlers-sandbox
+    action: "GenerateTestsHandler + GenerateDocsHandler thread sandbox from context"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/GenerateTestsHandler.cs: replace sandbox: null with context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sb) ? sb : null."
+      - "src/AgentSmith.Application/Services/Handlers/GenerateDocsHandler.cs: same change."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Commands/GenerateTestsHandlerSandboxTests.cs: pipeline with non-null sandbox → provider receives sandbox; pipeline without sandbox → provider receives null."
+      - "tests/AgentSmith.Tests/Commands/GenerateDocsHandlerSandboxTests.cs: same pattern."
+
+  - id: trx-parsing
+    action: "TestHandler parses TRX result files for structured pass/fail data"
+    new:
+      - "src/AgentSmith.Application/Services/Builders/TrxResultParser.cs: XML reader against /work/test-results/*.trx. Returns TrxSummary { TotalCount, PassedCount, FailedCount, IList<FailedTest> }."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs: after RunInSandboxAsync, when test command was dotnet test --logger trx --results-directory /work/test-results, push a Step{Kind=ReadFile} for the latest TRX, parse via TrxResultParser, store TrxSummary in ContextKeys.TestResults instead of raw stdout."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Services/Builders/TrxResultParserTests.cs: known TRX fixture → correct counts; failure list extracted with class + method names."
+      - "tests/AgentSmith.Tests/Commands/TestHandlerTrxTests.cs: sandbox returns ReadFile success → handler parses TRX → TestResults populated with structured summary."
+
+  - id: checkout-source-pure-step
+    action: "Drop CheckoutSourceHandler hybrid mode; git clone + branch + push are Steps, no LibGit2Sharp"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: only push the git clone Step; remove LibGit2Sharp call. Return CommandResult with /work as the implicit working directory."
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs: branch + commit + push migrated to Steps. Construct git config / git add / git commit / git push as Step.Kind=Run."
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs: same migration. WIP commit + push via Steps."
+      - "src/AgentSmith.Domain/Entities/Repository.cs: LocalPath becomes a relative-to-/work concept (or removed entirely if no caller still needs it as an absolute path)."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Handlers/CheckoutSourceHandlerStepOnlyTests.cs: mocked sandbox. ExecuteAsync pushes one Step with git clone; LibGit2Sharp not called (no source provider mock interactions)."
+      - "tests/AgentSmith.Tests/Handlers/CommitAndPRHandlerSandboxTests.cs: branch + commit + push as Steps; no Process.Start; no LibGit2Sharp."
+
+  - id: tool-executor-cleanup
+    action: "Delete legacy fallback path now that every caller threads sandbox"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ToolExecutor.cs: drop the (no-sandbox) constructor overload. Single constructor: ToolExecutor(ISandbox sandbox, ILogger, FileReadTracker?, IProgressReporter?, ...)."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ScoutAgent.cs: takes ISandbox + uses SandboxToolHandler exclusively."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AgentExecutionContextFactory.cs: TryRunScoutAsync passes sandbox to ScoutAgent."
+    delete:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/FileToolHandler.cs: replaced by SandboxToolHandler."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/CommandRunner.cs: replaced by SandboxToolHandler.RunCommandAsync. Move IsBlockedCommand into SandboxToolHandler as a static helper."
+
+  - id: helm-chart
+    action: "First Helm chart for the project"
+    new:
+      - "deploy/helm/agentsmith/Chart.yaml: appVersion = 0.x, name agentsmith."
+      - "deploy/helm/agentsmith/values.yaml: image.tag, sandbox.agent.image.tag, sandbox.rbac.enabled, sandbox.securityContext.fsGroup, redis.url, ingress.host."
+      - "deploy/helm/agentsmith/templates/serviceaccount.yaml + role.yaml + rolebinding.yaml: mirrors deploy/k8s/2-rbac.yaml; sandbox RBAC gated by values.sandbox.rbac.enabled."
+      - "deploy/helm/agentsmith/templates/configmap.yaml + secret.yaml + service.yaml + deployment.yaml + ingress.yaml: parameterized versions of deploy/k8s/3-9."
+      - "deploy/helm/agentsmith/README.md: chart usage, value reference, sandbox RBAC opt-out."
+
+  - id: docs
+    action: "Documentation for the deferred work"
+    modify:
+      - "docs/concepts/sandbox-architecture.md: drop the V1-limitations section; replace with operational notes."
+      - "docs/configuration/sandbox.md (new): values.yaml reference, image-pinning, sandbox RBAC opt-out, securityContext customization."
+      - "docs/mkdocs.yml: nav entry for sandbox configuration page."
+
+done:
+  - "DockerSandboxFactory + DockerSandbox in Server. /var/run/docker.sock auto-detect. Mocked-DockerClient tests cover spec construction + cleanup."
+  - "GenerateTestsHandler + GenerateDocsHandler pull ISandbox from PipelineContext. Test mocks updated."
+  - "TestHandler parses TRX into TrxSummary; TestResults context key holds structured data instead of raw stdout."
+  - "CheckoutSourceHandler is pure-Step. CommitAndPRHandler + PersistWorkBranchHandler migrated. LibGit2Sharp no longer reached during a pipeline run (kept only as a transitive dep until the source-provider abstraction's checkout path also moves)."
+  - "ToolExecutor has a single sandbox-required constructor. FileToolHandler + CommandRunner deleted; ScoutAgent uses SandboxToolHandler."
+  - "Helm chart at deploy/helm/agentsmith with sandbox RBAC + securityContext template values. README documents opt-outs."
+  - "Docs: sandbox-architecture.md V1-limitations replaced; new sandbox configuration page; mkdocs nav updated."
+  - "Tests: ~30 new, all existing green. dotnet build zero warnings."

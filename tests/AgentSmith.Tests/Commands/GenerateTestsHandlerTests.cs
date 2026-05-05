@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -100,9 +101,9 @@ public sealed class GenerateTestsHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
-            .Callback<Plan, Repository, string, string?, string?, IProgressReporter, CancellationToken>(
-                (plan, _, _, _, _, _, _) => capturedPlan = plan)
+                It.IsAny<IProgressReporter>(), It.IsAny<ISandbox?>(), It.IsAny<CancellationToken>()))
+            .Callback<Plan, Repository, string, string?, string?, IProgressReporter, ISandbox?, CancellationToken>(
+                (plan, _, _, _, _, _, _, _) => capturedPlan = plan)
             .ReturnsAsync(new AgentExecutionResult([], null, null));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -125,7 +126,7 @@ public sealed class GenerateTestsHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgressReporter>(), It.IsAny<ISandbox?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(executionResult);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);

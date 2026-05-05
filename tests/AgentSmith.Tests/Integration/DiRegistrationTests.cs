@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
+using AgentSmith.Infrastructure.Extensions;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -30,6 +31,7 @@ public class DiRegistrationTests
         services.AddSingleton(new Mock<IDialogueTransport>().Object);
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
+        services.AddInProcessSandbox();
         services.AddSingleton<IProgressReporter>(sp =>
             new AgentSmith.Application.Services.ConsoleProgressReporter(
                 sp.GetRequiredService<ILogger<AgentSmith.Application.Services.ConsoleProgressReporter>>(),

@@ -36,7 +36,8 @@ public sealed class GenerateDocsHandler(
 
         var result = await provider.ExecutePlanAsync(
             plan, context.Repository, context.CodingPrinciples,
-            context.CodeMap, context.ProjectContext, progressReporter, cancellationToken);
+            context.CodeMap, context.ProjectContext, progressReporter,
+            sandbox: null, cancellationToken);
 
         MergeCodeChanges(context, result.Changes);
 

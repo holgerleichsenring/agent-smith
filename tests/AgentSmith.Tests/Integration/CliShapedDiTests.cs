@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
+using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -132,6 +133,7 @@ public sealed class CliShapedDiTests : IDisposable
         services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
+        services.AddInProcessSandbox();
         services.AddSingleton(Mock.Of<IDialogueTransport>());
         services.AddSingleton(Mock.Of<IProgressReporter>());
         return services.BuildServiceProvider();

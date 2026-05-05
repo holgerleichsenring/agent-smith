@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -28,11 +29,12 @@ internal sealed class AgentExecutionContextFactory(
     public ToolExecutor CreateToolExecutor(
         string repositoryPath,
         FileReadTracker fileReadTracker,
-        IProgressReporter progressReporter)
+        IProgressReporter progressReporter,
+        ISandbox? sandbox = null)
     {
         return new ToolExecutor(
             repositoryPath, logger, fileReadTracker, progressReporter,
-            dialogueTransport, dialogueTrail, progressReporter.JobId);
+            dialogueTransport, dialogueTrail, progressReporter.JobId, sandbox);
     }
 
     public CostTracker? CreateCostTracker(TokenUsageTracker tracker)

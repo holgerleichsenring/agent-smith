@@ -108,4 +108,9 @@ public static class ContextKeys
     /// <summary>Typed PersistFailureKind set by PersistWorkBranchHandler before returning Fail.
     /// Read by PipelineExecutor's wrapper for log-level routing and counter escalation.</summary>
     public const string PersistFailureKind = "PersistFailureKind";
+
+    /// <summary>Active ISandbox for the pipeline run (created by PipelineExecutor when the
+    /// pipeline contains CheckoutSource / AgenticExecute / Test / GenerateTests / GenerateDocs).
+    /// Discussion-only pipelines leave this unset.</summary>
+    public const string Sandbox = "Sandbox";
 }

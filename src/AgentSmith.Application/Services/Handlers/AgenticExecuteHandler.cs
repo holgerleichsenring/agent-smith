@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -27,9 +28,10 @@ public sealed class AgenticExecuteHandler(
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
         var provider = factory.Create(context.AgentConfig);
+        var sandbox = context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sb) ? sb : null;
         var result = await provider.ExecutePlanAsync(
             context.Plan, context.Repository, context.CodingPrinciples,
-            context.CodeMap, context.ProjectContext, progressReporter, cancellationToken);
+            context.CodeMap, context.ProjectContext, progressReporter, sandbox, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.CodeChanges, result.Changes);
 

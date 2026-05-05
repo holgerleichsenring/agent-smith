@@ -195,6 +195,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IIntentParser, RegexIntentParser>();
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
+        services.AddSingleton<SandboxSpecBuilder>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
