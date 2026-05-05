@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.1...v0.37.2) (2026-05-05)
+
+
+### Reverts
+
+* **p0113a:** roll back queue-dispatcher refactor + add p0115 sandbox spec ([#69](https://github.com/holgerleichsenring/agent-smith/issues/69)) ([4ce6bf7](https://github.com/holgerleichsenring/agent-smith/commit/4ce6bf705b54bd0288c2d5f992978d0b04026fd7))
+
 ## [0.37.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.0...v0.37.1) (2026-05-05)
 
 
