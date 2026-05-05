@@ -54,45 +54,59 @@ public sealed class PipelineExecutor(
             "Agent Smith is working on this issue...", cancellationToken);
 
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
-        await using var sandbox = await TryCreateSandboxAsync(commandNames, projectConfig, context, cancellationToken);
-
-        var commands = new LinkedList<PipelineCommand>(
-            commandNames.Select(PipelineCommand.Simple));
-        var resolvedAgent = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
-            ? rp!.Agent
-            : projectConfig.Agent;
-        var maxConcurrent = resolvedAgent.Parallelism.MaxConcurrentSkillRounds;
-        var current = commands.First;
-        var executionCount = 0;
-
-        while (current is not null)
+        try
         {
-            var batch = PeelBatch(current, maxConcurrent);
-            if (executionCount + batch.Count > MaxCommandExecutions)
-                return CommandResult.Fail(
-                    $"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
-                    "Possible infinite loop in command insertion.");
+            await using var sandbox = await TryCreateSandboxAsync(commandNames, projectConfig, context, cancellationToken);
 
-            var (result, advanceTo) = batch.Count == 1
-                ? await ExecuteSingleStepAsync(
-                    current, commands, projectConfig, context, ++executionCount, cancellationToken)
-                : await ExecuteBatchStepAsync(
-                    batch, commands, projectConfig, context, executionCount + 1, cancellationToken);
+            var commands = new LinkedList<PipelineCommand>(
+                commandNames.Select(PipelineCommand.Simple));
+            var resolvedAgent = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
+                ? rp!.Agent
+                : projectConfig.Agent;
+            var maxConcurrent = resolvedAgent.Parallelism.MaxConcurrentSkillRounds;
+            var current = commands.First;
+            var executionCount = 0;
 
-            if (batch.Count > 1) executionCount += batch.Count;
-
-            if (!result.IsSuccess)
+            while (current is not null)
             {
-                await TryPersistWorkBranchAsync(commandNames, projectConfig, context, result, cancellationToken);
-                lifecycle.MarkFailed();
-                return result;
+                var batch = PeelBatch(current, maxConcurrent);
+                if (executionCount + batch.Count > MaxCommandExecutions)
+                {
+                    lifecycle.MarkFailed();
+                    return CommandResult.Fail(
+                        $"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
+                        "Possible infinite loop in command insertion.");
+                }
+
+                var (result, advanceTo) = batch.Count == 1
+                    ? await ExecuteSingleStepAsync(
+                        current, commands, projectConfig, context, ++executionCount, cancellationToken)
+                    : await ExecuteBatchStepAsync(
+                        batch, commands, projectConfig, context, executionCount + 1, cancellationToken);
+
+                if (batch.Count > 1) executionCount += batch.Count;
+
+                if (!result.IsSuccess)
+                {
+                    await TryPersistWorkBranchAsync(commandNames, projectConfig, context, result, cancellationToken);
+                    lifecycle.MarkFailed();
+                    return result;
+                }
+
+                current = advanceTo ?? batch[^1].Next;
             }
 
-            current = advanceTo ?? batch[^1].Next;
+            logger.LogInformation("Pipeline completed successfully");
+            return CommandResult.Ok("Pipeline completed successfully");
         }
-
-        logger.LogInformation("Pipeline completed successfully");
-        return CommandResult.Ok("Pipeline completed successfully");
+        catch
+        {
+            // Any exception in setup (sandbox factory) or escaping the loop must be
+            // recorded as a pipeline failure — otherwise lifecycle.DisposeAsync transitions
+            // the ticket to Done instead of Failed and the operator never learns the run broke.
+            lifecycle.MarkFailed();
+            throw;
+        }
     }
 
     private async Task<ISandbox?> TryCreateSandboxAsync(
