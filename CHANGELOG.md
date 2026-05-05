@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.3...v0.38.0) (2026-05-05)
+
+
+### Features
+
+* **p0119:** polymorphic cost-tracker + OpenAI cached_tokens demo fix ([#73](https://github.com/holgerleichsenring/agent-smith/issues/73)) ([212c88e](https://github.com/holgerleichsenring/agent-smith/commit/212c88eea5348fd05be5926cd5e8e257e4ccbb37))
+
+
+### Bug Fixes
+
+* **p0118a:** split CompactionEvent summarizer tokens into input + output for proper cost calc ([6e8d8ea](https://github.com/holgerleichsenring/agent-smith/commit/6e8d8ea7065cbbd36ced2ad5a30fe6db2ee04ccd))
+
 ## [0.37.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.2...v0.37.3) (2026-05-05)
 
 
