@@ -23,4 +23,5 @@ public sealed class ProjectConfig
     public WebhookTriggerConfig? GitlabTrigger { get; set; }
     public WebhookTriggerConfig? AzuredevopsTrigger { get; set; }
     public PollingConfig Polling { get; set; } = new();
+    public SandboxConfig? Sandbox { get; set; }
 }

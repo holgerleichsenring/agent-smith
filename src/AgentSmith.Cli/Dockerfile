@@ -9,6 +9,7 @@ COPY src/AgentSmith.Application/AgentSmith.Application.csproj src/AgentSmith.App
 COPY src/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/AgentSmith.Infrastructure.Core/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/AgentSmith.Infrastructure/
 COPY src/AgentSmith.Cli/AgentSmith.Cli.csproj src/AgentSmith.Cli/
+COPY src/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/AgentSmith.Sandbox.Wire/
 
 RUN dotnet restore src/AgentSmith.Cli/AgentSmith.Cli.csproj
 
