@@ -79,41 +79,7 @@ internal sealed class AzureGitOperations(string personalAccessToken, ILogger log
         }
     }
 
-    public void StageAllChanges(Repository repo) =>
-        Commands.Stage(repo, "*");
-
-    public void CommitChanges(Repository repo, string message)
-    {
-        var signature = GetSignature(repo);
-        repo.Commit(message, signature, signature);
-    }
-
-    public void PushToRemote(Repository repo)
-    {
-        var remote = repo.Network.Remotes["origin"]
-            ?? throw new ProviderException("AzureRepos", "No 'origin' remote configured.");
-
-        var options = new PushOptions
-        {
-            CredentialsProvider = GetCredentialsHandler()
-        };
-
-        var canonicalName = repo.Head.CanonicalName;
-        // Force push (+) so re-runs on the same ticket don't fail with
-        // "non-fastforwardable reference" when the branch already exists on the remote.
-        var refspec = $"+{canonicalName}:{canonicalName}";
-        repo.Network.Push(remote, refspec, options);
-    }
-
     private CredentialsHandler GetCredentialsHandler() =>
         (_, _, _) =>
             new UsernamePasswordCredentials { Username = string.Empty, Password = personalAccessToken };
-
-    private static Signature GetSignature(Repository repo)
-    {
-        var config = repo.Config;
-        var name = config.GetValueOrDefault("user.name", "Agent Smith");
-        var email = config.GetValueOrDefault("user.email", "agent-smith@noreply.local");
-        return new Signature(name, email, DateTimeOffset.Now);
-    }
 }

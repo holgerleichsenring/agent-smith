@@ -15,9 +15,4 @@ public interface ISourceProvider : ITypedProvider
         string title,
         string description,
         CancellationToken cancellationToken);
-
-    Task CommitAndPushAsync(
-        Repository repository,
-        string message,
-        CancellationToken cancellationToken);
 }
