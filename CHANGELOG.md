@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.37.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.36.0...v0.37.0) (2026-05-04)
+
+
+### Features
+
+* combined p0112a + p0113a + p0114 — branch persistence + queue spawn + OpenAI compactor ([0963b02](https://github.com/holgerleichsenring/agent-smith/commit/0963b02a73099364a8431a6e5fa091417eeab3f7))
+* **p0112a:** branch persistence MVP — push WIP commit on pipeline failure ([0211dfb](https://github.com/holgerleichsenring/agent-smith/commit/0211dfbf09a5b162d35dbdf2f0c9ed308d0dbdda))
+* **p0113a:** spawn pipeline jobs from queue via ephemeral CLI containers ([c006e2e](https://github.com/holgerleichsenring/agent-smith/commit/c006e2ef4a3654df55dbbdf8c4b40a65a5417b11))
+* **p0114:** OpenAi context compactor ([eb2a311](https://github.com/holgerleichsenring/agent-smith/commit/eb2a311854a5e416e9d4684f3c56904988d3af1d))
+
+
+### Reverts
+
+* **p0113a:** roll back queue-dispatcher refactor + add p0115 sandbox spec ([#65](https://github.com/holgerleichsenring/agent-smith/issues/65)) ([5d43cd7](https://github.com/holgerleichsenring/agent-smith/commit/5d43cd7b39338900362614472cde845d729ef984))
+
 ## [0.36.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.35.0...v0.36.0) (2026-05-04)
 
 
