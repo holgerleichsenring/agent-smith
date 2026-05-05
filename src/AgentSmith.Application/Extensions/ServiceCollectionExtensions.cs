@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
+        services.AddTransient<TrxResultParser>();
         services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<BootstrapProjectContext>, BootstrapProjectHandler>();
