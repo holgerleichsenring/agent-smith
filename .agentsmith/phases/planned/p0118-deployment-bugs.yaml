@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0118
+goal: "Fix four production bugs surfaced by the first AAD-DEV run after p0115/p0116 deployment: (1) the Server-Pod's deployment YAML missed serviceAccountName, so the pod ran under the default SA without RBAC for pods/create — KubernetesSandboxFactory threw Forbidden silently and the entire sandbox path was bypassed; (2) when sandbox creation throws after lifecycle.BeginAsync has already transitioned the ticket to InProgress, MarkFailed is never called and lifecycle.DisposeAsync transitions the ticket to Done instead of Failed — operator never learns the run broke; (3) the OpenAi compactor's own LLM call (~40-50k tokens per compaction event in long runs) is logged as `summarizer cost N tokens` but is NOT added to TokenUsageTracker, so run-level cost reporting under-counts by the full compaction overhead; (4) TestHandler returns Ok with the message 'Test execution skipped — no sandbox available' when the sandbox is missing, which lets the pipeline produce a commit + PR without ever validating the changes — exactly the symptom that produced the dubious branch in the AAD-DEV run."
+
+requires: ["p0116"]
+
+scope:
+  in: "Deployment-config fix in the k8s-management repo (serviceAccountName: agentsmith). Lifecycle MarkFailed in PipelineExecutor's catch path so any exception (sandbox setup, unhandled escape from the loop) marks the ticket Failed instead of Done. Summarizer-token attribution: OpenAiAgenticLoop.FinalizePendingCompaction calls tracker.SetPhase('compaction') + Track + restore (mirrors the existing Claude-side ClaudeContextCompactor pattern); OpenAiAgenticAnalyzer's local totalIn counter picks up SummarizationCallTokens before Finalize zeroes the pending event. TestHandler.SkipWithoutSandbox returns Fail with an actionable error message instead of Ok. Tests covering each fix."
+  out: "Splitting SummarizationCallTokens into separate input/output buckets (current state attributes the combined value to input, ~10% cost underestimate vs perfect accuracy; correct fix is to surface the split through CompactionEvent and update the OpenAi compactor — deferred). TRX result-file parsing (already deferred to p0117). LibGit2Sharp removal (p0117). Helm chart for the deployment-config fix (the project's k8s-management repo uses flat YAML; Helm migration is a separate effort)."
+
+decisions:
+  - key: "Deployment-config fix lives in the operator's k8s-management repo, not in agent-smith. The agentsmith ServiceAccount + RBAC was already provisioned in 2-rbac.yaml with pods/create + pods/delete + pods/get + pods/log/get + pods/status/get on the agentsmith-server's namespace. The Deployment template at 8-deployment-server.yaml just never bound the pod to that SA. Adding `spec.template.spec.serviceAccountName: agentsmith` is a one-line change and unblocks the entire sandbox path. The agent-smith codebase is unaware of operator-side deployment configs by design — the only connection is documentation in docs/concepts/sandbox-architecture.md noting the SA + RBAC requirement."
+
+  - key: "PipelineExecutor's lifecycle bug is the load-bearing one for operator visibility. Without it, every failure mode that throws (vs returning a Fail CommandResult from inside SafeExecuteAsync) leaves the ticket in InProgress→Done state — which looks identical to a successful run from the operator's dashboard. The current fix wraps everything from sandbox creation onwards in try { ... } catch { lifecycle.MarkFailed(); throw; }. Order matters: lifecycle.BeginAsync runs BEFORE the try (so a BeginAsync failure leaves no lifecycle to dispose), sandbox await-using is INSIDE the try (so sandbox.DisposeAsync runs before lifecycle.DisposeAsync transitions to Failed). Catch-without-filter intentional — even OperationCanceledException should mark Failed so a cancelled run is not silently reported as Done."
+
+  - key: "Summarizer-token attribution: the Claude path already does this correctly via ClaudeContextCompactor.TrackCompactionUsage (SetPhase 'compaction' + Track + restore). The OpenAi path was missed when p0114 introduced the separate IOpenAiContextCompactor surface. Mirroring the Claude pattern keeps both compactor codepaths consistent and lets a single 'compaction' phase in the breakdown sum across providers. SummarizationCallTokens is currently the COMBINED input+output count from the summarizer call (OpenAiContextCompactor.cs:124); attributing it all as input is a slight cost underestimate (~10%) but accurate-to-the-token total — much better than the current 0% attribution."
+
+  - key: "TestHandler missing-sandbox is a pipeline-failure, not a soft-skip. Today the handler treats 'no sandbox' as a skip and returns Ok — same shape as 'no test framework detected'. But the two cases are fundamentally different: 'no test framework' is a property of the project (legitimately nothing to run), 'no sandbox' is a runtime defect (the sandbox factory broke). Conflating them lets the pipeline create a commit + PR with zero test validation, which is exactly the AAD-DEV symptom: branch agent-smith/18693 was created with LLM-generated changes but no test run validated them. Surfacing as Fail makes the broken sandbox path visible to the operator and short-circuits the commit + PR flow. The error message includes the most likely root causes (RBAC, image pull, Docker socket) so the operator knows where to look."
+
+  - key: "TestHandler's behavior change cascades to RunReviewPhase / RunFinalPhase / WriteRunResult / CommitAndPR — all of which sit AFTER TestHandler in the standard fix-bug pipeline. With the new Fail return, PipelineExecutor stops at TestCommand, calls TryPersistWorkBranchAsync (which writes a WIP branch with the failed-step trailer), calls lifecycle.MarkFailed(), and returns. The operator sees a Failed ticket with a stale WIP branch — much better than a 'successful' Done ticket with a half-validated PR. CommitAndPR is correctly skipped."
+
+steps:
+  - id: deployment-yaml
+    action: "Add serviceAccountName: agentsmith to the Server-Pod deployment in the operator's k8s-management repo"
+    modify:
+      - "/Users/da5id/develop/source/rhenus/k8s-management/config/aad-dev/agentsmith/backend/8-deployment-server.yaml: add `serviceAccountName: agentsmith` under `spec.template.spec`. One-line change. Triggers a rolling restart on next apply."
+
+  - id: lifecycle-mark-failed
+    action: "PipelineExecutor wraps the post-lifecycle execution in try/catch so any exception transitions the ticket to Failed"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: keep `await using var lifecycle = await BeginAsync(...)` outside the try (so a BeginAsync exception leaves nothing to dispose). Move sandbox creation, the loop, and the success return INSIDE try. Add `catch { lifecycle.MarkFailed(); throw; }` — unfiltered so OperationCanceledException is also marked Failed. Also add lifecycle.MarkFailed() to the MaxCommandExecutions short-circuit (previously returned Fail without marking)."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Application/PipelineExecutorLifecycleFailureTests.cs: (a) sandbox-factory throws → lifecycle disposes with target=Failed (assert MarkFailed was called); (b) command returns Fail → lifecycle disposes with Failed (existing behavior, regression guard); (c) all commands succeed → lifecycle disposes with Done (regression guard); (d) MaxCommandExecutions exceeded → lifecycle disposes with Failed (was previously returning Fail without marking)."
+
+  - id: summarizer-token-attribution
+    action: "OpenAi compaction codepaths attribute summarizer tokens to the run total"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgenticLoop.cs: in FinalizePendingCompaction, after computing `finalized`, when SummarizationCallTokens > 0 call tracker.SetPhase('compaction') + tracker.Track(SummarizationCallTokens, 0) + tracker.SetPhase('primary'). Mirrors ClaudeContextCompactor.TrackCompactionUsage."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs: before the existing FinalizePendingCompaction call, when pendingCompaction is not null and completion.Usage is not null, do `totalIn += pendingCompaction.SummarizationCallTokens`. The static Finalize method then nulls pending as today."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Compaction/OpenAiAgenticLoopSummarizerAttributionTests.cs: tracker receives Track call under phase='compaction' for SummarizationCallTokens after the next chat completion finalizes the pending event. After Finalize, tracker's compaction phase has the expected token count."
+      - "tests/AgentSmith.Tests/Compaction/OpenAiAgenticAnalyzerSummarizerAttributionTests.cs: mocked compactor produces a CompactionEvent with SummarizationCallTokens=42_000; analyzer's returned AnalysisResult.TokenUsage.Input includes the 42_000 (in addition to the chat completion's input tokens)."
+
+  - id: test-handler-fail-without-sandbox
+    action: "TestHandler returns Fail (not Ok) when the pipeline context lacks a sandbox"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs: SkipWithoutSandbox renamed conceptually (keep method name for diff brevity) — sets ContextKeys.TestResults to 'Failed (no sandbox)' and returns CommandResult.Fail with an actionable message naming the likely root causes (RBAC, image pull, Docker socket). Logs as Error (not Warning)."
+    new_files_tests:
+      - "tests/AgentSmith.Tests/Handlers/TestHandlerNoSandboxFailsTests.cs: pipeline context with detected test command + no sandbox → handler returns Fail. Pipeline context with no detected test framework → handler returns Ok with the existing 'No test framework' message (regression — that path is unchanged). Pipeline context with sandbox + dotnet command → handler routes through sandbox (regression for the happy path)."
+
+  - id: docs
+    action: "Document the deployment-config requirement and the lifecycle-failure semantics"
+    modify:
+      - "docs/concepts/sandbox-architecture.md: add a 'Deployment requirements' subsection naming the three preconditions (image registry access, agentsmith ServiceAccount bound to the pod via spec.template.spec.serviceAccountName, agentsmith Role with pods/create+delete+get+log/get+status/get). Cross-reference 2-rbac.yaml + 8-deployment-server.yaml in the operator's k8s-management repo as the canonical example."
+      - "docs/concepts/ticket-lifecycle.md: add a 'Failure semantics' subsection — every code path that escapes ExecuteAsync via exception transitions the ticket to Failed (not Done). Operators can rely on Failed-tag visibility for any production bug, not just command-level Fail returns."
+
+  - id: verify
+    action: "dotnet build + dotnet test green; manual: confirm AAD-DEV ticket gets Failed tag when sandbox spawn is broken (e.g. test by removing the SA binding temporarily and re-running a fix-bug ticket)."
+
+done:
+  - "8-deployment-server.yaml has spec.template.spec.serviceAccountName: agentsmith. Pod binds to the agentsmith ServiceAccount with pods/create RBAC."
+  - "PipelineExecutor's catch block calls lifecycle.MarkFailed() before rethrowing — exceptions in sandbox setup or anywhere in the pipeline-loop body transition the ticket to Failed via the existing DisposeAsync path."
+  - "OpenAiAgenticLoop attributes SummarizationCallTokens to TokenUsageTracker under phase='compaction'; OpenAiAgenticAnalyzer adds them to its local totalIn counter. Run cost summary now matches what the provider charged (within ~10% — input/output split deferred to a follow-up)."
+  - "TestHandler returns Fail (not Ok) when no sandbox is present in the pipeline context; the error message names the likely root causes; PipelineExecutor stops at the failed test step; CommitAndPR is correctly skipped."
+  - "Documentation: sandbox-architecture.md names the deployment-config preconditions; ticket-lifecycle.md documents Failed-on-any-exception semantics."
+  - "Tests: 4 new test files covering each fix; all existing green; dotnet build zero warnings."

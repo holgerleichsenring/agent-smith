@@ -64,9 +64,15 @@ public sealed class TestHandler(
 
     private CommandResult SkipWithoutSandbox(TestContext context)
     {
-        logger.LogWarning("No sandbox in pipeline context — skipping test execution");
-        context.Pipeline.Set(ContextKeys.TestResults, "Skipped (no sandbox)");
-        return CommandResult.Ok("Test execution skipped — no sandbox available");
+        // A missing sandbox means we cannot exercise the project's tests at all.
+        // Returning Ok would falsely advance the pipeline (commit + PR) without test
+        // validation. Surface as failure so the operator sees the broken sandbox path.
+        logger.LogError("No sandbox in pipeline context — failing test step");
+        context.Pipeline.Set(ContextKeys.TestResults, "Failed (no sandbox)");
+        return CommandResult.Fail(
+            "Test execution requires an active sandbox; none is present in the pipeline context. " +
+            "This usually means the sandbox factory failed to create a runtime (RBAC, image pull, " +
+            "or local Docker socket). Check the Server-Pod's startup logs for sandbox-creation errors.");
     }
 
     private async Task<CommandResult> RunInSandboxAsync(
