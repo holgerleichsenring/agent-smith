@@ -37,6 +37,7 @@ builder.Services
     .AddRedis()
     .AddCoreDispatcherServices()
     .AddServerCompositionOverrides()
+    .AddSandbox()
     .AddSlackAdapter()
     .AddTeamsAdapter()
     .AddIntentHandlers()

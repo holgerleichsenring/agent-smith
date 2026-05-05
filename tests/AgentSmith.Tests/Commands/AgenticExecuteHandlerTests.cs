@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -97,7 +98,7 @@ public sealed class AgenticExecuteHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgressReporter>(), It.IsAny<ISandbox?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Execution failed"));
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);
@@ -163,7 +164,7 @@ public sealed class AgenticExecuteHandlerTests
         providerMock.Setup(p => p.ExecutePlanAsync(
                 It.IsAny<Plan>(), It.IsAny<Repository>(),
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<IProgressReporter>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgressReporter>(), It.IsAny<ISandbox?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(executionResult);
         _factoryMock.Setup(f => f.Create(It.IsAny<AgentConfig>()))
             .Returns(providerMock.Object);

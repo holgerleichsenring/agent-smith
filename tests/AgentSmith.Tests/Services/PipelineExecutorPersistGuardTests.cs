@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -26,6 +28,7 @@ public sealed class PipelineExecutorPersistGuardTests
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
     private readonly Mock<IPipelineLifecycleCoordinator> _lifecycleMock = new();
     private readonly Mock<IProgressReporter> _progressReporterMock = new();
+    private readonly Mock<ISandboxFactory> _sandBoxFactory = new();
     private readonly PipelineExecutor _sut;
 
     public PipelineExecutorPersistGuardTests()
@@ -38,8 +41,11 @@ public sealed class PipelineExecutorPersistGuardTests
             _factoryMock.Object,
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
-            _progressReporterMock.Object,
-            NullLogger<PipelineExecutor>.Instance);
+            _sandBoxFactory.Object,
+            new SandboxSpecBuilder(), 
+            _progressReporterMock.Object, 
+            NullLogger<PipelineExecutor>.Instance 
+        );
     }
 
     [Fact]
@@ -62,7 +68,7 @@ public sealed class PipelineExecutorPersistGuardTests
         var commands = new[] { CommandNames.AgenticExecute };
         ArrangeFirstCommandFailure(commands[0]);
 
-        var result = await _sut.ExecuteAsync(commands, new ProjectConfig(), pipeline, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         AssertPersistWasNotInvoked();
@@ -75,7 +81,7 @@ public sealed class PipelineExecutorPersistGuardTests
         var commands = new[] { CommandNames.AgenticExecute, CommandNames.Test };
         ArrangeFirstCommandFailure(commands[0]);
 
-        var result = await _sut.ExecuteAsync(commands, new ProjectConfig(), pipeline, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         _factoryMock.Verify(f => f.Create(
@@ -83,6 +89,17 @@ public sealed class PipelineExecutorPersistGuardTests
             It.IsAny<ProjectConfig>(),
             It.IsAny<PipelineContext>()),
             Times.Once);
+    }
+
+    static ProjectConfig NewProjectConfigWithImage()
+    {
+        return new ProjectConfig
+        {
+            Sandbox = new SandboxConfig
+            {
+                ToolchainImage = "dotnet8"
+            },
+        };
     }
 
     private static PipelineContext NewPipelineWithRepository()

@@ -1,14 +1,17 @@
-using System.Diagnostics;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Runs project-specific tests against the code changes.
+/// Runs project-specific tests against the code changes. Routes through ISandbox
+/// when available; falls back to detected-project test command for CLI mode.
+/// Test-command resolution is ProjectMap-driven (no Directory.GetFiles scans).
 /// </summary>
 public sealed class TestHandler(
     ILogger<TestHandler> logger)
@@ -21,117 +24,73 @@ public sealed class TestHandler(
     {
         logger.LogInformation("Running tests for {Changes} changes...", context.Changes.Count);
 
-        var repoPath = context.Repository.LocalPath;
-        var testCommand = DetectTestCommand(repoPath, context.Pipeline);
-
-        if (testCommand is null)
+        var (command, args) = ResolveTestCommand(context.Pipeline);
+        if (command is null)
         {
-            logger.LogWarning("No test framework detected, skipping tests");
+            logger.LogWarning("No test framework detected in ProjectMap, skipping tests");
             context.Pipeline.Set(ContextKeys.TestResults, "No test framework detected");
             return CommandResult.Ok("No test framework detected, skipping tests");
         }
 
-        var (exitCode, result) = await RunTestsAsync(repoPath, testCommand, cancellationToken);
-        context.Pipeline.Set(ContextKeys.TestResults, result);
+        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+            return SkipWithoutSandbox(context);
 
-        if (exitCode != 0)
-        {
-            return CommandResult.Fail($"Tests failed (exit code {exitCode}):\n{result}");
-        }
-
-        return CommandResult.Ok("Tests passed");
+        return await RunInSandboxAsync(context, sandbox, command, args, cancellationToken);
     }
 
-    private string? DetectTestCommand(string repoPath, PipelineContext pipeline)
+    private (string? command, IReadOnlyList<string>? args) ResolveTestCommand(PipelineContext pipeline)
     {
-        // Use DetectedProject from bootstrap if available
         if (pipeline.TryGet<DetectedProject>(ContextKeys.DetectedProject, out var detected)
             && detected?.TestCommand is not null)
         {
             logger.LogInformation("Using detected test command: {Command}", detected.TestCommand);
-            return detected.TestCommand;
+            return ("/bin/sh", new[] { "-c", detected.TestCommand });
         }
 
-        // Fallback: inline detection for backward compatibility
-        if (HasDotNetTestProjects(repoPath))
-            return "dotnet test --verbosity minimal";
+        if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap) || projectMap is null)
+            return (null, null);
 
-        if (File.Exists(Path.Combine(repoPath, "package.json")))
-            return "npm test";
-
-        if (File.Exists(Path.Combine(repoPath, "pytest.ini"))
-            || File.Exists(Path.Combine(repoPath, "pyproject.toml")))
-            return "pytest";
-
-        return null;
-    }
-
-    private bool HasDotNetTestProjects(string repoPath)
-    {
-        var csprojFiles = Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories);
-
-        foreach (var csproj in csprojFiles)
+        return projectMap.PrimaryLanguage.ToLowerInvariant() switch
         {
-            try
-            {
-                var content = File.ReadAllText(csproj);
-                if (content.Contains("Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase))
-                {
-                    logger.LogInformation("Found test project: {Project}", Path.GetFileName(csproj));
-                    return true;
-                }
-            }
-            catch (IOException ex)
-            {
-                logger.LogWarning(ex, "Could not read {File}", csproj);
-            }
-        }
-
-        return false;
-    }
-
-    private async Task<(int ExitCode, string Output)> RunTestsAsync(
-        string repoPath, string command, CancellationToken cancellationToken)
-    {
-        logger.LogInformation("Running: {Command}", command);
-
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "bash",
-            Arguments = $"-c \"{command}\"",
-            WorkingDirectory = repoPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            "dotnet" or "dotnet8" or "dotnet9" or "csharp"
+                => ("dotnet", new[] { "test", "--verbosity", "minimal" }),
+            "node" or "node20" or "javascript" or "typescript"
+                => ("npm", new[] { "test" }),
+            "python" or "python3"
+                => ("pytest", Array.Empty<string>()),
+            _ => (null, null)
         };
+    }
 
-        process.Start();
+    private CommandResult SkipWithoutSandbox(TestContext context)
+    {
+        logger.LogWarning("No sandbox in pipeline context — skipping test execution");
+        context.Pipeline.Set(ContextKeys.TestResults, "Skipped (no sandbox)");
+        return CommandResult.Ok("Test execution skipped — no sandbox available");
+    }
 
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
-
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(TestTimeoutSeconds));
-
-        try
+    private async Task<CommandResult> RunInSandboxAsync(
+        TestContext context, ISandbox sandbox,
+        string command, IReadOnlyList<string>? args, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Running in sandbox: {Command} {Args}", command, string.Join(' ', args ?? []));
+        var stdout = new System.Text.StringBuilder();
+        var progress = new Progress<StepEvent>(ev =>
         {
-            await process.WaitForExitAsync(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            process.Kill(entireProcessTree: true);
-            return (-1, "Test execution timed out.");
-        }
+            if (ev.Kind is StepEventKind.Stdout or StepEventKind.Stderr)
+                stdout.AppendLine(ev.Line);
+        });
 
-        var stdout = await outputTask;
-        var stderr = await errorTask;
+        var step = new Step(
+            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: command, Args: args, TimeoutSeconds: TestTimeoutSeconds);
+        var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
 
-        var output = string.IsNullOrEmpty(stderr)
-            ? stdout
-            : $"{stdout}\n[stderr]\n{stderr}";
+        var output = stdout.ToString();
+        context.Pipeline.Set(ContextKeys.TestResults, output);
 
-        return (process.ExitCode, output);
+        if (result.ExitCode != 0)
+            return CommandResult.Fail($"Tests failed (exit code {result.ExitCode}):\n{output}");
+        return CommandResult.Ok("Tests passed");
     }
 }

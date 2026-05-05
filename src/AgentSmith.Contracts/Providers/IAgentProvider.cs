@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -35,5 +36,17 @@ public interface IAgentProvider : ITypedProvider
         string? codeMap,
         string? projectContext,
         IProgressReporter progressReporter,
+        CancellationToken cancellationToken)
+        => ExecutePlanAsync(plan, repository, codingPrinciples, codeMap, projectContext,
+            progressReporter, sandbox: null, cancellationToken);
+
+    Task<AgentExecutionResult> ExecutePlanAsync(
+        Plan plan,
+        Repository repository,
+        string codingPrinciples,
+        string? codeMap,
+        string? projectContext,
+        IProgressReporter progressReporter,
+        ISandbox? sandbox,
         CancellationToken cancellationToken);
 }

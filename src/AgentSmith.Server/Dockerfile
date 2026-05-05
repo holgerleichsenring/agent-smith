@@ -8,7 +8,8 @@ COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj             src/AgentS
 COPY src/AgentSmith.Application/AgentSmith.Application.csproj         src/AgentSmith.Application/
 COPY src/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/AgentSmith.Infrastructure.Core/
 COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   src/AgentSmith.Infrastructure/
-COPY src/AgentSmith.Server/AgentSmith.Server.csproj           src/AgentSmith.Server/
+COPY src/AgentSmith.Server/AgentSmith.Server.csproj                   src/AgentSmith.Server/
+COPY src/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       src/AgentSmith.Sandbox.Wire/
 
 RUN dotnet restore src/AgentSmith.Server/AgentSmith.Server.csproj
 
