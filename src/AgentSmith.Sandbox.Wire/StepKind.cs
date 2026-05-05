@@ -6,5 +6,6 @@ public enum StepKind
     Shutdown = 1,
     ReadFile = 2,
     WriteFile = 3,
-    ListFiles = 4
+    ListFiles = 4,
+    Grep = 5
 }

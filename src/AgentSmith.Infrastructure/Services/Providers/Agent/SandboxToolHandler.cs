@@ -106,6 +106,24 @@ internal sealed class SandboxToolHandler(
         return $"Exit code: {result.ExitCode}\n{stdout}".Trim();
     }
 
+    public async Task<string> GrepAsync(JsonNode? input, CancellationToken ct)
+    {
+        var pattern = ToolParams.GetString(input, "pattern");
+        var path = input?["path"]?.GetValue<string>() ?? ".";
+        if (!string.IsNullOrEmpty(path) && path != ".") ToolParams.ValidatePath(path);
+        var glob = input?["glob"]?.GetValue<string>();
+        var maxMatches = input?["maxMatches"]?.GetValue<int?>();
+
+        var step = new Step(
+            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Grep,
+            TimeoutSeconds: FileTimeoutSeconds,
+            Path: path, Pattern: pattern, Glob: glob, MaxMatches: maxMatches);
+        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        if (result.ExitCode != 0 || result.OutputContent is null)
+            return $"Error: {result.ErrorMessage ?? "grep failed"}";
+        return result.OutputContent;
+    }
+
     private static Step MakeStep(
         StepKind kind, int timeoutSeconds, string? path = null,
         string? content = null, int? maxDepth = null) =>
