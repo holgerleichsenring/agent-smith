@@ -6,6 +6,7 @@ using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Infrastructure.Services.Nuclei;
 using AgentSmith.Infrastructure.Services.Security;
 using AgentSmith.Infrastructure.Services.Spectral;
@@ -37,6 +38,15 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
         services.AddSingleton<IAgenticAnalyzerFactory, AgenticAnalyzerFactory>();
         services.AddSingleton<IRepositoryToolDispatcher, Services.Providers.Agent.RepositoryToolDispatcher>();
+
+        // p0119a: per-provider IChatClient builders. The IChatClientFactory itself
+        // takes AgentConfig + IModelRegistry as runtime parameters (not DI singletons,
+        // since both are per-project runtime data), so its DI registration follows in
+        // Wave 5 once callers carry pipeline context. Builders are pure singletons.
+        services.AddSingleton<IChatClientBuilder, ClaudeChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, OpenAiChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
         // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
