@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Cost;
 using GenerativeAI;
 using GenerativeAI.Types;
 using Microsoft.Extensions.Logging;
@@ -94,7 +95,7 @@ public sealed class GeminiAgentProvider(
 
         tracker.SetPhase("primary");
         var primaryModel = ResolveModel(TaskType.Primary);
-        costTracker?.SetPhaseModel("primary", primaryModel.Model);
+        costTracker.SetPhaseModel("primary", primaryModel.Model);
 
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
@@ -136,24 +137,20 @@ public sealed class GeminiAgentProvider(
         return googleAi.CreateGenerativeModel(modelId);
     }
 
-    private CostTracker? CreateCostTracker(TokenUsageTracker tracker)
+    private GeminiCostTracker CreateCostTracker(TokenUsageTracker tracker)
     {
-        if (pricingConfig.Models.Count == 0)
-            return null;
-
-        var costTracker = new CostTracker(pricingConfig, logger);
+        var costTracker = new GeminiCostTracker(pricingConfig, logger, tracker);
         var planningModel = ResolveModel(TaskType.Planning);
         costTracker.SetPhaseModel("planning", planningModel.Model);
         return costTracker;
     }
 
-    private RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    private RunCostSummary? LogCostSummary(GeminiCostTracker costTracker, TokenUsageTracker tracker)
     {
-        tracker.LogSummary(logger);
-        if (costTracker is null) return null;
+        costTracker.LogTokenSummary(logger);
+        if (pricingConfig.Models.Count == 0) return null;
 
-        var costSummary = costTracker.CalculateCost(tracker);
-        costTracker.LogCostSummary(costSummary);
-        return costSummary;
+        costTracker.LogCostSummary(logger);
+        return costTracker.CalculateCost();
     }
 }

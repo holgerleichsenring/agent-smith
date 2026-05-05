@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0119
+goal: "Polymorphic cost-tracker hierarchy + OpenAI cached_tokens demo fix. Replace the single CostTracker class with ICostTracker / CostTrackerBase + per-provider derived classes (Claude, OpenAi, AzureOpenAi, Gemini, Ollama). Calculation lives in the base; derived classes only extract canonical billable/cached/output tokens from their native API response types. Demo-critical side-effect: OpenAi/Azure runs no longer over-state cost by the cache-hit fraction (caused by prompt_tokens including cached portions billed at full input rate). Originally framed as Batch 1 of the M.E.AI migration; the M.E.AI work itself moves to p0119a."
+
+requires: []
+
+scope:
+  in: "ICostTracker interface + CostTrackerBase abstract class (composes a TokenUsageTracker for backward-compat with Scout / Compactor paths) + 5 derived (Claude / OpenAi / AzureOpenAi / Gemini / Ollama). OpenAiAgenticLoop.TrackUsage delegates to OpenAiCostTracker.Track(ChatCompletion), which reads InputTokenDetails.CachedTokenCount and splits prompt_tokens into billable + cached. AzureOpenAiAgentProvider overrides CreateCostTracker to return AzureOpenAiCostTracker (inherits OpenAi behavior — same SDK type). All wire-up paths (AgentExecutionContextFactory, OpenAiAgentProvider, GeminiAgentProvider) updated. Old CostTracker.cs deleted. CostTrackerTests rewritten with 13 cases covering the new hierarchy."
+  out: "M.E.AI / IChatClient migration (separate phase p0119a). LlmClient cached_tokens extraction (OpenAiLlmClient + AzureOpenAiLlmClient still construct LlmResponse without cached info — naturally subsumed by p0119a when LlmClients are replaced by IChatClient). TokenUsageTracker delta-aggregation (rejected as wrong fix — see decisions). Provider-specific cost-formula differences beyond cached extraction (Anthropic 1.25× cache-creation pricing not yet applied — left for a follow-up if needed). Streaming, AIFunctions, IChatClientFactory — all in p0119a."
+
+decisions:
+  - key: "Polymorphism over conditionals. Each provider's response shape and cached-token semantics differ: OpenAI exposes cached via InputTokenDetails.CachedTokenCount (subset of prompt_tokens); Anthropic exposes cache_read_input_tokens separately from input_tokens (which is already the new uncached portion); Gemini and Ollama don't expose cache info today. A switch-on-provider-string in CostTracker would centralize that knowledge in one growing if/else chain. Template Method (CostTrackerBase + derived) puts each provider's interpretation in its own focused class while the cost formula (tokens × price) stays in the base."
+  - key: "Composition over replacement for TokenUsageTracker. CostTrackerBase wraps a TokenUsageTracker rather than replacing it. Existing call sites that don't have a typed response (compactor summarizer, ScoutAgent's raw-int paths) continue to call TokenUsageTracker.Track(int, int, ...) directly against the same shared aggregation state. Single source of truth, no parallel stores that could drift."
+  - key: "Delta-aggregation as bug-fix was rejected. The buddy's original framing — that summing per-call prompt_tokens over-states cost because each call's prompt_tokens is cumulative — misses how OpenAI billing works. Each call IS billed for its full prompt_tokens; summing across calls IS the correct billable total. The actual demo-distortion came from automatic prompt caching: cached portions get billed at 50% of input rate, but the existing CostTracker never read InputTokenDetails.CachedTokenCount, so cached portions stayed at full rate. The fix is cache-awareness, not delta-aggregation."
+  - key: "AzureOpenAiCostTracker inherits OpenAiCostTracker. Azure.AI.OpenAI reuses OpenAI.Chat types (ChatCompletion, ChatTokenUsage, InputTokenDetails) — extraction logic is identical. The distinct subclass is kept for explicit DI/wire-up and so future Azure-specific divergence (e.g. deployment-name-aware pricing tiers) has a natural home."
+  - key: "Tests use raw TokenUsageTracker calls instead of mocked ChatCompletion. The OpenAI SDK's ChatCompletion / ChatTokenUsage / ChatInputTokenUsageDetails types have sealed/internal constructors that resist direct instantiation in unit tests. Tests for OpenAiCostTracker exercise the math via TokenUsageTracker.Track on the cost tracker's wrapped instance — the contract that matters is 'after canonical split, the math is right', and that's what the tests assert."
+
+steps:
+  - id: cost-hierarchy
+    action: "New polymorphic cost-tracker hierarchy"
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/ICostTracker.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/CostTrackerBase.cs (abstract — composes TokenUsageTracker; Aggregate(billableInput, output, cacheCreate, cacheRead) for derived classes; CalculateCost / GetTokenSummary / LogCostSummary / LogTokenSummary)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/ClaudeCostTracker.cs (Track(MessageResponse) → InputTokens / OutputTokens / CacheCreationInputTokens / CacheReadInputTokens; TrackRaw for compactor summarizer)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OpenAiCostTracker.cs (Track(ChatCompletion) reads InputTokenDetails.CachedTokenCount; splits prompt_tokens into billable = total - cached + cached read at cache-read rate)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/AzureOpenAiCostTracker.cs (sealed subclass of OpenAiCostTracker)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/GeminiCostTracker.cs (Track(int, int) — no cache info exposed by current SDK usage)"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OllamaCostTracker.cs (Track(int, int) — no caching, typically zero pricing)"
+    delete:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/CostTracker.cs (replaced by hierarchy)"
+
+  - id: wire-up
+    action: "Provider classes create the right derived"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AgentExecutionContextFactory.cs: CreateCostTracker returns ClaudeCostTracker (no longer nullable; pricing-empty case still returns a tracker that aggregates tokens with zero cost). CreateCompactor / LogCostSummary / TryRunScoutAsync take ClaudeCostTracker."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgentProvider.cs: CreateCostTracker becomes protected virtual, returns OpenAiCostTracker. Loop ctor receives the cost tracker."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AzureOpenAiAgentProvider.cs: overrides CreateCostTracker to return AzureOpenAiCostTracker."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/GeminiAgentProvider.cs: CreateCostTracker returns GeminiCostTracker."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiAgenticLoop.cs: ctor adds OpenAiCostTracker param; TrackUsage delegates to costTracker.Track(completion); per-iteration debug log shows 'Input=X (Y cached), Output=Z'."
+
+  - id: tests
+    action: "Cost-tracker tests"
+    modify:
+      - "tests/AgentSmith.Tests/Providers/CostTrackerTests.cs: 13 cases covering ClaudeCostTracker (single phase, multi-phase, cache-read, unknown model, empty pricing), OpenAiCostTracker (no-cached, with-cached — verifies the demo-critical split), GeminiCostTracker, OllamaCostTracker, phase tracking, shared-token-tracker composition path, and PricingConfig defaults."
+
+done:
+  - "ICostTracker / CostTrackerBase + 5 derived classes shipped under src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/."
+  - "OpenAiCostTracker.Track(ChatCompletion) reads InputTokenDetails.CachedTokenCount; OpenAi/Azure cost calculations no longer bill cached portions at full input rate."
+  - "AzureOpenAiAgentProvider.CreateCostTracker override wires AzureOpenAiCostTracker. ClaudeAgentProvider / GeminiAgentProvider via their respective providers + factory. Old CostTracker.cs deleted."
+  - "TokenUsageTracker stays as canonical token aggregation; CostTrackerBase wraps it via composition. Compactor / Scout / summarizer paths unchanged."
+  - "13 cost-tracker tests green. All 1417 existing tests stay green."
+  - "Branch feat/p0119-batch1-cost-tracker-polymorphic, PR #73."
+  - "Spec scope-narrowed from the original M.E.AI-migration framing; the migration itself moves to p0119a."
