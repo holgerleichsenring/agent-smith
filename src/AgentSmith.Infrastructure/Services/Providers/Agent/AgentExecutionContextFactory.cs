@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Models;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Cost;
 using Anthropic.SDK;
 using Microsoft.Extensions.Logging;
 
@@ -37,19 +38,16 @@ internal sealed class AgentExecutionContextFactory(
             dialogueTransport, dialogueTrail, progressReporter.JobId, sandbox);
     }
 
-    public CostTracker? CreateCostTracker(TokenUsageTracker tracker)
+    public ClaudeCostTracker CreateCostTracker(TokenUsageTracker tracker)
     {
-        if (pricingConfig.Models.Count == 0)
-            return null;
-
-        var costTracker = new CostTracker(pricingConfig, logger);
+        var costTracker = new ClaudeCostTracker(pricingConfig, logger, tracker);
         var planningModel = resolveModel();
         costTracker.SetPhaseModel("planning", planningModel.Model);
         return costTracker;
     }
 
     public ClaudeContextCompactor? CreateCompactor(
-        TokenUsageTracker tracker, CostTracker? costTracker)
+        TokenUsageTracker tracker, ClaudeCostTracker costTracker)
     {
         if (!compactionConfig.IsEnabled)
             return null;
@@ -62,25 +60,24 @@ internal sealed class AgentExecutionContextFactory(
                 MaxTokens = AgentDefaults.CompactionMaxTokens
             };
 
-        costTracker?.SetPhaseModel("compaction", summaryModel.Model);
+        costTracker.SetPhaseModel("compaction", summaryModel.Model);
 
         var compactorClient = createClient();
         return new ClaudeContextCompactor(compactorClient, summaryModel.Model, logger, tracker);
     }
 
-    public RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    public RunCostSummary? LogCostSummary(ClaudeCostTracker costTracker, TokenUsageTracker tracker)
     {
-        tracker.LogSummary(logger);
-        if (costTracker is null) return null;
+        costTracker.LogTokenSummary(logger);
+        if (pricingConfig.Models.Count == 0) return null;
 
-        var costSummary = costTracker.CalculateCost(tracker);
-        costTracker.LogCostSummary(costSummary);
-        return costSummary;
+        costTracker.LogCostSummary(logger);
+        return costTracker.CalculateCost();
     }
 
     public async Task<ScoutResult?> TryRunScoutAsync(
         Plan plan, string repositoryPath,
-        TokenUsageTracker tracker, CostTracker? costTracker,
+        TokenUsageTracker tracker, ClaudeCostTracker costTracker,
         IProgressReporter? progressReporter,
         CancellationToken cancellationToken)
     {
@@ -88,7 +85,7 @@ internal sealed class AgentExecutionContextFactory(
 
         var scoutModel = modelRegistry.GetModel(TaskType.Scout);
         tracker.SetPhase("scout");
-        costTracker?.SetPhaseModel("scout", scoutModel.Model);
+        costTracker.SetPhaseModel("scout", scoutModel.Model);
 
         logger.LogInformation("Running scout agent with model {Model}", scoutModel.Model);
         ReportDetail(progressReporter, "\ud83d\udd0d Scout: analyzing codebase...", cancellationToken);
