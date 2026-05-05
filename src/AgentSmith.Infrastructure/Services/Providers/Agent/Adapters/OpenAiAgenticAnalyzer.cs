@@ -48,10 +48,14 @@ public sealed class OpenAiAgenticAnalyzer(
         for (; iteration < maxIterations; iteration++)
         {
             ChatCompletion completion = await client.CompleteChatAsync(messages, options, cancellationToken);
-            // Read summarizer tokens BEFORE Finalize zeroes out pending — otherwise the
-            // compactor's own LLM call is billed by the provider but invisible in totalIn.
+            // Attribute summarizer tokens BEFORE Finalize zeroes out pending — otherwise the
+            // compactor's own LLM call is billed by the provider but invisible in the run total.
+            // Input and output tracked separately so cost calculation uses the right rate for each.
             if (pendingCompaction is not null && completion.Usage is not null)
-                totalIn += pendingCompaction.SummarizationCallTokens;
+            {
+                totalIn += pendingCompaction.SummarizerInputTokens;
+                totalOut += pendingCompaction.SummarizerOutputTokens;
+            }
             pendingCompaction = FinalizePendingCompaction(pendingCompaction, completion, logger);
             totalIn += completion.Usage?.InputTokenCount ?? 0;
             totalOut += completion.Usage?.OutputTokenCount ?? 0;
@@ -109,10 +113,10 @@ public sealed class OpenAiAgenticAnalyzer(
         if (pending is null || completion.Usage is null) return pending;
         var finalized = pending.WithVerifiedTokens(completion.Usage.InputTokenCount);
         logger.LogInformation(
-            "Compacted {Old}→{New} messages; verified {Verified} input tokens (saved est. {Saved}; summarizer cost {Summary} tokens; prompt {Hash})",
+            "Compacted {Old}→{New} messages; verified {Verified} input tokens (saved est. {Saved}; summarizer cost {SumIn} input + {SumOut} output tokens; prompt {Hash})",
             finalized.OldMessageCount, finalized.NewMessageCount,
             finalized.PostCompactionVerifiedTokens, finalized.VerifiedSavedTokens,
-            finalized.SummarizationCallTokens, finalized.PromptHash);
+            finalized.SummarizerInputTokens, finalized.SummarizerOutputTokens, finalized.PromptHash);
         return null;
     }
 

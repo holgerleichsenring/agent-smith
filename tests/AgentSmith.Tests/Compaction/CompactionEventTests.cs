@@ -12,7 +12,8 @@ public sealed class CompactionEventTests
             OldMessageCount: 24, NewMessageCount: 3,
             PreCompactionEstimatedTokens: 134_000,
             PostCompactionVerifiedTokens: null,
-            SummarizationCallTokens: 1_200,
+            SummarizerInputTokens: 1_000,
+            SummarizerOutputTokens: 200,
             PromptHash: "abc12345",
             Failed: false, FailureReason: null);
 
@@ -28,15 +29,22 @@ public sealed class CompactionEventTests
     [Fact]
     public void VerifiedSavedTokens_PendingVerified_ReturnsNull()
     {
-        var pending = new CompactionEvent(0, 0, 100, null, 0, "h", false, null);
+        var pending = new CompactionEvent(0, 0, 100, null, 0, 0, "h", false, null);
         pending.VerifiedSavedTokens.Should().BeNull();
     }
 
     [Fact]
     public void VerifiedSavedTokens_AfterFinalization_ComputesDifference()
     {
-        var finalized = new CompactionEvent(0, 0, 134_000, 18_000, 1_200, "h", false, null);
+        var finalized = new CompactionEvent(0, 0, 134_000, 18_000, 1_000, 200, "h", false, null);
         finalized.VerifiedSavedTokens.Should().Be(116_000);
+    }
+
+    [Fact]
+    public void SummarizerTotalTokens_SumsInputAndOutput()
+    {
+        var ev = new CompactionEvent(0, 0, 0, null, 1_000, 200, "h", false, null);
+        ev.SummarizerTotalTokens.Should().Be(1_200);
     }
 
     [Fact]
@@ -50,7 +58,8 @@ public sealed class CompactionEventTests
         ev.NewMessageCount.Should().Be(12); // unchanged on failure
         ev.PreCompactionEstimatedTokens.Should().Be(50_000);
         ev.PostCompactionVerifiedTokens.Should().BeNull();
-        ev.SummarizationCallTokens.Should().Be(0);
+        ev.SummarizerInputTokens.Should().Be(0);
+        ev.SummarizerOutputTokens.Should().Be(0);
         ev.PromptHash.Should().Be("xyz");
     }
 }

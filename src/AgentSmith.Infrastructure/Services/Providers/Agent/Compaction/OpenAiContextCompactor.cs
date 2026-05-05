@@ -89,7 +89,8 @@ public sealed class OpenAiContextCompactor(
                 NewMessageCount: compacted.Count,
                 PreCompactionEstimatedTokens: estimatedTokens,
                 PostCompactionVerifiedTokens: null,
-                SummarizationCallTokens: summary.Value.TokensUsed,
+                SummarizerInputTokens: summary.Value.InputTokens,
+                SummarizerOutputTokens: summary.Value.OutputTokens,
                 PromptHash: promptHash,
                 Failed: false,
                 FailureReason: null));
@@ -105,7 +106,7 @@ public sealed class OpenAiContextCompactor(
         return prefix;
     }
 
-    private async Task<(string SummaryText, int TokensUsed)?> TrySummarize(
+    private async Task<(string SummaryText, int InputTokens, int OutputTokens)?> TrySummarize(
         IReadOnlyList<ChatMessage> prefix, CancellationToken cancellationToken)
     {
         try
@@ -121,8 +122,9 @@ public sealed class OpenAiContextCompactor(
 
             var completion = await summarizerClient.CompleteChatAsync(summaryMessages, new ChatCompletionOptions(), cancellationToken);
             var text = completion.Value.Content.FirstOrDefault()?.Text ?? string.Empty;
-            var tokens = (completion.Value.Usage?.InputTokenCount ?? 0) + (completion.Value.Usage?.OutputTokenCount ?? 0);
-            return (text, tokens);
+            var inputTokens = completion.Value.Usage?.InputTokenCount ?? 0;
+            var outputTokens = completion.Value.Usage?.OutputTokenCount ?? 0;
+            return (text, inputTokens, outputTokens);
         }
         catch (Exception ex)
         {
