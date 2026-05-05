@@ -5,6 +5,7 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -94,6 +95,7 @@ public class OpenAiAgentProvider(
         string? codeMap,
         string? projectContext,
         IProgressReporter progressReporter,
+        ISandbox? sandbox,
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -106,7 +108,8 @@ public class OpenAiAgentProvider(
 
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
-            repository.LocalPath, logger, fileReadTracker, progressReporter);
+            repository.LocalPath, logger, fileReadTracker, progressReporter,
+            sandbox: sandbox);
         var client = CreateChatClient(primaryModel);
 
         var loop = new OpenAiAgenticLoop(

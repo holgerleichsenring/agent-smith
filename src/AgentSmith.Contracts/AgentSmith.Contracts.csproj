@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgentSmith.Domain\AgentSmith.Domain.csproj" />
+    <ProjectReference Include="..\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

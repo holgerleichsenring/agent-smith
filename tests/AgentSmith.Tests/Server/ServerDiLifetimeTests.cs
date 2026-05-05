@@ -167,6 +167,7 @@ public sealed class ServerDiLifetimeTests
         services.AddSingleton(Mock.Of<IJobSpawner>());
         services.AddCoreDispatcherServices()
                 .AddServerCompositionOverrides()
+                .AddSandbox()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()

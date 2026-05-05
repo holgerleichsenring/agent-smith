@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -103,7 +104,7 @@ public sealed class ClaudeAgentProvider(
     public async Task<AgentExecutionResult> ExecutePlanAsync(
         Plan plan, Repository repository,
         string codingPrinciples, string? codeMap, string? projectContext,
-        IProgressReporter progressReporter, CancellationToken cancellationToken)
+        IProgressReporter progressReporter, ISandbox? sandbox, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
         var ctxFactory = CreateContextFactory();
@@ -118,7 +119,7 @@ public sealed class ClaudeAgentProvider(
         costTracker?.SetPhaseModel("primary", primaryModel.Model);
 
         var toolExecutor = ctxFactory.CreateToolExecutor(
-            repository.LocalPath, new FileReadTracker(), progressReporter);
+            repository.LocalPath, new FileReadTracker(), progressReporter, sandbox);
         using var client = CreateResilientClient();
         var loop = new AgenticLoop(client, primaryModel.Model, toolExecutor, logger,
             cacheConfig, tracker, compactionConfig,
