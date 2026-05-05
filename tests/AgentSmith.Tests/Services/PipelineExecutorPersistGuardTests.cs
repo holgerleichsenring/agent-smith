@@ -68,7 +68,7 @@ public sealed class PipelineExecutorPersistGuardTests
         var commands = new[] { CommandNames.AgenticExecute };
         ArrangeFirstCommandFailure(commands[0]);
 
-        var result = await _sut.ExecuteAsync(commands, new ProjectConfig(), pipeline, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         AssertPersistWasNotInvoked();
@@ -81,7 +81,7 @@ public sealed class PipelineExecutorPersistGuardTests
         var commands = new[] { CommandNames.AgenticExecute, CommandNames.Test };
         ArrangeFirstCommandFailure(commands[0]);
 
-        var result = await _sut.ExecuteAsync(commands, new ProjectConfig(), pipeline, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         _factoryMock.Verify(f => f.Create(
@@ -89,6 +89,17 @@ public sealed class PipelineExecutorPersistGuardTests
             It.IsAny<ProjectConfig>(),
             It.IsAny<PipelineContext>()),
             Times.Once);
+    }
+
+    static ProjectConfig NewProjectConfigWithImage()
+    {
+        return new ProjectConfig
+        {
+            Sandbox = new SandboxConfig
+            {
+                ToolchainImage = "dotnet8"
+            },
+        };
     }
 
     private static PipelineContext NewPipelineWithRepository()
