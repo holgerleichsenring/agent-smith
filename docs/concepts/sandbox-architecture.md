@@ -85,7 +85,7 @@ The Server's `ServiceAccount` needs:
 - `pods/log` — `get`
 - `pods/status` — `get`
 
-`pods/exec` is **not required**. See [`deploy/k8s/2-rbac.yaml`](../../deploy/k8s/2-rbac.yaml).
+`pods/exec` is **not required**. See [`deploy/k8s/2-rbac.yaml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/2-rbac.yaml).
 
 ## V1 limitations (deferred to p0117)
 
