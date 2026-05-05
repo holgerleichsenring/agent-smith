@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Compaction;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Infrastructure.Services.Providers.Agent.Compaction;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Cost;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 
@@ -20,6 +21,7 @@ public sealed class OpenAiAgenticLoop(
     ToolExecutor toolExecutor,
     ILogger logger,
     TokenUsageTracker tracker,
+    OpenAiCostTracker costTracker,
     IProgressReporter progressReporter,
     int maxIterations,
     IOpenAiContextCompactor? compactor = null)
@@ -138,14 +140,14 @@ public sealed class OpenAiAgenticLoop(
         var usage = completion.Usage;
         if (usage is null) return;
 
-        var inputTokens = usage.InputTokenCount;
-        var outputTokens = usage.OutputTokenCount;
+        // Provider-specific extraction lives in OpenAiCostTracker — splits prompt_tokens
+        // into billable (uncached) and cached portions so cost math is accurate.
+        costTracker.Track(completion);
 
-        tracker.Track(inputTokens, outputTokens);
-
+        var cached = usage.InputTokenDetails?.CachedTokenCount ?? 0;
         logger.LogDebug(
-            "OpenAI iteration {Iteration} tokens: Input={Input}, Output={Output}",
-            iteration, inputTokens, outputTokens);
+            "OpenAI iteration {Iteration} tokens: Input={Input} ({Cached} cached), Output={Output}",
+            iteration, usage.InputTokenCount, cached, usage.OutputTokenCount);
     }
 
     private void ReportDetail(string text, CancellationToken cancellationToken)

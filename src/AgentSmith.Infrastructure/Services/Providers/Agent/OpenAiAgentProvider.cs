@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Cost;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 using OpenAI.Chat;
@@ -104,7 +105,7 @@ public class OpenAiAgentProvider(
 
         tracker.SetPhase("primary");
         var primaryModel = ResolveModel(TaskType.Primary);
-        costTracker?.SetPhaseModel("primary", primaryModel.Model);
+        costTracker.SetPhaseModel("primary", primaryModel.Model);
 
         var fileReadTracker = new FileReadTracker();
         var toolExecutor = new ToolExecutor(
@@ -113,7 +114,7 @@ public class OpenAiAgentProvider(
         var client = CreateChatClient(primaryModel);
 
         var loop = new OpenAiAgenticLoop(
-            client, toolExecutor, logger, tracker, progressReporter, 25);
+            client, toolExecutor, logger, tracker, costTracker, progressReporter, 25);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(codingPrinciples, codeMap, projectContext);
         var userMessage = promptBuilder.BuildExecutionUserPrompt(plan, repository);
@@ -151,24 +152,20 @@ public class OpenAiAgentProvider(
         return openAiClient.GetChatClient(assignment.Model);
     }
 
-    private CostTracker? CreateCostTracker(TokenUsageTracker tracker)
+    protected virtual OpenAiCostTracker CreateCostTracker(TokenUsageTracker tracker)
     {
-        if (pricingConfig.Models.Count == 0)
-            return null;
-
-        var costTracker = new CostTracker(pricingConfig, logger);
+        var costTracker = new OpenAiCostTracker(pricingConfig, logger, tracker);
         var planningModel = ResolveModel(TaskType.Planning);
         costTracker.SetPhaseModel("planning", planningModel.Model);
         return costTracker;
     }
 
-    private RunCostSummary? LogCostSummary(CostTracker? costTracker, TokenUsageTracker tracker)
+    private RunCostSummary? LogCostSummary(OpenAiCostTracker costTracker, TokenUsageTracker tracker)
     {
-        tracker.LogSummary(logger);
-        if (costTracker is null) return null;
+        costTracker.LogTokenSummary(logger);
+        if (pricingConfig.Models.Count == 0) return null;
 
-        var costSummary = costTracker.CalculateCost(tracker);
-        costTracker.LogCostSummary(costSummary);
-        return costSummary;
+        costTracker.LogCostSummary(logger);
+        return costTracker.CalculateCost();
     }
 }

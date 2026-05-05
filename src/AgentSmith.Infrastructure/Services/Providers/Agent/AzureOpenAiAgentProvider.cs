@@ -2,6 +2,8 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Infrastructure.Models;
+using AgentSmith.Infrastructure.Services.Providers.Agent.Cost;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
@@ -47,5 +49,20 @@ public sealed class AzureOpenAiAgentProvider(
         var deploymentName = assignment.Deployment ?? deployment;
         var client = new AzureOpenAIClient(endpoint, new ApiKeyCredential(_apiKey), options);
         return client.GetChatClient(deploymentName);
+    }
+
+    protected override OpenAiCostTracker CreateCostTracker(TokenUsageTracker tracker)
+    {
+        var costTracker = new AzureOpenAiCostTracker(pricingConfig, logger, tracker);
+        var planningModel = ResolveModelOrDefault(TaskType.Planning);
+        costTracker.SetPhaseModel("planning", planningModel.Model);
+        return costTracker;
+    }
+
+    private ModelAssignment ResolveModelOrDefault(TaskType taskType)
+    {
+        if (modelRegistry is not null)
+            return modelRegistry.GetModel(taskType);
+        return new ModelAssignment { Model = model, MaxTokens = AgentDefaults.DefaultMaxTokens };
     }
 }
