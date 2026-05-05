@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0115
-goal: "AgentSmith.Sandbox.Agent — a standalone .NET single-file executable that runs inside a sandbox container, reads Steps from Redis, executes them as shell commands, and streams output/result back to Redis. Pure worker component — knows nothing about providers, tickets, or pipelines. V1 targets the dotnet toolchain, image build included."
+goal: "AgentSmith.Sandbox.Agent — a standalone .NET single-file executable that runs inside a sandbox container, reads Steps from Redis, executes them as shell commands, and streams output/result back to Redis. Pure worker component — knows nothing about providers, tickets, or pipelines. Shipped as a single toolchain-agnostic carrier image (`agent-smith-sandbox-agent`) that injects the binary into any official toolchain image via an init-container in the sandbox pod (Server-side wiring lands in p0116). V1 proves the pattern against the dotnet toolchain."
 
 requires: []
 
 scope:
-  in: "Agent binary, JobLoop, StepExecutor, Redis wire format (Step/StepEvent/StepResult as JSON), Dockerfile for sandbox-dotnet:1.0, unit tests against an in-process Redis mock, one integration test against a real Redis (Testcontainers), CI build that publishes the image to Docker Hub."
-  out: "Server-pod-side SandboxFactory (lands in p0116). Migration of AgenticExecuteHandler / TestHandler (lands in p0116). Cancellation/heartbeat (post-demo, not now). Toolchain images other than dotnet (angular follows immediately after the demo, Salesforce later)."
+  in: "Agent binary, JobLoop, StepExecutor, Redis wire format (Step/StepEvent/StepResult as JSON), Dockerfile for the carrier image agent-smith-sandbox-agent:1.0 (~80 MB, minimal base, ENTRYPOINT copies binary to a shared volume), unit tests against an in-process Redis mock, one integration test against a real Redis (Testcontainers), CI build that publishes the carrier image to Docker Hub, a smoke test proving the init-container injection works against an unmodified mcr.microsoft.com/dotnet/sdk:8.0 pod."
+  out: "Server-pod-side SandboxFactory and the actual K8s Pod object construction (lands in p0116). Migration of AgenticExecuteHandler / TestHandler (lands in p0116). Cancellation/heartbeat (post-demo, not now). Pre-baked per-toolchain images of any kind — we never build those; the init-container pattern means operators bring their own toolchain image unmodified."
 
 decisions:
   - key: "Self-contained single-file build, NOT trimmed. Same pattern as p52 used for the CLI: PublishSingleFile=true, SelfContained=true, IncludeNativeLibrariesForSelfExtract=true, PublishTrimmed=false. Trimming breaks StackExchange.Redis reflection paths. ~70 MB binary, runs on any Linux with glibc 2.28+ (all current distros)."
@@ -37,9 +37,11 @@ decisions:
 
   - key: "Logging: Microsoft.Extensions.Logging with the Console provider (existing dependency, same pattern as the rest of the codebase). Per step: Info level for start/end, Debug level for each stdout line (otherwise it floods the pod logs). --verbose flag enables Debug on the console too."
 
-  - key: "Image build lives in the main repo, not as a separate build. src/AgentSmith.Sandbox.Agent/Dockerfile.dotnet is multi-stage: stage 1 publishes the self-contained binary (independent of p52 because this is its own csproj), stage 2 is mcr.microsoft.com/dotnet/sdk:8.0 with the binary copied to /sandbox/agent + ENTRYPOINT [\"/sandbox/agent\"]. The Dockerfile lives in the sandbox project, not at the repo root, because it should be versioned alongside the code."
+  - key: "ONE carrier image, NOT pre-baked toolchain images. We ship exactly one image: agent-smith-sandbox-agent. Its sole responsibility is to deliver the self-contained binary into the sandbox pod. The Server pod (p0116) constructs each sandbox Pod with TWO containers sharing an emptyDir volume mounted at /shared: (1) initContainer using agent-smith-sandbox-agent — its ENTRYPOINT copies the agent binary from /agent to /shared/agent and exits 0; (2) main container using the UNMODIFIED official toolchain image of choice (mcr.microsoft.com/dotnet/sdk:8.0, node:20, mcr.microsoft.com/openjdk/jdk:21-ubuntu, salesforce/cli:latest, …) with command: ['/shared/agent']. Rejected alternative — pre-baked sandbox-dotnet / sandbox-node / sandbox-java images: would force us to track upstream toolchain releases per language, would saddle operators with our base-image opinions, and would multiply our maintenance surface with every new toolchain. With the init-container pattern: we maintain ONE image; toolchain updates flow automatically from upstream; operator-custom toolchains work without our involvement; new languages need zero changes from us."
 
-  - key: "CI publish via GitHub Action (extension of p43a). New workflow step that builds the sandbox-dotnet image and publishes it to Docker Hub as agentsmith/sandbox-dotnet:{tag}. Tag strategy identical to existing images: latest on main, semver on v* tags."
+  - key: "Carrier image base: minimal — distroless (gcr.io/distroless/base-debian12) preferred over alpine because the self-contained .NET binary targets glibc and would need musl-bridging on alpine. Distroless lacks a shell, so the ENTRYPOINT must be a directly-executed binary; we ship a tiny shell-free copy step by setting ENTRYPOINT to a static binary. Concretely: stage 1 builds the self-contained linux-x64 agent (independent of p52 because this is its own csproj); stage 2 is gcr.io/distroless/base-debian12 with COPY --from=build /publish/AgentSmith.Sandbox.Agent /agent and a copy-helper. Decision deferred to implementation: either (a) include /bin/cp from a busybox stage at known path, or (b) write the copy as a 30-line standalone .NET tool that ships alongside the agent — pick whichever produces a smaller image at build time. Target image size: ~80 MB (vs ~900 MB for the rejected pre-baked SDK approach)."
+
+  - key: "CI publish via GitHub Action (extension of p43a). New matrix entry in docker-publish.yml that builds the carrier image and publishes it to Docker Hub as holgerleichsenring/agent-smith-sandbox-agent:{tag}. Tag strategy identical to existing images: latest on main, semver on v* tags. Multi-arch linux/amd64 + linux/arm64. ONE image only — no -dotnet/-node/-java variants ever (see image-build decision above)."
 
   - key: "Tests: agent logic against an in-process mock of IDatabase (StackExchange.Redis interface) — that makes JobLoop and StepExecutor unit-testable without a real Redis. Plus ONE integration test that spins up a real Redis container via Testcontainers and runs a complete job end-to-end (push step → wait for events → assert result). That's the safety net proving the wire format actually works."
 
@@ -87,37 +89,44 @@ steps:
     new:
       - "src/AgentSmith.Sandbox.Agent/Program.cs: ~50 lines. System.CommandLine setup with --redis-url (default from REDIS_URL env), --job-id (required), --verbose (flag). Logger builder (console provider, --verbose=Debug, otherwise Info). Try: bus = await RedisJobBus.ConnectAsync(...). executor = new StepExecutor(...). loop = new JobLoop(...). Cancel token from Console.CancelKeyPress. exitCode = await loop.RunAsync(...). Catch unhandled → log error, exit 3. Important: dispose everything via IDisposable correctly, otherwise Redis connections leak on shutdown."
 
-  - id: dockerfile-dotnet
-    action: "Multi-stage Dockerfile for the sandbox-dotnet image"
+  - id: dockerfile-agent
+    action: "Multi-stage Dockerfile for the carrier image agent-smith-sandbox-agent"
     new:
-      - "src/AgentSmith.Sandbox.Agent/Dockerfile.dotnet: stage 1 (build) — mcr.microsoft.com/dotnet/sdk:8.0, COPY src/, dotnet publish AgentSmith.Sandbox.Agent.csproj -c Release -r linux-x64 --self-contained -o /publish. Stage 2 (runtime) — mcr.microsoft.com/dotnet/sdk:8.0, COPY --from=build /publish/AgentSmith.Sandbox.Agent /sandbox/agent, RUN chmod +x /sandbox/agent, RUN mkdir /work && chown 1000:1000 /work, USER 1000, WORKDIR /work, ENTRYPOINT [\"/sandbox/agent\"]. Image size ~900 MB (the SDK is large) — acceptable; switching to a slim base image is a future optimization."
+      - "src/AgentSmith.Sandbox.Agent/Dockerfile: stage 1 (build) — mcr.microsoft.com/dotnet/sdk:8.0, COPY src/, dotnet publish AgentSmith.Sandbox.Agent.csproj -c Release -r linux-x64 --self-contained -o /publish. Stage 2 (carrier) — gcr.io/distroless/base-debian12, COPY --from=build /publish/AgentSmith.Sandbox.Agent /agent. The image's sole job is to make the binary available at /agent so an init-container can `cp /agent /shared/agent` into the shared volume. ENTRYPOINT decision (deferred to implementation): option A — copy /bin/cp from a busybox stage to /cp and use ENTRYPOINT [\"/cp\", \"/agent\", \"/shared/agent\"]; option B — write a 30-line standalone .NET copy tool (Inject) compiled into the same publish output and ENTRYPOINT [\"/agent\", \"--inject\", \"/shared/agent\"] (agent itself supports a self-copy mode). Pick whichever yields the smallest image. Target: ~80 MB. NO USER directive in the carrier — the runtime user comes from the toolchain main container; the init-container writes to a shared volume that needs to be world-writable or owned by the same UID as the main container (Server pod handles that via fsGroup or initContainer runAsUser)."
       - "src/AgentSmith.Sandbox.Agent/.dockerignore: bin/, obj/, *.user."
 
   - id: ci-publish
-    action: "Extend the GitHub Action to build and publish the sandbox-dotnet image"
+    action: "Extend the GitHub Action to build and publish the agent-smith-sandbox-agent carrier image"
     modify:
-      - ".github/workflows/docker-publish.yml: new job 'build-sandbox-dotnet' parallel to the existing CLI/Server jobs. Builds src/AgentSmith.Sandbox.Agent/Dockerfile.dotnet with build context = repo root. Tags: agentsmith/sandbox-dotnet:latest on main, agentsmith/sandbox-dotnet:{semver} on v* tags. Multi-arch linux/amd64 + linux/arm64 (same pattern as p43a)."
+      - ".github/workflows/docker-publish.yml: extend the existing matrix in the 'docker' job with a third entry { image: agent-smith-sandbox-agent, dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile }. Build context = repo root (same as the other two entries). Tags: holgerleichsenring/agent-smith-sandbox-agent:latest on main, holgerleichsenring/agent-smith-sandbox-agent:{semver} on v* tags via the existing metadata-action. Multi-arch linux/amd64 + linux/arm64 (already configured in the existing job). ONE image only — no -dotnet/-node/-java variants. Operator picks the toolchain by referencing an upstream image as the main container in their pod spec."
     action_detail:
-      - "If the existing workflow uses a matrix pattern for multiple images: add 'sandbox-dotnet' as another matrix entry with its own Dockerfile path. If it uses separate jobs: copy a job analogously. Decide based on the existing state when implementing."
+      - "Mechanically: add the matrix entry to the existing 'docker' job; do not create a parallel job. The existing job already covers QEMU, Buildx, Docker Hub login, metadata, multi-arch — all reusable as-is."
+      - "OPTIONAL — extend update-dockerhub-description job with a third entry for the new image so its Docker Hub page renders deploy/DOCKERHUB_DESCRIPTION.md. Skip if the existing description is too CLI/Server-specific; in that case open a follow-up to write a sandbox-agent-specific description."
 
   - id: docs
-    action: "Architecture documentation for the sandbox component"
+    action: "Architecture documentation for the sandbox component and the init-container injection pattern"
     new:
-      - "docs/concepts/sandbox-agent.md: what the sandbox is (a worker inside a pod), what it isn't (no provider knowledge, no pipeline knowledge), the Redis wire format with example JSON for Step / StepEvent / StepResult, the lifecycle (init → BRPOP → execute → push event → push result → repeat → shutdown), and how to run the agent locally against a test Redis for debugging."
+      - "docs/concepts/sandbox-agent.md sections: (1) What the sandbox is — a worker inside a pod. (2) What it isn't — no provider/pipeline knowledge, no pre-baked toolchain. (3) The init-container injection pattern with an ASCII pod diagram (initContainer agent-smith-sandbox-agent → emptyDir /shared → main container running an unmodified upstream toolchain image with command [/shared/agent]) and a complete YAML snippet of a sample sandbox Pod that the Server pod will produce in p0116. (4) Why init-container, not pre-baked images — explicitly call out the rejected alternative (sandbox-dotnet/sandbox-node) and the rationale (one image to maintain, upstream toolchain updates flow automatically, operator-custom toolchains supported, new languages need zero changes from us). (5) Redis wire format — Step / StepEvent / StepResult example JSON. (6) Lifecycle — init → BRPOP → execute → push events → push result → repeat → shutdown. (7) Local debugging — run the agent in a docker-compose two-container setup against an upstream image to mimic the K8s init-container pattern, plus a pure docker run --rm against a local Redis."
     modify:
       - "docs/mkdocs.yml: add 'Sandbox Agent' under Concepts."
-      - ".agentsmith/context.yaml: add the p0115 entry — 'AgentSmith.Sandbox.Agent — standalone worker binary, Redis-driven, sandbox-dotnet:1.0 image published'."
+      - ".agentsmith/context.yaml: add the p0115 entry — 'AgentSmith.Sandbox.Agent — standalone worker binary plus carrier image agent-smith-sandbox-agent:1.0; init-container injection pattern (toolchain-agnostic) documented'."
 
   - id: validation
-    action: "Manual smoke test against a local Redis"
+    action: "Two smoke tests: agent-only against a local Redis, and end-to-end init-container injection against an unmodified dotnet SDK image"
     action_detail:
-      - "docker run --rm -d -p 6379:6379 redis:7-alpine"
+      - "Smoke 1 (agent-only — fast loop): docker run --rm -d -p 6379:6379 redis:7-alpine"
       - "dotnet run --project src/AgentSmith.Sandbox.Agent -- --redis-url redis://localhost:6379 --job-id smoke-test --verbose"
       - "in a second terminal: redis-cli LPUSH sandbox:smoke-test:in '{\"schemaVersion\":1,\"stepId\":\"00000000-0000-0000-0000-000000000001\",\"kind\":\"Run\",\"command\":\"echo\",\"args\":[\"hello\"],\"workingDirectory\":null,\"env\":null,\"timeoutSeconds\":10}'"
       - "redis-cli XRANGE sandbox:smoke-test:events - + → see a stdout event with Line='hello' (within ~100 ms of the push, thanks to the soft-batch timer)"
       - "redis-cli LRANGE sandbox:smoke-test:results 0 -1 → see a StepResult with ExitCode=0"
       - "redis-cli LPUSH sandbox:smoke-test:in '{\"schemaVersion\":1,\"stepId\":\"00000000-0000-0000-0000-000000000002\",\"kind\":\"Shutdown\"}'"
       - "Agent terminates with exit 0."
+      - "Smoke 2 (init-container injection — proves the carrier-image pattern): docker build -t agent-smith-sandbox-agent:smoke -f src/AgentSmith.Sandbox.Agent/Dockerfile ."
+      - "docker volume create as-shared (or: use a host bind-mount in /tmp/as-shared)"
+      - "docker run --rm -v as-shared:/shared agent-smith-sandbox-agent:smoke   → exits 0 after copying /agent to /shared/agent (this is the init-container behavior)"
+      - "ls /var/lib/docker/volumes/as-shared/_data/agent (or /tmp/as-shared/agent)  → file exists, executable bit set"
+      - "docker run --rm --network=host -v as-shared:/shared mcr.microsoft.com/dotnet/sdk:8.0 /shared/agent --redis-url redis://localhost:6379 --job-id inject-smoke --verbose   → agent boots inside the unmodified SDK image, talks to Redis, processes a step (push a step from the host as in Smoke 1), exits 0 on Shutdown."
+      - "If Smoke 2 succeeds against an unmodified upstream image, the init-container pattern is validated end-to-end without ever touching K8s."
 
 done:
   - "src/AgentSmith.Sandbox.Agent is a runnable, tested console app that talks to Redis."
@@ -126,9 +135,10 @@ done:
   - "StepExecutor streams stdout/stderr soft-batched (50 lines OR 100 ms, whichever first), respects timeouts, can kill the process tree, and guarantees a final flush at step end."
   - "RedisJobBus buffers events into Channel<T> (capacity 1000, DropOldest); the consumer task pushes via IBatch + 3 retries (200 ms / 1 s / 5 s). Absorbs Redis blips up to ~30 s without crashing the agent."
   - "Source-tree acquisition is EXPLICITLY not the agent's responsibility — the Server pod composes it as Step #1 (typically `git clone` with an inline credential.helper against pod env GIT_TOKEN). /work starts empty."
-  - "Dockerfile.dotnet builds a runnable sandbox-dotnet image with the agent as the entrypoint."
-  - "GitHub Action publishes agentsmith/sandbox-dotnet:latest and semver tags."
-  - "Manual smoke test against local Redis works end-to-end."
+  - "src/AgentSmith.Sandbox.Agent/Dockerfile builds the carrier image agent-smith-sandbox-agent on a minimal base (~80 MB target). The image's only job is to deliver the binary at /agent so an init-container can copy it into a shared volume; it ships NO toolchain."
+  - "GitHub Action matrix entry publishes holgerleichsenring/agent-smith-sandbox-agent:latest on main and semver tags on v* — exactly one image, no per-toolchain variants."
+  - "Smoke 1 (agent-only against local Redis) works end-to-end."
+  - "Smoke 2 (init-container injection) proves the carrier image makes the agent runnable inside an UNMODIFIED mcr.microsoft.com/dotnet/sdk:8.0 container via shared volume — the pattern p0116 will use in K8s."
   - "Unit tests + one integration test (Testcontainers) cover the core paths."
   - "docs/concepts/sandbox-agent.md explains the architecture and the wire format."
   - "Server-pod / pipeline migration is EXPLICITLY NOT PART of this phase. The agent is standalone-testable; everything else lands in p0116."
