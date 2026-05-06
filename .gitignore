@@ -38,6 +38,9 @@ Thumbs.db
 .env
 deploy/k8s/secret-local.yaml
 
+## Local config (only *.example.* templates are tracked)
+config/agentsmith.yml
+
 ## Claude Code
 .claude/
 !.claude/prompt.md
