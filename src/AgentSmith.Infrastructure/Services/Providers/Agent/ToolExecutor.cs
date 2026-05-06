@@ -20,7 +20,6 @@ public sealed class ToolExecutor
     private readonly SandboxToolHandler? _sandboxHandler;
     private readonly CommandRunner? _commandRunner;
     private readonly FileToolHandler? _fileHandler;
-    private readonly GrepToolHandler _grepHandler;
     private readonly HumanQuestionToolHandler _humanHandler;
     private readonly List<PlanDecision> _decisions = new();
 
@@ -35,7 +34,6 @@ public sealed class ToolExecutor
         ISandbox? sandbox = null)
     {
         _logger = logger;
-        _grepHandler = new GrepToolHandler(repositoryPath, logger);
         _humanHandler = new HumanQuestionToolHandler(
             dialogueTransport, dialogueTrail, jobId, logger, progressReporter);
 
@@ -67,7 +65,7 @@ public sealed class ToolExecutor
                 "read_file" => await ReadFileAsync(input, cancellationToken),
                 "write_file" => await WriteFileAsync(input, cancellationToken),
                 "list_files" => await ListFilesAsync(input, cancellationToken),
-                "grep" => _grepHandler.Grep(input),
+                "grep" => await GrepAsync(input, cancellationToken),
                 "run_command" => await RunCommandAsync(input, cancellationToken),
                 "log_decision" => LogDecision(input),
                 "ask_human" => await _humanHandler.HandleAsync(input),
@@ -100,6 +98,11 @@ public sealed class ToolExecutor
         _sandboxHandler is not null
             ? _sandboxHandler.RunCommandAsync(input, ct)
             : _commandRunner!.RunAsync(input);
+
+    private Task<string> GrepAsync(JsonNode? input, CancellationToken ct) =>
+        _sandboxHandler is not null
+            ? _sandboxHandler.GrepAsync(input, ct)
+            : Task.FromResult("Error: grep requires an active sandbox (ScoutAgent migration pending in tool-executor-cleanup step).");
 
     private string LogDecision(JsonNode? input)
     {

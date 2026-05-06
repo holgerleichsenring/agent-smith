@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -33,11 +34,12 @@ public sealed class GenerateTestsHandler(
 
         var plan = BuildSyntheticPlan(context.Changes);
         var provider = factory.Create(context.AgentConfig);
+        var sandbox = context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sb) ? sb : null;
 
         var result = await provider.ExecutePlanAsync(
             plan, context.Repository, context.CodingPrinciples,
             context.CodeMap, context.ProjectContext, progressReporter,
-            sandbox: null, cancellationToken);
+            sandbox, cancellationToken);
 
         MergeCodeChanges(context, result.Changes);
 

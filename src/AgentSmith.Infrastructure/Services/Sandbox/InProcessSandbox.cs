@@ -29,9 +29,59 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
             StepKind.ReadFile => Task.FromResult(ReadFile(step)),
             StepKind.WriteFile => WriteFileAsync(step, cancellationToken),
             StepKind.ListFiles => Task.FromResult(ListFiles(step, progress)),
+            StepKind.Grep => Task.FromResult(Grep(step, progress)),
             StepKind.Shutdown => Task.FromResult(Success(step, 0, null)),
             _ => Task.FromResult(Failure(step, 0, $"Unsupported kind {step.Kind}"))
         };
+    }
+
+    private StepResult Grep(Step step, IProgress<StepEvent>? progress)
+    {
+        var path = ResolvePath(step.Path!);
+        if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
+        var maxMatches = step.MaxMatches ?? SizeLimits.GrepMaxMatches;
+        try
+        {
+            var regex = new System.Text.RegularExpressions.Regex(step.Pattern!,
+                System.Text.RegularExpressions.RegexOptions.Compiled, TimeSpan.FromSeconds(2));
+            var matches = ScanForMatches(path, regex, maxMatches, out var truncated);
+            if (truncated)
+                progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, $"grep truncated at {maxMatches} matches"));
+            return Success(step, 0, JsonSerializer.Serialize(matches, WireFormat.Json));
+        }
+        catch (Exception ex)
+        {
+            return Failure(step, 0, ex.Message);
+        }
+    }
+
+    private static List<System.Text.Json.Nodes.JsonObject> ScanForMatches(
+        string root, System.Text.RegularExpressions.Regex regex, int maxMatches, out bool truncated)
+    {
+        truncated = false;
+        var matches = new List<System.Text.Json.Nodes.JsonObject>();
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            if (matches.Count >= maxMatches) { truncated = true; break; }
+            try
+            {
+                var info = new FileInfo(file);
+                if (info.Length > 1_000_000) continue;
+                var lines = File.ReadAllLines(file);
+                var rel = Path.GetRelativePath(root, file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (matches.Count >= maxMatches) { truncated = true; break; }
+                    if (!regex.IsMatch(lines[i])) continue;
+                    matches.Add(new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["path"] = rel, ["line"] = i + 1, ["text"] = lines[i]
+                    });
+                }
+            }
+            catch { /* skip unreadable */ }
+        }
+        return matches;
     }
 
     public ValueTask DisposeAsync()

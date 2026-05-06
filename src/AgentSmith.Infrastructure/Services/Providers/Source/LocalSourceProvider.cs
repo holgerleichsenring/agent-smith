@@ -42,18 +42,6 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         return Task.FromResult(result);
     }
 
-    public Task CommitAndPushAsync(
-        Repository repository, string message, CancellationToken cancellationToken)
-    {
-        using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
-
-        StageAllChanges(repo);
-        CommitChanges(repo, message);
-        PushToRemote(repo);
-
-        return Task.CompletedTask;
-    }
-
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken)
@@ -78,55 +66,4 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         return remote?.Url ?? "";
     }
 
-    internal static void StageAllChanges(LibGit2Sharp.Repository repo)
-    {
-        // Per-file staging via RetrieveStatus instead of Commands.Stage(repo, "*").
-        // The "*" glob expands inside libgit2 and can return directory-shaped paths
-        // (e.g. "RHS.CICD/") that git_index_add_bypath then rejects with
-        // "invalid path: ...". Iterating workdir entries and staging each file path
-        // sidesteps the glob entirely.
-        var status = repo.RetrieveStatus(new StatusOptions
-        {
-            IncludeIgnored = false,
-            IncludeUntracked = true,
-            RecurseUntrackedDirs = true
-        });
-        foreach (var entry in status)
-        {
-            if (IsWorkdirChange(entry.State))
-            {
-                Commands.Stage(repo, entry.FilePath);
-            }
-        }
-    }
-
-    private static bool IsWorkdirChange(FileStatus state) =>
-        state.HasFlag(FileStatus.NewInWorkdir) ||
-        state.HasFlag(FileStatus.ModifiedInWorkdir) ||
-        state.HasFlag(FileStatus.DeletedFromWorkdir) ||
-        state.HasFlag(FileStatus.RenamedInWorkdir) ||
-        state.HasFlag(FileStatus.TypeChangeInWorkdir);
-
-    private static void CommitChanges(LibGit2Sharp.Repository repo, string message)
-    {
-        var signature = GetSignature(repo);
-        repo.Commit(message, signature, signature);
-    }
-
-    private static Signature GetSignature(LibGit2Sharp.Repository repo)
-    {
-        var config = repo.Config;
-        var name = config.GetValueOrDefault("user.name", "Agent Smith");
-        var email = config.GetValueOrDefault("user.email", "agent-smith@noreply.local");
-        return new Signature(name, email, DateTimeOffset.Now);
-    }
-
-    private static void PushToRemote(LibGit2Sharp.Repository repo)
-    {
-        var remote = repo.Network.Remotes["origin"];
-        if (remote is null) return;
-
-        var branch = repo.Head;
-        repo.Network.Push(branch);
-    }
 }
