@@ -4,45 +4,42 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class WriteRunResultHandlerTests : IDisposable
+public sealed class WriteRunResultHandlerTests
 {
-    private readonly WriteRunResultHandler _sut;
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
-    private readonly string _tempDir;
+    private readonly Dictionary<string, string> _written = new();
+    private readonly Dictionary<string, string?> _initialFiles = new();
+    private readonly WriteRunResultHandler _sut;
 
     public WriteRunResultHandlerTests()
     {
-        _sut = new WriteRunResultHandler(_dialogueTrail, NullLogger<WriteRunResultHandler>.Instance);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-runresult-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
-    }
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((p, _) =>
+            {
+                if (_written.TryGetValue(p, out var c)) return Task.FromResult<string?>(c);
+                if (_initialFiles.TryGetValue(p, out var i)) return Task.FromResult(i);
+                return Task.FromResult<string?>(null);
+            });
+        reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((p, c, _) => _written[p] = c)
+            .Returns(Task.CompletedTask);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
-    [Fact]
-    public async Task ExecuteAsync_CreatesRunDirectory()
-    {
-        SetupContextYaml();
-        var context = CreateContext("Add login feature");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        var runsDir = Path.Combine(_tempDir, ".agentsmith", "runs");
-        Directory.Exists(runsDir).Should().BeTrue();
-        Directory.GetDirectories(runsDir).Should().HaveCount(1);
+        _sut = new WriteRunResultHandler(
+            factory.Object, _dialogueTrail, NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -53,13 +50,10 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var planFile = Path.Combine(runDir, "plan.md");
-        File.Exists(planFile).Should().BeTrue();
-
-        var content = File.ReadAllText(planFile);
-        content.Should().Contain("Add login feature");
-        content.Should().Contain("Test summary");
+        var planEntry = _written.FirstOrDefault(kv => kv.Key.EndsWith("plan.md"));
+        planEntry.Key.Should().NotBeNull();
+        planEntry.Value.Should().Contain("Add login feature");
+        planEntry.Value.Should().Contain("Test summary");
     }
 
     [Fact]
@@ -70,8 +64,9 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+        var resultEntry = _written.FirstOrDefault(kv => kv.Key.EndsWith("result.md"));
+        resultEntry.Key.Should().NotBeNull();
+        var content = resultEntry.Value;
 
         content.Should().Contain("---");
         content.Should().Contain("ticket: \"#42");
@@ -84,7 +79,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     public async Task ExecuteAsync_WithCostData_IncludesCostInFrontmatter()
     {
         SetupContextYaml();
-        var pipeline = new PipelineContext();
+        var pipeline = NewPipelineWithSandbox();
         var phases = new Dictionary<string, PhaseCost>
         {
             ["scout"] = new("claude-haiku-4-5-20251001", 4200, 1800, 2100, 1, 0.02m),
@@ -97,8 +92,8 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+        var resultEntry = _written.First(kv => kv.Key.EndsWith("result.md"));
+        var content = resultEntry.Value;
 
         content.Should().Contain("duration_seconds: 145");
         content.Should().Contain("tokens:");
@@ -118,8 +113,8 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+        var resultEntry = _written.First(kv => kv.Key.EndsWith("result.md"));
+        var content = resultEntry.Value;
 
         content.Should().Contain("---");
         content.Should().Contain("ticket:");
@@ -154,7 +149,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var yaml = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
+        var yaml = _written["/work/.agentsmith/context.yaml"];
         yaml.Should().Contain("r01:");
         yaml.Should().Contain("feat #42");
     }
@@ -179,7 +174,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var yaml = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
+        var yaml = _written["/work/.agentsmith/context.yaml"];
         yaml.Should().Contain("fix #42");
     }
 
@@ -187,7 +182,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     public async Task ExecuteAsync_WithDecisionsInPipeline_IncludesDecisionsInResult()
     {
         SetupContextYaml();
-        var pipeline = new PipelineContext();
+        var pipeline = NewPipelineWithSandbox();
         var decisions = new List<PlanDecision>
         {
             new("Architecture", "**Redis Streams**: fan-out required"),
@@ -199,8 +194,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+        var content = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
 
         content.Should().Contain("## Decisions");
         content.Should().Contain("### Architecture");
@@ -217,8 +211,7 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDir = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"))[0];
-        var content = File.ReadAllText(Path.Combine(runDir, "result.md"));
+        var content = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
 
         content.Should().NotContain("## Decisions");
     }
@@ -227,14 +220,14 @@ public sealed class WriteRunResultHandlerTests : IDisposable
     public async Task ExecuteAsync_ExistingRuns_IncrementsNumber()
     {
         var yaml = "state:\n  done:\n    p01: \"initial setup\"\n    r01: \"feat #10: Add auth\"\n    r02: \"fix #11: Fix login\"\n  active: {}";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
+        _initialFiles["/work/.agentsmith/context.yaml"] = yaml;
 
         var context = CreateContext("Add dashboard");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var content = File.ReadAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"));
-        content.Should().Contain("r03:");
+        _written.Should().ContainKey("/work/.agentsmith/context.yaml");
+        _written["/work/.agentsmith/context.yaml"].Should().Contain("r03:");
 
         context.Pipeline.TryGet<int>(ContextKeys.RunNumber, out var runNumber).Should().BeTrue();
         runNumber.Should().Be(3);
@@ -248,8 +241,8 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        var runDirs = Directory.GetDirectories(Path.Combine(_tempDir, ".agentsmith", "runs"));
-        runDirs[0].Should().EndWith("r01-add-login-feature");
+        var planPath = _written.Keys.First(k => k.EndsWith("plan.md"));
+        planPath.Should().Contain("r01-add-login-feature");
     }
 
     [Fact]
@@ -290,39 +283,55 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         sb.ToString().Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData("No file", 1)]
-    [InlineData("", 1)]
-    public void DetermineNextRunNumber_NoExistingRuns_Returns1(string scenario, int expected)
+    [Fact]
+    public async Task DetermineNextRunNumberAsync_NoFile_Returns1()
     {
-        var path = scenario == "No file"
-            ? Path.Combine(_tempDir, "nonexistent.yaml")
-            : Path.Combine(_tempDir, "empty.yaml");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
 
-        if (scenario == "")
-            File.WriteAllText(path, "state:\n  done: {}\n  active: {}");
+        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
+            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
 
-        var result = WriteRunResultHandler.DetermineNextRunNumber(path);
-        result.Should().Be(expected);
+        result.Should().Be(1);
     }
 
     [Fact]
-    public void DetermineNextRunNumber_WithExistingRuns_ReturnsNext()
+    public async Task DetermineNextRunNumberAsync_EmptyState_Returns1()
     {
-        var path = Path.Combine(_tempDir, "test.yaml");
-        File.WriteAllText(path, "state:\n  done:\n    r01: \"first\"\n    r02: \"second\"\n  active: {}");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("state:\n  done: {}\n  active: {}");
 
-        var result = WriteRunResultHandler.DetermineNextRunNumber(path);
+        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
+            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
+
+        result.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DetermineNextRunNumberAsync_WithExistingRuns_ReturnsNext()
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("state:\n  done:\n    r01: \"first\"\n    r02: \"second\"\n  active: {}");
+
+        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
+            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
+
         result.Should().Be(3);
     }
 
     [Fact]
-    public void DetermineNextRunNumber_MixedPhaseAndRunKeys_OnlyCountsRuns()
+    public async Task DetermineNextRunNumberAsync_MixedPhaseAndRunKeys_OnlyCountsRuns()
     {
-        var path = Path.Combine(_tempDir, "test.yaml");
-        File.WriteAllText(path, "state:\n  done:\n    p01: \"init\"\n    p02: \"auth\"\n    r01: \"first run\"\n  active: {}");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("state:\n  done:\n    p01: \"init\"\n    p02: \"auth\"\n    r01: \"first run\"\n  active: {}");
 
-        var result = WriteRunResultHandler.DetermineNextRunNumber(path);
+        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
+            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
+
         result.Should().Be(2);
     }
 
@@ -347,13 +356,19 @@ public sealed class WriteRunResultHandlerTests : IDisposable
 
     private void SetupContextYaml()
     {
-        var yaml = "state:\n  done: {}\n  active: {}";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "context.yaml"), yaml);
+        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
+    }
+
+    private PipelineContext NewPipelineWithSandbox()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        return pipeline;
     }
 
     private WriteRunResultContext CreateContext(string ticketTitle, PipelineContext? pipeline = null)
     {
-        var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
         var ticket = new Ticket(new TicketId("42"), ticketTitle, "Description", null, "Open", "github");
         var steps = new List<PlanStep>
         {
@@ -364,6 +379,6 @@ public sealed class WriteRunResultHandlerTests : IDisposable
         {
             new(new FilePath("src/Login.cs"), "public class Login {}", "Create")
         };
-        return new WriteRunResultContext(repo, plan, ticket, changes, pipeline ?? new PipelineContext());
+        return new WriteRunResultContext(repo, plan, ticket, changes, pipeline ?? NewPipelineWithSandbox());
     }
 }

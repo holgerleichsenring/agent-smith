@@ -1,99 +1,123 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
 public class LoadCodingPrinciplesHandlerTests
 {
-    private readonly LoadCodingPrinciplesHandler _handler = new(
-        new ProjectMetaResolver(),
-        NullLogger<LoadCodingPrinciplesHandler>.Instance);
-
     [Fact]
     public async Task ExecuteAsync_FileExists_LoadsContent()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempDir);
         var relativePath = ".agentsmith/coding-principles.md";
-        var fullPath = Path.Combine(tempDir, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllTextAsync(fullPath, "# Test Principles");
+        var fullPath = "/work/.agentsmith/coding-principles.md";
 
-        var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
-        var pipeline = new PipelineContext();
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        reader.Setup(r => r.ReadRequiredAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync("# Test Principles");
+
+        var handler = MakeHandler(reader.Object);
+        var repo = new Repository(new BranchName("main"), "https://example.com");
+        var pipeline = MakePipeline();
         var context = new LoadCodingPrinciplesContext(relativePath, repo, pipeline);
 
-        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+        var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<string>(ContextKeys.DomainRules).Should().Be("# Test Principles");
-
-        Directory.Delete(tempDir, true);
     }
 
     [Fact]
     public async Task ExecuteAsync_FileNotFound_ReturnsOkSoftFail()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempDir);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
 
-        var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
-        var pipeline = new PipelineContext();
+        var handler = MakeHandler(reader.Object);
+        var repo = new Repository(new BranchName("main"), "https://example.com");
+        var pipeline = MakePipeline();
         var context = new LoadCodingPrinciplesContext("nonexistent/path.md", repo, pipeline);
 
-        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+        var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<string>(ContextKeys.DomainRules, out _).Should().BeFalse();
-
-        Directory.Delete(tempDir, true);
     }
 
     [Fact]
     public async Task ExecuteAsync_DefaultPathInMonorepoSubdir_ResolvesViaProjectMetaResolver()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        var subRepo = Path.Combine(tempDir, "services", "api-gateway");
-        Directory.CreateDirectory(Path.Combine(subRepo, ".agentsmith"));
-        await File.WriteAllTextAsync(Path.Combine(subRepo, ".agentsmith", "coding-principles.md"), "# Sub Rules");
+        var defaultPath = "/work/.agentsmith/coding-principles.md";
+        var nestedDir = "/work/services/api-gateway/.agentsmith";
+        var nestedFile = "/work/services/api-gateway/.agentsmith/coding-principles.md";
 
-        var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
-        var pipeline = new PipelineContext();
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync(defaultPath, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        reader.Setup(r => r.ExistsAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        reader.Setup(r => r.ReadRequiredAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync("# Sub Rules");
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                "/work/services",
+                "/work/services/api-gateway",
+                nestedDir,
+            });
+
+        var handler = MakeHandler(reader.Object);
+        var repo = new Repository(new BranchName("main"), "https://example.com");
+        var pipeline = MakePipeline();
         var context = new LoadCodingPrinciplesContext(".agentsmith/coding-principles.md", repo, pipeline);
 
-        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+        var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<string>(ContextKeys.DomainRules).Should().Be("# Sub Rules");
-
-        Directory.Delete(tempDir, true);
     }
 
     [Fact]
     public async Task ExecuteAsync_ContentAccessibleViaCodingPrinciplesAlias()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempDir);
         var relativePath = ".agentsmith/coding-principles.md";
-        var fullPath = Path.Combine(tempDir, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllTextAsync(fullPath, "# Rules");
+        var fullPath = "/work/.agentsmith/coding-principles.md";
 
-        var repo = new Repository(tempDir, new BranchName("main"), "https://example.com");
-        var pipeline = new PipelineContext();
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        reader.Setup(r => r.ReadRequiredAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync("# Rules");
+
+        var handler = MakeHandler(reader.Object);
+        var repo = new Repository(new BranchName("main"), "https://example.com");
+        var pipeline = MakePipeline();
         var context = new LoadCodingPrinciplesContext(relativePath, repo, pipeline);
 
-        await _handler.ExecuteAsync(context, CancellationToken.None);
+        await handler.ExecuteAsync(context, CancellationToken.None);
 
         // CodingPrinciples is an alias for DomainRules — both resolve to same key
         pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Rules");
+    }
 
-        Directory.Delete(tempDir, true);
+    private static LoadCodingPrinciplesHandler MakeHandler(ISandboxFileReader reader)
+    {
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
+        return new LoadCodingPrinciplesHandler(
+            new ProjectMetaResolver(),
+            factory.Object,
+            NullLogger<LoadCodingPrinciplesHandler>.Instance);
+    }
+
+    private static PipelineContext MakePipeline()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        return pipeline;
     }
 }

@@ -40,7 +40,7 @@ public sealed class DeliverOutputHandlerTests : IDisposable
 
         var workspace = Path.Combine(_baseDir, "workspace");
         Directory.CreateDirectory(workspace);
-        var repo = new Repository(workspace, new BranchName("legal-analysis"), string.Empty);
+        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
 
         var changes = new List<CodeChange>
         {
@@ -74,7 +74,7 @@ public sealed class DeliverOutputHandlerTests : IDisposable
     {
         var workspace = Path.Combine(_baseDir, "workspace");
         Directory.CreateDirectory(workspace);
-        var repo = new Repository(workspace, new BranchName("legal-analysis"), string.Empty);
+        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SourceFilePath, "/some/path.pdf");

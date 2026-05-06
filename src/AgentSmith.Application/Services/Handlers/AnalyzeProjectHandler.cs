@@ -19,6 +19,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class AnalyzeProjectHandler(
     IProjectAnalyzer analyzer,
     IProjectMetaResolver metaResolver,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<AnalyzeProjectHandler> logger) : ICommandHandler<AnalyzeCodeContext>
 {
     private const string MapFileName = "project-map.json";
@@ -27,19 +28,20 @@ public sealed class AnalyzeProjectHandler(
     public async Task<CommandResult> ExecuteAsync(
         AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
         var repoPath = context.Repository.LocalPath;
-        var metaDir = metaResolver.Resolve(repoPath) ?? Path.Combine(repoPath, ".agentsmith");
-        Directory.CreateDirectory(metaDir);
+        var metaDir = await metaResolver.ResolveAsync(reader, repoPath, cancellationToken)
+            ?? Path.Combine(repoPath, ".agentsmith");
 
-        var cacheKey = ProjectMapCacheKey.Compute(repoPath);
-        var map = TryLoadCached(metaDir, cacheKey);
+        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, repoPath, cancellationToken);
+        var map = await TryLoadCachedAsync(reader, metaDir, cacheKey, cancellationToken);
         if (map is null)
         {
             logger.LogInformation("ProjectMap cache miss — running analyzer for {Path}", repoPath);
             var agent = context.Pipeline.Resolved().Agent;
-            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
             map = await analyzer.AnalyzeAsync(repoPath, agent, sandbox, cancellationToken);
-            PersistCache(metaDir, map, cacheKey);
+            await PersistCacheAsync(reader, metaDir, map, cacheKey, cancellationToken);
             logger.LogInformation(
                 "ProjectMap analyzed: {Lang}, {Modules} module(s), {Tests} test project(s)",
                 map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
@@ -67,18 +69,19 @@ public sealed class AnalyzeProjectHandler(
             string.Join('\n', map.TestProjects.Select(t =>
                 $"  - path: {t.Path}\n    framework: {t.Framework}\n    file_count: {t.FileCount}")));
 
-    private static ProjectMap? TryLoadCached(string metaDir, string cacheKey)
+    private static async Task<ProjectMap?> TryLoadCachedAsync(
+        ISandboxFileReader reader, string metaDir, string cacheKey, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(cacheKey)) return null;
 
-        var keyPath = Path.Combine(metaDir, CacheKeyFileName);
-        var mapPath = Path.Combine(metaDir, MapFileName);
-        if (!File.Exists(keyPath) || !File.Exists(mapPath)) return null;
-        if (File.ReadAllText(keyPath).Trim() != cacheKey) return null;
+        var keyContent = await reader.TryReadAsync(Path.Combine(metaDir, CacheKeyFileName), cancellationToken);
+        if (keyContent is null || keyContent.Trim() != cacheKey) return null;
+
+        var json = await reader.TryReadAsync(Path.Combine(metaDir, MapFileName), cancellationToken);
+        if (json is null) return null;
 
         try
         {
-            var json = File.ReadAllText(mapPath);
             return JsonSerializer.Deserialize<ProjectMap>(json, JsonOptions);
         }
         catch
@@ -87,13 +90,13 @@ public sealed class AnalyzeProjectHandler(
         }
     }
 
-    private static void PersistCache(string metaDir, ProjectMap map, string cacheKey)
+    private static async Task PersistCacheAsync(
+        ISandboxFileReader reader, string metaDir, ProjectMap map, string cacheKey, CancellationToken cancellationToken)
     {
-        var mapPath = Path.Combine(metaDir, MapFileName);
-        var keyPath = Path.Combine(metaDir, CacheKeyFileName);
-        File.WriteAllText(mapPath, JsonSerializer.Serialize(map, JsonOptions));
+        await reader.WriteAsync(
+            Path.Combine(metaDir, MapFileName), JsonSerializer.Serialize(map, JsonOptions), cancellationToken);
         if (!string.IsNullOrEmpty(cacheKey))
-            File.WriteAllText(keyPath, cacheKey);
+            await reader.WriteAsync(Path.Combine(metaDir, CacheKeyFileName), cacheKey, cancellationToken);
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

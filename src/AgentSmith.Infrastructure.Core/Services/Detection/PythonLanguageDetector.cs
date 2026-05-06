@@ -1,28 +1,34 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Core.Services.Detection;
 
 public sealed class PythonLanguageDetector : ILanguageDetector
 {
-    public LanguageDetectionResult? Detect(string repoPath)
+    public async Task<LanguageDetectionResult?> DetectAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
         var pyprojectPath = Path.Combine(repoPath, "pyproject.toml");
         var setupPyPath = Path.Combine(repoPath, "setup.py");
         var requirementsPath = Path.Combine(repoPath, "requirements.txt");
         var pipfilePath = Path.Combine(repoPath, "Pipfile");
 
-        if (!File.Exists(pyprojectPath) && !File.Exists(setupPyPath)
-            && !File.Exists(requirementsPath) && !File.Exists(pipfilePath))
+        var hasPyproject = await reader.ExistsAsync(pyprojectPath, cancellationToken);
+        var hasSetupPy = await reader.ExistsAsync(setupPyPath, cancellationToken);
+        var hasRequirements = await reader.ExistsAsync(requirementsPath, cancellationToken);
+        var hasPipfile = await reader.ExistsAsync(pipfilePath, cancellationToken);
+
+        if (!hasPyproject && !hasSetupPy && !hasRequirements && !hasPipfile)
             return null;
 
         var keyFiles = new List<string>();
         string? testCmd = null;
         string? packageManager = null;
 
-        if (File.Exists(pyprojectPath))
+        if (hasPyproject)
         {
             keyFiles.Add("pyproject.toml");
-            var content = TryReadFile(pyprojectPath) ?? "";
+            var content = await reader.TryReadAsync(pyprojectPath, cancellationToken) ?? string.Empty;
 
             if (content.Contains("[tool.pytest]") || content.Contains("[tool.pytest.ini_options]"))
                 testCmd = "pytest";
@@ -32,12 +38,12 @@ public sealed class PythonLanguageDetector : ILanguageDetector
                 packageManager = "hatch";
         }
 
-        if (File.Exists(setupPyPath)) keyFiles.Add("setup.py");
-        if (File.Exists(requirementsPath)) keyFiles.Add("requirements.txt");
-        if (File.Exists(pipfilePath)) keyFiles.Add("Pipfile");
+        if (hasSetupPy) keyFiles.Add("setup.py");
+        if (hasRequirements) keyFiles.Add("requirements.txt");
+        if (hasPipfile) keyFiles.Add("Pipfile");
 
-        packageManager ??= DetectPackageManager(repoPath);
-        testCmd ??= DetectTestCommand(repoPath);
+        packageManager ??= await DetectPackageManagerAsync(reader, repoPath, cancellationToken);
+        testCmd ??= await DetectTestCommandAsync(reader, repoPath, cancellationToken);
 
         return new LanguageDetectionResult(
             Language: "Python",
@@ -50,34 +56,23 @@ public sealed class PythonLanguageDetector : ILanguageDetector
             Sdks: []);
     }
 
-    private static string? TryReadFile(string path)
+    private static async Task<string> DetectPackageManagerAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        try { return File.ReadAllText(path); }
-        catch (IOException) { return null; }
-    }
-
-    private static string DetectPackageManager(string repoPath)
-    {
-        if (File.Exists(Path.Combine(repoPath, "uv.lock"))) return "uv";
-        if (File.Exists(Path.Combine(repoPath, "Pipfile"))) return "pipenv";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "uv.lock"), cancellationToken)) return "uv";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "Pipfile"), cancellationToken)) return "pipenv";
         return "pip";
     }
 
-    private static string DetectTestCommand(string repoPath)
+    private static async Task<string> DetectTestCommandAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        if (File.Exists(Path.Combine(repoPath, "tox.ini")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "tox.ini"), cancellationToken))
             return "tox";
 
-        var makefile = Path.Combine(repoPath, "Makefile");
-        if (File.Exists(makefile))
-        {
-            try
-            {
-                var content = File.ReadAllText(makefile);
-                if (content.Contains("test:")) return "make test";
-            }
-            catch (IOException) { }
-        }
+        var makefile = await reader.TryReadAsync(Path.Combine(repoPath, "Makefile"), cancellationToken);
+        if (makefile is not null && makefile.Contains("test:"))
+            return "make test";
 
         return "pytest";
     }

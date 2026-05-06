@@ -3,17 +3,20 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Domain.Entities;
 
 /// <summary>
-/// Represents a checked-out git repository.
+/// Represents a repository checked out into the pipeline sandbox. LocalPath is
+/// fixed to the sandbox working directory ('/work'); all server-side filesystem
+/// concerns route through ISandbox / SandboxFileReader.
 /// </summary>
 public sealed class Repository
 {
-    public string LocalPath { get; }
+    public const string SandboxWorkPath = "/work";
+
+    public string LocalPath => SandboxWorkPath;
     public BranchName CurrentBranch { get; }
     public string RemoteUrl { get; }
 
-    public Repository(string localPath, BranchName currentBranch, string remoteUrl)
+    public Repository(BranchName currentBranch, string remoteUrl)
     {
-        LocalPath = localPath;
         CurrentBranch = currentBranch;
         RemoteUrl = remoteUrl;
     }

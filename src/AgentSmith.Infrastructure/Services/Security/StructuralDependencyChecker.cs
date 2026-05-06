@@ -1,23 +1,26 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Performs structural checks on package.json (missing lockfile,
-/// wildcard versions, insecure sources).
+/// wildcard versions, insecure sources). Reads via ISandboxFileReader.
 /// </summary>
 internal sealed class StructuralDependencyChecker(ILogger logger)
 {
-    internal List<DependencyFinding> Check(string repoPath, string packageJsonPath)
+    internal async Task<List<DependencyFinding>> CheckAsync(
+        ISandboxFileReader reader, string repoPath, string packageJsonPath, CancellationToken cancellationToken)
     {
         var findings = new List<DependencyFinding>();
 
         try
         {
-            var content = File.ReadAllText(packageJsonPath);
+            var content = await reader.TryReadAsync(packageJsonPath, cancellationToken);
+            if (content is null) return findings;
 
-            CheckMissingLockfile(repoPath, findings);
+            await CheckMissingLockfileAsync(reader, repoPath, findings, cancellationToken);
             CheckWildcardVersions(content, findings);
             CheckInsecureSources(content, findings);
         }
@@ -29,11 +32,12 @@ internal sealed class StructuralDependencyChecker(ILogger logger)
         return findings;
     }
 
-    private static void CheckMissingLockfile(string repoPath, List<DependencyFinding> findings)
+    private static async Task CheckMissingLockfileAsync(
+        ISandboxFileReader reader, string repoPath, List<DependencyFinding> findings, CancellationToken cancellationToken)
     {
-        if (File.Exists(Path.Combine(repoPath, "package-lock.json"))
-            || File.Exists(Path.Combine(repoPath, "yarn.lock"))
-            || File.Exists(Path.Combine(repoPath, "pnpm-lock.yaml")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "package-lock.json"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "yarn.lock"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "pnpm-lock.yaml"), cancellationToken))
             return;
 
         findings.Add(new DependencyFinding(

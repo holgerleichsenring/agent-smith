@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Generates a .context.yaml (CCS format) for a repository using one cheap LLM call.
+/// Reads key-files via ISandboxFileReader so generation runs against the sandbox tree.
 /// </summary>
 public sealed class ContextGenerator(
     ContextUserPromptBuilder userPromptBuilder,
@@ -19,13 +21,17 @@ public sealed class ContextGenerator(
     private const int MaxFileContentChars = 4000;
 
     public async Task<string> GenerateAsync(
-        DetectedProject project, string repoPath, RepoSnapshot snapshot,
-        AgentConfig agent, CancellationToken cancellationToken)
+        ISandboxFileReader reader,
+        DetectedProject project,
+        string repoPath,
+        RepoSnapshot snapshot,
+        AgentConfig agent,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Generating .context.yaml for {Lang} project at {Path}...",
             project.Language, repoPath);
 
-        var keyFileContents = ReadKeyFiles(project.KeyFiles, repoPath);
+        var keyFileContents = await ReadKeyFilesAsync(reader, project.KeyFiles, repoPath, cancellationToken);
         var userPrompt = userPromptBuilder.Build(project, keyFileContents, snapshot);
         var systemPrompt = prompts.Get("context-generator-system");
 
@@ -36,7 +42,7 @@ public sealed class ContextGenerator(
     }
 
     public async Task<string> RetryWithErrorsAsync(
-        DetectedProject project, string repoPath, string previousYaml,
+        DetectedProject project, string previousYaml,
         IReadOnlyList<string> validationErrors, AgentConfig agent,
         CancellationToken cancellationToken)
     {
@@ -79,21 +85,17 @@ public sealed class ContextGenerator(
         return response.Text ?? string.Empty;
     }
 
-    internal static string ReadKeyFiles(IReadOnlyList<string> keyFiles, string repoPath)
+    internal static async Task<string> ReadKeyFilesAsync(
+        ISandboxFileReader reader, IReadOnlyList<string> keyFiles, string repoPath, CancellationToken cancellationToken)
     {
         var sections = new List<string>();
         foreach (var relativePath in keyFiles)
         {
-            var fullPath = Path.Combine(repoPath, relativePath);
-            if (!File.Exists(fullPath)) continue;
-            try
-            {
-                var content = File.ReadAllText(fullPath);
-                if (content.Length > MaxFileContentChars)
-                    content = content[..MaxFileContentChars] + "\n... (truncated)";
-                sections.Add($"### {relativePath}\n```\n{content}\n```");
-            }
-            catch (IOException) { }
+            var content = await reader.TryReadAsync(Path.Combine(repoPath, relativePath), cancellationToken);
+            if (content is null) continue;
+            if (content.Length > MaxFileContentChars)
+                content = content[..MaxFileContentChars] + "\n... (truncated)";
+            sections.Add($"### {relativePath}\n```\n{content}\n```");
         }
         return string.Join("\n\n", sections);
     }
