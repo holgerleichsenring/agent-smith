@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -14,6 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class GateRetryCoordinator(
     IGateOutputHandler gateOutputHandler,
+    IChatClientFactory chatClientFactory,
     ILogger<GateRetryCoordinator> logger) : IGateRetryCoordinator
 {
     private const int FailedResponseQuoteLimit = 2000;
@@ -24,27 +26,26 @@ public sealed class GateRetryCoordinator(
         string systemPrompt,
         string userPromptPrefix,
         string userPromptSuffix,
-        ILlmClient llmClient,
         PipelineContext pipeline,
         CancellationToken cancellationToken)
     {
-        var first = await CallAsync(llmClient, systemPrompt, userPromptPrefix, userPromptSuffix, pipeline, cancellationToken);
-        var firstResult = gateOutputHandler.Handle(role, orchestration, first.Text, pipeline);
+        var firstText = await CallAsync(systemPrompt, userPromptPrefix, userPromptSuffix, pipeline, cancellationToken);
+        var firstResult = gateOutputHandler.Handle(role, orchestration, firstText, pipeline);
         if (firstResult.IsSuccess)
-            return new GateCallOutcome(firstResult, first.Text);
+            return new GateCallOutcome(firstResult, firstText);
 
         logger.LogWarning(
             "Gate {Name} failed on first attempt: {Message}. Retrying once with corrective prompt.",
             role.DisplayName, firstResult.Message);
 
-        var correctiveSuffix = BuildCorrectiveSuffix(userPromptSuffix, first.Text, firstResult.Message);
-        var retry = await CallAsync(llmClient, systemPrompt, userPromptPrefix, correctiveSuffix, pipeline, cancellationToken);
-        var retryResult = gateOutputHandler.Handle(role, orchestration, retry.Text, pipeline);
+        var correctiveSuffix = BuildCorrectiveSuffix(userPromptSuffix, firstText, firstResult.Message);
+        var retryText = await CallAsync(systemPrompt, userPromptPrefix, correctiveSuffix, pipeline, cancellationToken);
+        var retryResult = gateOutputHandler.Handle(role, orchestration, retryText, pipeline);
 
         if (retryResult.IsSuccess)
         {
             logger.LogInformation("Gate {Name} succeeded on retry", role.DisplayName);
-            return new GateCallOutcome(retryResult, retry.Text);
+            return new GateCallOutcome(retryResult, retryText);
         }
 
         logger.LogError(
@@ -52,19 +53,28 @@ public sealed class GateRetryCoordinator(
             role.DisplayName, retryResult.Message);
         return new GateCallOutcome(
             CommandResult.Fail($"Gate {role.DisplayName} failed after one retry: {retryResult.Message}"),
-            retry.Text);
+            retryText);
     }
 
-    private static async Task<LlmResponse> CallAsync(
-        ILlmClient llmClient, string systemPrompt,
-        string userPromptPrefix, string userPromptSuffix,
+    private async Task<string> CallAsync(
+        string systemPrompt, string userPromptPrefix, string userPromptSuffix,
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var response = await llmClient.CompleteWithCachedPrefixAsync(
-            systemPrompt, userPromptPrefix, userPromptSuffix,
-            TaskType.Planning, cancellationToken);
+        var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
+        var chat = chatClientFactory.Create(agent, TaskType.Primary);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
+        var combinedUser = string.IsNullOrEmpty(userPromptSuffix)
+            ? userPromptPrefix
+            : $"{userPromptPrefix}\n\n{userPromptSuffix}";
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, combinedUser),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
-        return response;
+        return response.Text ?? string.Empty;
     }
 
     private static string BuildCorrectiveSuffix(

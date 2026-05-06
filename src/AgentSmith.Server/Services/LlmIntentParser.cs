@@ -1,18 +1,21 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services;
 
 /// <summary>
-/// Uses an LLM (via ILlmClient with Scout task type) to classify free-form user input
-/// into a typed intent. Only called when the regex stage fails to match.
+/// Uses an LLM (via IChatClientFactory with the Reasoning task type) to classify
+/// free-form user input into a typed intent. Only called when the regex stage fails to match.
 /// </summary>
 public sealed class LlmIntentParser(
-    ILlmClient llmClient,
+    IChatClientFactory chatClientFactory,
+    AgentConfig agent,
     ILogger<LlmIntentParser> logger) : ILlmIntentParser
 {
     private const string SystemPrompt = """
@@ -41,9 +44,16 @@ public sealed class LlmIntentParser(
     {
         try
         {
-            var llmResponse = await llmClient.CompleteAsync(
-                SystemPrompt, text, TaskType.Scout, cancellationToken);
-            return ParseJsonResponse(llmResponse.Text, text, userId, channelId, platform);
+            var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
+            var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Reasoning);
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, SystemPrompt),
+                new(ChatRole.User, text),
+            };
+            var response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            return ParseJsonResponse(response.Text ?? string.Empty, text, userId, channelId, platform);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Contracts.Services;
 
@@ -12,6 +13,6 @@ public interface ICodingPrinciplesGenerator
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        ILlmClient llmClient,
+        AgentConfig agent,
         CancellationToken cancellationToken);
 }

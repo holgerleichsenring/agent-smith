@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -36,7 +37,8 @@ public sealed class AnalyzeProjectHandler(
         {
             logger.LogInformation("ProjectMap cache miss — running analyzer for {Path}", repoPath);
             var agent = context.Pipeline.Resolved().Agent;
-            map = await analyzer.AnalyzeAsync(repoPath, agent, cancellationToken);
+            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+            map = await analyzer.AnalyzeAsync(repoPath, agent, sandbox, cancellationToken);
             PersistCache(metaDir, map, cacheKey);
             logger.LogInformation(
                 "ProjectMap analyzed: {Lang}, {Modules} module(s), {Tests} test project(s)",

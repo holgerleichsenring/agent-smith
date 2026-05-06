@@ -1,9 +1,11 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// Generates a .context.yaml (CCS format) for a repository using one cheap LLM call.
+/// Implementations resolve IChatClient via IChatClientFactory using the supplied AgentConfig.
 /// </summary>
 public interface IContextGenerator
 {
@@ -11,7 +13,7 @@ public interface IContextGenerator
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        ILlmClient llmClient,
+        AgentConfig agent,
         CancellationToken cancellationToken);
 
     Task<string> RetryWithErrorsAsync(
@@ -19,6 +21,6 @@ public interface IContextGenerator
         string repoPath,
         string previousYaml,
         IReadOnlyList<string> validationErrors,
-        ILlmClient llmClient,
+        AgentConfig agent,
         CancellationToken cancellationToken);
 }

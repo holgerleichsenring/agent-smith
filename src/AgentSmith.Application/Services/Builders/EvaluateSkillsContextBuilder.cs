@@ -27,6 +27,7 @@ public sealed class EvaluateSkillsContextBuilder : IContextBuilder
             }
         }
 
-        return new EvaluateSkillsContext(candidates, installedNames.AsReadOnly(), pipeline);
+        return new EvaluateSkillsContext(
+            candidates, installedNames.AsReadOnly(), project.Agent, pipeline);
     }
 }

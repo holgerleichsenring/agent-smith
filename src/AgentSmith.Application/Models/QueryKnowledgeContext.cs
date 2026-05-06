@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Models;
 
@@ -8,4 +9,5 @@ namespace AgentSmith.Application.Models;
 public sealed record QueryKnowledgeContext(
     string Question,
     string WikiPath,
+    AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;

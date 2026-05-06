@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Models;
 
@@ -9,4 +10,5 @@ namespace AgentSmith.Application.Models;
 public sealed record EvaluateSkillsContext(
     IReadOnlyList<SkillCandidate> Candidates,
     IReadOnlyList<string> InstalledSkillNames,
+    AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;

@@ -11,7 +11,7 @@ public class CostTrackerTests
 {
     private static PricingConfig CreateTestPricing() => new()
     {
-        Models = new Dictionary<string, ModelPricing>
+        Models = new Dictionary<string, AgentSmith.Contracts.Models.Configuration.ModelPricing>
         {
             ["claude-sonnet"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
             ["claude-haiku"] = new() { InputPerMillion = 0.80m, OutputPerMillion = 4.0m, CacheReadPerMillion = 0.08m },
@@ -171,7 +171,7 @@ public class CostTrackerTests
     {
         var pricing = new PricingConfig
         {
-            Models = new Dictionary<string, ModelPricing>
+            Models = new Dictionary<string, AgentSmith.Contracts.Models.Configuration.ModelPricing>
             {
                 ["llama3"] = new() { InputPerMillion = 0m, OutputPerMillion = 0m }
             }

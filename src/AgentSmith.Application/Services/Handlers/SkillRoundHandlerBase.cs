@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -20,8 +21,11 @@ public abstract class SkillRoundHandlerBase(
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
-    StructuredOutputInstructionBuilder instructionBuilder)
+    StructuredOutputInstructionBuilder instructionBuilder,
+    IChatClientFactory chatClientFactory)
 {
+    protected IChatClientFactory ChatClientFactory { get; } = chatClientFactory;
+
     private static readonly Regex ObjectionPattern = new(
         @"OBJECTION\s*\[?\s*(\S+)\s*\]?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -43,7 +47,7 @@ public abstract class SkillRoundHandlerBase(
 
     protected async Task<CommandResult> ExecuteRoundAsync(
         string skillName, int round, PipelineContext pipeline,
-        ILlmClient llmClient, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var roles) || roles is null)
@@ -57,16 +61,16 @@ public abstract class SkillRoundHandlerBase(
 
         if (IsStructuredRound(role, pipeline))
             return await ExecuteStructuredRoundAsync(
-                skillName, role, pipeline, llmClient, cancellationToken);
+                skillName, role, pipeline, cancellationToken);
 
         return await ExecuteDiscussionRoundAsync(
-            skillName, role, roles, round, pipeline, llmClient, cancellationToken);
+            skillName, role, roles, round, pipeline, cancellationToken);
     }
 
     private async Task<CommandResult> ExecuteDiscussionRoundAsync(
         string skillName, RoleSkillDefinition role,
         IReadOnlyList<RoleSkillDefinition> roles, int round,
-        PipelineContext pipeline, ILlmClient llmClient,
+        PipelineContext pipeline,
         CancellationToken cancellationToken)
     {
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
@@ -84,11 +88,21 @@ public abstract class SkillRoundHandlerBase(
             role, domainStable, domainVariable, projectContext, domainRules, codeMap,
             discussionForPrompt, round, existingTests, assignedRole, planArtifact);
 
-        var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
-            systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
+        var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
+        var chat = ChatClientFactory.Create(agent, TaskType.Primary);
+        var maxTokens = ChatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
+        var combinedUser = string.IsNullOrEmpty(userSuffix) ? userPrefix : $"{userPrefix}\n\n{userSuffix}";
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, combinedUser),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        var responseText = response.Text ?? string.Empty;
 
-        var rawParsed = ObservationParser.ParseWithoutIds(llmResponse.Text, skillName, Logger);
+        var rawParsed = ObservationParser.ParseWithoutIds(responseText, skillName, Logger);
         var parsed = ApplyConfidenceThreshold(rawParsed, skillName, Logger);
         StorePlanArtifactIfPlanLead(skillName, assignedRole, pipeline, parsed);
         var renderedText = RenderObservationsAsText(parsed);
@@ -258,7 +272,7 @@ public abstract class SkillRoundHandlerBase(
 
     private async Task<CommandResult> ExecuteStructuredRoundAsync(
         string skillName, RoleSkillDefinition role, PipelineContext pipeline,
-        ILlmClient llmClient, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var orch = role.Orchestration!;
 
@@ -278,20 +292,30 @@ public abstract class SkillRoundHandlerBase(
 
         if (orch.Role == OrchestrationRole.Gate)
             return await ExecuteGateRoundAsync(
-                skillName, role, orch, systemPrompt, userPrefix, userSuffix, pipeline, llmClient, cancellationToken);
+                skillName, role, orch, systemPrompt, userPrefix, userSuffix, pipeline, cancellationToken);
 
-        var llmResponse = await llmClient.CompleteWithCachedPrefixAsync(
-            systemPrompt, userPrefix, userSuffix, TaskType.Planning, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(llmResponse);
+        var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
+        var chat = ChatClientFactory.Create(agent, TaskType.Primary);
+        var maxTokens = ChatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
+        var combinedUser = string.IsNullOrEmpty(userSuffix) ? userPrefix : $"{userPrefix}\n\n{userSuffix}";
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, combinedUser),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        var responseText = response.Text ?? string.Empty;
 
         Logger.LogInformation("{Emoji} {DisplayName} [{Role}]: structured round complete",
             role.Emoji, role.DisplayName, orch.Role);
 
-        var buffer = new SkillRoundBuffer(skillName, 0, [], null, llmResponse.Text);
+        var buffer = new SkillRoundBuffer(skillName, 0, [], null, responseText);
         DispatchBuffer(pipeline, buffer);
 
         if (orch.Role == OrchestrationRole.Lead)
-            pipeline.Set(ContextKeys.ConsolidatedPlan, llmResponse.Text);
+            pipeline.Set(ContextKeys.ConsolidatedPlan, responseText);
 
         return CommandResult.Ok($"{role.DisplayName} [{orch.Role}]: complete");
     }
@@ -299,10 +323,10 @@ public abstract class SkillRoundHandlerBase(
     private async Task<CommandResult> ExecuteGateRoundAsync(
         string skillName, RoleSkillDefinition role, SkillOrchestration orch,
         string systemPrompt, string userPrefix, string userSuffix, PipelineContext pipeline,
-        ILlmClient llmClient, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var outcome = await gateRetryCoordinator.ExecuteAsync(
-            role, orch, systemPrompt, userPrefix, userSuffix, llmClient, pipeline, cancellationToken);
+            role, orch, systemPrompt, userPrefix, userSuffix, pipeline, cancellationToken);
 
         var buffer = new SkillRoundBuffer(skillName, 0, [], null, outcome.FinalResponseText);
         DispatchBuffer(pipeline, buffer);
