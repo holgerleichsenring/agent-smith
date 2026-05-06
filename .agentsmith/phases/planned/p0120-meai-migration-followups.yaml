@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0120
+goal: "Close out the items deferred from p0119a's Microsoft.Extensions.AI migration — rebuild the ~30 handler/factory test files that were deleted (replaced by IChatClientFactory-mock-based equivalents), switch every IChatClient call site from GetResponseAsync to GetStreamingResponseAsync with server-side aggregation, and bump the M.E.AI lockstep pin from 10.4.0 to current once tghamm/Anthropic.SDK#197 closes upstream. AAD-DEV operator smoke against all 5 providers is the closing validation gate."
+
+requires: ["p0119a"]
+
+scope:
+  in: "Replacement test files for: AgenticExecuteHandler, ProjectAnalyzer (replaces deleted ScoutAgent/AnalyzeProjectHandler tests), GeneratePlan/Tests/Docs handlers, all SkillRound* handlers, ConvergenceCheck, FilterRound, EvaluateSkills, GateRetryCoordinator, PlanConsolidator, CompileKnowledge, QueryKnowledge, BootstrapProject + BootstrapDocument, MetaFileBootstrapper, Triage (Legacy + Structured + OutputProducer), LlmIntentParser (Application + Server), ContextGenerator + CodeMapGenerator + CodingPrinciplesGenerator. Plus 2 new tests called out by p0119a's spec but never written: SandboxToolHostTests (per-tool isolation: ReadFile/WriteFile/ListFiles/Grep/RunCommand/LogDecision/AskHuman happy + error paths) and SandboxToolHostExtensionsTests (GetAllTools returns 7, GetScoutTools returns 3, AIFunction.JsonSchema reflects [Description] attributes). Streaming switch: every IChatClient.GetResponseAsync call site converts to GetStreamingResponseAsync(...).ToChatResponseAsync(ct) — ~20 sites, ~5 LoC each, no behavior change for callers. Version bump: Microsoft.Extensions.AI + .OpenAI + .Abstractions (in Contracts) all unpin from [10.4.0] to current stable; OllamaSharp bumps from 5.4.24 to current; Anthropic.SDK to current. Csproj comment about #197 deleted. AAD-DEV smoke run as the validation gate."
+  out: "Replacement integration tests for pipeline-end-to-end paths (deferred to a separate test-coverage phase; requires fake-provider fixtures). New M.E.AI features (UseDistributedCache, OpenTelemetry middleware, compaction-as-middleware) — out of scope, separate phases. Live streaming UX (token-by-token rendering in CLI Spectre Live / Slack / Redis progress) — separate UX phase. Anthropic 1.25× cache-creation pricing tier — out of scope, separate cost-model phase."
+
+decisions:
+  - key: "Test mock pattern is a single shared StubChatClient helper, not 30 ad-hoc stubs. New tests/AgentSmith.Tests/TestHelpers/StubChatClient.cs implements IChatClient over a queue of pre-built ChatResponse objects (or a delegate that materializes one given the messages). Builds ChatResponse with UsageDetails (InputTokenCount/OutputTokenCount + AdditionalCounts dict) so cost-tracker assertions work. GetStreamingResponseAsync yields a single ChatResponseUpdate carrying the response text + usage, matching what ToChatResponseAsync would aggregate from a real provider. Reasoning: 30 separate Mock<IChatClient> setups with hand-rolled IAsyncEnumerable would be a sea of boilerplate; one helper class normalizes the shape across all handler tests."
+  - key: "FactoryTests rebuild as ChatClientFactoryTests + per-builder tests, not as monolithic 'all factories' style. New tests/AgentSmith.Tests/Factories/ChatClientFactoryTests.cs covers Create(agent, task) routing-by-type, ProviderType override on per-task ModelAssignment, FunctionInvokingChatClient wrap for tool-bearing tasks, bare client for non-tool tasks, MaxOutputTokens + GetModel pass-through. Per-builder tests (ClaudeChatClientBuilderTests, OpenAi/Azure, Gemini, Ollama) cover the ApiKey resolution chain (ApiKeySecret env var → fallback env var) and Azure's deployment-name routing vs OpenAI's model-name routing."
+  - key: "Streaming switch is mechanical: GetResponseAsync(messages, options, ct) → GetStreamingResponseAsync(messages, options, ct).ToChatResponseAsync(ct). Both return ChatResponse with the same Usage shape; downstream PipelineCostTracker.Track(response) call is unchanged. Per-call-site change is +1 line (await chained on .ToChatResponseAsync) — not 5. The 5-LoC estimate from p0119a's spec assumed manual aggregation; M.E.AI's ChatResponseUpdateExtensions.ToChatResponseAsync handles it. Compaction-pre-step paths and FunctionInvokingChatClient-wrapped paths both work — the wrapper streams internally regardless of which method the outer caller invoked."
+  - key: "Version bump gated on tghamm/Anthropic.SDK#197 closing upstream. Buddy checks the GitHub issue at phase-start. If #197 is still open, this phase ships without the version bump and re-opens once tghamm cuts a fix. The other deliverables (test rebuild + streaming switch) are independent of the pin and ship regardless."
+  - key: "AAD-DEV smoke validation script in scripts/smoke-meai.sh: runs fix-bug ticket #1001 with type=azure-openai, type=claude, type=openai, type=gemini, type=ollama+mistral. Asserts run completes, PR/MR created, result.md frontmatter has realistic token counts + cache_hit_rate field. Manual operator step — script outputs a checklist, doesn't auto-validate. Failure paths: ollama with model lacking tool support (e.g. llama3:8b) — expects NotSupportedException at startup."
+  - key: "Replacement handler tests focus on the migration-affected logic, not full re-test of pre-existing behavior. Each handler test asserts: (1) IChatClientFactory.Create called with correct (agent, taskType); (2) ChatOptions.MaxOutputTokens matches GetMaxOutputTokens; (3) for tool handlers, ChatOptions.Tools.Count matches expected (7 for AgenticExecute / GenerateTests / GenerateDocs, 3 for ProjectAnalyzer); (4) PipelineCostTracker.Track invoked once per response; (5) handler's domain side-effects (set pipeline keys, return CommandResult.Ok with right message). Pre-existing behavior assertions (DiscussionLog parsing, ConvergenceResult mapping, PlanArtifact storage, etc.) carry over from the deleted tests where appropriate but the suite is not a full restoration of every old test case."
+
+steps:
+  - id: stub-chat-client
+    action: "Shared StubChatClient test helper for IChatClientFactory mocks"
+    new:
+      - "tests/AgentSmith.Tests/TestHelpers/StubChatClient.cs: implements IChatClient over a queue<ChatResponse> or Func<List<ChatMessage>, ChatOptions?, ChatResponse>. GetResponseAsync returns the next response. GetStreamingResponseAsync yields a single ChatResponseUpdate carrying Text + Usage. Throws on overrun (lets tests catch missing setups loudly)."
+      - "tests/AgentSmith.Tests/TestHelpers/ChatResponseFactory.cs: static helpers MakeResponse(text, input, output, cached?) + MakeAnthropicResponse (cache_read_input_tokens key) + MakeOpenAiResponse (cached_tokens key). Builds ChatResponse + UsageDetails with the right AdditionalCounts dict per provider."
+      - "tests/AgentSmith.Tests/TestHelpers/StubChatClientFactory.cs: implements IChatClientFactory wrapping the StubChatClient. Create(agent, task) returns the stub; GetMaxOutputTokens / GetModel return configured defaults. Records every Create call for assertion."
+
+  - id: chat-client-factory-tests
+    action: "Rebuild ChatClientFactory + per-builder tests"
+    new:
+      - "tests/AgentSmith.Tests/Factories/ChatClientFactoryTests.cs: Create_ResolvesByAgentType (claude → ClaudeBuilder, openai → OpenAi, azure-openai → OpenAi via type-switch, gemini → Gemini, ollama → Ollama), Create_PerTaskProviderOverride (assignment.ProviderType wins over agent.Type), Create_ToolBearingTask_WrapsWithFunctionInvocation (Primary/Scout/Planning), Create_NonToolTask_ReturnsBareClient (ContextGeneration/CodeMapGeneration/Summary), Create_UnknownType_ThrowsInvalidOperation, GetMaxOutputTokens_ReadsFromAssignment, GetModel_ReadsFromAssignment, BuildFallback_WhenAgentModelsNull_ProducesPrimaryFromAgentModel."
+      - "tests/AgentSmith.Tests/Factories/ChatClientBuilders/ClaudeChatClientBuilderTests.cs: Build_WithApiKeyEnvVar_ReturnsAnthropicMessages, Build_WithApiKeySecretConfig_ReadsEnvVar, Build_NoApiKey_ThrowsInvalidOperation, SupportedTypes_ContainsClaudeAndAnthropic."
+      - "tests/AgentSmith.Tests/Factories/ChatClientBuilders/OpenAiChatClientBuilderTests.cs: Build_OpenAi_UsesModelName, Build_AzureOpenAi_UsesDeploymentName, Build_AzureOpenAi_RequiresEndpoint, Build_AzureOpenAi_DeploymentFromAssignment_OverridesAgentDeployment, Build_NoApiKey_ThrowsWithCorrectFallbackEnvVar."
+      - "tests/AgentSmith.Tests/Factories/ChatClientBuilders/GeminiChatClientBuilderTests.cs: Build_WithGeminiApiKey, Build_FallsBackToGoogleApiKey, Build_NoApiKey_Throws."
+      - "tests/AgentSmith.Tests/Factories/ChatClientBuilders/OllamaChatClientBuilderTests.cs: Build_DefaultEndpoint_UsesLocalhost11434, Build_CustomEndpoint_UsesAgentEndpoint, Build_PassesModelToOllamaApiClient."
+
+  - id: sandbox-tool-host-tests
+    action: "Per-tool isolation tests for SandboxToolHost + extensions"
+    new:
+      - "tests/AgentSmith.Tests/Tools/SandboxToolHostTests.cs: ReadFile_HappyPath_ReturnsContent (mock ISandbox.RunStepAsync returns StepResult{ExitCode=0, OutputContent='hello'}); ReadFile_FileMissing_ReturnsErrorMessage; WriteFile_AddsToChanges; WriteFile_FailedStep_DoesNotAddChange; ListFiles_WithMaxDepth_PassesParam; Grep_WithGlob_PassesAllFields; RunCommand_CapturesStdoutFromStepEvents; LogDecision_InvalidCategory_ReturnsError; LogDecision_ValidCategory_LogsViaInjectedLogger + AddsToDecisions; AskHuman_NoTransport_ReturnsError; AskHuman_WithTransport_PublishesAndAwaits."
+      - "tests/AgentSmith.Tests/Tools/SandboxToolHostExtensionsTests.cs: GetAllTools_Returns7Functions; GetAllTools_FunctionNamesMatchMethodNames (read_file/write_file/list_files/grep/run_command/log_decision/ask_human); GetScoutTools_Returns3Functions; ReadFile_AIFunctionMetadata_ContainsDescription (asserts the [Description] attribute surfaces in JsonSchema)."
+
+  - id: handler-tests-rebuild
+    action: "Rebuild ~25 handler tests using StubChatClient"
+    new:
+      - "tests/AgentSmith.Tests/Commands/AgenticExecuteHandlerTests.cs: ExecuteAsync_WithSandbox_ResolvesPrimaryTaskType + ChatOptions.Tools.Count==7; ExecuteAsync_TracksCostOncePerResponse; ExecuteAsync_StoresChangesInPipeline; ExecuteAsync_StoresDecisionsInPipeline; ExecuteAsync_WritesRunDuration. (Uses SandboxToolHost change/decision capture under the hood.)"
+      - "tests/AgentSmith.Tests/Commands/GeneratePlanHandlerTests.cs: ExecuteAsync_HappyPath_PlanStoredInPipeline; ExecuteAsync_DiscussionPipeline_Skipped; ExecuteAsync_StructuredPipeline_Skipped; ExecuteAsync_WithConvergenceResult_MergesIntoProjectContext; ExecuteAsync_WithConsolidatedPlan_AppendsAsContext; ExecuteAsync_DecisionsLogged."
+      - "tests/AgentSmith.Tests/Commands/GenerateTestsHandlerTests.cs: ExecuteAsync_NoChanges_ReturnsOk; ExecuteAsync_WithChanges_ResolvesPrimaryTaskType + 7 tools; ExecuteAsync_MergesNewChangesIntoPipeline."
+      - "tests/AgentSmith.Tests/Commands/GenerateDocsHandlerTests.cs: same shape as GenerateTests."
+      - "tests/AgentSmith.Tests/Commands/SkillRoundHandlerTests.cs: ExecuteAsync_StoresAgentConfigInPipeline; ExecuteAsync_DiscussionRound_ParsesObservations; ExecuteAsync_StructuredRound_DispatchesGate (delegates to GateRetryCoordinator); ExecuteAsync_BlockingObservation_TriggersFollowUp; ExecuteAsync_OBJECTION_TriggersObjector."
+      - "tests/AgentSmith.Tests/Commands/ApiSkillRoundHandlerPrefixTests.cs: BuildDomainSectionParts_Stable+PerSkillSplit; passive vs active mode reflected in PerSkill section."
+      - "tests/AgentSmith.Tests/Commands/SecuritySkillRoundHandlerTests.cs: ChainAnalyst_GetsCommodityFindings; OtherRoles_GetCategorySliceOnly."
+      - "tests/AgentSmith.Tests/Commands/ConvergenceCheckHandlerTests.cs: StructuredPipeline_NoOp; AlreadyConverged_NoOp; StructuredObservations_ParsesConvergenceResult_StoresInPipeline; LegacyDiscussionLog_ChecksObjections; NoConsensusBeforeMaxRounds_InsertsAdditionalRounds; NoConsensusAfterMaxRounds_EscalatesAndConsolidates."
+      - "tests/AgentSmith.Tests/Handlers/FilterRoundHandlerTests.cs: ListMode_ReducesObservations; ArtifactMode_StoresInSkillOutputs; UnknownSkill_ReturnsFail."
+      - "tests/AgentSmith.Tests/Services/EvaluateSkillsHandlerTests.cs: NoCandidates_StoresEmptyList; PassesThresholdsFilter (FitScore≥5, SafetyScore≥7); ParseEvaluation_AllFieldsRead."
+      - "tests/AgentSmith.Tests/Services/GateRetryCoordinatorTests.cs: FirstAttemptSucceeds_NoRetry; FirstAttemptFails+RetrySucceeds_OkWithRetryText; BothAttemptsFail_FailWithRetryMessage."
+      - "tests/AgentSmith.Tests/Services/PlanConsolidatorTests.cs: ConsolidatesDiscussionLog_StoresArtifactInPipeline; EscalatedFlag_IncludesEscalationNote; FindingAssessmentsParsed_StoredInPipeline."
+      - "tests/AgentSmith.Tests/Services/CompileKnowledgeHandlerTests.cs: NoRunsDir_NoOp; UpToDate_NoOp; NewRuns_CompilesAndWritesWiki + WritesLastCompiled."
+      - "tests/AgentSmith.Tests/Services/QueryKnowledgeHandlerTests.cs: NoWiki_StoresFallbackAnswer; HappyPath_StoresFormattedAnswer + IncludesSourcePath."
+      - "tests/AgentSmith.Tests/Services/BootstrapProjectHandlerTests.cs: ExistingContextYaml_SkipsGeneration_StillRunsMetaFiles; NoContextYaml_GeneratesAndPersists; GenerationValidationFails_RetriesOnce."
+      - "tests/AgentSmith.Tests/Services/BootstrapDocumentHandlerTests.cs: NoSourceDoc_Fail; HappyPath_ConvertsAndDetectsType; ContractTypeUnknown_DefaultsToUnknown."
+      - "tests/AgentSmith.Tests/Triage/LegacyTriageStrategyTests.cs: NoRoles_SkipsTriage; SinglePartButicipant_NoDiscussion; MultipleParticipants_BuildsCommandSequence; AlwaysIncludeRole_AddedAutomatically."
+      - "tests/AgentSmith.Tests/Triage/StructuredTriageStrategyTests.cs: NoSkillsLoaded_Fails; HappyPath_StoresTriageOutputAndPhase + EmitsPlanCommands; EmptyPlanPhase_NoOp."
+      - "tests/AgentSmith.Tests/Triage/TriageOutputProducerTests.cs: HappyPath_ParsesAndValidates; FirstAttemptInvalid_RetriesWithStricterReminder; BothAttemptsInvalid_Throws."
+      - "tests/AgentSmith.Tests/Services/LlmIntentParserTests.cs (Application + Server variants): ParsesValidJson; LowConfidence_StillReturnsRequest; ParseFails_ThrowsConfigurationException; UsesReasoningTaskType."
+      - "tests/AgentSmith.Tests/Services/ContextGeneratorTests.cs: GenerateAsync_ReturnsStrippedYaml; RetryWithErrorsAsync_AppendsErrorsToPrompt; KeyFilesTooLong_Truncated."
+      - "tests/AgentSmith.Tests/Services/CodeMapGeneratorTests.cs: HappyPath_ReturnsValidYaml; InvalidYaml_ReturnsEmpty; UsesCodeMapGenerationTaskType."
+      - "tests/AgentSmith.Tests/Services/CodingPrinciplesGeneratorTests.cs: HappyPath_ReturnsMarkdown; UsesContextGenerationTaskType."
+      - "tests/AgentSmith.Tests/Services/ProjectAnalyzerTests.cs: HappyPath_ParsesProjectMap; FirstAttemptUnparseable_RetriesWithErrorAppended; BothAttemptsUnparseable_Throws; CodeFenceStripped; LenientJsonAcceptsCommentsAndTrailingCommas."
+      - "tests/AgentSmith.Tests/Services/MetaFileBootstrapperTests.cs: ExistingFile_Skipped; SuccessfulGeneration_WritesFile; GenerationException_LogsAndContinues; SkillRoles_LoadedAndStoredInPipeline."
+
+  - id: cost-tracker-meai-tests
+    action: "Cost-tracker assertions against ChatResponse stubs (replaces deleted PipelineCostTrackerConcurrencyTests)"
+    modify:
+      - "tests/AgentSmith.Tests/Providers/CostTrackerTests.cs: add Track(ChatResponse) cases — ClaudeCostTracker_Track_ChatResponseWithCacheReadInputTokens, OpenAiCostTracker_Track_ChatResponseWithCachedTokens, GeminiCostTracker_Track_ChatResponseNoCache, OllamaCostTracker_Track_ChatResponseNoCache. Verify the AdditionalCounts dictionary keys are read correctly per provider."
+    new:
+      - "tests/AgentSmith.Tests/Services/PipelineCostTrackerTests.cs: Track_ChatResponseWithUsage_AccumulatesAcrossMultipleCalls; Track_ChatResponseAnthropicCacheKey_ReadsCorrectly; Track_ChatResponseOpenAiCacheKey_ReadsCorrectly; Track_ResponseWithoutUsage_NoOp; ConcurrentTracks_LockFree (regression guard for the pre-existing concurrency invariants)."
+
+  - id: streaming-switch
+    action: "Switch every IChatClient call site from GetResponseAsync to GetStreamingResponseAsync.ToChatResponseAsync"
+    modify:
+      - "src/AgentSmith.Application/Services/LlmIntentParser.cs"
+      - "src/AgentSmith.Server/Services/LlmIntentParser.cs"
+      - "src/AgentSmith.Application/Services/Triage/LegacyTriageStrategy.cs"
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs"
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/EvaluateSkillsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceCheckHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PlanConsolidator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GateRetryCoordinator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/QueryKnowledgeHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/AgenticExecuteHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GeneratePlanHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GenerateTestsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GenerateDocsHandler.cs"
+      - "src/AgentSmith.Application/Services/ProjectAnalyzer.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ContextGenerator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/CodeMapGenerator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/CodingPrinciplesGenerator.cs"
+    action_detail:
+      - "Pattern at every site: var response = await chat.GetResponseAsync(messages, options, ct) → var response = await chat.GetStreamingResponseAsync(messages, options, ct).ToChatResponseAsync(ct). All other lines (PipelineCostTracker.Track, response.Text usage) stay identical because ChatResponse shape is the same."
+      - "ToChatResponseAsync extension method comes from Microsoft.Extensions.AI; usings already cover it. No new package or import needed."
+
+  - id: version-bump
+    action: "Bump M.E.AI lockstep + adapter packages once tghamm/Anthropic.SDK#197 is closed (gated)"
+    action_detail:
+      - "Pre-step: gh api repos/tghamm/Anthropic.SDK/issues/197 — verify state=='closed' and a release note in 5.x mentions the fix. If still open, this step is a no-op for this phase; reopen as a follow-up."
+      - "If closed: unpin Microsoft.Extensions.AI from [10.4.0] to current stable (probably 10.5.x or later). Same for .OpenAI and .Abstractions in AgentSmith.Contracts.csproj. OllamaSharp 5.4.24 → current. Anthropic.SDK 5.10.0 → current. Google_GenerativeAI + .Microsoft to current 3.x."
+      - "Delete the csproj comment block about #197."
+      - "Verify build green + 1188+ tests pass. Smoke against AAD-DEV per validation step below."
+    modify:
+      - "src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj"
+      - "src/AgentSmith.Contracts/AgentSmith.Contracts.csproj"
+
+  - id: validation
+    action: "AAD-DEV operator smoke against all 5 providers"
+    new:
+      - "scripts/smoke-meai.sh: prints a checklist + invokes 5 fix-bug runs (one per provider type) against the AAD-DEV cluster's ticket #1001. Asserts (manually, by reading the script's stdout): run completes, PR/MR created, result.md frontmatter has token counts > 0, cache_hit_rate field present (>0% for Anthropic + OpenAI second-run, ~0% for Gemini/Ollama)."
+    action_detail:
+      - "1. type=azure-openai (current AAD-DEV live config) — runs to PR-created."
+      - "2. type=claude — cache_hit_rate >0 (Anthropic caches by default with our config)."
+      - "3. type=openai with prompt-prefix run twice — second run cache_hit_rate >0."
+      - "4. type=ollama with mistral (tool-calling-capable) — tool loop succeeds, cost stays at $0."
+      - "5. type=gemini — tool loop succeeds."
+      - "Failure paths: ollama with llama3:8b base (no tool support) — should NotSupportedException at startup, not silent degradation."
+      - "Coverage: triage / skill-round / convergence / plan / agentic-execute / commit-and-pr all exercised by the 5 runs collectively. Security-scan + bootstrap paths exercised by run #1 (azure-openai is the most common live-config)."
+
+done:
+  - "StubChatClient + ChatResponseFactory + StubChatClientFactory test helpers shipped under tests/AgentSmith.Tests/TestHelpers/. Single shared stub usable across all handler tests; no per-test ad-hoc Mock<IChatClient> setups."
+  - "ChatClientFactory + 4 ChatClientBuilder tests all passing (Claude / OpenAi+Azure / Gemini / Ollama)."
+  - "SandboxToolHostTests + SandboxToolHostExtensionsTests passing — per-tool isolation + extension-method surface covered."
+  - "~25 handler tests rebuilt — every migrated handler from p0119a has at least the 5-assertion baseline (Create called with right (agent, task), MaxOutputTokens, Tools.Count if applicable, cost-track once, side-effects)."
+  - "Cost-tracker tests grow Track(ChatResponse) cases for all 4 derived trackers; PipelineCostTrackerTests rebuilt with the right AdditionalCounts keys per provider."
+  - "Total test count: 1126 main + ~80 new (waves cost-tracker + handler-tests-rebuild + sandbox-tool-host + chat-client-factory) ≈ 1200+ main, plus 62 sandbox-agent. All green. 'Test count restored' is a done-criterion: the suite is no smaller than it was pre-p0119a."
+  - "Streaming switch: every IChatClient.GetResponseAsync call site converted to GetStreamingResponseAsync(...).ToChatResponseAsync(ct). Validated by `grep -r 'GetResponseAsync' src/` returning zero hits in handler/generator/parser code."
+  - "Version pin status: if tghamm/Anthropic.SDK#197 is closed, M.E.AI / .OpenAI / .Abstractions / OllamaSharp / Anthropic.SDK / Google_GenerativeAI[.Microsoft] all bumped to current stable; csproj comment about #197 deleted. If still open, this deliverable is documented as deferred and the version bump moves to a follow-up phase."
+  - "AAD-DEV smoke run executed by operator against all 5 providers; smoke-meai.sh script committed to scripts/. result.md inspections recorded in the run-doc; any provider-specific surprises logged as decisions."
+  - "decisions.md: p0120 section with the StubChatClient pattern decision + the streaming-switch trade-off (mechanical 1-LoC change vs the 5-LoC estimate from p0119a) + version-bump outcome."

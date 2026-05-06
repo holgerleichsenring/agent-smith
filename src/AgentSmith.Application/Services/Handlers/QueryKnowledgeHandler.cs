@@ -1,9 +1,11 @@
 using System.Text;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -13,7 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Reads relevant wiki files and uses the LLM to synthesize an answer.
 /// </summary>
 public sealed class QueryKnowledgeHandler(
-    ILlmClient llmClient,
+    IChatClientFactory chatClientFactory,
     ILogger<QueryKnowledgeHandler> logger)
     : ICommandHandler<QueryKnowledgeContext>
 {
@@ -38,13 +40,23 @@ public sealed class QueryKnowledgeHandler(
 
         logger.LogInformation("Querying knowledge base with: {Question}", context.Question);
 
-        var response = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Summarization, cancellationToken);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Summarization);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Summarization);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-        var answer = FormatAnswer(response.Text, wikiPath);
+        var responseText = response.Text ?? string.Empty;
+        var answer = FormatAnswer(responseText, wikiPath);
         context.Pipeline.Set(ContextKeys.QueryAnswer, answer);
 
-        logger.LogInformation("Knowledge base query answered ({Tokens} tokens)", response.OutputTokens);
+        var outputTokens = response.Usage?.OutputTokenCount ?? 0;
+        logger.LogInformation("Knowledge base query answered ({Tokens} tokens)", outputTokens);
         return CommandResult.Ok(answer);
     }
 

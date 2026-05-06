@@ -64,8 +64,7 @@ Defines all interfaces, commands, DTOs, and configuration models. This is the "c
 
 | Interface | Purpose |
 |-----------|---------|
-| `IAgentProvider` | AI agent (Claude, GPT-4, Gemini, Ollama) |
-| `IAgentProviderFactory` | Creates agent providers per project config |
+| `IChatClientFactory` | Resolves Microsoft.Extensions.AI `IChatClient` per `(AgentConfig, TaskType)` — replaces the legacy `IAgentProviderFactory` / `IAgenticAnalyzerFactory` / `ILlmClientFactory` trio. See [AI Clients](ai-clients.md). |
 | `IContainerRunner` | Runs tool containers (Docker, Podman) |
 | `IModelRegistry` | Per-task model selection |
 

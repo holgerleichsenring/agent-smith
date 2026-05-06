@@ -12,13 +12,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Used by fix-bug, add-feature, MAD pipelines.
 /// </summary>
 public sealed class SkillRoundHandler(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
     ILogger<SkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
       ICommandHandler<SkillRoundContext>
 {
     protected override ILogger Logger => logger;
@@ -36,8 +36,8 @@ public sealed class SkillRoundHandler(
     public async Task<CommandResult> ExecuteAsync(
         SkillRoundContext context, CancellationToken cancellationToken)
     {
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
+        context.Pipeline.Set(ContextKeys.AgentConfig, context.AgentConfig);
         return await ExecuteRoundAsync(
-            context.SkillName, context.Round, context.Pipeline, llmClient, cancellationToken);
+            context.SkillName, context.Round, context.Pipeline, cancellationToken);
     }
 }

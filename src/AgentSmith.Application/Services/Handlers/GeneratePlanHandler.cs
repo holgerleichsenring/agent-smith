@@ -1,23 +1,28 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.Prompts;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Generates an execution plan using the AI agent provider.
-/// When ConvergenceResult is available, maps blocking observations to structured plan input.
+/// Generates an execution plan via M.E.AI IChatClient. Builds prompts via the
+/// shared AgentPromptBuilder, calls TaskType.Planning, parses with PlanParser.
 /// Writes plan decisions to the decision log after parsing.
 /// </summary>
 public sealed class GeneratePlanHandler(
-    IAgentProviderFactory factory,
+    IChatClientFactory chatClientFactory,
+    AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
     ILogger<GeneratePlanHandler> logger)
     : ICommandHandler<GeneratePlanContext>
@@ -25,7 +30,6 @@ public sealed class GeneratePlanHandler(
     public async Task<CommandResult> ExecuteAsync(
         GeneratePlanContext context, CancellationToken cancellationToken)
     {
-        // Discussion/structured pipelines don't generate execution plans
         if (context.Pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
             && pipelineType is PipelineType.Discussion or PipelineType.Structured)
         {
@@ -33,43 +37,27 @@ public sealed class GeneratePlanHandler(
             return CommandResult.Ok($"Plan generation skipped for {pipelineType} pipeline");
         }
 
-        var projectContext = context.ProjectContext;
-
-        // Prefer structured ConvergenceResult when available
-        if (context.Pipeline.TryGet<ConvergenceResult>(
-                ContextKeys.ConvergenceResult, out var convergenceResult)
-            && convergenceResult is not null)
-        {
-            logger.LogInformation(
-                "Using ConvergenceResult: {Blocking} blocking, {NonBlocking} non-blocking observations",
-                convergenceResult.Blocking.Count, convergenceResult.NonBlocking.Count);
-
-            var structuredInput = BuildStructuredInput(convergenceResult);
-            projectContext = string.IsNullOrEmpty(projectContext)
-                ? structuredInput
-                : $"{projectContext}\n\n{structuredInput}";
-        }
-        // Fallback: ConsolidatedPlan from legacy discussion path
-        else if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
-            && consolidated is not null)
-        {
-            logger.LogInformation("Including consolidated multi-role discussion as plan context");
-            projectContext = string.IsNullOrEmpty(projectContext)
-                ? $"## Multi-Role Discussion\n\n{consolidated}"
-                : $"{projectContext}\n\n## Multi-Role Discussion\n\n{consolidated}";
-        }
-
-        // p87: Pass ticket images if available
-        context.Pipeline.TryGet<IReadOnlyList<TicketImageAttachment>>(
-            ContextKeys.Attachments, out var images);
+        var projectContext = MergeContext(context);
 
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
 
-        var provider = factory.Create(context.AgentConfig);
-        var plan = await provider.GeneratePlanAsync(
-            context.Ticket, context.ProjectMap, context.CodingPrinciples,
-            context.CodeMap, projectContext, images, cancellationToken);
+        var systemPrompt = promptBuilder.BuildPlanSystemPrompt(
+            context.CodingPrinciples, context.CodeMap, projectContext);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.ProjectMap);
 
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Planning);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Planning);
+        var model = chatClientFactory.GetModel(context.AgentConfig, TaskType.Planning);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
+
+        var plan = PlanParser.Parse(model, response.Text ?? string.Empty);
         context.Pipeline.Set(ContextKeys.Plan, plan);
 
         if (plan.Decisions.Count > 0)
@@ -85,6 +73,34 @@ public sealed class GeneratePlanHandler(
             plan.Summary, plan.Steps.Count, plan.Decisions.Count);
 
         return CommandResult.Ok($"Plan generated with {plan.Steps.Count} steps");
+    }
+
+    private string MergeContext(GeneratePlanContext context)
+    {
+        var projectContext = context.ProjectContext;
+
+        if (context.Pipeline.TryGet<ConvergenceResult>(
+                ContextKeys.ConvergenceResult, out var convergenceResult)
+            && convergenceResult is not null)
+        {
+            logger.LogInformation(
+                "Using ConvergenceResult: {Blocking} blocking, {NonBlocking} non-blocking observations",
+                convergenceResult.Blocking.Count, convergenceResult.NonBlocking.Count);
+
+            var structuredInput = BuildStructuredInput(convergenceResult);
+            return string.IsNullOrEmpty(projectContext) ? structuredInput : $"{projectContext}\n\n{structuredInput}";
+        }
+
+        if (context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated)
+            && consolidated is not null)
+        {
+            logger.LogInformation("Including consolidated multi-role discussion as plan context");
+            return string.IsNullOrEmpty(projectContext)
+                ? $"## Multi-Role Discussion\n\n{consolidated}"
+                : $"{projectContext}\n\n## Multi-Role Discussion\n\n{consolidated}";
+        }
+
+        return projectContext;
     }
 
     private static string BuildStructuredInput(ConvergenceResult convergenceResult)

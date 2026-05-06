@@ -6,6 +6,7 @@ using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Infrastructure.Services.Nuclei;
 using AgentSmith.Infrastructure.Services.Security;
 using AgentSmith.Infrastructure.Services.Spectral;
@@ -32,11 +33,19 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<TicketStatusTransitionerFactory>());
         services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
-        services.AddSingleton<Services.Providers.Agent.AgentPromptBuilder>();
-        services.AddScoped<IAgentProviderFactory, AgentProviderFactory>();
-        services.AddSingleton<ILlmClientFactory, LlmClientFactory>();
-        services.AddSingleton<IAgenticAnalyzerFactory, AgenticAnalyzerFactory>();
-        services.AddSingleton<IRepositoryToolDispatcher, Services.Providers.Agent.RepositoryToolDispatcher>();
+        // p0119a: legacy IAgentProviderFactory / ILlmClientFactory / IAgenticAnalyzerFactory
+        // and the entire AgentPromptBuilder / RepositoryToolDispatcher stack were deleted.
+        // The Microsoft.Extensions.AI replacements (IChatClientFactory + 4 builders) are
+        // registered below.
+
+        // p0119a: Microsoft.Extensions.AI factory + per-provider IChatClient builders.
+        // IChatClientFactory takes AgentConfig per-call (not via DI singleton); the
+        // factory itself + builders are all DI singletons.
+        services.AddSingleton<IChatClientBuilder, ClaudeChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, OpenAiChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
+        services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
+        services.AddSingleton<IChatClientFactory, ChatClientFactory>();
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
         // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing

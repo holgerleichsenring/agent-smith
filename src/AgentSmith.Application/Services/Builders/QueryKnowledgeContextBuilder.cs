@@ -14,6 +14,6 @@ public sealed class QueryKnowledgeContextBuilder : IContextBuilder
         var question = pipeline.Get<string>(ContextKeys.DialogueQuestion);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var wikiPath = Path.Combine(repo.LocalPath, ".agentsmith", "wiki");
-        return new QueryKnowledgeContext(question, wikiPath, pipeline);
+        return new QueryKnowledgeContext(question, wikiPath, project.Agent, pipeline);
     }
 }

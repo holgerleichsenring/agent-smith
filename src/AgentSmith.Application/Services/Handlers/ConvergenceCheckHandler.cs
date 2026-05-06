@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -17,7 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class ConvergenceCheckHandler(
     PlanConsolidator planConsolidator,
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
@@ -82,12 +83,19 @@ public sealed class ConvergenceCheckHandler(
             Analyze these observations for consensus. Respond with JSON only.
             """;
 
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
-        var llmResponse = await llmClient.CompleteAsync(
-            prompts.Get("convergence-system"), userPrompt, TaskType.Planning, cancellationToken);
-        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Reasoning);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Reasoning);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, prompts.Get("convergence-system")),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
+        var responseText = response.Text ?? string.Empty;
 
-        var result = ConvergenceResultParser.Parse(llmResponse.Text, observations, logger);
+        var result = ConvergenceResultParser.Parse(responseText, observations, logger);
         if (result is null)
         {
             logger.LogWarning("Failed to parse convergence result, treating as no consensus");

@@ -19,7 +19,7 @@ public sealed class StructuredTriageStrategy(
     ILogger<StructuredTriageStrategy> logger) : ITriageStrategy
 {
     public async Task<CommandResult> ExecuteAsync(
-        PipelineContext pipeline, ILlmClient llmClient, CancellationToken cancellationToken)
+        PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (!HasLoadedSkills(pipeline))
         {
@@ -29,7 +29,7 @@ public sealed class StructuredTriageStrategy(
             return CommandResult.Fail("No skills loaded — triage cannot assign roles");
         }
 
-        var triage = await producer.ProduceAsync(pipeline, llmClient, cancellationToken);
+        var triage = await producer.ProduceAsync(pipeline, cancellationToken);
         pipeline.Set(ContextKeys.TriageOutput, triage);
         pipeline.Set(ContextKeys.CurrentPhase, PipelinePhase.Plan);
 
