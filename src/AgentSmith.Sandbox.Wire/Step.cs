@@ -11,7 +11,10 @@ public sealed record Step(
     int TimeoutSeconds = Step.DefaultTimeoutSeconds,
     string? Path = null,
     string? Content = null,
-    int? MaxDepth = null)
+    int? MaxDepth = null,
+    string? Pattern = null,
+    string? Glob = null,
+    int? MaxMatches = null)
 {
     public const int CurrentSchemaVersion = 1;
     public const int DefaultTimeoutSeconds = 600;
@@ -34,6 +37,7 @@ public sealed record Step(
             StepKind.ListFiles => string.IsNullOrEmpty(Path)
                 ? (false, "ListFiles step requires non-empty Path")
                 : (true, null),
+            StepKind.Grep => ValidateGrep(),
             _ => (false, $"Unknown StepKind: {Kind}")
         };
     }
@@ -44,6 +48,15 @@ public sealed record Step(
             return (false, "WriteFile step requires non-empty Path");
         if (Content is null)
             return (false, "WriteFile step requires non-null Content");
+        return (true, null);
+    }
+
+    private (bool IsValid, string? Error) ValidateGrep()
+    {
+        if (string.IsNullOrEmpty(Path))
+            return (false, "Grep step requires non-empty Path");
+        if (string.IsNullOrEmpty(Pattern))
+            return (false, "Grep step requires non-empty Pattern");
         return (true, null);
     }
 }

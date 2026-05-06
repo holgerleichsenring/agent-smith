@@ -56,19 +56,6 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         return Task.FromResult(new Repository(localPath, target, _cloneUrl));
     }
 
-    public Task CommitAndPushAsync(
-        Repository repository, string message, CancellationToken cancellationToken)
-    {
-        using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
-
-        StageAllChanges(repo);
-        CommitChanges(repo, message);
-        PushToRemote(repo);
-
-        _logger.LogInformation("Committed and pushed changes: {Message}", message);
-        return Task.CompletedTask;
-    }
-
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken)
@@ -138,46 +125,10 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         LibGit2Sharp.Repository.Clone(_cloneUrl, localPath, options);
     }
 
-    private void StageAllChanges(LibGit2Sharp.Repository repo)
-    {
-        Commands.Stage(repo, "*");
-    }
-
-    private void CommitChanges(LibGit2Sharp.Repository repo, string message)
-    {
-        var signature = GetSignature(repo);
-        repo.Commit(message, signature, signature);
-    }
-
-    private void PushToRemote(LibGit2Sharp.Repository repo)
-    {
-        var remote = repo.Network.Remotes["origin"]
-            ?? throw new ProviderException(ProviderType, "No 'origin' remote configured.");
-
-        var options = new PushOptions
-        {
-            CredentialsProvider = GetCredentialsHandler()
-        };
-
-        var canonicalName = repo.Head.CanonicalName;
-        // Force push (+) so re-runs on the same ticket don't fail with
-        // "non-fastforwardable reference" when the branch already exists on the remote.
-        var refspec = $"+{canonicalName}:{canonicalName}";
-        repo.Network.Push(remote, refspec, options);
-    }
-
     private CredentialsHandler GetCredentialsHandler()
     {
         return (_, _, _) =>
             new UsernamePasswordCredentials { Username = _token, Password = string.Empty };
-    }
-
-    private static Signature GetSignature(LibGit2Sharp.Repository repo)
-    {
-        var config = repo.Config;
-        var name = config.GetValueOrDefault("user.name", "Agent Smith");
-        var email = config.GetValueOrDefault("user.email", "agent-smith@noreply.local");
-        return new Signature(name, email, DateTimeOffset.Now);
     }
 
     public async Task PostCommentAsync(

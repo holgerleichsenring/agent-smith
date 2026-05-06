@@ -36,7 +36,8 @@ public sealed class PipelineExecutor(
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
     {
         CommandNames.CheckoutSource, CommandNames.AgenticExecute, CommandNames.Test,
-        CommandNames.GenerateTests, CommandNames.GenerateDocs
+        CommandNames.GenerateTests, CommandNames.GenerateDocs,
+        CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch
     };
 
     public async Task<CommandResult> ExecuteAsync(
