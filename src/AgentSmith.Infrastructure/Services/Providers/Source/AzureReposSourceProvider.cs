@@ -40,16 +40,6 @@ public sealed class AzureReposSourceProvider(
         return Task.FromResult(new Repository(localPath, target, _cloneUrl));
     }
 
-    public Task CommitAndPushAsync(Repository repository, string message, CancellationToken cancellationToken)
-    {
-        using var repo = new LibGit2Sharp.Repository(repository.LocalPath);
-        _git.StageAllChanges(repo);
-        _git.CommitChanges(repo, message);
-        _git.PushToRemote(repo);
-        logger.LogInformation("Committed and pushed changes: {Message}", message);
-        return Task.CompletedTask;
-    }
-
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken)

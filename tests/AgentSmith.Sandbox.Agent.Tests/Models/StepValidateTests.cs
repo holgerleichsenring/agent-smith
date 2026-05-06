@@ -68,4 +68,30 @@ public class StepValidateTests
         isValid.Should().BeFalse();
         error.Should().Contain("Path");
     }
+
+    [Fact]
+    public void Validate_GrepWithPathAndPattern_IsValid()
+    {
+        var step = new Step(1, Guid.NewGuid(), StepKind.Grep,
+            Path: "/work", Pattern: "TODO");
+        step.Validate().IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_GrepWithoutPattern_IsInvalid()
+    {
+        var step = new Step(1, Guid.NewGuid(), StepKind.Grep, Path: "/work");
+        var (isValid, error) = step.Validate();
+        isValid.Should().BeFalse();
+        error.Should().Contain("Pattern");
+    }
+
+    [Fact]
+    public void Validate_GrepWithoutPath_IsInvalid()
+    {
+        var step = new Step(1, Guid.NewGuid(), StepKind.Grep, Pattern: "TODO");
+        var (isValid, error) = step.Validate();
+        isValid.Should().BeFalse();
+        error.Should().Contain("Path");
+    }
 }

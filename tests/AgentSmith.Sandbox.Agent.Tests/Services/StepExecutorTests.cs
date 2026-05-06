@@ -15,7 +15,7 @@ public class StepExecutorTests
         var runner = new Mock<IProcessRunner>();
         runner.Setup(r => r.RunAsync(It.IsAny<Step>(), It.IsAny<Action<StepEventKind, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProcessOutcome(0, false, null));
-        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
+        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
         var batches = new List<IReadOnlyList<StepEvent>>();
 
         var result = await executor.ExecuteAsync(
@@ -33,7 +33,7 @@ public class StepExecutorTests
         var runner = new Mock<IProcessRunner>();
         runner.Setup(r => r.RunAsync(It.IsAny<Step>(), It.IsAny<Action<StepEventKind, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProcessOutcome(0, false, null));
-        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
+        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
         var events = new List<StepEvent>();
 
         await executor.ExecuteAsync(MakeRunStep("echo", "hi"),
@@ -49,7 +49,7 @@ public class StepExecutorTests
         var runner = new Mock<IProcessRunner>();
         runner.Setup(r => r.RunAsync(It.IsAny<Step>(), It.IsAny<Action<StepEventKind, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProcessOutcome(-1, true, "timed out"));
-        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
+        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
 
         var result = await executor.ExecuteAsync(MakeRunStep("sleep", "5"),
             _ => Task.CompletedTask, CancellationToken.None);
@@ -62,7 +62,7 @@ public class StepExecutorTests
     public async Task ExecuteAsync_ShutdownStep_ThrowsArgumentException()
     {
         var runner = new Mock<IProcessRunner>();
-        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
+        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
 
         var act = () => executor.ExecuteAsync(Step.Shutdown(Guid.NewGuid()),
             _ => Task.CompletedTask, CancellationToken.None);
@@ -73,8 +73,10 @@ public class StepExecutorTests
     [Fact]
     public async Task ExecuteAsync_RealProcessThroughBatcher_FlushesEventsForVerboseOutput()
     {
-        var executor = new StepExecutor(new ProcessRunner(),
+        var realRunner = new ProcessRunner();
+        var executor = new StepExecutor(realRunner,
             new FileStepHandler(NullLogger<FileStepHandler>.Instance),
+            new GrepStepHandler(realRunner, NullLogger<GrepStepHandler>.Instance),
             NullLogger<StepExecutor>.Instance);
         var allEvents = new ConcurrentEventCollector();
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

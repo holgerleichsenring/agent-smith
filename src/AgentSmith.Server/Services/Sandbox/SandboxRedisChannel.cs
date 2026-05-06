@@ -53,7 +53,21 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
             $"Sandbox step {stepId} did not produce a result within {timeout.TotalSeconds:F0}s");
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await _database.KeyDeleteAsync([
+                RedisKeys.InputKey(_jobId),
+                RedisKeys.EventsKey(_jobId),
+                RedisKeys.ResultsKey(_jobId)
+            ]);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean up Redis keys for job {JobId}", _jobId);
+        }
+    }
 
     private async Task DrainEventsAsync(Guid stepId, IProgress<StepEvent>? progress)
     {

@@ -2,7 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Lifecycle;
-using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Repository = AgentSmith.Domain.Entities.Repository;
@@ -13,9 +13,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Pushes the work branch when the pipeline failed mid-run after local changes
 /// exist. Stamps the failure kind into <see cref="ContextKeys.PersistFailureKind"/>
 /// on the pipeline context so the executor's wrapper can route logs accordingly.
+/// Runs git operations in the sandbox where the modifications live.
 /// </summary>
 public sealed class PersistWorkBranchHandler(
-    ISourceProviderFactory sourceProviderFactory,
+    SandboxGitOperations gitOps,
     ILogger<PersistWorkBranchHandler> logger) : ICommandHandler<PersistWorkBranchContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -25,13 +26,15 @@ public sealed class PersistWorkBranchHandler(
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo) || repo is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
                 "PersistWorkBranch: no Repository in pipeline context");
+        if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+            return RecordAndFail(pipeline, PersistFailureKind.Unknown,
+                "PersistWorkBranch: no Sandbox in pipeline context");
 
         var commitMessage = BuildCommitMessage(pipeline);
-        var provider = sourceProviderFactory.Create(context.Source);
 
         try
         {
-            await provider.CommitAndPushAsync(repo, commitMessage, cancellationToken);
+            await gitOps.CommitAndPushAsync(sandbox, repo.CurrentBranch.Value, commitMessage, cancellationToken);
             logger.LogInformation(
                 "PersistWorkBranch: pushed WIP commit on branch {Branch}", repo.CurrentBranch);
             return CommandResult.Ok($"Persisted WIP branch {repo.CurrentBranch}");

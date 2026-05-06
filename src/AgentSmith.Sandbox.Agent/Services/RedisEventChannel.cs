@@ -83,7 +83,8 @@ internal sealed class RedisEventChannel : IAsyncDisposable
         foreach (var ev in batch.Events)
         {
             var json = JsonSerializer.Serialize(ev, WireFormat.Json);
-            pending.Add(pipeline.StreamAddAsync(streamKey, "data", json));
+            pending.Add(pipeline.StreamAddAsync(streamKey, "data", json,
+                maxLength: StreamLimits.EventStreamMaxLength, useApproximateMaxLength: true));
         }
         pipeline.Execute();
         await Task.WhenAll(pending);
