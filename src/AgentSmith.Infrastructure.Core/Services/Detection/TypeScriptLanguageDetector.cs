@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -7,12 +8,15 @@ namespace AgentSmith.Infrastructure.Core.Services.Detection;
 public sealed class TypeScriptLanguageDetector(
     ILogger<TypeScriptLanguageDetector> logger) : ILanguageDetector
 {
-    public LanguageDetectionResult? Detect(string repoPath)
+    public async Task<LanguageDetectionResult?> DetectAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
         var packageJsonPath = Path.Combine(repoPath, "package.json");
         var denoJsonPath = Path.Combine(repoPath, "deno.json");
 
-        if (!File.Exists(packageJsonPath) && !File.Exists(denoJsonPath))
+        var hasPackageJson = await reader.ExistsAsync(packageJsonPath, cancellationToken);
+        var hasDenoJson = await reader.ExistsAsync(denoJsonPath, cancellationToken);
+        if (!hasPackageJson && !hasDenoJson)
             return null;
 
         var keyFiles = new List<string>();
@@ -20,21 +24,20 @@ public sealed class TypeScriptLanguageDetector(
         var frameworks = new List<string>();
         string? buildCmd = null;
         string? testCmd = null;
-        var language = File.Exists(Path.Combine(repoPath, "tsconfig.json"))
-            ? "TypeScript" : "JavaScript";
+        var hasTsConfig = await reader.ExistsAsync(Path.Combine(repoPath, "tsconfig.json"), cancellationToken);
+        var language = hasTsConfig ? "TypeScript" : "JavaScript";
 
-        if (File.Exists(packageJsonPath))
+        if (hasPackageJson)
         {
             keyFiles.Add("package.json");
-            if (File.Exists(Path.Combine(repoPath, "tsconfig.json")))
-                keyFiles.Add("tsconfig.json");
-
-            ParsePackageJson(packageJsonPath, sdks, ref buildCmd, ref testCmd);
+            if (hasTsConfig) keyFiles.Add("tsconfig.json");
+            await ParsePackageJsonAsync(reader, packageJsonPath, sdks, t => buildCmd = t, t => testCmd = t, cancellationToken);
         }
 
-        DetectFrameworks(repoPath, frameworks);
-        testCmd ??= DetectTestFramework(repoPath);
-        var packageManager = DetectPackageManager(repoPath);
+        var topEntries = await reader.ListAsync(repoPath, maxDepth: 1, cancellationToken);
+        DetectFrameworks(topEntries, frameworks);
+        testCmd ??= DetectTestFramework(topEntries);
+        var packageManager = await DetectPackageManagerAsync(reader, repoPath, cancellationToken);
 
         if (packageManager is "pnpm" or "yarn" or "bun")
         {
@@ -42,7 +45,7 @@ public sealed class TypeScriptLanguageDetector(
             testCmd = testCmd?.Replace("npm test", $"{packageManager} test");
         }
 
-        var runtime = File.Exists(denoJsonPath) ? "Deno" : "Node.js";
+        var runtime = hasDenoJson ? "Deno" : "Node.js";
 
         return new LanguageDetectionResult(
             Language: language,
@@ -55,19 +58,21 @@ public sealed class TypeScriptLanguageDetector(
             Sdks: sdks.Distinct().ToList());
     }
 
-    private void ParsePackageJson(
-        string path, List<string> sdks, ref string? buildCmd, ref string? testCmd)
+    private async Task ParsePackageJsonAsync(
+        ISandboxFileReader reader, string path, List<string> sdks,
+        Action<string> setBuild, Action<string> setTest, CancellationToken cancellationToken)
     {
         try
         {
-            var content = File.ReadAllText(path);
+            var content = await reader.TryReadAsync(path, cancellationToken);
+            if (content is null) return;
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
 
             if (root.TryGetProperty("scripts", out var scripts))
             {
-                if (scripts.TryGetProperty("build", out _)) buildCmd = "npm run build";
-                if (scripts.TryGetProperty("test", out _)) testCmd = "npm test";
+                if (scripts.TryGetProperty("build", out _)) setBuild("npm run build");
+                if (scripts.TryGetProperty("test", out _)) setTest("npm test");
             }
 
             ExtractDeps(root, "dependencies", sdks);
@@ -86,45 +91,59 @@ public sealed class TypeScriptLanguageDetector(
             sdks.Add(prop.Name);
     }
 
-    private static void DetectFrameworks(string repoPath, List<string> frameworks)
+    private static void DetectFrameworks(IReadOnlyList<string> topEntries, List<string> frameworks)
     {
-        CheckConfig(repoPath, "next.config.*", "Next.js", frameworks);
-        CheckConfig(repoPath, "angular.json", "Angular", frameworks);
-        CheckConfig(repoPath, "vite.config.*", "Vite", frameworks);
-        CheckConfig(repoPath, "nuxt.config.*", "Nuxt", frameworks);
-        CheckConfig(repoPath, "svelte.config.*", "SvelteKit", frameworks);
-        CheckConfig(repoPath, "remix.config.*", "Remix", frameworks);
-        CheckConfig(repoPath, "astro.config.*", "Astro", frameworks);
+        CheckPattern(topEntries, "next.config.", "Next.js", frameworks);
+        CheckPattern(topEntries, "angular.json", "Angular", frameworks, exact: true);
+        CheckPattern(topEntries, "vite.config.", "Vite", frameworks);
+        CheckPattern(topEntries, "nuxt.config.", "Nuxt", frameworks);
+        CheckPattern(topEntries, "svelte.config.", "SvelteKit", frameworks);
+        CheckPattern(topEntries, "remix.config.", "Remix", frameworks);
+        CheckPattern(topEntries, "astro.config.", "Astro", frameworks);
     }
 
-    private static void CheckConfig(
-        string repoPath, string pattern, string name, List<string> frameworks)
+    private static void CheckPattern(
+        IReadOnlyList<string> entries, string namePrefix, string display,
+        List<string> frameworks, bool exact = false)
     {
-        if (Directory.GetFiles(repoPath, pattern, SearchOption.TopDirectoryOnly).Length > 0)
-            frameworks.Add(name);
+        var match = entries.Any(e =>
+        {
+            var name = LastSegment(e);
+            return exact
+                ? name.Equals(namePrefix, StringComparison.OrdinalIgnoreCase)
+                : name.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase);
+        });
+        if (match) frameworks.Add(display);
     }
 
-    private static string? DetectTestFramework(string repoPath)
+    private static string? DetectTestFramework(IReadOnlyList<string> entries)
     {
-        if (Directory.GetFiles(repoPath, "vitest.config.*", SearchOption.TopDirectoryOnly).Length > 0)
+        if (entries.Any(e => LastSegment(e).StartsWith("vitest.config.", StringComparison.OrdinalIgnoreCase)))
             return "vitest";
-        if (Directory.GetFiles(repoPath, "jest.config.*", SearchOption.TopDirectoryOnly).Length > 0)
+        if (entries.Any(e => LastSegment(e).StartsWith("jest.config.", StringComparison.OrdinalIgnoreCase)))
             return "jest";
-        if (Directory.GetFiles(repoPath, "playwright.config.*", SearchOption.TopDirectoryOnly).Length > 0)
+        if (entries.Any(e => LastSegment(e).StartsWith("playwright.config.", StringComparison.OrdinalIgnoreCase)))
             return "playwright test";
-        if (Directory.GetFiles(repoPath, "cypress.config.*", SearchOption.TopDirectoryOnly).Length > 0)
+        if (entries.Any(e => LastSegment(e).StartsWith("cypress.config.", StringComparison.OrdinalIgnoreCase)))
             return "cypress run";
         return null;
     }
 
-    private static string DetectPackageManager(string repoPath)
+    private static async Task<string> DetectPackageManagerAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        if (File.Exists(Path.Combine(repoPath, "pnpm-lock.yaml"))) return "pnpm";
-        if (File.Exists(Path.Combine(repoPath, "yarn.lock"))) return "yarn";
-        if (File.Exists(Path.Combine(repoPath, "bun.lockb"))
-            || File.Exists(Path.Combine(repoPath, "bun.lock"))) return "bun";
-        if (File.Exists(Path.Combine(repoPath, "deno.json"))
-            || File.Exists(Path.Combine(repoPath, "deno.lock"))) return "deno";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "pnpm-lock.yaml"), cancellationToken)) return "pnpm";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "yarn.lock"), cancellationToken)) return "yarn";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "bun.lockb"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "bun.lock"), cancellationToken)) return "bun";
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "deno.json"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "deno.lock"), cancellationToken)) return "deno";
         return "npm";
+    }
+
+    private static string LastSegment(string path)
+    {
+        var idx = path.LastIndexOf('/');
+        return idx < 0 ? path : path[(idx + 1)..];
     }
 }

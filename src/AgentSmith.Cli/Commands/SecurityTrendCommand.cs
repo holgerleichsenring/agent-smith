@@ -2,6 +2,9 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Globalization;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Infrastructure.Services.Sandbox;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Cli.Commands;
 
@@ -17,7 +20,7 @@ internal static class SecurityTrendCommand
             projectOption, configOption, verboseOption, dryRunOption
         };
 
-        cmd.SetHandler((InvocationContext ctx) =>
+        cmd.SetHandler(async (InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
@@ -43,7 +46,12 @@ internal static class SecurityTrendCommand
                 return;
             }
 
-            var snapshots = SnapshotYamlParser.LoadSnapshots(securityDir);
+            // Reuse InProcessSandbox path-translation so the parser sees the project as /work
+            // (no fs cleanup on dispose because the workDir IS the user's project).
+            var sandbox = new InProcessSandbox(Guid.NewGuid().ToString("N"), projectPath, NullLogger<InProcessSandbox>.Instance);
+            var reader = new SandboxFileReaderFactory().Create(sandbox);
+            var sandboxSecurityDir = $"/work/.agentsmith/security";
+            var snapshots = await SnapshotYamlParser.LoadSnapshotsAsync(reader, sandboxSecurityDir, ctx.GetCancellationToken());
 
             if (snapshots.Count == 0)
             {

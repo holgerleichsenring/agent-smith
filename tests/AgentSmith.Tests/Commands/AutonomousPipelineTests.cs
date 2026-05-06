@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -12,22 +13,8 @@ using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
-public sealed class AutonomousPipelineTests : IDisposable
+public sealed class AutonomousPipelineTests
 {
-    private readonly string _tempDir;
-
-    public AutonomousPipelineTests()
-    {
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-auto-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
-
     #region Pipeline Preset
 
     [Fact]
@@ -79,11 +66,28 @@ public sealed class AutonomousPipelineTests : IDisposable
     [Fact]
     public async Task LoadRunsHandler_ReadsNMostRecentRuns()
     {
-        SetupRuns("r01-first", "r02-second", "r03-third", "r04-fourth", "r05-fifth");
+        var runEntries = new[]
+        {
+            "/work/.agentsmith/runs/r01-first",
+            "/work/.agentsmith/runs/r02-second",
+            "/work/.agentsmith/runs/r03-third",
+            "/work/.agentsmith/runs/r04-fourth",
+            "/work/.agentsmith/runs/r05-fifth",
+        };
 
-        var handler = new LoadRunsHandler(NullLogger<LoadRunsHandler>.Instance);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work/.agentsmith/runs", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(runEntries);
+        reader.Setup(r => r.ListAsync("/work/.agentsmith/wiki", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+        reader.Setup(r => r.TryReadAsync(It.Is<string>(p => p.EndsWith("/result.md")), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((p, _) => Task.FromResult<string?>($"# Result for {Path.GetFileName(Path.GetDirectoryName(p)!)}\nTest result content"));
+
+        var factory = MakeFactory(reader.Object);
+        var handler = new LoadRunsHandler(factory, NullLogger<LoadRunsHandler>.Instance);
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), string.Empty);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        var repo = new Repository(new BranchName("main"), string.Empty);
         var context = new LoadRunsContext(repo, LookbackRuns: 3, pipeline);
 
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
@@ -101,11 +105,15 @@ public sealed class AutonomousPipelineTests : IDisposable
     [Fact]
     public async Task LoadRunsHandler_NoRuns_ReturnsOk()
     {
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
 
-        var handler = new LoadRunsHandler(NullLogger<LoadRunsHandler>.Instance);
+        var factory = MakeFactory(reader.Object);
+        var handler = new LoadRunsHandler(factory, NullLogger<LoadRunsHandler>.Instance);
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), string.Empty);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        var repo = new Repository(new BranchName("main"), string.Empty);
         var context = new LoadRunsContext(repo, LookbackRuns: 10, pipeline);
 
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
@@ -117,14 +125,21 @@ public sealed class AutonomousPipelineTests : IDisposable
     [Fact]
     public async Task LoadRunsHandler_IncludesWikiSummaries()
     {
-        SetupRuns("r01-first");
-        var wikiDir = Path.Combine(_tempDir, ".agentsmith", "wiki");
-        Directory.CreateDirectory(wikiDir);
-        await File.WriteAllTextAsync(Path.Combine(wikiDir, "patterns.md"), "# Patterns\nUse CQRS");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work/.agentsmith/runs", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/.agentsmith/runs/r01-first" });
+        reader.Setup(r => r.ListAsync("/work/.agentsmith/wiki", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/.agentsmith/wiki/patterns.md" });
+        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/runs/r01-first/result.md", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("# Result for r01-first\nTest result content");
+        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/wiki/patterns.md", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("# Patterns\nUse CQRS");
 
-        var handler = new LoadRunsHandler(NullLogger<LoadRunsHandler>.Instance);
+        var factory = MakeFactory(reader.Object);
+        var handler = new LoadRunsHandler(factory, NullLogger<LoadRunsHandler>.Instance);
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), string.Empty);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        var repo = new Repository(new BranchName("main"), string.Empty);
         var context = new LoadRunsContext(repo, LookbackRuns: 10, pipeline);
 
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
@@ -285,16 +300,10 @@ public sealed class AutonomousPipelineTests : IDisposable
 
     #endregion
 
-    private void SetupRuns(params string[] runNames)
+    private static ISandboxFileReaderFactory MakeFactory(ISandboxFileReader reader)
     {
-        var runsDir = Path.Combine(_tempDir, ".agentsmith", "runs");
-        Directory.CreateDirectory(runsDir);
-
-        foreach (var name in runNames)
-        {
-            var runDir = Path.Combine(runsDir, name);
-            Directory.CreateDirectory(runDir);
-            File.WriteAllText(Path.Combine(runDir, "result.md"), $"# Result for {name}\nTest result content");
-        }
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
+        return factory.Object;
     }
 }

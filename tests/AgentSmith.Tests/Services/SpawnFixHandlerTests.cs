@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -13,10 +14,11 @@ using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class SpawnFixHandlerTests : IDisposable
+public sealed class SpawnFixHandlerTests
 {
     private readonly SpawnFixHandler _sut;
-    private readonly string _tempDir;
+    private readonly Mock<ISandboxFileReader> _readerMock = new();
+    private readonly List<(string Path, string Content)> _written = new();
 
     public SpawnFixHandlerTests()
     {
@@ -24,19 +26,19 @@ public sealed class SpawnFixHandlerTests : IDisposable
         reporter.Setup(r => r.AskYesNoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _readerMock.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((p, c, _) => _written.Add((p, c)))
+            .Returns(Task.CompletedTask);
+
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(_readerMock.Object);
+
         _sut = new SpawnFixHandler(
+            factory.Object,
             NullLogger<SpawnFixHandler>.Instance,
             Mock.Of<IDialogueTransport>(),
             Mock.Of<IDialogueTrail>(),
             reporter.Object);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-fix-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
     }
 
     [Fact]
@@ -116,9 +118,9 @@ public sealed class SpawnFixHandlerTests : IDisposable
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("2 fix requests");
 
-        var fixesDir = Path.Combine(_tempDir, ".agentsmith", "security", "fixes");
-        Directory.Exists(fixesDir).Should().BeTrue();
-        Directory.GetFiles(fixesDir, "*.yaml").Should().HaveCount(2);
+        _written.Should().HaveCount(2);
+        _written.Should().OnlyContain(w => w.Path.Contains(".agentsmith/security/fixes")
+            && w.Path.EndsWith(".yaml"));
 
         pipeline.TryGet<IReadOnlyList<SecurityFixRequest>>(
             ContextKeys.SecurityFixRequests, out var requests).Should().BeTrue();
@@ -369,8 +371,9 @@ public sealed class SpawnFixHandlerTests : IDisposable
     private PipelineContext CreatePipelineWithRepo()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
         pipeline.Set(ContextKeys.Repository, repo);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
         return pipeline;
     }
 }

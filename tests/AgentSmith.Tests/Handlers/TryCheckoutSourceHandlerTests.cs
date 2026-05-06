@@ -91,7 +91,7 @@ public sealed class TryCheckoutSourceHandlerTests
     public async Task ExecuteAsync_GitHubConfigWithUrl_DelegatesToProviderAndSetsSourcePathFromLocalPath()
     {
         var branch = new BranchName("main");
-        var repo = new Repository("/tmp/cloned-repo", branch, "https://github.com/x/y.git");
+        var repo = new Repository(branch, "https://github.com/x/y.git");
         var providerMock = new Mock<ISourceProvider>();
         providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(repo);
@@ -104,7 +104,7 @@ public sealed class TryCheckoutSourceHandlerTests
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        pipeline.Get<string>(ContextKeys.SourcePath).Should().Be("/tmp/cloned-repo");
+        pipeline.Get<string>(ContextKeys.SourcePath).Should().Be("/work");
         providerMock.Verify(p => p.CheckoutAsync(branch, It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -90,12 +90,16 @@ The Server's `ServiceAccount` needs:
 
 `pods/exec` is **not required**. See [`deploy/k8s/2-rbac.yaml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/2-rbac.yaml).
 
-## What runs where (post p0117)
+## What runs where (post p0117b)
 
 | Operation | Runs in | Note |
 | --------- | ------- | ---- |
-| Source clone | Sandbox + server-side LibGit2Sharp (hybrid) | Server-side checkout still feeds 15+ file-reading handlers (Bootstrap*/Load*/Compile*/Analyze*) |
-| AI tool calls (read/write/list/grep/run) | Sandbox via `SandboxToolHandler` Steps | Mirrors the K8s/Docker `/work` view |
+| Source clone | Sandbox-only via `Step{Kind=Run, Command=git}` | `CheckoutSourceHandler` is pure-Step. `Local` provider relies on operator bind-mounting basePath as `/work`. `KubernetesSandbox + LocalSourceProvider` throws `NotSupportedException`. |
+| Source-provider metadata (default branch, clone URL) | Server-side API (Octokit / GitLab REST / AzDO REST) | `CheckoutAsync` is metadata-only; no git plumbing |
+| File reads/writes for ~19 handlers (Bootstrap*/Load*/Compile*/Analyze*/SecurityTrend/SecuritySnapshotWriter/SpawnFix/WriteRunResult/QueryKnowledge/TryCheckoutSource) | Sandbox via `SandboxFileReader` | `Repository.LocalPath` is the constant `"/work"`; `Path.Combine(repo.LocalPath, …)` reads fluently |
+| AI tool calls (read/write/list/grep/run) | Sandbox via `SandboxToolHost` | Mirrors the K8s/Docker `/work` view |
+| Project detection / repo snapshot / context generation | Sandbox via `SandboxFileReader` | `IProjectDetector`, `IRepoSnapshotCollector`, `IContextGenerator`, all 3 `ILanguageDetector` impls, `MetaFileBootstrapper` are sandbox-routed |
+| Security scanners (`StaticPatternScanner` / `GitHistoryScanner` / `DependencyAuditor`) | Sandbox via `ISandboxFileReader` (file IO) and `Step{Kind=Run}` (`git log` / `npm audit` / `pip-audit` / `dotnet list package`) | `ScanAsync` no longer takes a path argument |
 | Test execution | Sandbox via `dotnet test --logger trx --results-directory /work/test-results` | TRX result-files parsed via `TrxResultParser` into structured `TrxSummary` |
 | Commit + push | Sandbox via `SandboxGitOperations` | Captures the `/work` modifications. `CommitAndPRHandler`, `PersistWorkBranchHandler`, `InitCommitHandler` all migrated |
 | PR creation | Server-side via Octokit / GitLab REST / AzDO API | API call, no git plumbing |
@@ -112,11 +116,12 @@ verbose builds) cannot balloon a stream past ~10500 events. Combined with
 
 - **Mid-step cancellation** — pod-delete works as a hammer; granular cancel
   comes later.
-- **`Repository.LocalPath` semantics** — still server-side path. Migration to a
-  pure-`/work` model needs ~15 file-reading handlers (Bootstrap*/Load*/Compile*/
-  Analyze*) to route their reads through `ISandbox`. Bigger than p0117 scope.
+- **`LocalSourceProvider` in Kubernetes** — throws `NotSupportedException`
+  with operator-facing message. The Sandbox-Pod runs on a different node /
+  filesystem so a host-disk source is unreachable. Use `DockerSandbox` with a
+  bind-mount (`-v /local/path:/work`) or a remote source provider instead.
 - **Helm chart** — deployment still via `deploy/k8s/` flat YAMLs. Helm-ifying
-  the manifests is a separate phase.
+  the manifests is a separate phase (deferred to p0117c).
 - **Crash-time Redis-key reaper** — if the Server-Pod crashes mid-pipeline,
   the K8s `OwnerReference` deletes the Sandbox-Pod but the Redis keys for
   that job remain until a `SCAN`-based reaper hosted-service ships.

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class DependencyAuditHandler(
     IDependencyAuditor dependencyAuditor,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<DependencyAuditHandler> logger)
     : ICommandHandler<DependencyAuditContext>
 {
@@ -20,11 +22,12 @@ public sealed class DependencyAuditHandler(
         DependencyAuditContext context, CancellationToken cancellationToken)
     {
         var repo = context.Pipeline.Get<Repository>(ContextKeys.Repository);
-        var repoPath = repo.LocalPath;
 
-        logger.LogInformation("Starting dependency audit for {RepoPath}", repoPath);
+        logger.LogInformation("Starting dependency audit for {RepoPath}", repo.LocalPath);
 
-        var result = await dependencyAuditor.AuditAsync(repoPath, cancellationToken);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+        var result = await dependencyAuditor.AuditAsync(sandbox, reader, cancellationToken);
 
         if (result is null)
         {

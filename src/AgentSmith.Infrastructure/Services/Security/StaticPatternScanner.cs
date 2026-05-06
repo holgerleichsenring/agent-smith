@@ -1,13 +1,16 @@
 using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Scans repository source files against compiled regex pattern definitions.
-/// Respects .gitignore-like directory exclusions and binary file extensions.
+/// Routes filesystem reads through ISandboxFileReader so the scan covers the
+/// sandbox /work tree regardless of backend.
 /// </summary>
 public sealed class StaticPatternScanner(
     PatternDefinitionLoader loader,
@@ -16,7 +19,8 @@ public sealed class StaticPatternScanner(
     PatternFileMatcher fileMatcher,
     ILogger<StaticPatternScanner> logger) : IStaticPatternScanner
 {
-    public async Task<StaticScanResult> ScanAsync(string repoPath, CancellationToken cancellationToken)
+    public async Task<StaticScanResult> ScanAsync(
+        ISandboxFileReader reader, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
 
@@ -32,20 +36,19 @@ public sealed class StaticPatternScanner(
 
         logger.LogInformation(
             "Scanning {RepoPath} with {PatternCount} compiled patterns",
-            repoPath, compiledPatterns.Count);
+            Repository.SandboxWorkPath, compiledPatterns.Count);
 
         var findings = new List<PatternFinding>();
         var filesScanned = 0;
 
-        var files = SourceFileEnumerator.EnumerateSourceFiles(repoPath);
-
-        foreach (var filePath in files)
+        await foreach (var filePath in SourceFileEnumerator.EnumerateAsync(
+            reader, Repository.SandboxWorkPath, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var relativePath = Path.GetRelativePath(repoPath, filePath);
+            var relativePath = ToRelative(filePath, Repository.SandboxWorkPath);
             var fileFindings = await fileMatcher.ScanFileAsync(
-                filePath, relativePath, compiledPatterns, cancellationToken);
+                reader, filePath, relativePath, compiledPatterns, cancellationToken);
             findings.AddRange(fileFindings);
             filesScanned++;
         }
@@ -57,5 +60,11 @@ public sealed class StaticPatternScanner(
             findings.Count, filesScanned, sw.ElapsedMilliseconds);
 
         return new StaticScanResult(findings, filesScanned, compiledPatterns.Count, (int)sw.ElapsedMilliseconds);
+    }
+
+    private static string ToRelative(string fullPath, string root)
+    {
+        var rel = fullPath.Length > root.Length ? fullPath[root.Length..] : fullPath;
+        return rel.TrimStart('/');
     }
 }

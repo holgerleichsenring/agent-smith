@@ -1,6 +1,8 @@
 using System.Text;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -93,16 +95,16 @@ public sealed class RunResultFormatterDialogueTrailTests
     [Fact]
     public void FormatResult_WithDialogueTrail_IncludesSection()
     {
-        var ticket = new Domain.Entities.Ticket(
-            new Domain.Models.TicketId("1"), "Test", "Desc", null, "Open", "github");
-        var plan = new Domain.Entities.Plan("Summary",
-            new List<Domain.Entities.PlanStep>
+        var ticket = new Ticket(
+            new TicketId("1"), "Test", "Desc", null, "Open", "github");
+        var plan = new Plan("Summary",
+            new List<PlanStep>
             {
-                new(1, "Step 1", new Domain.Models.FilePath("test.cs"), "Create")
+                new(1, "Step 1", new FilePath("test.cs"), "Create")
             }, "{}");
-        var changes = new List<Domain.Entities.CodeChange>
+        var changes = new List<CodeChange>
         {
-            new(new Domain.Models.FilePath("test.cs"), "content", "Create")
+            new(new FilePath("test.cs"), "content", "Create")
         };
 
         var dialogueTrail = new List<DialogTrailEntry>
@@ -123,16 +125,16 @@ public sealed class RunResultFormatterDialogueTrailTests
     [Fact]
     public void FormatResult_WithoutDialogueTrail_OmitsSection()
     {
-        var ticket = new Domain.Entities.Ticket(
-            new Domain.Models.TicketId("1"), "Test", "Desc", null, "Open", "github");
-        var plan = new Domain.Entities.Plan("Summary",
-            new List<Domain.Entities.PlanStep>
+        var ticket = new Ticket(
+            new TicketId("1"), "Test", "Desc", null, "Open", "github");
+        var plan = new Plan("Summary",
+            new List<PlanStep>
             {
-                new(1, "Step 1", new Domain.Models.FilePath("test.cs"), "Create")
+                new(1, "Step 1", new FilePath("test.cs"), "Create")
             }, "{}");
-        var changes = new List<Domain.Entities.CodeChange>
+        var changes = new List<CodeChange>
         {
-            new(new Domain.Models.FilePath("test.cs"), "content", "Create")
+            new(new FilePath("test.cs"), "content", "Create")
         };
 
         var result = RunResultFormatter.FormatResult(

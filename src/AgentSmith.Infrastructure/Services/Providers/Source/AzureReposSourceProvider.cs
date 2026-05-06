@@ -2,7 +2,6 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
-using LibGit2Sharp;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
@@ -12,7 +11,9 @@ using Repository = AgentSmith.Domain.Entities.Repository;
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// Azure DevOps source provider. Delegates git plumbing to <see cref="AzureGitOperations"/>.
+/// Azure DevOps source provider. CheckoutAsync is metadata-only — the git clone
+/// happens sandbox-side via Step{Kind=Run, Command=git, ...}. Default-branch
+/// resolution via DevOps REST stays (it is metadata, not git plumbing).
 /// </summary>
 public sealed class AzureReposSourceProvider(
     string organizationUrl,
@@ -23,21 +24,16 @@ public sealed class AzureReposSourceProvider(
 {
     private readonly string _organizationUrl = organizationUrl.TrimEnd('/');
     private readonly string _cloneUrl = $"{organizationUrl.TrimEnd('/')}/{project}/_git/{repoName}";
-    private readonly AzureGitOperations _git = new(personalAccessToken, logger);
+    private string? _cachedDefaultBranch;
 
     public string ProviderType => "AzureRepos";
 
-    public Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken)
+    public async Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken)
     {
-        var localPath = GetLocalPath();
-        _git.EnsureCloned(_cloneUrl, localPath);
-
-        var target = branch ?? new BranchName("main");
-
-        using var repo = new LibGit2Sharp.Repository(localPath);
-        _git.CheckoutBranch(repo, target.Value);
-        logger.LogInformation("Checked out branch {Branch} in {Path}", target, localPath);
-        return Task.FromResult(new Repository(localPath, target, _cloneUrl));
+        var target = branch ?? new BranchName(await GetDefaultBranchAsync(cancellationToken));
+        logger.LogInformation(
+            "Resolved metadata for {Url} on branch {Branch}", _cloneUrl, target);
+        return new Repository(target, _cloneUrl);
     }
 
     public async Task<string> CreatePullRequestAsync(
@@ -46,7 +42,7 @@ public sealed class AzureReposSourceProvider(
     {
         var client = CreateGitClient();
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
-        const string tgt = "refs/heads/main";
+        var tgt = $"refs/heads/{await GetDefaultBranchAsync(cancellationToken)}";
         var pr = new GitPullRequest
         {
             Title = title, Description = description,
@@ -80,6 +76,30 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
+    private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
+    {
+        if (_cachedDefaultBranch is not null)
+            return _cachedDefaultBranch;
+
+        try
+        {
+            var client = CreateGitClient();
+            var repo = await client.GetRepositoryAsync(
+                project, repoName, cancellationToken: cancellationToken);
+            var raw = repo.DefaultBranch ?? "refs/heads/main";
+            _cachedDefaultBranch = raw.StartsWith("refs/heads/", StringComparison.Ordinal)
+                ? raw["refs/heads/".Length..] : raw;
+            logger.LogDebug("Resolved default branch from Azure DevOps API: {Branch}", _cachedDefaultBranch);
+            return _cachedDefaultBranch;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to resolve default branch from Azure DevOps API, falling back to 'main'");
+            _cachedDefaultBranch = "main";
+            return _cachedDefaultBranch;
+        }
+    }
+
     private async Task<string> FindExistingPrUrlAsync(
         GitHttpClient client, string src, string tgt, CancellationToken cancellationToken)
     {
@@ -94,9 +114,6 @@ public sealed class AzureReposSourceProvider(
 
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{project}/_git/{repoName}/pullrequest/{prId}";
-
-    private string GetLocalPath() =>
-        Path.Combine(Path.GetTempPath(), "agentsmith", "azuredevops", project, repoName);
 
     private GitHttpClient CreateGitClient()
     {

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -7,30 +8,35 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Acquires a document from the local processing folder and creates a workspace.
+/// Acquires a document from the local processing folder and copies it into the
+/// sandbox /work directory so downstream handlers (BootstrapDocument etc.)
+/// can read it via SandboxFileReader regardless of sandbox backend.
 /// </summary>
 public sealed class AcquireSourceHandler(
+    ISandboxFileReaderFactory readerFactory,
     ILogger<AcquireSourceHandler> logger) : ICommandHandler<AcquireSourceContext>
 {
-    public Task<CommandResult> ExecuteAsync(
+    public async Task<CommandResult> ExecuteAsync(
         AcquireSourceContext context, CancellationToken cancellationToken)
     {
         var sourceFilePath = context.Pipeline.Get<string>(ContextKeys.SourceFilePath);
 
         if (!File.Exists(sourceFilePath))
-            return Task.FromResult(CommandResult.Fail($"Source file not found: {sourceFilePath}"));
+            return CommandResult.Fail($"Source file not found: {sourceFilePath}");
+
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
 
         var fileName = Path.GetFileName(sourceFilePath);
-        var workspace = Path.Combine(Path.GetTempPath(), "agentsmith-legal", Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(workspace);
+        var targetPath = Path.Combine(Repository.SandboxWorkPath, fileName);
+        var content = await File.ReadAllTextAsync(sourceFilePath, cancellationToken);
+        await reader.WriteAsync(targetPath, content, cancellationToken);
+        logger.LogInformation(
+            "Acquired source document {FileName} into sandbox at {Target}", fileName, targetPath);
 
-        var targetPath = Path.Combine(workspace, fileName);
-        File.Copy(sourceFilePath, targetPath, overwrite: true);
-        logger.LogInformation("Acquired source document {FileName} to workspace {Workspace}", fileName, workspace);
-
-        var repo = new Repository(workspace, new BranchName("legal-analysis"), string.Empty);
+        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
         context.Pipeline.Set(ContextKeys.Repository, repo);
 
-        return Task.FromResult(CommandResult.Ok($"Acquired {fileName} to {workspace}"));
+        return CommandResult.Ok($"Acquired {fileName} to {targetPath}");
     }
 }

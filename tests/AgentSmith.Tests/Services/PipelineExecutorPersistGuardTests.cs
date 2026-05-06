@@ -106,7 +106,7 @@ public sealed class PipelineExecutorPersistGuardTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Repository,
-            new Repository("/tmp/some/path", new BranchName("main"), "https://example.com/repo.git"));
+            new Repository(new BranchName("main"), "https://example.com/repo.git"));
         return pipeline;
     }
 
