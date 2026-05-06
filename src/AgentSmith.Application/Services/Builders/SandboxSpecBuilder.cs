@@ -32,6 +32,14 @@ public sealed class SandboxSpecBuilder
         return new SandboxSpec(ToolchainImage: image);
     }
 
+    // Generic fallback for pipelines that don't compile/test project code (api-scan,
+    // security-scan, mad-discussion, legal-analysis). InProcessSandboxFactory ignores
+    // the image entirely; Docker/K8s factories use it as the toolchain container — alpine
+    // gives them a working shell + git + coreutils so the sandbox-side `git clone` Step
+    // and SandboxFileReader file IO work without a heavier language SDK on board.
+    // Operators with stricter base-image policies override via ProjectConfig.Sandbox.ToolchainImage.
+    private const string GenericFallbackImage = "alpine:3.20";
+
     private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
     {
         var override_ = projectConfig.Sandbox?.ToolchainImage;
@@ -41,8 +49,6 @@ public sealed class SandboxSpecBuilder
         if (!string.IsNullOrEmpty(language) && LanguageImages.TryGetValue(language, out var image))
             return image;
 
-        throw new InvalidOperationException(
-            $"Cannot resolve toolchain image for language '{language ?? "<unknown>"}'. " +
-            "Set ProjectConfig.Sandbox.ToolchainImage explicitly.");
+        return GenericFallbackImage;
     }
 }

@@ -33,11 +33,26 @@ public sealed class PipelineExecutor(
 {
     private const int MaxCommandExecutions = 100;
 
+    // Post-p0117b every command that touches the project tree goes through the sandbox
+    // (Repository.LocalPath = "/work" const; SandboxFileReader for reads/writes; scanners
+    // and bootstrap services all sandbox-routed). The InProcessSandboxFactory used in CLI
+    // mode just allocates a tempdir, so the cost of creating one is trivial.
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
     {
-        CommandNames.CheckoutSource, CommandNames.AgenticExecute, CommandNames.Test,
+        // Source + lifecycle
+        CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
+        CommandNames.AgenticExecute, CommandNames.Test,
         CommandNames.GenerateTests, CommandNames.GenerateDocs,
-        CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch
+        CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
+        // Project metadata reads/writes
+        CommandNames.BootstrapProject, CommandNames.BootstrapDocument,
+        CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
+        CommandNames.LoadRuns, CommandNames.AnalyzeCode,
+        CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
+        CommandNames.WriteRunResult,
+        // Security scanners + post-processors
+        CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
+        CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix
     };
 
     public async Task<CommandResult> ExecuteAsync(
