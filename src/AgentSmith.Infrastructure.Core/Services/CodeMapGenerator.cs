@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core.Services;
@@ -11,13 +13,14 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// All language-specific interpretation is done by the LLM, not by code.
 /// </summary>
 public sealed class CodeMapGenerator(
+    IChatClientFactory chatClientFactory,
     ILogger<CodeMapGenerator> logger) : ICodeMapGenerator
 {
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        ILlmClient llmClient,
+        AgentConfig agent,
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
@@ -25,10 +28,17 @@ public sealed class CodeMapGenerator(
             project.Language, repoPath);
 
         var userPrompt = BuildUserPrompt(project, snapshot);
-        var llmResponse = await llmClient.CompleteAsync(
-            SystemPrompt, userPrompt, TaskType.CodeMapGeneration, cancellationToken);
+        var chat = chatClientFactory.Create(agent, TaskType.CodeMapGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.CodeMapGeneration);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, SystemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
 
-        var yaml = LlmResponseHelper.StripCodeFences(llmResponse.Text);
+        var yaml = LlmResponseHelper.StripCodeFences(response.Text ?? string.Empty);
 
         if (!LlmResponseHelper.IsValidYaml(yaml))
         {

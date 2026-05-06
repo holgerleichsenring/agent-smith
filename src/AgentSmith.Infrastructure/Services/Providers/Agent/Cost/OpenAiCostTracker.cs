@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 
@@ -44,4 +45,25 @@ public class OpenAiCostTracker : CostTrackerBase
     /// </summary>
     public void TrackRaw(int inputTokens, int outputTokens)
         => Aggregate(inputTokens, outputTokens);
+
+    /// <summary>
+    /// Records token usage from a Microsoft.Extensions.AI ChatResponse. M.E.AI.OpenAI
+    /// surfaces cached_tokens via UsageDetails.AdditionalCounts['cached_tokens'].
+    /// Total input minus cached gives the billable portion.
+    /// </summary>
+    public void Track(ChatResponse response)
+    {
+        if (response.Usage is null) return;
+        var total = (int)(response.Usage.InputTokenCount ?? 0);
+        var cached = ReadCount(response.Usage, "cached_tokens");
+        var billable = Math.Max(0, total - cached);
+        Aggregate(
+            billableInput: billable,
+            output: (int)(response.Usage.OutputTokenCount ?? 0),
+            cacheCreate: 0,
+            cacheRead: cached);
+    }
+
+    private static int ReadCount(UsageDetails usage, string key)
+        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
 }

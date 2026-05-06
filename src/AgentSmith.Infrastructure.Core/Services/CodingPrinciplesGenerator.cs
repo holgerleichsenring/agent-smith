@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core.Services;
@@ -10,13 +12,14 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// Analyzes code samples and config files to produce actionable coding guidelines.
 /// </summary>
 public sealed class CodingPrinciplesGenerator(
+    IChatClientFactory chatClientFactory,
     ILogger<CodingPrinciplesGenerator> logger) : ICodingPrinciplesGenerator
 {
     public async Task<string> GenerateAsync(
         DetectedProject project,
         string repoPath,
         RepoSnapshot snapshot,
-        ILlmClient llmClient,
+        AgentConfig agent,
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
@@ -24,11 +27,19 @@ public sealed class CodingPrinciplesGenerator(
             project.Language, repoPath);
 
         var userPrompt = BuildUserPrompt(project, snapshot);
-        var llmResponse = await llmClient.CompleteAsync(
-            SystemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
+        var chat = chatClientFactory.Create(agent, TaskType.ContextGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.ContextGeneration);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, SystemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
 
-        logger.LogInformation("Generated coding-principles.md ({Chars} chars)", llmResponse.Text.Length);
-        return llmResponse.Text;
+        var text = response.Text ?? string.Empty;
+        logger.LogInformation("Generated coding-principles.md ({Chars} chars)", text.Length);
+        return text;
     }
 
     internal static string BuildUserPrompt(DetectedProject project, RepoSnapshot snapshot)

@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core.Services;
@@ -11,13 +13,14 @@ namespace AgentSmith.Infrastructure.Core.Services;
 public sealed class ContextGenerator(
     ContextUserPromptBuilder userPromptBuilder,
     IPromptCatalog prompts,
+    IChatClientFactory chatClientFactory,
     ILogger<ContextGenerator> logger) : IContextGenerator
 {
     private const int MaxFileContentChars = 4000;
 
     public async Task<string> GenerateAsync(
         DetectedProject project, string repoPath, RepoSnapshot snapshot,
-        ILlmClient llmClient, CancellationToken cancellationToken)
+        AgentConfig agent, CancellationToken cancellationToken)
     {
         logger.LogInformation("Generating .context.yaml for {Lang} project at {Path}...",
             project.Language, repoPath);
@@ -26,17 +29,15 @@ public sealed class ContextGenerator(
         var userPrompt = userPromptBuilder.Build(project, keyFileContents, snapshot);
         var systemPrompt = prompts.Get("context-generator-system");
 
-        var llmResponse = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.ContextGeneration, cancellationToken);
-
-        var yaml = LlmResponseHelper.StripCodeFences(llmResponse.Text);
+        var text = await CallAsync(agent, systemPrompt, userPrompt, cancellationToken);
+        var yaml = LlmResponseHelper.StripCodeFences(text);
         logger.LogInformation("Generated .context.yaml ({Chars} chars)", yaml.Length);
         return yaml;
     }
 
     public async Task<string> RetryWithErrorsAsync(
         DetectedProject project, string repoPath, string previousYaml,
-        IReadOnlyList<string> validationErrors, ILlmClient llmClient,
+        IReadOnlyList<string> validationErrors, AgentConfig agent,
         CancellationToken cancellationToken)
     {
         logger.LogInformation("Retrying .context.yaml generation with {ErrorCount} validation errors",
@@ -59,10 +60,23 @@ public sealed class ContextGenerator(
             """;
 
         var systemPrompt = prompts.Get("context-generator-system");
-        var llmResponse = await llmClient.CompleteAsync(
-            systemPrompt, retryPrompt, TaskType.ContextGeneration, cancellationToken);
+        var text = await CallAsync(agent, systemPrompt, retryPrompt, cancellationToken);
+        return LlmResponseHelper.StripCodeFences(text);
+    }
 
-        return LlmResponseHelper.StripCodeFences(llmResponse.Text);
+    private async Task<string> CallAsync(
+        AgentConfig agent, string systemPrompt, string userPrompt, CancellationToken ct)
+    {
+        var chat = chatClientFactory.Create(agent, TaskType.ContextGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.ContextGeneration);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, ct);
+        return response.Text ?? string.Empty;
     }
 
     internal static string ReadKeyFiles(IReadOnlyList<string> keyFiles, string repoPath)

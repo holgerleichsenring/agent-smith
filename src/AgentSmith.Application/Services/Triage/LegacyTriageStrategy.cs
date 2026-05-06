@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Triage;
@@ -17,15 +18,16 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public sealed class LegacyTriageStrategy(
     IPromptCatalog prompts,
+    IChatClientFactory chatClientFactory,
     ILogger<LegacyTriageStrategy> logger) : ITriageStrategy
 {
     public async Task<CommandResult> ExecuteAsync(
-        PipelineContext pipeline, ILlmClient llmClient, CancellationToken cancellationToken)
+        PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (!TryLoadRoles(pipeline, out var roles))
             return CommandResult.Ok("No roles available, skipping triage");
 
-        var triage = await CallLlmAsync(pipeline, roles, llmClient, cancellationToken);
+        var triage = await CallLlmAsync(pipeline, roles, cancellationToken);
         if (triage is null || triage.Participants.Count == 0)
             return CommandResult.Ok("Triage: no roles needed, skipping discussion");
 
@@ -54,7 +56,7 @@ public sealed class LegacyTriageStrategy(
 
     private async Task<TriageResult?> CallLlmAsync(
         PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> roles,
-        ILlmClient llmClient, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var rolesDescription = string.Join("\n", roles.Select(r =>
             $"- {r.Name}: {r.Description} (triggers: {string.Join(", ", r.Triggers)})"));
@@ -64,8 +66,16 @@ public sealed class LegacyTriageStrategy(
 
         try
         {
-            var response = await llmClient.CompleteAsync(
-                parser.SystemPrompt, fullPrompt, TaskType.Planning, cancellationToken);
+            var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
+            var chat = chatClientFactory.Create(agent, TaskType.Planning);
+            var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Planning);
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, parser.SystemPrompt),
+                new(ChatRole.User, fullPrompt),
+            };
+            var response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
             PipelineCostTracker.GetOrCreate(pipeline).Track(response);
             return parser.Parse(response.Text, roles);
         }

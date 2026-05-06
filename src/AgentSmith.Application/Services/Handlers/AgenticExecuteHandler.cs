@@ -1,65 +1,84 @@
+using System.Diagnostics;
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.Prompts;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Executes the plan via AI agent agentic loop (tool calling).
-/// Writes execution decisions to the decision log after completion.
+/// Executes the plan via Microsoft.Extensions.AI: resolves an IChatClient with
+/// FunctionInvokingChatClient (wrapped by IChatClientFactory for tool-bearing tasks),
+/// builds the SandboxToolHost tool surface, runs GetResponseAsync, then collects
+/// changes/decisions from the SandboxToolHost.
 /// </summary>
 public sealed class AgenticExecuteHandler(
-    IAgentProviderFactory factory,
+    IChatClientFactory chatClientFactory,
+    AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
-    IProgressReporter progressReporter,
+    IDialogueTransport? dialogueTransport,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
 {
+
     public async Task<CommandResult> ExecuteAsync(
         AgenticExecuteContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
-        var provider = factory.Create(context.AgentConfig);
-        var sandbox = context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sb) ? sb : null;
-        var result = await provider.ExecutePlanAsync(
-            context.Plan, context.Repository, context.CodingPrinciples,
-            context.CodeMap, context.ProjectContext, progressReporter, sandbox, cancellationToken);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var toolHost = new SandboxToolHost(
+            sandbox, decisionLogger, dialogueTransport, jobId: null, context.Repository.LocalPath);
 
-        context.Pipeline.Set(ContextKeys.CodeChanges, result.Changes);
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
+            context.CodingPrinciples, context.CodeMap, context.ProjectContext);
+        var userPrompt = promptBuilder.BuildExecutionUserPrompt(context.Plan, context.Repository);
 
-        if (result.CostSummary is not null)
-            context.Pipeline.Set(ContextKeys.RunCostSummary, result.CostSummary);
-
-        if (result.DurationSeconds is not null)
-            context.Pipeline.Set(ContextKeys.RunDurationSeconds, result.DurationSeconds.Value);
-
-        if (result.Decisions is { Count: > 0 })
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var messages = new List<ChatMessage>
         {
-            context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
-            var sourceLabel = ticketId is not null ? $"#{ticketId}" : null;
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var options = new ChatOptions
+        {
+            Tools = toolHost.GetAllTools(),
+            MaxOutputTokens = maxTokens,
+        };
 
-            foreach (var d in result.Decisions)
-            {
-                if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
-                    await decisionLogger.LogAsync(
-                        context.Repository.LocalPath, cat, d.Decision, cancellationToken, sourceLabel);
-            }
+        var sw = Stopwatch.StartNew();
+        var response = await chat.GetResponseAsync(messages, options, cancellationToken);
+        sw.Stop();
 
-            context.Pipeline.AppendDecisions(result.Decisions);
+        var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
+        costTracker.Track(response);
+
+        var changes = toolHost.GetChanges();
+        var decisions = toolHost.GetDecisions();
+
+        context.Pipeline.Set(ContextKeys.CodeChanges, changes);
+        context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)sw.Elapsed.TotalSeconds);
+
+        if (decisions.Count > 0)
+        {
+            context.Pipeline.AppendDecisions(decisions);
         }
 
         logger.LogInformation(
             "Agentic execution completed: {Count} files changed, {Decisions} decisions",
-            result.Changes.Count, result.Decisions?.Count ?? 0);
+            changes.Count, decisions.Count);
 
-        return CommandResult.Ok($"Agentic execution completed: {result.Changes.Count} files changed");
+        return CommandResult.Ok($"Agentic execution completed: {changes.Count} files changed");
     }
 }
