@@ -3,11 +3,11 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 
-namespace AgentSmith.Infrastructure.Services.Providers.Agent;
+namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
-/// Shared plan parsing logic used by all AI agent providers (Claude, OpenAI, Gemini).
-/// Parses JSON plan responses from LLMs into Plan domain objects.
+/// Parses JSON plan responses from the LLM into Plan domain objects.
+/// Migrated from Infrastructure during the M.E.AI refactor (p0119a).
 /// </summary>
 public static class PlanParser
 {

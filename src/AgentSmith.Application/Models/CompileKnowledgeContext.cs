@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Models;
@@ -9,4 +10,5 @@ namespace AgentSmith.Application.Models;
 public sealed record CompileKnowledgeContext(
     Repository Repository,
     bool FullRecompile,
+    AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;

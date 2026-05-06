@@ -1,31 +1,32 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using IRepositoryToolDispatcher = AgentSmith.Contracts.Services.IRepositoryToolDispatcher;
+// Was: using IRepositoryToolDispatcher = AgentSmith.Contracts.Services.IRepositoryToolDispatcher;
+// IRepositoryToolDispatcher is replaced by SandboxToolHost in p0119a.
 
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Runs the agentic analyzer over a repository and parses the model's terminal
-/// JSON response into a ProjectMap. One retry on JSON-parse failure with the
+/// Drives a Microsoft.Extensions.AI IChatClient with the SandboxToolHost scout
+/// tool subset to produce a ProjectMap. One retry on JSON-parse failure with the
 /// parse error appended to the user prompt; failure after the retry surfaces
 /// to the handler as an exception. No silent fallback.
 /// </summary>
 public sealed class ProjectAnalyzer(
-    IAgenticAnalyzerFactory analyzerFactory,
+    IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
-    IRepositoryToolDispatcher toolDispatcher,
+    IDecisionLogger decisionLogger,
     ILogger<ProjectAnalyzer> logger) : IProjectAnalyzer
 {
-    private const int MaxIterations = 25;
-    private static readonly IReadOnlyList<ToolDefinition> Tools = BuildTools();
+    private const int MaximumIterations = 25;
 
-    // Models occasionally emit trailing commas + line comments — both are common in
-    // hand-written JSON dialects and harmless to parse. Strict System.Text.Json
-    // defaults reject them and we'd burn a retry attempt for purely cosmetic noise.
     private static readonly JsonDocumentOptions LenientJsonOptions = new()
     {
         AllowTrailingCommas = true,
@@ -33,31 +34,47 @@ public sealed class ProjectAnalyzer(
     };
 
     public async Task<ProjectMap> AnalyzeAsync(
-        string repositoryPath, AgentConfig agent, CancellationToken cancellationToken)
+        string repositoryPath, AgentConfig agent, ISandbox sandbox, CancellationToken cancellationToken)
     {
-        var analyzer = analyzerFactory.Create(agent);
         var systemPrompt = prompts.Get("project-analyzer-system");
         var userPrompt = $"Repository to analyze: {repositoryPath}\n\nStart by listing the root directory.";
 
-        var handler = new ReadOnlyToolCallHandler((name, input, ct) =>
-            toolDispatcher.ExecuteAsync(repositoryPath, name, input, ct));
+        var toolHost = new SandboxToolHost(sandbox, decisionLogger, repoPath: repositoryPath);
+        var chat = chatClientFactory.Create(agent, TaskType.Primary);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
 
+        var lastError = string.Empty;
         for (var attempt = 1; attempt <= 2; attempt++)
         {
-            var prompt = attempt == 1 ? userPrompt : userPrompt + LastAttemptError;
-            var result = await analyzer.AnalyzeAsync(
-                systemPrompt, prompt, Tools, handler, MaxIterations, cancellationToken);
+            var prompt = attempt == 1
+                ? userPrompt
+                : userPrompt +
+                  $"\n\nYour previous response could not be parsed as JSON: {lastError}\n" +
+                  "Respond again with ONLY the JSON object, no surrounding prose, no code fences.";
+
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, systemPrompt),
+                new(ChatRole.User, prompt),
+            };
+            var options = new ChatOptions
+            {
+                Tools = toolHost.GetScoutTools(),
+                MaxOutputTokens = maxTokens,
+                // iter cap on factory
+            };
+            var response = await chat.GetResponseAsync(messages, options, cancellationToken);
 
             logger.LogInformation(
-                "ProjectAnalyzer attempt {Attempt}: {Iter} iterations, {Calls} tool calls, {In}+{Out} tokens",
-                attempt, result.Iterations, result.ToolCallCount,
-                result.Tokens.Input, result.Tokens.Output);
+                "ProjectAnalyzer attempt {Attempt}: {In}+{Out} tokens",
+                attempt,
+                response.Usage?.InputTokenCount ?? 0,
+                response.Usage?.OutputTokenCount ?? 0);
 
-            if (TryParse(result.FinalText, out var map, out var parseError))
+            if (TryParse(response.Text ?? string.Empty, out var map, out var parseError))
                 return map!;
 
-            LastAttemptError = $"\n\nYour previous response could not be parsed as JSON: {parseError}\n" +
-                "Respond again with ONLY the JSON object, no surrounding prose, no code fences.";
+            lastError = parseError;
             logger.LogWarning(
                 "ProjectAnalyzer attempt {Attempt} produced unparseable output: {Error}",
                 attempt, parseError);
@@ -67,10 +84,6 @@ public sealed class ProjectAnalyzer(
             "ProjectAnalyzer failed after 2 attempts: model never produced parseable JSON. " +
             "Check logs for the raw responses; consider adjusting the analyzer prompt or upgrading the model.");
     }
-
-    // Mutable per-call state — kept simple via instance field; the factory issues
-    // a fresh ProjectAnalyzer per consumer (Singleton DI in handler-scoped use).
-    private string LastAttemptError { get; set; } = string.Empty;
 
     private static bool TryParse(string finalText, out ProjectMap? map, out string error)
     {
@@ -82,7 +95,6 @@ public sealed class ProjectAnalyzer(
             return false;
         }
 
-        // Strip optional code-fence wrappers in case the model included them despite the prompt.
         var json = finalText.Trim();
         if (json.StartsWith("```"))
         {
@@ -177,36 +189,4 @@ public sealed class ProjectAnalyzer(
         "generated" => ModuleRole.Generated,
         _ => ModuleRole.Other
     };
-
-    private static IReadOnlyList<ToolDefinition> BuildTools() =>
-    [
-        new("list_files", "List files in a directory of the repository.",
-            new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject { ["path"] = StringProp("Relative directory path, empty string for root.") },
-                ["required"] = new JsonArray("path")
-            }),
-        new("read_file", "Read the contents of a file in the repository.",
-            new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject { ["path"] = StringProp("Relative path from repository root.") },
-                ["required"] = new JsonArray("path")
-            }),
-        new("grep", "Search files for a regex pattern. Returns up to 200 matching lines as JSON {matches:[{path,line,text}], truncated}.",
-            new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["pattern"] = StringProp("Regex pattern to match against each line."),
-                    ["glob"] = StringProp("Optional glob to limit which files are searched (e.g. '**/*.cs'). Defaults to '**/*'.")
-                },
-                ["required"] = new JsonArray("pattern")
-            }),
-    ];
-
-    private static JsonObject StringProp(string description) =>
-        new() { ["type"] = "string", ["description"] = description };
 }

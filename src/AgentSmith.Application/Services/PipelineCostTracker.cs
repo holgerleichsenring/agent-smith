@@ -50,19 +50,6 @@ public sealed class PipelineCostTracker
     public int TotalCacheReadTokens { get { lock (_gate) return _totalCacheReadTokens; } }
     public int CallCount { get { lock (_gate) return _callCount; } }
 
-    public void Track(LlmResponse response)
-    {
-        lock (_gate)
-        {
-            _totalInputTokens += response.InputTokens;
-            _totalOutputTokens += response.OutputTokens;
-            _totalCacheCreateTokens += response.CacheCreationTokens;
-            _totalCacheReadTokens += response.CacheReadTokens;
-            _callCount++;
-            if (response.Model != "unknown") _lastModel = response.Model;
-        }
-    }
-
     /// <summary>
     /// Tracks a Microsoft.Extensions.AI ChatResponse. Pulls input/output from
     /// UsageDetails and reads cached/cache-creation counts from AdditionalCounts

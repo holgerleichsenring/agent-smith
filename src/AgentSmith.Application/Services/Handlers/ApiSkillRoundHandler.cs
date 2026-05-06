@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// a stable prefix (cached across same-round calls) and a per-skill suffix.
 /// </summary>
 public sealed class ApiSkillRoundHandler(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
@@ -24,7 +24,7 @@ public sealed class ApiSkillRoundHandler(
     IBaselineLoader baselineLoader,
     HttpProbeRunner? httpProbeRunner,
     ILogger<ApiSkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
     private readonly SwaggerSpecCompressor _compressor = new();
@@ -174,8 +174,8 @@ public sealed class ApiSkillRoundHandler(
     public async Task<CommandResult> ExecuteAsync(
         ApiSecuritySkillRoundContext context, CancellationToken cancellationToken)
     {
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
+        context.Pipeline.Set(ContextKeys.AgentConfig, context.AgentConfig);
         return await ExecuteRoundAsync(
-            context.SkillName, context.Round, context.Pipeline, llmClient, cancellationToken);
+            context.SkillName, context.Round, context.Pipeline, cancellationToken);
     }
 }

@@ -1,8 +1,10 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -12,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// stored in .agentsmith/wiki/. Tracks last compiled run to avoid reprocessing.
 /// </summary>
 public sealed class CompileKnowledgeHandler(
-    ILlmClient llmClient,
+    IChatClientFactory chatClientFactory,
     KnowledgePromptBuilder promptBuilder,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
@@ -68,10 +70,18 @@ public sealed class CompileKnowledgeHandler(
             "Compiling {Count} new run(s) into knowledge base (r{From:D2}..r{To:D2})",
             newRuns.Count, newRuns[0].RunNumber, newRuns[^1].RunNumber);
 
-        var response = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Summarization, cancellationToken);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Summarization);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Summarization);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-        var wikiUpdates = WikiUpdateParser.Parse(response.Text, logger);
+        var wikiUpdates = WikiUpdateParser.Parse(response.Text ?? string.Empty, logger);
         if (wikiUpdates.Count == 0)
         {
             logger.LogWarning("LLM returned no wiki updates");

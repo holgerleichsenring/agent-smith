@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -14,7 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Filters out candidates that do not meet minimum score thresholds.
 /// </summary>
 public sealed partial class EvaluateSkillsHandler(
-    ILlmClient llmClient,
+    IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     ILogger<EvaluateSkillsHandler> logger)
     : ICommandHandler<EvaluateSkillsContext>
@@ -50,10 +51,18 @@ public sealed partial class EvaluateSkillsHandler(
 
             try
             {
-                var response = await llmClient.CompleteAsync(
-                    prompts.Get("evaluate-skills-system"), userPrompt, TaskType.Scout, cancellationToken);
+                var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Scout);
+                var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Scout);
+                var messages = new List<ChatMessage>
+                {
+                    new(ChatRole.System, prompts.Get("evaluate-skills-system")),
+                    new(ChatRole.User, userPrompt),
+                };
+                var response = await chat.GetResponseAsync(messages,
+                    new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+                PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-                var evaluation = ParseEvaluation(candidate, response.Text);
+                var evaluation = ParseEvaluation(candidate, response.Text ?? string.Empty);
                 if (evaluation is not null)
                 {
                     evaluations.Add(evaluation);

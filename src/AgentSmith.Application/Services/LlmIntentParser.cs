@@ -7,17 +7,18 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Parses free-text user input (Slack, Teams) into a PipelineRequest via LLM.
-/// Uses Haiku for fast, cheap intent classification (~0.001$ per call).
-/// Also implements IIntentParser for backward compatibility with legacy code paths.
+/// Uses the configured Reasoning task type (typically Haiku) for cheap intent
+/// classification. Also implements IIntentParser for backward compatibility.
 /// </summary>
 public sealed class LlmIntentParser(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     IConfigurationLoader configLoader,
     AgentConfig haikusConfig,
     ILogger<LlmIntentParser> logger) : IIntentParser
@@ -53,11 +54,17 @@ public sealed class LlmIntentParser(
             User message: {userInput}
             """;
 
-        var llmClient = llmClientFactory.Create(haikusConfig);
-        var llmResponse = await llmClient.CompleteAsync(
-            SystemPrompt, userPrompt, TaskType.Planning, cancellationToken);
+        var chat = chatClientFactory.Create(haikusConfig, TaskType.Reasoning);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(haikusConfig, TaskType.Reasoning);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, SystemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
 
-        return ParseResponse(llmResponse.Text, userInput);
+        return ParseResponse(response.Text ?? string.Empty, userInput);
     }
 
     /// <summary>

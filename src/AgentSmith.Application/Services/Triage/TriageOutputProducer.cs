@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Triage;
@@ -21,6 +22,7 @@ public sealed class TriageOutputProducer(
     TriageOutputValidator validator,
     TriageLabelOverrideApplier labelOverrider,
     IPromptCatalog prompts,
+    IChatClientFactory chatClientFactory,
     ILogger<TriageOutputProducer> logger) : ITriageOutputProducer
 {
     private static readonly IReadOnlyList<PipelinePhase> DefaultPhases =
@@ -33,11 +35,12 @@ public sealed class TriageOutputProducer(
     };
 
     public async Task<TriageOutput> ProduceAsync(
-        PipelineContext pipeline, ILlmClient llmClient, CancellationToken cancellationToken)
+        PipelineContext pipeline, CancellationToken cancellationToken)
     {
         var input = BuildInput(pipeline);
-        var output = await CallAndValidateAsync(input, llmClient, retry: false, cancellationToken)
-                     ?? await CallAndValidateAsync(input, llmClient, retry: true, cancellationToken)
+        var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
+        var output = await CallAndValidateAsync(input, agent, retry: false, cancellationToken)
+                     ?? await CallAndValidateAsync(input, agent, retry: true, cancellationToken)
                      ?? throw new InvalidOperationException("Triage output failed validation after retry");
         return labelOverrider.Apply(output, input.TicketLabels);
     }
@@ -86,12 +89,20 @@ public sealed class TriageOutputProducer(
         skill.OutputContract?.OutputType ?? new Dictionary<SkillRole, OutputForm>());
 
     private async Task<TriageOutput?> CallAndValidateAsync(
-        TriageInput input, ILlmClient llmClient, bool retry, CancellationToken cancellationToken)
+        TriageInput input, AgentConfig agent, bool retry, CancellationToken cancellationToken)
     {
         var system = retry ? AddStrictReminder(prompts.Get("triage-structured-system")) : prompts.Get("triage-structured-system");
         var user = prompts.Render("triage-structured-user", BuildTokens(input));
-        var response = await llmClient.CompleteAsync(system, user, TaskType.Planning, cancellationToken);
-        var parsed = ParseJson(response.Text);
+        var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Reasoning);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, system),
+            new(ChatRole.User, user),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        var parsed = ParseJson(response.Text ?? string.Empty);
         if (parsed is null)
         {
             logger.LogWarning("Triage output JSON parse failed (retry={Retry})", retry);

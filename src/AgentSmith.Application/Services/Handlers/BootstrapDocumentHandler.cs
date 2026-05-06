@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -13,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Converts a document to Markdown via MarkItDown, detects contract type, loads legal skills.
 /// </summary>
 public sealed class BootstrapDocumentHandler(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     ISkillLoader skillLoader,
     IPromptCatalog prompts,
     ILogger<BootstrapDocumentHandler> logger) : ICommandHandler<BootstrapDocumentContext>
@@ -101,13 +102,18 @@ public sealed class BootstrapDocumentHandler(
             ? markdown[..ContractTypeDetectionMaxChars]
             : markdown;
 
-        var llmClient = llmClientFactory.Create(agentConfig);
-
         try
         {
-            var llmResponse = await llmClient.CompleteAsync(
-                prompts.Get("contract-classifier-system"), snippet, TaskType.Scout, cancellationToken);
-            var contractType = llmResponse.Text.Trim().ToLowerInvariant();
+            var chat = chatClientFactory.Create(agentConfig, TaskType.Scout);
+            var maxTokens = chatClientFactory.GetMaxOutputTokens(agentConfig, TaskType.Scout);
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, prompts.Get("contract-classifier-system")),
+                new(ChatRole.User, snippet),
+            };
+            var response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            var contractType = (response.Text ?? string.Empty).Trim().ToLowerInvariant();
 
             string[] validTypes = ["nda", "werkvertrag", "dienstleistungsvertrag", "saas-agb", "kaufvertrag", "mietvertrag"];
             return validTypes.Contains(contractType) ? contractType : "unknown";

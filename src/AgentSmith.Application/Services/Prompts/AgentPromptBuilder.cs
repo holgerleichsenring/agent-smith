@@ -1,13 +1,13 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Models;
 
-namespace AgentSmith.Infrastructure.Services.Providers.Agent;
+namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
-/// Shared prompt building logic used by all AI agent providers (Claude, OpenAI, Gemini).
-/// Provides consistent system and user prompts for plan generation and execution.
+/// Shared prompt building logic for plan generation and execution.
+/// Migrated from Infrastructure during the M.E.AI refactor (p0119a) so
+/// Application-layer handlers can reach it without an Infrastructure dependency.
 /// </summary>
 public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 {
@@ -68,6 +68,25 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
+    public string BuildExecutionUserPrompt(Plan plan, Repository repository)
+    {
+        var steps = string.Join('\n', plan.Steps.Select(
+            s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
+
+        return $"""
+            Execute the following implementation plan in repository at: {repository.LocalPath}
+            Branch: {repository.CurrentBranch}
+
+            ## Plan
+            **Summary:** {plan.Summary}
+
+            **Steps:**
+            {steps}
+
+            Start by listing the relevant files, then implement each step.
+            """;
+    }
+
     internal static string BuildProjectContextSection(string? projectContext)
     {
         if (string.IsNullOrWhiteSpace(projectContext))
@@ -97,45 +116,6 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             {codeMap}
             ```
 
-            """;
-    }
-
-    public string BuildExecutionUserPrompt(
-        Plan plan, Repository repository, ScoutResult? scoutResult = null)
-    {
-        var steps = string.Join('\n', plan.Steps.Select(
-            s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
-
-        var scoutSection = "";
-        if (scoutResult is not null && scoutResult.RelevantFiles.Count > 0)
-        {
-            var files = string.Join('\n', scoutResult.RelevantFiles.Select(f => $"  - {f}"));
-            scoutSection = $"""
-
-                ## Scout Results
-                The following files have been identified as relevant by the scout agent:
-                {files}
-
-                **Scout Summary:** {scoutResult.ContextSummary}
-
-                """;
-        }
-
-        var startInstruction = scoutResult is not null
-            ? "The scout has already explored the codebase. Proceed directly with implementation."
-            : "Start by listing the relevant files, then implement each step.";
-
-        return $"""
-            Execute the following implementation plan in repository at: {repository.LocalPath}
-            Branch: {repository.CurrentBranch}
-            {scoutSection}
-            ## Plan
-            **Summary:** {plan.Summary}
-
-            **Steps:**
-            {steps}
-
-            {startInstruction}
             """;
     }
 }
