@@ -116,6 +116,7 @@ public static class PipelinePresets
         CommandNames.RunFinalPhase,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileFindings,
+        CommandNames.ExtractFindings,
         CommandNames.DeliverFindings,
     ];
 
