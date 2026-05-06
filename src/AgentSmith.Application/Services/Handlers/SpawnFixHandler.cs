@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -15,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// .agentsmith/security/fixes/ for pickup by a follow-up command.
 /// </summary>
 public sealed class SpawnFixHandler(
+    ISandboxFileReaderFactory readerFactory,
     ILogger<SpawnFixHandler> logger,
     IDialogueTransport dialogueTransport,
     IDialogueTrail dialogueTrail,
@@ -89,15 +91,17 @@ public sealed class SpawnFixHandler(
                 return CommandResult.Ok("Auto-fix cancelled by human");
         }
 
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+
         var fixesDir = Path.Combine(repo.LocalPath, FixesDir);
-        Directory.CreateDirectory(fixesDir);
 
         foreach (var request in requests)
         {
             var fileName = SecurityFixRequestBuilder.SanitizeFileName(request.SuggestedBranch) + ".yaml";
             var filePath = Path.Combine(fixesDir, fileName);
             var yaml = SecurityFixRequestBuilder.SerializeFixRequest(request);
-            File.WriteAllText(filePath, yaml);
+            await reader.WriteAsync(filePath, yaml, cancellationToken);
         }
 
         context.Pipeline.Set(ContextKeys.SecurityFixRequests,

@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
@@ -16,6 +17,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class CompileKnowledgeHandler(
     IChatClientFactory chatClientFactory,
     KnowledgePromptBuilder promptBuilder,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
 {
@@ -26,26 +28,23 @@ public sealed class CompileKnowledgeHandler(
     public async Task<CommandResult> ExecuteAsync(
         CompileKnowledgeContext context, CancellationToken cancellationToken)
     {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var wikiDir = Path.Combine(agentDir, WikiDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
 
-        if (!Directory.Exists(runsDir))
-        {
-            logger.LogInformation("No runs directory found at {RunsDir}", runsDir);
-            return CommandResult.Ok("No runs directory found, nothing to compile");
-        }
-
-        var runDirs = RunDirectoryReader.GetRunDirectories(runsDir);
+        var runDirs = await RunDirectoryReader.GetRunDirectoriesAsync(reader, runsDir, cancellationToken);
         if (runDirs.Count == 0)
         {
-            logger.LogInformation("No run directories found");
+            logger.LogInformation("No run directories found at {RunsDir}", runsDir);
             return CommandResult.Ok("No runs found, nothing to compile");
         }
 
         var lastCompiled = context.FullRecompile
             ? 0
-            : RunDirectoryReader.ReadLastCompiled(wikiDir);
+            : await RunDirectoryReader.ReadLastCompiledAsync(reader, wikiDir, cancellationToken);
         var newRuns = runDirs
             .Where(r => r.RunNumber > lastCompiled)
             .OrderBy(r => r.RunNumber)
@@ -58,10 +57,8 @@ public sealed class CompileKnowledgeHandler(
             return CommandResult.Ok("Wiki up to date");
         }
 
-        Directory.CreateDirectory(wikiDir);
-
-        var existingWiki = RunDirectoryReader.ReadExistingWiki(wikiDir);
-        var runData = await RunDirectoryReader.ReadRunDataAsync(newRuns, cancellationToken);
+        var existingWiki = await RunDirectoryReader.ReadExistingWikiAsync(reader, wikiDir, cancellationToken);
+        var runData = await RunDirectoryReader.ReadRunDataAsync(reader, newRuns, cancellationToken);
 
         var systemPrompt = promptBuilder.BuildSystemPrompt();
         var userPrompt = promptBuilder.BuildUserPrompt(existingWiki, runData);
@@ -91,13 +88,13 @@ public sealed class CompileKnowledgeHandler(
         foreach (var (fileName, content) in wikiUpdates)
         {
             var filePath = Path.Combine(wikiDir, fileName);
-            await File.WriteAllTextAsync(filePath, content, cancellationToken);
+            await reader.WriteAsync(filePath, content, cancellationToken);
             logger.LogDebug("Updated wiki file: {File}", fileName);
         }
 
         var latestRun = newRuns[^1].RunNumber;
         await RunDirectoryReader.WriteLastCompiledAsync(
-            wikiDir, latestRun, cancellationToken);
+            reader, wikiDir, latestRun, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.WikiUpdates, wikiUpdates);
 

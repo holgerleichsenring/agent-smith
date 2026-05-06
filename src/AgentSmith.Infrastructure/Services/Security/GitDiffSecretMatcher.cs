@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using LibGit2Sharp;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
@@ -7,19 +7,30 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// Diff parsing, secret-pattern matching, and masking utilities used by
 /// <see cref="GitHistoryScanner"/>. Patterns are passed in by the caller so this
 /// stays a pure transformer over data — same pattern source as the static scanner.
+/// HEAD content is fetched through ISandboxFileReader (no LibGit2Sharp).
 /// </summary>
 public sealed class GitDiffSecretMatcher
 {
-    public HashSet<string> BuildHeadContentIndex(
-        Repository repo,
-        IReadOnlyList<CompiledPattern> patterns)
+    public async Task<HashSet<string>> BuildHeadContentIndexAsync(
+        ISandboxFileReader reader,
+        string repoPath,
+        IReadOnlyList<CompiledPattern> patterns,
+        CancellationToken cancellationToken)
     {
         var index = new HashSet<string>(StringComparer.Ordinal);
+        var entries = await reader.ListAsync(repoPath, maxDepth: 12, cancellationToken);
 
-        if (repo.Head?.Tip?.Tree is null)
-            return index;
+        foreach (var entry in entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var content = await reader.TryReadAsync(entry, cancellationToken);
+            if (content is null) continue;
 
-        CollectBlobContent(repo.Head.Tip.Tree, patterns, index);
+            foreach (var pattern in patterns)
+                foreach (Match match in pattern.Regex.Matches(content))
+                    index.Add(match.Value);
+        }
+
         return index;
     }
 
@@ -66,33 +77,5 @@ public sealed class GitDiffSecretMatcher
             return secret[..2] + new string('*', secret.Length - 2);
 
         return secret[..4] + new string('*', secret.Length - 6) + secret[^2..];
-    }
-
-    private static void CollectBlobContent(
-        Tree tree,
-        IReadOnlyList<CompiledPattern> patterns,
-        HashSet<string> index)
-    {
-        foreach (var entry in tree)
-        {
-            if (entry.TargetType == TreeEntryTargetType.Blob)
-            {
-                var blob = (Blob)entry.Target;
-                using var reader = new StreamReader(blob.GetContentStream());
-                var content = reader.ReadToEnd();
-
-                foreach (var pattern in patterns)
-                {
-                    foreach (Match match in pattern.Regex.Matches(content))
-                    {
-                        index.Add(match.Value);
-                    }
-                }
-            }
-            else if (entry.TargetType == TreeEntryTargetType.Tree)
-            {
-                CollectBlobContent((Tree)entry.Target, patterns, index);
-            }
-        }
     }
 }

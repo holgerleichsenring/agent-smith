@@ -1,14 +1,17 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
-/// Matches compiled regex patterns against individual file contents.
+/// Matches compiled regex patterns against individual file contents fetched
+/// through ISandboxFileReader so the scan reads the sandbox tree directly.
 /// </summary>
 public sealed class PatternFileMatcher
 {
     public async Task<List<PatternFinding>> ScanFileAsync(
+        ISandboxFileReader reader,
         string filePath,
         string relativePath,
         IReadOnlyList<CompiledPattern> patterns,
@@ -16,19 +19,13 @@ public sealed class PatternFileMatcher
     {
         var findings = new List<PatternFinding>();
 
-        string[] lines;
-        try
-        {
-            lines = await File.ReadAllLinesAsync(filePath, cancellationToken);
-        }
-        catch
-        {
-            return findings;
-        }
+        var content = await reader.TryReadAsync(filePath, cancellationToken);
+        if (content is null) return findings;
+        var lines = content.Split('\n');
 
         for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
-            var line = lines[lineIndex];
+            var line = lines[lineIndex].TrimEnd('\r');
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 

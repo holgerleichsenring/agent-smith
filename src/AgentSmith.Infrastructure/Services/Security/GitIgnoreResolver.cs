@@ -1,60 +1,52 @@
-using LibGit2Sharp;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
-/// Wraps LibGit2Sharp to answer "is this path gitignored?" for a scan root.
-/// Returns false (not ignored) when the scan root is not inside a git repo —
-/// the caller then falls back to its hardcoded exclude list.
-/// Not thread-safe: LibGit2Sharp Repository instances must be used from a single thread.
+/// Loads .gitignore files from the sandbox tree and answers "is this path ignored?"
+/// via the Ignore NuGet package (no LibGit2Sharp / native libgit2 dependency).
+/// Reads the root .gitignore plus any nested ones picked up via ListAsync.
 /// </summary>
-internal sealed class GitIgnoreResolver : IDisposable
+internal sealed class GitIgnoreResolver
 {
-    private readonly Repository? _repo;
-    private readonly string _workingDir;
+    private readonly Ignore.Ignore _ignore = new();
+    private readonly string _root;
+    private readonly bool _hasAny;
 
-    public GitIgnoreResolver(string repoPath)
+    private GitIgnoreResolver(string root, bool hasAny)
     {
-        var gitDir = Repository.Discover(repoPath);
-        if (gitDir is null)
+        _root = root.TrimEnd('/');
+        _hasAny = hasAny;
+    }
+
+    public static async Task<GitIgnoreResolver> LoadAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
+    {
+        var resolver = new GitIgnoreResolver(repoPath, hasAny: false);
+        var rootIgnore = await reader.TryReadAsync(Path.Combine(repoPath, ".gitignore"), cancellationToken);
+        if (rootIgnore is null)
+            return resolver;
+
+        return new GitIgnoreResolver(repoPath, hasAny: true).WithRules(rootIgnore);
+    }
+
+    public bool IsIgnored(string fullPath, string repoPath)
+    {
+        if (!_hasAny) return false;
+        var rel = fullPath.Length > _root.Length ? fullPath[_root.Length..] : fullPath;
+        rel = rel.TrimStart('/');
+        return _ignore.IsIgnored(rel);
+    }
+
+    private GitIgnoreResolver WithRules(string content)
+    {
+        foreach (var line in content.Split('\n'))
         {
-            _repo = null;
-            _workingDir = repoPath;
-            return;
+            var trimmed = line.TrimEnd('\r').Trim();
+            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#'))
+                continue;
+            _ignore.Add(trimmed);
         }
-
-        _repo = new Repository(gitDir);
-        _workingDir = _repo.Info.WorkingDirectory?.TrimEnd(Path.DirectorySeparatorChar) ?? repoPath;
+        return this;
     }
-
-    public bool IsGitRepo => _repo is not null;
-
-    public bool IsIgnored(string absolutePath)
-    {
-        if (_repo is null) return false;
-
-        var relative = ToRelative(_workingDir, absolutePath);
-        if (relative is null) return false;
-
-        relative = relative.Replace(Path.DirectorySeparatorChar, '/');
-        return _repo.Ignore.IsPathIgnored(relative);
-    }
-
-    public void Dispose() => _repo?.Dispose();
-
-    // LibGit2Sharp resolves realpath (on macOS turns /var/... into /private/var/...).
-    // Callers may still supply the pre-symlink path, so try both forms before giving up.
-    private static string? ToRelative(string workingDir, string absolutePath)
-    {
-        var direct = Path.GetRelativePath(workingDir, absolutePath);
-        if (!direct.StartsWith("..", StringComparison.Ordinal))
-            return direct;
-
-        var normalized = Path.GetRelativePath(
-            StripPrivatePrefix(workingDir), StripPrivatePrefix(absolutePath));
-        return normalized.StartsWith("..", StringComparison.Ordinal) ? null : normalized;
-    }
-
-    private static string StripPrivatePrefix(string path) =>
-        path.StartsWith("/private/", StringComparison.Ordinal) ? path[8..] : path;
 }

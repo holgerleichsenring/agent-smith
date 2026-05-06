@@ -1,11 +1,12 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Collects raw repository data for LLM interpretation.
+/// Collects raw repository data for LLM interpretation via ISandboxFileReader.
 /// Three jobs: read config files, collect code samples, generate directory tree.
 /// No interpretation — just data collection.
 /// </summary>
@@ -32,14 +33,15 @@ public sealed class RepoSnapshotCollector(
         "ruff.toml", ".csharpierrc", ".csharpierrc.json"
     ];
 
-    public RepoSnapshot Collect(string repoPath, DetectedProject project)
+    public async Task<RepoSnapshot> CollectAsync(
+        ISandboxFileReader reader, string repoPath, DetectedProject project, CancellationToken cancellationToken)
     {
         logger.LogInformation("Collecting repo snapshot for {Lang} project at {Path}...",
             project.Language, repoPath);
 
-        var configs = CollectConfigFiles(repoPath);
-        var samples = CollectCodeSamples(repoPath, project);
-        var tree = GenerateTree(repoPath, MaxTreeDepth);
+        var configs = await CollectConfigFilesAsync(reader, repoPath, cancellationToken);
+        var samples = await CollectCodeSamplesAsync(reader, repoPath, project, cancellationToken);
+        var tree = await GenerateTreeAsync(reader, repoPath, MaxTreeDepth, cancellationToken);
 
         logger.LogInformation("Snapshot: {Configs} config files, {Samples} code samples, tree {TreeChars} chars",
             configs.Count, samples.Count, tree.Length);
@@ -47,30 +49,26 @@ public sealed class RepoSnapshotCollector(
         return new RepoSnapshot(configs, samples, tree);
     }
 
-    internal static IReadOnlyList<string> CollectConfigFiles(string repoPath)
+    internal static async Task<IReadOnlyList<string>> CollectConfigFilesAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
         var contents = new List<string>();
 
         foreach (var configFile in KnownConfigFiles)
         {
-            var fullPath = Path.Combine(repoPath, configFile);
-            if (!File.Exists(fullPath)) continue;
-
-            try
-            {
-                var content = File.ReadAllText(fullPath);
+            var content = await reader.TryReadAsync(Path.Combine(repoPath, configFile), cancellationToken);
+            if (content is not null)
                 contents.Add($"### {configFile}\n```\n{content}\n```");
-            }
-            catch (IOException) { }
         }
 
         return contents;
     }
 
-    internal static IReadOnlyList<string> CollectCodeSamples(string repoPath, DetectedProject project)
+    internal static async Task<IReadOnlyList<string>> CollectCodeSamplesAsync(
+        ISandboxFileReader reader, string repoPath, DetectedProject project, CancellationToken cancellationToken)
     {
         var extensions = GetSourceExtensions(project.Language);
-        var files = FindSourceFiles(repoPath, extensions);
+        var files = await FindSourceFilesAsync(reader, repoPath, extensions, cancellationToken);
         var samples = new List<string>();
         var totalChars = 0;
 
@@ -78,85 +76,61 @@ public sealed class RepoSnapshotCollector(
         {
             if (totalChars >= MaxCodeSampleChars) break;
 
-            try
-            {
-                var lines = File.ReadLines(file).Take(MaxSampleLines).ToList();
-                var relativePath = Path.GetRelativePath(repoPath, file);
-                var content = string.Join('\n', lines);
+            var content = await reader.TryReadAsync(file, cancellationToken);
+            if (content is null) continue;
 
-                if (totalChars + content.Length > MaxCodeSampleChars)
-                    content = content[..(MaxCodeSampleChars - totalChars)];
+            var lines = content.Split('\n').Take(MaxSampleLines);
+            var snippet = string.Join('\n', lines);
+            var relativePath = RelativeOf(file, repoPath);
 
-                samples.Add($"### {relativePath}\n{content}");
-                totalChars += content.Length;
-            }
-            catch (IOException) { }
+            if (totalChars + snippet.Length > MaxCodeSampleChars)
+                snippet = snippet[..(MaxCodeSampleChars - totalChars)];
+
+            samples.Add($"### {relativePath}\n{snippet}");
+            totalChars += snippet.Length;
         }
 
         return samples;
     }
 
-    internal static string GenerateTree(string rootPath, int maxDepth)
+    internal static async Task<string> GenerateTreeAsync(
+        ISandboxFileReader reader, string rootPath, int maxDepth, CancellationToken cancellationToken)
     {
-        var lines = new List<string>();
-        BuildTreeLines(rootPath, "", maxDepth, 0, lines);
+        var entries = await reader.ListAsync(rootPath, maxDepth, cancellationToken);
+        var lines = TreeRenderer.Render(rootPath, entries, maxDepth, ExcludedDirs);
         return string.Join('\n', lines.Take(MaxTreeLines));
     }
 
     private static string[] GetSourceExtensions(string language) => language switch
     {
-        "C#" => ["*.cs"],
-        "TypeScript" => ["*.ts", "*.tsx"],
-        "JavaScript" => ["*.js", "*.jsx"],
-        "Python" => ["*.py"],
-        _ => ["*.cs", "*.ts", "*.py", "*.js"]
+        "C#" => [".cs"],
+        "TypeScript" => [".ts", ".tsx"],
+        "JavaScript" => [".js", ".jsx"],
+        "Python" => [".py"],
+        _ => [".cs", ".ts", ".py", ".js"]
     };
 
-    private static IEnumerable<string> FindSourceFiles(string repoPath, string[] extensions)
+    private static async Task<IReadOnlyList<string>> FindSourceFilesAsync(
+        ISandboxFileReader reader, string repoPath, string[] extensions, CancellationToken cancellationToken)
     {
-        return extensions
-            .SelectMany(ext =>
-            {
-                try
-                {
-                    return Directory.GetFiles(repoPath, ext, SearchOption.AllDirectories);
-                }
-                catch { return []; }
-            })
-            .Where(f => !IsExcludedPath(f, repoPath))
-            .OrderByDescending(f => new FileInfo(f).Length);
+        var entries = await reader.ListAsync(repoPath, maxDepth: 8, cancellationToken);
+        return entries
+            .Where(e => extensions.Any(ext => e.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            .Where(e => !IsExcludedPath(e, repoPath))
+            .OrderBy(e => e, StringComparer.Ordinal)
+            .ToList();
     }
 
     private static bool IsExcludedPath(string fullPath, string repoPath)
     {
-        var relative = Path.GetRelativePath(repoPath, fullPath);
-        return ExcludedDirs.Any(d => relative.Contains(d, StringComparison.OrdinalIgnoreCase));
+        var relative = RelativeOf(fullPath, repoPath);
+        var segments = relative.Split('/');
+        return segments.Any(s => ExcludedDirs.Contains(s));
     }
 
-    private static void BuildTreeLines(
-        string dirPath, string prefix, int maxDepth, int currentDepth, List<string> lines)
+    private static string RelativeOf(string fullPath, string repoPath)
     {
-        if (currentDepth >= maxDepth || lines.Count > MaxTreeLines) return;
-
-        try
-        {
-            var entries = Directory.GetFileSystemEntries(dirPath)
-                .Select(e => new { Path = e, Name = Path.GetFileName(e), IsDir = Directory.Exists(e) })
-                .Where(e => !ExcludedDirs.Contains(e.Name))
-                .OrderBy(e => !e.IsDir)
-                .ThenBy(e => e.Name)
-                .ToList();
-
-            foreach (var entry in entries)
-            {
-                var marker = entry.IsDir ? "/" : "";
-                lines.Add($"{prefix}{entry.Name}{marker}");
-
-                if (entry.IsDir)
-                    BuildTreeLines(entry.Path, prefix + "  ", maxDepth, currentDepth + 1, lines);
-            }
-        }
-        catch (UnauthorizedAccessException) { }
-        catch (IOException) { }
+        var rel = fullPath.Length > repoPath.Length ? fullPath[repoPath.Length..] : fullPath;
+        return rel.TrimStart('/');
     }
 }

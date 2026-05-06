@@ -2,17 +2,16 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
-using LibGit2Sharp;
-using LibGit2Sharp.Handlers;
 using Microsoft.Extensions.Logging;
 using Octokit;
 using Repository = AgentSmith.Domain.Entities.Repository;
-using Signature = LibGit2Sharp.Signature;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// Source provider for GitHub repositories. Uses LibGit2Sharp for git ops, Octokit for PRs.
+/// Source provider for GitHub repositories. CheckoutAsync is metadata-only —
+/// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
+/// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
 public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 {
@@ -37,23 +36,13 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _logger = logger;
     }
 
-    public Task<Repository> CheckoutAsync(
+    public async Task<Repository> CheckoutAsync(
         BranchName? branch, CancellationToken cancellationToken)
     {
-        var localPath = GetLocalPath();
-        EnsureCloned(localPath);
-
-        var target = branch ?? new BranchName("main");
-
-        using var repo = new LibGit2Sharp.Repository(localPath);
-        var existingBranch = repo.Branches[target.Value];
-        var targetBranch = existingBranch ?? repo.CreateBranch(target.Value);
-        Commands.Checkout(repo, targetBranch);
-
+        var target = branch ?? new BranchName(await GetDefaultBranchAsync(CreateGitHubClient()));
         _logger.LogInformation(
-            "Checked out branch {Branch} in {Path}", target, localPath);
-
-        return Task.FromResult(new Repository(localPath, target, _cloneUrl));
+            "Resolved metadata for {Url} on branch {Branch}", _cloneUrl, target);
+        return new Repository(target, _cloneUrl);
     }
 
     public async Task<string> CreatePullRequestAsync(
@@ -94,41 +83,6 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
             _cachedDefaultBranch = "main";
             return _cachedDefaultBranch;
         }
-    }
-
-    private string GetLocalPath()
-    {
-        return Path.Combine(
-            Path.GetTempPath(), "agentsmith", _owner, _repo);
-    }
-
-    private void EnsureCloned(string localPath)
-    {
-        if (LibGit2Sharp.Repository.IsValid(localPath))
-        {
-            _logger.LogDebug("Repository already cloned at {Path}", localPath);
-            return;
-        }
-
-        if (Directory.Exists(localPath))
-        {
-            _logger.LogWarning(
-                "Path {Path} exists but is not a valid repository, removing it", localPath);
-            Directory.Delete(localPath, recursive: true);
-        }
-
-        _logger.LogInformation("Cloning {Url} to {Path}", _cloneUrl, localPath);
-        var options = new CloneOptions
-        {
-            FetchOptions = { CredentialsProvider = GetCredentialsHandler() }
-        };
-        LibGit2Sharp.Repository.Clone(_cloneUrl, localPath, options);
-    }
-
-    private CredentialsHandler GetCredentialsHandler()
-    {
-        return (_, _, _) =>
-            new UsernamePasswordCredentials { Username = _token, Password = string.Empty };
     }
 
     public async Task PostCommentAsync(

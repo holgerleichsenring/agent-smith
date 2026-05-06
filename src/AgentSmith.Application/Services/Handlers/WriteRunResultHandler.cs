@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Formatting is delegated to RunResultFormatter.
 /// </summary>
 public sealed class WriteRunResultHandler(
+    ISandboxFileReaderFactory readerFactory,
     IDialogueTrail dialogueTrail,
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
@@ -26,19 +28,20 @@ public sealed class WriteRunResultHandler(
     public async Task<CommandResult> ExecuteAsync(
         WriteRunResultContext context, CancellationToken cancellationToken)
     {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
-        Directory.CreateDirectory(runsDir);
 
         var contextPath = Path.Combine(agentDir, ContextFileName);
-        var nextRunNumber = DetermineNextRunNumber(contextPath);
+        var nextRunNumber = await DetermineNextRunNumberAsync(reader, contextPath, cancellationToken);
         var slug = GenerateSlug(context.Ticket.Title);
         var runDirName = $"r{nextRunNumber:D2}-{slug}";
         var runDir = Path.Combine(runsDir, runDirName);
-        Directory.CreateDirectory(runDir);
 
         var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
-        await File.WriteAllTextAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+        await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
 
         context.Pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
         context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var durationSeconds);
@@ -51,9 +54,9 @@ public sealed class WriteRunResultHandler(
             context.Ticket, context.Plan, context.Changes,
             nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
             dialogueEntries.Count > 0 ? dialogueEntries : null);
-        await File.WriteAllTextAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
-        await AppendToContextYamlAsync(contextPath, nextRunNumber, context.Ticket, cancellationToken);
+        await AppendToContextYamlAsync(reader, contextPath, nextRunNumber, context.Ticket, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.RunNumber, nextRunNumber);
 
@@ -64,23 +67,21 @@ public sealed class WriteRunResultHandler(
         return CommandResult.Ok($"Run r{nextRunNumber:D2} recorded in {runDirName}");
     }
 
-    internal static int DetermineNextRunNumber(string contextPath)
+    internal static async Task<int> DetermineNextRunNumberAsync(
+        ISandboxFileReader reader, string contextPath, CancellationToken cancellationToken)
     {
-        if (!File.Exists(contextPath))
-            return 1;
+        var content = await reader.TryReadAsync(contextPath, cancellationToken);
+        if (content is null) return 1;
 
         try
         {
-            var content = File.ReadAllText(contextPath);
             var matches = Regex.Matches(content, @"^\s+r(\d+):", RegexOptions.Multiline);
-
             var maxNumber = 0;
             foreach (Match match in matches)
             {
                 if (int.TryParse(match.Groups[1].Value, out var num) && num > maxNumber)
                     maxNumber = num;
             }
-
             return maxNumber + 1;
         }
         catch
@@ -99,12 +100,10 @@ public sealed class WriteRunResultHandler(
     }
 
     private static async Task AppendToContextYamlAsync(
-        string contextPath, int runNumber, Ticket ticket, CancellationToken ct)
+        ISandboxFileReader reader, string contextPath, int runNumber, Ticket ticket, CancellationToken ct)
     {
-        if (!File.Exists(contextPath))
-            return;
-
-        var content = await File.ReadAllTextAsync(contextPath, ct);
+        var content = await reader.TryReadAsync(contextPath, ct);
+        if (content is null) return;
 
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -116,6 +115,6 @@ public sealed class WriteRunResultHandler(
         if (match.Success)
             content = content.Insert(match.Index, entry + "\n");
 
-        await File.WriteAllTextAsync(contextPath, content, ct);
+        await reader.WriteAsync(contextPath, content, ct);
     }
 }

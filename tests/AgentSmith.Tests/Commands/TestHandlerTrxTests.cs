@@ -105,7 +105,7 @@ public sealed class TestHandlerTrxTests
             EntryPoints: [],
             Conventions: new Conventions(null, null, null),
             Ci: new CiConfig(false, null, null, null)));
-        var repo = new Repository("/tmp", new BranchName("main"), "https://github.com/o/r.git");
+        var repo = new Repository(new BranchName("main"), "https://github.com/o/r.git");
         return new TestContext(repo, new List<CodeChange>(), pipeline);
     }
 

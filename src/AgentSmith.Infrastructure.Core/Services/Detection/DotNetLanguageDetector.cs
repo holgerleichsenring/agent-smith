@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -7,19 +8,25 @@ namespace AgentSmith.Infrastructure.Core.Services.Detection;
 public sealed partial class DotNetLanguageDetector(
     ILogger<DotNetLanguageDetector> logger) : ILanguageDetector
 {
-    public LanguageDetectionResult? Detect(string repoPath)
+    public async Task<LanguageDetectionResult?> DetectAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        var slnFiles = Directory.GetFiles(repoPath, "*.sln", SearchOption.TopDirectoryOnly);
-        var csprojFiles = Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories);
+        var topEntries = await reader.ListAsync(repoPath, maxDepth: 1, cancellationToken);
+        var slnFiles = topEntries.Where(e => e.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)).ToList();
 
-        if (slnFiles.Length == 0 && csprojFiles.Length == 0)
+        var allEntries = await reader.ListAsync(repoPath, maxDepth: 8, cancellationToken);
+        var csprojFiles = allEntries
+            .Where(e => e.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (slnFiles.Count == 0 && csprojFiles.Count == 0)
             return null;
 
         var keyFiles = csprojFiles
-            .Select(f => Path.GetRelativePath(repoPath, f))
+            .Select(f => RelativeOf(f, repoPath))
             .ToList();
 
-        if (File.Exists(Path.Combine(repoPath, "global.json")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "global.json"), cancellationToken))
             keyFiles.Add("global.json");
 
         string? runtime = null;
@@ -29,7 +36,7 @@ public sealed partial class DotNetLanguageDetector(
 
         foreach (var csproj in csprojFiles)
         {
-            var content = TryReadFile(csproj);
+            var content = await TryReadAsync(reader, csproj, cancellationToken);
             if (content is null) continue;
 
             runtime ??= ExtractTargetFramework(content);
@@ -57,14 +64,20 @@ public sealed partial class DotNetLanguageDetector(
             Sdks: sdks.Distinct().ToList());
     }
 
-    private string? TryReadFile(string path)
+    private async Task<string?> TryReadAsync(ISandboxFileReader reader, string path, CancellationToken ct)
     {
-        try { return File.ReadAllText(path); }
-        catch (IOException ex)
+        try { return await reader.TryReadAsync(path, ct); }
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Could not read {File}", path);
             return null;
         }
+    }
+
+    private static string RelativeOf(string fullPath, string repoPath)
+    {
+        var rel = fullPath.Length > repoPath.Length ? fullPath[repoPath.Length..] : fullPath;
+        return rel.TrimStart('/');
     }
 
     private static string FormatRuntime(string tfm) =>

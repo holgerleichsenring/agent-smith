@@ -1,60 +1,48 @@
-using System.Diagnostics;
+using System.Text;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
-/// Runs external CLI processes (npm, pip-audit, dotnet) with timeout and captures output.
+/// Runs external CLI processes (npm, pip-audit, dotnet) inside the sandbox and
+/// captures stdout/stderr. Routes through Step{Kind=Run} so the audit hits the
+/// same toolchain image the agent uses.
 /// </summary>
 internal sealed class AuditProcessRunner(ILogger logger)
 {
     private const int ProcessTimeoutSeconds = 60;
 
     internal async Task<(int ExitCode, string Stdout, string Stderr)> RunAsync(
-        string fileName, string arguments, string workingDirectory, CancellationToken cancellationToken)
+        ISandbox sandbox, string command, CancellationToken cancellationToken)
     {
-        try
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        var step = new Step(
+            SchemaVersion: Step.CurrentSchemaVersion,
+            StepId: Guid.NewGuid(),
+            Kind: StepKind.Run,
+            Command: "/bin/sh",
+            Args: ["-c", command],
+            WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: ProcessTimeoutSeconds);
+
+        var progress = new Progress<StepEvent>(ev =>
         {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = arguments,
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            if (ev.Kind == StepEventKind.Stdout) stdout.AppendLine(ev.Line);
+            else if (ev.Kind == StepEventKind.Stderr) stderr.AppendLine(ev.Line);
+        });
 
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(ProcessTimeoutSeconds));
-
-            try
-            {
-                await process.WaitForExitAsync(cts.Token);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                process.Kill(entireProcessTree: true);
-                logger.LogWarning("{FileName} timed out after {Timeout}s", fileName, ProcessTimeoutSeconds);
-                return (-1, string.Empty, "Process timed out");
-            }
-
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-
-            return (process.ExitCode, stdout, stderr);
-        }
-        catch (System.ComponentModel.Win32Exception ex)
+        var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
+        if (result.TimedOut)
         {
-            logger.LogDebug(ex, "{FileName} not found on PATH", fileName);
-            return (-1, string.Empty, $"{fileName} not found: {ex.Message}");
+            logger.LogWarning("Sandbox command timed out after {Timeout}s: {Command}",
+                ProcessTimeoutSeconds, command);
+            return (-1, stdout.ToString(), "Process timed out");
         }
+
+        return (result.ExitCode, stdout.ToString(), stderr.ToString());
     }
 }

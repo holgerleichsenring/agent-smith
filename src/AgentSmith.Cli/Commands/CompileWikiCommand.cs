@@ -4,10 +4,14 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Sandbox;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Cli.Commands;
 
@@ -53,10 +57,9 @@ internal static class CompileWikiCommand
                 return;
             }
 
-            var agentSmithDir = Path.Combine(projectPath, ".agentsmith");
-            if (!Directory.Exists(Path.Combine(agentSmithDir, "runs")))
+            if (!Directory.Exists(Path.Combine(projectPath, ".agentsmith", "runs")))
             {
-                Console.Error.WriteLine($"No runs directory found in {agentSmithDir}");
+                Console.Error.WriteLine($"No runs directory found in {projectPath}/.agentsmith");
                 ctx.ExitCode = 1;
                 return;
             }
@@ -64,8 +67,17 @@ internal static class CompileWikiCommand
             var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
             var handler = provider.GetRequiredService<ICommandHandler<CompileKnowledgeContext>>();
 
-            var repo = new Repository(projectPath, new BranchName("main"), string.Empty);
+            var jobId = Guid.NewGuid().ToString("N");
+            var sandboxLogger = provider.GetService<ILogger<InProcessSandbox>>() ?? NullLogger<InProcessSandbox>.Instance;
+            // No `await using` here: InProcessSandbox.DisposeAsync deletes workDir, but
+            // workDir IS the user's project directory. The sandbox is one-shot for the
+            // duration of this CLI command — process exit cleans up.
+            var sandbox = new InProcessSandbox(jobId, projectPath, sandboxLogger);
+
             var pipeline = new PipelineContext();
+            pipeline.Set(ContextKeys.Sandbox, (ISandbox)sandbox);
+
+            var repo = new Repository(new BranchName("main"), string.Empty);
             var context = new CompileKnowledgeContext(
                 repo, fullRecompile, new AgentConfig { Type = "claude" }, pipeline);
 

@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -9,9 +10,10 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Compiles the multi-agent discussion log into a markdown document,
-/// writes it to the repository, and sets CodeChanges for CommitAndPR.
+/// writes it to the repository sandbox, and sets CodeChanges for CommitAndPR.
 /// </summary>
 public sealed class CompileDiscussionHandler(
+    ISandboxFileReaderFactory readerFactory,
     ILogger<CompileDiscussionHandler> logger)
     : ICommandHandler<CompileDiscussionContext>
 {
@@ -33,8 +35,10 @@ public sealed class CompileDiscussionHandler(
         var ticketId = ticket?.Id.ToString() ?? "scan";
         var fileName = $"discussion-{ticketId}.md";
 
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
         var filePath = Path.Combine(context.Repository.LocalPath, fileName);
-        await File.WriteAllTextAsync(filePath, markdown, cancellationToken);
+        await reader.WriteAsync(filePath, markdown, cancellationToken);
 
         var changes = new List<CodeChange>
         {
