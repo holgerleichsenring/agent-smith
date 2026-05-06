@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.39.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.38.0...v0.39.0) (2026-05-06)
+
+
+### Features
+
+* **p0117b:** sandbox consumer migration — LibGit2Sharp out, Repository.LocalPath const, deeper services sandbox-routed ([#78](https://github.com/holgerleichsenring/agent-smith/issues/78)) ([1f69524](https://github.com/holgerleichsenring/agent-smith/commit/1f69524fb0e35545a75aca26fe6732daec57efe5))
+* **p0117:** Sandbox follow-ups (Docker backend, TRX, sandbox-routed git ops, grep Step kind, Redis cleanup) ([#74](https://github.com/holgerleichsenring/agent-smith/issues/74)) ([b349957](https://github.com/holgerleichsenring/agent-smith/commit/b349957956d785c64b1b51ce7787d741e19ffe71))
+
 ## [0.38.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.37.3...v0.38.0) (2026-05-05)
 
 
