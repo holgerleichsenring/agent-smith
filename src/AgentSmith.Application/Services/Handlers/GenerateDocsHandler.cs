@@ -1,10 +1,15 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.Prompts;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -14,11 +19,14 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Runs after Test in the add-feature pipeline.
 /// </summary>
 public sealed class GenerateDocsHandler(
-    IAgentProviderFactory factory,
-    IProgressReporter progressReporter,
+    IChatClientFactory chatClientFactory,
+    AgentPromptBuilder promptBuilder,
+    IDecisionLogger decisionLogger,
+    IDialogueTransport? dialogueTransport,
     ILogger<GenerateDocsHandler> logger)
     : ICommandHandler<GenerateDocsContext>
 {
+
     public async Task<CommandResult> ExecuteAsync(
         GenerateDocsContext context, CancellationToken cancellationToken)
     {
@@ -33,18 +41,35 @@ public sealed class GenerateDocsHandler(
             context.Changes.Count, changedFiles);
 
         var plan = BuildSyntheticPlan(context.Changes);
-        var provider = factory.Create(context.AgentConfig);
-        var sandbox = context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sb) ? sb : null;
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
 
-        var result = await provider.ExecutePlanAsync(
-            plan, context.Repository, context.CodingPrinciples,
-            context.CodeMap, context.ProjectContext, progressReporter,
-            sandbox, cancellationToken);
+        var toolHost = new SandboxToolHost(
+            sandbox, decisionLogger, dialogueTransport, jobId: null, context.Repository.LocalPath);
 
-        MergeCodeChanges(context, result.Changes);
+        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
+            context.CodingPrinciples, context.CodeMap, context.ProjectContext);
+        var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository);
 
-        logger.LogInformation("Doc generation completed: {Count} files changed", result.Changes.Count);
-        return CommandResult.Ok($"Generated docs: {result.Changes.Count} files changed");
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var options = new ChatOptions
+        {
+            Tools = toolHost.GetAllTools(),
+            MaxOutputTokens = maxTokens,
+        };
+
+        var response = await chat.GetResponseAsync(messages, options, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
+
+        MergeCodeChanges(context, toolHost.GetChanges());
+
+        logger.LogInformation("Doc generation completed: {Count} files changed", toolHost.GetChanges().Count);
+        return CommandResult.Ok($"Generated docs: {toolHost.GetChanges().Count} files changed");
     }
 
     private static Plan BuildSyntheticPlan(IReadOnlyList<CodeChange> changes)

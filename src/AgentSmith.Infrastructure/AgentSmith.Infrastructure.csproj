@@ -7,10 +7,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Anthropic.SDK" Version="5.9.0" />
+    <!-- Microsoft.Extensions.AI core. Pinned EXACT to 10.4.0 (latest stable below 10.4.1)
+         due to tghamm/Anthropic.SDK#197 (MissingMethodException at 10.4.1). Sibling packages
+         .OpenAI must move in lockstep. Bump in a follow-up phase once #197 is closed. -->
+    <PackageReference Include="Microsoft.Extensions.AI" Version="[10.4.0]" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="[10.4.0]" />
+    <!-- Anthropic adapter (tghamm). 5.10.0 depends on M.E.AI.Abstractions 10.3.0, compatible with 10.4.0 pin. -->
+    <PackageReference Include="Anthropic.SDK" Version="5.10.0" />
+    <!-- Gemini adapter via gunpal5 community package; AsIChatClient extension method. -->
+    <PackageReference Include="Google_GenerativeAI" Version="3.6.6" />
+    <PackageReference Include="Google_GenerativeAI.Microsoft" Version="3.6.6" />
+    <!-- Ollama via OllamaSharp (community-standard, OllamaApiClient : IChatClient natively).
+         Microsoft.Extensions.AI.Ollama is preview-only and abandoned at 9.7.0-preview.
+         Pinned to 5.4.24 (depends on M.E.AI.Abstractions 10.4.0); 5.4.25 bumped to 10.4.1
+         and would conflict with the lockstep pin. -->
+    <PackageReference Include="OllamaSharp" Version="5.4.24" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
-    <PackageReference Include="Google_GenerativeAI" Version="3.6.3" />
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />

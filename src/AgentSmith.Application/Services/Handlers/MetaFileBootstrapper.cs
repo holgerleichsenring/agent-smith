@@ -25,17 +25,17 @@ public sealed class MetaFileBootstrapper(
 
     public async Task BootstrapAsync(
         DetectedProject detected, string agentDir, string repoPath,
-        RepoSnapshot snapshot, ILlmClient llmClient,
+        RepoSnapshot snapshot, AgentConfig agent,
         PipelineContext pipeline, string sourceType, string skillsPath,
         CancellationToken cancellationToken)
     {
         await TryGenerateFileAsync(CodeMapFileName, agentDir, detected,
-            (d, s, c, ct) => codeMapGenerator.GenerateAsync(d, repoPath, s, c, ct),
-            snapshot, llmClient, cancellationToken);
+            (d, s, a, ct) => codeMapGenerator.GenerateAsync(d, repoPath, s, a, ct),
+            snapshot, agent, cancellationToken);
 
         await TryGenerateFileAsync(CodingPrinciplesFileName, agentDir, detected,
-            (d, s, c, ct) => codingPrinciplesGenerator.GenerateAsync(d, repoPath, s, c, ct),
-            snapshot, llmClient, cancellationToken);
+            (d, s, a, ct) => codingPrinciplesGenerator.GenerateAsync(d, repoPath, s, a, ct),
+            snapshot, agent, cancellationToken);
 
         TryGenerateSkillYaml(detected, agentDir, sourceType);
         TryCreateDecisionsTemplate(agentDir);
@@ -44,8 +44,8 @@ public sealed class MetaFileBootstrapper(
 
     private async Task TryGenerateFileAsync(
         string fileName, string agentDir, DetectedProject detected,
-        Func<DetectedProject, RepoSnapshot, ILlmClient, CancellationToken, Task<string>> generate,
-        RepoSnapshot snapshot, ILlmClient llmClient, CancellationToken cancellationToken)
+        Func<DetectedProject, RepoSnapshot, AgentConfig, CancellationToken, Task<string>> generate,
+        RepoSnapshot snapshot, AgentConfig agent, CancellationToken cancellationToken)
     {
         var filePath = Path.Combine(agentDir, fileName);
         if (File.Exists(filePath))
@@ -57,7 +57,7 @@ public sealed class MetaFileBootstrapper(
         try
         {
             logger.LogInformation("Generating {File} for {Lang} project...", fileName, detected.Language);
-            var content = await generate(detected, snapshot, llmClient, cancellationToken);
+            var content = await generate(detected, snapshot, agent, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(content))
             {

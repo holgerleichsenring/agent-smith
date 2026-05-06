@@ -127,9 +127,11 @@ internal static class ServiceCollectionExtensions
     {
         services.AddSingleton<ILlmIntentParser>(sp =>
         {
-            var factory = sp.GetRequiredService<ILlmClientFactory>();
-            var defaultClient = factory.Create(new AgentConfig { Type = "claude" });
-            return new LlmIntentParser(defaultClient, sp.GetRequiredService<ILogger<LlmIntentParser>>());
+            var factory = sp.GetRequiredService<IChatClientFactory>();
+            return new LlmIntentParser(
+                factory,
+                new AgentConfig { Type = "claude" },
+                sp.GetRequiredService<ILogger<LlmIntentParser>>());
         });
         services.AddSingleton<IProjectResolver, ProjectResolver>();
         services.AddScoped<IntentEngine>();

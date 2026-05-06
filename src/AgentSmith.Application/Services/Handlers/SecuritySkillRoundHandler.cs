@@ -15,14 +15,14 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Used by the security-scan pipeline.
 /// </summary>
 public sealed class SecuritySkillRoundHandler(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
     IProjectBriefBuilder projectBriefBuilder,
     ILogger<SecuritySkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
       ICommandHandler<SecuritySkillRoundContext>
 {
     protected override ILogger Logger => logger;
@@ -135,8 +135,8 @@ public sealed class SecuritySkillRoundHandler(
     public async Task<CommandResult> ExecuteAsync(
         SecuritySkillRoundContext context, CancellationToken cancellationToken)
     {
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
+        context.Pipeline.Set(ContextKeys.AgentConfig, context.AgentConfig);
         return await ExecuteRoundAsync(
-            context.SkillName, context.Round, context.Pipeline, llmClient, cancellationToken);
+            context.SkillName, context.Round, context.Pipeline, cancellationToken);
     }
 }

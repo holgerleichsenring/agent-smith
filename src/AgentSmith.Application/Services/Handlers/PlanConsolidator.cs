@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -14,7 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Pipeline-agnostic: title and role come from the caller via ConsolidationRequest.
 /// </summary>
 public sealed class PlanConsolidator(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     ILogger<PlanConsolidator> logger)
 {
@@ -28,8 +29,6 @@ public sealed class PlanConsolidator(
         CancellationToken cancellationToken,
         ConsolidationRequest? request = null)
     {
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
-
         var discussionText = string.Join("\n\n---\n\n", discussionLog.Select(e =>
             $"{e.Emoji} {e.DisplayName} (Round {e.Round}):\n{e.Content}"));
 
@@ -53,11 +52,19 @@ public sealed class PlanConsolidator(
             ["AssessmentJsonExample"] = AssessmentJsonExample,
         });
 
-        var llmResponse = await llmClient.CompleteAsync(
-            systemPrompt, userPrompt, TaskType.Planning, cancellationToken);
-        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(llmResponse);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Planning);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Planning);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
+        var responseText = response.Text ?? string.Empty;
 
-        var parseResult = ConsolidationResponseParser.Parse(llmResponse.Text, logger);
+        var parseResult = ConsolidationResponseParser.Parse(responseText, logger);
 
         var title = request?.Title ?? ticket?.Title ?? "Discussion Findings";
         var discussion = new ConsolidatedDiscussion(

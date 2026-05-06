@@ -5,6 +5,7 @@ namespace AgentSmith.Contracts.Commands;
 /// </summary>
 public static class ContextKeys
 {
+    public const string AgentConfig = "AgentConfig";
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";

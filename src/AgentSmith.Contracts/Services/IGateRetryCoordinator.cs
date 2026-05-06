@@ -7,6 +7,7 @@ namespace AgentSmith.Contracts.Services;
 /// <summary>
 /// Runs a gate LLM call with one corrective retry. The retry fires only
 /// if the first response failed to parse or violated the required schema.
+/// Implementation resolves IChatClient via IChatClientFactory.
 /// </summary>
 public interface IGateRetryCoordinator
 {
@@ -16,7 +17,6 @@ public interface IGateRetryCoordinator
         string systemPrompt,
         string userPromptPrefix,
         string userPromptSuffix,
-        ILlmClient llmClient,
         PipelineContext pipeline,
         CancellationToken cancellationToken);
 }

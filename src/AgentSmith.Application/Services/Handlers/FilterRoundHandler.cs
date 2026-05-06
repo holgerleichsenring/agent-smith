@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -17,16 +18,16 @@ namespace AgentSmith.Application.Services.Handlers;
 /// = Artifact). No veto — Filter is a downstream-of-everyone synthesizer, not a gate.
 /// </summary>
 public sealed class FilterRoundHandler(
-    ILlmClientFactory llmClientFactory,
+    IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
     ILogger<FilterRoundHandler> logger) : ICommandHandler<FilterRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         FilterRoundContext context, CancellationToken cancellationToken)
     {
-        var llmClient = llmClientFactory.Create(context.AgentConfig);
         var pipeline = context.Pipeline;
         var skillName = context.SkillName;
+        pipeline.Set(ContextKeys.AgentConfig, context.AgentConfig);
 
         var role = ResolveRole(skillName, pipeline);
         if (role is null) return CommandResult.Fail($"Filter skill '{skillName}' not found");
@@ -35,13 +36,21 @@ public sealed class FilterRoundHandler(
         var observations = LoadObservations(pipeline);
         var (system, user) = BuildPrompt(role, observations, outputForm);
 
-        var response = await llmClient.CompleteAsync(
-            system, user, TaskType.Planning, cancellationToken);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, system),
+            new(ChatRole.User, user),
+        };
+        var response = await chat.GetResponseAsync(messages,
+            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        var responseText = response.Text ?? string.Empty;
 
         return outputForm == OutputForm.Artifact
-            ? ApplyArtifact(skillName, response.Text, pipeline)
-            : ApplyList(skillName, response.Text, pipeline);
+            ? ApplyArtifact(skillName, responseText, pipeline)
+            : ApplyList(skillName, responseText, pipeline);
     }
 
     private static RoleSkillDefinition? ResolveRole(string skillName, PipelineContext pipeline)

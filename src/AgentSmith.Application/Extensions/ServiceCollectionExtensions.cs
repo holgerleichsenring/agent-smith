@@ -206,7 +206,6 @@ public static class ServiceCollectionExtensions
         // which are in the CLI graph. Application's PipelineExecutor delegates lifecycle
         // wrapping to IPipelineLifecycleCoordinator (NoOp by default; Server overrides).
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
-        services.AddSingleton<ILlmClient>(sp =>
-            sp.GetRequiredService<ILlmClientFactory>().Create(new AgentConfig { Type = "claude" }));
+        services.AddSingleton<Services.Prompts.AgentPromptBuilder>();
     }
 }

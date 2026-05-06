@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -65,7 +66,8 @@ internal static class CompileWikiCommand
 
             var repo = new Repository(projectPath, new BranchName("main"), string.Empty);
             var pipeline = new PipelineContext();
-            var context = new CompileKnowledgeContext(repo, fullRecompile, pipeline);
+            var context = new CompileKnowledgeContext(
+                repo, fullRecompile, new AgentConfig { Type = "claude" }, pipeline);
 
             CommandResult result;
             try

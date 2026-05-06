@@ -12,6 +12,6 @@ public sealed class CompileKnowledgeContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new CompileKnowledgeContext(repo, FullRecompile: false, pipeline);
+        return new CompileKnowledgeContext(repo, FullRecompile: false, project.Agent, pipeline);
     }
 }

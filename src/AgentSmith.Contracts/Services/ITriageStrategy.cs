@@ -8,11 +8,12 @@ namespace AgentSmith.Contracts.Services;
 /// pipeline run. Selected by ITriageStrategySelector based on PipelineType.
 /// LegacyTriageStrategy handles open Discussion runs; StructuredTriageStrategy
 /// handles phase-based runs (fix-bug, add-feature, security-scan, api-scan).
+/// Implementations resolve IChatClient via IChatClientFactory + AgentConfig
+/// from the pipeline context.
 /// </summary>
 public interface ITriageStrategy
 {
     Task<CommandResult> ExecuteAsync(
         PipelineContext pipeline,
-        ILlmClient llmClient,
         CancellationToken cancellationToken);
 }
