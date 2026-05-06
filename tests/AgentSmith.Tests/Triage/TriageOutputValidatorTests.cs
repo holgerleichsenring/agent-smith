@@ -43,14 +43,14 @@ public sealed class TriageOutputValidatorTests
     public void Validate_RationaleExceedsMaxLength_RejectsOutput()
     {
         var skills = Array.Empty<SkillIndexEntry>();
-        var huge = new string('x', 301);
+        var huge = new string('x', 501);
         var output = new TriageOutput(
             new Dictionary<PipelinePhase, PhaseAssignment>(), 85, huge);
 
         var result = _sut.Validate(output, skills);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("300 chars"));
+        result.Errors.Should().Contain(e => e.Contains("500 chars"));
     }
 
     [Fact]

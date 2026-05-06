@@ -116,8 +116,8 @@ public abstract class SkillRoundHandlerBase(
             "{Emoji} {DisplayName} (Round {Round}): {Count} observations",
             role.Emoji, role.DisplayName, round, parsed.Count);
 
-        return DetectBlockingFollowUp(parsed, skillName, role, roles, round)
-            ?? DetectObjection(renderedText, role, roles, round)
+        return DetectBlockingFollowUp(parsed, skillName, role, roles, round, pipeline)
+            ?? DetectObjection(renderedText, role, roles, round, pipeline)
             ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): {parsed.Count} observations");
     }
 
@@ -173,7 +173,8 @@ public abstract class SkillRoundHandlerBase(
 
     private CommandResult? DetectBlockingFollowUp(
         IReadOnlyList<SkillObservation> parsed, string skillName,
-        RoleSkillDefinition role, IReadOnlyList<RoleSkillDefinition> roles, int round)
+        RoleSkillDefinition role, IReadOnlyList<RoleSkillDefinition> roles, int round,
+        PipelineContext pipeline)
     {
         var blocking = parsed.FirstOrDefault(o => o.Blocking);
         if (blocking is null) return null;
@@ -184,12 +185,65 @@ public abstract class SkillRoundHandlerBase(
                 blocking.Concern.ToString(), StringComparison.OrdinalIgnoreCase)));
         if (targetRole is null) return null;
 
+        // Cap chain depth so a stuck blocking-cycle (e.g. skill A requests B; B can't fix the
+        // root cause, requests A back; repeat) cannot burn LLM calls indefinitely. Convergence
+        // check runs in the queue afterwards. Default 3, overridable via ProjectSkills.Discussion.MaxRounds.
+        var maxRounds = ResolveMaxRounds(pipeline);
+        if (round >= maxRounds)
+        {
+            Logger.LogInformation(
+                "{Skill} blocking observation '{Concern}' would request {Target}, but skill-round cap reached (round {Round} >= max {Max}). Suppressing follow-up.",
+                skillName, blocking.Concern, targetRole.Name, round, maxRounds);
+            return null;
+        }
+
+        if (IsImmediatePingPong(pipeline, targetRole.Name, skillName))
+        {
+            Logger.LogInformation(
+                "{Skill} blocking observation '{Concern}' would request {Target}, but {Target} just requested {Skill} in the previous round. Suppressing immediate ping-pong.",
+                skillName, blocking.Concern, targetRole.Name, targetRole.Name, skillName);
+            return null;
+        }
+
+        RecordSwitchSkillSummoner(pipeline, skillName, targetRole.Name);
+
         var nextRound = round + 1;
         return CommandResult.OkAndContinueWith(
             $"{role.DisplayName} has blocking concern ({blocking.Concern}), requesting {targetRole.DisplayName}",
             PipelineCommand.SkillRound(SkillRoundCommandName, targetRole.Name, nextRound),
             PipelineCommand.SkillRound(SkillRoundCommandName, skillName, nextRound),
             PipelineCommand.Simple(CommandNames.ConvergenceCheck));
+    }
+
+    private static int ResolveMaxRounds(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<SkillConfig>(ContextKeys.ProjectSkills, out var cfg) && cfg is not null)
+            return cfg.Discussion.MaxRounds;
+        return 3;
+    }
+
+    /// <summary>
+    /// Returns true when the proposed target was the skill that summoned the current one
+    /// in the immediately preceding switch — i.e. an immediate A→B→A bounce. Tracked via
+    /// ContextKeys.SwitchSkillLastSummoner so cross-skill cycles break in O(1) regardless
+    /// of round number.
+    /// </summary>
+    private static bool IsImmediatePingPong(PipelineContext pipeline, string proposedTarget, string currentSkill)
+    {
+        if (!pipeline.TryGet<Dictionary<string, string>>(
+                ContextKeys.SwitchSkillLastSummoner, out var summoners) || summoners is null)
+            return false;
+        return summoners.TryGetValue(currentSkill, out var summoner)
+            && summoner.Equals(proposedTarget, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void RecordSwitchSkillSummoner(PipelineContext pipeline, string summoner, string summoned)
+    {
+        if (!pipeline.TryGet<Dictionary<string, string>>(
+                ContextKeys.SwitchSkillLastSummoner, out var summoners) || summoners is null)
+            summoners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        summoners[summoned] = summoner;
+        pipeline.Set(ContextKeys.SwitchSkillLastSummoner, summoners);
     }
 
     private static void DispatchBuffer(PipelineContext pipeline, SkillRoundBuffer buffer)
@@ -339,13 +393,32 @@ public abstract class SkillRoundHandlerBase(
 
     private CommandResult? DetectObjection(
         string responseText, RoleSkillDefinition role,
-        IReadOnlyList<RoleSkillDefinition> roles, int round)
+        IReadOnlyList<RoleSkillDefinition> roles, int round, PipelineContext pipeline)
     {
         var match = ObjectionPattern.Match(responseText);
         if (!match.Success) return null;
 
         var targetRole = match.Groups[1].Value.Trim();
         if (!roles.Any(r => r.Name == targetRole)) return null;
+
+        var maxRounds = ResolveMaxRounds(pipeline);
+        if (round >= maxRounds)
+        {
+            Logger.LogInformation(
+                "{Skill} objected at round {Round} but cap reached (max {Max}). Suppressing follow-up.",
+                role.Name, round, maxRounds);
+            return null;
+        }
+
+        if (IsImmediatePingPong(pipeline, targetRole, role.Name))
+        {
+            Logger.LogInformation(
+                "{Skill} objection would request {Target}, but {Target} just objected to {Skill}. Suppressing immediate ping-pong.",
+                role.Name, targetRole, targetRole, role.Name);
+            return null;
+        }
+
+        RecordSwitchSkillSummoner(pipeline, role.Name, targetRole);
 
         var nextRound = round + 1;
         return CommandResult.OkAndContinueWith(
