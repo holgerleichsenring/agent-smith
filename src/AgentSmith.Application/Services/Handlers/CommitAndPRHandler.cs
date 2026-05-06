@@ -1,20 +1,22 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Commits changes and creates a pull request via source provider.
-/// Posts the result back to the ticket. If a DoneStatus is configured
+/// Commits changes (in the sandbox where the modifications live) and creates a
+/// pull request via the source provider's API. If a DoneStatus is configured
 /// (e.g. from a Jira webhook trigger), transitions the ticket to that status;
 /// otherwise closes the ticket.
 /// </summary>
 public sealed class CommitAndPRHandler(
     ISourceProviderFactory sourceFactory,
     ITicketProviderFactory ticketFactory,
+    SandboxGitOperations gitOps,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -25,10 +27,13 @@ public sealed class CommitAndPRHandler(
             "Creating PR for ticket {Ticket} with {Changes} changes...",
             context.Ticket.Id, context.Changes.Count);
 
+        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+            return CommandResult.Fail("CommitAndPR requires an active sandbox; none in pipeline context.");
+
         var sourceProvider = sourceFactory.Create(context.SourceConfig);
 
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
-        await sourceProvider.CommitAndPushAsync(context.Repository, message, cancellationToken);
+        await gitOps.CommitAndPushAsync(sandbox, context.Repository.CurrentBranch.Value, message, cancellationToken);
 
         var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,

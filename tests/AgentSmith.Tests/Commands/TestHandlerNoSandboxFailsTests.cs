@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -20,6 +21,7 @@ namespace AgentSmith.Tests.Commands;
 public sealed class TestHandlerNoSandboxFailsTests
 {
     private readonly TestHandler _handler = new(
+        new TrxResultParser(),
         NullLoggerFactory.Instance.CreateLogger<TestHandler>());
 
     [Fact]
