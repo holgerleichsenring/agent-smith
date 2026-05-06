@@ -1,12 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0117b
-goal: "Drop server-side checkout completely. Migrate every Repository.LocalPath consumer (~19 handlers + 3 scanner services + ProjectMetaResolver) to ISandbox-routed file reads via a new SandboxFileReader. Repository entity simplifies to (Url, CurrentBranch, RemoteUrl) with LocalPath returning the constant '/work'. Source providers' CheckoutAsync becomes metadata-only (no clone). LibGit2Sharp PackageReference deleted from Infrastructure + Application + Server csprojs. NoLibGit2SharpInGraphTests asserts zero LibGit2Sharp types in the Server's runtime closure. After p0117b: pure-sandbox file model end-to-end; Server image ~9 MB smaller; CheckoutSourceHandler is finally pure-Step (closes the deferred-from-p0117 gap)."
+goal: "Drop server-side checkout: 19 Repository.LocalPath consumers route through SandboxFileReader, CheckoutSourceHandler becomes pure-Step, LibGit2Sharp leaves the project graph entirely."
 
 requires: ["p0117", "p0119a"]
-
-scope:
-  in: "SandboxFileReader service in Application, wrapping ISandbox with ergonomic ExistsAsync / TryReadAsync / ReadRequiredAsync / WriteAsync / ListAsync. ~19 file-reading handlers migrated to take SandboxFileReader: BootstrapProject, BootstrapDocument, LoadCodingPrinciples, LoadContext, LoadCodeMap, LoadRuns, LoadSkills, CompileDiscussion, CompileKnowledge, QueryKnowledgeContextBuilder, AnalyzeProject, DependencyAuditHandler, StaticPatternScanHandler, GitHistoryScanHandler, SecurityTrendHandler, SecuritySnapshotWriter, SpawnFixHandler, WriteRunResultHandler, TryCheckoutSourceHandler. Repository entity simplifies — LocalPath returns the constant '/work'; ctor drops the localPath parameter. All 4 source providers (GitHub/GitLab/AzureRepos/Local) drop EnsureCloned + LibGit2Sharp.Repository.Clone path; CheckoutAsync becomes metadata-only (returns Repository from URL+branch resolution; default-branch via API stays). LocalSourceProvider+KubernetesSandbox = NotSupportedException with operator-facing message. ProjectMetaResolver async-ified + sandbox-routed. Scanner services (StaticPatternScanner / GitHistoryScanner / DependencyAuditor / NpmAuditParser) take ISandbox; ScanAsync drops the path argument (resolves to '/work' internally). CheckoutSourceHandler drops the server-side clone — pushes git-clone + branch-checkout Steps only. LibGit2Sharp PackageReference removed from AgentSmith.Infrastructure + AgentSmith.Application + AgentSmith.Server csprojs. NoLibGit2SharpInGraphTests regression test loads every assembly in the Server's runtime closure via reflection, asserts no Type.Namespace.StartsWith('LibGit2Sharp'). AzureGitOperations may shrink to credential-helper-only or be deletable entirely. Server image ~9 MB smaller (native libgit2 binary no longer shipped)."
-  out: "Helm chart (separate phase p0117c — pure deployment ergonomics, no source-code coupling). New scanner output formats (e.g. SARIF v3) — out of scope. WriteRunResultHandler's output stays as a single sandbox-side WriteAsync — server-side post-pipeline retrieval of result.md (sandbox.ReadFile in the executor's writeback step) is a separate concern, not p0117b. Sandbox pooling/reuse across pipelines (still per-pipeline ephemeral)."
 
 decisions:
   - key: "SandboxFileReader as a thin ergonomic wrapper, not a strategy abstraction. The 19 handlers each have their own path-construction logic (Path.Combine(repo.LocalPath, '.agentsmith', 'wiki', 'foo.md')). Substituting File.Exists/ReadAllText with reader.ExistsAsync/ReadRequiredAsync is line-level surgery; the surrounding logic stays. ExistsAsync probes via Step{Kind=ReadFile}+catch-not-found. TryReadAsync wraps Step{Kind=ReadFile} returning null on missing. WriteAsync wraps Step{Kind=WriteFile}. ListAsync wraps Step{Kind=ListFiles}. All async because Steps are async; handler signatures already async."
@@ -31,22 +27,29 @@ decisions:
 
   - key: "Migration order matters: SandboxFileReader + Repository entity FIRST (compilation gate); then handlers; then scanners; then source providers (CheckoutAsync metadata-only); then CheckoutSourceHandler pure-Step; then LibGit2Sharp PackageReference removal + regression test. If any step lands without its precondition, build breaks loudly."
 
+  - key: "AgentPromptBuilder.LocalPath cleanup folded into file-reading-handler-migration, not its own step. Reasoning: AgentPromptBuilder lives on the legacy IAgentProvider code path that p0119a deletes wholesale (5 provider classes + 4 AgenticLoops + 4 ToolDefinitions). If the file survives p0119a as orphan, the file-reading-handler-migration's mechanical pass replaces the surviving repository.LocalPath reference with literal '/work'. If p0119a deleted it already, the step finds nothing — no-op. No separate step + no buddy-judgement-required note."
+
+  - key: "Helm chart deferred to a separate phase (p0117c). Reasoning: pure deployment ergonomics with no source-code coupling — independent concern from the file-reading migration. Bundling it would inflate the PR and obscure the actual refactor."
+
+  - key: "Scanner output formats (SARIF v3, etc.) explicitly out of scope. Reasoning: separate concern from sandbox migration; smuggling a feature change into a refactor would muddy the diff and make rollback harder if a scanner-format change misbehaves independently of the sandbox routing."
+
+  - key: "Sandbox pooling/reuse across pipelines explicitly out of scope — sandboxes stay per-pipeline ephemeral. Reasoning: pooling needs lifecycle changes (state-cleanup between runs, pool capacity, eviction policy) that are orthogonal to the file-reading migration. Conflating them risks dragging pool-lifecycle bugs into the migration's diff."
+
 steps:
   - id: sandbox-file-reader
     action: "New SandboxFileReader service, scoped from PipelineContext.Sandbox"
     new:
       - "src/AgentSmith.Application/Services/Sandbox/SandboxFileReader.cs: takes ISandbox in ctor. Methods: Task<bool> ExistsAsync(string path, ct); Task<string?> TryReadAsync(string path, ct); Task<string> ReadRequiredAsync(string path, ct) — throws FileNotFoundException; Task WriteAsync(string path, string content, ct); Task<IReadOnlyList<string>> ListAsync(string path, int maxDepth, ct). Wraps the corresponding Step kind. ExistsAsync probes via Step{Kind=ReadFile}+catch-not-found-pattern."
       - "src/AgentSmith.Application/Services/Sandbox/SandboxFileReaderFactory.cs: scoped DI factory. Pulls ISandbox from current PipelineContext via the same scoping pattern p0119a uses for SandboxToolHost."
+      - "tests/AgentSmith.Tests/Services/Sandbox/SandboxFileReaderTests.cs: ExistsAsync (file present → true via mocked ISandbox returning ExitCode=0; missing → false via ExitCode=1+ErrorMessage matches 'not found'); TryReadAsync (returns content or null); ReadRequiredAsync throws FileNotFoundException on missing; WriteAsync invokes Step{Kind=WriteFile} with content; ListAsync passes maxDepth + parses JSON array result."
     modify:
       - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register SandboxFileReader (scoped) + SandboxFileReaderFactory (singleton)."
-    new_files_tests:
-      - "tests/AgentSmith.Tests/Services/Sandbox/SandboxFileReaderTests.cs: ExistsAsync (file present → true via mocked ISandbox returning ExitCode=0; missing → false via ExitCode=1+ErrorMessage matches 'not found'); TryReadAsync (returns content or null); ReadRequiredAsync throws FileNotFoundException on missing; WriteAsync invokes Step{Kind=WriteFile} with content; ListAsync passes maxDepth + parses JSON array result."
 
   - id: repository-entity
     action: "Repository entity: LocalPath returns the constant '/work'; ctor drops localPath param"
     modify:
       - "src/AgentSmith.Domain/Entities/Repository.cs: 2-arg ctor (BranchName CurrentBranch, string RemoteUrl). LocalPath property = const string '/work'. All construction sites (4 source providers, ~30 test files, PersistWorkBranchHandler test fixtures) compile-error if missed — the build IS the migration tracker."
-    new_files_tests:
+    new:
       - "tests/AgentSmith.Tests/Domain/Entities/RepositoryTests.cs: LocalPath always returns '/work'. Two-arg ctor builds correctly."
 
   - id: source-providers-metadata-only
@@ -63,7 +66,7 @@ steps:
     modify:
       - "src/AgentSmith.Infrastructure.Core/Services/ProjectMetaResolver.cs: Resolve(string startPath) → ResolveAsync(SandboxFileReader reader, string startPath, ct). Algorithm unchanged: walk upward from startPath, await reader.ExistsAsync($'{dir}/.agentsmith'), return first hit."
       - "Update IProjectMetaResolver contract if one exists."
-    new_files_tests:
+    new:
       - "tests/AgentSmith.Tests/Services/ProjectMetaResolverAsyncTests.cs: stub SandboxFileReader returning ExistsAsync(true) at expected depth; verify resolver returns that path."
 
   - id: file-reading-handler-migration
@@ -102,13 +105,8 @@ steps:
     action: "CheckoutSourceHandler is pure-Step; no server-side LibGit2Sharp"
     modify:
       - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: drops the (now-metadata-only) provider.CheckoutAsync round-trip server-side filesystem effects. Step sequence: (1) git clone <url> /work via Step{Kind=Run}; (2) git checkout <branch> if branch != defaultBranch via Step{Kind=Run}. Repository populated from provider metadata + sandbox-side clone outcome."
-    new_files_tests:
+    new:
       - "tests/AgentSmith.Tests/Handlers/CheckoutSourceHandlerStepOnlyTests.cs: mocked sandbox + provider; ExecuteAsync pushes git-clone Step; LibGit2Sharp not referenced; Repository in pipeline context has LocalPath = '/work'."
-
-  - id: agent-prompt-builder
-    action: "AgentPromptBuilder.LocalPath reference cleanup (post-p0119a)"
-    modify:
-      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AgentPromptBuilder.cs (or wherever the prompt template lives after p0119a's M.E.AI rewrite): the line 'Execute the following implementation plan in repository at: {repository.LocalPath}' becomes literal '/work'. If p0119a already restructured this prompt builder out of existence, this step becomes a no-op — buddy verifies during impl."
 
   - id: libgit2sharp-removal
     action: "Drop LibGit2Sharp PackageReference + add runtime-closure regression test"
@@ -117,7 +115,7 @@ steps:
       - "src/AgentSmith.Application/AgentSmith.Application.csproj: remove if present."
       - "src/AgentSmith.Server/AgentSmith.Server.csproj: remove if present."
       - "Verify with `dotnet list package --include-transitive` that LibGit2Sharp is gone from every project's transitive closure."
-    new_files_tests:
+    new:
       - "tests/AgentSmith.Tests/Integration/NoLibGit2SharpInGraphTests.cs: walk AppDomain.CurrentDomain.GetAssemblies() (after a Server-DI build forces lazy assembly loads) + every type's Namespace; assert no `Type.Namespace?.StartsWith(\"LibGit2Sharp\")` AND no `AssemblyName.Name == \"LibGit2Sharp\"`. Regression-guards against silent re-addition via transitive deps."
 
   - id: docs
