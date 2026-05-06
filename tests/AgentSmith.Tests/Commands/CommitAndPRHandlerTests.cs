@@ -155,7 +155,7 @@ public class CommitAndPRHandlerTests
     private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
     {
         var pl = pipeline ?? NewPipelineWithSandbox();
-        var repo = new Repository("/tmp/test", new BranchName("fix/123"), "https://github.com/test/repo");
+        var repo = new Repository(new BranchName("fix/123"), "https://github.com/test/repo");
         var ticket = new Ticket(new TicketId("123"), "Fix the bug", "Description", null, "Open", "GitHub");
         var changes = new List<CodeChange>
         {

@@ -3,6 +3,7 @@ using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -15,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Called after CompileFindings to persist the current scan's snapshot for trend analysis.
 /// </summary>
 public sealed class SecuritySnapshotWriter(
+    ISandboxFileReaderFactory readerFactory,
     ILogger<SecuritySnapshotWriter> logger)
     : ICommandHandler<SecuritySnapshotWriteContext>
 {
@@ -39,7 +41,6 @@ public sealed class SecuritySnapshotWriter(
 
         var snapshot = trend.Current;
 
-        // If a gate produced filtered findings, update the snapshot counts
         if (context.Pipeline.TryGet<IReadOnlyList<Finding>>(
                 ContextKeys.ExtractedFindings, out var gateFindings) && gateFindings is { Count: > 0 })
         {
@@ -60,14 +61,15 @@ public sealed class SecuritySnapshotWriter(
                 critical, high, medium, gateFindings.Count);
         }
 
-        var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
-        Directory.CreateDirectory(securityDir);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
 
+        var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
         var fileName = $"{snapshot.Date:yyyy-MM-dd}-{SanitizeBranch(snapshot.Branch)}.yaml";
         var filePath = Path.Combine(securityDir, fileName);
 
         var yaml = FormatSnapshot(snapshot);
-        await File.WriteAllTextAsync(filePath, yaml, cancellationToken);
+        await reader.WriteAsync(filePath, yaml, cancellationToken);
 
         logger.LogInformation(
             "Written security snapshot to {Path} ({Critical}C/{High}H/{Medium}M, {Total} findings)",

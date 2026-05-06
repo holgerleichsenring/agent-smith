@@ -1,5 +1,6 @@
 using System.Globalization;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -8,18 +9,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class SnapshotYamlParser
 {
-    internal static List<SecurityRunSnapshot> LoadSnapshots(string securityDir)
+    internal static async Task<List<SecurityRunSnapshot>> LoadSnapshotsAsync(
+        ISandboxFileReader reader, string securityDir, CancellationToken cancellationToken)
     {
         var snapshots = new List<SecurityRunSnapshot>();
+        var entries = await reader.ListAsync(securityDir, maxDepth: 1, cancellationToken);
 
-        if (!Directory.Exists(securityDir))
-            return snapshots;
-
-        foreach (var file in Directory.GetFiles(securityDir, "*.yaml"))
+        foreach (var file in entries.Where(e => e.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)))
         {
             try
             {
-                var yaml = File.ReadAllText(file);
+                var yaml = await reader.TryReadAsync(file, cancellationToken);
+                if (yaml is null) continue;
                 var snapshot = ParseSnapshotYaml(yaml);
                 if (snapshot is not null)
                     snapshots.Add(snapshot);

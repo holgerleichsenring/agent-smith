@@ -62,7 +62,7 @@ public sealed class TryCheckoutSourceHandler(
     }
 
     private static void PublishLocalRepository(PipelineContext pipeline, string localPath) =>
-        pipeline.Set(ContextKeys.Repository, new Repository(localPath, new BranchName("(local)"), ""));
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("(local)"), localPath));
 
     private async Task<CommandResult> CloneRemoteAsync(
         TryCheckoutSourceContext context, CancellationToken cancellationToken)

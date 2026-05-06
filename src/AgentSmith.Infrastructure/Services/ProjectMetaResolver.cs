@@ -1,62 +1,70 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// Finds .agentsmith/ under a source path. Repo-root first, then a single
-/// depth-first lexical descent so mono-repos with .agentsmith/ in a sub-package
-/// (services/api-gateway/.agentsmith/, packages/core/.agentsmith/, …) resolve.
-/// First hit wins; subsequent .agentsmith/ directories are ignored.
+/// Finds .agentsmith/ under a source path via ISandboxFileReader. Repo-root
+/// first, then the depth-first lexical descent (mono-repos with .agentsmith/
+/// in a sub-package). One ListAsync call covers the whole search tree —
+/// per-candidate ExistsAsync probes are avoided to minimise round trips.
 /// </summary>
 public sealed class ProjectMetaResolver : IProjectMetaResolver
 {
     private const string MetaDirName = ".agentsmith";
     private const int MaxSearchDepth = 4;
 
-    public string? Resolve(string sourcePath)
+    public async Task<string?> ResolveAsync(
+        ISandboxFileReader reader, string sourcePath, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(sourcePath) || !Directory.Exists(sourcePath))
-            return null;
+        if (string.IsNullOrWhiteSpace(sourcePath)) return null;
 
-        var rootCandidate = Path.Combine(sourcePath, MetaDirName);
-        if (Directory.Exists(rootCandidate))
-            return rootCandidate;
+        var entries = await reader.ListAsync(sourcePath, MaxSearchDepth, cancellationToken);
+        if (entries.Count == 0) return null;
 
-        return SearchRecursive(sourcePath, depth: 0);
+        var rootCandidate = NormaliseRoot(sourcePath) + MetaDirName;
+        var rootHit = entries.FirstOrDefault(p => p.Equals(rootCandidate, StringComparison.Ordinal));
+        if (rootHit is not null) return rootHit;
+
+        return entries
+            .Where(p => GetFileName(p).Equals(MetaDirName, StringComparison.Ordinal))
+            .Where(p => !ContainsSkippedSegment(p, sourcePath))
+            .OrderBy(p => GetDepth(p, sourcePath))
+            .ThenBy(p => p, StringComparer.Ordinal)
+            .FirstOrDefault();
     }
 
-    private static string? SearchRecursive(string current, int depth)
+    private static string NormaliseRoot(string path) =>
+        path.EndsWith('/') ? path : path + "/";
+
+    private static string GetFileName(string path)
     {
-        if (depth >= MaxSearchDepth) return null;
-
-        IEnumerable<string> subDirs;
-        try { subDirs = Directory.EnumerateDirectories(current).OrderBy(p => p, StringComparer.Ordinal); }
-        catch { return null; }
-
-        foreach (var dir in subDirs)
-        {
-            if (ShouldSkip(dir)) continue;
-
-            var candidate = Path.Combine(dir, MetaDirName);
-            if (Directory.Exists(candidate)) return candidate;
-
-            var nested = SearchRecursive(dir, depth + 1);
-            if (nested is not null) return nested;
-        }
-
-        return null;
+        var idx = path.LastIndexOf('/');
+        return idx < 0 ? path : path[(idx + 1)..];
     }
 
-    private static bool ShouldSkip(string dir)
+    private static int GetDepth(string entry, string root)
     {
-        var name = Path.GetFileName(dir);
-        return name.StartsWith('.')
-            || name.Equals("node_modules", StringComparison.Ordinal)
-            || name.Equals("bin", StringComparison.Ordinal)
-            || name.Equals("obj", StringComparison.Ordinal)
-            || name.Equals("dist", StringComparison.Ordinal)
-            || name.Equals("target", StringComparison.Ordinal)
-            || name.Equals("build", StringComparison.Ordinal)
-            || name.Equals("vendor", StringComparison.Ordinal);
+        var rel = entry.Length > root.Length ? entry[root.Length..] : string.Empty;
+        return rel.Count(c => c == '/');
     }
+
+    private static bool ContainsSkippedSegment(string entry, string root)
+    {
+        var rel = entry.Length > root.Length ? entry[root.Length..].TrimStart('/') : entry;
+        var segments = rel.Split('/');
+        for (var i = 0; i < segments.Length - 1; i++)
+            if (IsSkippedSegment(segments[i])) return true;
+        return false;
+    }
+
+    private static bool IsSkippedSegment(string name) =>
+        name.StartsWith('.')
+        || name.Equals("node_modules", StringComparison.Ordinal)
+        || name.Equals("bin", StringComparison.Ordinal)
+        || name.Equals("obj", StringComparison.Ordinal)
+        || name.Equals("dist", StringComparison.Ordinal)
+        || name.Equals("target", StringComparison.Ordinal)
+        || name.Equals("build", StringComparison.Ordinal)
+        || name.Equals("vendor", StringComparison.Ordinal);
 }

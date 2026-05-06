@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
@@ -12,10 +13,11 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Queries the project knowledge base wiki to answer user questions.
-/// Reads relevant wiki files and uses the LLM to synthesize an answer.
+/// Reads relevant wiki files via the sandbox and uses the LLM to synthesize an answer.
 /// </summary>
 public sealed class QueryKnowledgeHandler(
     IChatClientFactory chatClientFactory,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<QueryKnowledgeHandler> logger)
     : ICommandHandler<QueryKnowledgeContext>
 {
@@ -24,16 +26,19 @@ public sealed class QueryKnowledgeHandler(
     public async Task<CommandResult> ExecuteAsync(
         QueryKnowledgeContext context, CancellationToken cancellationToken)
     {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
         var wikiPath = context.WikiPath;
 
-        if (!Directory.Exists(wikiPath) || !File.Exists(Path.Combine(wikiPath, IndexFile)))
+        var indexContent = await reader.TryReadAsync(Path.Combine(wikiPath, IndexFile), cancellationToken);
+        if (indexContent is null)
         {
             logger.LogInformation("No wiki found at {WikiPath}", wikiPath);
             context.Pipeline.Set(ContextKeys.QueryAnswer, "No wiki found. Run compile-wiki first.");
             return CommandResult.Ok("No wiki found. Run compile-wiki first.");
         }
 
-        var wikiContent = await ReadRelevantWikiFilesAsync(wikiPath, context.Question, cancellationToken);
+        var wikiContent = await ReadRelevantWikiFilesAsync(reader, wikiPath, context.Question, indexContent, cancellationToken);
 
         var systemPrompt = BuildSystemPrompt();
         var userPrompt = BuildUserPrompt(context.Question, wikiContent);
@@ -61,28 +66,22 @@ public sealed class QueryKnowledgeHandler(
     }
 
     internal static async Task<Dictionary<string, string>> ReadRelevantWikiFilesAsync(
-        string wikiPath, string question, CancellationToken ct)
+        ISandboxFileReader reader, string wikiPath, string question, string indexContent, CancellationToken ct)
     {
-        var result = new Dictionary<string, string>();
-        var files = Directory.GetFiles(wikiPath, "*.md");
+        var result = new Dictionary<string, string> { [IndexFile] = indexContent };
+        var entries = await reader.ListAsync(wikiPath, maxDepth: 1, ct);
+        var mdFiles = entries.Where(e => e.EndsWith(".md", StringComparison.OrdinalIgnoreCase));
         var questionLower = question.ToLowerInvariant();
 
-        // Always include index.md
-        var indexPath = Path.Combine(wikiPath, IndexFile);
-        if (File.Exists(indexPath))
-            result[IndexFile] = await File.ReadAllTextAsync(indexPath, ct);
-
-        // Include files whose name or content is likely relevant
-        foreach (var file in files)
+        foreach (var file in mdFiles)
         {
-            var fileName = Path.GetFileName(file);
-            if (fileName == IndexFile)
-                continue;
+            var fileName = LastSegment(file);
+            if (fileName == IndexFile) continue;
 
-            // Always include core wiki files
             if (IsCorefile(fileName) || FileNameMatchesQuestion(fileName, questionLower))
             {
-                result[fileName] = await File.ReadAllTextAsync(file, ct);
+                var content = await reader.TryReadAsync(file, ct);
+                if (content is not null) result[fileName] = content;
             }
         }
 
@@ -102,6 +101,12 @@ public sealed class QueryKnowledgeHandler(
         var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
         var keywords = nameWithoutExt.Split('-', '_');
         return keywords.Any(k => k.Length > 2 && questionLower.Contains(k));
+    }
+
+    private static string LastSegment(string path)
+    {
+        var idx = path.LastIndexOf('/');
+        return idx < 0 ? path : path[(idx + 1)..];
     }
 
     private static string BuildSystemPrompt() =>

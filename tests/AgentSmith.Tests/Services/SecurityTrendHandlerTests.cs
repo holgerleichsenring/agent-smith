@@ -2,39 +2,26 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class SecurityTrendHandlerTests : IDisposable
+public sealed class SecurityTrendHandlerTests
 {
-    private readonly SecurityTrendHandler _sut;
-    private readonly string _tempDir;
-
-    public SecurityTrendHandlerTests()
-    {
-        _sut = new SecurityTrendHandler(NullLogger<SecurityTrendHandler>.Instance);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-trend-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
-
     [Fact]
     public async Task ExecuteAsync_NoRepository_ReturnsOk()
     {
+        var sut = MakeHandler(NewEmptyReader().Object);
         var pipeline = new PipelineContext();
         var context = new SecurityTrendContext(pipeline);
 
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var result = await sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("No repository");
@@ -43,9 +30,8 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_WithRepository_StoresTrendInPipeline()
     {
-        var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
-        pipeline.Set(ContextKeys.Repository, repo);
+        var sut = MakeHandler(NewEmptyReader().Object);
+        var pipeline = NewPipelineWithRepo();
 
         var findings = new List<Finding>
         {
@@ -56,7 +42,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
 
         var context = new SecurityTrendContext(pipeline);
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var result = await sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
@@ -70,9 +56,6 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_WithPreviousSnapshot_CalculatesDeltas()
     {
-        var securityDir = Path.Combine(_tempDir, ".agentsmith", "security");
-        Directory.CreateDirectory(securityDir);
-
         var previousYaml = """
             date: 2026-04-01T10:00:00Z
             branch: main
@@ -89,11 +72,15 @@ public sealed class SecurityTrendHandlerTests : IDisposable
               - Hardcoded
             cost_usd: 0.0100
             """;
-        File.WriteAllText(Path.Combine(securityDir, "2026-04-01-main.yaml"), previousYaml);
 
-        var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
-        pipeline.Set(ContextKeys.Repository, repo);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work/.agentsmith/security", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/.agentsmith/security/2026-04-01-main.yaml" });
+        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/security/2026-04-01-main.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(previousYaml);
+
+        var sut = MakeHandler(reader.Object);
+        var pipeline = NewPipelineWithRepo();
 
         var findings = new List<Finding>
         {
@@ -103,7 +90,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
 
         var context = new SecurityTrendContext(pipeline);
-        await _sut.ExecuteAsync(context, CancellationToken.None);
+        await sut.ExecuteAsync(context, CancellationToken.None);
 
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
         trend!.Previous.Should().NotBeNull();
@@ -173,7 +160,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     public void BuildCurrentSnapshot_WithFindings_CountsSeverities()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
 
         var findings = new List<Finding>
         {
@@ -198,7 +185,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     public void BuildCurrentSnapshot_NoFindings_ReturnsZeroCounts()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
 
         var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
@@ -212,7 +199,7 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     public void BuildCurrentSnapshot_WithScanResults_DeterminesScanTypes()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
         pipeline.Set(ContextKeys.StaticScanResult, new StaticScanResult([], 0, 0, 0));
         pipeline.Set(ContextKeys.DependencyAuditResult, new DependencyAuditResult([], "DOTNET", 0));
 
@@ -224,30 +211,28 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     }
 
     [Fact]
-    public void LoadSnapshots_EmptyDirectory_ReturnsEmptyList()
+    public async Task LoadSnapshotsAsync_EmptyDirectory_ReturnsEmptyList()
     {
-        var dir = Path.Combine(_tempDir, "empty-security");
-        Directory.CreateDirectory(dir);
+        var reader = NewEmptyReader();
 
-        var result = SnapshotYamlParser.LoadSnapshots(dir);
+        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/security", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public void LoadSnapshots_NonExistentDirectory_ReturnsEmptyList()
+    public async Task LoadSnapshotsAsync_NonExistentDirectory_ReturnsEmptyList()
     {
-        var result = SnapshotYamlParser.LoadSnapshots(Path.Combine(_tempDir, "nonexistent"));
+        var reader = NewEmptyReader();
+
+        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/nope", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public void LoadSnapshots_ValidYamlFile_ParsesSnapshot()
+    public async Task LoadSnapshotsAsync_ValidYamlFile_ParsesSnapshot()
     {
-        var dir = Path.Combine(_tempDir, "security");
-        Directory.CreateDirectory(dir);
-
         var yaml = """
             date: 2026-04-01T10:00:00Z
             branch: main
@@ -266,9 +251,14 @@ public sealed class SecurityTrendHandlerTests : IDisposable
               - SQLInjection
             cost_usd: 0.0250
             """;
-        File.WriteAllText(Path.Combine(dir, "2026-04-01-main.yaml"), yaml);
 
-        var result = SnapshotYamlParser.LoadSnapshots(dir);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work/sec", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/sec/2026-04-01-main.yaml" });
+        reader.Setup(r => r.TryReadAsync("/work/sec/2026-04-01-main.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(yaml);
+
+        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
 
         result.Should().HaveCount(1);
         result[0].FindingsCritical.Should().Be(3);
@@ -283,18 +273,19 @@ public sealed class SecurityTrendHandlerTests : IDisposable
     }
 
     [Fact]
-    public void LoadSnapshots_MalformedFile_SkipsIt()
+    public async Task LoadSnapshotsAsync_MalformedFile_SkipsIt()
     {
-        var dir = Path.Combine(_tempDir, "security-bad");
-        Directory.CreateDirectory(dir);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work/sec", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/sec/bad.yaml", "/work/sec/no-date.yaml" });
+        reader.Setup(r => r.TryReadAsync("/work/sec/bad.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("this is not valid yaml at all: [[[");
+        reader.Setup(r => r.TryReadAsync("/work/sec/no-date.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("branch: main\nfindings_critical: 1");
 
-        File.WriteAllText(Path.Combine(dir, "bad.yaml"), "this is not valid yaml at all: [[[");
-        File.WriteAllText(Path.Combine(dir, "no-date.yaml"), "branch: main\nfindings_critical: 1");
+        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
 
-        var result = SnapshotYamlParser.LoadSnapshots(dir);
-
-        // no-date.yaml has no "date:" so returns null; bad.yaml should either parse partially or be skipped
-        // The parser requires "date" key to be present
+        // The parser requires "date" key; both have no/invalid date
         result.Should().BeEmpty();
     }
 
@@ -361,6 +352,30 @@ public sealed class SecurityTrendHandlerTests : IDisposable
         result.Should().NotBeNull();
         result!.ScanTypes.Should().BeEmpty();
         result.TopCategories.Should().BeEmpty();
+    }
+
+    private static Mock<ISandboxFileReader> NewEmptyReader()
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+        return reader;
+    }
+
+    private static SecurityTrendHandler MakeHandler(ISandboxFileReader reader)
+    {
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
+        return new SecurityTrendHandler(factory.Object, NullLogger<SecurityTrendHandler>.Instance);
+    }
+
+    private static PipelineContext NewPipelineWithRepo()
+    {
+        var pipeline = new PipelineContext();
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
+        pipeline.Set(ContextKeys.Repository, repo);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        return pipeline;
     }
 
     private static SecurityRunSnapshot CreateSnapshot(

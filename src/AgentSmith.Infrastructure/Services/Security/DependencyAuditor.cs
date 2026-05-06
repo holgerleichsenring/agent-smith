@@ -2,14 +2,16 @@ using System.Diagnostics;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Detects the package ecosystem in a repository and runs the appropriate
-/// dependency audit tool (npm audit, pip-audit, dotnet list package).
-/// Returns null when no supported ecosystem is detected.
+/// dependency audit tool (npm audit, pip-audit, dotnet list package) inside
+/// the sandbox via Step{Kind=Run}. Returns null when no supported ecosystem.
 /// </summary>
 public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDependencyAuditor
 {
@@ -19,20 +21,23 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
     private readonly DotNetAuditParser _dotNetParser = new();
     private readonly StructuralDependencyChecker _structuralChecker = new(logger);
 
-    public async Task<DependencyAuditResult?> AuditAsync(string repoPath, CancellationToken cancellationToken)
+    public async Task<DependencyAuditResult?> AuditAsync(
+        ISandbox sandbox, ISandboxFileReader reader, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
         var findings = new List<DependencyFinding>();
+        var repoPath = Repository.SandboxWorkPath;
 
         var packageJsonPath = Path.Combine(repoPath, "package.json");
-        if (File.Exists(packageJsonPath))
-            findings.AddRange(_structuralChecker.Check(repoPath, packageJsonPath));
+        if (await reader.ExistsAsync(packageJsonPath, cancellationToken))
+            findings.AddRange(
+                await _structuralChecker.CheckAsync(reader, repoPath, packageJsonPath, cancellationToken));
 
-        var (ecosystem, auditFindings) = await DetectAndAuditAsync(repoPath, cancellationToken);
+        var (ecosystem, auditFindings) = await DetectAndAuditAsync(sandbox, reader, repoPath, cancellationToken);
 
         if (ecosystem is null && findings.Count == 0)
         {
-            logger.LogInformation("No supported package ecosystem detected in {RepoPath}", repoPath);
+            logger.LogInformation("No supported package ecosystem detected at {RepoPath}", repoPath);
             return null;
         }
 
@@ -44,30 +49,31 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
     }
 
     private async Task<(string? Ecosystem, List<DependencyFinding>? Findings)> DetectAndAuditAsync(
-        string repoPath, CancellationToken cancellationToken)
+        ISandbox sandbox, ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        if (File.Exists(Path.Combine(repoPath, "package-lock.json"))
-            || File.Exists(Path.Combine(repoPath, "package.json")))
-            return ("npm", await AuditNpmAsync(repoPath, cancellationToken));
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "package-lock.json"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "package.json"), cancellationToken))
+            return ("npm", await AuditNpmAsync(sandbox, cancellationToken));
 
-        if (File.Exists(Path.Combine(repoPath, "requirements.txt"))
-            || File.Exists(Path.Combine(repoPath, "pyproject.toml")))
-            return ("python", await AuditPythonAsync(repoPath, cancellationToken));
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "requirements.txt"), cancellationToken)
+            || await reader.ExistsAsync(Path.Combine(repoPath, "pyproject.toml"), cancellationToken))
+            return ("python", await AuditPythonAsync(sandbox, reader, repoPath, cancellationToken));
 
-        if (Directory.GetFiles(repoPath, "*.csproj", SearchOption.AllDirectories).Length > 0)
-            return ("dotnet", await AuditDotNetAsync(repoPath, cancellationToken));
+        var entries = await reader.ListAsync(repoPath, maxDepth: 8, cancellationToken);
+        if (entries.Any(e => e.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+            return ("dotnet", await AuditDotNetAsync(sandbox, cancellationToken));
 
-        if (File.Exists(Path.Combine(repoPath, "go.mod")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "go.mod"), cancellationToken))
             return ("go", []);
 
         return (null, null);
     }
 
     private async Task<List<DependencyFinding>?> AuditNpmAsync(
-        string repoPath, CancellationToken cancellationToken)
+        ISandbox sandbox, CancellationToken cancellationToken)
     {
         var (exitCode, stdout, stderr) = await _processRunner.RunAsync(
-            "npm", "audit --json", repoPath, cancellationToken);
+            sandbox, "npm audit --json", cancellationToken);
 
         if (exitCode < 0)
         {
@@ -87,20 +93,20 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
     }
 
     private async Task<List<DependencyFinding>?> AuditPythonAsync(
-        string repoPath, CancellationToken cancellationToken)
+        ISandbox sandbox, ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        var args = File.Exists(Path.Combine(repoPath, "requirements.txt"))
+        var args = await reader.ExistsAsync(Path.Combine(repoPath, "requirements.txt"), cancellationToken)
             ? "--format=json --requirement=requirements.txt"
             : "--format=json";
 
         var (exitCode, stdout, stderr) = await _processRunner.RunAsync(
-            "pip-audit", args, repoPath, cancellationToken);
+            sandbox, $"pip-audit {args}", cancellationToken);
 
         if (exitCode < 0)
         {
             logger.LogInformation("pip-audit not found, attempting to install...");
             var (installExit, _, installErr) = await _processRunner.RunAsync(
-                "pip", "install pip-audit", repoPath, cancellationToken);
+                sandbox, "pip install pip-audit", cancellationToken);
 
             if (installExit != 0)
             {
@@ -109,7 +115,7 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
             }
 
             (exitCode, stdout, stderr) = await _processRunner.RunAsync(
-                "pip-audit", args, repoPath, cancellationToken);
+                sandbox, $"pip-audit {args}", cancellationToken);
 
             if (exitCode < 0)
             {
@@ -130,10 +136,10 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
     }
 
     private async Task<List<DependencyFinding>?> AuditDotNetAsync(
-        string repoPath, CancellationToken cancellationToken)
+        ISandbox sandbox, CancellationToken cancellationToken)
     {
         var (exitCode, stdout, stderr) = await _processRunner.RunAsync(
-            "dotnet", "list package --vulnerable --format json", repoPath, cancellationToken);
+            sandbox, "dotnet list package --vulnerable --format json", cancellationToken);
 
         if (exitCode < 0)
         {

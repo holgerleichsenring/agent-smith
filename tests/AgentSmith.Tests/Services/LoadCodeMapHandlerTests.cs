@@ -1,41 +1,27 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class LoadCodeMapHandlerTests : IDisposable
+public sealed class LoadCodeMapHandlerTests
 {
-    private readonly LoadCodeMapHandler _sut;
-    private readonly string _tempDir;
-
-    public LoadCodeMapHandlerTests()
-    {
-        _sut = new LoadCodeMapHandler(new ProjectMetaResolver(), NullLogger<LoadCodeMapHandler>.Instance);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-loadmap-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".agentsmith"));
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
-
     [Fact]
     public async Task ExecuteAsync_FileExists_LoadsContent()
     {
         var yaml = "modules:\n  - name: Core\n    path: src/Core";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
+        var reader = NewReaderWithMeta(yaml);
+        var sut = MakeHandler(reader.Object);
 
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var result = await sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Loaded code map");
@@ -44,8 +30,13 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_FileNotFound_ReturnsOk()
     {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+        var sut = MakeHandler(reader.Object);
+
         var context = CreateContext();
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var result = await sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -54,18 +45,39 @@ public sealed class LoadCodeMapHandlerTests : IDisposable
     public async Task ExecuteAsync_FileExists_StoresInPipeline()
     {
         var yaml = "modules:\n  - name: Core";
-        File.WriteAllText(Path.Combine(_tempDir, ".agentsmith", "code-map.yaml"), yaml);
+        var reader = NewReaderWithMeta(yaml);
+        var sut = MakeHandler(reader.Object);
 
         var context = CreateContext();
-        await _sut.ExecuteAsync(context, CancellationToken.None);
+        await sut.ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<string>(ContextKeys.CodeMap, out var stored).Should().BeTrue();
         stored.Should().Be(yaml);
     }
 
+    private static Mock<ISandboxFileReader> NewReaderWithMeta(string codeMapYaml)
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/.agentsmith" });
+        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/code-map.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codeMapYaml);
+        return reader;
+    }
+
+    private static LoadCodeMapHandler MakeHandler(ISandboxFileReader reader)
+    {
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
+        return new LoadCodeMapHandler(
+            new ProjectMetaResolver(), factory.Object, NullLogger<LoadCodeMapHandler>.Instance);
+    }
+
     private LoadCodeMapContext CreateContext()
     {
-        var repo = new Repository(_tempDir, new BranchName("feature/test"), "https://github.com/test/test");
-        return new LoadCodeMapContext(repo, new PipelineContext());
+        var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        return new LoadCodeMapContext(repo, pipeline);
     }
 }

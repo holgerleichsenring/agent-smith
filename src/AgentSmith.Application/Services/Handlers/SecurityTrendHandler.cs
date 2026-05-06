@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -13,25 +14,29 @@ namespace AgentSmith.Application.Services.Handlers;
 /// compares with the current scan results, and stores a SecurityTrend in the pipeline.
 /// </summary>
 public sealed class SecurityTrendHandler(
+    ISandboxFileReaderFactory readerFactory,
     ILogger<SecurityTrendHandler> logger)
     : ICommandHandler<SecurityTrendContext>
 {
     private const string SecurityDir = ".agentsmith/security";
 
-    public Task<CommandResult> ExecuteAsync(
+    public async Task<CommandResult> ExecuteAsync(
         SecurityTrendContext context, CancellationToken cancellationToken)
     {
         if (!context.Pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo)
             || repo is null)
         {
             logger.LogInformation("No repository available, skipping security trend analysis");
-            return Task.FromResult(CommandResult.Ok("No repository, skipping trend analysis"));
+            return CommandResult.Ok("No repository, skipping trend analysis");
         }
+
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
 
         var currentSnapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(context.Pipeline, repo);
 
         var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
-        var previousSnapshots = SnapshotYamlParser.LoadSnapshots(securityDir);
+        var previousSnapshots = await SnapshotYamlParser.LoadSnapshotsAsync(reader, securityDir, cancellationToken);
 
         var previous = previousSnapshots
             .OrderByDescending(s => s.Date)
@@ -46,8 +51,8 @@ public sealed class SecurityTrendHandler(
             trend.NewFindings, trend.ResolvedFindings,
             trend.CriticalDelta, trend.HighDelta, trend.TotalScans);
 
-        return Task.FromResult(CommandResult.Ok(
-            $"Trend: {trend.NewFindings} new, {trend.ResolvedFindings} resolved"));
+        return CommandResult.Ok(
+            $"Trend: {trend.NewFindings} new, {trend.ResolvedFindings} resolved");
     }
 
     internal static SecurityTrend CalculateTrend(

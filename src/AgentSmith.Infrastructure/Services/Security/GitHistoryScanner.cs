@@ -1,15 +1,18 @@
 using System.Diagnostics;
+using System.Text;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
-using LibGit2Sharp;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Security;
 
 /// <summary>
 /// Scans git commit history for secrets that were committed and later deleted.
-/// Loads the same secret patterns as the static scanner (category=secrets) and
-/// delegates diff parsing, pattern matching and masking to <see cref="GitDiffSecretMatcher"/>.
+/// Drives the git CLI inside the sandbox (Step{Kind=Run}) and parses the unified
+/// diff output via <see cref="GitDiffSecretMatcher"/>. No LibGit2Sharp dependency.
 /// </summary>
 public sealed class GitHistoryScanner(
     PatternDefinitionLoader loader,
@@ -21,7 +24,8 @@ public sealed class GitHistoryScanner(
     private const int MaxCommits = 500;
     private const string SecretsCategory = "secrets";
 
-    public Task<GitHistoryScanResult> ScanAsync(string repoPath, CancellationToken cancellationToken)
+    public async Task<GitHistoryScanResult> ScanAsync(
+        ISandbox sandbox, ISandboxFileReader reader, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
         var findings = new List<HistoryFinding>();
@@ -31,39 +35,31 @@ public sealed class GitHistoryScanner(
         if (secretPatterns.Count == 0)
         {
             logger.LogWarning("No secret patterns loaded, git history scan returns empty result");
-            return Task.FromResult(new GitHistoryScanResult([], 0, (int)sw.ElapsedMilliseconds));
+            return new GitHistoryScanResult([], 0, (int)sw.ElapsedMilliseconds);
         }
 
-        try
+        var rawLog = await RunGitAsync(sandbox,
+            ["log", $"--max-count={MaxCommits}", "-p", "--no-color", "--unified=0", "--format=__COMMIT__%n%H"],
+            cancellationToken);
+        if (rawLog is null)
         {
-            using var repo = new Repository(repoPath);
-            var headContent = matcher.BuildHeadContentIndex(repo, secretPatterns);
-            var seenSecrets = new HashSet<string>(StringComparer.Ordinal);
+            logger.LogWarning("git log failed inside sandbox; returning empty git-history scan result");
+            return new GitHistoryScanResult([], 0, (int)sw.ElapsedMilliseconds);
+        }
 
-            foreach (var commit in repo.Commits.Take(MaxCommits))
+        var headContent = await matcher.BuildHeadContentIndexAsync(
+            reader, Repository.SandboxWorkPath, secretPatterns, cancellationToken);
+        var seenSecrets = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (sha, fileChanges) in ParseLog(rawLog))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            commitsScanned++;
+
+            foreach (var (filePath, patch) in fileChanges)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                commitsScanned++;
-
-                var parent = commit.Parents.FirstOrDefault();
-                var diff = repo.Diff.Compare<Patch>(parent?.Tree, commit.Tree);
-
-                foreach (var change in diff)
-                {
-                    if (change.Status == LibGit2Sharp.ChangeKind.Deleted)
-                        continue;
-
-                    ScanChange(change, commit.Sha, secretPatterns, headContent, seenSecrets, findings);
-                }
+                ScanChange(filePath, patch, sha, secretPatterns, headContent, seenSecrets, findings);
             }
-        }
-        catch (RepositoryNotFoundException ex)
-        {
-            logger.LogWarning(ex, "Repository not found at {Path}, returning empty scan result", repoPath);
-        }
-        catch (LibGit2SharpException ex)
-        {
-            logger.LogWarning(ex, "LibGit2Sharp error scanning {Path}, returning empty scan result", repoPath);
         }
 
         sw.Stop();
@@ -72,8 +68,7 @@ public sealed class GitHistoryScanner(
             "Git history scan finished: {Findings} findings in {Commits} commits ({Duration}ms)",
             findings.Count, commitsScanned, sw.ElapsedMilliseconds);
 
-        return Task.FromResult(new GitHistoryScanResult(
-            findings, commitsScanned, (int)sw.ElapsedMilliseconds));
+        return new GitHistoryScanResult(findings, commitsScanned, (int)sw.ElapsedMilliseconds);
     }
 
     private IReadOnlyList<CompiledPattern> LoadSecretPatterns()
@@ -86,13 +81,73 @@ public sealed class GitHistoryScanner(
         return compiler.Compile(secretsOnly);
     }
 
+    private static async Task<string?> RunGitAsync(
+        ISandbox sandbox, IReadOnlyList<string> args, CancellationToken cancellationToken)
+    {
+        var sb = new StringBuilder();
+        var step = new Step(
+            SchemaVersion: Step.CurrentSchemaVersion,
+            StepId: Guid.NewGuid(),
+            Kind: StepKind.Run,
+            Command: "git",
+            Args: args,
+            WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: 120);
+        var progress = new Progress<StepEvent>(ev =>
+        {
+            if (ev.Kind == StepEventKind.Stdout) sb.AppendLine(ev.Line);
+        });
+        var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
+        return result.ExitCode == 0 ? sb.ToString() : null;
+    }
+
+    private static IEnumerable<(string Sha, IReadOnlyList<(string File, string Patch)> Changes)> ParseLog(string rawLog)
+    {
+        // Splits on the __COMMIT__ marker; each chunk starts with the SHA on the next line,
+        // followed by zero or more `diff --git ...` blocks for that commit.
+        var chunks = rawLog.Split(new[] { "__COMMIT__\n" }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var chunk in chunks)
+        {
+            var newlineIdx = chunk.IndexOf('\n');
+            if (newlineIdx < 0) continue;
+            var sha = chunk[..newlineIdx].Trim();
+            if (sha.Length == 0) continue;
+
+            var diffs = SplitDiffs(chunk[(newlineIdx + 1)..]);
+            yield return (sha, diffs);
+        }
+    }
+
+    private static List<(string File, string Patch)> SplitDiffs(string body)
+    {
+        var diffs = new List<(string, string)>();
+        var splits = body.Split(new[] { "diff --git " }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in splits)
+        {
+            var newlineIdx = part.IndexOf('\n');
+            if (newlineIdx < 0) continue;
+            var header = part[..newlineIdx];
+            var path = ExtractPathFromDiffHeader(header);
+            if (path is null) continue;
+            diffs.Add((path, part[(newlineIdx + 1)..]));
+        }
+        return diffs;
+    }
+
+    private static string? ExtractPathFromDiffHeader(string header)
+    {
+        // Header format: "a/path/to/file b/path/to/file"
+        var space = header.IndexOf(" b/", StringComparison.Ordinal);
+        return space > 2 ? header[2..space] : null;
+    }
+
     private void ScanChange(
-        PatchEntryChanges change, string commitSha,
+        string file, string patch, string commitSha,
         IReadOnlyList<CompiledPattern> secretPatterns,
         HashSet<string> headContent, HashSet<string> seenSecrets,
         List<HistoryFinding> findings)
     {
-        var addedLines = matcher.ExtractAddedLines(change.Patch);
+        var addedLines = matcher.ExtractAddedLines(patch);
 
         foreach (var (lineNumber, line) in addedLines)
         {
@@ -111,7 +166,7 @@ public sealed class GitHistoryScanner(
                     PatternId: pattern.Definition.Id,
                     Severity: severity,
                     CommitHash: commitSha,
-                    File: change.Path,
+                    File: file,
                     Line: lineNumber,
                     Title: pattern.Definition.Title,
                     Description: stillInTree

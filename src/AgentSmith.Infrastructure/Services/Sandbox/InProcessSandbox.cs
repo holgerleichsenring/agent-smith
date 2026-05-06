@@ -199,11 +199,30 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
         var truncated = EnumerateUntilLimit(path, maxDepth, entries);
         if (truncated)
             progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, "directory truncated at 1000 entries"));
-        return Success(step, 0, JsonSerializer.Serialize(entries, WireFormat.Json));
+        var rewritten = entries.Select(VirtualisePath).ToList();
+        return Success(step, 0, JsonSerializer.Serialize(rewritten, WireFormat.Json));
     }
 
+    // Mirror image of ResolvePath: translate the actual workDir back to /work so callers
+    // that walk the listing with /work-relative paths line up with the inputs they passed in.
+    private string VirtualisePath(string actual)
+    {
+        if (actual.Equals(workDir, StringComparison.Ordinal))
+            return "/work";
+        if (actual.StartsWith(workDir + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return "/work/" + actual[(workDir.Length + 1)..].Replace(Path.DirectorySeparatorChar, '/');
+        return actual;
+    }
+
+    // /work is the canonical sandbox working-directory path (Repository.LocalPath).
+    // In CLI mode, route those paths back to this sandbox's actual workDir so handlers
+    // and tools that always speak in /work-relative paths still hit the right files.
     private string ResolvePath(string raw)
     {
+        if (raw.Equals("/work", StringComparison.Ordinal))
+            return workDir;
+        if (raw.StartsWith("/work/", StringComparison.Ordinal))
+            return Path.GetFullPath(Path.Combine(workDir, raw["/work/".Length..]));
         if (Path.IsPathRooted(raw)) return raw;
         return Path.GetFullPath(Path.Combine(workDir, raw));
     }

@@ -6,8 +6,10 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -207,5 +209,6 @@ public static class ServiceCollectionExtensions
         // wrapping to IPipelineLifecycleCoordinator (NoOp by default; Server overrides).
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<Services.Prompts.AgentPromptBuilder>();
+        services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
     }
 }

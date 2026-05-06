@@ -24,7 +24,7 @@ public sealed class TestHandlerTests
 
         try
         {
-            var repo = new Repository(tempDir, new BranchName("main"), "https://github.com/org/repo.git");
+            var repo = new Repository(new BranchName("main"), "https://github.com/org/repo.git");
             var pipeline = new PipelineContext();
             var context = new TestContext(repo, new List<CodeChange>(), pipeline);
 

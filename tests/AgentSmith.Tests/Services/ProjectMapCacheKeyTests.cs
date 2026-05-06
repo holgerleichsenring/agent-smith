@@ -1,80 +1,104 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Sandbox;
 using FluentAssertions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class ProjectMapCacheKeyTests : IDisposable
+public sealed class ProjectMapCacheKeyTests
 {
-    private readonly string _root;
-
-    public ProjectMapCacheKeyTests()
+    [Fact]
+    public async Task ComputeAsync_NoManifests_ReturnsEmpty()
     {
-        _root = Path.Combine(Path.GetTempPath(), $"cachekey-tests-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_root);
-    }
+        var reader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/README.md"] = "no manifests here"
+        });
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        var hash = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", CancellationToken.None);
+
+        hash.Should().BeEmpty();
     }
 
     [Fact]
-    public void Compute_NoManifests_ReturnsEmpty()
+    public async Task ComputeAsync_SameCsprojContent_SameHash()
     {
-        File.WriteAllText(Path.Combine(_root, "README.md"), "no manifests here");
-        ProjectMapCacheKey.Compute(_root).Should().BeEmpty();
-    }
+        var reader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>"
+        });
 
-    [Fact]
-    public void Compute_SameCsprojContent_SameHash()
-    {
-        var path = Path.Combine(_root, "MyApp.csproj");
-        File.WriteAllText(path, "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>");
-
-        var first = ProjectMapCacheKey.Compute(_root);
-        var second = ProjectMapCacheKey.Compute(_root);
+        var first = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", CancellationToken.None);
+        var second = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", CancellationToken.None);
 
         first.Should().NotBeEmpty();
         first.Should().Be(second);
     }
 
     [Fact]
-    public void Compute_NewDependencyAdded_NewHash()
+    public async Task ComputeAsync_NewDependencyAdded_NewHash()
     {
-        var path = Path.Combine(_root, "MyApp.csproj");
-        File.WriteAllText(path, "<Project></Project>");
-        var before = ProjectMapCacheKey.Compute(_root);
+        var beforeReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project></Project>"
+        });
+        var afterReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project><PackageReference Include=\"Foo\" /></Project>"
+        });
 
-        File.WriteAllText(path, "<Project><PackageReference Include=\"Foo\" /></Project>");
-        var after = ProjectMapCacheKey.Compute(_root);
+        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", CancellationToken.None);
+        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", CancellationToken.None);
 
         after.Should().NotBe(before);
     }
 
     [Fact]
-    public void Compute_NonManifestFileChange_SameHash()
+    public async Task ComputeAsync_NonManifestFileChange_SameHash()
     {
-        File.WriteAllText(Path.Combine(_root, "MyApp.csproj"), "<Project></Project>");
-        var before = ProjectMapCacheKey.Compute(_root);
+        var beforeReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project></Project>"
+        });
+        var afterReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project></Project>",
+            ["/work/README.md"] = "non-manifest changes don't invalidate"
+        });
 
-        File.WriteAllText(Path.Combine(_root, "README.md"), "non-manifest changes don't invalidate");
-        var after = ProjectMapCacheKey.Compute(_root);
+        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", CancellationToken.None);
+        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", CancellationToken.None);
 
         after.Should().Be(before);
     }
 
     [Fact]
-    public void Compute_BinObjFolders_NotIncluded()
+    public async Task ComputeAsync_BinObjFolders_NotIncluded()
     {
-        File.WriteAllText(Path.Combine(_root, "MyApp.csproj"), "<Project></Project>");
-        var before = ProjectMapCacheKey.Compute(_root);
+        var beforeReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project></Project>"
+        });
+        var afterReader = NewReader(new Dictionary<string, string?>
+        {
+            ["/work/MyApp.csproj"] = "<Project></Project>",
+            ["/work/bin/Other.csproj"] = "<Project>shouldn't affect hash</Project>"
+        });
 
-        var binDir = Path.Combine(_root, "bin");
-        Directory.CreateDirectory(binDir);
-        File.WriteAllText(Path.Combine(binDir, "Other.csproj"),
-            "<Project>shouldn't affect hash</Project>");
+        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", CancellationToken.None);
+        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", CancellationToken.None);
 
-        var after = ProjectMapCacheKey.Compute(_root);
         after.Should().Be(before);
+    }
+
+    private static Mock<ISandboxFileReader> NewReader(Dictionary<string, string?> entries)
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entries.Keys.ToList());
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((p, _) =>
+                Task.FromResult(entries.TryGetValue(p, out var c) ? c : null));
+        return reader;
     }
 }

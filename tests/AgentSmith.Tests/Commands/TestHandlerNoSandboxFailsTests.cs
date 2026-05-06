@@ -63,7 +63,6 @@ public sealed class TestHandlerNoSandboxFailsTests
     private static TestContext NewTestContext(PipelineContext pipeline)
     {
         var repo = new Repository(
-            localPath: Path.GetTempPath(),
             currentBranch: new BranchName("main"),
             remoteUrl: "https://example.com/repo.git");
         return new TestContext(repo, new List<CodeChange>(), pipeline);

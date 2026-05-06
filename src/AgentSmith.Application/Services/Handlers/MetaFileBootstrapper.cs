@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -9,8 +10,8 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Generates optional .agentsmith/ meta-files (code-map, coding-principles, skill.yaml)
-/// and loads skill role definitions into the pipeline context.
-/// Each generation is best-effort: failures are logged but do not block the pipeline.
+/// and loads skill role definitions into the pipeline context. Sandbox-routed via
+/// ISandboxFileReader. Each generation is best-effort: failures log and continue.
 /// </summary>
 public sealed class MetaFileBootstrapper(
     ICodeMapGenerator codeMapGenerator,
@@ -24,31 +25,31 @@ public sealed class MetaFileBootstrapper(
     private const string DecisionsFileName = "decisions.md";
 
     public async Task BootstrapAsync(
-        DetectedProject detected, string agentDir, string repoPath,
+        ISandboxFileReader reader, DetectedProject detected, string agentDir, string repoPath,
         RepoSnapshot snapshot, AgentConfig agent,
         PipelineContext pipeline, string sourceType, string skillsPath,
         CancellationToken cancellationToken)
     {
-        await TryGenerateFileAsync(CodeMapFileName, agentDir, detected,
+        await TryGenerateFileAsync(reader, CodeMapFileName, agentDir, detected,
             (d, s, a, ct) => codeMapGenerator.GenerateAsync(d, repoPath, s, a, ct),
             snapshot, agent, cancellationToken);
 
-        await TryGenerateFileAsync(CodingPrinciplesFileName, agentDir, detected,
+        await TryGenerateFileAsync(reader, CodingPrinciplesFileName, agentDir, detected,
             (d, s, a, ct) => codingPrinciplesGenerator.GenerateAsync(d, repoPath, s, a, ct),
             snapshot, agent, cancellationToken);
 
-        TryGenerateSkillYaml(detected, agentDir, sourceType);
-        TryCreateDecisionsTemplate(agentDir);
+        await TryGenerateSkillYamlAsync(reader, detected, agentDir, sourceType, cancellationToken);
+        await TryCreateDecisionsTemplateAsync(reader, agentDir, cancellationToken);
         TryLoadSkillRoles(agentDir, skillsPath, pipeline);
     }
 
     private async Task TryGenerateFileAsync(
-        string fileName, string agentDir, DetectedProject detected,
+        ISandboxFileReader reader, string fileName, string agentDir, DetectedProject detected,
         Func<DetectedProject, RepoSnapshot, AgentConfig, CancellationToken, Task<string>> generate,
         RepoSnapshot snapshot, AgentConfig agent, CancellationToken cancellationToken)
     {
         var filePath = Path.Combine(agentDir, fileName);
-        if (File.Exists(filePath))
+        if (await reader.ExistsAsync(filePath, cancellationToken))
         {
             logger.LogInformation("Found existing {File}, skipping generation", fileName);
             return;
@@ -65,7 +66,7 @@ public sealed class MetaFileBootstrapper(
                 return;
             }
 
-            await File.WriteAllTextAsync(filePath, content, cancellationToken);
+            await reader.WriteAsync(filePath, content, cancellationToken);
             logger.LogInformation("Written {File} ({Chars} chars)", filePath, content.Length);
         }
         catch (Exception ex)
@@ -74,11 +75,12 @@ public sealed class MetaFileBootstrapper(
         }
     }
 
-    private void TryGenerateSkillYaml(
-        DetectedProject detected, string agentDir, string sourceType)
+    private async Task TryGenerateSkillYamlAsync(
+        ISandboxFileReader reader, DetectedProject detected, string agentDir, string sourceType,
+        CancellationToken cancellationToken)
     {
         var skillPath = Path.Combine(agentDir, SkillFileName);
-        if (File.Exists(skillPath))
+        if (await reader.ExistsAsync(skillPath, cancellationToken))
         {
             logger.LogInformation("Found existing {File}, skipping generation", SkillFileName);
             return;
@@ -87,7 +89,7 @@ public sealed class MetaFileBootstrapper(
         try
         {
             var yaml = SkillYamlGenerator.Generate(detected, sourceType);
-            File.WriteAllText(skillPath, yaml);
+            await reader.WriteAsync(skillPath, yaml, cancellationToken);
             logger.LogInformation("Written {File} ({Chars} chars)", skillPath, yaml.Length);
         }
         catch (Exception ex)
@@ -96,10 +98,11 @@ public sealed class MetaFileBootstrapper(
         }
     }
 
-    private void TryCreateDecisionsTemplate(string agentDir)
+    private async Task TryCreateDecisionsTemplateAsync(
+        ISandboxFileReader reader, string agentDir, CancellationToken cancellationToken)
     {
         var path = Path.Combine(agentDir, DecisionsFileName);
-        if (File.Exists(path))
+        if (await reader.ExistsAsync(path, cancellationToken))
         {
             logger.LogInformation("Found existing {File}, skipping creation", DecisionsFileName);
             return;
@@ -107,7 +110,7 @@ public sealed class MetaFileBootstrapper(
 
         try
         {
-            File.WriteAllText(path, "# Decision Log\n");
+            await reader.WriteAsync(path, "# Decision Log\n", cancellationToken);
             logger.LogInformation("Created empty {File}", DecisionsFileName);
         }
         catch (Exception ex)

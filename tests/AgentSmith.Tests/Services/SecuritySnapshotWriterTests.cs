@@ -2,29 +2,31 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class SecuritySnapshotWriterTests : IDisposable
+public sealed class SecuritySnapshotWriterTests
 {
     private readonly SecuritySnapshotWriter _sut;
-    private readonly string _tempDir;
+    private readonly Mock<ISandboxFileReader> _readerMock = new();
+    private readonly List<(string Path, string Content)> _written = new();
 
     public SecuritySnapshotWriterTests()
     {
-        _sut = new SecuritySnapshotWriter(NullLogger<SecuritySnapshotWriter>.Instance);
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-snapshot-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
+        _readerMock.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((p, c, _) => _written.Add((p, c)))
+            .Returns(Task.CompletedTask);
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
+        var factory = new Mock<ISandboxFileReaderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(_readerMock.Object);
+
+        _sut = new SecuritySnapshotWriter(factory.Object, NullLogger<SecuritySnapshotWriter>.Instance);
     }
 
     [Fact]
@@ -43,8 +45,9 @@ public sealed class SecuritySnapshotWriterTests : IDisposable
     public async Task ExecuteAsync_NoTrendData_ReturnsOk()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
         pipeline.Set(ContextKeys.Repository, repo);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
 
         var context = new SecuritySnapshotWriteContext(pipeline);
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -57,8 +60,9 @@ public sealed class SecuritySnapshotWriterTests : IDisposable
     public async Task ExecuteAsync_WithTrend_WritesSnapshotFile()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository(_tempDir, new BranchName("main"), "https://github.com/test/test");
+        var repo = new Repository(new BranchName("main"), "https://github.com/test/test");
         pipeline.Set(ContextKeys.Repository, repo);
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
 
         var snapshot = new SecurityRunSnapshot(
             Date: new DateTimeOffset(2026, 4, 8, 10, 0, 0, TimeSpan.Zero),
@@ -82,12 +86,10 @@ public sealed class SecuritySnapshotWriterTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
 
-        var securityDir = Path.Combine(_tempDir, ".agentsmith", "security");
-        Directory.Exists(securityDir).Should().BeTrue();
-        var files = Directory.GetFiles(securityDir, "*.yaml");
-        files.Should().HaveCount(1);
+        _written.Should().HaveCount(1);
+        _written[0].Path.Should().StartWith("/work/.agentsmith/security/").And.EndWith(".yaml");
 
-        var content = File.ReadAllText(files[0]);
+        var content = _written[0].Content;
         content.Should().Contain("findings_critical: 2");
         content.Should().Contain("findings_high: 3");
         content.Should().Contain("branch: main");

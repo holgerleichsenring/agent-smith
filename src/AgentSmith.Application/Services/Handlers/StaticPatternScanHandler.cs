@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class StaticPatternScanHandler(
     IStaticPatternScanner scanner,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<StaticPatternScanHandler> logger)
     : ICommandHandler<StaticPatternScanContext>
 {
@@ -26,7 +28,9 @@ public sealed class StaticPatternScanHandler(
             return CommandResult.Ok("No repository available, skipping static scan");
         }
 
-        var result = await scanner.ScanAsync(repo.LocalPath, cancellationToken);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+        var result = await scanner.ScanAsync(reader, cancellationToken);
         context.Pipeline.Set(ContextKeys.StaticScanResult, result);
 
         var findings = result.Findings;

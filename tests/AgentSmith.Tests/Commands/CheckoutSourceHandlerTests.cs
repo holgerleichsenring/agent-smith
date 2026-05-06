@@ -28,8 +28,9 @@ public sealed class CheckoutSourceHandlerTests
     public async Task ExecuteAsync_Success_StoresRepositoryInPipeline()
     {
         var branch = new BranchName("feature/test");
-        var repo = new Repository("/tmp/repo", branch, "https://github.com/org/repo.git");
+        var repo = new Repository(branch, "https://github.com/org/repo.git");
         var providerMock = new Mock<ISourceProvider>();
+        providerMock.SetupGet(p => p.ProviderType).Returns("Local");
         providerMock.Setup(p => p.CheckoutAsync(
                 It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(repo);
