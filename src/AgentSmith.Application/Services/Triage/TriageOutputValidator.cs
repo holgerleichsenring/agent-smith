@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
 {
-    private const int MaxRationaleChars = 300;
+    private const int MaxRationaleChars = 500;
 
     public TriageValidationResult Validate(
         TriageOutput output, IReadOnlyList<SkillIndexEntry> availableSkills)
