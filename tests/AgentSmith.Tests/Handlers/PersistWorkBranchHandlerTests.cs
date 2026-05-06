@@ -52,7 +52,7 @@ public sealed class PersistWorkBranchHandlerTests
     public async Task ExecuteAsync_NoSandboxInPipeline_FailsWithUnknownKind()
     {
         var pipeline = new PipelineContext();
-        var repo = new Repository("/work", new BranchName("agent-smith/18693"), "https://x/y.git");
+        var repo = new Repository(new BranchName("agent-smith/18693"), "https://x/y.git");
         pipeline.Set(ContextKeys.Repository, repo);
 
         var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
@@ -174,7 +174,6 @@ public sealed class PersistWorkBranchHandlerTests
     {
         var pipeline = NewPipelineWithSandbox();
         var repo = new Repository(
-            "/work",
             new BranchName("agent-smith/18693"),
             "https://example.com/x/y.git");
         pipeline.Set(ContextKeys.Repository, repo);

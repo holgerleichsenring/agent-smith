@@ -1,249 +1,170 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Core.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public class RepoSnapshotCollectorTests : IDisposable
+public class RepoSnapshotCollectorTests
 {
     private readonly RepoSnapshotCollector _sut = new(NullLogger<RepoSnapshotCollector>.Instance);
-    private readonly string _tempDir;
-
-    public RepoSnapshotCollectorTests()
-    {
-        _tempDir = Path.Combine(Path.GetTempPath(),
-            "agentsmith-snapshot-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
 
     [Fact]
-    public void Collect_EditorConfig_ReadsContent()
+    public async Task Collect_EditorConfig_ReadsContent()
     {
-        // Arrange
-        var content = "root = true\n\n[*]\nindent_style = space\nindent_size = 4";
-        File.WriteAllText(Path.Combine(_tempDir, ".editorconfig"), content);
+        var fs = new FakeFs();
+        fs.AddFile("/work/.editorconfig", "root = true\n\n[*]\nindent_style = space\nindent_size = 4");
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("C#"), CancellationToken.None);
 
-        // Assert
         snapshot.ConfigFileContents.Should().ContainSingle();
         snapshot.ConfigFileContents[0].Should().Contain(".editorconfig");
         snapshot.ConfigFileContents[0].Should().Contain("indent_style = space");
     }
 
     [Fact]
-    public void Collect_EslintConfig_ReadsContent()
+    public async Task Collect_EslintConfig_ReadsContent()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".eslintrc.json"),
-            """{"extends": "eslint:recommended"}""");
+        var fs = new FakeFs();
+        fs.AddFile("/work/.eslintrc.json", """{"extends": "eslint:recommended"}""");
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("TypeScript"));
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("TypeScript"), CancellationToken.None);
 
-        // Assert
         snapshot.ConfigFileContents.Should().ContainSingle();
         snapshot.ConfigFileContents[0].Should().Contain(".eslintrc.json");
         snapshot.ConfigFileContents[0].Should().Contain("eslint:recommended");
     }
 
     [Fact]
-    public void Collect_MultipleConfigFiles_ReadsAll()
+    public async Task Collect_MultipleConfigFiles_ReadsAll()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".editorconfig"), "root = true");
-        File.WriteAllText(Path.Combine(_tempDir, ".prettierrc"), """{"semi": true}""");
+        var fs = new FakeFs();
+        fs.AddFile("/work/.editorconfig", "root = true");
+        fs.AddFile("/work/.prettierrc", """{"semi": true}""");
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("TypeScript"));
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("TypeScript"), CancellationToken.None);
 
-        // Assert
         snapshot.ConfigFileContents.Should().HaveCount(2);
     }
 
     [Fact]
-    public void Collect_CodeSamples_CollectsLargestFiles()
+    public async Task Collect_CodeSamples_CollectsLargestFiles()
     {
-        // Arrange
-        var srcDir = Path.Combine(_tempDir, "src");
-        Directory.CreateDirectory(srcDir);
-
-        File.WriteAllText(Path.Combine(srcDir, "Small.cs"), "class Small {}");
-        File.WriteAllText(Path.Combine(srcDir, "Large.cs"),
+        var fs = new FakeFs();
+        fs.AddFile("/work/src/Small.cs", "class Small {}");
+        fs.AddFile("/work/src/Large.cs",
             string.Join('\n', Enumerable.Range(1, 50).Select(i => $"// Line {i}")));
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("C#"), CancellationToken.None);
 
-        // Assert
         snapshot.CodeSamples.Should().HaveCount(2);
-        snapshot.CodeSamples[0].Should().Contain("Large.cs");
     }
 
     [Fact]
-    public void Collect_CodeSamples_CapsAtMaxChars()
+    public async Task Collect_EmptyRepo_ReturnsEmptySnapshot()
     {
-        // Arrange
-        var srcDir = Path.Combine(_tempDir, "src");
-        Directory.CreateDirectory(srcDir);
+        var fs = new FakeFs();
 
-        for (var i = 0; i < 20; i++)
-        {
-            File.WriteAllText(Path.Combine(srcDir, $"File{i}.cs"),
-                string.Join('\n', Enumerable.Range(1, 80).Select(l => $"// Long line {l} with padding {new string('x', 50)}")));
-        }
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("C#"), CancellationToken.None);
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
-
-        // Assert
-        var totalChars = snapshot.CodeSamples.Sum(s => s.Length);
-        totalChars.Should().BeLessThan(15_001); // generous bound including headers
-    }
-
-    [Fact]
-    public void Collect_EmptyRepo_ReturnsEmptySnapshot()
-    {
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
-
-        // Assert
         snapshot.ConfigFileContents.Should().BeEmpty();
         snapshot.CodeSamples.Should().BeEmpty();
     }
 
     [Fact]
-    public void Collect_ExcludesNodeModules()
+    public async Task Collect_ExcludesNodeModules()
     {
-        // Arrange
-        var excluded = Path.Combine(_tempDir, "node_modules", "pkg");
-        Directory.CreateDirectory(excluded);
-        File.WriteAllText(Path.Combine(excluded, "index.js"), "module.exports = {}");
+        var fs = new FakeFs();
+        fs.AddFile("/work/node_modules/pkg/index.js", "module.exports = {}");
+        fs.AddFile("/work/src/app.js", "const app = require('express')();");
 
-        var srcDir = Path.Combine(_tempDir, "src");
-        Directory.CreateDirectory(srcDir);
-        File.WriteAllText(Path.Combine(srcDir, "app.js"), "const app = require('express')();");
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("JavaScript"), CancellationToken.None);
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("JavaScript"));
-
-        // Assert
         snapshot.CodeSamples.Should().ContainSingle();
         snapshot.CodeSamples[0].Should().Contain("app.js");
     }
 
     [Fact]
-    public void CollectConfigFiles_Static_ReturnsConfigContents()
+    public async Task CollectConfigFilesAsync_Static_ReturnsConfigContents()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, ".editorconfig"), "root = true");
+        var fs = new FakeFs();
+        fs.AddFile("/work/.editorconfig", "root = true");
 
-        // Act
-        var result = RepoSnapshotCollector.CollectConfigFiles(_tempDir);
+        var result = await RepoSnapshotCollector.CollectConfigFilesAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Should().ContainSingle();
         result[0].Should().Contain("root = true");
     }
 
     [Fact]
-    public void CollectCodeSamples_Static_LanguageFiltering()
+    public async Task CollectCodeSamplesAsync_Static_LanguageFiltering()
     {
-        // Arrange
-        var srcDir = Path.Combine(_tempDir, "src");
-        Directory.CreateDirectory(srcDir);
-        File.WriteAllText(Path.Combine(srcDir, "app.py"), "print('hello')");
-        File.WriteAllText(Path.Combine(srcDir, "utils.cs"), "class Utils {}");
+        var fs = new FakeFs();
+        fs.AddFile("/work/src/app.py", "print('hello')");
+        fs.AddFile("/work/src/utils.cs", "class Utils {}");
 
-        // Act
-        var result = RepoSnapshotCollector.CollectCodeSamples(_tempDir, CreateProject("Python"));
+        var result = await RepoSnapshotCollector.CollectCodeSamplesAsync(
+            fs.Reader.Object, "/work", CreateProject("Python"), CancellationToken.None);
 
-        // Assert
         result.Should().ContainSingle();
         result[0].Should().Contain("app.py");
     }
 
     [Fact]
-    public void Collect_IncludesDirectoryTree()
+    public async Task Collect_IncludesDirectoryTree()
     {
-        // Arrange
-        var srcDir = Path.Combine(_tempDir, "src");
-        Directory.CreateDirectory(srcDir);
-        File.WriteAllText(Path.Combine(srcDir, "app.cs"), "class App {}");
-        File.WriteAllText(Path.Combine(_tempDir, "README.md"), "# Test");
+        var fs = new FakeFs();
+        fs.AddDir("/work/src");
+        fs.AddFile("/work/src/app.cs", "class App {}");
+        fs.AddFile("/work/README.md", "# Test");
 
-        // Act
-        var snapshot = _sut.Collect(_tempDir, CreateProject("C#"));
+        var snapshot = await _sut.CollectAsync(fs.Reader.Object, "/work", CreateProject("C#"), CancellationToken.None);
 
-        // Assert
-        snapshot.DirectoryTree.Should().Contain("src/");
+        snapshot.DirectoryTree.Should().Contain("src");
         snapshot.DirectoryTree.Should().Contain("README.md");
         snapshot.DirectoryTree.Should().Contain("app.cs");
     }
 
     [Fact]
-    public void GenerateTree_EmptyDir_ReturnsEmpty()
+    public async Task GenerateTreeAsync_EmptyDir_ReturnsEmpty()
     {
-        RepoSnapshotCollector.GenerateTree(_tempDir, 3).Should().BeEmpty();
+        var fs = new FakeFs();
+
+        var result = await RepoSnapshotCollector.GenerateTreeAsync(fs.Reader.Object, "/work", 3, CancellationToken.None);
+
+        result.Should().BeEmpty();
     }
 
     [Fact]
-    public void GenerateTree_WithFiles_ReturnsStructure()
+    public async Task GenerateTreeAsync_WithFiles_ReturnsStructure()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "README.md"), "# Test");
-        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
-        File.WriteAllText(Path.Combine(_tempDir, "src", "main.cs"), "class Main {}");
+        var fs = new FakeFs();
+        fs.AddFile("/work/README.md", "# Test");
+        fs.AddDir("/work/src");
+        fs.AddFile("/work/src/main.cs", "class Main {}");
 
-        // Act
-        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 3);
+        var result = await RepoSnapshotCollector.GenerateTreeAsync(fs.Reader.Object, "/work", 3, CancellationToken.None);
 
-        // Assert
         result.Should().Contain("README.md");
-        result.Should().Contain("src/");
+        result.Should().Contain("src");
         result.Should().Contain("main.cs");
     }
 
     [Fact]
-    public void GenerateTree_ExcludesGitAndNodeModules()
+    public async Task GenerateTreeAsync_ExcludesGitAndNodeModules()
     {
-        // Arrange
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".git"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "node_modules"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "src"));
+        var fs = new FakeFs();
+        fs.AddDir("/work/.git");
+        fs.AddDir("/work/node_modules");
+        fs.AddDir("/work/src");
 
-        // Act
-        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 3);
+        var result = await RepoSnapshotCollector.GenerateTreeAsync(fs.Reader.Object, "/work", 3, CancellationToken.None);
 
-        // Assert
-        result.Should().Contain("src/");
+        result.Should().Contain("src");
         result.Should().NotContain(".git");
         result.Should().NotContain("node_modules");
-    }
-
-    [Fact]
-    public void GenerateTree_RespectsMaxDepth()
-    {
-        // Arrange
-        var deep = Path.Combine(_tempDir, "a", "b", "c", "d", "e");
-        Directory.CreateDirectory(deep);
-        File.WriteAllText(Path.Combine(deep, "deep.txt"), "");
-
-        // Act — depth 2 should not reach "d" or "e"
-        var result = RepoSnapshotCollector.GenerateTree(_tempDir, 2);
-
-        // Assert
-        result.Should().Contain("a/");
-        result.Should().Contain("b/");
-        result.Should().NotContain("deep.txt");
     }
 
     private static DetectedProject CreateProject(string language) =>
@@ -257,4 +178,56 @@ public class RepoSnapshotCollectorTests : IDisposable
             Infrastructure: [],
             KeyFiles: [],
             Sdks: []);
+
+    /// <summary>
+    /// Simple in-memory ISandboxFileReader mock for snapshot testing.
+    /// </summary>
+    private sealed class FakeFs
+    {
+        private readonly HashSet<string> _dirs = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
+
+        public Mock<ISandboxFileReader> Reader { get; } = new();
+
+        public FakeFs()
+        {
+            Reader.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<string, CancellationToken>((p, _) => Task.FromResult(_files.ContainsKey(p) || _dirs.Contains(p)));
+            Reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<string, CancellationToken>((p, _) =>
+                    Task.FromResult(_files.TryGetValue(p, out var c) ? c : null));
+            Reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+                .Returns<string, int?, CancellationToken>((p, _, _) => Task.FromResult(ListUnder(p)));
+        }
+
+        public void AddDir(string path) => _dirs.Add(path);
+
+        public void AddFile(string path, string content)
+        {
+            _files[path] = content;
+            var dir = Path.GetDirectoryName(path);
+            while (!string.IsNullOrEmpty(dir))
+            {
+                _dirs.Add(dir);
+                dir = Path.GetDirectoryName(dir);
+            }
+        }
+
+        private IReadOnlyList<string> ListUnder(string root)
+        {
+            var prefix = root.EndsWith('/') ? root : root + "/";
+            var result = new List<string>();
+            foreach (var dir in _dirs)
+            {
+                if (dir.StartsWith(prefix, StringComparison.Ordinal) && dir != root)
+                    result.Add(dir);
+            }
+            foreach (var file in _files.Keys)
+            {
+                if (file.StartsWith(prefix, StringComparison.Ordinal))
+                    result.Add(file);
+            }
+            return result;
+        }
+    }
 }

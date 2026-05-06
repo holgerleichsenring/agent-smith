@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -15,13 +16,14 @@ public sealed class ProjectDetector(
 {
     private const int MaxReadmeWords = 300;
 
-    public DetectedProject Detect(string repoPath)
+    public async Task<DetectedProject> DetectAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
         logger.LogInformation("Detecting project type in {Path}...", repoPath);
 
-        var lang = DetectLanguage(repoPath);
-        var infrastructure = DetectInfrastructure(repoPath);
-        var readme = ReadReadmeExcerpt(repoPath);
+        var lang = await DetectLanguageAsync(reader, repoPath, cancellationToken);
+        var infrastructure = await DetectInfrastructureAsync(reader, repoPath, cancellationToken);
+        var readme = await ReadReadmeExcerptAsync(reader, repoPath, cancellationToken);
 
         var result = new DetectedProject(
             lang.Language, lang.Runtime, lang.PackageManager,
@@ -36,11 +38,12 @@ public sealed class ProjectDetector(
         return result;
     }
 
-    private LanguageDetectionResult DetectLanguage(string repoPath)
+    private async Task<LanguageDetectionResult> DetectLanguageAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
         foreach (var detector in detectors)
         {
-            var result = detector.Detect(repoPath);
+            var result = await detector.DetectAsync(reader, repoPath, cancellationToken);
             if (result is not null)
                 return result;
         }
@@ -49,51 +52,72 @@ public sealed class ProjectDetector(
             "Unknown", null, null, null, null, [], [], []);
     }
 
-    private static IReadOnlyList<string> DetectInfrastructure(string repoPath)
+    private static async Task<IReadOnlyList<string>> DetectInfrastructureAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
+        var entries = await reader.ListAsync(repoPath, maxDepth: 6, cancellationToken);
         var infra = new List<string>();
 
-        if (File.Exists(Path.Combine(repoPath, "Dockerfile"))
-            || Directory.GetFiles(repoPath, "Dockerfile", SearchOption.AllDirectories).Length > 0)
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "Dockerfile"), cancellationToken)
+            || entries.Any(e => LastSegment(e).Equals("Dockerfile", StringComparison.Ordinal)))
             infra.Add("Docker");
-        if (Directory.GetFiles(repoPath, "docker-compose*.yml", SearchOption.AllDirectories).Length > 0
-            || Directory.GetFiles(repoPath, "docker-compose*.yaml", SearchOption.AllDirectories).Length > 0)
+        if (entries.Any(e => LastSegment(e).StartsWith("docker-compose", StringComparison.OrdinalIgnoreCase)
+            && (e.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
+                || e.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))))
             infra.Add("Docker-Compose");
-        if (Directory.Exists(Path.Combine(repoPath, "k8s"))
-            || Directory.Exists(Path.Combine(repoPath, "deploy", "k8s"))
-            || File.Exists(Path.Combine(repoPath, "kustomization.yaml")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "kustomization.yaml"), cancellationToken)
+            || entries.Any(e => IsDirectoryEntry(entries, Path.Combine(repoPath, "k8s"), e))
+            || entries.Any(e => IsDirectoryEntry(entries, Path.Combine(repoPath, "deploy", "k8s"), e)))
             infra.Add("K8s");
-        if (Directory.Exists(Path.Combine(repoPath, "terraform"))
-            || Directory.GetFiles(repoPath, "*.tf", SearchOption.TopDirectoryOnly).Length > 0)
+
+        var topEntries = await reader.ListAsync(repoPath, maxDepth: 1, cancellationToken);
+        if (topEntries.Any(e => e.Equals(Path.Combine(repoPath, "terraform"), StringComparison.Ordinal))
+            || topEntries.Any(e => e.EndsWith(".tf", StringComparison.OrdinalIgnoreCase)))
             infra.Add("Terraform");
 
-        if (Directory.Exists(Path.Combine(repoPath, ".github", "workflows")))
+        if (await DirectoryExistsAsync(reader, Path.Combine(repoPath, ".github", "workflows"), cancellationToken))
             infra.Add("GitHub-Actions");
-        if (File.Exists(Path.Combine(repoPath, "azure-pipelines.yml")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "azure-pipelines.yml"), cancellationToken))
             infra.Add("Azure-DevOps-Pipelines");
-        if (File.Exists(Path.Combine(repoPath, ".gitlab-ci.yml")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, ".gitlab-ci.yml"), cancellationToken))
             infra.Add("GitLab-CI");
-        if (File.Exists(Path.Combine(repoPath, "Jenkinsfile")))
+        if (await reader.ExistsAsync(Path.Combine(repoPath, "Jenkinsfile"), cancellationToken))
             infra.Add("Jenkins");
 
         return infra;
     }
 
-    private string? ReadReadmeExcerpt(string repoPath)
+    private async Task<string?> ReadReadmeExcerptAsync(
+        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        var readmePath = Path.Combine(repoPath, "README.md");
-        if (!File.Exists(readmePath)) return null;
-
         try
         {
-            var content = File.ReadAllText(readmePath);
+            var content = await reader.TryReadAsync(Path.Combine(repoPath, "README.md"), cancellationToken);
+            if (content is null) return null;
+
             var words = content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             return string.Join(' ', words.Take(MaxReadmeWords));
         }
         catch (IOException ex)
         {
-            logger.LogWarning(ex, "Could not read {File}", readmePath);
+            logger.LogWarning(ex, "Could not read README.md");
             return null;
         }
+    }
+
+    private static async Task<bool> DirectoryExistsAsync(
+        ISandboxFileReader reader, string path, CancellationToken cancellationToken)
+    {
+        var entries = await reader.ListAsync(path, maxDepth: 1, cancellationToken);
+        return entries.Count > 0;
+    }
+
+    private static bool IsDirectoryEntry(IReadOnlyList<string> all, string candidate, string entry) =>
+        entry.Equals(candidate, StringComparison.Ordinal);
+
+    private static string LastSegment(string path)
+    {
+        var idx = path.LastIndexOf('/');
+        return idx < 0 ? path : path[(idx + 1)..];
     }
 }

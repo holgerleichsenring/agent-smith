@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class LoadCodeMapHandler(
     IProjectMetaResolver metaResolver,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<LoadCodeMapHandler> logger)
     : ICommandHandler<LoadCodeMapContext>
 {
@@ -21,21 +23,25 @@ public sealed class LoadCodeMapHandler(
     public async Task<CommandResult> ExecuteAsync(
         LoadCodeMapContext context, CancellationToken cancellationToken)
     {
-        var metaDir = metaResolver.Resolve(context.Repository.LocalPath);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+        var repoPath = context.Repository.LocalPath;
+
+        var metaDir = await metaResolver.ResolveAsync(reader, repoPath, cancellationToken);
         if (metaDir is null)
         {
-            logger.LogInformation("No .agentsmith/ found under {Source}, continuing without code map", context.Repository.LocalPath);
+            logger.LogInformation("No .agentsmith/ found under {Source}, continuing without code map", repoPath);
             return CommandResult.Ok("No .agentsmith/ found, continuing without");
         }
 
         var path = Path.Combine(metaDir, FileName);
-        if (!File.Exists(path))
+        var content = await reader.TryReadAsync(path, cancellationToken);
+        if (content is null)
         {
             logger.LogInformation("No {File} in {Dir}, continuing without code map", FileName, metaDir);
             return CommandResult.Ok($"No {FileName}, continuing without");
         }
 
-        var content = await File.ReadAllTextAsync(path, cancellationToken);
         context.Pipeline.Set(ContextKeys.CodeMap, content);
 
         logger.LogInformation("Loaded {Path} ({Chars} chars)", path, content.Length);

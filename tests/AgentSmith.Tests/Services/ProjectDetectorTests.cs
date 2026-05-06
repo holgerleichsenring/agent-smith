@@ -1,12 +1,14 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Detection;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public class ProjectDetectorTests : IDisposable
+public class ProjectDetectorTests
 {
     private static readonly ILanguageDetector[] Detectors =
     [
@@ -16,25 +18,12 @@ public class ProjectDetectorTests : IDisposable
     ];
 
     private readonly ProjectDetector _sut = new(Detectors, NullLogger<ProjectDetector>.Instance);
-    private readonly string _tempDir;
-
-    public ProjectDetectorTests()
-    {
-        _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-test-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
 
     [Fact]
-    public void Detect_DotNetProject_ReturnsCorrectLanguageAndRuntime()
+    public async Task Detect_DotNetProject_ReturnsCorrectLanguageAndRuntime()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "MyApp.csproj"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/MyApp.csproj", """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
@@ -47,10 +36,8 @@ public class ProjectDetectorTests : IDisposable
             </Project>
             """);
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("C#");
         result.Runtime.Should().Contain(".NET");
         result.PackageManager.Should().Be("NuGet");
@@ -60,10 +47,10 @@ public class ProjectDetectorTests : IDisposable
     }
 
     [Fact]
-    public void Detect_TypeScriptProject_WithPnpm_DetectsCorrectPackageManager()
+    public async Task Detect_TypeScriptProject_WithPnpm_DetectsCorrectPackageManager()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/package.json", """
             {
               "name": "my-app",
               "scripts": {
@@ -79,13 +66,11 @@ public class ProjectDetectorTests : IDisposable
               }
             }
             """);
-        File.WriteAllText(Path.Combine(_tempDir, "tsconfig.json"), "{}");
-        File.WriteAllText(Path.Combine(_tempDir, "pnpm-lock.yaml"), "lockfileVersion: 9");
+        fs.AddFile("/work/tsconfig.json", "{}");
+        fs.AddFile("/work/pnpm-lock.yaml", "lockfileVersion: 9");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("TypeScript");
         result.PackageManager.Should().Be("pnpm");
         result.BuildCommand.Should().Be("pnpm run build");
@@ -94,10 +79,10 @@ public class ProjectDetectorTests : IDisposable
     }
 
     [Fact]
-    public void Detect_PythonProject_WithPoetry_DetectsCorrectPackageManager()
+    public async Task Detect_PythonProject_WithPoetry_DetectsCorrectPackageManager()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "pyproject.toml"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/pyproject.toml", """
             [tool.poetry]
             name = "my-app"
             version = "0.1.0"
@@ -106,61 +91,52 @@ public class ProjectDetectorTests : IDisposable
             testpaths = ["tests"]
             """);
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("Python");
         result.PackageManager.Should().Be("poetry");
         result.TestCommand.Should().Be("pytest");
     }
 
     [Fact]
-    public void Detect_PythonProject_WithUv_DetectsCorrectPackageManager()
+    public async Task Detect_PythonProject_WithUv_DetectsCorrectPackageManager()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "pyproject.toml"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/pyproject.toml", """
             [project]
             name = "my-app"
             """);
-        File.WriteAllText(Path.Combine(_tempDir, "uv.lock"), "version = 1");
+        fs.AddFile("/work/uv.lock", "version = 1");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("Python");
         result.PackageManager.Should().Be("uv");
     }
 
     [Fact]
-    public void Detect_DockerAndGitHubActions_DetectsInfrastructure()
+    public async Task Detect_DockerAndGitHubActions_DetectsInfrastructure()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"), """{"name":"test"}""");
-        File.WriteAllText(Path.Combine(_tempDir, "Dockerfile"), "FROM node:20");
-        Directory.CreateDirectory(Path.Combine(_tempDir, ".github", "workflows"));
-        File.WriteAllText(
-            Path.Combine(_tempDir, ".github", "workflows", "ci.yml"),
-            "name: CI");
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/package.json", """{"name":"test"}""");
+        fs.AddFile("/work/Dockerfile", "FROM node:20");
+        fs.AddDir("/work/.github");
+        fs.AddDir("/work/.github/workflows");
+        fs.AddFile("/work/.github/workflows/ci.yml", "name: CI");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Infrastructure.Should().Contain("Docker");
         result.Infrastructure.Should().Contain("GitHub-Actions");
     }
 
     [Fact]
-    public void Detect_NoMarkers_ReturnsUnknown()
+    public async Task Detect_NoMarkers_ReturnsUnknown()
     {
-        // Arrange — empty directory
+        var fs = new FakeFs("/work");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("Unknown");
         result.Runtime.Should().BeNull();
         result.BuildCommand.Should().BeNull();
@@ -168,21 +144,19 @@ public class ProjectDetectorTests : IDisposable
     }
 
     [Fact]
-    public void Detect_JavaScriptProject_WithYarn_DetectsCorrectly()
+    public async Task Detect_JavaScriptProject_WithYarn_DetectsCorrectly()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/package.json", """
             {
               "name": "my-app",
               "scripts": { "build": "webpack", "test": "jest" }
             }
             """);
-        File.WriteAllText(Path.Combine(_tempDir, "yarn.lock"), "# yarn lockfile v1");
+        fs.AddFile("/work/yarn.lock", "# yarn lockfile v1");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Language.Should().Be("JavaScript");
         result.PackageManager.Should().Be("yarn");
         result.BuildCommand.Should().Be("yarn run build");
@@ -190,25 +164,23 @@ public class ProjectDetectorTests : IDisposable
     }
 
     [Fact]
-    public void Detect_ReadsReadmeExcerpt()
+    public async Task Detect_ReadsReadmeExcerpt()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"), """{"name":"test"}""");
-        File.WriteAllText(Path.Combine(_tempDir, "README.md"),
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/package.json", """{"name":"test"}""");
+        fs.AddFile("/work/README.md",
             "# My Project\n\nThis is a test project that does interesting things.");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.ReadmeExcerpt.Should().Contain("My Project");
     }
 
     [Fact]
-    public void Detect_DotNetProject_CollectsKeyFiles()
+    public async Task Detect_DotNetProject_CollectsKeyFiles()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "App.csproj"), """
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/App.csproj", """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
@@ -216,26 +188,79 @@ public class ProjectDetectorTests : IDisposable
             </Project>
             """);
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.KeyFiles.Should().Contain("App.csproj");
     }
 
     [Fact]
-    public void Detect_KubernetesAndTerraform_DetectsInfrastructure()
+    public async Task Detect_KubernetesAndTerraform_DetectsInfrastructure()
     {
-        // Arrange
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"), """{"name":"test"}""");
-        Directory.CreateDirectory(Path.Combine(_tempDir, "k8s"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "terraform"));
+        var fs = new FakeFs("/work");
+        fs.AddFile("/work/package.json", """{"name":"test"}""");
+        fs.AddDir("/work/k8s");
+        fs.AddDir("/work/terraform");
 
-        // Act
-        var result = _sut.Detect(_tempDir);
+        var result = await _sut.DetectAsync(fs.Reader.Object, "/work", CancellationToken.None);
 
-        // Assert
         result.Infrastructure.Should().Contain("K8s");
         result.Infrastructure.Should().Contain("Terraform");
+    }
+
+    /// <summary>
+    /// Lightweight in-memory file system mock for ISandboxFileReader. Tracks files
+    /// and directories so ListAsync/ExistsAsync/TryReadAsync return consistent results.
+    /// </summary>
+    private sealed class FakeFs
+    {
+        private readonly HashSet<string> _dirs = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
+
+        public Mock<ISandboxFileReader> Reader { get; } = new();
+
+        public FakeFs(string root)
+        {
+            _dirs.Add(root);
+            Reader.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<string, CancellationToken>((p, _) => Task.FromResult(_files.ContainsKey(p) || _dirs.Contains(p)));
+            Reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<string, CancellationToken>((p, _) =>
+                    Task.FromResult(_files.TryGetValue(p, out var c) ? c : null));
+            Reader.Setup(r => r.ReadRequiredAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<string, CancellationToken>((p, _) => Task.FromResult(_files[p]));
+            Reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+                .Returns<string, int?, CancellationToken>((p, _, _) => Task.FromResult(ListUnder(p)));
+        }
+
+        public void AddDir(string path) => _dirs.Add(path);
+
+        public void AddFile(string path, string content)
+        {
+            _files[path] = content;
+            // Add parent directories
+            var dir = Path.GetDirectoryName(path);
+            while (!string.IsNullOrEmpty(dir))
+            {
+                _dirs.Add(dir);
+                dir = Path.GetDirectoryName(dir);
+            }
+        }
+
+        private IReadOnlyList<string> ListUnder(string root)
+        {
+            var prefix = root.EndsWith('/') ? root : root + "/";
+            var result = new List<string>();
+            foreach (var dir in _dirs)
+            {
+                if (dir.StartsWith(prefix, StringComparison.Ordinal) && dir != root)
+                    result.Add(dir);
+            }
+            foreach (var file in _files.Keys)
+            {
+                if (file.StartsWith(prefix, StringComparison.Ordinal))
+                    result.Add(file);
+            }
+            return result;
+        }
     }
 }

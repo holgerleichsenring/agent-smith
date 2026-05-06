@@ -1,26 +1,14 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-public class ContextGeneratorTests : IDisposable
+public class ContextGeneratorTests
 {
-    private readonly string _tempDir;
-
-    public ContextGeneratorTests()
-    {
-        _tempDir = Path.Combine(Path.GetTempPath(),
-            "agentsmith-ctxgen-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
 
     [Fact]
     public void BuildUserPrompt_IncludesDetectedStack()
@@ -60,32 +48,42 @@ public class ContextGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void ReadKeyFiles_TruncatesLargeFiles()
+    public async Task ReadKeyFilesAsync_TruncatesLargeFiles()
     {
         var fileName = "large.csproj";
-        File.WriteAllText(Path.Combine(_tempDir, fileName), new string('x', 5000));
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync("/work/large.csproj", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new string('x', 5000));
 
-        var result = ContextGenerator.ReadKeyFiles([fileName], _tempDir);
+        var result = await ContextGenerator.ReadKeyFilesAsync(
+            reader.Object, [fileName], "/work", CancellationToken.None);
 
         result.Should().Contain("(truncated)");
         result.Should().Contain(fileName);
     }
 
     [Fact]
-    public void ReadKeyFiles_SkipsMissingFiles()
+    public async Task ReadKeyFilesAsync_SkipsMissingFiles()
     {
-        var result = ContextGenerator.ReadKeyFiles(["nonexistent.txt"], _tempDir);
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var result = await ContextGenerator.ReadKeyFilesAsync(
+            reader.Object, ["nonexistent.txt"], "/work", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public void ReadKeyFiles_ReadsExistingFile()
+    public async Task ReadKeyFilesAsync_ReadsExistingFile()
     {
-        File.WriteAllText(Path.Combine(_tempDir, "package.json"),
-            """{"name": "my-app"}""");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync("/work/package.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("""{"name": "my-app"}""");
 
-        var result = ContextGenerator.ReadKeyFiles(["package.json"], _tempDir);
+        var result = await ContextGenerator.ReadKeyFilesAsync(
+            reader.Object, ["package.json"], "/work", CancellationToken.None);
 
         result.Should().Contain("package.json");
         result.Should().Contain("my-app");

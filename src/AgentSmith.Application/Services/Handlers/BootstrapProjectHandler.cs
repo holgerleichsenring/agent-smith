@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public sealed class BootstrapProjectHandler(
     IContextGenerator generator,
     IContextValidator validator,
     MetaFileBootstrapper metaFileBootstrapper,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<BootstrapProjectHandler> logger)
     : ICommandHandler<BootstrapProjectContext>
 {
@@ -27,16 +29,17 @@ public sealed class BootstrapProjectHandler(
     public async Task<CommandResult> ExecuteAsync(
         BootstrapProjectContext context, CancellationToken cancellationToken)
     {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+
         var repoPath = context.Repository.LocalPath;
         var agentDir = Path.Combine(repoPath, AgentSmithDir);
-        Directory.CreateDirectory(agentDir);
-
         var contextFilePath = Path.Combine(agentDir, ContextFileName);
 
         logger.LogDebug("Bootstrap: repoPath={RepoPath}, agentDir={AgentDir}", repoPath, agentDir);
 
-        var detected = detector.Detect(repoPath);
-        var snapshot = snapshotCollector.Collect(repoPath, detected);
+        var detected = await detector.DetectAsync(reader, repoPath, cancellationToken);
+        var snapshot = await snapshotCollector.CollectAsync(reader, repoPath, detected, cancellationToken);
         context.Pipeline.Set(ContextKeys.DetectedProject, detected);
         context.Pipeline.Set(ContextKeys.RepoSnapshot, snapshot);
 
@@ -44,11 +47,11 @@ public sealed class BootstrapProjectHandler(
         logger.LogDebug("Bootstrap: agentType={Type}, sourceType={SourceType}, skillsPath={Skills}",
             context.Agent.Type, sourceType, context.SkillsPath);
 
-        if (File.Exists(contextFilePath))
+        if (await reader.ExistsAsync(contextFilePath, cancellationToken))
         {
             logger.LogInformation("Found existing {File}, skipping generation", ContextFileName);
             await metaFileBootstrapper.BootstrapAsync(
-                detected, agentDir, repoPath, snapshot, context.Agent,
+                reader, detected, agentDir, repoPath, snapshot, context.Agent,
                 context.Pipeline, sourceType, context.SkillsPath, cancellationToken);
             return CommandResult.Ok($"Existing {ContextFileName} found, project detected as {detected.Language}");
         }
@@ -58,7 +61,7 @@ public sealed class BootstrapProjectHandler(
             ContextFileName, detected.Language);
 
         var yaml = await GenerateContextYamlAsync(
-            detected, repoPath, snapshot, context.Agent, cancellationToken);
+            reader, detected, repoPath, snapshot, context.Agent, cancellationToken);
 
         if (yaml is null)
         {
@@ -66,12 +69,12 @@ public sealed class BootstrapProjectHandler(
         }
         else
         {
-            await File.WriteAllTextAsync(contextFilePath, yaml, cancellationToken);
+            await reader.WriteAsync(contextFilePath, yaml, cancellationToken);
             logger.LogInformation("Written {File} ({Chars} chars)", contextFilePath, yaml.Length);
         }
 
         await metaFileBootstrapper.BootstrapAsync(
-            detected, agentDir, repoPath, snapshot, context.Agent,
+            reader, detected, agentDir, repoPath, snapshot, context.Agent,
             context.Pipeline, sourceType, context.SkillsPath, cancellationToken);
 
         return CommandResult.Ok(
@@ -79,10 +82,10 @@ public sealed class BootstrapProjectHandler(
     }
 
     private async Task<string?> GenerateContextYamlAsync(
-        DetectedProject detected, string repoPath, RepoSnapshot snapshot,
+        ISandboxFileReader reader, DetectedProject detected, string repoPath, RepoSnapshot snapshot,
         AgentConfig agent, CancellationToken cancellationToken)
     {
-        var yaml = await generator.GenerateAsync(detected, repoPath, snapshot, agent, cancellationToken);
+        var yaml = await generator.GenerateAsync(reader, detected, repoPath, snapshot, agent, cancellationToken);
         var validation = validator.Validate(yaml);
 
         if (validation.IsValid)
@@ -93,7 +96,7 @@ public sealed class BootstrapProjectHandler(
             validation.Errors.Count);
 
         yaml = await generator.RetryWithErrorsAsync(
-            detected, repoPath, yaml, validation.Errors, agent, cancellationToken);
+            detected, yaml, validation.Errors, agent, cancellationToken);
         validation = validator.Validate(yaml);
 
         if (validation.IsValid)

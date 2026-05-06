@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class GitHistoryScanHandler(
     IGitHistoryScanner gitHistoryScanner,
+    ISandboxFileReaderFactory readerFactory,
     ILogger<GitHistoryScanHandler> logger)
     : ICommandHandler<GitHistoryScanContext>
 {
@@ -25,7 +27,9 @@ public sealed class GitHistoryScanHandler(
             return CommandResult.Ok("No repository available, skipping git history scan");
         }
 
-        var result = await gitHistoryScanner.ScanAsync(repo.LocalPath, cancellationToken);
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+        var result = await gitHistoryScanner.ScanAsync(sandbox, reader, cancellationToken);
         context.Pipeline.Set(ContextKeys.GitHistoryScanResult, result);
 
         var critical = result.Findings.Count(f => !f.StillInWorkingTree);

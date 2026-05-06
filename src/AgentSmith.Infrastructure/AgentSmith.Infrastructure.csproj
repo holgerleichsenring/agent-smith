@@ -24,7 +24,9 @@
     <PackageReference Include="OllamaSharp" Version="5.4.24" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
-    <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <!-- Ignore (Sjuul Janssen, MIT) parses .gitignore patterns without LibGit2Sharp.
+         Replaces LibGit2Sharp.Repository.Ignore.IsPathIgnored from the pre-p0117b implementation. -->
+    <PackageReference Include="Ignore" Version="0.2.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
