@@ -317,7 +317,8 @@ public abstract class SkillRoundHandlerBase(
         return string.Join("\n\n", observations.Select(o =>
         {
             var blocking = o.Blocking ? " [BLOCKING]" : "";
-            var location = !string.IsNullOrWhiteSpace(o.Location) ? $" ({o.Location})" : "";
+            var loc = o.DisplayLocation;
+            var location = loc != "General" ? $" ({loc})" : "";
             return $"**{o.Concern}{blocking}** [{o.Severity}] (confidence: {o.Confidence}){location}\n" +
                    $"{o.Description}\n" +
                    (string.IsNullOrWhiteSpace(o.Suggestion) ? "" : $"→ {o.Suggestion}");

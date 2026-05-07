@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -72,14 +73,14 @@ public sealed class GateOutputHandler(
             var rejected = doc.RootElement.TryGetProperty("rejected", out var rej)
                 ? rej.GetArrayLength() : 0;
 
-            var gateFindings = GateFindingParser.Parse(confirmed);
-            var merged = GateFindingMerger.Merge(gateFindings, orchestration, pipeline);
-            pipeline.Set(ContextKeys.ExtractedFindings, merged.AsReadOnly());
+            var gateObservations = GateObservationParser.Parse(confirmed, role.Name);
+            var merged = GateObservationMerger.Merge(gateObservations, orchestration, pipeline);
+            pipeline.Set(ContextKeys.SkillObservations, merged);
 
-            LogFindings(role, gateFindings, count, rejected);
+            LogObservations(role, gateObservations, count, rejected);
 
             return CommandResult.Ok(
-                $"Gate {role.DisplayName}: {count} findings confirmed, {merged.Count} total after merge");
+                $"Gate {role.DisplayName}: {count} observations confirmed, {merged.Count} total after merge");
         }
         catch (JsonException ex)
         {
@@ -100,13 +101,13 @@ public sealed class GateOutputHandler(
         return CommandResult.Fail($"Gate {role.DisplayName}: {reason}");
     }
 
-    private void LogFindings(
-        RoleSkillDefinition role, List<Finding> findings, int confirmed, int rejected)
+    private void LogObservations(
+        RoleSkillDefinition role, List<SkillObservation> observations, int confirmed, int rejected)
     {
-        foreach (var finding in findings)
+        foreach (var obs in observations)
             logger.LogDebug(
-                "[{Gate}] confirmed: {Severity} {File}:{Line} — {Title}",
-                role.Name, finding.Severity, finding.File, finding.StartLine, finding.Title);
+                "[{Gate}] confirmed: {Severity} {Location} — {Description}",
+                role.Name, obs.Severity, obs.DisplayLocation, obs.Description);
 
         logger.LogDebug(
             "[{Gate}] Gate result: {Confirmed} confirmed, {Rejected} rejected",

@@ -1,3 +1,8 @@
+// SARIF is the only boundary conversion in this codebase. SkillObservation → SARIF tuple.
+// See p0123 decisions: pipeline carries SkillObservations universally; output strategies
+// consume them directly except when an external spec (here: SARIF 2.1.0) demands a stricter
+// shape, in which case the conversion lives at the strategy boundary.
+
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -20,7 +25,7 @@ public sealed class SarifOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var sarif = BuildSarifDocument(context.Findings);
+        var sarif = BuildSarifDocument(context.Observations);
         var json = sarif.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
         Directory.CreateDirectory(context.OutputDir);
@@ -28,19 +33,20 @@ public sealed class SarifOutputStrategy(
         await File.WriteAllTextAsync(outputPath, json, cancellationToken);
         logger.LogInformation("SARIF report written to {Path}", outputPath);
 
-        LogSummary(context.Findings);
+        LogSummary(context.Observations);
     }
 
-    internal static JsonObject BuildSarifDocument(IReadOnlyList<Finding> findings)
+    internal static JsonObject BuildSarifDocument(IReadOnlyList<SkillObservation> observations)
     {
         var rules = new JsonArray();
         var results = new JsonArray();
         var ruleIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var finding in findings)
+        foreach (var obs in observations)
         {
-            var ruleId = GetOrCreateRuleId(finding.Title, ruleIndex, rules);
-            results.Add(BuildResult(finding, ruleId));
+            var ruleKey = obs.Category ?? ExtractTitle(obs.Description);
+            var ruleId = GetOrCreateRuleId(ruleKey, ruleIndex, rules);
+            results.Add(BuildResult(obs, ruleId));
         }
 
         return new JsonObject
@@ -67,66 +73,76 @@ public sealed class SarifOutputStrategy(
     }
 
     private static string GetOrCreateRuleId(
-        string title, Dictionary<string, int> ruleIndex, JsonArray rules)
+        string key, Dictionary<string, int> ruleIndex, JsonArray rules)
     {
-        if (ruleIndex.TryGetValue(title, out var existing))
+        if (ruleIndex.TryGetValue(key, out var existing))
             return $"AS{existing:D3}";
 
         var index = ruleIndex.Count + 1;
-        ruleIndex[title] = index;
+        ruleIndex[key] = index;
         var ruleId = $"AS{index:D3}";
 
         rules.Add(new JsonObject
         {
             ["id"] = ruleId,
-            ["shortDescription"] = new JsonObject { ["text"] = title }
+            ["shortDescription"] = new JsonObject { ["text"] = key }
         });
 
         return ruleId;
     }
 
-    private static JsonObject BuildResult(Finding finding, string ruleId)
+    private static JsonObject BuildResult(SkillObservation obs, string ruleId)
     {
-        var region = new JsonObject { ["startLine"] = Math.Max(1, finding.StartLine) };
-        if (finding.EndLine.HasValue)
-            region["endLine"] = finding.EndLine.Value;
+        var region = new JsonObject { ["startLine"] = Math.Max(1, obs.StartLine) };
+        if (obs.EndLine.HasValue)
+            region["endLine"] = obs.EndLine.Value;
 
         var location = new JsonObject
         {
             ["physicalLocation"] = new JsonObject
             {
-                ["artifactLocation"] = new JsonObject { ["uri"] = finding.File },
+                ["artifactLocation"] = new JsonObject { ["uri"] = obs.File ?? "" },
                 ["region"] = region
             }
         };
 
-        // Add logicalLocation for API findings (endpoint/schema-level)
-        if (finding.ApiPath is not null || finding.SchemaName is not null)
+        if (obs.ApiPath is not null || obs.SchemaName is not null)
         {
             var logicalLocations = new JsonArray();
-            if (finding.ApiPath is not null)
-                logicalLocations.Add(new JsonObject
-                {
-                    ["name"] = finding.ApiPath,
-                    ["kind"] = "endpoint"
-                });
-            if (finding.SchemaName is not null)
-                logicalLocations.Add(new JsonObject
-                {
-                    ["name"] = finding.SchemaName,
-                    ["kind"] = "type"
-                });
+            if (obs.ApiPath is not null)
+                logicalLocations.Add(new JsonObject { ["name"] = obs.ApiPath, ["kind"] = "endpoint" });
+            if (obs.SchemaName is not null)
+                logicalLocations.Add(new JsonObject { ["name"] = obs.SchemaName, ["kind"] = "type" });
             location["logicalLocations"] = logicalLocations;
         }
 
-        return new JsonObject
+        var result = new JsonObject
         {
             ["ruleId"] = ruleId,
-            ["level"] = MapSeverity(finding.Severity),
-            ["message"] = new JsonObject { ["text"] = finding.Description },
+            ["level"] = MapSeverity(obs.Severity),
+            ["message"] = new JsonObject { ["text"] = obs.Description },
             ["locations"] = new JsonArray { location },
-            ["properties"] = new JsonObject { ["evidence_mode"] = MapEvidence(finding.EvidenceMode) }
+            ["properties"] = new JsonObject
+            {
+                ["evidence_mode"] = MapEvidence(obs.EvidenceMode),
+                ["confidence"] = obs.Confidence,
+                ["concern"] = obs.Concern.ToString()
+            }
         };
+
+        if (obs.ReviewStatus == "false_positive")
+            result["suppressions"] = new JsonArray
+            {
+                new JsonObject { ["kind"] = "external", ["status"] = "accepted" }
+            };
+
+        return result;
+    }
+
+    private static string ExtractTitle(string description)
+    {
+        var firstLine = description.Split('\n')[0].Trim();
+        return firstLine.Length > 80 ? firstLine[..80] : firstLine;
     }
 
     private static string MapEvidence(EvidenceMode mode) => mode switch
@@ -136,12 +152,12 @@ public sealed class SarifOutputStrategy(
         _ => "potential"
     };
 
-    internal static string MapSeverity(string severity) => severity.ToUpperInvariant() switch
+    internal static string MapSeverity(ObservationSeverity severity) => severity switch
     {
-        "HIGH" => "error",
-        "MEDIUM" => "warning",
-        "LOW" => "note",
-        _ => "note"
+        ObservationSeverity.High => "error",
+        ObservationSeverity.Medium => "warning",
+        ObservationSeverity.Low => "note",
+        _ => "none"
     };
 
     /// <summary>
@@ -156,16 +172,16 @@ public sealed class SarifOutputStrategy(
         return Convert.ToBase64String(ms.ToArray());
     }
 
-    private void LogSummary(IReadOnlyList<Finding> findings)
+    private void LogSummary(IReadOnlyList<SkillObservation> observations)
     {
-        if (findings.Count == 0)
+        if (observations.Count == 0)
         {
             logger.LogInformation("No security findings.");
             return;
         }
 
-        var s = FindingSummary.From(findings);
-        logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW)",
-            s.Total, s.High, s.Medium, s.Low);
+        var s = ObservationSummary.From(observations);
+        logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW, {Info} INFO)",
+            s.Total, s.High, s.Medium, s.Low, s.Info);
     }
 }

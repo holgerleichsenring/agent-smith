@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -32,6 +33,20 @@ public sealed class StaticPatternScanHandler(
         var reader = readerFactory.Create(sandbox);
         var result = await scanner.ScanAsync(reader, cancellationToken);
         context.Pipeline.Set(ContextKeys.StaticScanResult, result);
+
+        var observations = result.Findings.Select(f => new SkillObservation(
+            Id: 0, Role: "static-pattern-scanner",
+            Concern: ObservationConcern.Security,
+            Description: f.Title,
+            Suggestion: "",
+            Blocking: false,
+            Severity: ScannerObservationFactory.ParseSeverity(f.Severity, logger),
+            Confidence: f.Confidence * 10,
+            Rationale: f.Description,
+            File: f.File, StartLine: f.Line,
+            EvidenceMode: EvidenceMode.AnalyzedFromSource,
+            Category: f.Category)).ToList();
+        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
 
         var findings = result.Findings;
         var critical = findings.Count(f => f.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase));

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,11 +21,13 @@ public sealed class DeliverFindingsHandler(
     {
         var outputDir = ResolveOutputDir(context.OutputDir);
 
-        context.Pipeline.TryGet<IReadOnlyList<Finding>>(
-            ContextKeys.ExtractedFindings, out var findings);
+        context.Pipeline.TryGet<List<SkillObservation>>(
+            ContextKeys.SkillObservations, out var observations);
 
         var outputContext = new OutputContext(
-            "api-scan", null, findings ?? [], null, outputDir, context.Pipeline);
+            "api-scan", null,
+            (IReadOnlyList<SkillObservation>)(observations ?? []),
+            null, outputDir, context.Pipeline);
 
         var delivered = new List<string>();
 

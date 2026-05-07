@@ -16,8 +16,8 @@ public sealed class MarkdownOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var markdown = context.Findings.Count > 0
-            ? BuildMarkdown(context.Findings)
+        var markdown = context.Observations.Count > 0
+            ? BuildMarkdown(context.Observations)
             : BuildFromPipeline(context);
 
         Directory.CreateDirectory(context.OutputDir);
@@ -35,44 +35,55 @@ public sealed class MarkdownOutputStrategy(
         return consolidated ?? "No findings to report.";
     }
 
-    internal static string BuildMarkdown(IReadOnlyList<Finding> findings)
+    internal static string BuildMarkdown(IReadOnlyList<SkillObservation> observations)
     {
         var sb = new StringBuilder();
         sb.AppendLine("## Agent Smith Security Review");
         sb.AppendLine();
 
-        if (findings.Count == 0)
+        if (observations.Count == 0)
         {
             sb.AppendLine("No issues found.");
             return sb.ToString();
         }
 
-        var s = FindingSummary.From(findings);
+        var s = ObservationSummary.From(observations);
 
-        sb.AppendLine($"Found **{s.Total}** issues ({s.Critical} critical, {s.High} high, {s.Medium} medium, {s.Low} low)");
+        sb.AppendLine($"Found **{s.Total}** issues ({s.High} high, {s.Medium} medium, {s.Low} low, {s.Info} info)");
         sb.AppendLine();
 
-        foreach (var f in findings)
+        foreach (var o in observations)
         {
-            var icon = f.Severity.ToUpperInvariant() switch
+            var icon = o.Severity switch
             {
-                "CRITICAL" => "\ud83d\udd34",
-                "HIGH" => "\ud83d\udfe0",
-                "MEDIUM" => "\ud83d\udfe1",
-                "LOW" => "\ud83d\udfe2",
+                ObservationSeverity.High => "\ud83d\udfe0",
+                ObservationSeverity.Medium => "\ud83d\udfe1",
+                ObservationSeverity.Low => "\ud83d\udfe2",
                 _ => "\u2022"
             };
 
-            sb.AppendLine($"### {icon} {f.Severity.ToUpperInvariant()}: {f.Title}");
+            var title = ExtractTitle(o.Description);
+            sb.AppendLine($"### {icon} {o.Severity.ToString().ToUpperInvariant()}: {title}");
             sb.AppendLine();
-            sb.AppendLine($"**Location:** `{f.DisplayLocation}`  ");
-            sb.AppendLine($"**Evidence:** {EvidenceLabel(f.EvidenceMode)}");
+            sb.AppendLine($"**Location:** `{o.DisplayLocation}`  ");
+            sb.AppendLine($"**Evidence:** {EvidenceLabel(o.EvidenceMode)}");
             sb.AppendLine();
-            sb.AppendLine(f.Description);
+            sb.AppendLine(o.Description);
+            if (!string.IsNullOrWhiteSpace(o.Suggestion))
+            {
+                sb.AppendLine();
+                sb.AppendLine($"**Suggestion:** {o.Suggestion}");
+            }
             sb.AppendLine();
         }
 
         return sb.ToString();
+    }
+
+    private static string ExtractTitle(string description)
+    {
+        var firstLine = description.Split('\n')[0].Trim();
+        return firstLine.Length > 80 ? firstLine[..80] + "\u2026" : firstLine;
     }
 
     private static string EvidenceLabel(EvidenceMode mode) => mode switch

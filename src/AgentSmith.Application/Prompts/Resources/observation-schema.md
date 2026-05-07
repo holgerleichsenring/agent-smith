@@ -13,10 +13,23 @@ Each observation has this shape:
   "severity": "high" | "medium" | "low" | "info",
   "confidence": 0-100,
   "rationale": "Why you believe this (optional)",
-  "location": "File:Line or API path (optional)",
-  "effort": "small" | "medium" | "large" (optional)
+  "effort": "small" | "medium" | "large" (optional),
+  "file": "src/path/Foo.cs (optional, for source-evident findings)",
+  "start_line": 42 (optional),
+  "end_line": 48 (optional),
+  "api_path": "GET /api/users (optional, for endpoint-level findings)",
+  "schema_name": "OktaProcessInfoResponse (optional, for schema-level findings)",
+  "evidence_mode": "potential" | "confirmed" | "analyzed_from_source" (optional, defaults to potential),
+  "category": "secrets" | "injection" | "auth" | "headers" | "dependencies" | ... (optional, free-form domain tag),
+  "review_status": "not_reviewed" | "confirmed" | "false_positive" (optional, defaults to not_reviewed)
 }
 ```
+
+**Location fields:** prefer the typed fields (`file` + `start_line` for source code, `api_path` for HTTP endpoints, `schema_name` for OpenAPI schemas). Legacy `location` string is still accepted and parsed into the typed fields when the typed fields are absent.
+
+**`category` vs `concern`:** `concern` is a coarse structural axis (security/correctness/etc.) that drives skill orchestration. `category` is a fine-grained domain tag for SARIF rule grouping. Don't duplicate (`concern: security` + `category: "security"` is redundant — pick a finer category like `"secrets"` or `"injection"`).
+
+**`evidence_mode`:** `"analyzed_from_source"` when you read source code; `"confirmed"` when an HTTP probe demonstrated the issue; `"potential"` for schema-only inference. SARIF maps these into the result's `properties.evidence_mode` field.
 
 **Severity values — strict allowlist:**
 
