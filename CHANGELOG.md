@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.39.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.39.0...v0.39.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **p0117b:** create sandbox for every sandbox-routed handler ([#79](https://github.com/holgerleichsenring/agent-smith/issues/79)) ([612afff](https://github.com/holgerleichsenring/agent-smith/commit/612afffc413b37199759bc3b96ad03efbd760bdc))
+* **pipeline:** cap skill-round chain depth + break A→B→A cycles ([#80](https://github.com/holgerleichsenring/agent-smith/issues/80)) ([d949e3d](https://github.com/holgerleichsenring/agent-smith/commit/d949e3d1181badad98b36a6c3778b4a956eedd2c))
+
 ## [0.39.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.38.0...v0.39.0) (2026-05-06)
 
 
