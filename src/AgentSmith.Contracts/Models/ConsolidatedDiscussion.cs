@@ -1,15 +1,15 @@
-using AgentSmith.Contracts.Services;
-
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
 /// Output of PlanConsolidator for discussion/structured pipelines.
 /// Replaces the pattern of constructing a fake Plan from consolidated text.
+/// p0123: Assessments field removed — review status is now carried on
+/// SkillObservation.ReviewStatus directly via FilterRound; no separate
+/// assessment-on-finding bridge is needed.
 /// </summary>
 public sealed record ConsolidatedDiscussion(
     string Title,
     IReadOnlyList<DiscussionFinding> Findings,
-    IReadOnlyList<FindingAssessment> Assessments,
     string? RawSummary);
 
 /// <summary>

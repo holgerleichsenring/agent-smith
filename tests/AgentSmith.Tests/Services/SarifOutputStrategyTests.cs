@@ -1,6 +1,7 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Services.Output;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -8,7 +9,7 @@ namespace AgentSmith.Tests.Services;
 public sealed class SarifOutputStrategyTests
 {
     [Fact]
-    public void BuildSarifDocument_EmptyFindings_ProducesValidSarif()
+    public void BuildSarifDocument_EmptyObservations_ProducesValidSarif()
     {
         var sarif = SarifOutputStrategy.BuildSarifDocument([]);
         var json = sarif.ToJsonString();
@@ -19,15 +20,15 @@ public sealed class SarifOutputStrategyTests
     }
 
     [Fact]
-    public void BuildSarifDocument_WithFindings_MapsCorrectly()
+    public void BuildSarifDocument_WithObservations_MapsCorrectly()
     {
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("HIGH", "src/Api/UserController.cs", 47, 52, "SQL injection", "Unsanitized input", 9),
-            new("MEDIUM", "src/Auth/TokenService.cs", 23, null, "JWT secret", "No validation", 8),
+            ObservationFactory.Make("HIGH", "src/Api/UserController.cs", 47, "SQL injection", "Unsanitized input", 90, category: "injection"),
+            ObservationFactory.Make("MEDIUM", "src/Auth/TokenService.cs", 23, "JWT secret", "No validation", 80, category: "auth"),
         };
 
-        var sarif = SarifOutputStrategy.BuildSarifDocument(findings);
+        var sarif = SarifOutputStrategy.BuildSarifDocument(observations);
         var json = sarif.ToJsonString();
         var doc = JsonDocument.Parse(json);
 
@@ -45,21 +46,21 @@ public sealed class SarifOutputStrategyTests
     }
 
     [Fact]
-    public void BuildSarifDocument_DuplicateTitles_ShareRuleId()
+    public void BuildSarifDocument_DuplicateCategories_ShareRuleId()
     {
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("HIGH", "src/A.cs", 10, null, "SQL injection", "First instance", 9),
-            new("HIGH", "src/B.cs", 20, null, "SQL injection", "Second instance", 9),
+            ObservationFactory.Make("HIGH", "src/A.cs", 10, "SQL injection", "First instance", 90, category: "injection"),
+            ObservationFactory.Make("HIGH", "src/B.cs", 20, "SQL injection", "Second instance", 90, category: "injection"),
         };
 
-        var sarif = SarifOutputStrategy.BuildSarifDocument(findings);
+        var sarif = SarifOutputStrategy.BuildSarifDocument(observations);
         var json = sarif.ToJsonString();
         var doc = JsonDocument.Parse(json);
 
         var rules = doc.RootElement.GetProperty("runs")[0]
             .GetProperty("tool").GetProperty("driver").GetProperty("rules");
-        rules.GetArrayLength().Should().Be(1, "duplicate titles should share a rule");
+        rules.GetArrayLength().Should().Be(1, "duplicate categories should share a rule");
 
         var results = doc.RootElement.GetProperty("runs")[0].GetProperty("results");
         results[0].GetProperty("ruleId").GetString().Should().Be("AS001");
@@ -67,11 +68,11 @@ public sealed class SarifOutputStrategyTests
     }
 
     [Theory]
-    [InlineData("HIGH", "error")]
-    [InlineData("MEDIUM", "warning")]
-    [InlineData("LOW", "note")]
-    [InlineData("unknown", "note")]
-    public void MapSeverity_CorrectMapping(string input, string expected)
+    [InlineData(ObservationSeverity.High, "error")]
+    [InlineData(ObservationSeverity.Medium, "warning")]
+    [InlineData(ObservationSeverity.Low, "note")]
+    [InlineData(ObservationSeverity.Info, "none")]
+    public void MapSeverity_CorrectMapping(ObservationSeverity input, string expected)
     {
         SarifOutputStrategy.MapSeverity(input).Should().Be(expected);
     }

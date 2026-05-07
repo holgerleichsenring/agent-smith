@@ -1,8 +1,10 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -27,23 +29,22 @@ public sealed class GateOutputHandlerTests
         Array.Empty<string>(),
         inputCategories);
 
-    private static string BuildGateJson(params (string title, string category)[] findings)
+    private static string BuildGateJson(params (string description, string category)[] items)
     {
-        var items = findings.Select(f =>
-            $$"""{"title":"{{f.title}}","file":"test.cs","line":1,"severity":"HIGH","reason":"r","category":"{{f.category}}"}""");
-        return $$"""{"confirmed":[{{string.Join(",", items)}}],"rejected":[]}""";
+        var entries = items.Select(i =>
+            $$"""{"description":"{{i.description}}","file":"test.cs","start_line":1,"severity":"high","category":"{{i.category}}"}""");
+        return $$"""{"confirmed":[{{string.Join(",", entries)}}],"rejected":[]}""";
     }
 
     [Fact]
     public void SingleGate_ReplacesOwnCategory()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ExtractedFindings,
-            (IReadOnlyList<Finding>)new List<Finding>
-            {
-                new("HIGH", "a.cs", 1, null, "Secret leak", "desc", 9, Category: "secrets"),
-                new("MEDIUM", "b.cs", 2, null, "Old dep", "desc", 8, Category: "dependencies"),
-            }.AsReadOnly());
+        pipeline.Set<List<SkillObservation>>(ContextKeys.SkillObservations, new()
+        {
+            ObservationFactory.Make("HIGH", "a.cs", 1, "Secret leak", "desc", 90, category: "secrets"),
+            ObservationFactory.Make("MEDIUM", "b.cs", 2, "Old dep", "desc", 80, category: "dependencies"),
+        });
 
         var orch = CreateOrchestration("secrets");
         var json = BuildGateJson(("Confirmed secret", "secrets"));
@@ -52,100 +53,84 @@ public sealed class GateOutputHandlerTests
 
         result.IsSuccess.Should().BeTrue();
 
-        var findings = pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var f)
-            ? f! : [];
+        var observations = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var o)
+            ? o! : [];
 
-        findings.Should().HaveCount(2);
-        findings.Should().Contain(x => x.Title == "Confirmed secret" && x.Category == "secrets");
-        findings.Should().Contain(x => x.Title == "Old dep" && x.Category == "dependencies");
+        observations.Should().HaveCount(2);
+        observations.Should().Contain(x => x.Description.Contains("Confirmed secret") && x.Category == "secrets");
+        observations.Should().Contain(x => x.Description.Contains("Old dep") && x.Category == "dependencies");
     }
 
     [Fact]
     public void TwoGates_MergesResults()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ExtractedFindings,
-            (IReadOnlyList<Finding>)new List<Finding>
-            {
-                new("HIGH", "a.cs", 1, null, "Secret leak", "desc", 9, Category: "secrets"),
-                new("MEDIUM", "b.cs", 2, null, "SQL injection", "desc", 8, Category: "injection"),
-                new("LOW", "c.cs", 3, null, "Old dep", "desc", 7, Category: "dependencies"),
-            }.AsReadOnly());
+        pipeline.Set<List<SkillObservation>>(ContextKeys.SkillObservations, new()
+        {
+            ObservationFactory.Make("HIGH", "a.cs", 1, "Secret leak", "desc", 90, category: "secrets"),
+            ObservationFactory.Make("MEDIUM", "b.cs", 2, "SQL injection", "desc", 80, category: "injection"),
+            ObservationFactory.Make("LOW", "c.cs", 3, "Old dep", "desc", 70, category: "dependencies"),
+        });
 
-        // First gate: secrets
         var orch1 = CreateOrchestration("secrets");
         var json1 = BuildGateJson(("Confirmed secret", "secrets"));
         _handler.Handle(CreateRole("secrets-gate"), orch1, json1, pipeline);
 
-        // Second gate: injection
         var orch2 = CreateOrchestration("injection");
         var json2 = BuildGateJson(("Confirmed injection", "injection"));
         _handler.Handle(CreateRole("injection-gate"), orch2, json2, pipeline);
 
-        var findings = pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var f)
-            ? f! : [];
+        var observations = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var o)
+            ? o! : [];
 
-        findings.Should().HaveCount(3);
-        findings.Should().Contain(x => x.Title == "Confirmed secret" && x.Category == "secrets");
-        findings.Should().Contain(x => x.Title == "Confirmed injection" && x.Category == "injection");
-        findings.Should().Contain(x => x.Title == "Old dep" && x.Category == "dependencies");
+        observations.Should().HaveCount(3);
+        observations.Should().Contain(x => x.Description.Contains("Confirmed secret") && x.Category == "secrets");
+        observations.Should().Contain(x => x.Description.Contains("Confirmed injection") && x.Category == "injection");
+        observations.Should().Contain(x => x.Description.Contains("Old dep") && x.Category == "dependencies");
     }
 
     [Fact]
-    public void UncategorizedFindings_PassThrough()
+    public void UncategorizedObservations_PassThrough()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ExtractedFindings,
-            (IReadOnlyList<Finding>)new List<Finding>
-            {
-                new("HIGH", "a.cs", 1, null, "Secret", "desc", 9, Category: "secrets"),
-                new("LOW", "d.cs", 4, null, "Misc finding", "desc", 5, Category: "unknown"),
-            }.AsReadOnly());
+        pipeline.Set<List<SkillObservation>>(ContextKeys.SkillObservations, new()
+        {
+            ObservationFactory.Make("HIGH", "a.cs", 1, "Secret", "desc", 90, category: "secrets"),
+            ObservationFactory.Make("LOW", "d.cs", 4, "Misc finding", "desc", 50, category: "unknown"),
+        });
 
         var orch = CreateOrchestration("secrets");
-        // Gate confirms nothing — all secrets filtered out
         var json = """{"confirmed":[],"rejected":[]}""";
 
         _handler.Handle(CreateRole(), orch, json, pipeline);
 
-        var findings = pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var f)
-            ? f! : [];
+        var observations = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var o)
+            ? o! : [];
 
-        findings.Should().HaveCount(1);
-        findings.Should().Contain(x => x.Title == "Misc finding" && x.Category == "unknown");
+        observations.Should().HaveCount(1);
+        observations.Should().Contain(x => x.Description.Contains("Misc finding") && x.Category == "unknown");
     }
 
     [Fact]
-    public void Finding_HasCategory_FromSource()
-    {
-        var finding = new Finding("HIGH", "a.cs", 1, null, "Test", "desc", 9, Category: "secrets");
-        finding.Category.Should().Be("secrets");
-
-        var defaultFinding = new Finding("HIGH", "a.cs", 1, null, "Test", "desc", 9);
-        defaultFinding.Category.Should().Be("unknown");
-    }
-
-    [Fact]
-    public void WildcardCategories_ReplacesAllFindings()
+    public void WildcardCategories_ReplacesAllObservations()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ExtractedFindings,
-            (IReadOnlyList<Finding>)new List<Finding>
-            {
-                new("HIGH", "a.cs", 1, null, "Old finding", "desc", 9, Category: "secrets"),
-                new("MEDIUM", "b.cs", 2, null, "Another old", "desc", 8, Category: "injection"),
-            }.AsReadOnly());
+        pipeline.Set<List<SkillObservation>>(ContextKeys.SkillObservations, new()
+        {
+            ObservationFactory.Make("HIGH", "a.cs", 1, "Old finding", "desc", 90, category: "secrets"),
+            ObservationFactory.Make("MEDIUM", "b.cs", 2, "Another old", "desc", 80, category: "injection"),
+        });
 
         var orch = CreateOrchestration("*");
         var json = BuildGateJson(("New finding", "secrets"));
 
         _handler.Handle(CreateRole(), orch, json, pipeline);
 
-        var findings = pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var f)
-            ? f! : [];
+        var observations = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var o)
+            ? o! : [];
 
-        findings.Should().HaveCount(1);
-        findings.Single().Title.Should().Be("New finding");
+        observations.Should().HaveCount(1);
+        observations.Single().Description.Should().Contain("New finding");
     }
 
     [Fact]

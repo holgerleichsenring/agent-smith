@@ -31,10 +31,12 @@ internal static partial class SecurityFixRequestBuilder
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    internal static string GenerateBranchName(Finding finding)
+    internal static string GenerateBranchName(SkillObservation observation)
     {
-        var cweId = ExtractCweId(finding.Description);
-        var slug = SlugPattern().Replace(finding.Title.ToLowerInvariant(), "-");
+        var cweId = ExtractCweId(observation.Description);
+        var title = observation.Description.Split('\n')[0].Trim();
+        if (title.Length > 80) title = title[..80];
+        var slug = SlugPattern().Replace(title.ToLowerInvariant(), "-");
         slug = slug.Trim('-');
         if (slug.Length > 40) slug = slug[..40].TrimEnd('-');
 

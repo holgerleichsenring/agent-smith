@@ -106,7 +106,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
         services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
         services.AddTransient<ICommandHandler<CompressApiScanFindingsContext>, CompressApiScanFindingsHandler>();
-        services.AddTransient<ICommandHandler<ExtractFindingsContext>, ExtractFindingsHandler>();
         services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         services.AddTransient<ICommandHandler<AskContext>, AskCommandHandler>();
@@ -174,7 +173,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
         AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
         AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
-        AddBuilder<ExtractFindingsContextBuilder>(services, CommandNames.ExtractFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
