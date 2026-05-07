@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Output;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -46,11 +48,11 @@ public sealed class ConsoleOutputStructuredFallbackTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.PipelineTypeName, PipelineType.Structured);
         pipeline.Set(ContextKeys.ConsolidatedPlan, BuildLargeMarkdown(28_000));
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("HIGH", "/api/login", 0, null, "Unauthenticated login enumeration", "...", 9),
+            ObservationFactory.Make("HIGH", "", 0, "Unauthenticated login enumeration", "...", 90, apiPath: "/api/login"),
         };
-        var context = new OutputContext("api-scan", null, findings, null, "./test-output", pipeline);
+        var context = new OutputContext("api-scan", null, observations, null, "./test-output", pipeline);
 
         var output = await CaptureConsoleAsync(() => _sut.DeliverAsync(context));
 

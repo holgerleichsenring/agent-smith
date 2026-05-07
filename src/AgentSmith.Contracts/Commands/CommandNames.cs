@@ -43,7 +43,6 @@ public static class CommandNames
     public const string DependencyAudit = "DependencyAuditCommand";
     public const string CompressSecurityFindings = "CompressSecurityFindingsCommand";
     public const string CompressApiScanFindings = "CompressApiScanFindingsCommand";
-    public const string ExtractFindings = "ExtractFindingsCommand";
     public const string SecurityTrend = "SecurityTrendCommand";
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
     public const string Ask = "AskCommand";
@@ -123,7 +122,6 @@ public static class CommandNames
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
         [CompressApiScanFindings] = "Compressing API scan findings",
-        [ExtractFindings] = "Extracting findings for output",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
@@ -146,4 +144,28 @@ public static class CommandNames
         [RunFinalPhase] = "Running final phase",
         [PersistWorkBranch] = "Persisting work branch",
     };
+
+    /// <summary>
+    /// Commands that have been retired. Maps the old command name to a migration
+    /// hint shown to operators with custom pipeline presets that still reference it.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> RetiredCommands =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ExtractFindings"] = "ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.",
+        };
+
+    /// <summary>
+    /// Returns a migration hint if the given command name was retired in a past phase.
+    /// </summary>
+    public static bool TryGetRetirementMessage(string commandName, out string message)
+    {
+        if (RetiredCommands.TryGetValue(commandName, out var found))
+        {
+            message = found;
+            return true;
+        }
+        message = "";
+        return false;
+    }
 }

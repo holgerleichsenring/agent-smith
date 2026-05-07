@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Handlers;
@@ -7,28 +7,32 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class EvidenceModeTests
 {
     [Fact]
-    public void Finding_DefaultEvidenceMode_IsPotential()
+    public void Observation_DefaultEvidenceMode_IsPotential()
     {
-        var finding = new Finding("HIGH", "test.cs", 1, null, "Test", "Desc", 8);
-        finding.EvidenceMode.Should().Be(EvidenceMode.Potential);
+        var obs = new SkillObservation(
+            Id: 0, Role: "test",
+            Concern: ObservationConcern.Security,
+            Description: "Test", Suggestion: "",
+            Blocking: false, Severity: ObservationSeverity.High, Confidence: 80);
+        obs.EvidenceMode.Should().Be(EvidenceMode.Potential);
     }
 
     [Fact]
-    public void Finding_ConfirmedEvidenceMode_IsConfirmed()
+    public void Observation_ConfirmedEvidenceMode_IsConfirmed()
     {
-        var finding = new Finding("HIGH", "test.cs", 1, null, "Test", "Desc", 8,
-            EvidenceMode: EvidenceMode.Confirmed);
-        finding.EvidenceMode.Should().Be(EvidenceMode.Confirmed);
+        var obs = ObservationFactory.Make("HIGH", "test.cs", 1, "Test", "Desc", 80,
+            evidence: EvidenceMode.Confirmed);
+        obs.EvidenceMode.Should().Be(EvidenceMode.Confirmed);
     }
 
     [Fact]
-    public void Finding_ApiPathWithConfirmedEvidence_HasCorrectDisplayLocation()
+    public void Observation_ApiPathWithConfirmedEvidence_HasCorrectDisplayLocation()
     {
-        var finding = new Finding("HIGH", "", 0, null, "IDOR", "Cross-user access", 9,
-            ApiPath: "GET /api/users/123",
-            EvidenceMode: EvidenceMode.Confirmed);
+        var obs = ObservationFactory.Make("HIGH", "", 0, "IDOR", "Cross-user access", 90,
+            apiPath: "GET /api/users/123",
+            evidence: EvidenceMode.Confirmed);
 
-        finding.DisplayLocation.Should().Be("GET /api/users/123");
-        finding.EvidenceMode.Should().Be(EvidenceMode.Confirmed);
+        obs.DisplayLocation.Should().Be("GET /api/users/123");
+        obs.EvidenceMode.Should().Be(EvidenceMode.Confirmed);
     }
 }

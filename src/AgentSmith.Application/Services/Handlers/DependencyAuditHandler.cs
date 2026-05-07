@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -36,6 +37,19 @@ public sealed class DependencyAuditHandler(
         }
 
         context.Pipeline.Set(ContextKeys.DependencyAuditResult, result);
+
+        var observations = result.Findings.Select(f => new SkillObservation(
+            Id: 0, Role: "dependency-auditor",
+            Concern: ObservationConcern.Security,
+            Description: $"{result.Ecosystem.ToLowerInvariant()} package {f.Package}@{f.Version}: {f.Title}{(f.Cve is null ? "" : $" [{f.Cve}]")}",
+            Suggestion: f.FixVersion is null ? "" : $"Upgrade to {f.FixVersion}.",
+            Blocking: false,
+            Severity: ScannerObservationFactory.ParseSeverity(f.Severity, logger),
+            Confidence: 80,
+            Rationale: f.Description,
+            EvidenceMode: EvidenceMode.AnalyzedFromSource,
+            Category: "dependencies")).ToList();
+        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
 
         logger.LogInformation(
             "Dependency audit ({Ecosystem}): {Count} vulnerabilities found in {Duration}ms",

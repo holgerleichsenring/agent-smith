@@ -1,15 +1,16 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Parses the JSON consolidation response from the LLM into structured findings and assessments.
+/// Parses the JSON consolidation response from the LLM into structured findings.
 /// Supports both array-based summary (preferred) and legacy string summary (backward compat).
 /// On JSON parse failure the raw text is used as a degraded fallback — the failure is logged
 /// so diagnosis is possible, and the fallback is explicit rather than silent.
+/// p0123: Assessments path retired — review status now lives on SkillObservation.ReviewStatus,
+/// applied via FilterRound rather than via a separate consolidation-emitted assessment list.
 /// </summary>
 internal static class ConsolidationResponseParser
 {
@@ -31,16 +32,10 @@ internal static class ConsolidationResponseParser
 
                 if (parsed is not null)
                 {
-                    var assessments = (parsed.Assessments ?? [])
-                        .Where(a => a.Status is "confirmed" or "false_positive")
-                        .Select(a => new FindingAssessment(
-                            a.File ?? "", a.Line, a.Title ?? "", a.Status ?? "confirmed", a.Reason ?? ""))
-                        .ToList();
-
                     var findings = BuildFindings(parsed);
                     var rawSummary = BuildRawSummary(parsed, findings);
 
-                    return new ConsolidationParseResult(findings, assessments, rawSummary);
+                    return new ConsolidationParseResult(findings, rawSummary);
                 }
 
                 logger?.LogWarning(
@@ -64,12 +59,11 @@ internal static class ConsolidationResponseParser
             .Select((l, i) => new DiscussionFinding(i + 1, l.TrimStart('-', ' ', '*')))
             .ToList();
 
-        return new ConsolidationParseResult(fallbackFindings, [], response);
+        return new ConsolidationParseResult(fallbackFindings, response);
     }
 
     private static List<DiscussionFinding> BuildFindings(ConsolidationResponse parsed)
     {
-        // Prefer structured array if LLM returned it
         if (parsed.SummaryItems is { Count: > 0 })
         {
             return parsed.SummaryItems
@@ -80,7 +74,6 @@ internal static class ConsolidationResponseParser
                 .ToList();
         }
 
-        // Fallback: split legacy string summary
         if (!string.IsNullOrWhiteSpace(parsed.Summary))
         {
             return parsed.Summary.Split('\n')
@@ -105,22 +98,12 @@ internal static class ConsolidationResponseParser
     {
         public string? Summary { get; set; }
         public List<SummaryItem>? SummaryItems { get; set; }
-        public List<AssessmentEntry>? Assessments { get; set; }
     }
 
     private sealed class SummaryItem
     {
         public int Order { get; set; }
         public string? Content { get; set; }
-    }
-
-    private sealed class AssessmentEntry
-    {
-        public string? File { get; set; }
-        public int Line { get; set; }
-        public string? Title { get; set; }
-        public string? Status { get; set; }
-        public string? Reason { get; set; }
     }
 }
 
@@ -129,5 +112,4 @@ internal static class ConsolidationResponseParser
 /// </summary>
 internal sealed record ConsolidationParseResult(
     List<DiscussionFinding> Findings,
-    List<FindingAssessment> Assessments,
     string RawSummary);

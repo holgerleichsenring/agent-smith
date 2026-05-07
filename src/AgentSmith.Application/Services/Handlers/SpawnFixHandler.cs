@@ -43,31 +43,31 @@ public sealed class SpawnFixHandler(
             return CommandResult.Ok("No repository, skipping fix generation");
         }
 
-        context.Pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var findings);
-        findings ??= [];
+        context.Pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var observations);
+        var obs = (IReadOnlyList<SkillObservation>)(observations ?? []);
 
-        if (findings.Count == 0)
+        if (obs.Count == 0)
         {
-            logger.LogInformation("No findings to fix");
-            return CommandResult.Ok("No findings to fix");
+            logger.LogInformation("No observations to fix");
+            return CommandResult.Ok("No observations to fix");
         }
 
         var severities = SecurityFixRequestBuilder.GetIncludedSeverities(config.SeverityThreshold);
 
-        var fixable = findings
-            .Where(f => severities.Contains(f.Severity.ToUpperInvariant()))
-            .Where(f => !string.IsNullOrWhiteSpace(f.File))
-            .Where(f => !SecurityFixRequestBuilder.IsExcluded(f.File, config.ExcludedPatterns))
+        var fixable = obs
+            .Where(o => severities.Contains(o.Severity.ToString().ToUpperInvariant()))
+            .Where(o => !string.IsNullOrWhiteSpace(o.File))
+            .Where(o => !SecurityFixRequestBuilder.IsExcluded(o.File!, config.ExcludedPatterns))
             .ToList();
 
         if (fixable.Count == 0)
         {
-            logger.LogInformation("No Critical/High findings with file paths to fix");
+            logger.LogInformation("No High-severity findings with file paths to fix");
             return CommandResult.Ok("No fixable findings above severity threshold");
         }
 
         var groups = fixable
-            .GroupBy(f => (File: f.File, Category: SecurityFixRequestBuilder.ExtractCategory(f.Title)))
+            .GroupBy(o => (File: o.File!, Category: o.Category ?? SecurityFixRequestBuilder.ExtractCategory(ExtractTitle(o.Description))))
             .Take(config.MaxConcurrent)
             .ToList();
 
@@ -76,12 +76,12 @@ public sealed class SpawnFixHandler(
                 FilePath: g.Key.File,
                 Category: g.Key.Category,
                 SuggestedBranch: SecurityFixRequestBuilder.GenerateBranchName(g.First()),
-                Items: g.Select(f => new SecurityFixItem(
-                    Severity: f.Severity.ToUpperInvariant(),
-                    Title: f.Title,
-                    Description: f.Description,
-                    CweId: SecurityFixRequestBuilder.ExtractCweId(f.Description),
-                    Line: f.StartLine)).ToList().AsReadOnly()))
+                Items: g.Select(o => new SecurityFixItem(
+                    Severity: o.Severity.ToString().ToUpperInvariant(),
+                    Title: ExtractTitle(o.Description),
+                    Description: o.Description,
+                    CweId: SecurityFixRequestBuilder.ExtractCweId(o.Description),
+                    Line: o.StartLine)).ToList().AsReadOnly()))
             .ToList();
 
         if (config.ConfirmBeforeFix)
@@ -116,12 +116,18 @@ public sealed class SpawnFixHandler(
             $"{requests.Count} fix requests written for {totalItems} findings");
     }
 
-    private async Task<bool> ConfirmWithHumanAsync(
-        List<Finding> fixable, int groupCount, CancellationToken cancellationToken)
+    private static string ExtractTitle(string description)
     {
-        var distinctFiles = fixable.Select(f => f.File).Distinct().Count();
+        var firstLine = description.Split('\n')[0].Trim();
+        return firstLine.Length > 80 ? firstLine[..80] : firstLine;
+    }
+
+    private async Task<bool> ConfirmWithHumanAsync(
+        List<SkillObservation> fixable, int groupCount, CancellationToken cancellationToken)
+    {
+        var distinctFiles = fixable.Select(o => o.File).Distinct().Count();
         var categories = string.Join(", ", fixable
-            .GroupBy(f => SecurityFixRequestBuilder.ExtractCategory(f.Title))
+            .GroupBy(o => o.Category ?? SecurityFixRequestBuilder.ExtractCategory(ExtractTitle(o.Description)))
             .OrderByDescending(g => g.Count())
             .Take(3)
             .Select(g => g.Key));

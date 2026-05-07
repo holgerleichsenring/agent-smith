@@ -68,20 +68,10 @@ public sealed class PlanConsolidator(
 
         var title = request?.Title ?? ticket?.Title ?? "Discussion Findings";
         var discussion = new ConsolidatedDiscussion(
-            title, parseResult.Findings, parseResult.Assessments, parseResult.RawSummary);
+            title, parseResult.Findings, parseResult.RawSummary);
 
         context.Pipeline.Set(ContextKeys.ConsolidatedDiscussion, discussion);
         context.Pipeline.Set(ContextKeys.ConsolidatedPlan, parseResult.RawSummary);
-
-        if (parseResult.Assessments.Count > 0)
-        {
-            context.Pipeline.Set(ContextKeys.FindingAssessments, parseResult.Assessments);
-            logger.LogInformation(
-                "Parsed {Count} finding assessments ({Confirmed} confirmed, {FP} false_positive)",
-                parseResult.Assessments.Count,
-                parseResult.Assessments.Count(a => a.Status == "confirmed"),
-                parseResult.Assessments.Count(a => a.Status == "false_positive"));
-        }
 
         logger.LogInformation(
             "Consolidated discussion: {Title} ({Findings} findings, {Chars} chars)",
