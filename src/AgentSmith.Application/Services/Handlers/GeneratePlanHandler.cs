@@ -100,7 +100,7 @@ public sealed class GeneratePlanHandler(
                 : $"{projectContext}\n\n## Multi-Role Discussion\n\n{consolidated}";
         }
 
-        return projectContext;
+        return projectContext ?? string.Empty;
     }
 
     private static string BuildStructuredInput(ConvergenceResult convergenceResult)
