@@ -113,7 +113,8 @@ public sealed class GeneratePlanHandler(
             foreach (var obs in convergenceResult.Blocking)
             {
                 var effort = obs.Effort.HasValue ? $" | effort: {obs.Effort}" : "";
-                var location = !string.IsNullOrWhiteSpace(obs.Location) ? $" | target: {obs.Location}" : "";
+                var loc = obs.DisplayLocation;
+                var location = loc != "General" ? $" | target: {loc}" : "";
                 sections.Add(
                     $"- [{obs.Id}] **{obs.Concern}** ({obs.Severity}, confidence: {obs.Confidence}){effort}{location}\n" +
                     $"  {obs.Description}\n" +

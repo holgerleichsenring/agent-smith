@@ -47,8 +47,8 @@ public sealed class ConsoleOutputStrategy(
         if (context.ReportMarkdown is not null)
             return context.ReportMarkdown;
 
-        if (context.Findings.Count > 0)
-            return FormatFindings(context);
+        if (context.Observations.Count > 0)
+            return FormatObservations(context);
 
         context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
         if (string.IsNullOrWhiteSpace(consolidated))
@@ -68,26 +68,33 @@ public sealed class ConsoleOutputStrategy(
         pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var type)
         && type == PipelineType.Structured;
 
-    private static string FormatFindings(OutputContext context)
+    private static string FormatObservations(OutputContext context)
     {
-        var summary = FindingSummary.From(context.Findings);
+        var summary = ObservationSummary.From(context.Observations);
         var reviewInfo = summary.Confirmed > 0 || summary.NotReviewed < summary.Total
             ? $" — {summary.Confirmed} confirmed, {summary.NotReviewed} not reviewed"
             : "";
         var lines = new List<string>
         {
-            $"Found {summary.Total} issues ({summary.Critical} CRITICAL, {summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW){reviewInfo}",
+            $"Found {summary.Total} issues ({summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW, {summary.Info} INFO){reviewInfo}",
             ""
         };
 
-        foreach (var finding in context.Findings)
+        foreach (var obs in context.Observations)
         {
-            var status = finding.ReviewStatus == "confirmed" ? " ✓" : "";
-            var badge = EvidenceBadge(finding.EvidenceMode);
-            lines.Add($"[{finding.Severity.ToUpperInvariant()}]{badge} {finding.DisplayLocation} — {finding.Title}{status}");
+            var status = obs.ReviewStatus == "confirmed" ? " ✓" : "";
+            var badge = EvidenceBadge(obs.EvidenceMode);
+            var title = ExtractTitle(obs.Description);
+            lines.Add($"[{obs.Severity.ToString().ToUpperInvariant()}]{badge} {obs.DisplayLocation} — {title}{status}");
         }
 
         return string.Join("\n", lines);
+    }
+
+    private static string ExtractTitle(string description)
+    {
+        var firstLine = description.Split('\n')[0].Trim();
+        return firstLine.Length > 80 ? firstLine[..80] + "…" : firstLine;
     }
 
     private static string EvidenceBadge(EvidenceMode mode) => mode switch

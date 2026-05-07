@@ -15,19 +15,19 @@ internal static class SecuritySnapshotBuilder
     internal static SecurityRunSnapshot BuildCurrentSnapshot(
         PipelineContext pipeline, Repository repo)
     {
-        pipeline.TryGet<IReadOnlyList<Finding>>(ContextKeys.ExtractedFindings, out var findings);
-        findings ??= [];
+        pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var observations);
+        var obs = (IReadOnlyList<SkillObservation>)(observations ?? []);
 
         pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
 
-        var critical = findings.Count(f => f.Severity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase));
-        var high = findings.Count(f => f.Severity.Equals("HIGH", StringComparison.OrdinalIgnoreCase));
-        var medium = findings.Count(f => f.Severity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase));
+        var high = obs.Count(o => o.Severity == ObservationSeverity.High);
+        var medium = obs.Count(o => o.Severity == ObservationSeverity.Medium);
 
         var scanTypes = DetermineScanTypes(pipeline);
 
-        var topCategories = findings
-            .GroupBy(f => f.Title.Split(' ')[0], StringComparer.OrdinalIgnoreCase)
+        var topCategories = obs
+            .Where(o => !string.IsNullOrWhiteSpace(o.Category))
+            .GroupBy(o => o.Category!, StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(g => g.Count())
             .Take(5)
             .Select(g => g.Key)
@@ -36,10 +36,10 @@ internal static class SecuritySnapshotBuilder
         return new SecurityRunSnapshot(
             Date: DateTimeOffset.UtcNow,
             Branch: repo.CurrentBranch.Value,
-            FindingsCritical: critical,
+            FindingsCritical: 0,
             FindingsHigh: high,
             FindingsMedium: medium,
-            FindingsRetained: findings.Count,
+            FindingsRetained: obs.Count,
             FindingsAutoFixed: 0,
             ScanTypes: scanTypes,
             NewSinceLast: 0,

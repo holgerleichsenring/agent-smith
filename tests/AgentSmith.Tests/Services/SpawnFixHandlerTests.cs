@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -68,7 +69,7 @@ public sealed class SpawnFixHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoFindings_SkipsWithOk()
+    public async Task ExecuteAsync_NoObservations_SkipsWithOk()
     {
         var config = new AutoFixConfig { Enabled = true };
         var pipeline = CreatePipelineWithRepo();
@@ -77,20 +78,20 @@ public sealed class SpawnFixHandlerTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No findings");
+        result.Message.Should().Contain("No observations");
     }
 
     [Fact]
-    public async Task ExecuteAsync_OnlyLowFindings_SkipsWithOk()
+    public async Task ExecuteAsync_OnlyLowObservations_SkipsWithOk()
     {
         var config = new AutoFixConfig { Enabled = true };
         var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("LOW", "src/app.cs", 10, null, "Info leak", "Minor issue", 5),
-            new("MEDIUM", "src/app.cs", 20, null, "Weak hash", "Uses MD5", 6)
+            ObservationFactory.Make("LOW", "src/app.cs", 10, "Info leak", "Minor issue", 5),
+            ObservationFactory.Make("MEDIUM", "src/app.cs", 20, "Weak hash", "Uses MD5", 6)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
         var context = new SpawnFixContext(config, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -100,17 +101,17 @@ public sealed class SpawnFixHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_CriticalAndHighFindings_WritesFixFiles()
+    public async Task ExecuteAsync_HighObservations_WritesFixFiles()
     {
         var config = new AutoFixConfig { Enabled = true, MaxConcurrent = 5 };
         var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "src/auth.cs", 10, null, "Hardcoded password", "Found hardcoded password [CWE-798]", 9),
-            new("HIGH", "src/db.cs", 20, null, "SQL injection", "Possible SQL injection [CWE-89]", 8),
-            new("MEDIUM", "src/log.cs", 5, null, "Info leak", "Information leakage", 6)
+            ObservationFactory.Make("HIGH", "src/auth.cs", 10, "Hardcoded password", "Found hardcoded password [CWE-798]", 9),
+            ObservationFactory.Make("HIGH", "src/db.cs", 20, "SQL injection", "Possible SQL injection [CWE-89]", 8),
+            ObservationFactory.Make("MEDIUM", "src/log.cs", 5, "Info leak", "Information leakage", 6)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
         var context = new SpawnFixContext(config, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -132,13 +133,13 @@ public sealed class SpawnFixHandlerTests
     {
         var config = new AutoFixConfig { Enabled = true, MaxConcurrent = 1 };
         var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "src/a.cs", 10, null, "Hardcoded password", "desc [CWE-798]", 9),
-            new("HIGH", "src/b.cs", 20, null, "SQL injection", "desc [CWE-89]", 8),
-            new("HIGH", "src/c.cs", 30, null, "XSS vulnerability", "desc [CWE-79]", 8)
+            ObservationFactory.Make("HIGH", "src/a.cs", 10, "Hardcoded password", "desc [CWE-798]", 9),
+            ObservationFactory.Make("HIGH", "src/b.cs", 20, "SQL injection", "desc [CWE-89]", 8),
+            ObservationFactory.Make("HIGH", "src/c.cs", 30, "XSS vulnerability", "desc [CWE-79]", 8)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
         var context = new SpawnFixContext(config, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -159,12 +160,12 @@ public sealed class SpawnFixHandlerTests
             ExcludedPatterns = ["test/", "vendor/"]
         };
         var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "test/auth.cs", 10, null, "Hardcoded password", "desc", 9),
-            new("HIGH", "src/db.cs", 20, null, "SQL injection", "desc", 8)
+            ObservationFactory.Make("HIGH", "test/auth.cs", 10, "Hardcoded password", "desc", 9),
+            ObservationFactory.Make("HIGH", "src/db.cs", 20, "SQL injection", "desc", 8)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
         var context = new SpawnFixContext(config, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -178,47 +179,23 @@ public sealed class SpawnFixHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_CriticalOnlyThreshold_FiltersHighOut()
-    {
-        var config = new AutoFixConfig { Enabled = true, SeverityThreshold = "Critical" };
-        var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
-        {
-            new("CRITICAL", "src/auth.cs", 10, null, "Hardcoded password", "desc", 9),
-            new("HIGH", "src/db.cs", 20, null, "SQL injection", "desc", 8)
-        };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
-        var context = new SpawnFixContext(config, pipeline);
-
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-
-        pipeline.TryGet<IReadOnlyList<SecurityFixRequest>>(
-            ContextKeys.SecurityFixRequests, out var requests).Should().BeTrue();
-        requests.Should().HaveCount(1);
-        requests![0].FilePath.Should().Be("src/auth.cs");
-    }
-
-    [Fact]
     public async Task ExecuteAsync_GroupsByFileAndCategory()
     {
         var config = new AutoFixConfig { Enabled = true, MaxConcurrent = 10 };
         var pipeline = CreatePipelineWithRepo();
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("HIGH", "src/auth.cs", 10, null, "Hardcoded password", "desc1", 9),
-            new("HIGH", "src/auth.cs", 20, null, "Hardcoded secret", "desc2", 8),
-            new("HIGH", "src/db.cs", 30, null, "SQL injection", "desc3", 8)
+            ObservationFactory.Make("HIGH", "src/auth.cs", 10, "Hardcoded password", "desc1", 9, category: "secrets"),
+            ObservationFactory.Make("HIGH", "src/auth.cs", 20, "Hardcoded secret", "desc2", 8, category: "secrets"),
+            ObservationFactory.Make("HIGH", "src/db.cs", 30, "SQL injection", "desc3", 8, category: "injection")
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
         var context = new SpawnFixContext(config, pipeline);
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
         pipeline.TryGet<IReadOnlyList<SecurityFixRequest>>(
             ContextKeys.SecurityFixRequests, out var requests).Should().BeTrue();
-        // "Hardcoded password" and "Hardcoded secret" share file=src/auth.cs, category="Hardcoded"
         requests.Should().HaveCount(2);
         var authRequest = requests!.First(r => r.FilePath == "src/auth.cs");
         authRequest.Items.Should().HaveCount(2);
@@ -268,10 +245,10 @@ public sealed class SpawnFixHandlerTests
     [Fact]
     public void GenerateBranchName_WithCwe_IncludesCweId()
     {
-        var finding = new Finding("HIGH", "src/auth.cs", 10, null,
+        var obs = ObservationFactory.Make("HIGH", "src/auth.cs", 10,
             "Hardcoded password", "desc [CWE-798]", 9);
 
-        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(obs);
 
         branch.Should().StartWith("security-fix/cwe-798-");
         branch.Should().Contain("hardcoded");
@@ -280,10 +257,10 @@ public sealed class SpawnFixHandlerTests
     [Fact]
     public void GenerateBranchName_WithoutCwe_OmitsCwePrefix()
     {
-        var finding = new Finding("HIGH", "src/auth.cs", 10, null,
+        var obs = ObservationFactory.Make("HIGH", "src/auth.cs", 10,
             "Hardcoded password", "desc without cwe", 9);
 
-        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(obs);
 
         branch.Should().StartWith("security-fix/hardcoded");
         branch.Should().NotContain("cwe-");
@@ -292,13 +269,12 @@ public sealed class SpawnFixHandlerTests
     [Fact]
     public void GenerateBranchName_LongTitle_TruncatesSlug()
     {
-        var finding = new Finding("HIGH", "src/auth.cs", 10, null,
+        var obs = ObservationFactory.Make("HIGH", "src/auth.cs", 10,
             "This is a very long title that should be truncated to keep branch names reasonable",
             "desc", 9);
 
-        var branch = SecurityFixRequestBuilder.GenerateBranchName(finding);
+        var branch = SecurityFixRequestBuilder.GenerateBranchName(obs);
 
-        // Branch name slug portion should be at most 40 chars
         var slugPart = branch.Replace("security-fix/", "");
         slugPart.Length.Should().BeLessThanOrEqualTo(40);
     }

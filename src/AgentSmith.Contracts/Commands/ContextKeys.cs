@@ -63,7 +63,6 @@ public static class ContextKeys
     public const string DependencyAuditResult = "DependencyAuditResult";
     public const string SecurityFindingsSummary = "SecurityFindingsSummary";
     public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
-    public const string ExtractedFindings = "ExtractedFindings";
     public const string SecurityTrend = "SecurityTrend";
     public const string DialogueAnswer = "DialogueAnswer";
     public const string DialogueQuestion = "DialogueQuestion";
@@ -77,7 +76,6 @@ public static class ContextKeys
     public const string RunHistory = "RunHistory";
     public const string AutonomousFindings = "AutonomousFindings";
     public const string WrittenTickets = "WrittenTickets";
-    public const string FindingAssessments = "FindingAssessments";
     public const string PipelineTypeName = "PipelineType";
     public const string SkillOutputs = "SkillOutputs";
     public const string ConfigDir = "ConfigDir";

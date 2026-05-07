@@ -20,7 +20,11 @@ public sealed class CommandContextFactory(
         PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
         if (!_builders.TryGetValue(command.Name, out var builder))
+        {
+            if (CommandNames.TryGetRetirementMessage(command.Name, out var retirement))
+                throw new ConfigurationException(retirement);
             throw new ConfigurationException($"Unknown command: '{command.DisplayName}'");
+        }
 
         return builder.Build(command, project, pipeline);
     }

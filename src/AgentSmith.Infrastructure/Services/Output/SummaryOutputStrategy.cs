@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -17,10 +18,9 @@ public sealed partial class SummaryOutputStrategy(
 
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var consolidated = GetConsolidatedOutput(context);
-        var findings = string.IsNullOrWhiteSpace(consolidated)
-            ? new List<SummaryFinding>()
-            : ParseFindings(consolidated);
+        var findings = context.Observations.Count > 0
+            ? FromObservations(context.Observations)
+            : ParseFromMarkdown(context);
 
         var sb = new StringBuilder();
         sb.AppendLine();
@@ -60,6 +60,26 @@ public sealed partial class SummaryOutputStrategy(
 
         logger.LogInformation("Summary delivered ({Count} findings)", findings.Count);
         return Task.CompletedTask;
+    }
+
+    private static List<SummaryFinding> FromObservations(IReadOnlyList<SkillObservation> observations) =>
+        observations.Select(o => new SummaryFinding(
+            ExtractTitle(o.Description),
+            o.Severity.ToString().ToUpperInvariant(),
+            o.Confidence)).ToList();
+
+    private static string ExtractTitle(string description)
+    {
+        var firstLine = description.Split('\n')[0].Trim();
+        return firstLine.Length > 80 ? firstLine[..80] + "…" : firstLine;
+    }
+
+    private static List<SummaryFinding> ParseFromMarkdown(OutputContext context)
+    {
+        var consolidated = GetConsolidatedOutput(context);
+        return string.IsNullOrWhiteSpace(consolidated)
+            ? new List<SummaryFinding>()
+            : ParseFindings(consolidated);
     }
 
     private static string? GetConsolidatedOutput(OutputContext context)
