@@ -11,11 +11,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Fail-soft source resolver for api-scan. Honors the --source-path CLI
 /// override, then resolves the configured source: block (Local path or
-/// remote clone via ISourceProviderFactory). Any failure leaves SourcePath
-/// unset and lets the pipeline continue in passive schema-only mode.
+/// remote clone via IHostSourceCloner). The clone lands on the host filesystem
+/// because api-scan analyzers (RouteMapper / extractors) read host paths via
+/// System.IO. Any failure leaves SourcePath unset and lets the pipeline
+/// continue in passive schema-only mode.
 /// </summary>
 public sealed class TryCheckoutSourceHandler(
-    ISourceProviderFactory factory,
+    IHostSourceCloner cloner,
     ILogger<TryCheckoutSourceHandler> logger)
     : ICommandHandler<TryCheckoutSourceContext>
 {
@@ -71,20 +73,13 @@ public sealed class TryCheckoutSourceHandler(
         var pipeline = context.Pipeline;
         if (string.IsNullOrWhiteSpace(source.Url))
             return WarnPassive(pipeline, $"Remote source declared but url missing: {source.Type}");
-        try
-        {
-            var provider = factory.Create(source);
-            var repo = await provider.CheckoutAsync(context.Branch, cancellationToken);
-            pipeline.Set(ContextKeys.SourcePath, repo.LocalPath);
-            pipeline.Set(ContextKeys.Repository, repo);
-            logger.LogInformation("Source: {Path} (cloned from {Type})", repo.LocalPath, source.Type);
-            EmitBanner(pipeline, sourcePath: repo.LocalPath);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Source checkout failed for {Type}: {Message}", source.Type, ex.Message);
-            EmitBanner(pipeline, sourcePath: null);
-        }
+        var hostPath = await cloner.TryCloneAsync(source, cancellationToken);
+        if (hostPath is null)
+            return WarnPassive(pipeline, $"git clone failed for {source.Type} {source.Url}");
+        pipeline.Set(ContextKeys.SourcePath, hostPath);
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("(remote)"), source.Url!));
+        logger.LogInformation("Source: {Path} (cloned from {Type})", hostPath, source.Type);
+        EmitBanner(pipeline, sourcePath: hostPath);
         return Ok();
     }
 

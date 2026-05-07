@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -50,14 +51,22 @@ public sealed class ConsoleOutputStrategy(
             return FormatFindings(context);
 
         context.Pipeline.TryGet<string>(ContextKeys.ConsolidatedPlan, out var consolidated);
-        if (!string.IsNullOrWhiteSpace(consolidated))
-            return consolidated;
+        if (string.IsNullOrWhiteSpace(consolidated))
+            return null;
 
-        // DiscussionLog is compiled into ConsolidatedPlan by ConvergenceCheckHandler.
-        // If neither exists, there's nothing to show.
+        // Structured pipelines (security-scan, api-security-scan) deliver findings as their
+        // primary output; the consolidated discussion is supplementary and belongs in the file
+        // outputs, not on the console. Discussion pipelines (mad-discussion, legal-analysis)
+        // keep dumping the consolidated plan because the discussion IS the deliverable.
+        if (IsStructured(context.Pipeline))
+            return $"Discussion compiled ({consolidated.Length} chars) — see file output for full report.";
 
-        return null;
+        return consolidated;
     }
+
+    private static bool IsStructured(PipelineContext pipeline) =>
+        pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var type)
+        && type == PipelineType.Structured;
 
     private static string FormatFindings(OutputContext context)
     {

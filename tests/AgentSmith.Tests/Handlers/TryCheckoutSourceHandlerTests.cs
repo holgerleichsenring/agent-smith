@@ -13,13 +13,13 @@ namespace AgentSmith.Tests.Handlers;
 
 public sealed class TryCheckoutSourceHandlerTests
 {
-    private readonly Mock<ISourceProviderFactory> _factoryMock = new();
+    private readonly Mock<IHostSourceCloner> _clonerMock = new();
     private readonly TryCheckoutSourceHandler _handler;
 
     public TryCheckoutSourceHandlerTests()
     {
         _handler = new TryCheckoutSourceHandler(
-            _factoryMock.Object,
+            _clonerMock.Object,
             NullLogger<TryCheckoutSourceHandler>.Instance);
     }
 
@@ -50,7 +50,9 @@ public sealed class TryCheckoutSourceHandlerTests
 
             result.IsSuccess.Should().BeTrue();
             pipeline.Get<string>(ContextKeys.SourcePath).Should().Be(temp);
-            _factoryMock.Verify(f => f.Create(It.IsAny<SourceConfig>()), Times.Never);
+            _clonerMock.Verify(
+                c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
         finally { TryDelete(temp); }
     }
@@ -88,24 +90,21 @@ public sealed class TryCheckoutSourceHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_GitHubConfigWithUrl_DelegatesToProviderAndSetsSourcePathFromLocalPath()
+    public async Task ExecuteAsync_RemoteCloneSucceeds_SetsSourcePathToHostTempdir()
     {
-        var branch = new BranchName("main");
-        var repo = new Repository(branch, "https://github.com/x/y.git");
-        var providerMock = new Mock<ISourceProvider>();
-        providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(repo);
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>())).Returns(providerMock.Object);
+        var hostPath = "/tmp/agentsmith-src-" + Guid.NewGuid().ToString("N");
+        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hostPath);
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "github", Url = "https://github.com/x/y" }, branch, pipeline);
+            new SourceConfig { Type = "github", Url = "https://github.com/x/y" }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        pipeline.Get<string>(ContextKeys.SourcePath).Should().Be("/work");
-        providerMock.Verify(p => p.CheckoutAsync(branch, It.IsAny<CancellationToken>()), Times.Once);
+        pipeline.Get<string>(ContextKeys.SourcePath).Should().Be(hostPath);
+        pipeline.Get<Repository>(ContextKeys.Repository).RemoteUrl.Should().Be("https://github.com/x/y");
     }
 
     [Fact]
@@ -119,32 +118,16 @@ public sealed class TryCheckoutSourceHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<string>(ContextKeys.SourcePath, out _).Should().BeFalse();
-        _factoryMock.Verify(f => f.Create(It.IsAny<SourceConfig>()), Times.Never);
+        _clonerMock.Verify(
+            c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
-    public async Task ExecuteAsync_ProviderFactoryThrowsOnMissingToken_LogsWarningAndReturnsOk()
+    public async Task ExecuteAsync_RemoteCloneReturnsNull_OkAndSourcePathUnset()
     {
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>()))
-            .Throws(new InvalidOperationException("GITHUB_TOKEN not set"));
-
-        var pipeline = new PipelineContext();
-        var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "github", Url = "https://github.com/x/y" }, null, pipeline);
-
-        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        pipeline.TryGet<string>(ContextKeys.SourcePath, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ProviderCheckoutThrows_LogsWarningAndReturnsOk()
-    {
-        var providerMock = new Mock<ISourceProvider>();
-        providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Network unreachable"));
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>())).Returns(providerMock.Object);
+        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(

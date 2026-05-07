@@ -41,42 +41,31 @@ internal static class ObservationParser
 
         try
         {
-            var raw = JsonSerializer.Deserialize<List<RawObservation>>(json, JsonOptions);
-            if (raw is null || raw.Count == 0)
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
                 return FallbackSingle(response, role, startId, logger);
 
             var result = new List<SkillObservation>();
+            var totalElements = 0;
+            var skippedFormat = 0;
             var id = startId;
 
-            foreach (var entry in raw)
+            foreach (var element in doc.RootElement.EnumerateArray())
             {
-                if (string.IsNullOrWhiteSpace(entry.Description))
-                {
-                    logger?.LogWarning("Skipping observation with empty description from {Role}", role);
-                    continue;
-                }
-
-                result.Add(new SkillObservation(
-                    Id: id++,
-                    Role: role,
-                    Concern: entry.Concern,
-                    Description: entry.Description,
-                    Suggestion: entry.Suggestion ?? "",
-                    Blocking: entry.Blocking,
-                    Severity: entry.Severity,
-                    Confidence: Math.Clamp(entry.Confidence, 0, 100),
-                    Rationale: entry.Rationale,
-                    Location: entry.Location,
-                    Effort: entry.Effort));
+                totalElements++;
+                var observation = TryBuildObservation(element, role, id, totalElements - 1, logger);
+                if (observation is null) { skippedFormat++; continue; }
+                result.Add(observation);
+                id++;
             }
 
             if (result.Count == 0)
                 return FallbackSingle(response, role, startId, logger);
 
-            if (result.Count < raw.Count)
+            if (skippedFormat > 0)
                 logger?.LogWarning(
-                    "Parsed {Valid}/{Total} observations from {Role} — {Skipped} skipped",
-                    result.Count, raw.Count, role, raw.Count - result.Count);
+                    "Parsed {Valid}/{Total} observations from {Role} — {Skipped} skipped due to invalid JSON shape",
+                    result.Count, totalElements, role, skippedFormat);
 
             return result;
         }
@@ -84,6 +73,32 @@ internal static class ObservationParser
         {
             logger?.LogWarning(ex, "JSON parse failed for {Role}, falling back to single observation", role);
             return FallbackSingle(response, role, startId, logger);
+        }
+    }
+
+    private static SkillObservation? TryBuildObservation(
+        JsonElement element, string role, int id, int index, ILogger? logger)
+    {
+        try
+        {
+            var entry = element.Deserialize<RawObservation>(JsonOptions);
+            if (entry is null || string.IsNullOrWhiteSpace(entry.Description))
+                return null;
+            return new SkillObservation(
+                Id: id, Role: role, Concern: entry.Concern,
+                Description: entry.Description, Suggestion: entry.Suggestion ?? "",
+                Blocking: entry.Blocking, Severity: entry.Severity,
+                Confidence: Math.Clamp(entry.Confidence, 0, 100),
+                Rationale: entry.Rationale, Location: entry.Location, Effort: entry.Effort);
+        }
+        catch (JsonException ex)
+        {
+            var preview = element.GetRawText();
+            if (preview.Length > 200) preview = preview[..200];
+            logger?.LogWarning(
+                "Skipping observation index {Index} from {Role} — invalid JSON shape: {Error}. Preview: {Preview}",
+                index, role, ex.Message, preview);
+            return null;
         }
     }
 
