@@ -87,6 +87,49 @@ public sealed class TriageOutputValidatorTests
         result.Errors.Should().BeEmpty();
     }
 
+    [Fact]
+    public void Validate_SkillWithNoCriteriaAtAll_AcceptsAnyKey()
+    {
+        // Defensive default: when a skill has no activation/role_assignment defined
+        // (e.g. older SKILL.md that lists only roles_supported), the validator must
+        // not reject every cited key. Otherwise the LLM has no valid keys to cite
+        // and triage fails on a metadata gap rather than a real error.
+        var skills = new[] { SkillIndex("filter-no-meta", roles: new[] { SkillRole.Filter }) };
+        var output = new TriageOutput(
+            new Dictionary<PipelinePhase, PhaseAssignment>
+            {
+                [PipelinePhase.Final] = new(null, Array.Empty<string>(), Array.Empty<string>(), "filter-no-meta")
+            },
+            85,
+            "filter=filter-no-meta:always_required;");
+
+        var result = _sut.Validate(output, skills);
+
+        result.IsValid.Should().BeTrue();
+        result.Errors.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Validate_SkillWithSomeCriteria_StillRejectsInventedKeys()
+    {
+        // Once a skill defines ANY criteria (positive or negative, activation or role-assignment),
+        // the strict path applies — invented keys are rejected. Only fully-empty skills get the
+        // defensive accept-all default.
+        var skills = new[] { SkillIndex("partial", roles: new[] { SkillRole.Analyst }, positiveKeys: new[] { "real-key" }) };
+        var output = new TriageOutput(
+            new Dictionary<PipelinePhase, PhaseAssignment>
+            {
+                [PipelinePhase.Plan] = new(null, new[] { "partial" }, Array.Empty<string>(), null)
+            },
+            85,
+            "analyst=partial:invented-key;");
+
+        var result = _sut.Validate(output, skills);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("invented-key"));
+    }
+
     private static SkillIndexEntry SkillIndex(string name, SkillRole[] roles, string[]? positiveKeys = null) =>
         new(name,
             $"Skill {name}",
