@@ -116,18 +116,22 @@ public sealed class SarifOutputStrategy(
             location["logicalLocations"] = logicalLocations;
         }
 
+        var properties = new JsonObject
+        {
+            ["evidence_mode"] = MapEvidence(obs.EvidenceMode),
+            ["confidence"] = obs.Confidence,
+            ["concern"] = obs.Concern.ToString()
+        };
+        if (!string.IsNullOrWhiteSpace(obs.Details))
+            properties["detailed_message"] = obs.Details;
+
         var result = new JsonObject
         {
             ["ruleId"] = ruleId,
             ["level"] = MapSeverity(obs.Severity),
             ["message"] = new JsonObject { ["text"] = obs.Description },
             ["locations"] = new JsonArray { location },
-            ["properties"] = new JsonObject
-            {
-                ["evidence_mode"] = MapEvidence(obs.EvidenceMode),
-                ["confidence"] = obs.Confidence,
-                ["concern"] = obs.Concern.ToString()
-            }
+            ["properties"] = properties
         };
 
         if (obs.ReviewStatus == "false_positive")
