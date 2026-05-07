@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.40.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.39.1...v0.40.0) (2026-05-07)
+
+
+### Features
+
+* **p0123:** SkillObservation as universal pipeline output (Finding retired) ([#84](https://github.com/holgerleichsenring/agent-smith/issues/84)) ([5fb7e0a](https://github.com/holgerleichsenring/agent-smith/commit/5fb7e0a75e82021123e7754b834f92eacd96708c))
+
+
+### Bug Fixes
+
+* **filter:** preserve observations when filter LLM response is unparseable ([#87](https://github.com/holgerleichsenring/agent-smith/issues/87)) ([29a364b](https://github.com/holgerleichsenring/agent-smith/commit/29a364b4fb8514788a0412d9839c02287f1bb962))
+* **triage:** tolerate skills with no activation criteria + clear build warnings ([#86](https://github.com/holgerleichsenring/agent-smith/issues/86)) ([71243b1](https://github.com/holgerleichsenring/agent-smith/commit/71243b197737f25d1c9a06a5c10ca84ad8217dd1))
+
 ## [0.39.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.39.0...v0.39.1) (2026-05-07)
 
 
