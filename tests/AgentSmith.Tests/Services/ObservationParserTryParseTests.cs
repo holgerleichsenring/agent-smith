@@ -32,14 +32,19 @@ public sealed class ObservationParserTryParseTests
     }
 
     [Fact]
-    public void TryParseWithoutIds_TruncatedJson_ReturnsNull()
+    public void TryParseWithoutIds_TruncatedJson_RecoversCompleteObjects()
     {
         // Simulates an LLM hitting max_tokens mid-response — opening bracket but no close.
+        // p0124: ResilientJsonObjectExtractor recovers complete object literals from
+        // the truncated array via brace-counting. The first object is complete and
+        // should be recovered; the trailing partial object is dropped.
         const string truncated = """[{"concern":"security","description":"valid 1","severity":"high","confidence":80,"blocking":false},{"concern":"security",""";
 
         var result = ObservationParser.TryParseWithoutIds(truncated, "test-skill", NullLogger.Instance);
 
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result!.Should().HaveCount(1);
+        result[0].Description.Should().Be("valid 1");
     }
 
     [Fact]
