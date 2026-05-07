@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0122
+goal: "Harden api-security observation pipeline: ObservationParser tolerates per-item failures, framework schema bans 'critical'/'warning' severity drift with Nuclei mapping, agent-smith-skills strips conflicting per-SKILL output formats so the framework schema is the single source of truth."
+
+requires: ["p0121"]
+
+scope:
+  in: "agent-smith repo: ObservationParser.Parse switches from whole-list deserialization to element-wise (JsonDocument.Parse → per-item Deserialize<RawObservation> with try/catch) so a single bad enum or field-type mismatch skips that observation instead of dropping the entire round to FallbackSingle. observation-schema.md gains an explicit allowlist line (severity ∈ {high,medium,low,info} — NEVER critical/warning/severe/none) plus a Nuclei→framework mapping rule (critical→high, warning→medium). agent-smith-skills repo: all 16 api-security SKILL.md files (anonymous-attacker, api-design-auditor, api-vuln-analyst, auth-config-reviewer, auth-tester, chain-analyst, controller-implementation-reviewer, dast-analyst, false-positive-filter, idor-prober, input-abuser, low-privilege-attacker, ownership-checker, recon-analyst, response-analyst, security-headers-auditor, upload-validator-reviewer) get their self-defined 'Output format' sections removed and replaced with a single line pointing at the framework schema. Skills repo bumps from 1.4.0 → 1.5.0 (minor — observable contract change for skill authors, not a breaking change for runtime); dist tarball regenerated via scripts/package.sh. Tests for parser tolerance (gemischtes array, all-bad fallback)."
+  out: "No changes to GateFindingParser, GateOutputHandler, or the structured-output-* prompts (gates already get framework-shaped JSON via structured-output-gate-list.md / structured-output-gate-verdict.md — the drift was specifically in per-SKILL discussion-mode bodies). No migration of api-security skills to actual structured-mode (i.e. populating role.Orchestration so they hit the IsStructuredRound path) — the orchestration parser is missing entirely (IsStructuredRound currently always returns false because no code populates RoleSkillDefinition.Orchestration; investigation showed every skill goes through the Discussion path today). That's a separate phase. No JSON-schema-constrained outputs at the IChatClient level (Azure/OpenAI structured outputs response_format) — that's the long-term endgame, separate phase. No changes to security/* skills (different pipeline, not affected by this regression). agent-smith-skills repo CI / GitHub release / publishing: out of scope; this phase produces the tarball locally for verification but the actual GitHub release runs via release-please on tag push and is operator-driven."
+
+decisions:
+  - key: "Parser tolerance is element-wise via JsonDocument, not a custom JsonConverter for ObservationSeverity. Reason: the same drift hits other enum fields (Concern, Effort) and could hit field-type mismatches (Confidence as string vs int). One element-wise loop catches all of them with a single try/catch per item; per-field converters would be N converters with overlapping logic. The tradeoff is a ~10ms-per-response cost from JsonDocument vs streaming deserialize, which is invisible at the call site (LLM round trip dominates 100-1000x)."
+  - key: "Skills lose their 'Output format' sections entirely, not 'harmonize them with the framework schema'. Reason: a per-SKILL JSON-block schema is salient prompt content the LLM follows literally, even when a later observation-schema.md says otherwise. The cleanest fix is no skill-level format definition at all — the framework's observation-schema.md (injected after BuildRolePrompt in SkillPromptBuilder.BuildDiscussionPromptParts) is the only output contract the LLM should see. Domain-specific guidance about WHAT to observe stays; HOW to format the response is framework-owned."
+  - key: "Skills version bump 1.4.0 → 1.5.0 (minor), not patch (1.4.1). Reason: the contract for skill authors changed — they no longer write Output format sections. Operators with vendored / downstream-modified skills need to know this is a content-shape change, not a bug fix. Per release-please bump-minor-pre-major config in the skills repo, this is the conservative correct increment."
+  - key: "Bann list goes into observation-schema.md, not into structured-output-contributor.md / -gate-list.md. Reason: the failure path runs through Discussion-mode prompt construction (verified via stack trace from operator smoke-run pointing at ObservationParser.Parse), which injects observation-schema.md but NOT the structured-output-contributor template. The structured-output-* templates are reserved for the IsStructuredRound path which currently isn't reached by any skill. Updating only the schema users can actually see is correct; updating the unused templates would be theatre."
+  - key: "Test scope: parser tolerance gets two unit tests (mixed valid/invalid array → returns valid items only; all-invalid array → falls back to single). No skill-prompt regression test — the drift is a content-shape concern that lives in markdown + LLM behavior, not in code; an integration test that exercises the LLM call is operator-only (live Azure OpenAI). The smoke gate is post-merge operator validation, same as p0121."
+
+steps:
+  - id: parser-tolerance
+    action: "ObservationParser.Parse deserializes element-wise so one bad item doesn't drop the round"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: Parse — replace JsonSerializer.Deserialize<List<RawObservation>>(json, …) with JsonDocument.Parse + EnumerateArray, then per-element JsonSerializer.Deserialize<RawObservation>(element, …) inside try/catch. On per-item JsonException, log warning with the element's index + first 200 chars of the element's text, continue. After the loop, if 0 items survived AND ≥1 item failed, fall back to FallbackSingle (previous behavior). If ≥1 item survived, log 'Parsed X/Y observations from {Role} — {Skipped} skipped due to invalid JSON' the same way the existing description-empty path already does. ParseWithoutIds is unaffected (passes through Parse)."
+
+  - id: framework-schema-ban-list
+    action: "observation-schema.md gains an explicit severity allowlist + Nuclei mapping rule"
+    modify:
+      - "src/AgentSmith.Application/Prompts/Resources/observation-schema.md: under the JSON shape block, add a 'Severity values' subsection: 'severity must be exactly one of: \"high\", \"medium\", \"low\", \"info\". NEVER use \"critical\", \"warning\", \"severe\", \"none\", \"important\", or any other value — those will be rejected. Mapping for imported findings: Nuclei \"critical\" → \"high\"; Nuclei \"info\" stays \"info\"; ZAP \"informational\" → \"info\". If you would have written \"critical\", write \"high\" and add (was: critical) to the rationale.' Place after the existing JSON shape block, before the Confidence Calibration table."
+
+  - id: skills-strip-output-formats
+    action: "agent-smith-skills/skills/api-security: remove per-SKILL Output format sections"
+    modify:
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/anonymous-attacker/SKILL.md: delete the 'Output format per finding:' bullet block (severity/endpoint/title/description/confidence/evidence_mode); replace with single line 'Output: per the framework schema. Use evidence_mode in the location field when applicable (e.g. location: \"GET /api/users [evidence: confirmed]\").'"
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/api-design-auditor/SKILL.md: same treatment — delete the bullet block, replace with one line referring to framework schema. Keep the domain content (the 6 categories, what to flag) intact."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/api-vuln-analyst/SKILL.md: delete the bullet block (severity/owasp_category/endpoint/title/description/confidence) and the trailing 'Do NOT report' list; replace with one line. Keep the OWASP category list and 'as_analyst' content."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/auth-config-reviewer/SKILL.md: delete the JSON-block Output format (with critical/high/medium/low + evidence_mode); replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/auth-tester/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/chain-analyst/SKILL.md: delete bullet block (which has CRITICAL); replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/controller-implementation-reviewer/SKILL.md: delete the JSON-block Output format; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/dast-analyst/SKILL.md: delete bullet block (which has CRITICAL); replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/false-positive-filter/SKILL.md: verify whether it has an Output format block; if yes, delete; if no, no-op. Filter skills may need different treatment — check first."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/idor-prober/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/input-abuser/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/low-privilege-attacker/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/ownership-checker/SKILL.md: delete the JSON-block Output format (with hardcoded severity: critical example); replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/recon-analyst/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/response-analyst/SKILL.md: delete bullet block; replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/security-headers-auditor/SKILL.md: delete the JSON-block Output format (with critical/high/medium/low + evidence_mode + 3-value enum); replace with one line."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/api-security/upload-validator-reviewer/SKILL.md: delete the JSON-block Output format; replace with one line."
+
+  - id: skills-version-bump
+    action: "Bump skills repo version 1.4.0 → 1.5.0 + regenerate dist tarball"
+    modify:
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/version.txt: 1.4.0 → 1.5.0."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/CHANGELOG.md: prepend new 1.5.0 entry summarizing the SKILL.md cleanup (Output format sections removed; framework observation-schema is now the single source of truth; bann list for severity drift documented)."
+      - "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/dist/: regenerate via scripts/package.sh 1.5.0; verify the .tar.gz + .sha256 sidecar appear; commit them."
+
+  - id: tests
+    action: "Parser tolerance unit tests"
+    new:
+      - "tests/AgentSmith.Tests/Services/ObservationParserTolerantTests.cs: Parse_MixedValidAndInvalidElements_ReturnsValidOnly (3-element array: [valid, invalid-severity, valid] → 2 SkillObservations returned, log warning about skipped index 1); Parse_AllElementsInvalid_FallsBackToSingle (2-element array: [invalid-severity, invalid-concern] → FallbackSingle path: 1 wrapping observation with rationale 'Auto-wrapped: LLM did not return structured observations'); Parse_SingleInvalidElement_DoesNotThrow (regression guard: previously this threw JsonException at the deserialize call site, now it must not propagate)."
+
+  - id: smoke-run
+    action: "Manual smoke against agent-smith-api-security-azure-openai project"
+    modify:
+      - "Operator step. After both repos' commits land + skills tarball is published (or pointed at via local path source mode), run api-security-scan against the same target as the failing report. Verify: (1) no 'JSON parse failed' warnings in the log for any skill (parser tolerance + framework schema dominance); (2) findings list is multi-entry with concrete vulnerabilities (no fallback wrapping); (3) cost summary line still shows non-zero $ from p0121's prefix-fallback fix (regression guard)."
+
+tests:
+  - "ObservationParser_Parse_MixedValidAndInvalidElements_ReturnsValidOnly"
+  - "ObservationParser_Parse_AllElementsInvalid_FallsBackToSingle"
+  - "ObservationParser_Parse_SingleInvalidElement_DoesNotThrow"
+
+done:
+  - "ObservationParser tolerates per-item failures: 3 new unit tests pass"
+  - "All existing tests pass (no regressions)"
+  - "observation-schema.md contains explicit severity allowlist + Nuclei mapping rule"
+  - "All 16 api-security SKILL.md files have their per-skill Output format sections replaced with a single framework-pointer line"
+  - "agent-smith-skills version.txt = 1.5.0; CHANGELOG.md has a 1.5.0 entry; dist/ contains the regenerated tarball + .sha256 sidecar"
+  - "Two commits land: one in agent-smith repo (parser + schema + tests), one in agent-smith-skills repo (SKILL.md cleanup + version bump + dist)"
+  - "Smoke run shows no parser warnings and a multi-entry findings list (operator-validated, deferred like p0119a/p0121)"

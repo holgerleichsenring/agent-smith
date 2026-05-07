@@ -101,12 +101,25 @@ public sealed class PipelineCostTracker
 
     private decimal EstimateCostUsdLocked()
     {
-        if (!_pricing.TryGetValue(_lastModel, out var pricing))
-            return 0m;
+        var pricing = ResolvePricing(_lastModel);
+        if (pricing is null) return 0m;
         return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
                (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion) +
                (_totalCacheCreateTokens / 1_000_000m * pricing.InputPerMillion * 1.25m) +
                (_totalCacheReadTokens / 1_000_000m * pricing.CacheReadPerMillion);
+    }
+
+    // Provider SDKs return date-suffixed ids (gpt-4.1-2025-04-14, claude-sonnet-4-5-20250929)
+    // while pricing is registered against the base name (gpt-4.1, claude-sonnet-4-5).
+    // Exact lookup first; on miss, longest-prefix wins so gpt-4.1-mini-* beats gpt-4.1.
+    private ModelPricing? ResolvePricing(string model)
+    {
+        if (_pricing.TryGetValue(model, out var exact)) return exact;
+        return _pricing
+            .Where(kv => model.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(kv => kv.Key.Length)
+            .Select(kv => kv.Value)
+            .FirstOrDefault();
     }
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)
