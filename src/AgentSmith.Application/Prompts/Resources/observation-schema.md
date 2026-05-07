@@ -18,6 +18,21 @@ Each observation has this shape:
 }
 ```
 
+**Severity values — strict allowlist:**
+
+`severity` must be EXACTLY one of: `"high"`, `"medium"`, `"low"`, `"info"`. Lowercase only.
+
+NEVER use: `"critical"`, `"warning"`, `"severe"`, `"none"`, `"important"`, `"informational"`, or any other value. Outputs containing those will be rejected and dropped.
+
+Mapping for findings imported from other tools:
+
+- Nuclei `critical` → `"high"` (and add `(was: critical)` to `rationale`)
+- Nuclei / ZAP `informational` → `"info"`
+- ZAP `warning` → `"medium"`
+- Nuclei `info` → `"info"`
+
+If your input flagged something as `critical` and you would have echoed that, output `"high"` and document the upgrade in `rationale`. Do not invent new severity bands.
+
 **Confidence Calibration:**
 
 | Band | Range | Meaning | Action |
