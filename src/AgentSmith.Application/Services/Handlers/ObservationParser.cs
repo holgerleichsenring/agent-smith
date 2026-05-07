@@ -39,6 +39,74 @@ internal static class ObservationParser
         return parsed;
     }
 
+    /// <summary>
+    /// Strict variant: returns null when the response can't be parsed AND the resilient
+    /// fallback also yields zero. Callers like FilterRoundHandler use this so they can
+    /// detect true full-failure and preserve the existing observation list instead of
+    /// overwriting it with a single auto-wrapped placeholder.
+    ///
+    /// Two-layer parsing:
+    /// 1. Strict: ExtractJsonArray + JsonDocument.Parse + per-element TryBuildObservation.
+    ///    Fast path for well-formed responses.
+    /// 2. Resilient (on JsonException or no array bracket): ResilientJsonObjectExtractor
+    ///    finds complete object literals via brace-counting. Recovers from truncated-mid-array.
+    /// </summary>
+    internal static List<SkillObservation>? TryParseWithoutIds(
+        string response, string role, ILogger? logger = null)
+    {
+        var json = ExtractJsonArray(response);
+        if (json is null) return TryResilientFallback(response, role, logger);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return TryResilientFallback(response, role, logger);
+
+            var result = new List<SkillObservation>();
+            var perRunWarn = new HashSet<string>();
+            var index = 0;
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var observation = TryBuildObservation(element, role, 0, index, perRunWarn, logger);
+                if (observation is not null) result.Add(observation);
+                index++;
+            }
+            return result.Count == 0 ? null : result;
+        }
+        catch (JsonException ex)
+        {
+            logger?.LogWarning(ex,
+                "Strict JSON parse failed for {Role}; falling through to resilient extraction",
+                role);
+            return TryResilientFallback(response, role, logger);
+        }
+    }
+
+    private static List<SkillObservation>? TryResilientFallback(
+        string response, string role, ILogger? logger)
+    {
+        var result = new List<SkillObservation>();
+        var perRunWarn = new HashSet<string>();
+        var index = 0;
+        foreach (var objectLiteral in ResilientJsonObjectExtractor.ExtractObjects(response))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(objectLiteral);
+                var observation = TryBuildObservation(doc.RootElement, role, 0, index, perRunWarn, logger);
+                if (observation is not null) result.Add(observation);
+            }
+            catch (JsonException) { /* malformed object literal — skip */ }
+            index++;
+        }
+        if (result.Count > 0)
+            logger?.LogWarning(
+                "Resilient extraction recovered {Count} observations from truncated/malformed response for {Role}",
+                result.Count, role);
+        return result.Count == 0 ? null : result;
+    }
+
     internal static List<SkillObservation> Parse(
         string response, string role, int startId, ILogger? logger = null)
     {
@@ -100,15 +168,18 @@ internal static class ObservationParser
 
             return new SkillObservation(
                 Id: id, Role: role, Concern: entry.Concern,
-                Description: entry.Description, Suggestion: entry.Suggestion ?? "",
+                Description: TruncateField(entry.Description, ObservationCaps.DescriptionMaxChars, role, "description", perRunWarn, logger) ?? "",
+                Suggestion: TruncateField(entry.Suggestion, ObservationCaps.SuggestionMaxChars, role, "suggestion", perRunWarn, logger) ?? "",
                 Blocking: entry.Blocking, Severity: entry.Severity,
                 Confidence: confidence,
-                Rationale: entry.Rationale, Effort: entry.Effort,
+                Rationale: TruncateField(entry.Rationale, ObservationCaps.RationaleMaxChars, role, "rationale", perRunWarn, logger),
+                Effort: entry.Effort,
                 File: entry.File, StartLine: entry.StartLine, EndLine: entry.EndLine,
                 ApiPath: entry.ApiPath, SchemaName: entry.SchemaName,
                 EvidenceMode: entry.EvidenceMode ?? EvidenceMode.Potential,
                 ReviewStatus: entry.ReviewStatus ?? "not_reviewed",
-                Category: category);
+                Category: category,
+                Details: TruncateField(entry.Details, ObservationCaps.DetailsMaxChars, role, "details", perRunWarn, logger));
         }
         catch (JsonException ex)
         {
@@ -153,6 +224,28 @@ internal static class ObservationParser
                 "Skill {Role} emitted confidence on 1-10 scale; auto-migrated to 0-100. Update SKILL.md to use 0-100 explicitly.",
                 role);
         return Math.Clamp(raw * 10, 0, 100);
+    }
+
+    private static string? TruncateField(
+        string? value, int maxChars, string role, string field,
+        HashSet<string> perRunWarn, ILogger? logger)
+    {
+        if (value is null) return null;
+        if (value.Length <= maxChars) return value;
+
+        var marker = $"…[truncated, original was {value.Length} chars]";
+        // Ensure marker fits within cap; truncate the marker itself if cap is unusually small.
+        if (marker.Length >= maxChars)
+            marker = "…[truncated]";
+        var headRoom = Math.Max(0, maxChars - marker.Length);
+        var truncated = value[..headRoom] + marker;
+
+        var key = $"truncate:{role}:{field}";
+        if (perRunWarn.Add(key))
+            logger?.LogWarning(
+                "Skill {Role}: '{Field}' truncated from {Original} to {Cap} chars. Use 'details' for long-form prose.",
+                role, field, value.Length, maxChars);
+        return truncated;
     }
 
     private static string? ApplyCategoryDriftCheck(
@@ -232,5 +325,6 @@ internal static class ObservationParser
         public EvidenceMode? EvidenceMode { get; set; }
         public string? ReviewStatus { get; set; }
         public string? Category { get; set; }
+        public string? Details { get; set; }
     }
 }
