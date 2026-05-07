@@ -98,7 +98,24 @@ public sealed class FilterRoundHandler(
 
     private CommandResult ApplyList(string skillName, string responseText, PipelineContext pipeline)
     {
-        var reduced = ObservationParser.ParseWithoutIds(responseText, skillName, logger);
+        // Filter is reductive: parse failure means the LLM didn't deliver a usable filtered list.
+        // Falling through to FallbackSingle would wrap the raw LLM text as a single Info observation
+        // and overwrite the (potentially many) genuine observations the contributors emitted —
+        // a destructive failure that hides real findings. Preserve the originals instead.
+        var reduced = ObservationParser.TryParseWithoutIds(responseText, skillName, logger);
+        if (reduced is null)
+        {
+            var existingCount = pipeline.TryGet<List<SkillObservation>>(
+                ContextKeys.SkillObservations, out var existing) && existing is not null
+                ? existing.Count
+                : 0;
+            logger.LogWarning(
+                "{Skill} (Filter, list): LLM response unparseable — keeping {Count} original observations unchanged",
+                skillName, existingCount);
+            return CommandResult.Ok(
+                $"{skillName} (Filter): parse failed, {existingCount} original observations retained");
+        }
+
         var withIds = reduced.Select((o, i) => o with { Id = i + 1 }).ToList();
         pipeline.Set(ContextKeys.SkillObservations, withIds);
         logger.LogInformation(
