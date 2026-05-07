@@ -83,7 +83,7 @@ public sealed class TestHandler(
     private async Task<CommandResult> RunInSandboxAsync(
         TestContext context, ISandbox sandbox, TestCommand cmd, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Running in sandbox: {Command} {Args}", cmd.Command, string.Join(' ', cmd.Args));
+        logger.LogInformation("Running in sandbox: {Command} {Args}", cmd.Command, string.Join(' ', cmd.Args ?? Array.Empty<string>()));
         var output = await ExecuteTestStepAsync(sandbox, cmd, cancellationToken);
 
         if (!cmd.IsTrxCapable)
