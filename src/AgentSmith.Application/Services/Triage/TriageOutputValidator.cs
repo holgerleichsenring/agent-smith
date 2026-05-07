@@ -83,10 +83,25 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
     {
         if (skill.Activation.Positive.Any(k => k.Key == key)) return true;
         if (skill.Activation.Negative.Any(k => k.Key == key)) return true;
-        if (!role.HasValue) return false;
-        var roleAssignment = skill.RoleAssignments.FirstOrDefault(r => r.Role == role.Value);
-        if (roleAssignment is null) return false;
-        return roleAssignment.Criteria.Positive.Any(k => k.Key == key)
-            || roleAssignment.Criteria.Negative.Any(k => k.Key == key);
+        if (role.HasValue)
+        {
+            var roleAssignment = skill.RoleAssignments.FirstOrDefault(r => r.Role == role.Value);
+            if (roleAssignment is not null
+                && (roleAssignment.Criteria.Positive.Any(k => k.Key == key)
+                    || roleAssignment.Criteria.Negative.Any(k => k.Key == key)))
+                return true;
+        }
+
+        // Defensive default: when a skill defines NO activation criteria and NO role-assignment
+        // criteria at all, treat any cited key as acceptable. The skill author hasn't expressed
+        // constraints, so the LLM has no valid keys to cite — rejecting them would block triage
+        // on a skill-metadata gap, not a real triage error.
+        return HasNoCriteriaAtAll(skill);
     }
+
+    private static bool HasNoCriteriaAtAll(SkillIndexEntry skill) =>
+        skill.Activation.Positive.Count == 0
+        && skill.Activation.Negative.Count == 0
+        && skill.RoleAssignments.All(r =>
+            r.Criteria.Positive.Count == 0 && r.Criteria.Negative.Count == 0);
 }
