@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -33,13 +34,13 @@ public sealed class SecurityTrendHandlerTests
         var sut = MakeHandler(NewEmptyReader().Object);
         var pipeline = NewPipelineWithRepo();
 
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "src/auth.cs", 10, null, "Hardcoded password", "Found hardcoded password", 9),
-            new("HIGH", "src/db.cs", 20, null, "SQL injection", "Possible SQL injection", 8),
-            new("MEDIUM", "src/log.cs", 5, null, "Info leak", "Information leakage", 6)
+            ObservationFactory.Make("CRITICAL", "src/auth.cs", 10, "Hardcoded password", "Found hardcoded password", 90),
+            ObservationFactory.Make("HIGH", "src/db.cs", 20, "SQL injection", "Possible SQL injection", 80),
+            ObservationFactory.Make("MEDIUM", "src/log.cs", 5, "Info leak", "Information leakage", 60)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
 
         var context = new SecurityTrendContext(pipeline);
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
@@ -47,8 +48,9 @@ public sealed class SecurityTrendHandlerTests
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
         trend.Should().NotBeNull();
-        trend!.Current.FindingsCritical.Should().Be(1);
-        trend.Current.FindingsHigh.Should().Be(1);
+        // p0123: Critical maps to High in ObservationSeverity (no Critical value)
+        trend!.Current.FindingsCritical.Should().Be(0);
+        trend.Current.FindingsHigh.Should().Be(2);
         trend.Current.FindingsMedium.Should().Be(1);
         trend.Current.FindingsRetained.Should().Be(3);
     }
@@ -82,21 +84,22 @@ public sealed class SecurityTrendHandlerTests
         var sut = MakeHandler(reader.Object);
         var pipeline = NewPipelineWithRepo();
 
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "src/auth.cs", 10, null, "Hardcoded password", "desc", 9),
-            new("HIGH", "src/db.cs", 20, null, "SQL injection", "desc", 8)
+            ObservationFactory.Make("CRITICAL", "src/auth.cs", 10, "Hardcoded password", "desc", 90),
+            ObservationFactory.Make("HIGH", "src/db.cs", 20, "SQL injection", "desc", 80)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
 
         var context = new SecurityTrendContext(pipeline);
         await sut.ExecuteAsync(context, CancellationToken.None);
 
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
         trend!.Previous.Should().NotBeNull();
+        // p0123: Previous YAML still carries critical from old runs; current is observation-shaped (no Critical).
         trend.Previous!.FindingsCritical.Should().Be(3);
-        trend.CriticalDelta.Should().Be(-2); // 1 - 3
-        trend.HighDelta.Should().Be(-4);     // 1 - 5
+        trend.CriticalDelta.Should().Be(-3);  // current critical = 0
+        trend.HighDelta.Should().Be(-3);      // 1 critical-mapped-to-high + 1 high - 5 previous high
         trend.TotalScans.Should().Be(2);
     }
 
@@ -157,25 +160,26 @@ public sealed class SecurityTrendHandlerTests
     }
 
     [Fact]
-    public void BuildCurrentSnapshot_WithFindings_CountsSeverities()
+    public void BuildCurrentSnapshot_WithObservations_CountsSeverities()
     {
         var pipeline = new PipelineContext();
         var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
 
-        var findings = new List<Finding>
+        // p0123: Critical maps to High (no Critical in framework severity enum)
+        var observations = new List<SkillObservation>
         {
-            new("CRITICAL", "a.cs", 1, null, "A critical", "desc", 9),
-            new("CRITICAL", "b.cs", 2, null, "B critical", "desc", 9),
-            new("HIGH", "c.cs", 3, null, "C high", "desc", 8),
-            new("MEDIUM", "d.cs", 4, null, "D medium", "desc", 7),
-            new("LOW", "e.cs", 5, null, "E low", "desc", 5)
+            ObservationFactory.Make("CRITICAL", "a.cs", 1, "A critical", "desc", 90),
+            ObservationFactory.Make("CRITICAL", "b.cs", 2, "B critical", "desc", 90),
+            ObservationFactory.Make("HIGH", "c.cs", 3, "C high", "desc", 80),
+            ObservationFactory.Make("MEDIUM", "d.cs", 4, "D medium", "desc", 70),
+            ObservationFactory.Make("LOW", "e.cs", 5, "E low", "desc", 50)
         };
-        pipeline.Set(ContextKeys.ExtractedFindings, (IReadOnlyList<Finding>)findings.AsReadOnly());
+        pipeline.Set(ContextKeys.SkillObservations, observations);
 
         var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
-        snapshot.FindingsCritical.Should().Be(2);
-        snapshot.FindingsHigh.Should().Be(1);
+        snapshot.FindingsCritical.Should().Be(0);
+        snapshot.FindingsHigh.Should().Be(3);
         snapshot.FindingsMedium.Should().Be(1);
         snapshot.FindingsRetained.Should().Be(5);
         snapshot.Branch.Should().Be("feature/test");

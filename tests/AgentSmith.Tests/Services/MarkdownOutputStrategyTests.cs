@@ -1,5 +1,6 @@
-using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Services.Output;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -7,7 +8,7 @@ namespace AgentSmith.Tests.Services;
 public sealed class MarkdownOutputStrategyTests
 {
     [Fact]
-    public void BuildMarkdown_NoFindings_SaysNoIssues()
+    public void BuildMarkdown_NoObservations_SaysNoIssues()
     {
         var result = MarkdownOutputStrategy.BuildMarkdown([]);
 
@@ -16,20 +17,20 @@ public sealed class MarkdownOutputStrategyTests
     }
 
     [Fact]
-    public void BuildMarkdown_WithFindings_RendersTable()
+    public void BuildMarkdown_WithObservations_RendersSections()
     {
-        var findings = new List<Finding>
+        var observations = new List<SkillObservation>
         {
-            new("HIGH", "src/Api/UserController.cs", 47, 52, "SQL injection", "Desc", 9),
-            new("MEDIUM", "src/Auth/TokenService.cs", 23, null, "JWT secret", "Desc", 8),
-            new("LOW", "src/Config/DbConfig.cs", 8, null, "Logged secret", "Desc", 8),
+            ObservationFactory.Make("HIGH", "src/Api/UserController.cs", 47, "SQL injection", "Desc", 90),
+            ObservationFactory.Make("MEDIUM", "src/Auth/TokenService.cs", 23, "JWT secret", "Desc", 80),
+            ObservationFactory.Make("LOW", "src/Config/DbConfig.cs", 8, "Logged secret", "Desc", 80),
         };
 
-        var result = MarkdownOutputStrategy.BuildMarkdown(findings);
+        var result = MarkdownOutputStrategy.BuildMarkdown(observations);
 
         result.Should().Contain("## Agent Smith Security Review");
-        result.Should().Contain("Found **3** issues (0 critical, 1 high, 1 medium, 1 low)");
-        result.Should().Contain("### \ud83d\udfe0 HIGH: SQL injection");
+        result.Should().Contain("Found **3** issues (1 high, 1 medium, 1 low, 0 info)");
+        result.Should().Contain("### 🟠 HIGH: SQL injection");
         result.Should().Contain("**Location:** `src/Api/UserController.cs:47`");
         result.Should().Contain("Desc");
     }

@@ -1,0 +1,222 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0123
+goal: "Unify pipeline output on SkillObservation as the universal currency. Retire Finding as a cross-handler type. Scanners emit observations; SARIF and SpawnFix convert at the boundary. Single language from skill to delivery."
+
+requires: ["p0086", "p0121", "p0122"]
+
+scope:
+  in: "agent-smith repo: SkillObservation gains structured location fields (File / StartLine / EndLine / ApiPath / SchemaName) plus EvidenceMode, ReviewStatus, and Category — becoming the single pipeline-internal carrier for both LLM-produced and scanner-produced observations. ObservationParser deserializes the new fields and parses the legacy Location string into structured form when skills haven't migrated. The three scanner handlers (StaticPatternScanHandler, GitHistoryScanHandler, DependencyAuditHandler) gain a second responsibility: alongside writing their existing structured Result records (kept for prompt compression), they append SkillObservations to ContextKeys.SkillObservations with synthetic descriptions and structured location data. The Gate path migrates: GateFindingParser → GateObservationParser, GateFindingMerger → GateObservationMerger, structured-output-gate-list.md prompt template emits {confirmed: [<observation>...], rejected: [<observation>...]} with observation-schema fields instead of Finding fields. Output layer flips: OutputContext.Findings becomes Observations; ConsoleOutputStrategy / MarkdownOutputStrategy / SummaryOutputStrategy / SecuritySnapshotWriter / SecuritySnapshotBuilder / FindingSummary all migrate to consume SkillObservation directly; SarifOutputStrategy gets an internal ObservationToSarifResult converter as the only boundary conversion in the codebase; SpawnFixHandler reads observations and builds SecurityFixRequest directly. Cleanup: Finding record deleted, FindingAssessment deleted, ApplyAssessments path in ConsolidationResponseParser deleted, ExtractFindingsHandler deleted, ExtractFindings command + builder + DI registration removed, ContextKeys.ExtractedFindings deleted. Pipeline presets: ApiSecurityScan and SecurityScan both lose the ExtractFindings step (rolling back p0121 step 2 — the bridge is now in scanners and output strategies). agent-smith-skills repo: observation-schema.md gains documentation for evidence_mode / file / start_line / end_line / api_path / schema_name / category / review_status as optional typed fields; p0122 per-skill hints updated to write the typed evidence_mode field instead of the rationale-prefix convention; severity ban list and Nuclei mapping rule retained. Skills version 1.5.0 → 1.6.0 (minor — observable schema additions, fully backward-compatible with v1.5.0 observation shape). Tests: rewrites for SARIF, SpawnFix, GateOutputHandler, EvidenceMode rendering, ConsoleOutputStrategy + Markdown + Summary; new tests for scanner → observation emission (3 scanners), Location-string parsing fallback, legacy SkillObservation backward compat."
+  out: "No changes to AutonomousFinding (lives in autonomous pipeline, separate concern, separate phase). PatternFinding / HistoryFinding / DependencyFinding records stay intact — they're scanner-specific metadata carriers used by SecurityFindingsCompressor for LLM prompt input; only their Result-level rendering for consumers changes (consumers shift to reading the SkillObservation list). No change to the agentic-execute / fix-bug / mad-discussion / legal-analysis pipelines (they don't use Finding today). No SARIF spec changes — SARIF document shape stays exactly as before, only the input source changes from Finding to SkillObservation. ObservationConcern enum unchanged (Concern stays as the coarse structural axis; Category is the new free-form domain tag, both coexist). Structured outputs at the IChatClient level (Azure OpenAI response_format: json_schema) — out of scope, separate phase. agent-smith-skills CI release flow unchanged — release-please bumps 1.6.0 on tag push, this phase commits the SKILL.md content only."
+
+decisions:
+  - key: "SkillObservation absorbs every Finding-shaped field that has a real consumer (File, StartLine, EndLine, ApiPath, SchemaName, EvidenceMode, ReviewStatus, Category) — no wrapper / adapter / DTO indirection. Reason: pipeline-internal types should carry their full information density. Adapter shims between SkillObservation and Finding would just postpone the unification and reintroduce drift. The 'no wrapper' rule from feedback_no_wrapper_shims applies."
+  - key: "Inner scanner records (PatternFinding, HistoryFinding, DependencyFinding) stay; scanner handlers emit BOTH the structured Result AND a SkillObservation list. Reason: the inner records carry scanner-specific metadata (PatternId, RevokeUrl, Cwe, MatchedText, CommitHash, FixVersion, Ecosystem) that's useful for prompt compression (SecurityFindingsCompressor) and not part of the universal observation contract. Dual-write is honest: the Result is scanner-internal context, the SkillObservation is universal output. No code path consumes both — Compress* handlers read Results, output strategies read Observations."
+  - key: "Free-text Location string deleted in favor of structured fields (File / StartLine / EndLine / ApiPath / SchemaName). Reason: 'one pattern' was the goal. Two parallel ways to express location (string vs fields) would be exactly the drift this phase exists to kill. ObservationParser absorbs the migration cost: when an LLM emits {\"location\": \"src/Program.cs:42\"} (legacy form), the parser splits it into File + StartLine. Endpoint patterns like \"GET /api/users\" → ApiPath. Bare names → SchemaName. Skills are encouraged to write the typed fields directly going forward. Backward compat is one parse function, ~20 lines."
+  - key: "EvidenceMode and ReviewStatus become typed fields on SkillObservation, not soft conventions. Reason: p0122 introduced a rationale-prefix convention (\"evidence: confirmed\") because Finding had EvidenceMode as a typed field but SkillObservation didn't — a pure framing accident. Now that SkillObservation absorbs Finding's role, the typed field is correct. p0122's per-SKILL hints get a single-pass update."
+  - key: "ObservationConcern stays; new Category field added separately. Reason: Concern is a coarse structural axis (correctness/architecture/performance/security/legal/compliance/risk) that drives skill orchestration. Category is the free-form domain tag (\"secrets\", \"injection\", \"dependencies\", \"auth\") used for SARIF rule grouping and Markdown section headers. Both serve different consumers; collapsing them would lose information. Concern is mandatory; Category is optional."
+  - key: "Concern/Category drift-protection in ObservationParser. When a Category is set and lowercase-equal to Concern.ToString().ToLowerInvariant() (e.g. concern=Security + category=\"security\"), the parser drops the Category to null and emits a single warning (\"Category 'security' duplicates Concern; pick a finer-grained tag like 'secrets' or 'injection'\"). Reason: prevents the obvious drift where a skill author types the same word in both fields and ends up with redundant data. observation-schema.md gets a paragraph with good Category examples per Concern (Security → secrets/injection/auth/dependencies/headers/etc., not 'security')."
+  - key: "Confidence migration is ACTIVE, not passive — the parser auto-upgrades 1-10 emissions to 0-100 with a warning. Reason: passive (skills emit 1-10 → confidence 8 looks like ~0% under 0-100 calibration, skill author eventually notices and fixes) means weeks of broken reports while the migration plays out. Active: ObservationParser detects integer values in [1,10] AND the source skill hasn't migrated, multiplies by 10 (confidence 8 → 80), and logs a warning once per (skill, run): \"Skill X emitted confidence on 1-10 scale; auto-migrated to 0-100. Update SKILL.md.\" Skill authors get fast feedback (warning in run logs) without users seeing broken reports."
+  - key: "Severity stays as ObservationSeverity enum (high/medium/low/info). Critical/warning/etc. drift from p0122 schema is now explicitly enforced at parser level (already done) plus reinforced at scanner level (StaticPatternFinding.Severity is a string today; the scanner handler maps it to the enum, dropping unknown values to Info with a warning log)."
+  - key: "Finding record deleted entirely, not retained as a private SARIF DTO. Reason: SARIF needs ~6 fields (file, line, severity, ruleId, region, logical location) — small enough to assemble inline as a JsonObject from a SkillObservation. A private intermediate type would just be a bag of the same fields with a different constructor. Less is more."
+  - key: "FindingAssessment deleted, replaced by SkillObservation.ReviewStatus. Reason: FindingAssessment was the bridge from LLM-rendered text-form ConsolidatedDiscussion to scanner-produced Findings (mark this scanner finding as confirmed/false_positive). Under unification, scanner findings ARE SkillObservations from the start; an LLM skill that wants to mark one false-positive sets ReviewStatus on the existing observation in-place via the FilterRound mechanism (false-positive-filter already does this — no behavior change, just type alignment). ConsolidationResponseParser's assessments-parsing path is dead code."
+  - key: "ExtractFindingsHandler + ExtractFindings command deleted, not refactored. Reason: under unification there's no extraction step needed — scanners emit SkillObservations at scan time, gates emit them at gate time, contributors emit them at round time. ContextKeys.SkillObservations is canonical from the start. ApiSecurityScan's preset gets the ExtractFindings step removed (rolling back p0121's insertion); SecurityScan's preset gets the same removal. DeliverFindings reads SkillObservations directly."
+  - key: "Output strategies bifurcate by structural need: SARIF + SpawnFix do their own conversion at the boundary; Console + Markdown + Summary + Snapshot consume SkillObservation directly via the strategy. Reason: only SARIF (file/line/region required by spec) and SpawnFix (file/line required to patch code) have hard structural needs. The other four render text fields that map 1:1 from SkillObservation. Forcing a uniform pre-conversion would create exactly the wasted indirection this phase is killing."
+  - key: "Gate path migrates fully — structured-output-gate-list.md prompt rewritten, GateFindingParser → GateObservationParser, GateFindingMerger → GateObservationMerger. Reason: gates are skill-driven LLM rounds that return JSON; under unification their JSON is observation-shaped, not finding-shaped. Result: gate skills follow the same observation-schema.md as analyst skills, with the only difference being the {confirmed, rejected} wrapping for triage roles. Skills repo's gate-related templates align."
+  - key: "Pipeline presets: ApiSecurityScan and SecurityScan both lose the ExtractFindings step. ApiSecurityScan gains nothing in return — the bridge moved into the strategies. SecurityScan loses the FindingAssessment-application step but the false-positive-filter mechanism (when configured) handles the same thing on observations now."
+  - key: "Retired commands carry a migration hint at resolve-fail. Reason: a naked 'unknown command: ExtractFindings' frustrates operators with custom pipelines instead of guiding them. New CommandNames.RetiredCommands dictionary maps retired-command-name → migration message. The command resolver (PipelinePresets.ResolveCommandName or wherever lookups happen) checks the retired map on miss and throws with the helpful message. Format: 'ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.' Three lines of code, one Dictionary, plus the lookup hook in the resolver."
+  - key: "Skills version bump 1.5.0 → 1.6.0 (minor) for the schema additions. Reason: observation-schema.md gains 7 new optional fields (file / start_line / end_line / api_path / schema_name / category / review_status / evidence_mode). Skill-author-visible contract change but fully backward-compatible — old skills emitting the v1.5.0 shape continue to work, with the legacy Location string parsed into structured fields by ObservationParser. Per release-please bump-minor-pre-major config."
+  - key: "Test scope: every Finding-related test gets rewritten on SkillObservation (4 test files: EvidenceModeTests, EvidenceModeRenderingTests, SpawnFixHandlerTests, GateOutputHandlerTests). New tests added for scanner-emission paths (3 scanner handlers), Location-string parsing fallback (ObservationParserLocationTests), and the new SARIF/SpawnFix boundary converters (SarifObservationConverterTests, SpawnFixObservationMappingTests). No skill-prompt regression test — that's content-shape territory, smoke run gates that. Estimate ~20-25 test additions/rewrites."
+  - key: "Out of scope explicitly: AutonomousFinding (autonomous pipeline, different concern), agent-smith-skills release CI (release-please drives that), and structured outputs at IChatClient level (separate phase, the long-term endgame). PatternFinding / HistoryFinding / DependencyFinding stay because SecurityFindingsCompressor uses them for prompt compression; only their consumer-side rendering changes."
+  - key: "observation-schema.md ships with the agent-smith binary as an embedded resource (src/AgentSmith.Application/Prompts/Resources/), NOT in agent-smith-skills. Reason: the schema is the contract the parser enforces; binding it to the parser code (same repo, same version) is the only way to keep them in lockstep. agent-smith-skills carries SKILL.md content (per-skill domain guidance) but no framework schema. Skill authors writing per-skill output hints reference the schema doc by path; framework upgrades that change the schema land in the same release as the parser change."
+
+steps:
+  - id: observation-schema-extension
+    action: "SkillObservation gains structured location fields, EvidenceMode, ReviewStatus, Category"
+    modify:
+      - "src/AgentSmith.Contracts/Models/SkillObservation.cs: add `string? File = null`, `int StartLine = 0`, `int? EndLine = null`, `string? ApiPath = null`, `string? SchemaName = null`, `EvidenceMode EvidenceMode = EvidenceMode.Potential`, `string ReviewStatus = \"not_reviewed\"`, `string? Category = null`. Drop the existing `string? Location = null` field — its consumers migrate to structured fields. Add a `DisplayLocation` computed property mirroring Finding's logic (AnalyzedFromSource → File:StartLine; else ApiPath, then SchemaName, then File:StartLine, then File, then \"General\")."
+
+  - id: observation-parser-location-migration
+    action: "ObservationParser parses legacy Location string into structured fields"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: RawObservation gains the new fields (File, StartLine, EndLine, ApiPath, SchemaName, EvidenceMode, ReviewStatus, Category). After deserializing, if the legacy `location` string was set AND the structured File/ApiPath/SchemaName are all null, parse the string: regex `^(.+):(\\d+)$` → File + StartLine; regex `^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\\s+/.+` → ApiPath; bare alphanumeric `^[A-Z][A-Za-z0-9_]*$` → SchemaName; else File = location string. Write a small ParseLocation helper, ~20 lines."
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: Concern/Category drift-protection. After Deserialize, if Category is non-null AND Category.Equals(Concern.ToString(), OrdinalIgnoreCase) → set Category to null and LogWarning once per (Skill, Category-value) pair: \"{Skill}: Category '{Category}' duplicates Concern; pick a finer-grained tag.\" Drop-on-detect rather than fail — a redundant tag isn't worth dropping the whole observation."
+
+  - id: observation-parser-confidence-migration
+    action: "ObservationParser auto-migrates 1-10 confidence emissions to 0-100"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: after Deserialize, if RawObservation.Confidence is in [1, 10] inclusive (rough heuristic — values ≤ 10 are almost certainly the legacy 1-10 scale, values ≥ 11 are 0-100 since 1-10 has no value > 10), multiply by 10 to project onto the 0-100 scale and log a warning once per (Skill, RunId) pair: \"Skill {Skill} emitted confidence on 1-10 scale; auto-migrated to 0-100. Update SKILL.md to use 0-100 explicitly.\" The warning de-dup tracker uses a per-PipelineContext HashSet<(string, int)> stored in a private context key (ContextKeys.ConfidenceMigrationWarned). 0 stays 0 (treated as 'no opinion' / not-migrated). Confidence==1 is the only ambiguous value (could mean 1% or 10%); we go with 10% — the lower-risk error since 1% effectively suppresses the observation downstream and a confidence-1 observation almost certainly came from a legacy 1-10 scale."
+
+  - id: scanner-observation-emission
+    action: "Three scanner handlers emit SkillObservations alongside their structured Result records"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/StaticPatternScanHandler.cs: after setting ContextKeys.StaticScanResult, build a List<SkillObservation> from result.Findings (each PatternFinding maps: Severity-string → ObservationSeverity enum via parse-with-default-Info; File + Line → File / StartLine; Title → Description first sentence; PatternId + Cwe → Category; Confidence → Confidence; ReviewStatus → \"not_reviewed\"; Concern → Security; EvidenceMode → AnalyzedFromSource since this is regex-on-source). Append to ContextKeys.SkillObservations (read-modify-write, lock not needed — handler runs serially)."
+      - "src/AgentSmith.Application/Services/Handlers/GitHistoryScanHandler.cs: same pattern for HistoryFinding. Severity string → enum; File + Line → File + StartLine; CommitHash + StillInWorkingTree → Description prefix (e.g. `\"Secret in commit abc1234 [still in working tree]: \"` or `\"Secret in commit abc1234 [removed]: \"`); Category = \"secrets\"; EvidenceMode = AnalyzedFromSource."
+      - "src/AgentSmith.Application/Services/Handlers/DependencyAuditHandler.cs: same pattern for DependencyFinding. Severity string → enum; Package + Version → Description prefix (e.g. `\"npm package express@4.16.0\"`); Cve into Description; FixVersion into Suggestion; Category = \"dependencies\"; EvidenceMode = AnalyzedFromSource; ApiPath / File / StartLine all null (dependency findings are package-level)."
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/ScannerObservationFactory.cs: shared static helpers. ParseSeverity(string) → ObservationSeverity uses an explicit mapping table (case-insensitive): {critical, crit} → High; {high, error} → High; {medium, med, warning, warn} → Medium; {low, note} → Low; {info, informational, none} → Info. Unknown values → Info with a single LogWarning per unknown string per process (not per call) — that's the genuine fallback. The Info-fallback is no longer the default behavior for known severity synonyms; only true unknowns warn. AppendObservations(PipelineContext pipeline, IEnumerable<SkillObservation> additions) — read-modify-write of ContextKeys.SkillObservations. Keeps the three handlers small."
+
+  - id: gate-path-migration
+    action: "Gate handlers and prompt template migrate from Finding to SkillObservation"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/GateFindingParser.cs → GateObservationParser.cs: parse function returns List<SkillObservation>; reads observation-schema fields (file / start_line / api_path / schema_name / severity / confidence / evidence_mode / category / description / suggestion / rationale / review_status). Set ReviewStatus = \"confirmed\" for confirmed array entries (gate decides), unchanged for rejected (which feed into a separate path or are dropped — see below)."
+      - "src/AgentSmith.Application/Services/Handlers/GateFindingMerger.cs → GateObservationMerger.cs: same merge logic against ContextKeys.SkillObservations instead of ExtractedFindings. Key changes: dedupe by (Description prefix-hash + File + ApiPath) tuple instead of (File + Title); existing-observation enrichment via SkillObservation.with-update."
+      - "src/AgentSmith.Application/Services/Handlers/GateOutputHandler.cs: HandleFindingList renamed → HandleObservationList; sets ContextKeys.SkillObservations (replacing ContextKeys.ExtractedFindings). Logging and CommandResult messages adjusted."
+      - "src/AgentSmith.Application/Prompts/Resources/structured-output-gate-list.md: rewrite to emit `{\"confirmed\": [<observation>...], \"rejected\": [<observation>...]}` where each entry follows observation-schema.md (description / severity / confidence / file / start_line / api_path / schema_name / evidence_mode / review_status fields). Reference observation-schema.md explicitly for the per-item shape."
+
+  - id: output-strategies-migration
+    action: "Output strategies consume SkillObservation directly (Console / Markdown / Summary / Snapshot)"
+    modify:
+      - "src/AgentSmith.Contracts/Models/OutputContext.cs: replace `IReadOnlyList<Finding> Findings` with `IReadOnlyList<SkillObservation> Observations`. Remove the Finding using if no other type from that namespace remains."
+      - "src/AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs: FormatFindings → FormatObservations. Render `[{Severity.ToString().ToUpperInvariant()}]{evidence-badge} {DisplayLocation} — {first-line of Description}{review-badge}` per observation. EvidenceBadge uses the typed EvidenceMode field; review-badge uses ReviewStatus. FindingSummary.From migrates to take observations."
+      - "src/AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs: BuildMarkdown → consumes observations. Render the same severity-grouped sections; uses Severity enum, Title (first line of Description), DisplayLocation, EvidenceMode, Description (full body), Suggestion."
+      - "src/AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs: ParseFindings stays text-based (it parses ReportMarkdown), but BuildOutput now operates on SkillObservation when ReportMarkdown is null."
+      - "src/AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs: severity counts come from observations.Severity.ToString().ToUpperInvariant() instead of Finding.Severity. Same Critical/High/Medium counting."
+      - "src/AgentSmith.Application/Services/Handlers/SecuritySnapshotBuilder.cs: same migration."
+      - "src/AgentSmith.Contracts/Models/FindingSummary.cs → ObservationSummary.cs: 4 counts (Critical/High/Medium/Low) computed off ObservationSeverity. Drop Critical (the framework severity enum doesn't have it; high is the top); just Total/High/Medium/Low/Info plus Confirmed/NotReviewed counts."
+
+  - id: sarif-boundary-converter
+    action: "SarifOutputStrategy gains internal Observation→SARIF converter — the only boundary conversion in the codebase"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Output/SarifOutputStrategy.cs: BuildSarifDocument takes IReadOnlyList<SkillObservation>. Internal helper BuildResult(SkillObservation obs, string ruleId) builds physicalLocation/region from File + StartLine + EndLine; logicalLocations from ApiPath (kind: endpoint) + SchemaName (kind: type). Severity → SARIF level (high → error, medium → warning, low → note, info → none). RuleId derived from Category (fallback: derived from Concern + Severity). Description.Split('\\n')[0] → message.text first line; full Description → message.text body. ReviewStatus → SARIF properties.suppressions when false_positive. Comment block at the top of the file points at the spec: 'SARIF is the only boundary conversion in this codebase. SkillObservation → SARIF tuple. See p0123 decisions.'"
+
+  - id: spawnfix-boundary-converter
+    action: "SpawnFixHandler reads observations and builds SecurityFixRequest directly"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SpawnFixHandler.cs: TryGet ContextKeys.SkillObservations instead of ContextKeys.ExtractedFindings. Filter by severity (uppercase Severity.ToString()), File non-null, exclusion patterns. Group by (File, Category-derived-from-observation.Category-or-Title). Map each observation to SecurityFixRequest using File + StartLine + Description + Title + Severity + Cwe-extracted-from-Description-or-Category. Internal helper ObservationToFixRequest simplifies the lambda."
+
+  - id: pipeline-preset-cleanup
+    action: "Remove ExtractFindings from both security-scan presets"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs: SecurityScan list — remove CommandNames.ExtractFindings (line 93). ApiSecurityScan list — remove CommandNames.ExtractFindings (line 119, my p0121 insertion). Both presets now go: …ConvergenceCheck → CompileFindings (api) / CompileDiscussion (security) → DeliverFindings."
+
+  - id: retire-finding-and-extract
+    action: "Delete Finding record, FindingAssessment, ExtractFindingsHandler, ExtractFindings command"
+    delete:
+      - "src/AgentSmith.Contracts/Models/Finding.cs"
+      - "src/AgentSmith.Contracts/Models/FindingAssessment.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ExtractFindingsHandler.cs"
+      - "src/AgentSmith.Application/Models/ExtractFindingsContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/ExtractFindingsContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GateFindingParser.cs (replaced by GateObservationParser)"
+      - "src/AgentSmith.Application/Services/Handlers/GateFindingMerger.cs (replaced by GateObservationMerger)"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: delete `public const string ExtractedFindings = \"ExtractedFindings\";`."
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: delete the ExtractFindings constant + its DisplayName entry. Add a `RetiredCommands` dictionary: `[\"ExtractFindings\"] = \"ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.\"`. Plus a `TryGetRetirementMessage(string commandName, out string message)` helper."
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs (or wherever PipelinePresets.TryResolve / command-name resolution happens at startup): on resolve-fail, call CommandNames.TryGetRetirementMessage; if found, throw InvalidOperationException with the message. If not, fall through to existing 'unknown command' error."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: remove the ExtractFindingsHandler DI registration and the ExtractFindingsContextBuilder builder registration."
+      - "src/AgentSmith.Application/Services/Handlers/ConsolidationResponseParser.cs: remove the AssessmentEntry path entirely (lines 32-50 plus AssessmentEntry inner class plus the Assessments field on the parser DTO). ConsolidatedDiscussion record loses its Assessments field. Tests update."
+      - "src/AgentSmith.Contracts/Models/ConsolidatedDiscussion.cs: drop `IReadOnlyList<FindingAssessment> Assessments`."
+      - "src/AgentSmith.Application/Services/Handlers/DeliverFindingsHandler.cs: TryGet ContextKeys.SkillObservations instead of ContextKeys.ExtractedFindings. Pass observations into OutputContext.Observations. Strategy keyed-DI lookup unchanged."
+      - ".agentsmith/decisions.md: append a 3-line note under the existing p0121 block — 'Superseded by p0123: the ExtractFindings step was a deliberate intermediate while the output layer still ran on Finding. p0123 migrates the output layer to SkillObservation and removes the bridge. Revisiting p0121 in isolation will look like a wrong call without this context.'"
+
+  - id: tests-rewrite
+    action: "Rewrite Finding-touching tests on SkillObservation; update preset assertions; add scanner-emission and boundary-converter tests"
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/EvidenceModeTests.cs: rewrite to construct SkillObservation with EvidenceMode field; assert badge rendering."
+      - "tests/AgentSmith.Tests/Handlers/EvidenceModeRenderingTests.cs: same."
+      - "tests/AgentSmith.Tests/Services/SpawnFixHandlerTests.cs: feed pipeline.SkillObservations; assert SecurityFixRequest mapping. Drop the FindingAssessment-related assertions."
+      - "tests/AgentSmith.Tests/Services/GateOutputHandlerTests.cs: feed observation-shape gate JSON; assert SkillObservations populated."
+      - "tests/AgentSmith.Tests/**/PipelinePresetTests* and tests/AgentSmith.Tests/**/MultiPipelineBehaviorPreservationTests*: any test that asserts the ApiSecurityScan or SecurityScan command sequence updates its expected list — ExtractFindings removed. Search via `grep -rn 'ExtractFindings' tests` before/after to ensure full coverage."
+      - "tests/AgentSmith.Tests/Application/ConsolidationResponseParserTests.cs: drop tests that assert the Assessments path (deleted in retire-finding-and-extract). Keep the remaining parser tests for non-assessment fields."
+    new:
+      - "tests/AgentSmith.Tests/Services/ObservationParserLocationTests.cs: ParseLocation_FileAndLine_SetsStructured (\"src/Program.cs:42\" → File + StartLine), ParseLocation_HttpEndpoint_SetsApiPath (\"GET /api/users\" → ApiPath), ParseLocation_SchemaName_SetsSchemaName (\"OktaProcessInfoResponse\" → SchemaName), ParseLocation_StructuredFieldsTakePrecedence (when both legacy string + structured fields are set, structured wins), Parse_LegacyV150Skill_BackwardCompat (full v1.5.0-style observation parses cleanly), Parse_CategoryDuplicatesConcern_LogsWarningAndDrops (concern=Security + category=\"security\" → category null + warning), Parse_CategoryFinerThanConcern_KeptAsIs (concern=Security + category=\"secrets\" → both kept), Parse_LegacyConfidenceScale_AutoUpgradesAndWarns (confidence: 8 → 80 + warning once per skill+run), Parse_LegacyConfidenceScale_WarnsOncePerSkillPerRun (two observations from same skill with confidence ≤ 10 → one warning, not two), Parse_ModernConfidenceScale_PassesThrough (confidence: 75 → 75, no warning), Parse_ConfidenceZero_StaysZero (zero treated as no-opinion, not legacy)."
+      - "tests/AgentSmith.Tests/Handlers/ScannerObservationEmissionTests.cs: StaticPatternScanHandler_AppendsObservations (3 PatternFindings → 3 observations with EvidenceMode=AnalyzedFromSource, Category from PatternId, File+StartLine populated); GitHistoryScanHandler_AppendsObservations (HistoryFinding → observation with commit-hash prefix in Description, Category=\"secrets\", StillInWorkingTree-aware severity); DependencyAuditHandler_AppendsObservations (DependencyFinding → observation with package@version description, Category=\"dependencies\", FixVersion in Suggestion); ParseSeverity_CriticalString_MapsToHigh; ParseSeverity_WarningString_MapsToMedium; ParseSeverity_NoteString_MapsToLow; ParseSeverity_InformationalString_MapsToInfo; ParseSeverity_UnknownString_FallsBackToInfoWithWarning; ParseSeverity_UnknownString_LogsWarningOncePerProcess."
+      - "tests/AgentSmith.Tests/Output/SarifObservationConverterTests.cs: Build_FileLineObservation_ProducesPhysicalLocation (File + StartLine in observation → physicalLocation/region in SARIF result); Build_ApiPathObservation_ProducesLogicalLocation (ApiPath → logicalLocation kind=endpoint); Build_SchemaNameObservation_ProducesLogicalLocation (SchemaName → kind=type); Build_FalsePositiveReviewStatus_ProducesSuppression (ReviewStatus=false_positive → suppressions array)."
+      - "tests/AgentSmith.Tests/Services/ObservationSummaryTests.cs: From_MixedSeverityObservations_CountsCorrectly; From_AllNotReviewed_ConfirmedIsZero."
+      - "tests/AgentSmith.Tests/Output/ConsoleOutputStrategyObservationTests.cs: Deliver_ObservationsList_PrintsCompactList (matches existing Findings-based test shape); Deliver_StructuredPipelineEmpty_PrintsShortPointer (regression guard for p0121 fix)."
+      - "tests/AgentSmith.Tests/Output/MarkdownOutputObservationTests.cs: BuildMarkdown_GroupsByseverity_RendersAllFields."
+      - "tests/AgentSmith.Tests/Commands/RetiredCommandsTests.cs: TryGetRetirementMessage_KnownRetired_ReturnsMessage (\"ExtractFindings\" → message contains 'p0123' and 'scanners and gates'); TryGetRetirementMessage_UnknownCommand_ReturnsFalse; PipelineExecutor_RetiredCommandReferenced_ThrowsWithMigrationHint (custom preset with ExtractFindings → InvalidOperationException with the p0123 message)."
+
+  - id: skills-repo-schema-extension
+    action: "agent-smith-skills: observation-schema.md documents the new optional fields; per-skill hints adjusted"
+    modify:
+      - "[skills-repo] skills/api-security/anonymous-attacker/SKILL.md: update the p0122 hint — \"prefix the rationale with `evidence: confirmed` or `evidence: potential`\" → \"set the `evidence_mode` field to `confirmed`, `potential`, or `analyzed_from_source`\"."
+      - "[skills-repo] skills/api-security/api-design-auditor/SKILL.md: update output hint to mention category field for the 6 categories (set Category to e.g. `\"sensitive-data\"`, `\"enum-opacity\"`, `\"rest-semantics\"`, `\"route-consistency\"`, `\"missing-constraints\"`, `\"spectral-finding\"`) instead of leading description with the category text."
+      - "[skills-repo] skills/api-security/api-vuln-analyst/SKILL.md: update OWASP-category hint — write `category: \"API1:2023\"` etc. as the typed field, plus full description in description."
+      - "[skills-repo] skills/api-security/auth-config-reviewer/SKILL.md: update hint to typed evidence_mode field; mention file + start_line for source-evident findings."
+      - "[skills-repo] skills/api-security/auth-tester/SKILL.md: typed evidence_mode + category for OWASP."
+      - "[skills-repo] skills/api-security/chain-analyst/SKILL.md: typed evidence_mode + category=\"chain\"; confidence calibration corrected to 0-100 (was 1-10 leftover from p0122)."
+      - "[skills-repo] skills/api-security/controller-implementation-reviewer/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/dast-analyst/SKILL.md: typed evidence_mode, category=A01-A10."
+      - "[skills-repo] skills/api-security/idor-prober/SKILL.md: typed evidence_mode, category=\"API1:2023\"."
+      - "[skills-repo] skills/api-security/input-abuser/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/low-privilege-attacker/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/ownership-checker/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/recon-analyst/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/response-analyst/SKILL.md: typed evidence_mode."
+      - "[skills-repo] skills/api-security/security-headers-auditor/SKILL.md: typed evidence_mode (replacing the three-value rationale prefix)."
+      - "[skills-repo] skills/api-security/upload-validator-reviewer/SKILL.md: typed evidence_mode."
+
+  - id: skills-version-bump
+    action: "agent-smith-skills bumps 1.5.0 → 1.6.0"
+    modify:
+      - "[skills-repo] version.txt: 1.5.0 → 1.6.0."
+      - "[skills-repo] CHANGELOG.md: prepend new 1.6.0 entry summarizing the typed-field migration (evidence_mode / category / file / start_line / api_path / schema_name as typed fields; per-skill hints updated; observation-schema now in the agent-smith repo absorbs Finding's role)."
+
+  - id: smoke-run
+    action: "Manual smoke against agent-smith-api-security-azure-openai project"
+    modify:
+      - "Operator step. After both repos' commits land, run api-security-scan against the same target as the original failing report. Verify: (1) findings list is multi-entry (not 0 findings); (2) console output shows one line per observation with severity/location/title/evidence-badge; (3) cost summary still works (regression guard for p0121); (4) no ExtractedFindings reference errors in any log; (5) SARIF output (if --output sarif) renders observations correctly. Then run security-scan against a small test repo to verify scanner-emission path: should produce observations from StaticPatternScan / GitHistoryScan even with no LLM rounds (passive scan)."
+
+pipeline-presets:
+  api-security-scan:
+    - "-ExtractFindings (rolling back p0121 step 2 — bridge moved into output strategies)"
+  security-scan:
+    - "-ExtractFindings (scanners now emit SkillObservations directly)"
+
+tests:
+  - "ObservationParser_ParseLocation_FileAndLine_SetsStructured"
+  - "ObservationParser_ParseLocation_HttpEndpoint_SetsApiPath"
+  - "ObservationParser_ParseLocation_SchemaName_SetsSchemaName"
+  - "ObservationParser_ParseLocation_StructuredFieldsTakePrecedence"
+  - "ObservationParser_LegacyV150Skill_BackwardCompat"
+  - "ObservationParser_CategoryDuplicatesConcern_LogsWarningAndDrops"
+  - "ObservationParser_CategoryFinerThanConcern_KeptAsIs"
+  - "ObservationParser_LegacyConfidenceScale_AutoUpgradesAndWarns"
+  - "ObservationParser_LegacyConfidenceScale_WarnsOncePerSkillPerRun"
+  - "ObservationParser_ModernConfidenceScale_PassesThrough"
+  - "ObservationParser_ConfidenceZero_StaysZero"
+  - "StaticPatternScanHandler_AppendsObservations"
+  - "GitHistoryScanHandler_AppendsObservations"
+  - "DependencyAuditHandler_AppendsObservations"
+  - "ScannerObservationFactory_ParseSeverity_CriticalString_MapsToHigh"
+  - "ScannerObservationFactory_ParseSeverity_WarningString_MapsToMedium"
+  - "ScannerObservationFactory_ParseSeverity_NoteString_MapsToLow"
+  - "ScannerObservationFactory_ParseSeverity_InformationalString_MapsToInfo"
+  - "ScannerObservationFactory_ParseSeverity_UnknownString_FallsBackToInfoWithWarning"
+  - "ScannerObservationFactory_ParseSeverity_UnknownString_LogsWarningOncePerProcess"
+  - "SarifOutputStrategy_Build_FileLineObservation_ProducesPhysicalLocation"
+  - "SarifOutputStrategy_Build_ApiPathObservation_ProducesLogicalLocation"
+  - "SarifOutputStrategy_Build_SchemaNameObservation_ProducesLogicalLocation"
+  - "SarifOutputStrategy_Build_FalsePositiveReviewStatus_ProducesSuppression"
+  - "ObservationSummary_From_MixedSeverityObservations_CountsCorrectly"
+  - "ObservationSummary_From_AllNotReviewed_ConfirmedIsZero"
+  - "ConsoleOutputStrategy_Deliver_ObservationsList_PrintsCompactList"
+  - "ConsoleOutputStrategy_Deliver_StructuredPipelineEmpty_PrintsShortPointer"
+  - "MarkdownOutputStrategy_BuildMarkdown_GroupsBySeverity_RendersAllFields"
+  - "SpawnFixHandler_Observations_ProducesFixRequests"
+  - "GateOutputHandler_HandleObservationList_PopulatesSkillObservations"
+  - "EvidenceMode_TypedField_RendersBadgeCorrectly"
+  - "RetiredCommands_TryGetRetirementMessage_KnownRetired_ReturnsMessage"
+  - "RetiredCommands_TryGetRetirementMessage_UnknownCommand_ReturnsFalse"
+  - "PipelineExecutor_RetiredCommandReferenced_ThrowsWithMigrationHint"
+
+done:
+  - "Finding record deleted from the codebase (no `Finding.cs` file in src/AgentSmith.Contracts/Models, no `\\bFinding\\b` references except inner scanner records and FindingSummary→ObservationSummary)"
+  - "FindingAssessment record deleted; ConsolidatedDiscussion no longer carries Assessments field"
+  - "ExtractFindingsHandler + ExtractFindings command + ExtractFindingsContext + ExtractFindingsContextBuilder all deleted"
+  - "ContextKeys.ExtractedFindings constant deleted"
+  - "GateFindingParser → GateObservationParser, GateFindingMerger → GateObservationMerger; gate prompts updated"
+  - "SkillObservation gains File / StartLine / EndLine / ApiPath / SchemaName / EvidenceMode / ReviewStatus / Category fields; legacy Location string deleted; ObservationParser parses legacy emissions into structured fields with backward-compat"
+  - "All three scanner handlers append SkillObservations to ContextKeys.SkillObservations alongside their existing Result records"
+  - "OutputContext.Findings replaced by Observations; all 6 output consumers (Console / Markdown / Summary / Snapshot / SARIF / SpawnFix) migrated"
+  - "ApiSecurityScan and SecurityScan presets no longer contain ExtractFindings"
+  - "Custom pipeline preset referencing ExtractFindings produces a startup error that names p0123 and gives a one-sentence migration hint (verified by PipelineExecutor_RetiredCommandReferenced_ThrowsWithMigrationHint)"
+  - "Smoke run of agent-smith-api-security-azure-openai shows multi-entry findings list, observations with structured location data, no ExtractedFindings warnings"
+  - "Smoke run of security-scan against a test repo produces observations from StaticPatternScan + GitHistoryScan even without LLM rounds (proves scanner-emission path)"
+  - "agent-smith-skills version.txt = 1.6.0; CHANGELOG.md has 1.6.0 entry; observation-schema.md (in agent-smith repo) documents the new typed fields"
+  - "All 16 api-security SKILL.md files have their p0122 hints updated to use typed evidence_mode field"
+  - "All new + rewritten unit tests pass (~30 net additions/rewrites)"
+  - "All existing tests pass after preset assertions are updated to reflect the removed ExtractFindings step (PipelinePresetTests, MultiPipelineBehaviorPreservationTests, ConsolidationResponseParserTests — assessment path tests deleted, remaining tests pass)"
+  - "Test suite count grows by ~15-20 net (Finding-tests deleted because the path is gone; new scanner-emission, parser-migration, retired-command, and boundary-converter tests added on top)"
+  - "Two commits land: one in agent-smith repo (large architectural refactor), one in agent-smith-skills repo (schema docs alignment + skill hint updates + version bump)"

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using Microsoft.Extensions.Logging;
 
@@ -7,8 +8,10 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Parses LLM JSON responses into SkillObservation lists.
-/// Handles partial valid JSON: takes valid observations, skips broken ones.
-/// Falls back to a single observation wrapping raw text if nothing is parseable.
+/// Element-wise: bad observations are skipped with a warning, valid ones survive.
+/// Migration helpers: legacy Location string is split into structured fields;
+/// 1-10 confidence values are auto-upgraded to 0-100; Category that duplicates
+/// Concern is dropped with a warning.
 /// </summary>
 internal static class ObservationParser
 {
@@ -18,11 +21,15 @@ internal static class ObservationParser
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    /// <summary>
-    /// Parses observations with placeholder Id=0 on every entry. Real IDs are assigned later
-    /// at merge time (see ApplyBufferToContext) so deterministic ordering is preserved across
-    /// parallel skill rounds.
-    /// </summary>
+    private static readonly Regex FileLineRegex =
+        new(@"^(?<file>[^\s].*?):(?<line>\d+)$", RegexOptions.Compiled);
+    private static readonly Regex HttpEndpointRegex =
+        new(@"^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/.+", RegexOptions.Compiled);
+    private static readonly Regex SchemaNameRegex =
+        new(@"^[A-Z][A-Za-z0-9_]*$", RegexOptions.Compiled);
+
+    private static readonly HashSet<string> WarnedSeverityValues = new(StringComparer.OrdinalIgnoreCase);
+
     internal static List<SkillObservation> ParseWithoutIds(
         string response, string role, ILogger? logger = null)
     {
@@ -49,11 +56,12 @@ internal static class ObservationParser
             var totalElements = 0;
             var skippedFormat = 0;
             var id = startId;
+            var perRunWarn = new HashSet<string>();
 
             foreach (var element in doc.RootElement.EnumerateArray())
             {
                 totalElements++;
-                var observation = TryBuildObservation(element, role, id, totalElements - 1, logger);
+                var observation = TryBuildObservation(element, role, id, totalElements - 1, perRunWarn, logger);
                 if (observation is null) { skippedFormat++; continue; }
                 result.Add(observation);
                 id++;
@@ -77,19 +85,30 @@ internal static class ObservationParser
     }
 
     private static SkillObservation? TryBuildObservation(
-        JsonElement element, string role, int id, int index, ILogger? logger)
+        JsonElement element, string role, int id, int index,
+        HashSet<string> perRunWarn, ILogger? logger)
     {
         try
         {
             var entry = element.Deserialize<RawObservation>(JsonOptions);
             if (entry is null || string.IsNullOrWhiteSpace(entry.Description))
                 return null;
+
+            ApplyLocationMigration(entry);
+            var confidence = ApplyConfidenceMigration(entry, role, perRunWarn, logger);
+            var category = ApplyCategoryDriftCheck(entry, role, perRunWarn, logger);
+
             return new SkillObservation(
                 Id: id, Role: role, Concern: entry.Concern,
                 Description: entry.Description, Suggestion: entry.Suggestion ?? "",
                 Blocking: entry.Blocking, Severity: entry.Severity,
-                Confidence: Math.Clamp(entry.Confidence, 0, 100),
-                Rationale: entry.Rationale, Location: entry.Location, Effort: entry.Effort);
+                Confidence: confidence,
+                Rationale: entry.Rationale, Effort: entry.Effort,
+                File: entry.File, StartLine: entry.StartLine, EndLine: entry.EndLine,
+                ApiPath: entry.ApiPath, SchemaName: entry.SchemaName,
+                EvidenceMode: entry.EvidenceMode ?? EvidenceMode.Potential,
+                ReviewStatus: entry.ReviewStatus ?? "not_reviewed",
+                Category: category);
         }
         catch (JsonException ex)
         {
@@ -100,6 +119,55 @@ internal static class ObservationParser
                 index, role, ex.Message, preview);
             return null;
         }
+    }
+
+    private static void ApplyLocationMigration(RawObservation entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.Location)) return;
+        if (!string.IsNullOrEmpty(entry.File)
+            || !string.IsNullOrEmpty(entry.ApiPath)
+            || !string.IsNullOrEmpty(entry.SchemaName)) return;
+
+        var loc = entry.Location.Trim();
+        var fileLineMatch = FileLineRegex.Match(loc);
+        if (fileLineMatch.Success && int.TryParse(fileLineMatch.Groups["line"].Value, out var line))
+        {
+            entry.File = fileLineMatch.Groups["file"].Value;
+            entry.StartLine = line;
+            return;
+        }
+        if (HttpEndpointRegex.IsMatch(loc)) { entry.ApiPath = loc; return; }
+        if (SchemaNameRegex.IsMatch(loc)) { entry.SchemaName = loc; return; }
+        entry.File = loc;
+    }
+
+    private static int ApplyConfidenceMigration(
+        RawObservation entry, string role, HashSet<string> perRunWarn, ILogger? logger)
+    {
+        var raw = entry.Confidence;
+        if (raw <= 0) return 0;
+        if (raw > 10) return Math.Clamp(raw, 0, 100);
+        var key = $"confidence-1-10:{role}";
+        if (perRunWarn.Add(key))
+            logger?.LogWarning(
+                "Skill {Role} emitted confidence on 1-10 scale; auto-migrated to 0-100. Update SKILL.md to use 0-100 explicitly.",
+                role);
+        return Math.Clamp(raw * 10, 0, 100);
+    }
+
+    private static string? ApplyCategoryDriftCheck(
+        RawObservation entry, string role, HashSet<string> perRunWarn, ILogger? logger)
+    {
+        if (string.IsNullOrWhiteSpace(entry.Category)) return null;
+        var concernText = entry.Concern.ToString();
+        if (!entry.Category.Equals(concernText, StringComparison.OrdinalIgnoreCase))
+            return entry.Category;
+        var key = $"category-duplicates-concern:{role}:{entry.Category}";
+        if (perRunWarn.Add(key))
+            logger?.LogWarning(
+                "{Role}: Category '{Category}' duplicates Concern; pick a finer-grained tag (e.g. 'secrets', 'injection', 'auth' for Security).",
+                role, entry.Category);
+        return null;
     }
 
     private static List<SkillObservation> FallbackSingle(
@@ -123,7 +191,6 @@ internal static class ObservationParser
 
     private static string? ExtractJsonArray(string response)
     {
-        // Strip markdown fences if present
         var text = response.Trim();
         if (text.StartsWith("```"))
         {
@@ -142,7 +209,9 @@ internal static class ObservationParser
     }
 
     /// <summary>
-    /// DTO matching the LLM's JSON output (no Id — framework assigns IDs).
+    /// DTO matching the LLM's JSON output. Includes legacy Location for backward
+    /// compatibility and all new typed fields. Mutable so the migration helpers
+    /// can fill File/StartLine/etc. from the legacy Location before construction.
     /// </summary>
     private sealed class RawObservation
     {
@@ -155,5 +224,13 @@ internal static class ObservationParser
         public string? Rationale { get; set; }
         public string? Location { get; set; }
         public ObservationEffort? Effort { get; set; }
+        public string? File { get; set; }
+        public int StartLine { get; set; }
+        public int? EndLine { get; set; }
+        public string? ApiPath { get; set; }
+        public string? SchemaName { get; set; }
+        public EvidenceMode? EvidenceMode { get; set; }
+        public string? ReviewStatus { get; set; }
+        public string? Category { get; set; }
     }
 }

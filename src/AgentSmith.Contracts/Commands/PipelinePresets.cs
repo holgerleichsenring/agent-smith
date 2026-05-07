@@ -90,7 +90,6 @@ public static class PipelinePresets
         CommandNames.RunFinalPhase,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
-        CommandNames.ExtractFindings,
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
@@ -116,7 +115,6 @@ public static class PipelinePresets
         CommandNames.RunFinalPhase,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileFindings,
-        CommandNames.ExtractFindings,
         CommandNames.DeliverFindings,
     ];
 

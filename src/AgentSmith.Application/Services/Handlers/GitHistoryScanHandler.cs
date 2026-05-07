@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -31,6 +32,20 @@ public sealed class GitHistoryScanHandler(
         var reader = readerFactory.Create(sandbox);
         var result = await gitHistoryScanner.ScanAsync(sandbox, reader, cancellationToken);
         context.Pipeline.Set(ContextKeys.GitHistoryScanResult, result);
+
+        var observations = result.Findings.Select(f => new SkillObservation(
+            Id: 0, Role: "git-history-scanner",
+            Concern: ObservationConcern.Security,
+            Description: $"Secret in commit {(f.CommitHash.Length >= 7 ? f.CommitHash[..7] : f.CommitHash)} [{(f.StillInWorkingTree ? "still in working tree" : "removed")}]: {f.Title}",
+            Suggestion: f.RevokeUrl is null ? "" : $"Rotate the credential and revoke it via {f.RevokeUrl}.",
+            Blocking: false,
+            Severity: f.StillInWorkingTree ? ObservationSeverity.High : ObservationSeverity.Medium,
+            Confidence: 90,
+            Rationale: f.Description,
+            File: f.File, StartLine: f.Line,
+            EvidenceMode: EvidenceMode.AnalyzedFromSource,
+            Category: "secrets")).ToList();
+        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
 
         var critical = result.Findings.Count(f => !f.StillInWorkingTree);
         var high = result.Findings.Count(f => f.StillInWorkingTree);

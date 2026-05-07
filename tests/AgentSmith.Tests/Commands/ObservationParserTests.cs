@@ -60,7 +60,7 @@ public sealed class ObservationParserTests
         obs.Severity.Should().Be(ObservationSeverity.High);
         obs.Confidence.Should().Be(95);
         obs.Rationale.Should().Be("OWASP A2:2021");
-        obs.Location.Should().Be("POST /api/auth/login");
+        obs.ApiPath.Should().Be("POST /api/auth/login");
         obs.Effort.Should().Be(ObservationEffort.Small);
     }
 

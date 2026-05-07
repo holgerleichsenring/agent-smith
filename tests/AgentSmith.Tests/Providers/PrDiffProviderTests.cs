@@ -24,16 +24,15 @@ public sealed class PrDiffProviderTests
     }
 
     [Fact]
-    public void Finding_Record_HoldsValues()
+    public void SkillObservation_Record_HoldsValues()
     {
-        var finding = new AgentSmith.Contracts.Services.Finding(
-            "HIGH", "src/Api/Controller.cs", 47, 52,
-            "SQL injection", "Unsanitized user input in query", 9);
+        var obs = AgentSmith.Tests.TestHelpers.ObservationFactory.Make(
+            "HIGH", "src/Api/Controller.cs", 47,
+            "SQL injection", "Unsanitized user input in query", 90);
 
-        finding.Severity.Should().Be("HIGH");
-        finding.File.Should().Be("src/Api/Controller.cs");
-        finding.StartLine.Should().Be(47);
-        finding.EndLine.Should().Be(52);
-        finding.Confidence.Should().Be(9);
+        obs.Severity.Should().Be(AgentSmith.Contracts.Models.ObservationSeverity.High);
+        obs.File.Should().Be("src/Api/Controller.cs");
+        obs.StartLine.Should().Be(47);
+        obs.Confidence.Should().Be(90);
     }
 }
