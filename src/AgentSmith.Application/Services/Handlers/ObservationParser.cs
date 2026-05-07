@@ -39,6 +39,41 @@ internal static class ObservationParser
         return parsed;
     }
 
+    /// <summary>
+    /// Strict variant: returns null when the response can't be parsed as a JSON observation
+    /// array (no FallbackSingle wrapping). Callers like FilterRoundHandler use this so they
+    /// can preserve the existing observation list instead of overwriting it with a single
+    /// auto-wrapped placeholder when the LLM filter response is unparseable.
+    /// </summary>
+    internal static List<SkillObservation>? TryParseWithoutIds(
+        string response, string role, ILogger? logger = null)
+    {
+        var json = ExtractJsonArray(response);
+        if (json is null) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+
+            var result = new List<SkillObservation>();
+            var perRunWarn = new HashSet<string>();
+            var index = 0;
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var observation = TryBuildObservation(element, role, 0, index, perRunWarn, logger);
+                if (observation is not null) result.Add(observation);
+                index++;
+            }
+            return result.Count == 0 ? null : result;
+        }
+        catch (JsonException ex)
+        {
+            logger?.LogWarning(ex, "JSON parse failed strictly for {Role}", role);
+            return null;
+        }
+    }
+
     internal static List<SkillObservation> Parse(
         string response, string role, int startId, ILogger? logger = null)
     {
