@@ -4,6 +4,11 @@ namespace AgentSmith.Contracts.Models;
 /// A single typed observation produced by a skill agent or a scanner.
 /// Universal pipeline carrier: replaces both free-text discussion entries
 /// and the legacy Finding record. ID is assigned by the framework, not the LLM.
+///
+/// p0124: field caps live in ObservationCaps. Description is the terse headline
+/// rendered everywhere; Details is optional long-form body rendered only in
+/// Markdown file output and SARIF properties — never in Console or Summary.
+/// Caps are enforced at parse time via truncation-with-marker.
 /// </summary>
 public sealed record SkillObservation(
     int Id,
@@ -23,7 +28,8 @@ public sealed record SkillObservation(
     string? SchemaName = null,
     EvidenceMode EvidenceMode = EvidenceMode.Potential,
     string ReviewStatus = "not_reviewed",
-    string? Category = null)
+    string? Category = null,
+    string? Details = null)
 {
     /// <summary>
     /// Best-available location string for display. Mirrors Finding.DisplayLocation

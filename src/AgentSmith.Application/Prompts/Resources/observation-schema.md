@@ -1,18 +1,19 @@
 ## Output Format — SkillObservation
 
-You MUST respond with ONLY a JSON array of observations. No preamble, no markdown fences, no explanation outside the JSON.
+You MUST respond with ONLY a JSON array of observations. No preamble, no markdown fences, no explanation outside the JSON. Single-line JSON preferred; pretty-printed JSON tolerated.
 
 Each observation has this shape:
 
 ```
 {
   "concern": "correctness" | "architecture" | "performance" | "security" | "legal" | "compliance" | "risk",
-  "description": "What you observed — the problem or insight",
-  "suggestion": "What should be done about it",
+  "description": "Terse headline — what you observed",
+  "suggestion": "What should be done about it (one actionable line)",
   "blocking": true/false,
   "severity": "high" | "medium" | "low" | "info",
   "confidence": 0-100,
-  "rationale": "Why you believe this (optional)",
+  "rationale": "Why you believe this (short, optional)",
+  "details": "Long-form prose body — only rendered in Markdown / SARIF properties (optional)",
   "effort": "small" | "medium" | "large" (optional),
   "file": "src/path/Foo.cs (optional, for source-evident findings)",
   "start_line": 42 (optional),
@@ -24,6 +25,28 @@ Each observation has this shape:
   "review_status": "not_reviewed" | "confirmed" | "false_positive" (optional, defaults to not_reviewed)
 }
 ```
+
+**Field length limits — enforced at parse time:**
+
+| Field | Max chars | Truncation |
+|---|---|---|
+| `description` | 500 | Yes — truncated with `…[truncated, original was N chars]` marker |
+| `suggestion` | 300 | Yes |
+| `rationale` | 500 | Yes |
+| `details` | 4000 | Yes |
+
+Over-cap fields are truncated, not rejected — the observation always survives, but skill authors will see a `Skill X: 'description' truncated from N to 500 chars` warning. Fix at source: use Description for the headline, Details for long-form context.
+
+**Channel-aware output:**
+
+| Channel | What it renders |
+|---|---|
+| Console (terse triage line) | `description` only (first 80 chars) |
+| Summary (severity-grouped list) | `description` only |
+| Markdown (`findings.md`) | `description` as headline + `details` as body when present |
+| SARIF (`message.text`) | `description` (full); `details` goes into `properties.detailed_message` for IDE hover |
+
+When you have multi-paragraph context, put the headline in `description` and the body in `details`. Skipping `details` is fine — Markdown then just renders `description`.
 
 **Location fields:** prefer the typed fields (`file` + `start_line` for source code, `api_path` for HTTP endpoints, `schema_name` for OpenAPI schemas). Legacy `location` string is still accepted and parsed into the typed fields when the typed fields are absent.
 
