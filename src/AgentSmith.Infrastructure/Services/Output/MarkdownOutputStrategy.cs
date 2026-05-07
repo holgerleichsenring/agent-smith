@@ -69,6 +69,11 @@ public sealed class MarkdownOutputStrategy(
             sb.AppendLine($"**Evidence:** {EvidenceLabel(o.EvidenceMode)}");
             sb.AppendLine();
             sb.AppendLine(o.Description);
+            if (!string.IsNullOrWhiteSpace(o.Details))
+            {
+                sb.AppendLine();
+                sb.AppendLine(o.Details);
+            }
             if (!string.IsNullOrWhiteSpace(o.Suggestion))
             {
                 sb.AppendLine();

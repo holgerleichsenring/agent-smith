@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0124
+goal: "Tight SkillObservation contract (≤500-char Description, optional Details for long-form) + deterministic-size batched filter that stays correct at any observation count. Channel-aware output: Description renders everywhere; Details only in Markdown."
+
+requires: ["p0086", "p0122", "p0123"]
+
+scope:
+  in: "(1) SkillObservation gains Details field (optional, ≤4000 chars) for long-form prose body. Description tightened to ≤500 chars. Suggestion ≤300, Rationale ≤500. Caps enforced at parser via field truncation with diagnostic marker (e.g. `…[truncated, original 1842 chars]`) — the observation always survives, but skill authors see a per-(skill, field) warning to fix at source. (2) Output strategies channel-split: Console / Summary / SARIF top-line render Description only; Markdown renders Description as section head and Details as body when present. SARIF gets Details in properties.detailed_message for IDE hover content. (3) FilterRoundHandler.ApplyList becomes batched. Batch size is arithmetic on the worst-case-cap basis: max_output_size_per_obs ≈ 1500 chars (Description 500 + Suggestion 300 + Rationale 500 + envelope 200; Details intentionally NOT in the filter prompt — see decisions) ≈ 375 tokens. batch_size = floor(max_output_tokens / 375) × 0.85 → ≈ 18 at max_output_tokens=8192, ≈ 9 at 4096. Foreach batch: LLM call with RenderForFilter (excludes Details), parse, concatenate. Per-batch failure preserves that batch's input observations and increments a counter. After all batches, if any failed, append a single Coverage-Incomplete observation (Concern=Correctness, Severity=Info, Category=meta) summarizing the gap. Per-batch logging surfaces input count + expected output chars + actual response chars so the 0.85 reserve is observable, not just guessed. (4) ResilientJsonObjectExtractor as safety net for genuine output-token truncation (LLM hits max_output despite our 0.85 reserve) — brace-counting state machine extracts complete `{...}` objects from possibly-truncated arrays. (5) ObservationParser.TryParseWithoutIds gains a resilient fallback path: when JsonDocument.Parse throws, try the extractor on the raw response. (6) agent-smith-skills 1.6.0 → 1.7.0: 16 SKILL.md hints reinforce brevity + Details usage; explicit \"Description ≤500 chars, JSON only, no preamble\" reminder per skill. Backward compat: pre-1.7.0 skills that still emit longer fields trigger the parser truncation path, so correctness is preserved — only the warning logs are noisy until the skills update lands."
+  out: "No tiktoken-based size estimation — JSON-serialize-and-measure plus the 0.85 reserve handles the slack. No retry on per-batch failure — the batch+fallback combo delivers usable output without retry; retry adds cost and complexity for marginal benefit. No artifact-mode batching — artifact-role filters produce a single text artifact, not a list; size pressure hasn't surfaced there. Per-Concern field-cap overrides (e.g. Legal=4000 description) deferred — current 16 api-security skills don't need it; legal-analysis pipeline can revisit when it hits the cap. No skill-side schema validator (i.e. validation step in agent-smith-skills CI) — out of scope; the runtime parser is the canonical enforcer."
+
+decisions:
+  - key: "Description capped at 500 chars, not 1500. Reason: empirical sweep of recent Azure-OpenAI runs shows typical Description is 200-300 chars; worst case ~500. The 1500-char cap I initially proposed was inflated theory, not fitted to data. 500 forces brevity (good for Console / Summary scanability) without truncating real findings. Skills with structured prose (e.g. multi-paragraph rationale) put it in Details, which has 4000."
+  - key: "New Details field, optional, ≤4000 chars. Reason: the long-form prose problem is real (some Skills genuinely have multi-paragraph context), but Console / Summary should never render it. Details is a separate channel that Markdown (and SARIF properties.detailed_message) can pull. Skills opt in by populating Details; if absent, all output strategies fall back to Description alone. No double-rendering."
+  - key: "Channel-aware output. Console → Description-only (terse, scanable). Summary → Description-only. SARIF.message.text.first-line → Description first sentence. SARIF.message.text.full-body → Description (full). SARIF.properties.detailed_message → Details (when present). Markdown → ## Description headline + Details paragraph body when present. Reason: the user's framing — \"die Texte können gerne komplett in die markdown.md aber nicht in die console und auch nicht in die summary\" — is the correct architectural read. Console-output is for fast triage; markdown is for archival reading. They serve different consumers, so they should render different content from the same observation."
+  - key: "Field truncation with marker, not rejection. Format: append `…[truncated, original was N chars]` when over cap. Reason: rejecting drops real findings on a length technicality; truncating preserves the headline + warns the skill author. Marker text is diagnose-friendly (operator sees both the cap was hit AND how badly it was overshoot), enabling targeted skill-side tuning. The truncation point is at the cap minus the marker length, not at the cap exactly — so output never exceeds the cap including the marker."
+  - key: "Field caps live in a single CapsRegistry constant in agent-smith. No per-Concern override in this phase: 16 api-security skills are the immediate consumers, and the empirical sweep shows uniform caps fit them all. Future phases (legal-analysis, mad-discussion) can introduce concern-based overrides if needed; the registry shape is forward-compat. No CLI / config knob; opinionated default is preferable to operator-tuning a thing that should be skill-author-tuned upstream."
+  - key: "Batched filter: deterministic batch size from caps, not heuristic budget fraction. With Description ≤500 and Suggestion/Rationale ≤300+500, plus JSON envelope ~200, max-output-size-per-obs ≈ 1500 chars worst case ≈ 375 tokens. batch_size = floor(max_output_tokens / 375) × 0.85. At max_output_tokens=8192: batch_size ≈ 18. At max_output_tokens=4096 (smaller models): batch_size ≈ 9. Reason for 0.85: 15% reserve for LLM verbosity (preambles, expanded explanations, format drift) plus the response's outer JSON envelope. Reason for arithmetic vs heuristic: with caps known, the formula has a single source of truth; the previous 2/3-budget-fraction was guessing because the cap was unbounded. Worst-case basis (not realistic average): if a skill ever emits all-fields-at-cap, we still fit. Real-world averages are lower (~700 chars per obs), so actual fill is comfortable."
+  - key: "Filter prompt input excludes Details; only Description / Suggestion / Severity / Confidence / location fields render. Reason: a yes/no filter decision (\"is this a real finding worth keeping?\") needs the headline, not multi-paragraph context. Including Details would make per-obs filter input ~5500 chars (Description 500 + Details 4000 + Suggestion 300 + Rationale 500 + envelope) ≈ 1375 tokens — collapsing batch_size from 18 to 5 at 8192 max_output_tokens. The Details body is reviewer context, not filter signal. New private helper FilterRoundHandler.RenderForFilter(observation) emits the trimmed shape; existing RenderObservations stays for non-filter contexts. Filtered-output observations preserve Details unchanged — we just don't ship it INTO the filter prompt; the kept observations carry their original Details intact through the framework."
+  - key: "agent-smith-skills 1.7.0 is the recommended pairing, but pre-1.7.0 skills still work via parser truncation. Reason: hard-blocking on a specific skills version would brick existing operator setups when they upgrade agent-smith. The parser cap-truncation path enforces correctness regardless of skill version — over-cap fields get truncated with marker, observation survives, skill author sees the warning log. With v1.6.0 skills the warning logs are noisier (every long Description gets truncated); with v1.7.0 they're rare (skills emit within cap). Both versions produce correct delivery output. Operators who run agent-smith p0124 against v1.6.0 skills will see a recurring \"Description truncated from N chars\" warning until they upgrade — that's the migration nudge."
+  - key: "Per-batch failure mode is best-effort + visible. When a batch produces zero surviving observations, the batch's INPUT observations are kept unchanged and `failedBatchCount` increments. After all batches, if `failedBatchCount > 0`, append a single Coverage-Incomplete observation: Concern=Correctness (NOT Security — meta-info, not a finding about the target), Severity=Info, Role=skill-name, Category=`\"meta\"`, Description = `Filter coverage incomplete: X of Y batches unparseable; Z observations not reviewed and may include false positives.`, ReviewStatus=`\"not_reviewed\"`. Output strategies render it like any other observation; FindingSummary doesn't separately count it because Severity=Info is already excluded from HIGH/MEDIUM/LOW counts in ObservationSummary."
+  - key: "ResilientJsonObjectExtractor stays as safety net. Caps make truncation-mid-array unlikely (batches deterministically fit), but LLMs can still over-emit (verbose preamble pushing the actual JSON past the budget). Brace-counting state machine with string-literal awareness (`\"` toggles in-string, `\\` escapes next-char) — ~30 lines, no state-machine library, no Utf8JsonReader complexity. Tradeoff: doesn't validate the inside of objects (existing JsonDocument.Parse-per-block does that). Right separation — extractor finds boundaries, parser validates content."
+  - key: "ObservationParser.TryParseWithoutIds gains a resilient fallback path. Order: try ExtractJsonArray + JsonDocument.Parse (current strict path). On JsonException, fall through to ResilientJsonObjectExtractor.ExtractObjects on the raw response → element-wise TryBuildObservation per extracted block → return survivors. If that yields zero, return null (true full-failure). The strict path is fast for well-formed responses; the resilient path is the diagnostic / recovery channel."
+  - key: "Single-observation-exceeds-budget edge case is no longer a concern. With Description ≤500 and other fields capped, the worst-case JSON-serialized observation is bounded at ~1500 chars. At any reasonable max_output_tokens (≥2000), an observation always fits a batch. Even if a skill bug emitted a 4000-char Description (parser truncates to 500 with marker), the persisted observation is still ≤500. Batching arithmetic always works."
+  - key: "Skills 1.7.0 — 16 SKILL.md output hints reinforce: \"Description ≤500 chars, JSON only single-line no preamble; long-form context goes in Details (≤4000), not Description.\" Each hint also notes the Channel split so skill authors understand: their Description shows up in Console / Summary; their Details only in Markdown / IDE-hover."
+  - key: "Test scope: ObservationParser truncation cases (per-field cap enforcement, marker format, parser-doesn't-reject); CapsRegistry constants test (verify the chosen numbers); SkillObservation Details field present-vs-absent rendering; output strategy channel-split tests (Console renders short, Markdown renders both); TokenBudgetBatcher arithmetic tests; ResilientJsonObjectExtractor brace-counting tests; FilterRoundHandler integration tests with mocked IChatClient (small-list-one-batch, large-list-multi-batch, batch-fails-fallback, all-batches-fail-with-visibility-observation, RenderForFilter omits Details, filtered output preserves Details, per-batch log includes size info). 29 new tests total — see the tests: list at bottom for the full enumeration."
+
+steps:
+  - id: caps-registry-and-schema-extension
+    action: "CapsRegistry constants + SkillObservation Details field"
+    new:
+      - "src/AgentSmith.Contracts/Models/ObservationCaps.cs: public static class with const fields DescriptionMaxChars=500, SuggestionMaxChars=300, RationaleMaxChars=500, DetailsMaxChars=4000. Internal-style discoverability (single source of truth for the entire pipeline)."
+    modify:
+      - "src/AgentSmith.Contracts/Models/SkillObservation.cs: add `string? Details = null` field. Position it after Description in the record positional list. Update the record's XML doc to note Details is for long-form prose only rendered in Markdown / SARIF properties."
+      - "src/AgentSmith.Application/Prompts/Resources/observation-schema.md: document caps explicitly per field; document Details as the long-form-only field; document the channel split (which output renders which fields); document the truncation-with-marker behavior."
+
+  - id: parser-truncation-with-marker
+    action: "ObservationParser truncates over-cap fields with diagnostic marker"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: TryBuildObservation applies caps after Deserialize. Description truncated to ObservationCaps.DescriptionMaxChars-len(marker), with `…[truncated, original {N} chars]` appended when over. Same for Suggestion / Rationale / Details. Once-per-(role, field) warning logged so skill authors see the issue without flood. Marker length is bounded; final field length always ≤ cap. RawObservation gains Details: string?."
+
+  - id: output-strategy-channel-split
+    action: "Console / Summary stay Description-only; Markdown renders Description + Details; SARIF gets Details in properties"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs: FormatObservations unchanged in shape — already renders ExtractTitle(Description). No Details rendering. (Already terse via 80-char title truncate; Details is just additional content the strategy never reads.)"
+      - "src/AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs: BuildMarkdown — for each observation, render Description as the section paragraph (full Description, not 80-char title); when Details is non-null, render it as a follow-up paragraph below the metadata block. Existing Suggestion rendering stays."
+      - "src/AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs: FromObservations unchanged — pulls Description first-line. No Details."
+      - "src/AgentSmith.Infrastructure/Services/Output/SarifOutputStrategy.cs: BuildResult — message.text stays as Description (full text). When Details is non-null, add `properties.detailed_message = obs.Details` so IDEs / SARIF viewers can show the long-form on hover / detail-expand."
+
+  - id: token-budget-batcher
+    action: "TokenBudgetBatcher splits observation list by JSON-serialized size with deterministic per-obs ceiling"
+    new:
+      - "src/AgentSmith.Application/Services/TokenBudgetBatcher.cs: internal static helper. Split(IReadOnlyList<SkillObservation> observations, int maxOutputTokens) → List<List<SkillObservation>>. Implementation: per-obs size = JsonSerializer.Serialize(obs).Length. budgetChars = maxOutputTokens × 4 × 0.85 (chars-per-token proxy × reserve). Greedy fill: accumulate per-obs sizes; flush + new batch when adding next would overshoot. Empty input → empty list. Constant-time per observation, no token-library dep."
+
+  - id: resilient-json-object-extractor
+    action: "ResilientJsonObjectExtractor extracts complete JSON objects from possibly-truncated arrays"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/ResilientJsonObjectExtractor.cs: internal static IEnumerable<string> ExtractObjects(string responseText). Walk chars: track in-string (toggled by `\"`, escaped by `\\`), brace-depth at outer (object) level, bracket-depth at array level. When in array context AND brace-depth opens 0→1 on `{`, mark object-start. When brace-depth closes back to 0 cleanly (matched, not in-string), yield the substring [start..i]. On end-of-input or array-close, yield only complete objects collected so far — partial trailing object discarded with debug-log. ~40 lines."
+
+  - id: observation-parser-resilient-fallback
+    action: "ObservationParser.TryParseWithoutIds falls back to resilient extraction on JsonException"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: TryParseWithoutIds first tries the strict path (ExtractJsonArray + JsonDocument.Parse + per-element TryBuildObservation). When JsonException is caught, fall through: call ResilientJsonObjectExtractor.ExtractObjects on the raw response, deserialize each extracted object via JsonSerializer.Deserialize<RawObservation>, run TryBuildObservation on each, return survivors list (or null if zero). Strict path stays the fast hot path; resilient is the recovery channel."
+
+  - id: filter-round-batched-with-coverage-observation
+    action: "FilterRoundHandler.ApplyList batches with Details-stripped prompts, emits per-batch size logs and Coverage-Incomplete observation on partial failure"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs: ExecuteAsync rebuilt — load observations, get maxTokens via chatClientFactory.GetMaxOutputTokens, call TokenBudgetBatcher.Split, foreach batch invoke private FilterBatchAsync(role, batch, batchIndex, totalBatches, ...). FilterBatchAsync renders the prompt via the new RenderForFilter helper (Details excluded), makes the chat call, parses via TryParseWithoutIds. Logs per batch at INFO: `Filter batch {Index}/{Total}: input={InputCount} obs (~{InputChars} chars), expected output ≤{BudgetChars} chars, actual response={ActualChars} chars, parsed={SurvivorsCount} survivors`. Returns either filtered observations or null on full-failure. After loop: combine survivors. Track failedBatchCount + totalUnfilteredFromFailedBatches. If failedBatchCount > 0, append a CoverageIncompleteObservation. Set the combined list as ContextKeys.SkillObservations with reassigned IDs."
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs: new private static RenderForFilter(SkillObservation obs) helper emits a trimmed JSON shape per observation: id, role, concern, severity, confidence, file/start_line/api_path/schema_name (whichever is set), description, suggestion. NO details, no rationale (filter doesn't need the why-I-think-so for keep/drop decisions). Existing RenderObservations stays for non-filter contexts."
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/FilterCoverageObservationFactory.cs: internal static SkillObservation Build(string skillName, int failedBatches, int totalBatches, int unfilteredCount). Returns a SkillObservation with Concern=Correctness, Severity=Info, Role=skillName, Description = `Filter coverage incomplete: {failedBatches} of {totalBatches} batches unparseable; {unfilteredCount} observations not reviewed by {skillName} and may include false positives.`, Confidence=100, ReviewStatus=\"not_reviewed\", Category=\"meta\", Blocking=false."
+
+  - id: tests
+    action: "Unit tests for caps + parser truncation + extractor + batcher; integration tests for batched filter"
+    new:
+      - "tests/AgentSmith.Tests/Services/ObservationParserTruncationTests.cs: TruncatesDescription_WhenOverCap_AppendsMarkerAndPreservesObservation; TruncatesSuggestion_WhenOverCap; TruncatesRationale_WhenOverCap; TruncatesDetails_WhenOverCap; UnderCap_NoTruncationApplied; TruncationWarning_LoggedOncePer_RoleField (assert WarnedSeverityValues-style dedupe)."
+      - "tests/AgentSmith.Tests/Services/TokenBudgetBatcherTests.cs: Split_EmptyInput_ReturnsEmpty; Split_SingleObservationFits_OneBatch; Split_MultipleSmallObservations_OneBatch; Split_LargeObservations_MultipleBatches (verify per-batch JSON-size ≤ budgetChars); Split_DeterministicGivenCappedFields (with caps in place, batch size from formula matches actual)."
+      - "tests/AgentSmith.Tests/Services/ResilientJsonObjectExtractorTests.cs: ExtractObjects_CompleteArray_ReturnsAllObjects; ExtractObjects_TruncatedAfterSecondObject_ReturnsTwoObjects; ExtractObjects_TruncatedMidString_ReturnsCompleteObjectsBeforeIt; ExtractObjects_EscapeSequencesAndNestedObjects_HandlesCorrectly; ExtractObjects_NoOpenBracket_ReturnsEmpty (just prose, no JSON)."
+      - "tests/AgentSmith.Tests/Services/FilterRoundHandlerBatchedTests.cs: Filter_SmallList_OneBatch_BehavesLikePreP0124; Filter_LargeList_SplitsIntoMultipleBatches_ConcatenatesResults; Filter_OneBatchUnparseable_FallsBackUnfilteredAndAppendsCoverageObservation; Filter_AllBatchesFail_AllOriginalsRetainedPlusCoverageObservation; Filter_RenderForFilter_OmitsDetails (assert prompt-rendered observation does NOT contain Details body); Filter_FilteredOutput_PreservesDetails (Details survives the round-trip even though prompt didn't include it); Filter_PerBatchLog_IncludesInputCountAndActualResponseChars (capture log via NullLogger sink)."
+      - "tests/AgentSmith.Tests/Output/MarkdownDetailsRenderingTests.cs: BuildMarkdown_DetailsPresent_RendersDescriptionAndDetails; BuildMarkdown_DetailsNull_RendersDescriptionOnly; BuildMarkdown_DetailsLong_RendersFull4000Chars."
+      - "tests/AgentSmith.Tests/Output/ConsoleSummarySarifChannelSplitTests.cs: Console_DetailsPresent_StillRendersOnlyDescriptionTitle; Summary_DetailsPresent_StillRendersOnlyDescription; Sarif_DetailsPresent_PutsDetailsInProperties; Sarif_DetailsNull_NoPropertiesEntry."
+
+  - id: skills-repo-update
+    action: "agent-smith-skills 1.6.0 → 1.7.0: 16 SKILL.md hints reinforce contract"
+    modify:
+      - "[skills-repo] skills/api-security/*/SKILL.md (16 files): each `## Output` section gets a single-paragraph reminder: \"Description ≤500 chars (terse headline). Long-form prose / context / multi-paragraph reasoning goes in Details (≤4000 chars). Console + Summary render Description only; Markdown + SARIF properties render Details when present. JSON only — no preamble, no markdown wrapper, single line.\""
+      - "[skills-repo] version.txt: 1.6.0 → 1.7.0."
+      - "[skills-repo] CHANGELOG.md: prepend 1.7.0 entry summarizing the contract tightening (caps + Details field + channel-aware rendering)."
+
+  - id: smoke-run
+    action: "Manual smoke against agent-smith-api-security-azure-openai project"
+    modify:
+      - "Operator step. Re-run api-security-scan against the same target. Verify: (1) Filter step completes without `Could not parse observations` warnings — batches stay under the deterministic cap; (2) If any batch did fail, output ends with the [INFO] Filter coverage incomplete observation as the LAST entry; (3) Console output stays terse (each observation as `[SEVERITY] location — first 80 chars of Description`); (4) Markdown file output (./agentsmith-output/findings.md) shows full Description + Details body when present; (5) Total findings count = filtered + unfiltered + coverage observation OR = filtered alone when all batches succeeded; (6) No silent destructive failures — every observation is either filtered or visibly noted as unfiltered."
+
+tests:
+  - "ObservationParser_TruncatesDescription_WhenOverCap_AppendsMarkerAndPreservesObservation"
+  - "ObservationParser_TruncatesSuggestion_WhenOverCap"
+  - "ObservationParser_TruncatesRationale_WhenOverCap"
+  - "ObservationParser_TruncatesDetails_WhenOverCap"
+  - "ObservationParser_UnderCap_NoTruncationApplied"
+  - "ObservationParser_TruncationWarning_LoggedOncePer_RoleField"
+  - "TokenBudgetBatcher_Split_EmptyInput_ReturnsEmpty"
+  - "TokenBudgetBatcher_Split_SingleObservationFits_OneBatch"
+  - "TokenBudgetBatcher_Split_MultipleSmallObservations_OneBatch"
+  - "TokenBudgetBatcher_Split_LargeObservations_MultipleBatches"
+  - "TokenBudgetBatcher_Split_DeterministicGivenCappedFields"
+  - "ResilientJsonObjectExtractor_ExtractObjects_CompleteArray_ReturnsAllObjects"
+  - "ResilientJsonObjectExtractor_ExtractObjects_TruncatedAfterSecondObject_ReturnsTwoObjects"
+  - "ResilientJsonObjectExtractor_ExtractObjects_TruncatedMidString_ReturnsCompleteObjectsBeforeIt"
+  - "ResilientJsonObjectExtractor_ExtractObjects_EscapeSequencesAndNestedObjects_HandlesCorrectly"
+  - "ResilientJsonObjectExtractor_ExtractObjects_NoOpenBracket_ReturnsEmpty"
+  - "FilterRoundHandler_SmallList_OneBatch_BehavesLikePreP0124"
+  - "FilterRoundHandler_LargeList_SplitsIntoMultipleBatches_ConcatenatesResults"
+  - "FilterRoundHandler_OneBatchUnparseable_FallsBackUnfilteredAndAppendsCoverageObservation"
+  - "FilterRoundHandler_AllBatchesFail_AllOriginalsRetainedPlusCoverageObservation"
+  - "FilterRoundHandler_RenderForFilter_OmitsDetails"
+  - "FilterRoundHandler_FilteredOutput_PreservesDetails"
+  - "FilterRoundHandler_PerBatchLog_IncludesInputCountAndActualResponseChars"
+  - "MarkdownDetailsRendering_BuildMarkdown_DetailsPresent_RendersDescriptionAndDetails"
+  - "MarkdownDetailsRendering_BuildMarkdown_DetailsNull_RendersDescriptionOnly"
+  - "ChannelSplit_Console_DetailsPresent_StillRendersOnlyDescriptionTitle"
+  - "ChannelSplit_Summary_DetailsPresent_StillRendersOnlyDescription"
+  - "ChannelSplit_Sarif_DetailsPresent_PutsDetailsInProperties"
+  - "ChannelSplit_Sarif_DetailsNull_NoPropertiesEntry"
+
+done:
+  - "ObservationCaps.cs constants exist with documented values"
+  - "SkillObservation has Details field; observation-schema.md documents the Description ≤500 / Details ≤4000 contract + channel split"
+  - "ObservationParser truncates over-cap fields with diagnostic marker; observations always survive"
+  - "Console / Summary render Description only; Markdown renders Description + Details; SARIF properties.detailed_message gets Details when present"
+  - "TokenBudgetBatcher splits with deterministic batch size derived from caps"
+  - "ResilientJsonObjectExtractor extracts complete objects from truncated arrays"
+  - "ObservationParser.TryParseWithoutIds falls back to resilient extraction on JsonException"
+  - "FilterRoundHandler.ApplyList loops over batches, concatenates results, appends Coverage-Incomplete observation on partial failure"
+  - "agent-smith-skills 1.7.0 PR opened with 16 SKILL.md output hints reinforcing ≤500-char contract + Details usage; merged + tagged before operator smoke validation, BUT agent-smith p0124 itself works correctly against pre-1.7.0 skills via parser truncation (no hard version coupling)"
+  - "FilterRoundHandler.RenderForFilter excludes Details from filter prompts; round-trip preserves Details on the filtered output"
+  - "Per-batch log line emitted at INFO level with input count + expected output chars + actual response chars (verifiable via Filter_PerBatchLog_IncludesInputCountAndActualResponseChars)"
+  - "All 29 new tests pass"
+  - "All existing tests pass (no regressions)"
+  - "Smoke run shows no parseable warnings, terse Console output, full Markdown body, no destructive failures, per-batch log lines visible in INFO output"
