@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<TicketStatusTransitionerFactory>());
         services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
+        services.AddSingleton<IHostSourceCloner, Services.Providers.Source.HostSourceCloner>();
         // p0119a: legacy IAgentProviderFactory / ILlmClientFactory / IAgenticAnalyzerFactory
         // and the entire AgentPromptBuilder / RepositoryToolDispatcher stack were deleted.
         // The Microsoft.Extensions.AI replacements (IChatClientFactory + 4 builders) are

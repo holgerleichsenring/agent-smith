@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0121
+goal: "Fix four regressions surfaced after p0117b/p0119/p0119a sandbox + M.E.AI migrations: Azure cost shows '$0.00 (local/free)', api-security-scan console dumps verbose ConsolidatedPlan instead of compact findings, agents lost code context."
+
+requires: ["p0117b", "p0119a"]
+
+scope:
+  in: "Four targeted fixes against current main: (1) PipelineCostTracker model-id normalization so date-suffixed Azure OpenAI ids (gpt-4.1-2025-04-14) hit the pricing dict keyed on gpt-4.1; (2) ApiSecurityScan pipeline preset gains an ExtractFindings step (or equivalent) so ContextKeys.ExtractedFindings is populated for DeliverFindings; (3) ConsoleOutputStrategy stops dumping ConsolidatedPlan as console output for structured pipelines — falls back to a one-line pointer instead; (4) Diagnose and fix code-context loss for api-security-scan after sandbox migration (TryCheckoutSource fail-soft path → ApiCodeContext receives no repo)."
+  out: "No changes to LLM provider SDK choice, no changes to pricing values, no changes to discussion-pipeline (mad-discussion, legal-analysis) console output. No new output strategies. No changes to nuclei/spectral/zap spawners. SARIF/markdown/file output strategies untouched. No retroactive fix to the verbose markdown that's already written to file outputs (file output remains the verbose long-form report by design)."
+
+decisions:
+  - key: "Cost-tracker normalization is provider-agnostic prefix matching, not Azure-specific. EstimateCostUsdLocked first tries exact lookup; on miss, walks _pricing keys longest-first and accepts the first key that the model id starts with. Reason: OpenAI also dates its ids (gpt-4o-2024-08-06), Anthropic appends YYYYMMDD, future providers may do the same. A single fallback covers all of them. Per-provider hardcoded mappings would rot."
+  - key: "ApiSecurityScan gets ExtractFindings before DeliverFindings, mirroring SecurityScan's order. ExtractFindingsHandler already short-circuits when ExtractedFindings is already set by a gate (line 25-33), so inserting it is safe whether the closing gate emitted findings or not. When neither gate-findings nor raw scan results are present (api-scan with all DAST/SAST disabled), it sets an empty list — DeliverFindings then renders 'Found 0 issues' instead of dumping the discussion."
+  - key: "ConsoleOutputStrategy's fallback to ConsolidatedPlan is the wrong default for structured pipelines. Change: if Findings.Count == 0 AND ReportMarkdown is null AND pipeline type is Structured, render a short pointer ('Discussion compiled (N entries, M chars) — see file output for full report') instead of the multi-thousand-char ConsolidatedPlan dump. Discussion-type pipelines (mad-discussion, legal-analysis) keep the existing fall-through because the discussion IS their primary deliverable."
+  - key: "Pipeline-type lookup needs no plumbing. ContextKeys.PipelineTypeName is already populated as a PipelineType enum by ExecutePipelineUseCase at run start (line 54), and OutputContext already carries PipelineContext. ConsoleOutputStrategy reads it the same way ConvergenceCheckHandler / TriageHandler / SkillRoundHandlerBase already do: pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var type). Reason this is worth calling out: the obvious-looking 'thread the preset name through DeliverFindingsHandler → OutputContext' was the wrong shape — the data already lives in the right place."
+  - key: "Code-context loss is investigated first, then fixed. The api-security-scan pipeline starts with TryCheckoutSource (fail-soft) feeding ApiCodeContext. After p0117b's sandbox migration, source resolution may now require a sandbox bind-mount that doesn't exist outside it. Step source-context-investigation runs first, producing a single-paragraph diagnosis in the phase notes; step source-context-fix implements based on that diagnosis. If the root cause is sandbox-mount-related, fix is in TryCheckoutSourceHandler / ApiCodeContextHandler. If skills_path resolution drifted, fix is in PipelineConfigResolver. We do not pre-commit to a fix shape."
+  - key: "Tests cover the cost-tracker fix and the console-output fix as unit tests; the pipeline-preset change is covered by an existing PipelinePresets test plus a smoke run; the source-context fix gets a test only if the root cause is in code (not config). Reason: a one-line preset addition doesn't justify a dedicated test; the smoke run is the regression guard."
+
+steps:
+  - id: cost-tracker-prefix-fallback
+    action: "PipelineCostTracker accepts date-suffixed model ids via prefix-longest-match fallback"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineCostTracker.cs: EstimateCostUsdLocked — after the exact TryGetValue miss, iterate _pricing.Keys ordered by length descending and pick the first key K where _lastModel.StartsWith(K, OrdinalIgnoreCase). Cache nothing — pricing dicts are tiny (<20 entries). If no prefix matches, still return 0m so the (local/free) label remains accurate for genuinely-untracked models."
+
+  - id: api-scan-extract-findings
+    action: "ApiSecurityScan preset gains ExtractFindings between CompileFindings and DeliverFindings"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs: ApiSecurityScan list — insert CommandNames.ExtractFindings between CompileFindings (line 118) and DeliverFindings (line 119). No other preset touched."
+
+  - id: console-output-structured-fallback
+    action: "ConsoleOutputStrategy short-circuits ConsolidatedPlan dump for structured pipelines"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs: BuildOutput — when context.Findings is empty and ReportMarkdown is null, read PipelineType from context.Pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var type). For PipelineType.Structured, return a one-line pointer like 'Discussion compiled (N chars) — see file output for full report' (length comes from the existing ConsolidatedPlan string). For PipelineType.Discussion (or missing key), keep current ConsolidatedPlan fall-through. No changes to OutputContext, DeliverFindingsHandler, or DeliverOutputHandler — PipelineTypeName is already set at run start by ExecutePipelineUseCase."
+
+  - id: source-context-investigation
+    action: "Diagnose api-security-scan code-context loss"
+    modify:
+      - ".agentsmith/phases/active/p0121-*.yaml: append a 'notes' section (markdown sibling file p0121-source-context-diagnosis.md) summarizing: (a) what TryCheckoutSourceHandler does post-p0117b (sandbox vs host filesystem), (b) what ApiCodeContextHandler reads (path it expects), (c) the actual log lines from a current run, (d) the proposed fix in one paragraph."
+
+  - id: source-context-fix
+    action: "Apply the fix derived from source-context-investigation"
+    modify:
+      - "TBD per investigation. Likely candidates: TryCheckoutSourceHandler (sandbox bind-mount or fallback to host clone), ApiCodeContextHandler (path resolution), PipelineConfigResolver (skills_path default fallback when config omits it). Whichever is correct, fix is constrained to that single handler."
+
+  - id: tests
+    action: "Unit tests for cost-tracker fallback and console-output structured branch"
+    new:
+      - "tests/AgentSmith.Tests/Services/PipelineCostTrackerPrefixFallbackTests.cs: EstimateCostUsd_DateSuffixedAzureModel_UsesBaseModelPricing (gpt-4.1-2025-04-14 → uses gpt-4.1 rates), EstimateCostUsd_DateSuffixedClaude_UsesBaseModelPricing (claude-sonnet-4-5-20250929 → uses claude-sonnet-4-5 if registered), EstimateCostUsd_UnknownModelNoPrefix_ReturnsZero (preserves local/free for genuinely unknown ids), EstimateCostUsd_LongestPrefixWins (gpt-4.1-mini-2024-... matches gpt-4.1-mini not gpt-4.1)."
+      - "tests/AgentSmith.Tests/Output/ConsoleOutputStructuredFallbackTests.cs: Deliver_StructuredPipeline_NoFindings_PrintsShortPointer (api-security-scan + 0 findings + ConsolidatedPlan present → output contains 'see' or 'report' but NOT the full 28k-char plan), Deliver_DiscussionPipeline_NoFindings_PrintsConsolidatedPlan (mad-discussion + ConsolidatedPlan present → existing behavior preserved), Deliver_StructuredPipeline_WithFindings_PrintsCompactList (regression guard: format unchanged when findings exist)."
+
+  - id: smoke-run
+    action: "Manual smoke against agent-smith-api-security-azure-openai project"
+    modify:
+      - "Operator step. Run the api-security-scan pipeline against the same target as the failing report. Verify: (1) cost summary line shows non-zero $ amount, not '(local/free)'; (2) console output ends with a short pointer or compact findings list, not the full markdown discussion; (3) at least one agent in the discussion log references actual route/handler names from the source code (proves code context loaded). Capture the cost line + first 50 lines of console output as a screenshot in the PR description."
+
+pipeline-presets:
+  api-security-scan:
+    - "+ExtractFindings (between CompileFindings and DeliverFindings)"
+
+tests:
+  - "PipelineCostTracker_EstimateCostUsd_DateSuffixedAzureModel_UsesBaseModelPricing"
+  - "PipelineCostTracker_EstimateCostUsd_DateSuffixedClaude_UsesBaseModelPricing"
+  - "PipelineCostTracker_EstimateCostUsd_UnknownModelNoPrefix_ReturnsZero"
+  - "PipelineCostTracker_EstimateCostUsd_LongestPrefixWins"
+  - "ConsoleOutputStrategy_Deliver_StructuredPipeline_NoFindings_PrintsShortPointer"
+  - "ConsoleOutputStrategy_Deliver_DiscussionPipeline_NoFindings_PrintsConsolidatedPlan"
+  - "ConsoleOutputStrategy_Deliver_StructuredPipeline_WithFindings_PrintsCompactList"
+
+done:
+  - "Smoke run of agent-smith-api-security-azure-openai shows non-zero cost in summary line"
+  - "Smoke run console output ends with compact findings list or short pointer, not full markdown dump"
+  - "Smoke run discussion log references real source-code identifiers (handler names, route paths) proving ApiCodeContext loaded successfully"
+  - "All seven new unit tests pass"
+  - "All existing tests pass (no regressions)"
+  - "p0121-source-context-diagnosis.md exists alongside the phase YAML, summarizing root cause + chosen fix in ≤300 words"
