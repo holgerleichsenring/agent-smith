@@ -69,6 +69,10 @@ public static class CommandNames
     // p0112: branch persistence — pipeline-failure recovery commit + push
     public const string PersistWorkBranch = "PersistWorkBranchCommand";
 
+    // p0125c: typed concept publication
+    public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
+    public const string BootstrapCheck = "BootstrapCheckCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -143,6 +147,8 @@ public static class CommandNames
         [RunReviewPhase] = "Running review phase",
         [RunFinalPhase] = "Running final phase",
         [PersistWorkBranch] = "Persisting work branch",
+        [PipelineNameInitializer] = "Publishing pipeline name",
+        [BootstrapCheck] = "Checking bootstrap files",
     };
 
     /// <summary>

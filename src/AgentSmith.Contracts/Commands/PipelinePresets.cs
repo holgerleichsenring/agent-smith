@@ -7,8 +7,12 @@ namespace AgentSmith.Contracts.Commands;
 /// </summary>
 public static class PipelinePresets
 {
+    // p0125c: PipelineNameInitializer is prepended to every preset so pipeline_name
+    // is published once before any other handler runs. The Initializer reads
+    // ResolvedPipeline from PipelineContext (populated by PipelineConfigResolver).
     public static readonly IReadOnlyList<string> FixBug =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
@@ -21,6 +25,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> FixNoTest =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
@@ -33,12 +38,14 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> InitProject =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource, CommandNames.BootstrapProject,
         CommandNames.InitCommit,
     ];
 
     public static readonly IReadOnlyList<string> AddFeature =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
@@ -52,6 +59,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> MadDiscussion =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapProject, CommandNames.LoadContext,
         CommandNames.Triage,
@@ -62,6 +70,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> LegalAnalysis =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.AcquireSource,
         CommandNames.BootstrapDocument,
         CommandNames.LoadCodingPrinciples,
@@ -73,6 +82,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> SecurityScan =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapProject,
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
@@ -97,6 +107,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
@@ -120,6 +131,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> SkillManager =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.DiscoverSkills,
         CommandNames.EvaluateSkills,
         CommandNames.DraftSkillFiles,
@@ -130,6 +142,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> Autonomous =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapProject,
         CommandNames.LoadContext,

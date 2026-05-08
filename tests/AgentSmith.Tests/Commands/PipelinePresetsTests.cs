@@ -40,9 +40,12 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void ApiSecurityScan_FirstStepIsTryCheckoutSource()
+    public void ApiSecurityScan_FirstStepIsPipelineNameInitializer()
     {
-        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.TryCheckoutSource);
+        // p0125c: PipelineNameInitializer is prepended to every preset to publish
+        // the pipeline_name concept once before any other handler runs.
+        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.PipelineNameInitializer);
+        PipelinePresets.ApiSecurityScan[1].Should().Be(CommandNames.TryCheckoutSource);
     }
 
     [Fact]
@@ -55,7 +58,9 @@ public class PipelinePresetsTests
     [Fact]
     public void InitProject_HasMinimalCommands()
     {
-        PipelinePresets.InitProject.Should().HaveCount(3);
+        // p0125c: count is 4 (PipelineNameInitializer + the original three).
+        PipelinePresets.InitProject.Should().HaveCount(4);
+        PipelinePresets.InitProject.Should().Contain(CommandNames.PipelineNameInitializer);
         PipelinePresets.InitProject.Should().Contain(CommandNames.CheckoutSource);
         PipelinePresets.InitProject.Should().Contain(CommandNames.BootstrapProject);
         PipelinePresets.InitProject.Should().Contain(CommandNames.InitCommit);

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -17,6 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class CheckoutSourceHandler(
     ISourceProviderFactory factory,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     ILogger<CheckoutSourceHandler> logger)
     : ICommandHandler<CheckoutSourceContext>
 {
@@ -24,6 +26,14 @@ public sealed class CheckoutSourceHandler(
     private const int CheckoutTimeoutSeconds = 60;
 
     public async Task<CommandResult> ExecuteAsync(
+        CheckoutSourceContext context, CancellationToken cancellationToken)
+    {
+        var result = await RunCheckoutAsync(context, cancellationToken);
+        conceptsFactory(context.Pipeline).SetBool("source_available", result.IsSuccess);
+        return result;
+    }
+
+    private async Task<CommandResult> RunCheckoutAsync(
         CheckoutSourceContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation("Resolving source metadata for branch {Branch}...", context.Branch);
@@ -40,6 +50,12 @@ public sealed class CheckoutSourceHandler(
             return CommandResult.Ok($"Local source ready at {Repository.SandboxWorkPath}");
         }
 
+        return await CloneAndSwitchAsync(context, repo, cancellationToken);
+    }
+
+    private async Task<CommandResult> CloneAndSwitchAsync(
+        CheckoutSourceContext context, Repository repo, CancellationToken cancellationToken)
+    {
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return CommandResult.Fail("CheckoutSource requires an active sandbox to perform the clone.");
 
@@ -51,17 +67,20 @@ public sealed class CheckoutSourceHandler(
             return CommandResult.Fail($"git clone failed (exit={cloneResult.ExitCode}): {cloneResult.ErrorMessage}");
         logger.LogInformation("Sandbox-side `git clone` completed in {Duration:F1}s", cloneResult.DurationSeconds);
 
-        if (NeedsBranchSwitch(context.Branch, repo.CurrentBranch))
-        {
-            var branchValue = context.Branch?.Value ?? repo.CurrentBranch.Value;
-            var checkoutResult = await RunStepAsync(sandbox, BuildCheckoutStep(branchValue), cancellationToken);
-            if (checkoutResult.ExitCode != 0)
-                logger.LogWarning(
-                    "Sandbox-side `git checkout {Branch}` failed (exit={Exit}): {Error}",
-                    branchValue, checkoutResult.ExitCode, checkoutResult.ErrorMessage);
-        }
-
+        await MaybeSwitchBranchAsync(sandbox, context.Branch, repo.CurrentBranch, cancellationToken);
         return CommandResult.Ok($"Repository cloned to {Repository.SandboxWorkPath}");
+    }
+
+    private async Task MaybeSwitchBranchAsync(
+        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault, CancellationToken cancellationToken)
+    {
+        if (!NeedsBranchSwitch(requested, resolvedDefault)) return;
+        var branchValue = requested?.Value ?? resolvedDefault.Value;
+        var checkoutResult = await RunStepAsync(sandbox, BuildCheckoutStep(branchValue), cancellationToken);
+        if (checkoutResult.ExitCode != 0)
+            logger.LogWarning(
+                "Sandbox-side `git checkout {Branch}` failed (exit={Exit}): {Error}",
+                branchValue, checkoutResult.ExitCode, checkoutResult.ErrorMessage);
     }
 
     private static bool NeedsBranchSwitch(BranchName? requested, BranchName resolvedDefault) =>

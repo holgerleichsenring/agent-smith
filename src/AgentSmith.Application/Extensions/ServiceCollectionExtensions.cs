@@ -130,6 +130,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ActivationExpressionTokenizer>();
         services.AddSingleton<ActivationExpressionParser>();
         services.AddSingleton<ActivationEvaluator>();
+
+        // p0125c: typed concept publication
+        services.AddTransient<ICommandHandler<PipelineNameInitializerContext>, PipelineNameInitializerHandler>();
+        services.AddTransient<ICommandHandler<BootstrapCheckContext>, BootstrapCheckHandler>();
     }
 
     private static void RegisterContextBuilders(IServiceCollection services)
@@ -193,6 +197,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
         AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
+        AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
