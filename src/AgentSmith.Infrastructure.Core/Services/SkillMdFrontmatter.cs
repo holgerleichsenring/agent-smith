@@ -21,6 +21,10 @@ internal sealed class SkillMdFrontmatter
     public Dictionary<string, RawActivationCriteria>? RoleAssignment { get; set; }
     public List<RawSkillReference>? References { get; set; }
     public RawOutputContract? OutputContract { get; set; }
+
+    // p0125d: free-form boolean expression over the typed concept vocabulary.
+    // Validated by the validate-concepts CLI verb; consumed at runtime by triage in p0127.
+    public string? ActivatesWhen { get; set; }
 }
 
 internal sealed class RawActivationCriteria

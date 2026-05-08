@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -17,8 +18,11 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class PipelineNameInitializerHandler(
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     ILogger<PipelineNameInitializerHandler> logger)
-    : ICommandHandler<PipelineNameInitializerContext>
+    : ICommandHandler<PipelineNameInitializerContext>, IConceptWriter
 {
+    public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
+        [new ConceptDeclaration("pipeline_name", ConceptType.Enum)];
+
     public Task<CommandResult> ExecuteAsync(
         PipelineNameInitializerContext context, CancellationToken cancellationToken)
     {

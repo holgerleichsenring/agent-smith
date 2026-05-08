@@ -89,7 +89,8 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             RoleAssignments = MapRoleAssignments(meta.RoleAssignment, skillMdPath),
             References = MapReferences(meta.References),
             OutputContract = MapOutputContract(meta.OutputContract, skillMdPath),
-            RoleBodies = SkillBodySplitter.Split(body)
+            RoleBodies = SkillBodySplitter.Split(body),
+            ActivatesWhen = string.IsNullOrWhiteSpace(meta.ActivatesWhen) ? null : meta.ActivatesWhen.Trim()
         };
 
     private static void ValidateOverrideMatchesBase(
@@ -126,6 +127,7 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             RoleAssignment = over.RoleAssignment ?? @base.RoleAssignment,
             References = over.References ?? @base.References,
             OutputContract = over.OutputContract ?? @base.OutputContract,
+            ActivatesWhen = over.ActivatesWhen ?? @base.ActivatesWhen,
         };
 
     private IReadOnlyList<SkillRole>? MapRolesSupported(List<string>? raw, string skillMdPath)

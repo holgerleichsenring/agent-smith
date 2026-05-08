@@ -44,4 +44,12 @@ public sealed class RoleSkillDefinition
 
     /// <summary>Filesystem path to the skill's directory (used by SkillBodyResolver to resolve {{ref:}}).</summary>
     public string? SkillDirectory { get; set; }
+
+    /// <summary>
+    /// p0125d: optional boolean expression over typed concepts (e.g.
+    /// <c>findings_present AND pipeline_name = "security-scan"</c>) that gates whether
+    /// this skill is offered for activation. Validated at build-time by the
+    /// <c>validate-concepts</c> CLI verb; consumed at runtime by triage in p0127.
+    /// </summary>
+    public string? ActivatesWhen { get; set; }
 }

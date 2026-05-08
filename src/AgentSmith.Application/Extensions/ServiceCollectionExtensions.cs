@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Prompts;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
@@ -43,7 +44,14 @@ public static class ServiceCollectionExtensions
     private static void RegisterHandlers(IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
-        services.AddTransient<ICommandHandler<CheckoutSourceContext>, CheckoutSourceHandler>();
+        // p0125d: CheckoutSourceHandler also exposes IConceptWriter — three-step registration
+        // (concrete + interface + singleton-IConceptWriter) so the validate-concepts registry
+        // sees it without changing the transient lifetime used by the pipeline executor.
+        services.AddTransient<CheckoutSourceHandler>();
+        services.AddTransient<ICommandHandler<CheckoutSourceContext>>(sp =>
+            sp.GetRequiredService<CheckoutSourceHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<CheckoutSourceHandler>());
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
@@ -93,7 +101,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
-        services.AddTransient<ICommandHandler<TryCheckoutSourceContext>, TryCheckoutSourceHandler>();
+        // p0125d: TryCheckoutSourceHandler dual-registered as IConceptWriter (see CheckoutSourceHandler note above).
+        services.AddTransient<TryCheckoutSourceHandler>();
+        services.AddTransient<ICommandHandler<TryCheckoutSourceContext>>(sp =>
+            sp.GetRequiredService<TryCheckoutSourceHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<TryCheckoutSourceHandler>());
         services.AddTransient<ICommandHandler<CorrelateFindingsContext>, CorrelateFindingsHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
@@ -131,9 +144,23 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ActivationExpressionParser>();
         services.AddSingleton<ActivationEvaluator>();
 
-        // p0125c: typed concept publication
-        services.AddTransient<ICommandHandler<PipelineNameInitializerContext>, PipelineNameInitializerHandler>();
-        services.AddTransient<ICommandHandler<BootstrapCheckContext>, BootstrapCheckHandler>();
+        // p0125c/d: typed concept publication. Handlers are registered three times:
+        //   1. concrete type (transient) — resolvable for IConceptWriter dual-registration
+        //   2. ICommandHandler<TContext> — pipeline execution path
+        //   3. IConceptWriter (singleton-of-handler) — build-time validate-concepts registry
+        services.AddTransient<PipelineNameInitializerHandler>();
+        services.AddTransient<ICommandHandler<PipelineNameInitializerContext>>(sp =>
+            sp.GetRequiredService<PipelineNameInitializerHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<PipelineNameInitializerHandler>());
+
+        services.AddTransient<BootstrapCheckHandler>();
+        services.AddTransient<ICommandHandler<BootstrapCheckContext>>(sp =>
+            sp.GetRequiredService<BootstrapCheckHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<BootstrapCheckHandler>());
+
+        services.AddSingleton<ConceptWriterRegistry>();
     }
 
     private static void RegisterContextBuilders(IServiceCollection services)

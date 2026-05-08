@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -20,10 +21,16 @@ public sealed class BootstrapCheckHandler(
     ISandboxFileReaderFactory readerFactory,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     ILogger<BootstrapCheckHandler> logger)
-    : ICommandHandler<BootstrapCheckContext>
+    : ICommandHandler<BootstrapCheckContext>, IConceptWriter
 {
     private const string ContextYamlPath = $"{Repository.SandboxWorkPath}/.agentsmith/context.yaml";
     private const string CodingPrinciplesPath = $"{Repository.SandboxWorkPath}/.agentsmith/coding-principles.md";
+
+    public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
+    [
+        new ConceptDeclaration("context_yaml_present", ConceptType.Bool),
+        new ConceptDeclaration("coding_principles_present", ConceptType.Bool)
+    ];
 
     public async Task<CommandResult> ExecuteAsync(
         BootstrapCheckContext context, CancellationToken cancellationToken)

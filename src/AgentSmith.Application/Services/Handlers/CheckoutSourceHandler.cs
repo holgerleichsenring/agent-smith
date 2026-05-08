@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -20,10 +21,13 @@ public sealed class CheckoutSourceHandler(
     ISourceProviderFactory factory,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     ILogger<CheckoutSourceHandler> logger)
-    : ICommandHandler<CheckoutSourceContext>
+    : ICommandHandler<CheckoutSourceContext>, IConceptWriter
 {
     private const int CloneTimeoutSeconds = 300;
     private const int CheckoutTimeoutSeconds = 60;
+
+    public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
+        [new ConceptDeclaration("source_available", ConceptType.Bool)];
 
     public async Task<CommandResult> ExecuteAsync(
         CheckoutSourceContext context, CancellationToken cancellationToken)
