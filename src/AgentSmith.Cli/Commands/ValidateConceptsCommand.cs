@@ -30,7 +30,10 @@ public sealed class ValidateConceptsCommand(
         var skills = skillLoader.LoadRoleDefinitions(skillsDirectory);
 
         foreach (var skill in skills)
+        {
             CheckActivatesWhen(skill, vocabulary, errors);
+            CheckNewFormatRules(skill, errors);
+        }
 
         foreach (var (conceptName, handlers) in registry.ConceptToHandlers)
             CheckHandlerSide(conceptName, handlers, vocabulary, errors);
@@ -89,6 +92,21 @@ public sealed class ValidateConceptsCommand(
             if (!vocabulary.TryGet(name, out _))
                 errors.Add(new ConceptValidationError(
                     skill.Name, name, "activates_when references concept not declared in vocabulary"));
+    }
+
+    private static void CheckNewFormatRules(
+        RoleSkillDefinition skill, List<ConceptValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(skill.Role)) return;
+        if (skill.InvestigatorMode == "verify_hint" && string.IsNullOrWhiteSpace(skill.Category))
+            errors.Add(new ConceptValidationError(skill.Name, "category",
+                "category is required when investigator_mode=verify_hint"));
+        if (skill.Role == "judge" && string.IsNullOrWhiteSpace(skill.BlockCondition))
+            errors.Add(new ConceptValidationError(skill.Name, "block_condition",
+                "block_condition is required when role=judge"));
+        if (skill.OutputSchema == "bootstrap" && skill.Role != "producer")
+            errors.Add(new ConceptValidationError(skill.Name, "output_schema",
+                $"output_schema=bootstrap requires role=producer; got role='{skill.Role}'"));
     }
 
     private static void CheckHandlerSide(

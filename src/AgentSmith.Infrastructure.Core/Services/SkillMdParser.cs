@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -21,6 +22,8 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
+
+    private readonly NewFormatSkillBuilder _newFormatBuilder = new(new NewFormatSkillValidator());
 
     internal RoleSkillDefinition? Parse(string skillDirectory)
     {
@@ -74,6 +77,28 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
     }
 
     private RoleSkillDefinition BuildRole(
+        SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath)
+    {
+        var format = DetectFormat(meta, skillMdPath);
+        return format == SkillMdFormat.NewFormat
+            ? _newFormatBuilder.Build(meta, body, skillDirectory, skillMdPath)
+            : BuildLegacyRole(meta, body, skillDirectory, skillMdPath);
+    }
+
+    private static SkillMdFormat DetectFormat(SkillMdFrontmatter meta, string skillMdPath)
+    {
+        var hasLegacy = meta.RolesSupported is not null && meta.RolesSupported.Count > 0;
+        var hasNew = !string.IsNullOrWhiteSpace(meta.Role);
+        if (hasLegacy && hasNew)
+            throw new SkillFormatException(
+                skillMdPath, "declare either roles_supported (legacy) or role (new), not both");
+        if (!hasLegacy && !hasNew)
+            throw new SkillFormatException(
+                skillMdPath, "missing required field: role (new) or roles_supported (legacy)");
+        return hasNew ? SkillMdFormat.NewFormat : SkillMdFormat.Legacy;
+    }
+
+    private RoleSkillDefinition BuildLegacyRole(
         SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath) =>
         new()
         {
@@ -100,6 +125,16 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             throw new InvalidOperationException(
                 $"Provider override at '{paths.EffectivePath}' has name='{over.Name}' but base SKILL.md has name='{@base.Name}'. Names must match.");
 
+        var baseIsNew = !string.IsNullOrWhiteSpace(@base.Role);
+        if (baseIsNew)
+            ValidateNewFormatOverride(over, @base, paths);
+        else
+            ValidateLegacyOverride(over, @base, paths);
+    }
+
+    private static void ValidateLegacyOverride(
+        SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
+    {
         if (over.RolesSupported is null)
             throw new InvalidOperationException(
                 $"Provider override at '{paths.EffectivePath}' must declare roles_supported; cannot inherit it from base.");
@@ -112,6 +147,14 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
                 $"but base SKILL.md has roles_supported=[{string.Join(",", baseSet)}]. They must match.");
     }
 
+    private static void ValidateNewFormatOverride(
+        SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
+    {
+        if (over.Role is not null && !string.Equals(over.Role, @base.Role, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Provider override at '{paths.EffectivePath}' has role='{over.Role}' but base SKILL.md has role='{@base.Role}'. Roles must match.");
+    }
+
     private static SkillMdFrontmatter MergeFrontmatter(
         SkillMdFrontmatter @base, SkillMdFrontmatter over) => new()
         {
@@ -122,12 +165,20 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             Triggers = over.Triggers ?? @base.Triggers,
             Version = over.Version ?? @base.Version,
             AllowedTools = over.AllowedTools ?? @base.AllowedTools,
-            RolesSupported = over.RolesSupported,
+            RolesSupported = over.RolesSupported ?? @base.RolesSupported,
             Activation = over.Activation ?? @base.Activation,
             RoleAssignment = over.RoleAssignment ?? @base.RoleAssignment,
             References = over.References ?? @base.References,
             OutputContract = over.OutputContract ?? @base.OutputContract,
             ActivatesWhen = over.ActivatesWhen ?? @base.ActivatesWhen,
+            Role = over.Role ?? @base.Role,
+            Category = over.Category ?? @base.Category,
+            InvestigatorMode = over.InvestigatorMode ?? @base.InvestigatorMode,
+            SurveyScope = over.SurveyScope ?? @base.SurveyScope,
+            ScopeHint = over.ScopeHint ?? @base.ScopeHint,
+            BlockCondition = over.BlockCondition ?? @base.BlockCondition,
+            Loop = over.Loop ?? @base.Loop,
+            OutputSchema = over.OutputSchema ?? @base.OutputSchema,
         };
 
     private IReadOnlyList<SkillRole>? MapRolesSupported(List<string>? raw, string skillMdPath)

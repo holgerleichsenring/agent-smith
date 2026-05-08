@@ -52,4 +52,28 @@ public sealed class RoleSkillDefinition
     /// <c>validate-concepts</c> CLI verb; consumed at runtime by triage in p0127.
     /// </summary>
     public string? ActivatesWhen { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? Role { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? Category { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? InvestigatorMode { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public IReadOnlyList<string>? SurveyScope { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? ScopeHint { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? BlockCondition { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public bool? Loop { get; set; }
+
+    /// <summary>p0127a: set when the new SKILL.md format is used; null on legacy format.</summary>
+    public string? OutputSchema { get; set; }
 }

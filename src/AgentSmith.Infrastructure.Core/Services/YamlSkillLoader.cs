@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -144,6 +145,12 @@ public sealed class YamlSkillLoader(
                 roles.Add(role);
                 logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
             }
+            catch (SkillFormatException ex)
+            {
+                logger.LogError(
+                    "Skill format violation in {Path}: {Rule}",
+                    ex.SkillFilePath, ex.RuleDescription);
+            }
             catch (InvalidOperationException ex)
             {
                 logger.LogError(ex, "Invalid skill configuration in {Dir} — skill not loaded", dir);
@@ -181,6 +188,15 @@ public sealed class YamlSkillLoader(
 
     private static bool ValidateStrict(RoleSkillDefinition skill, string source, out string error)
     {
+        // p0127a: new-format skills are validated at parse time by NewFormatSkillValidator;
+        // the legacy roles_supported / RoleBodies / role_assignment checks below don't apply.
+        if (!string.IsNullOrWhiteSpace(skill.Role))
+        {
+            _ = source;
+            error = string.Empty;
+            return true;
+        }
+
         if (skill.RolesSupported is null || skill.RolesSupported.Count == 0)
         {
             error = "frontmatter is missing 'roles_supported' — every skill must declare which roles it can take";

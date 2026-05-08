@@ -25,6 +25,18 @@ internal sealed class SkillMdFrontmatter
     // p0125d: free-form boolean expression over the typed concept vocabulary.
     // Validated by the validate-concepts CLI verb; consumed at runtime by triage in p0127.
     public string? ActivatesWhen { get; set; }
+
+    // p0127a: new SKILL.md shape (single-body, role-as-frontmatter). Presence of `Role`
+    // routes the file through the new-format parser; the legacy fields above stay
+    // populated only for files that still declare `roles_supported`.
+    public string? Role { get; set; }
+    public string? Category { get; set; }
+    public string? InvestigatorMode { get; set; }
+    public List<string>? SurveyScope { get; set; }
+    public string? ScopeHint { get; set; }
+    public string? BlockCondition { get; set; }
+    public bool? Loop { get; set; }
+    public string? OutputSchema { get; set; }
 }
 
 internal sealed class RawActivationCriteria
