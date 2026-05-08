@@ -9,12 +9,16 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.Application.Services.Triage;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Application;
 
@@ -50,11 +54,24 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<PipelineConcurrencyGate>();
         services.AddSingleton<OutcomeClassifier>();
-        services.AddSingleton<ISkillOutputValidator, NoOpSkillOutputValidator>();
+        services.AddSingleton<NoOpSkillOutputValidator>();
+        services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
         services.AddSingleton<RetryCoordinator>();
         // p0126c: SkillCallRuntime is scoped (one per pipeline run); composes the
         // five collaborator services into the public ExecuteAsync flow.
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
+        // p0128a: schema validators + factory. JsonSchemaLoader caches all four
+        // hand-written schemas at boot for the process lifetime.
+        services.AddSingleton<JsonSchemaLoader>();
+        services.AddSingleton<PlanOutputValidator>();
+        services.AddSingleton<DiffOutputValidator>();
+        services.AddSingleton<BootstrapOutputValidator>();
+        services.AddSingleton<ObservationOutputValidator>();
+        services.AddSingleton<SkillOutputValidatorFactory>();
+        // p0128a: in-memory store is the safe default; AgentSmith.Cli/Server's
+        // Redis-gated registration replaces this with RedisRunArtifactStore when
+        // a ConnectionMultiplexer is available.
+        services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
     }
 
     private static void RegisterHandlers(IServiceCollection services)

@@ -20,4 +20,11 @@ public sealed record SkillCallRequest
     public required IReadOnlyList<AITool> ToolSet { get; init; }
     public required AgentConfig AgentConfig { get; init; }
     public required TaskType TaskType { get; init; }
+
+    /// <summary>
+    /// Declared output schema (observation/plan/diff/bootstrap) from RoleSkillDefinition.
+    /// Null on legacy paths that have not migrated to the new SKILL.md format yet —
+    /// SkillOutputValidatorFactory falls back to NoOpSkillOutputValidator in that case.
+    /// </summary>
+    public string? OutputSchema { get; init; }
 }

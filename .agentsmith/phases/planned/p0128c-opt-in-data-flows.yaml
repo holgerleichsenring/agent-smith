@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0128c
+goal: "Third slice of D4. Opt-in data-flow gating between pipeline phases. Phase preset implementations declare directed edges (Plan → Review, Plan → Implementation, Implementation → Verify, Investigate → Filter, Filter → Synthesize); access to phase outputs through PipelineContext is gated by the declared edges. Today's free-for-all ContextKeys access becomes structured. Closes D4."
+
+requires: ["p0128a", "p0128b"]
+
+scope:
+  in: "(1) IPhaseDataFlow contract — single property IReadOnlyList<PhaseDataFlowEdge> Edges. PhaseDataFlowEdge record { string FromPhaseStep, string ToPhaseStep, IReadOnlyList<string> ContextKeys }. (2) Phase-preset edges — each pipeline preset (FixBug / FixNoTest / AddFeature / SecurityScan / ApiSecurityScan / MadDiscussion / LegalAnalysis / KnowledgeBase / Autonomous / SkillManager) implements IPhaseDataFlow as a sibling type next to the existing PipelinePresets entry. Each declares the keys downstream phases may read (ContextKeys.Plan, ContextKeys.PlanJson, ContextKeys.CodeChanges, ContextKeys.DiffJson, ContextKeys.SkillObservations, etc.). (3) GatedPipelineContext — wraps the existing PipelineContext with a per-active-phase access policy. New ContextKeys.ActivePhaseStep tracks which preset step is currently executing; the wrapper checks Get<T>(key) calls against the declared edges; any read of an undeclared upstream key throws DataFlowViolationException with a clear message naming the offending key + (from, to) pair. (4) PipelineExecutor wires up the gating — sets ActivePhaseStep before each step, resets after; resolves the IPhaseDataFlow for the current preset via DI; constructs a GatedPipelineContext for the duration of the step. (5) Migration of free-for-all reads — every existing PipelineContext.Get<T> / TryGet<T> call site that reads a key produced by an upstream phase either gets covered by the declared edges or refactors to read from a more local source (e.g. an injected service holding the value). The intent: code that reads e.g. ContextKeys.SkillObservations from outside the declared Filter→Synthesize chain either fails compile/test or moves into the chain. (6) DataFlowViolationException + structured logging — when a violation is detected at runtime, log Error with active-phase + offending-key + declared-keys. The violation is fatal for the pipeline run (caller of Get<T> sees the exception bubble through). (7) Disabling the wrapper for legacy paths — opt-in via AgentSmithConfig.PipelineDataFlow.Enforce (bool, default false during D4). When false, GatedPipelineContext passes reads through verbatim and logs warnings for what would have been violations. Operators flip Enforce=true once their pipelines are clean."
+  out: "(1) Compile-time enforcement (source generators) — runtime gating only this slice. (2) Edge declaration in YAML — code-as-truth per Phase C. (3) Removal of dead ContextKeys — that's a follow-up after D7 once all migration is settled. (4) Cross-pipeline-run gating — context is per-run, not per-tenant or per-project. (5) Asynchronous fan-out gating (parallel skill rounds reading shared upstream keys) — the gate is per-step, parallel siblings within a step share the same edge declaration."
+
+decisions:
+  - key: "Edges live in code, not YAML. Reason: Phase C decision (code-as-truth, no parallel YAML). Pipeline presets are already C# types in PipelinePresets.cs; co-locating the edge declaration with the preset keeps the pair atomic — adding/removing a step requires updating the edges in the same file, caught at compile time when the IPhaseDataFlow shape changes."
+  - key: "Runtime gating, not compile-time. Reason: source-generator-driven static analysis would inflate the build pipeline for marginal benefit; the test pack already exercises every preset's happy path, so a violating call hits the test suite on first execution. Easier to maintain than a static-analysis layer with comparable correctness floor."
+  - key: "Enforce flag defaults to false during D4 cutover. Reason: existing ContextKeys reads are wide and uncatalogued. Flipping enforce=true wholesale would break every pipeline preset on day 1. The warn-only mode lets operators run a real workload, collect the warning log, refactor incrementally, then flip enforce=true. Hard cutover is a follow-up phase after D7 (p0131)."
+  - key: "Wrap PipelineContext rather than replace it. Reason: PipelineContext is a wide surface (Set/Get/TryGet/Has/Remove/Snapshot...). Reimplementing all of that to add gating just for reads would re-derive the rest. The wrapper delegates everything to the inner context except Get<T>/TryGet<T>, which it gates. Set is unchanged — the producing phase writes freely; the consumer's read is the gate."
+  - key: "Active-phase tracking via ContextKeys.ActivePhaseStep, not via thread-local state. Reason: parallel skill rounds (p0097) execute siblings concurrently within a step; thread-locals would fragment the active-phase signal. The string ContextKeys.ActivePhaseStep is set once at step entry, read by GatedPipelineContext on every read; siblings share the same value because they execute under the same step name."
+  - key: "DataFlowViolationException is fatal, not soft-fail. Reason: a read of an undeclared key is a code bug, not a recoverable runtime condition. Soft-failing would mask the bug behind a warning the operator never reads. The exception bubbles through the pipeline executor's failure path, the run fails loudly, the bug gets fixed."
+
+steps:
+  - id: contracts
+    action: "IPhaseDataFlow + PhaseDataFlowEdge + DataFlowViolationException"
+    new:
+      - "src/AgentSmith.Contracts/Pipeline/IPhaseDataFlow.cs: contract with single Edges property."
+      - "src/AgentSmith.Contracts/Pipeline/PhaseDataFlowEdge.cs: record { FromPhaseStep, ToPhaseStep, ContextKeys }."
+      - "src/AgentSmith.Contracts/Exceptions/DataFlowViolationException.cs: carries ActivePhaseStep, OffendingKey, DeclaredFromSteps."
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: add ActivePhaseStep."
+
+  - id: gated-context
+    action: "GatedPipelineContext wrapper"
+    new:
+      - "src/AgentSmith.Application/Services/Pipeline/GatedPipelineContext.cs: wraps PipelineContext; constructor takes inner + IPhaseDataFlow + activePhaseStep + enforce-bool. Get<T>/TryGet<T> check the declared edges; on undeclared read with enforce=true, throws DataFlowViolationException; with enforce=false, logs Warning."
+      - "src/AgentSmith.Application/Services/Pipeline/IPhaseDataFlowResolver.cs + PhaseDataFlowResolver.cs: looks up the IPhaseDataFlow for the active pipeline preset via the existing ResolvedPipeline slot."
+      - "tests/AgentSmith.Tests/Pipeline/GatedPipelineContextTests.cs: 8 tests — DeclaredKey_Reads_Pass, UndeclaredKey_EnforceTrue_Throws, UndeclaredKey_EnforceFalse_LogsWarningAndPassesThrough, ActivePhaseStepNotSet_FallsBackToWarning, NestedSet_Unchanged, MultipleEdgesToSamePhase_AllKeysAccepted, EmptyEdges_AllReadsBlocked, ResolverFallback_NoPhaseDataFlow_BypassesGate."
+
+  - id: preset-data-flows
+    action: "IPhaseDataFlow per pipeline preset (10 presets)"
+    new:
+      - "src/AgentSmith.Application/PipelineDataFlows/<Preset>DataFlow.cs (10 files): one per preset; each declares the edges between its phase steps. Sibling to the existing PipelinePresets entry — preset author updates both atomically."
+      - "tests/AgentSmith.Tests/Pipeline/PipelineDataFlowsCoverageTests.cs: every preset registered in PipelinePresets has a matching IPhaseDataFlow registered; each declared edge's ContextKeys list is non-empty (catches accidental empty declarations)."
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register each <Preset>DataFlow as keyed singleton on preset name."
+
+  - id: executor-wiring
+    action: "PipelineExecutor sets ActivePhaseStep + uses GatedPipelineContext"
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: before each step's ExecuteAsync, set PipelineContext[ContextKeys.ActivePhaseStep] = step.CommandName; wrap PipelineContext in GatedPipelineContext for the duration of the step; reset ActivePhaseStep after. The wrap happens inside the existing per-step error-handling envelope so violations participate in the failure-recovery path (PersistWorkBranchHandler etc.)."
+
+  - id: enforce-config
+    action: "PipelineDataFlowConfig + AgentSmithConfig binding"
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/PipelineDataFlowConfig.cs: { Enforce (bool, default false) }."
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs: PipelineDataFlow property."
+      - "config/agentsmith.yml + agentsmith.example.yml: add `pipeline_data_flow: { enforce: false }` section with explanatory comment."
+
+  - id: migration
+    action: "Migrate free-for-all reads under the gate"
+    modify:
+      - "Existing call sites that read upstream-phase keys: each gets covered by an edge declaration in the relevant preset's data flow OR refactors to read from a more local source. The exact list emerges during execution from the warning log under enforce=false on the existing test fixtures; estimated 15-25 sites across SkillRoundHandlerBase / FilterRoundHandler / PhaseAdvanceHandler / WriteRunResultHandler / RunResultFormatter."
+
+  - id: tests-pack
+    action: "Test pack: gated context + per-preset data-flow declarations + end-to-end"
+    new:
+      - "tests/AgentSmith.Tests/Pipeline/GatedPipelineContextTests.cs (8 tests, see step gated-context)."
+      - "tests/AgentSmith.Tests/Pipeline/PipelineDataFlowsCoverageTests.cs (2 tests, see step preset-data-flows)."
+      - "tests/AgentSmith.Tests/Pipeline/PipelineExecutorDataFlowTests.cs: ExecuteAsync_DeclaredEdge_AllowsRead, ExecuteAsync_UndeclaredEdge_ThrowsViolation, ExecuteAsync_EnforceFalse_LogsWarning, ExecuteAsync_NoDataFlowRegistered_NoOp."
+
+tests:
+  - "GatedPipelineContext_DeclaredKey_Reads_Pass"
+  - "GatedPipelineContext_UndeclaredKey_EnforceTrue_Throws"
+  - "GatedPipelineContext_UndeclaredKey_EnforceFalse_LogsWarningAndPassesThrough"
+  - "GatedPipelineContext_ActivePhaseStepNotSet_FallsBackToWarning"
+  - "GatedPipelineContext_NestedSet_Unchanged"
+  - "GatedPipelineContext_MultipleEdgesToSamePhase_AllKeysAccepted"
+  - "GatedPipelineContext_EmptyEdges_AllReadsBlocked"
+  - "GatedPipelineContext_ResolverFallback_NoPhaseDataFlow_BypassesGate"
+  - "PipelineDataFlowsCoverage_EveryPreset_HasMatchingPhaseDataFlow"
+  - "PipelineDataFlowsCoverage_EveryEdge_HasNonEmptyContextKeys"
+  - "PipelineExecutorDataFlow_ExecuteAsync_DeclaredEdge_AllowsRead"
+  - "PipelineExecutorDataFlow_ExecuteAsync_UndeclaredEdge_ThrowsViolation"
+  - "PipelineExecutorDataFlow_ExecuteAsync_EnforceFalse_LogsWarning"
+  - "PipelineExecutorDataFlow_ExecuteAsync_NoDataFlowRegistered_NoOp"
+
+done:
+  - "IPhaseDataFlow + PhaseDataFlowEdge contracts exist; 10 preset data-flows declared; PipelineExecutor wraps each step in GatedPipelineContext"
+  - "ContextKeys.ActivePhaseStep tracks the currently executing step; GatedPipelineContext gates Get<T>/TryGet<T> by the declared edges"
+  - "DataFlowViolationException is fatal under enforce=true; warning-only under enforce=false (default during D4 cutover)"
+  - "All free-for-all reads either fall under declared edges or refactor; warning log is empty on the standard pipeline test fixtures"
+  - "AgentSmithConfig.PipelineDataFlow.Enforce defaults to false; operator-tunable in agentsmith.yml"
+  - "D4 complete: schemas + persistence (a), open_questions round-trip (b), opt-in data flows (c) all land"

@@ -123,4 +123,12 @@ public static class ContextKeys
     /// every time SkillRoundHandlerBase.DetectBlockingFollowUp inserts a SwitchSkill follow-up.
     /// Used to break immediate A→B→A ping-pong cycles in O(1) without an explicit cap.</summary>
     public const string SwitchSkillLastSummoner = "SwitchSkillLastSummoner";
+
+    // p0128a: wire-format JSON/markdown payloads alongside the typed Plan/CodeChanges
+    // entries. Existing Plan and CodeChanges keep their typed-entity semantics; the new
+    // keys carry the persisted shape consumed by WriteRunResultHandler and the Redis
+    // pipeline-storage layer.
+    public const string PlanJson = "PlanJson";
+    public const string DiffJson = "DiffJson";
+    public const string BootstrapMarkdown = "BootstrapMarkdown";
 }

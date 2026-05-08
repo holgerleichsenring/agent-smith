@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
@@ -20,21 +21,21 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     private readonly LoopLimitsConfig _limits;
     private readonly OutcomeClassifier _classifier;
     private readonly RetryCoordinator _retry;
-    private readonly ISkillOutputValidator _validator;
+    private readonly SkillOutputValidatorFactory _validatorFactory;
     private readonly ILogger<SkillCallRuntime> _logger;
 
     public SkillCallRuntime(
         IChatClientFactory chatFactory,
         PipelineConcurrencyGate gate, LoopLimitsConfig limits,
         OutcomeClassifier classifier, RetryCoordinator retry,
-        ISkillOutputValidator validator, ILogger<SkillCallRuntime> logger)
+        SkillOutputValidatorFactory validatorFactory, ILogger<SkillCallRuntime> logger)
     {
         _chatFactory = chatFactory;
         _gate = gate;
         _limits = limits;
         _classifier = classifier;
         _retry = retry;
-        _validator = validator;
+        _validatorFactory = validatorFactory;
         _logger = logger;
     }
 
@@ -64,7 +65,8 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             var chat = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
             var options = new ChatOptions { Tools = request.ToolSet.ToList() };
             var messages = request.PromptParts.ToList();
-            var outcome = await _retry.InvokeAsync(chat, messages, options, _validator, ct, costTracker.Track);
+            var validator = _validatorFactory.ForSchema(request.OutputSchema);
+            var outcome = await _retry.InvokeAsync(chat, messages, options, validator, ct, costTracker.Track);
             return (outcome, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

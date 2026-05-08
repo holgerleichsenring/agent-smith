@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
@@ -37,7 +38,8 @@ public static class RunResultFormatter
         int runNumber, int durationSeconds, RunCostSummary? costSummary,
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
         SecurityTrend? securityTrend = null,
-        IReadOnlyList<DialogTrailEntry>? dialogueTrail = null)
+        IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
+        IReadOnlyList<CallCostRecord>? perSkillBreakdown = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -59,6 +61,7 @@ public static class RunResultFormatter
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);
         RunResultSectionWriter.AppendSecurityTrend(sb, securityTrend);
+        RunResultSectionWriter.AppendPerSkillBreakdown(sb, perSkillBreakdown);
         RunResultSectionWriter.AppendExecutionTrail(sb, trail);
 
         return sb.ToString();

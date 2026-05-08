@@ -303,6 +303,11 @@ limits:
   max_seconds_per_skill_call: 300             # wall-clock cap; runtime returns Incomplete if crossed
   max_concurrent_skill_calls: 10              # per pipeline run — N parallel runs ⇒ effective concurrency 10×N. Downscale here or add a Polly layer at the IChatClient seam if provider rate limits get hit.
 
+# In-flight pipeline-storage settings (Redis-backed RunArtifactStore for plan/diff/bootstrap handoffs).
+# TTL is the safety net for runs that crash without explicitly clearing — tunable here.
+pipeline_storage:
+  redis_ttl_hours: 4
+
 secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
   # openai_api_key: ${OPENAI_API_KEY}

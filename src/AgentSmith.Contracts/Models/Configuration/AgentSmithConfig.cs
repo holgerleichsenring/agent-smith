@@ -34,4 +34,10 @@ public sealed class AgentSmithConfig
     /// see <see cref="LoopLimitsConfig"/>.
     /// </summary>
     public LoopLimitsConfig Limits { get; set; } = new();
+
+    /// <summary>
+    /// In-flight pipeline-storage settings (Redis TTL for transient artifacts).
+    /// See <see cref="PipelineStorageConfig"/>.
+    /// </summary>
+    public PipelineStorageConfig PipelineStorage { get; set; } = new();
 }

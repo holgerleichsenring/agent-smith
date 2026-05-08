@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -73,10 +74,12 @@ internal static class RuntimeBuilder
         var factory = new StubRuntimeChatClientFactory(chat);
         var tracker = new PipelineCostTracker();
         var gate = new PipelineConcurrencyGate(resolvedLimits);
+        var noOp = new NoOpSkillOutputValidator();
+        var validatorFactory = new SkillOutputValidatorFactory(noOp, noOp);
         var runtime = new SkillCallRuntime(
             factory, gate, resolvedLimits,
             new OutcomeClassifier(), new RetryCoordinator(),
-            new NoOpSkillOutputValidator(),
+            validatorFactory,
             NullLogger<SkillCallRuntime>.Instance);
         return (runtime, tracker, factory);
     }

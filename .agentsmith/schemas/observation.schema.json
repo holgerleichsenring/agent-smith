@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-smith.org/schemas/observation/1.0.json",
+  "title": "Observation",
+  "description": "Output contract for skills with output_schema=observation. Mirrors observation-schema.md (the human-facing contract); ObservationParser remains the runtime authority via ObservationOutputValidator wrapping.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": ["concern", "description", "blocking", "severity", "confidence"],
+    "properties": {
+      "concern": {
+        "type": "string",
+        "enum": ["correctness", "architecture", "performance", "security", "legal", "compliance", "risk"]
+      },
+      "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "suggestion": { "type": "string", "maxLength": 300 },
+      "blocking": { "type": "boolean" },
+      "severity": { "type": "string", "enum": ["high", "medium", "low", "info"] },
+      "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+      "rationale": { "type": "string", "maxLength": 500 },
+      "details": { "type": "string", "maxLength": 4000 },
+      "effort": { "type": "string", "enum": ["small", "medium", "large"] },
+      "file": { "type": "string" },
+      "start_line": { "type": "integer", "minimum": 0 },
+      "end_line": { "type": "integer", "minimum": 0 },
+      "api_path": { "type": "string" },
+      "schema_name": { "type": "string" },
+      "evidence_mode": { "type": "string", "enum": ["potential", "confirmed", "analyzed_from_source"] },
+      "category": { "type": "string" },
+      "review_status": { "type": "string", "enum": ["not_reviewed", "confirmed", "false_positive"] },
+      "location": { "type": "string" }
+    }
+  }
+}
