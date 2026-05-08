@@ -200,7 +200,7 @@ public sealed class TriageOutputValidatorTests
     {
         var dict = entries.ToDictionary(
             e => e.Key,
-            e => new ProjectConcept(e.Key, e.Desc, "run_context"));
+            e => new ProjectConcept(e.Key, e.Desc, ConceptType.Bool, null, null, []));
         return new ConceptVocabulary(dict);
     }
 

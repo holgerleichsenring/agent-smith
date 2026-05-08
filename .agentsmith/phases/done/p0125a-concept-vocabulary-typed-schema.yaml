@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0125a
+goal: "First slice of D1 (concept vocabulary). Concept vocabulary becomes typed (bool/int/enum). The flat-namespace YAML schema replaces the three-section shape, and the loader fails boot loudly when the YAML is malformed or still in the legacy shape. No expression evaluator, no run-state surface, no handler concept-publication, no CLI verb — those land in p0125b/c/d. Hard cutover: agent-smith-skills/skills/concept-vocabulary.yaml is migrated synchronously in a paired PR."
+
+requires: ["p0124"]
+
+scope:
+  in: "(1) ConceptType enum (Bool, Int, Enum) added to AgentSmith.Contracts. (2) ProjectConcept record extended: gains Type, EnumValues (nullable, only meaningful for Enum), IntRange (nullable, only meaningful for Int), Writers (list of handler class names that may publish this concept; informational in p0125a, validated by the CLI verb in p0125d). The legacy `Section` field is removed — section semantics collapsed into a flat namespace per the spec. Description preserved (renamed `Desc` → `Description`). (3) ConceptVocabulary gains GetDefault(name) returning the typed default per concept type — false for Bool, 0 for Int, first enum value for Enum. (4) ConceptVocabularyLoader rewritten: deserializes the new flat shape, fails boot with a clear error when the file is missing required fields, mixes type-incompatible attributes (enum_values on int, int_range on enum, missing values on enum), or is still in the legacy three-section shape. The legacy `concepts: { project_concepts: ..., change_signals: ..., run_context: ... }` shape is detected and rejected with a migration hint pointing at the new schema. Error path is hard fail, not warning — boot stops. (5) Cross-repo: agent-smith-skills/skills/concept-vocabulary.yaml is rewritten to the new flat-typed shape, all 68 entries migrated. All 68 entries are bool today (presence flags); the type system supports int and enum but no production entry uses those types yet — they appear when the publishing handlers land in p0125c. Non-bool migration risk is therefore zero in this slice. (6) Three test files updated for the new ProjectConcept shape: ConceptVocabularyLoaderTests rewritten end-to-end, TriageOutputValidatorTests + ProjectMapExcerptBuilderTests helpers updated."
+  out: "(1) Boolean expression parser/evaluator — p0125b. (2) IRunStateConcepts read/write surface — p0125b. (3) Pre-skill handlers publishing concepts (CheckoutSourceHandler, BootstrapCheckHandler, pipeline_name) — p0125c. (4) CLI validate-concepts verb and the IConceptWriter handler-registry it depends on — p0125d. (5) ConceptVocabularyValidator type-mismatch path — activation.positive is bool-only, so positive-key validation behavior is unchanged in this slice. (6) ContextKeys.ConceptValues — added in p0125b. (7) Migration script (scripts/migrate-concept-vocabulary.csx) — the YAML is small (~92 lines, 68 entries), one-shot rewriting it by hand in the cross-repo PR is shorter than scripting + testing the script. Skipped, no replacement planned."
+
+decisions:
+  - key: "Hard cutover, no dual-tolerance loader. The agent-smith-skills repo ships the migrated YAML synchronously in a paired PR; agent-smith boot against an unmigrated YAML fails loudly with a migration hint. Reason: dual-tolerance would mean a second cleanup phase later to remove the legacy code path. Two coordinated PRs is one merge dance; dual-tolerance is two."
+  - key: "Legacy Section field removed from ProjectConcept, not preserved as 'unused'. Reason: the section split is informational, not load-bearing — no code branches on which section a concept lives in, and keeping a dead field for rollback would lie about the schema. The two test helpers that pass `\"project_concepts\"`/`\"run_context\"` as third arg get dropped — they were synthesizing fake sections to satisfy the old ctor."
+  - key: "Loader rejects the legacy three-section shape with a migration hint, not a generic deserialization error. Reason: operators upgrading the binary without realising the schema changed will see the boot crash; pointing them at the new schema location turns 'why did boot fail' into 'how do I migrate'."
+  - key: "Per-type defaults are loader-internal, not declared per entry. False for Bool, 0 for Int, first enum value for Enum. Reason: missing-concept default is a property of the type, not the concept. Per-entry override would let one concept default to true and another to false, which makes activation evaluation surprising once the evaluator lands in p0125b."
+  - key: "Writers list is parsed and stored but not validated against real handler classes in p0125a. Reason: the registry it would be checked against (IConceptWriter or [PublishesConcept] attribute over Application + Infrastructure) doesn't exist yet — that's p0125d. Storing the list now means the YAML can be migrated once with final shape; validation lights up when the CLI verb arrives."
+  - key: "All 68 migrated entries are typed bool with empty `writers: []`. Reason: no entry today represents a count or an enum. Counts (findings_count etc.) appear when scanning handlers publish them in p0125c. Project-language enum lands when ProjectAnalyzer publishes it (also p0125c). Bool is the right type for the entire current namespace; introducing a fictional int/enum entry now to 'exercise the type system' would couple p0125a to a publisher that doesn't exist."
+  - key: "Migration script is dropped from p0125a. Reason: 68 entries in 92 lines of YAML is one editor pass. Scripting the migration costs more than running it; the YAML is in our repo, not operator-owned, so there's no second invocation to amortize against."
+  - key: "ConceptVocabularyValidator behavior preserved unchanged. Reason: it only does TryGet(key, out _) and discards the concept. The signature change (ProjectConcept now carries Type/Writers) is transparent to it. No type-mismatch validation here — activation.positive is bool-only by construction; the type-aware validation arrives with the boolean evaluator in p0125b."
+
+steps:
+  - id: concept-type-enum
+    action: "Add ConceptType enum"
+    new:
+      - "src/AgentSmith.Contracts/Models/Skills/ConceptType.cs: enum with three members (Bool, Int, Enum). XML doc explains that this is the type a concept declares for its values; Bool is presence-flag style, Int is bounded numeric (range declared via IntRange), Enum is closed-set string (values declared via EnumValues)."
+
+  - id: project-concept-record-typed
+    action: "Extend ProjectConcept record with type, range, enum values, writers"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Skills/ProjectConcept.cs: signature becomes `(string Name, string Description, ConceptType Type, IReadOnlyList<string>? EnumValues, ConceptIntRange? IntRange, IReadOnlyList<string> Writers)`. Legacy `Key` field renamed `Name`; legacy `Desc` renamed `Description`; legacy `Section` removed. XML doc lists invariants: EnumValues non-null and non-empty when Type=Enum, IntRange non-null when Type=Int, both null otherwise."
+    new:
+      - "src/AgentSmith.Contracts/Models/Skills/ConceptIntRange.cs: sealed record `(int Min, int Max)`. Used as the typed shape of the int_range YAML node."
+
+  - id: concept-vocabulary-getdefault
+    action: "ConceptVocabulary.GetDefault returns typed default per concept name"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Skills/ConceptVocabulary.cs: gains `object GetDefault(string conceptName)` returning the typed default — false for Bool, 0 for Int, first enum value for Enum. Throws KeyNotFoundException if the concept isn't declared (writers should fail loud on typos rather than silently return false)."
+
+  - id: concept-vocabulary-loader-rewrite
+    action: "Rewrite ConceptVocabularyLoader for the typed flat schema; fail boot on legacy shape"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs: rewritten end to end. Reads `concepts: [{name, type, description, enum_values?, int_range?, writers?}]` (single flat list, no sections). Validates per entry: name non-empty, type one of bool/int/enum, enum_values present and non-empty iff type=enum, int_range present iff type=int, no enum_values on non-enum, no int_range on non-int. Detects the legacy shape by inspecting the deserialized root — if `concepts.project_concepts`/`concepts.change_signals`/`concepts.run_context` are present, throws InvalidOperationException with a clear migration hint (links to the new schema location in the repo). All validation failures are exceptions, not warnings — boot stops. Missing file behavior unchanged (returns ConceptVocabulary.Empty with a warning) so test fixtures and dev environments without a vocabulary file still boot."
+
+  - id: callsite-fixups
+    action: "Fix downstream callsites broken by the ProjectConcept signature change"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyValidator.cs: no behavior change; only impact is that ProjectConcept's ctor signature changed. The validator only calls TryGet(key, out _) and discards — recompile-only."
+      - "tests/AgentSmith.Tests/Triage/TriageOutputValidatorTests.cs: helper `Vocab(...)` rewritten to construct ProjectConcept with the new signature (Name, Description, ConceptType.Bool, null, null, []). Behavior of the test cases unchanged."
+      - "tests/AgentSmith.Tests/Triage/ProjectMapExcerptBuilderTests.cs: helper `VocabularyWith(...)` rewritten the same way."
+
+  - id: vocabulary-yaml-migration
+    action: "Cross-repo: rewrite agent-smith-skills/skills/concept-vocabulary.yaml to flat-typed shape"
+    modify:
+      - "agent-smith-skills/skills/concept-vocabulary.yaml: rewritten in place. Header comment updated to describe the new flat-typed schema and the prefix conventions (source_*, swagger_*, findings_*, plan_*, review_*, api_*). 68 entries migrated to block form `- name: ... / type: bool / description: \"...\" / writers: []`. No section wrappers. Skills version bumped to 1.8.0 (next minor after p0124's 1.7.0); the version is what agent-smith pins via its skills-pull config. The cross-repo PR for agent-smith-skills is paired with this PR; both merge synchronously."
+
+  - id: tests
+    action: "Loader test pack rewritten for the new schema"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Skills/ConceptVocabularyLoaderTests.cs: rewritten end to end. Tests: LoadValidFlatYaml_LoadsAllEntries; LoadValidYaml_BoolDefaultsToFalse; LoadValidYaml_IntDefaultsToZero; LoadValidYaml_EnumDefaultsToFirstValue; LoadLegacyThreeSectionShape_FailsWithMigrationHint; LoadEnumWithoutValues_Fails; LoadIntWithEnumValues_Fails; LoadBoolWithIntRange_Fails; LoadEntryMissingType_Fails; LoadEntryMissingName_Fails; LoadDuplicateName_Fails; LoadMissingFile_ReturnsEmpty (preserved). The legacy DuplicateKeyAcrossSections test is dropped — sections no longer exist."
+
+tests:
+  - "ConceptVocabularyLoader_LoadValidFlatYaml_LoadsAllEntries"
+  - "ConceptVocabularyLoader_LoadValidYaml_BoolDefaultsToFalse"
+  - "ConceptVocabularyLoader_LoadValidYaml_IntDefaultsToZero"
+  - "ConceptVocabularyLoader_LoadValidYaml_EnumDefaultsToFirstValue"
+  - "ConceptVocabularyLoader_LoadLegacyThreeSectionShape_FailsWithMigrationHint"
+  - "ConceptVocabularyLoader_LoadEnumWithoutValues_Fails"
+  - "ConceptVocabularyLoader_LoadIntWithEnumValues_Fails"
+  - "ConceptVocabularyLoader_LoadBoolWithIntRange_Fails"
+  - "ConceptVocabularyLoader_LoadEntryMissingType_Fails"
+  - "ConceptVocabularyLoader_LoadEntryMissingName_Fails"
+  - "ConceptVocabularyLoader_LoadDuplicateName_Fails"
+  - "ConceptVocabularyLoader_LoadMissingFile_ReturnsEmpty"
+
+done:
+  - "ConceptType enum exists in AgentSmith.Contracts.Models.Skills"
+  - "ProjectConcept carries Name, Description, Type, EnumValues, IntRange, Writers (legacy Section + Key + Desc fields gone)"
+  - "ConceptVocabulary.GetDefault returns the typed default per concept type (false / 0 / first enum value)"
+  - "ConceptVocabularyLoader parses the new flat-typed YAML and fails boot loudly on legacy shape, mixed-type attributes, missing required fields, or duplicate names"
+  - "agent-smith-skills/skills/concept-vocabulary.yaml is migrated to the flat-typed shape with all 68 entries (bool-typed, empty writers lists), version bumped to 1.8.0"
+  - "All 12 listed loader tests pass"
+  - "All existing tests pass (TriageOutputValidatorTests + ProjectMapExcerptBuilderTests helpers updated for new ctor; behavior unchanged)"
+  - "Boot against legacy YAML produces a hard failure with a migration hint, not a silent warning"
+  - "Old activation.positive path still works in observable behavior — the validator's TryGet result is unchanged for valid keys; type-aware validation arrives in p0125b"
