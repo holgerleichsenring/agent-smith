@@ -8,6 +8,7 @@ using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
@@ -38,7 +39,19 @@ public static class ServiceCollectionExtensions
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
+        RegisterLoopServices(services);
         return services;
+    }
+
+    // p0126b: skill-call collaborator services. PipelineConcurrencyGate is scoped
+    // (one per pipeline-run DI scope); OutcomeClassifier, RetryCoordinator and the
+    // default NoOpSkillOutputValidator are stateless singletons.
+    private static void RegisterLoopServices(IServiceCollection services)
+    {
+        services.AddScoped<PipelineConcurrencyGate>();
+        services.AddSingleton<OutcomeClassifier>();
+        services.AddSingleton<ISkillOutputValidator, NoOpSkillOutputValidator>();
+        services.AddSingleton<RetryCoordinator>();
     }
 
     private static void RegisterHandlers(IServiceCollection services)
