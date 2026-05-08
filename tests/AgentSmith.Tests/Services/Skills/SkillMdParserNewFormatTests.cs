@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -63,12 +64,12 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
 
         var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
         skill.Role.Should().Be("producer");
-        skill.RolesSupported.Should().BeNull();
     }
 
     [Fact]
-    public void Parse_OnlyRolesSupportedPresent_LoadsAsLegacy()
+    public void Parse_OnlyRolesSupportedPresent_RejectedAsLegacy()
     {
+        // p0127c: legacy 'roles_supported' shape no longer parses. Skill is dropped at load.
         WriteSkill("legacy", """
             ---
             name: legacy
@@ -81,9 +82,7 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
             Analyst body.
             """);
 
-        var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
-        skill.Role.Should().BeNull();
-        skill.RolesSupported.Should().NotBeNull();
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
     }
 
     [Fact]
@@ -156,8 +155,11 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
     }
 
     [Fact]
-    public void ParseNewFormat_LegacyFieldsNull()
+    public void ParseNewFormat_LegacyCompatFieldsPopulatedFromRole()
     {
+        // p0127c: NewFormatSkillBuilder dual-writes the legacy fields from the new
+        // taxonomy so existing triage / index consumers keep working during the
+        // [Obsolete] window before p0131 removes them. Producer maps to Lead.
         WriteSkill("legacy-null", """
             ---
             name: legacy-null
@@ -170,9 +172,7 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
             """);
 
         var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
-        skill.RolesSupported.Should().BeNull();
-        skill.Activation.Should().BeNull();
-        skill.RoleAssignments.Should().BeNull();
+        skill.RolesSupported.Should().BeEquivalentTo([SkillRole.Lead]);
         skill.RoleBodies.Should().BeNull();
     }
 

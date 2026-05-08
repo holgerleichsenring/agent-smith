@@ -30,7 +30,12 @@ public sealed class SkillMdParserExtendedTests : IDisposable
         if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, recursive: true);
     }
 
-    [Fact]
+    // p0127c: legacy roles_supported / role_assignment / references parsing is gone.
+    // The DeclaresRole_ButNoBodySection / RoleAssignment_DeclaresRoleNotInRolesSupported /
+    // DuplicateReferenceId tests below still pass — they assert legacy fixtures are
+    // rejected (now via SkillFormatException at parse time, was via ValidateStrict).
+    // The original positive-parsing tests for the legacy shape were removed.
+    [Fact(Skip = "p0127c: legacy roles_supported parsing removed")]
     public void RolesSupportedFrontmatter_ParsesAllRoles()
     {
         WriteSkill("architect", """
@@ -96,7 +101,7 @@ public sealed class SkillMdParserExtendedTests : IDisposable
         skill.OutputContract.OutputType[SkillRole.Reviewer].Should().Be(OutputForm.List);
     }
 
-    [Fact]
+    [Fact(Skip = "p0127c: SkillBodySplitter / RoleBodies removed")]
     public void BodySplitByH2Header_ProducesRoleBodyMap()
     {
         WriteSkill("multi", """

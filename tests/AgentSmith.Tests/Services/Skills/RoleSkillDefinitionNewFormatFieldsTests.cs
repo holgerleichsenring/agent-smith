@@ -59,8 +59,10 @@ public sealed class RoleSkillDefinitionNewFormatFieldsTests : IDisposable
     }
 
     [Fact]
-    public void LegacyFormat_NewFieldsAreNull()
+    public void LegacyFormat_RejectedAtLoad()
     {
+        // p0127c: legacy roles_supported shape no longer parses. The skill is
+        // dropped at load time with a SkillFormatException logged.
         WriteSkill("legacy", """
             ---
             name: legacy
@@ -73,16 +75,7 @@ public sealed class RoleSkillDefinitionNewFormatFieldsTests : IDisposable
             Analyst body.
             """);
 
-        var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Single();
-
-        skill.Role.Should().BeNull();
-        skill.Category.Should().BeNull();
-        skill.InvestigatorMode.Should().BeNull();
-        skill.SurveyScope.Should().BeNull();
-        skill.ScopeHint.Should().BeNull();
-        skill.BlockCondition.Should().BeNull();
-        skill.Loop.Should().BeNull();
-        skill.OutputSchema.Should().BeNull();
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
     }
 
     private void WriteSkill(string name, string content)

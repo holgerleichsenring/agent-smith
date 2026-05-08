@@ -102,13 +102,16 @@ public sealed class YamlSkillLoader(
                     ConvergenceCriteria = role.ConvergenceCriteria,
                     Source = role.Source,
                     Orchestration = role.Orchestration,
-                    RolesSupported = role.RolesSupported,
-                    Activation = role.Activation,
-                    RoleAssignments = role.RoleAssignments,
-                    References = role.References,
-                    OutputContract = role.OutputContract,
-                    RoleBodies = role.RoleBodies,
-                    SkillDirectory = role.SkillDirectory
+                    SkillDirectory = role.SkillDirectory,
+                    ActivatesWhen = role.ActivatesWhen,
+                    Role = role.Role,
+                    Category = role.Category,
+                    InvestigatorMode = role.InvestigatorMode,
+                    SurveyScope = role.SurveyScope,
+                    ScopeHint = role.ScopeHint,
+                    BlockCondition = role.BlockCondition,
+                    Loop = role.Loop,
+                    OutputSchema = role.OutputSchema,
                 });
             }
             else
@@ -188,63 +191,15 @@ public sealed class YamlSkillLoader(
 
     private static bool ValidateStrict(RoleSkillDefinition skill, string source, out string error)
     {
-        // p0127a: new-format skills are validated at parse time by NewFormatSkillValidator;
-        // the legacy roles_supported / RoleBodies / role_assignment checks below don't apply.
-        if (!string.IsNullOrWhiteSpace(skill.Role))
+        // p0127c: new-format skills are validated at parse time by NewFormatSkillValidator
+        // (which throws SkillFormatException on violations). The loader-level check
+        // remains as a final assertion that Role is set for every loaded skill.
+        _ = source;
+        if (string.IsNullOrWhiteSpace(skill.Role))
         {
-            _ = source;
-            error = string.Empty;
-            return true;
-        }
-
-        if (skill.RolesSupported is null || skill.RolesSupported.Count == 0)
-        {
-            error = "frontmatter is missing 'roles_supported' — every skill must declare which roles it can take";
+            error = "internal: skill loaded without a role; expected SkillFormatException at parse time";
             return false;
         }
-
-        if (skill.RoleBodies is null || skill.RoleBodies.Count == 0)
-        {
-            error = "body has no '## as_<role>' sections — every skill with roles_supported must split body per role";
-            return false;
-        }
-
-        foreach (var role in skill.RolesSupported)
-        {
-            if (!skill.RoleBodies.ContainsKey(role))
-            {
-                error = $"declares role '{role}' but body has no '## as_{role.ToString().ToLowerInvariant()}' section";
-                return false;
-            }
-        }
-
-        if (skill.RoleAssignments is not null)
-        {
-            var supported = skill.RolesSupported.ToHashSet();
-            foreach (var ra in skill.RoleAssignments)
-            {
-                if (!supported.Contains(ra.Role))
-                {
-                    error = $"role_assignment declares role '{ra.Role}' which is not in roles_supported";
-                    return false;
-                }
-            }
-        }
-
-        if (skill.References is not null)
-        {
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var r in skill.References)
-            {
-                if (!seen.Add(r.Id))
-                {
-                    error = $"references[] has duplicate id '{r.Id}'";
-                    return false;
-                }
-            }
-        }
-
-        _ = source; // reserved for future error reporting that includes the source path
         error = string.Empty;
         return true;
     }

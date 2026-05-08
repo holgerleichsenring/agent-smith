@@ -94,6 +94,11 @@ public sealed class ValidateConceptsCommand(
                     skill.Name, name, "activates_when references concept not declared in vocabulary"));
     }
 
+    private static readonly HashSet<string> AllowedCategories = new(StringComparer.Ordinal)
+    {
+        "auth", "injection", "secrets", "iam", "crypto", "headers", "inputs", "outputs",
+    };
+
     private static void CheckNewFormatRules(
         RoleSkillDefinition skill, List<ConceptValidationError> errors)
     {
@@ -107,6 +112,9 @@ public sealed class ValidateConceptsCommand(
         if (skill.OutputSchema == "bootstrap" && skill.Role != "producer")
             errors.Add(new ConceptValidationError(skill.Name, "output_schema",
                 $"output_schema=bootstrap requires role=producer; got role='{skill.Role}'"));
+        if (!string.IsNullOrWhiteSpace(skill.Category) && !AllowedCategories.Contains(skill.Category))
+            errors.Add(new ConceptValidationError(skill.Name, "category",
+                $"category must be one of {{auth, injection, secrets, iam, crypto, headers, inputs, outputs}}; got '{skill.Category}'"));
     }
 
     private static void CheckHandlerSide(

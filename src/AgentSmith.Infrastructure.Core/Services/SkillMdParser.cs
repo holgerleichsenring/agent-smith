@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -12,9 +11,9 @@ namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Parses SKILL.md + agentsmith.md + source.md files into a RoleSkillDefinition.
-/// Reads p0111 extended frontmatter (roles_supported, activation, role_assignment, references,
-/// output_contract) and splits the body into per-role sections.
-/// Honors per-provider SKILL.&lt;provider&gt;.md overrides via IProviderOverrideResolver.
+/// p0127c: only the new single-body format is accepted; legacy roles_supported shape
+/// throws SkillFormatException with a migration message. Honors per-provider
+/// SKILL.&lt;provider&gt;.md overrides via IProviderOverrideResolver.
 /// </summary>
 internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, ILogger logger)
 {
@@ -79,44 +78,16 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
     private RoleSkillDefinition BuildRole(
         SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath)
     {
-        var format = DetectFormat(meta, skillMdPath);
-        return format == SkillMdFormat.NewFormat
-            ? _newFormatBuilder.Build(meta, body, skillDirectory, skillMdPath)
-            : BuildLegacyRole(meta, body, skillDirectory, skillMdPath);
-    }
-
-    private static SkillMdFormat DetectFormat(SkillMdFrontmatter meta, string skillMdPath)
-    {
-        var hasLegacy = meta.RolesSupported is not null && meta.RolesSupported.Count > 0;
-        var hasNew = !string.IsNullOrWhiteSpace(meta.Role);
-        if (hasLegacy && hasNew)
+        if (meta.RolesSupported is not null)
             throw new SkillFormatException(
-                skillMdPath, "declare either roles_supported (legacy) or role (new), not both");
-        if (!hasLegacy && !hasNew)
+                skillMdPath,
+                "legacy 'roles_supported' field is no longer accepted; migrate to the single-body 'role' format introduced in agent-smith-skills 2.0.0");
+        if (string.IsNullOrWhiteSpace(meta.Role))
             throw new SkillFormatException(
-                skillMdPath, "missing required field: role (new) or roles_supported (legacy)");
-        return hasNew ? SkillMdFormat.NewFormat : SkillMdFormat.Legacy;
+                skillMdPath,
+                "missing required field 'role' (new SKILL.md format introduced in agent-smith-skills 2.0.0)");
+        return _newFormatBuilder.Build(meta, body, skillDirectory, skillMdPath);
     }
-
-    private RoleSkillDefinition BuildLegacyRole(
-        SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath) =>
-        new()
-        {
-            Name = meta.Name,
-            DisplayName = meta.DisplayName ?? string.Empty,
-            Emoji = meta.Emoji ?? string.Empty,
-            Description = meta.Description ?? string.Empty,
-            Triggers = meta.Triggers ?? [],
-            Rules = body.Trim(),
-            SkillDirectory = skillDirectory,
-            RolesSupported = MapRolesSupported(meta.RolesSupported, skillMdPath),
-            Activation = MapActivation(meta.Activation),
-            RoleAssignments = MapRoleAssignments(meta.RoleAssignment, skillMdPath),
-            References = MapReferences(meta.References),
-            OutputContract = MapOutputContract(meta.OutputContract, skillMdPath),
-            RoleBodies = SkillBodySplitter.Split(body),
-            ActivatesWhen = string.IsNullOrWhiteSpace(meta.ActivatesWhen) ? null : meta.ActivatesWhen.Trim()
-        };
 
     private static void ValidateOverrideMatchesBase(
         SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
@@ -125,31 +96,6 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             throw new InvalidOperationException(
                 $"Provider override at '{paths.EffectivePath}' has name='{over.Name}' but base SKILL.md has name='{@base.Name}'. Names must match.");
 
-        var baseIsNew = !string.IsNullOrWhiteSpace(@base.Role);
-        if (baseIsNew)
-            ValidateNewFormatOverride(over, @base, paths);
-        else
-            ValidateLegacyOverride(over, @base, paths);
-    }
-
-    private static void ValidateLegacyOverride(
-        SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
-    {
-        if (over.RolesSupported is null)
-            throw new InvalidOperationException(
-                $"Provider override at '{paths.EffectivePath}' must declare roles_supported; cannot inherit it from base.");
-
-        var overSet = over.RolesSupported.ToHashSet();
-        var baseSet = (@base.RolesSupported ?? []).ToHashSet();
-        if (!overSet.SetEquals(baseSet))
-            throw new InvalidOperationException(
-                $"Provider override at '{paths.EffectivePath}' has roles_supported=[{string.Join(",", overSet)}] " +
-                $"but base SKILL.md has roles_supported=[{string.Join(",", baseSet)}]. They must match.");
-    }
-
-    private static void ValidateNewFormatOverride(
-        SkillMdFrontmatter over, SkillMdFrontmatter @base, ProviderOverridePaths paths)
-    {
         if (over.Role is not null && !string.Equals(over.Role, @base.Role, StringComparison.Ordinal))
             throw new InvalidOperationException(
                 $"Provider override at '{paths.EffectivePath}' has role='{over.Role}' but base SKILL.md has role='{@base.Role}'. Roles must match.");
@@ -165,11 +111,6 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             Triggers = over.Triggers ?? @base.Triggers,
             Version = over.Version ?? @base.Version,
             AllowedTools = over.AllowedTools ?? @base.AllowedTools,
-            RolesSupported = over.RolesSupported ?? @base.RolesSupported,
-            Activation = over.Activation ?? @base.Activation,
-            RoleAssignment = over.RoleAssignment ?? @base.RoleAssignment,
-            References = over.References ?? @base.References,
-            OutputContract = over.OutputContract ?? @base.OutputContract,
             ActivatesWhen = over.ActivatesWhen ?? @base.ActivatesWhen,
             Role = over.Role ?? @base.Role,
             Category = over.Category ?? @base.Category,
@@ -180,112 +121,6 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
             Loop = over.Loop ?? @base.Loop,
             OutputSchema = over.OutputSchema ?? @base.OutputSchema,
         };
-
-    private IReadOnlyList<SkillRole>? MapRolesSupported(List<string>? raw, string skillMdPath)
-    {
-        if (raw is null) return null;
-        var result = new List<SkillRole>(raw.Count);
-        foreach (var s in raw)
-        {
-            if (TryParseRole(s, out var role))
-            {
-                result.Add(role);
-            }
-            else
-            {
-                logger.LogError("Skill {Path}: unknown role '{Role}' in roles_supported", skillMdPath, s);
-            }
-        }
-        return result;
-    }
-
-    private static ActivationCriteria? MapActivation(RawActivationCriteria? raw)
-    {
-        if (raw is null) return null;
-        return new ActivationCriteria(
-            (raw.Positive ?? []).Select(k => new ActivationKey(k.Key, k.Desc)).ToList(),
-            (raw.Negative ?? []).Select(k => new ActivationKey(k.Key, k.Desc)).ToList());
-    }
-
-    private IReadOnlyList<RoleAssignment>? MapRoleAssignments(
-        Dictionary<string, RawActivationCriteria>? raw,
-        string skillMdPath)
-    {
-        if (raw is null || raw.Count == 0) return null;
-        var result = new List<RoleAssignment>(raw.Count);
-        foreach (var (roleName, criteria) in raw)
-        {
-            if (!TryParseRole(roleName, out var role))
-            {
-                logger.LogError("Skill {Path}: unknown role '{Role}' in role_assignment", skillMdPath, roleName);
-                continue;
-            }
-            var mapped = MapActivation(criteria) ?? ActivationCriteria.Empty;
-            result.Add(new RoleAssignment(role, mapped));
-        }
-        return result;
-    }
-
-    private static IReadOnlyList<SkillReference>? MapReferences(List<RawSkillReference>? raw)
-    {
-        if (raw is null) return null;
-        return raw.Select(r => new SkillReference(r.Id, r.Path)).ToList();
-    }
-
-    private OutputContract? MapOutputContract(RawOutputContract? raw, string skillMdPath)
-    {
-        if (raw is null) return null;
-        var outputType = new Dictionary<SkillRole, OutputForm>();
-        if (raw.OutputType is not null)
-        {
-            foreach (var (roleName, formName) in raw.OutputType)
-            {
-                if (!TryParseRole(roleName, out var role))
-                {
-                    logger.LogError(
-                        "Skill {Path}: unknown role '{Role}' in output_contract.output_type",
-                        skillMdPath, roleName);
-                    continue;
-                }
-                if (!TryParseOutputForm(formName, out var form))
-                {
-                    logger.LogError(
-                        "Skill {Path}: unknown output form '{Form}' in output_contract.output_type",
-                        skillMdPath, formName);
-                    continue;
-                }
-                outputType[role] = form;
-            }
-        }
-        return new OutputContract(
-            raw.SchemaRef ?? string.Empty,
-            raw.HardLimits?.MaxObservations ?? 0,
-            raw.HardLimits?.MaxCharsPerField ?? 0,
-            outputType);
-    }
-
-    private static bool TryParseRole(string raw, out SkillRole role)
-    {
-        switch (raw.Trim().ToLowerInvariant())
-        {
-            case "lead": role = SkillRole.Lead; return true;
-            case "analyst": role = SkillRole.Analyst; return true;
-            case "reviewer": role = SkillRole.Reviewer; return true;
-            case "filter": role = SkillRole.Filter; return true;
-            default: role = default; return false;
-        }
-    }
-
-    private static bool TryParseOutputForm(string raw, out OutputForm form)
-    {
-        switch (raw.Trim().ToLowerInvariant())
-        {
-            case "list": form = OutputForm.List; return true;
-            case "plan": form = OutputForm.Plan; return true;
-            case "artifact": form = OutputForm.Artifact; return true;
-            default: form = default; return false;
-        }
-    }
 
     private static void LoadAgentSmithExtensions(string skillDirectory, RoleSkillDefinition role)
     {
