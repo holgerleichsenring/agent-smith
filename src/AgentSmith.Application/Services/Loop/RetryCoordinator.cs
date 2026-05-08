@@ -20,19 +20,21 @@ public sealed class RetryCoordinator
         IList<ChatMessage> messages,
         ChatOptions options,
         ISkillOutputValidator validator,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<ChatResponse>? onResponse = null)
     {
         var first = await chat.GetResponseAsync(messages, options, ct);
+        onResponse?.Invoke(first);
         var firstText = first.Text ?? string.Empty;
 
         var firstParse = TryParse(firstText);
         if (!firstParse.Ok)
-            return await RetryAsync(chat, messages, options, validator, firstText, RetryReason.Parse, ct);
+            return await RetryAsync(chat, messages, options, validator, firstText, RetryReason.Parse, ct, onResponse: onResponse);
 
         var firstValidation = validator.Validate(firstText);
         if (!firstValidation.IsValid)
             return await RetryAsync(chat, messages, options, validator, firstText,
-                RetryReason.Validation, ct, firstValidation.ErrorMessage);
+                RetryReason.Validation, ct, firstValidation.ErrorMessage, onResponse);
 
         return RetryOutcome.Ok(firstText);
     }
@@ -40,11 +42,13 @@ public sealed class RetryCoordinator
     private static async Task<RetryOutcome> RetryAsync(
         IChatClient chat, IList<ChatMessage> messages, ChatOptions options,
         ISkillOutputValidator validator, string firstText, RetryReason reason,
-        CancellationToken ct, string? validationError = null)
+        CancellationToken ct, string? validationError = null,
+        Action<ChatResponse>? onResponse = null)
     {
         AppendRetryHint(messages, firstText, reason, validationError);
 
         var second = await chat.GetResponseAsync(messages, options, ct);
+        onResponse?.Invoke(second);
         var secondText = second.Text ?? string.Empty;
 
         return ClassifyRetryResult(secondText, validator);

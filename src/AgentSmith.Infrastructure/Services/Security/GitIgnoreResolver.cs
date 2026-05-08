@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Infrastructure.Services.Security;
@@ -6,8 +7,9 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// Loads .gitignore files from the sandbox tree and answers "is this path ignored?"
 /// via the Ignore NuGet package (no LibGit2Sharp / native libgit2 dependency).
 /// Reads the root .gitignore plus any nested ones picked up via ListAsync.
+/// p0126c: implements IGitIgnoreResolver so PathReadGuard can depend on the contract.
 /// </summary>
-internal sealed class GitIgnoreResolver
+public sealed class GitIgnoreResolver : IGitIgnoreResolver
 {
     private readonly Ignore.Ignore _ignore = new();
     private readonly string _root;

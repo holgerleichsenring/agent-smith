@@ -52,6 +52,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<OutcomeClassifier>();
         services.AddSingleton<ISkillOutputValidator, NoOpSkillOutputValidator>();
         services.AddSingleton<RetryCoordinator>();
+        // p0126c: SkillCallRuntime is scoped (one per pipeline run); composes the
+        // five collaborator services into the public ExecuteAsync flow.
+        services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
     }
 
     private static void RegisterHandlers(IServiceCollection services)
