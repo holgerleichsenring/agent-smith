@@ -96,6 +96,12 @@ public static class ContextKeys
     public const string PlanArtifact = "PlanArtifact";
     public const string ConceptVocabulary = "ConceptVocabulary";
 
+    /// <summary>
+    /// Storage slot for the typed concept values published during a pipeline run
+    /// (Dictionary&lt;string, object&gt;). Managed by IRunStateConcepts; do not write directly.
+    /// </summary>
+    public const string ConceptValues = "ConceptValues";
+
     /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
     /// log scope so concurrent runs are filterable in shared log streams.</summary>
     public const string RunId = "RunId";

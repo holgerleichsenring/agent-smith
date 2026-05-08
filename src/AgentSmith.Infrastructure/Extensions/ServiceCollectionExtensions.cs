@@ -1,8 +1,12 @@
+using AgentSmith.Contracts.Activation;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core;
+using AgentSmith.Infrastructure.Services.Activation;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
@@ -104,6 +108,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFindingHandlerCorrelator, Services.Security.FindingHandlerCorrelator>();
         services.AddSingleton<IBaselineLoader, Services.BaselineLoader>();
 
+        // p0125b: PipelineContextRunStateConcepts is bound to a per-pipeline PipelineContext
+        // (not a DI singleton). Register a factory so future handlers (p0125c) can inject the
+        // creation surface; the factory pulls vocabulary from the context's ConceptVocabulary
+        // slot, falling back to Empty when no skills are loaded yet (test fixtures).
+        services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
+
         // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
@@ -113,6 +123,15 @@ public static class ServiceCollectionExtensions
         // when REDIS_URL is available (p0101). WebhookDialogueRouter handles the null case.
 
         return services;
+    }
+
+    private static IRunStateConcepts CreateRunStateConcepts(PipelineContext context)
+    {
+        var vocabulary = context.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var loaded)
+            && loaded is not null
+                ? loaded
+                : ConceptVocabulary.Empty;
+        return new PipelineContextRunStateConcepts(context, vocabulary);
     }
 
     private static NucleiConfig LoadNucleiConfig() =>

@@ -3,6 +3,7 @@ using AgentSmith.Application.Prompts;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
@@ -123,6 +124,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
         services.AddTransient<MetaFileBootstrapper>();
         services.AddSingleton<HttpProbeRunner>();
+
+        // p0125b: activation expression pipeline (tokenizer/parser/evaluator are stateless,
+        // so singleton is safe; no production runtime path consumes them yet — that's p0125c/d/p0127).
+        services.AddSingleton<ActivationExpressionTokenizer>();
+        services.AddSingleton<ActivationExpressionParser>();
+        services.AddSingleton<ActivationEvaluator>();
     }
 
     private static void RegisterContextBuilders(IServiceCollection services)
