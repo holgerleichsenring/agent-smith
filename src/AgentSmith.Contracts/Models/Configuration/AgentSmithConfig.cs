@@ -27,4 +27,11 @@ public sealed class AgentSmithConfig
     /// (default — base SKILL.md always wins).
     /// </summary>
     public string? PrimaryProvider { get; set; }
+
+    /// <summary>
+    /// Hard limits for the per-skill agentic loop (token caps, wall-clock cap,
+    /// tool-call caps, concurrency cap). Defaults match Phase B of the runtime design;
+    /// see <see cref="LoopLimitsConfig"/>.
+    /// </summary>
+    public LoopLimitsConfig Limits { get; set; } = new();
 }

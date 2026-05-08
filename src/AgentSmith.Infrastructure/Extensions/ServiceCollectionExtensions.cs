@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -51,6 +52,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
+
+        // p0126a: per-skill loop limits. Defaults match Phase B of the runtime design.
+        // Composition roots that load AgentSmithConfig may replace this registration with
+        // the YAML-bound instance to honor operator-set limits.
+        services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
         // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
