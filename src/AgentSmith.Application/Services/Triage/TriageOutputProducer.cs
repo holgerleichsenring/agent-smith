@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AgentSmith.Application.Services.Activation;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
@@ -23,6 +25,10 @@ public sealed class TriageOutputProducer(
     TriageLabelOverrideApplier labelOverrider,
     IPromptCatalog prompts,
     IChatClientFactory chatClientFactory,
+    ActivationSkillFilter activationFilter,
+    PhaseSpecificityTrimmer phaseTrimmer,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    LoopLimitsConfig limits,
     ILogger<TriageOutputProducer> logger) : ITriageOutputProducer
 {
     private static readonly IReadOnlyList<PipelinePhase> DefaultPhases =
@@ -37,7 +43,9 @@ public sealed class TriageOutputProducer(
     public async Task<TriageOutput> ProduceAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var input = BuildInput(pipeline);
+        var skills = LoadAvailableSkills(pipeline);
+        var filtered = ApplyActivatesWhenFilter(pipeline, skills);
+        var input = BuildInput(pipeline, filtered);
         var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
         var vocabulary = pipeline.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var loaded)
                          && loaded is not null
@@ -46,14 +54,25 @@ public sealed class TriageOutputProducer(
         var output = await CallAndValidateAsync(input, agent, vocabulary, retry: false, cancellationToken)
                      ?? await CallAndValidateAsync(input, agent, vocabulary, retry: true, cancellationToken)
                      ?? throw new InvalidOperationException("Triage output failed validation after retry");
-        return labelOverrider.Apply(output, input.TicketLabels);
+        var trimmed = phaseTrimmer.Trim(output, filtered, limits.MaxSkillsPerPhase);
+        return labelOverrider.Apply(trimmed, input.TicketLabels);
     }
 
-    private TriageInput BuildInput(PipelineContext pipeline)
+    private IReadOnlyList<RoleSkillDefinition> ApplyActivatesWhenFilter(
+        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> skills)
+    {
+        var filtered = activationFilter.Filter(skills, conceptsFactory(pipeline));
+        logger.LogInformation(
+            "Triage filtered {Before}->{After} skills via activates_when", skills.Count, filtered.Count);
+        return filtered;
+    }
+
+    private TriageInput BuildInput(
+        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> skills)
     {
         var (ticketText, labels) = ResolveTicketOrSyntheticInput(pipeline);
         var excerpt = excerptBuilder.Build(pipeline);
-        var skillIndex = LoadSkillIndex(pipeline);
+        var skillIndex = skills.Where(r => r.RolesSupported is not null).Select(ToIndexEntry).ToList();
         return new TriageInput(
             Ticket: ticketText,
             ProjectMapExcerpt: excerpt,
@@ -76,12 +95,12 @@ public sealed class TriageOutputProducer(
         return (synthetic, Array.Empty<string>());
     }
 
-    private static IReadOnlyList<SkillIndexEntry> LoadSkillIndex(PipelineContext pipeline)
+    private static IReadOnlyList<RoleSkillDefinition> LoadAvailableSkills(PipelineContext pipeline)
     {
         if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var roles) || roles is null)
-            return Array.Empty<SkillIndexEntry>();
-        return roles.Where(r => r.RolesSupported is not null).Select(ToIndexEntry).ToList();
+            return Array.Empty<RoleSkillDefinition>();
+        return roles;
     }
 
     private static SkillIndexEntry ToIndexEntry(RoleSkillDefinition skill) => new(

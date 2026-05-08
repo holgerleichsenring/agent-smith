@@ -160,6 +160,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ActivationExpressionParser>();
         services.AddSingleton<ActivationEvaluator>();
 
+        // p0127b: triage pre-filter + post-LLM specificity tie-break.
+        services.AddSingleton<ActivationSkillFilter>();
+        services.AddSingleton<ActivationSpecificityScorer>();
+        services.AddSingleton<PhaseSpecificityTrimmer>();
+
         // p0125c/d: typed concept publication. Handlers are registered three times:
         //   1. concrete type (transient) — resolvable for IConceptWriter dual-registration
         //   2. ICommandHandler<TContext> — pipeline execution path

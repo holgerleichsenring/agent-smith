@@ -17,6 +17,13 @@ public sealed class LoopLimitsConfig
     public int MaxConcurrentSkillCalls { get; set; } = 10;
 
     /// <summary>
+    /// p0127b: post-LLM cap on skills selected per phase. TriageOutputProducer
+    /// trims any phase whose LLM-pick exceeds this number using the activates_when
+    /// specificity score (higher score wins; ties broken by skill name ascending).
+    /// </summary>
+    public int MaxSkillsPerPhase { get; set; } = 5;
+
+    /// <summary>
     /// Returns the per-call tool-call cap for the active investigator mode.
     /// <c>verify_diff</c> → MaxToolCallsPerVerifier; <c>verify_hint</c> / <c>survey</c>
     /// → MaxToolCallsPerInvestigator; null/unknown → MaxToolCallsPerSkill.
