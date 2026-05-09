@@ -10,10 +10,15 @@ public static class PipelinePresets
     // p0125c: PipelineNameInitializer is prepended to every preset so pipeline_name
     // is published once before any other handler runs. The Initializer reads
     // ResolvedPipeline from PipelineContext (populated by PipelineConfigResolver).
+    // p0130a: BootstrapCheck + BootstrapGate are inserted directly after the
+    // source-checkout step in code-touching pipelines so missing context.yaml
+    // / coding-principles.md aborts with a clear "run init-project first"
+    // message before the Load* steps fail in less-actionable ways.
     public static readonly IReadOnlyList<string> FixBug =
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
@@ -28,6 +33,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
@@ -48,6 +54,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
@@ -86,6 +93,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.BootstrapProject,
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
         CommandNames.LoadCodingPrinciples,
@@ -111,6 +119,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
         CommandNames.LoadCodeMap,           // p0104: target's .agentsmith/code-map.yaml — soft-fail if absent
@@ -146,6 +155,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.BootstrapProject,
         CommandNames.LoadContext,
         CommandNames.LoadCodeMap,

@@ -207,6 +207,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IConceptWriter>(sp =>
             sp.GetRequiredService<BootstrapCheckHandler>());
 
+        // p0130a: BootstrapGate is a policy handler — reads concepts published by
+        // BootstrapCheckHandler and aborts the pipeline when bootstrap files are missing.
+        services.AddTransient<ICommandHandler<BootstrapGateContext>, BootstrapGateHandler>();
+
         services.AddSingleton<ConceptWriterRegistry>();
     }
 
@@ -274,6 +278,8 @@ public static class ServiceCollectionExtensions
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
+        AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
+        AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)

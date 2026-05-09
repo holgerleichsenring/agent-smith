@@ -79,6 +79,9 @@ public static class CommandNames
     // p0129a: Verify phase between Implementation and delivery
     public const string RunVerifyPhase = "RunVerifyPhaseCommand";
 
+    // p0130a: bootstrap-files gate (aborts when context.yaml or coding-principles.md is missing)
+    public const string BootstrapGate = "BootstrapGateCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -157,6 +160,7 @@ public static class CommandNames
         [BootstrapCheck] = "Checking bootstrap files",
         [PlanOpenQuestions] = "Posting Plan open questions",
         [RunVerifyPhase] = "Running verify phase",
+        [BootstrapGate] = "Verifying bootstrap files",
     };
 
     /// <summary>
