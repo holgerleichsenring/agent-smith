@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0130
+goal: "D6 parent: init-project pipeline as the first-class onboarding flow. BootstrapCheckHandler becomes the standard pre-skill gate for non-init pipelines; missing context.yaml or coding-principles.md → pipeline ends fast with a clear 'run init-project first' error. Per-language bootstrap skills produce both files. Sliced into a/b."
+
+requires: ["p0125d", "p0127c", "p0129c"]
+
+scope:
+  in: "Parent design for D6. Two slices: (a) BootstrapCheck gate wired + first bootstrap skill (csharp-bootstrap, the one agent-smith itself runs against). The init-project preset already exists in PipelinePresets.cs (p0125c era) — its Bootstrap step gains a real producer skill. BootstrapCheckHandler (registered in DI since p0125c, never inserted into a preset) is added to FixBug / FixNoTest / AddFeature / SecurityScan / ApiSecurityScan / MadDiscussion / LegalAnalysis / Autonomous presets RIGHT AFTER the source-checkout step. New BootstrapGateHandler reads ContextKeys.context_yaml_present + ContextKeys.coding_principles_present (the two concepts BootstrapCheckHandler publishes) and short-circuits the pipeline with a structured error if either is false: `Pipeline aborted: project missing .agentsmith/context.yaml or coding-principles.md. Run init-project first.` (b) Per-language bootstrap skills — node-bootstrap, python-bootstrap, generic-bootstrap. Each detects its language fit via the existing ProjectDetector (output of LoadCodeMap / project-analysis stage), activates_when reads `project_language` enum (added to vocabulary). The init-project Bootstrap step's skill selection runs through the same ActivationSkillFilter + specificity tie-break used by other phases — ProjectDetector populates project_language; the skill whose activates_when matches wins; tie broken by specificity (more concept refs = more specific) then lex order. Each bootstrap skill writes context.yaml + coding-principles.md via SandboxToolHost's WriteFile tool (PathWriteGuard from p0126c already gates Bootstrap-phase writes to those two files specifically). Cross-repo: agent-smith-skills 2.3.0 → 2.4.0 (a) → 2.5.0 (b)."
+  out: "Removal of the legacy BootstrapProjectHandler auto-bootstrap path — that's D7 (p0131). For D6's window, both paths exist: legacy BootstrapProjectHandler still runs in non-init pipelines that haven't been gated, init-project's new Bootstrap step is the explicit replacement. p0131 deletes the legacy path. Custom-language bootstraps beyond the four shipped (csharp/node/python/generic) — operator extension, not in scope. CHANGELOG, CI workflows, GitHub Actions integration testing for the new pipeline — separate operational concerns."
+
+decisions:
+  - key: "Bootstrap gate via BootstrapCheckHandler + new BootstrapGateHandler split, not a single combined handler. Reason: BootstrapCheckHandler is the IConceptWriter that PUBLISHES the two concepts; BootstrapGateHandler READS them and decides to abort. Separation matches the p0125c pattern (handlers publish; pipeline-level decisions consume). Single combined handler would conflate concept-writer and gate-decision responsibilities. -- alternatives: extend BootstrapCheckHandler with abort-on-missing logic (rejected: violates the p0125c decision that publishing handlers don't make pipeline decisions); pre-skill PipelineExecutor check (rejected: pushes pipeline-specific gate logic into the executor, which is supposed to be preset-agnostic)."
+  - key: "init-project Bootstrap-phase skill is selected via ActivationSkillFilter + specificity, same as other phases. Reason: bootstrap is a producer role with multiple candidates per project type. Hard-coded language → skill mapping in the handler would require code changes for every new language. Vocabulary-driven activates_when keeps it consistent with how triage selects skills elsewhere — operators add a new bootstrap skill in the skills repo, declare its activates_when, vocabulary registers project_language enum value. -- alternatives: hardcoded language → skill table in PipelinePresets (rejected: code change for every new language); single bootstrap-skill that branches internally on language (rejected: monolithic skill body scales poorly)."
+  - key: "project_language enum starts narrow: csharp, node, python, generic. Reason: same enum-discipline as p0125c's pipeline_name. Adding a 5th language is a deliberate vocabulary change; until a real consumer needs it, the enum stays tight. Operators with TypeScript projects use 'node' (TypeScript runs on Node); operators with Java use 'generic' until 'java' is added with the corresponding skill. -- alternatives: open-string project_language (rejected: typo drift); list every language we might support (rejected: dead enum values without backing skills)."
+  - key: "Slice b ships node + python + generic together because they share infrastructure. Reason: ProjectDetector + the activates_when expression pattern + the SKILL.md template are identical across the three; a + b split would duplicate scaffolding. csharp-bootstrap in slice a is the demonstrator + the path-validator (BootstrapCheckHandler integration); slice b adds the rest of the catalog as content-only changes. -- alternatives: one slice per language (rejected: scaffolding work repeats four times); skip the others (rejected: D6's whole point is multi-language onboarding)."
+
+steps:
+  - id: slice-a-pointer
+    action: "p0130a — BootstrapCheck gate + csharp-bootstrap"
+    new:
+      - "Spec: written when the user requests implementation. Sketch: BootstrapGateHandler + RunBootstrapCheck command insertion in 8 presets; csharp-bootstrap SKILL.md activates on `project_language = \"csharp\"`; agent-smith-skills 2.3.0 → 2.4.0; agentsmith.yml skills pin synced. ~5 unit tests for gate behavior + 1 cross-repo test that csharp-bootstrap activates correctly."
+
+  - id: slice-b-pointer
+    action: "p0130b — node + python + generic bootstraps"
+    new:
+      - "Spec: written when p0130a lands. Sketch: three SKILL.md files; project_language enum extended in vocabulary; agent-smith-skills 2.4.0 → 2.5.0. Mostly content-only; ~3 tests for activation routing per language."
+
+tests:
+  - "See per-slice specs"
+
+done:
+  - "p0130a + p0130b ship in sequence"
+  - "BootstrapCheckHandler runs first in every non-init preset; BootstrapGateHandler aborts cleanly when context.yaml or coding-principles.md missing"
+  - "Four bootstrap skills (csharp, node, python, generic) exist in agent-smith-skills/skills/coding/<lang>-bootstrap/ — selected via ActivationSkillFilter on project_language enum"
+  - "init-project pipeline produces a working context.yaml + coding-principles.md for at least csharp + node end-to-end (manual smoke)"
+  - "Legacy BootstrapProjectHandler still in place — its removal is D7 (p0131)"

@@ -225,8 +225,10 @@ state:
   active: {}
   planned:
     p0120: "M.E.AI migration follow-ups: rebuild the ~30 handler/factory test files deleted in p0119a (replaced by IChatClientFactory-mock-based equivalents using a shared StubChatClient helper), switch every IChatClient call site from GetResponseAsync to GetStreamingResponseAsync.ToChatResponseAsync, bump the M.E.AI lockstep pin from 10.4.0 to current once tghamm/Anthropic.SDK#197 closes upstream, AAD-DEV operator smoke against all 5 providers as the validation gate. → .agentsmith/phases/planned/p0120-meai-migration-followups.yaml"
-    # --- methodology rollout (D5) ---
-    p0129: "D5 parent: Verify phase added between Implementation and delivery in fix-bug + add-feature; four VerifyDiff investigator skills (scope, build, test, architecture) read the Diff and emit observations; first blocking observation triggers re-implementation, second escalates. Sliced into a/b/c. → .agentsmith/phases/planned/p0129-verify-phase.yaml"
+    # --- methodology rollout (D6, D7, post-D7) ---
+    p0130: "D6 parent: init-project pipeline as first-class onboarding flow. BootstrapCheckHandler becomes standard pre-skill gate for non-init pipelines; missing context.yaml/coding-principles.md → fast-fail with 'run init-project first'. Per-language bootstrap skills (csharp, node, python, generic) produce both files. Sliced a/b. → .agentsmith/phases/planned/p0130-init-project-pipeline.yaml"
+    p0131: "D7 parent: cleanup of legacy skill-model + bootstrap + triage code paths. Removes RolesSupported/RoleAssignment/Activation/References/OutputContract from SkillMdFrontmatter; deletes SkillBodySplitter, CodeMapGenerator+code-map.yaml, BootstrapProjectHandler, LegacyTriageStrategy. ~1500-2500 LoC reduction. Sliced a/b/c/d (loader / bootstrap / triage / validators). → .agentsmith/phases/planned/p0131-cleanup-legacy-model.yaml"
+    p0132: "Post-D7: SkillCallRuntime consumer migration. SkillRoundHandlerBase + FilterRoundHandler + VerifyRoundHandler dispatch through SkillCallRuntime; PerSkillBreakdown lights up in production; verifiers gain tool access (build/test verifiers run actual commands instead of LLM-only static analysis). Closes the consumer-migration debt deferred since p0126c. Sliced a/b/c. → .agentsmith/phases/planned/p0132-skill-call-runtime-consumer-migration.yaml"
     # --- backlog (new features) ---
     p0023: "Multi-repo support → .agentsmith/phases/planned/p0023-multi-repo-update.yaml"
     p0025: "PR review iteration → .agentsmith/phases/planned/p0025-pr-review.yaml"
