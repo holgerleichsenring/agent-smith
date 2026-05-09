@@ -308,6 +308,11 @@ limits:
 pipeline_storage:
   redis_ttl_hours: 4
 
+# p0128c data-flow gating. enforce=false (default) logs warnings on undeclared
+# context-key reads; flip to true once the warn log is empty for your pipeline mix.
+pipeline_data_flow:
+  enforce: false
+
 secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
   # openai_api_key: ${OPENAI_API_KEY}

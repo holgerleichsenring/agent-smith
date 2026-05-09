@@ -40,4 +40,10 @@ public sealed class AgentSmithConfig
     /// See <see cref="PipelineStorageConfig"/>.
     /// </summary>
     public PipelineStorageConfig PipelineStorage { get; set; } = new();
+
+    /// <summary>
+    /// p0128c data-flow gating settings. <c>Enforce=false</c> by default — the
+    /// gate logs warnings on undeclared reads but doesn't fail the run.
+    /// </summary>
+    public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
 }
