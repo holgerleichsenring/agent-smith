@@ -12,23 +12,34 @@ internal static class VerifierPromptBuilder
         "No prose, no markdown fences. Use blocking=true only for high-confidence violations " +
         "of the rule the skill body describes.";
 
-    public static (string System, string User) Build(string skillBody, string planJson, string diffJson)
+    public static (string System, string User) Build(
+        string skillBody, string planJson, string diffJson, string? codingPrinciples = null)
     {
         var system = $"{skillBody.Trim()}\n\n{EmitInstruction}";
-        var user = BuildUserMessage(planJson, diffJson);
+        var user = BuildUserMessage(planJson, diffJson, codingPrinciples);
         return (system, user);
     }
 
-    private static string BuildUserMessage(string planJson, string diffJson)
+    private static string BuildUserMessage(string planJson, string diffJson, string? codingPrinciples)
     {
         var planSection = string.IsNullOrWhiteSpace(planJson) ? "(no plan)" : planJson.Trim();
         var diffSection = string.IsNullOrWhiteSpace(diffJson) ? "(no diff)" : diffJson.Trim();
+        var principlesSection = string.IsNullOrWhiteSpace(codingPrinciples)
+            ? string.Empty
+            : $"""
+
+                ## Coding principles
+                ```markdown
+                {codingPrinciples.Trim()}
+                ```
+
+                """;
         return $"""
             ## Plan
             ```json
             {planSection}
             ```
-
+            {principlesSection}
             ## Diff
             ```json
             {diffSection}

@@ -117,7 +117,8 @@ public sealed class VerifyRoundHandler(
         CancellationToken cancellationToken)
     {
         var body = bodyResolver.ResolveBody(verifier, SkillRole.Analyst);
-        var (system, user) = VerifierPromptBuilder.Build(body, planJson, diffJson);
+        var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp) ? cp : null;
+        var (system, user) = VerifierPromptBuilder.Build(body, planJson, diffJson, codingPrinciples);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, system),
@@ -171,13 +172,27 @@ public sealed class VerifyRoundHandler(
 
     private CommandResult Escalate(PipelineContext pipeline, string notes)
     {
-        var existing = pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var prior) && prior is not null
-            ? prior : string.Empty;
-        var combined = string.IsNullOrEmpty(existing) ? notes : $"{existing}\n\n{notes}";
-        pipeline.Set(ContextKeys.VerifyNotes, combined);
+        // p0129c: dedup across rounds. VerifyObservations holds both round-1 and round-2
+        // observations (AppendObservations is cumulative); collapsing duplicates by
+        // (file, concern, description-prefix-100) keeps the writeback focused on
+        // unique unfixed concerns rather than echoing the same finding twice.
+        var combinedNotes = BuildCombinedDedupedNotes(pipeline) ?? notes;
+        pipeline.Set(ContextKeys.VerifyNotes, combinedNotes);
         logger.LogWarning(
             "Verify round 2: blocking observations after re-implementation; escalating to ticket");
         return CommandResult.Fail(
-            $"Verify-phase escalation: second blocking observation; pipeline ends.\n\n{combined}");
+            $"Verify-phase escalation: second blocking observation; pipeline ends.\n\n{combinedNotes}");
+    }
+
+    private static string? BuildCombinedDedupedNotes(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<List<SkillObservation>>(ContextKeys.VerifyObservations, out var all)
+            || all is null || all.Count == 0)
+            return null;
+        var deduped = VerifyNotesFormatter.Dedup(all);
+        var blocking = deduped.Where(o => o.Blocking).ToList();
+        return blocking.Count == 0
+            ? null
+            : VerifyNotesFormatter.Format(round: 2, blocking);
     }
 }

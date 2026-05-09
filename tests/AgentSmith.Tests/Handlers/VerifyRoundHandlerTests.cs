@@ -85,24 +85,37 @@ public sealed class VerifyRoundHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_BlockingSecondRound_ReturnsFailWithCombinedNotes()
+    public async Task ExecuteAsync_BlockingSecondRound_ReturnsFailWithDedupedCombinedNotes()
     {
+        // p0129c: Escalate dedups across rounds via VerifyObservations. Seed round-1
+        // observations as if AppendObservations had run; round-2 emits a duplicate +
+        // a new observation; combined output should have two unique entries.
         var pipeline = PipelineWithPlanAndDiff(roles: new[] { ScopeVerifierRole() });
         pipeline.Set(ContextKeys.VerifyRoundCount, 1);
-        pipeline.Set(ContextKeys.VerifyNotes, "## Verify round 1: 1 blocking observation(s)\n- prior");
-        var blockingObs = """
-            [{"role":"scope-verifier","concern":"Correctness","description":"still out",
-              "suggestion":"fix","blocking":true,"severity":"high","confidence":90}]
+        pipeline.Set(ContextKeys.VerifyObservations, new List<SkillObservation>
+        {
+            new(0, "scope-verifier", ObservationConcern.Correctness,
+                "still out", "fix", true, ObservationSeverity.High, 90, File: "x.cs"),
+        });
+        var round2 = """
+            [
+              {"role":"scope-verifier","concern":"Correctness","description":"still out","suggestion":"fix","blocking":true,"severity":"high","confidence":90,"file":"x.cs"},
+              {"role":"scope-verifier","concern":"Correctness","description":"y.cs new","suggestion":"add","blocking":true,"severity":"high","confidence":85,"file":"y.cs"}
+            ]
             """;
 
-        var result = await BuildSut(blockingObs).ExecuteAsync(
+        var result = await BuildSut(round2).ExecuteAsync(
             new RunVerifyPhaseContext(new AgentConfig(), pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("escalation");
         pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var combined).Should().BeTrue();
-        combined.Should().Contain("Verify round 1");
         combined.Should().Contain("Verify round 2");
+        combined.Should().Contain("still out");
+        combined.Should().Contain("y.cs new");
+        // Dedup: 'still out' appears exactly once even though round 1 + round 2 both emitted it.
+        var occurrences = combined!.Split("still out").Length - 1;
+        occurrences.Should().Be(1);
     }
 
     [Fact]
