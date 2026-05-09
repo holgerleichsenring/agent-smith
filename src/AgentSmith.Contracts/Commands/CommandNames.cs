@@ -76,6 +76,9 @@ public static class CommandNames
     // p0128b: Plan open_questions round-trip
     public const string PlanOpenQuestions = "PlanOpenQuestionsCommand";
 
+    // p0129a: Verify phase between Implementation and delivery
+    public const string RunVerifyPhase = "RunVerifyPhaseCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -153,6 +156,7 @@ public static class CommandNames
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
         [PlanOpenQuestions] = "Posting Plan open questions",
+        [RunVerifyPhase] = "Running verify phase",
     };
 
     /// <summary>

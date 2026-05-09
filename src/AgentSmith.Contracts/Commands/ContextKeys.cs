@@ -142,4 +142,13 @@ public static class ContextKeys
     // this before each step and clears it after; the gated context wrapper reads it
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
     public const string ActivePhaseStep = "ActivePhaseStep";
+
+    // p0129a: Verify phase between Implementation and delivery.
+    // VerifyRoundCount counts re-implementation rounds (1 = first run, 2 = after one re-loop).
+    // VerifyNotes is the human-readable note string fed back into AgenticExecute on re-loop.
+    // VerifyObservations carries the raw observations from each verify-phase invocation
+    // (kept separate from SkillObservations so the delivery layer doesn't render them).
+    public const string VerifyRoundCount = "VerifyRoundCount";
+    public const string VerifyNotes = "VerifyNotes";
+    public const string VerifyObservations = "VerifyObservations";
 }

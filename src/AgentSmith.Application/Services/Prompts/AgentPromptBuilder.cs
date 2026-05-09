@@ -91,7 +91,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
-    public string BuildExecutionUserPrompt(Plan plan, Repository repository)
+    public string BuildExecutionUserPrompt(
+        Plan plan, Repository repository, string? verifyNotes = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -99,7 +100,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-
+            {BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -107,6 +108,20 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             {steps}
 
             Start by listing the relevant files, then implement each step.
+            """;
+    }
+
+    internal static string BuildVerifyNotesSection(string? verifyNotes)
+    {
+        if (string.IsNullOrWhiteSpace(verifyNotes)) return "";
+        return $"""
+
+
+            ## Prior verify-phase observations
+            The previous implementation produced a Diff that the verify phase flagged.
+            Apply these to the next implementation pass.
+            {verifyNotes}
+
             """;
     }
 

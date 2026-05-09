@@ -89,6 +89,37 @@ public class PipelinePresetsTests
         PipelinePresets.InitProject.Should().NotContain(CommandNames.Triage);
     }
 
+    [Fact]
+    public void FixBug_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
+    {
+        var list = PipelinePresets.FixBug.ToList();
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
+    }
+
+    [Fact]
+    public void AddFeature_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
+    {
+        var list = PipelinePresets.AddFeature.ToList();
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
+    }
+
+    [Fact]
+    public void FixNoTest_DoesNotContainRunVerifyPhase()
+    {
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.RunVerifyPhase);
+    }
+
+    [Fact]
+    public void NonImplementationPresets_DoNotContainRunVerifyPhase()
+    {
+        PipelinePresets.SecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.ApiSecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.MadDiscussion.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.InitProject.Should().NotContain(CommandNames.RunVerifyPhase);
+    }
+
     [Theory]
     [InlineData("fix-bug")]
     [InlineData("fix-no-test")]

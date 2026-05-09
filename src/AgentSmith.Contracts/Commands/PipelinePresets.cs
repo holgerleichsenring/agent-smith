@@ -20,6 +20,7 @@ public static class PipelinePresets
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
+        CommandNames.RunVerifyPhase, // p0129a
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
@@ -53,6 +54,7 @@ public static class PipelinePresets
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
+        CommandNames.RunVerifyPhase, // p0129a
         CommandNames.Test, CommandNames.GenerateDocs,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];

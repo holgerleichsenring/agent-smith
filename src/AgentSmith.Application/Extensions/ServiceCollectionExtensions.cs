@@ -125,6 +125,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<StructuredTriageStrategy>();
         services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
+        // p0129a: Verify phase
+        services.AddTransient<ICommandHandler<RunVerifyPhaseContext>, VerifyRoundHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
         // p0128b: Plan open-questions round-trip
         services.AddSingleton<PlanAnswerParser>();
@@ -232,6 +234,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
         AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
         AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);
+        AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);

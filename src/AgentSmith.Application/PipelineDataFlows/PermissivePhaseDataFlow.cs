@@ -13,8 +13,18 @@ public abstract class PermissivePhaseDataFlow : IPhaseDataFlow
 {
     public abstract string PresetName { get; }
 
-    public IReadOnlyList<PhaseDataFlowEdge> Edges { get; } =
+    /// <summary>
+    /// Wildcard edge that allows any prior step to produce any context key for any
+    /// consumer. Subclasses override to add explicit edges alongside the wildcard
+    /// (documenting the intended flow); real enforcement requires the wildcard's
+    /// removal in a dedicated post-D7 tightening phase.
+    /// </summary>
+    public virtual IReadOnlyList<PhaseDataFlowEdge> Edges { get; } =
     [
         new("*", "*", new[] { "*" })
     ];
+
+    /// <summary>The wildcard edge subclasses concatenate alongside their explicit edges.</summary>
+    protected static readonly PhaseDataFlowEdge Wildcard =
+        new("*", "*", new[] { "*" });
 }
