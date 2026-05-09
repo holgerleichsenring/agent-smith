@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0130b
+goal: "Add the remaining three bootstrap producer skills (node-bootstrap, python-bootstrap, generic-bootstrap) so the init-project pipeline has a producer for every value of the project_language enum. Cross-repo: agent-smith-skills 2.4.0 → 2.5.0. Mostly content; activates_when routing already exercised by p0130a."
+
+requires: ["p0130a"]
+
+scope:
+  in: "Three new SKILL.md files under skills/coding/ in agent-smith-skills (node-bootstrap, python-bootstrap, generic-bootstrap). All three follow the csharp-bootstrap shape: role=producer, output_schema=bootstrap, activates_when='project_language = \"<lang>\"'. Body specializes the per-language guidance: node-bootstrap covers Node/TypeScript stacks (npm/pnpm/yarn, package.json, tsconfig, jest/vitest/mocha conventions); python-bootstrap covers pip/poetry/uv, pyproject.toml/requirements.txt, pytest/unittest; generic-bootstrap is the fallback when no language match — keeps context.yaml minimal (stack: lang detected from ProjectMap.PrimaryLanguage; arch defaults to layered) and acknowledges in coding-principles.md that operator-specific principles are out of automatic scope. agent-smith-skills version bump to 2.5.0; CHANGELOG entry; agentsmith.yml pin synced."
+  out: "Java / Go / Kotlin / Rust language-specific skills — operator-extension territory; project_language enum stays narrow per p0125c discipline. ProjectAnalyzer changes that publish project_language — that detection lands when actually consumed; for now the LLM-side activates_when check is the authoritative routing layer."
+
+decisions:
+  - key: "Three skills together in one slice. Reason: same SKILL.md template; same activates_when shape; only the body specializes. Splitting by language would multiply scaffolding three times for content that's structurally identical. Cross-repo PR pairs synchronously with agent-smith side which has no code change in this slice."
+  - key: "generic-bootstrap is a deliberate fallback, not a synonym for 'unknown'. Reason: ProjectAnalyzer-side detection might surface project_language='generic' for stacks the four-value enum doesn't cover (Java, Go, Rust, Kotlin, Ruby, ...). The skill's body acknowledges the limitation: it produces a minimal but technically-correct context.yaml + a coding-principles.md shell that flags operator-needed customization. Better than failing to produce files when the gate downstream needs them."
+  - key: "No agent-smith C# code change. Reason: p0130a's plumbing (BootstrapGateHandler, preset wiring, agentsmith.yml pin) is sufficient. p0130b is content-only — the new skills auto-load via existing SkillLoader infrastructure once 2.5.0 is pinned."
+
+steps:
+  - id: skills
+    action: "Add node-bootstrap + python-bootstrap + generic-bootstrap SKILL.md files"
+    new:
+      - "agent-smith-skills/skills/coding/node-bootstrap/SKILL.md"
+      - "agent-smith-skills/skills/coding/python-bootstrap/SKILL.md"
+      - "agent-smith-skills/skills/coding/generic-bootstrap/SKILL.md"
+
+  - id: version
+    action: "Bump skills repo version + changelog"
+    modify:
+      - "agent-smith-skills/version.txt"
+      - "agent-smith-skills/CHANGELOG.md"
+
+  - id: pin
+    action: "Sync agent-smith pin"
+    modify:
+      - "agent-smith/config/agentsmith.yml"
+
+tests:
+  - "No new agent-smith unit tests — existing p0130a test pack covers the gate + activation routing"
+  - "Manual smoke: init-project against a Node repo selects node-bootstrap; against a Python repo selects python-bootstrap; against an unknown stack selects generic-bootstrap"
+
+done:
+  - "Three SKILL.md files exist with role=producer, output_schema=bootstrap, activates_when matching the project_language enum value"
+  - "agent-smith-skills 2.5.0 ships; agentsmith.yml pin synced"
+  - "p0130 parent's done criteria reachable: bootstrap producers exist for every project_language enum value"
