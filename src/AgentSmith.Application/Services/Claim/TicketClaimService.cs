@@ -68,7 +68,8 @@ public sealed class TicketClaimService(
             request.PipelineName,
             TicketId: request.TicketId,
             Headless: true,
-            Context: request.InitialContext);
+            Context: request.InitialContext,
+            PlanAnswers: request.PlanAnswers);
 
         try
         {

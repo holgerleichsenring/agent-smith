@@ -77,6 +77,11 @@ public sealed class ExecutePipelineUseCase(
             }
         }
 
+        // p0128b: operator answers from a prior open-questions round-trip flow into
+        // the next Plan-skill run as a structured input block (PromptPrefixBuilder).
+        if (request.PlanAnswers is { Count: > 0 })
+            pipeline.Set(ContextKeys.PlanAnswers, request.PlanAnswers);
+
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
         var result = await pipelineExecutor.ExecuteAsync(

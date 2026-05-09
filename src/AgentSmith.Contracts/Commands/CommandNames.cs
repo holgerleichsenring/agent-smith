@@ -73,6 +73,9 @@ public static class CommandNames
     public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
     public const string BootstrapCheck = "BootstrapCheckCommand";
 
+    // p0128b: Plan open_questions round-trip
+    public const string PlanOpenQuestions = "PlanOpenQuestionsCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -149,6 +152,7 @@ public static class CommandNames
         [PersistWorkBranch] = "Persisting work branch",
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
+        [PlanOpenQuestions] = "Posting Plan open questions",
     };
 
     /// <summary>

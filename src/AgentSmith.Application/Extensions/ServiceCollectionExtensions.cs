@@ -9,9 +9,12 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Services.Persistence;
+using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Persistence;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
@@ -123,6 +126,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
+        // p0128b: Plan open-questions round-trip
+        services.AddSingleton<PlanAnswerParser>();
+        services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
+        services.AddTransient<ICommandHandler<PlanOpenQuestionsContext>, PlanOpenQuestionsHandler>();
         services.AddTransient<PlanConsolidator>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
@@ -263,6 +270,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
+        AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
@@ -274,6 +282,20 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IIntentParser, RegexIntentParser>();
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
+
+        // p0128c: data-flow gating. Each preset's IPhaseDataFlow is registered as a
+        // singleton so the resolver builds an O(1) name→declaration index at startup.
+        services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, AddFeatureDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, InitProjectDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, SecurityScanDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, ApiSecurityScanDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, MadDiscussionDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
+        services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();

@@ -6,6 +6,8 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
+using AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Activation;
 using AgentSmith.Infrastructure.Services.Containers;
@@ -125,6 +127,13 @@ public static class ServiceCollectionExtensions
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
         services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
         services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
+
+        // p0128b: per-platform Plan open-questions comment templates. Keyed by platform
+        // name; PlanOpenQuestionsPoster (Application) resolves the matching template.
+        services.AddKeyedSingleton<ITicketCommentTemplate, GitHubOpenQuestionsCommentTemplate>("github");
+        services.AddKeyedSingleton<ITicketCommentTemplate, GitLabOpenQuestionsCommentTemplate>("gitlab");
+        services.AddKeyedSingleton<ITicketCommentTemplate, AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
+        services.AddKeyedSingleton<ITicketCommentTemplate, JiraOpenQuestionsCommentTemplate>("jira");
         // IConversationLookup → RedisConversationLookup is registered by AgentSmith.Cli/ServiceProviderFactory
         // when REDIS_URL is available (p0101). WebhookDialogueRouter handles the null case.
 

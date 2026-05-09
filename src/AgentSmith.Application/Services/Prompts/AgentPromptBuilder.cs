@@ -22,7 +22,9 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
-    public string BuildPlanUserPrompt(Ticket ticket, ProjectMap projectMap)
+    public string BuildPlanUserPrompt(
+        Ticket ticket, ProjectMap projectMap,
+        IReadOnlyDictionary<string, string>? planAnswers = null)
     {
         var modules = string.Join('\n', projectMap.Modules
             .Where(m => m.Role == ModuleRole.Production)
@@ -54,6 +56,27 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
             ### Entry Points
             {entryPoints}
+            {BuildOperatorAnswersSection(planAnswers)}
+            """;
+    }
+
+    internal static string BuildOperatorAnswersSection(
+        IReadOnlyDictionary<string, string>? planAnswers)
+    {
+        if (planAnswers is null || planAnswers.Count == 0)
+            return "";
+
+        var lines = string.Join('\n', planAnswers
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .Select(kv => $"  - **Q{kv.Key}:** {kv.Value}"));
+
+        return $"""
+
+
+            ## Operator answers to prior open questions
+            The previous Plan asked clarifying questions and was halted. The operator's answers below
+            are authoritative — incorporate them into the new Plan and produce status=complete.
+            {lines}
             """;
     }
 

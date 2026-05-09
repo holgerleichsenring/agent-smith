@@ -131,4 +131,15 @@ public static class ContextKeys
     public const string PlanJson = "PlanJson";
     public const string DiffJson = "DiffJson";
     public const string BootstrapMarkdown = "BootstrapMarkdown";
+
+    // p0128b: Plan open_questions round-trip. OpenQuestionsAwaitingAnswer halts the
+    // pipeline cleanly when the Plan emits questions; PlanAnswers carries operator
+    // answers from the webhook re-trigger into the next Plan-skill run.
+    public const string OpenQuestionsAwaitingAnswer = "OpenQuestionsAwaitingAnswer";
+    public const string PlanAnswers = "PlanAnswers";
+
+    // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
+    // this before each step and clears it after; the gated context wrapper reads it
+    // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
+    public const string ActivePhaseStep = "ActivePhaseStep";
 }

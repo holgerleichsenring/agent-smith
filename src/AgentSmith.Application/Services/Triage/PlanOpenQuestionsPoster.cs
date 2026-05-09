@@ -1,0 +1,58 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace AgentSmith.Application.Services.Triage;
+
+/// <summary>
+/// Default <see cref="IPlanOpenQuestionsPoster"/>. Selects the platform-specific
+/// comment template via keyed singleton (TicketConfig.Type) and posts the rendered
+/// body via ITicketProvider.UpdateStatusAsync. Posts on the ticket itself, not on
+/// a PR, since the Plan phase precedes the PR.
+/// </summary>
+public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
+{
+    private readonly IServiceProvider _services;
+    private readonly ITicketProviderFactory _ticketFactory;
+    private readonly ILogger<PlanOpenQuestionsPoster> _logger;
+
+    public PlanOpenQuestionsPoster(
+        IServiceProvider services,
+        ITicketProviderFactory ticketFactory,
+        ILogger<PlanOpenQuestionsPoster> logger)
+    {
+        _services = services;
+        _ticketFactory = ticketFactory;
+        _logger = logger;
+    }
+
+    public async Task PostAsync(
+        TicketConfig ticketConfig, TicketId ticketId,
+        IReadOnlyList<PlanOpenQuestion> questions, CancellationToken cancellationToken)
+    {
+        if (questions.Count == 0)
+        {
+            _logger.LogDebug("No open questions to post for ticket {Ticket}", ticketId);
+            return;
+        }
+
+        var template = ResolveTemplate(ticketConfig.Type);
+        var body = template.Render(questions);
+        var provider = _ticketFactory.Create(ticketConfig);
+
+        await provider.UpdateStatusAsync(ticketId, body, cancellationToken);
+        _logger.LogInformation(
+            "Posted {Count} open question(s) on ticket {Ticket} via {Platform}",
+            questions.Count, ticketId, ticketConfig.Type);
+    }
+
+    private ITicketCommentTemplate ResolveTemplate(string platform)
+        => _services.GetKeyedService<ITicketCommentTemplate>(platform.ToLowerInvariant())
+           ?? throw new InvalidOperationException(
+               $"No ITicketCommentTemplate registered for platform '{platform}'. " +
+               "Register one via AddKeyedSingleton<ITicketCommentTemplate, ...>(\"<platform>\").");
+}
