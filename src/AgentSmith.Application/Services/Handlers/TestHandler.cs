@@ -44,13 +44,9 @@ public sealed class TestHandler(
 
     private TestCommand ResolveTestCommand(PipelineContext pipeline)
     {
-        if (pipeline.TryGet<DetectedProject>(ContextKeys.DetectedProject, out var detected)
-            && detected?.TestCommand is not null)
-        {
-            logger.LogInformation("Using detected test command: {Command}", detected.TestCommand);
-            return new TestCommand("/bin/sh", new[] { "-c", detected.TestCommand }, IsTrxCapable: false);
-        }
-
+        // p0131b: DetectedProject branch retired with BootstrapProjectHandler.
+        // ProjectMap (populated by AnalyzeProjectHandler) is now the single
+        // source of truth for language/test-command resolution.
         if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap) || projectMap is null)
             return TestCommand.None;
 

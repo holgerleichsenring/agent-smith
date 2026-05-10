@@ -26,7 +26,8 @@ public sealed record WebhookResult(
     Dictionary<string, object>? InitialContext = null,
     string? ProjectName = null,
     string? TicketId = null,
-    string? Platform = null);
+    string? Platform = null,
+    Dictionary<string, string>? PlanAnswers = null);
 
 /// <summary>
 /// Carries dialogue answer data extracted from a PR comment (/approve or /reject).

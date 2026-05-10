@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Infrastructure.Core.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -28,23 +27,16 @@ public sealed class SkillIndexBuilderTests : IDisposable
     {
         var codingDir = Path.Combine(_tempDir, "coding");
         Directory.CreateDirectory(codingDir);
-        var architectDir = Path.Combine(codingDir, "architect");
+        var architectDir = Path.Combine(codingDir, "architect-planner");
 
         var skill = new RoleSkillDefinition
         {
-            Name = "architect",
+            Name = "architect-planner",
             Description = "test",
             SkillDirectory = architectDir,
-            RolesSupported = [SkillRole.Lead, SkillRole.Analyst],
-            Activation = ActivationCriteria.Empty,
-            RoleAssignments = [],
-            OutputContract = new OutputContract(
-                "skill-observation", 8, 200,
-                new Dictionary<SkillRole, OutputForm>
-                {
-                    [SkillRole.Lead] = OutputForm.Plan,
-                    [SkillRole.Analyst] = OutputForm.List
-                })
+            Role = "producer",
+            OutputSchema = "plan",
+            ActivatesWhen = "pipeline_name = \"fix-bug\"",
         };
 
         _builder.Build(_tempDir, [skill]);
@@ -52,27 +44,29 @@ public sealed class SkillIndexBuilderTests : IDisposable
         var indexPath = Path.Combine(_tempDir, "_index", "coding.yaml");
         File.Exists(indexPath).Should().BeTrue();
         var contents = File.ReadAllText(indexPath);
-        contents.Should().Contain("architect");
-        contents.Should().Contain("lead");
-        contents.Should().Contain("analyst");
+        contents.Should().Contain("architect-planner");
+        contents.Should().Contain("role: producer");
+        contents.Should().Contain("output_schema: plan");
     }
 
     [Fact]
-    public void SkillsWithoutRolesSupported_OmittedFromIndex()
+    public void SkillsWithoutRole_OmittedFromIndex()
     {
+        // p0131a: skills without the new-format `role` field (e.g. partial loads
+        // or pre-2.0 catalog leftovers) are excluded from the index entirely.
         var codingDir = Path.Combine(_tempDir, "coding");
         Directory.CreateDirectory(codingDir);
         var skill = new RoleSkillDefinition
         {
-            Name = "legacy",
-            Description = "no new fields",
-            SkillDirectory = Path.Combine(codingDir, "legacy"),
-            RolesSupported = null
+            Name = "incomplete",
+            Description = "missing role",
+            SkillDirectory = Path.Combine(codingDir, "incomplete"),
+            Role = null,
         };
 
         _builder.Build(_tempDir, [skill]);
 
         var indexPath = Path.Combine(_tempDir, "_index", "coding.yaml");
-        File.Exists(indexPath).Should().BeFalse(); // no skills in coding survived projection
+        File.Exists(indexPath).Should().BeFalse();
     }
 }

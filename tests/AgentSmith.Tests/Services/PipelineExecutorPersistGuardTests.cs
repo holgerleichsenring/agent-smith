@@ -42,9 +42,12 @@ public sealed class PipelineExecutorPersistGuardTests
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
             _sandBoxFactory.Object,
-            new SandboxSpecBuilder(), 
-            _progressReporterMock.Object, 
-            NullLogger<PipelineExecutor>.Instance 
+            new SandboxSpecBuilder(),
+            _progressReporterMock.Object,
+            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
+                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
+            new AgentSmithConfig(),
+            NullLogger<PipelineExecutor>.Instance
         );
     }
 

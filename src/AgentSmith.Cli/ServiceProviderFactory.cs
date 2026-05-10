@@ -37,6 +37,7 @@ internal static class ServiceProviderFactory
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddInProcessSandbox();
+        services.AddSingleton<Commands.ValidateConceptsCommand>();
         RegisterDialogueAndProgress(services, headless, jobId, redisUrl);
 
         if (configPath is not null)

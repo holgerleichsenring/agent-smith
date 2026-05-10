@@ -19,8 +19,6 @@ public class CommandContextFactoryTests
         new(CommandNames.CheckoutSource, new CheckoutSourceContextBuilder()),
         new(CommandNames.LoadCodingPrinciples, new LoadCodingPrinciplesContextBuilder()),
         new(CommandNames.LoadContext, new LoadContextContextBuilder()),
-        new(CommandNames.LoadCodeMap, new LoadCodeMapContextBuilder()),
-        new(CommandNames.BootstrapProject, new BootstrapProjectContextBuilder()),
         new(CommandNames.AnalyzeCode, new AnalyzeCodeContextBuilder()),
         new(CommandNames.GeneratePlan, new GeneratePlanContextBuilder()),
         new(CommandNames.Approval, new ApprovalContextBuilder()),

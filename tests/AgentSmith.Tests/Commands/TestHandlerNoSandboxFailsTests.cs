@@ -28,16 +28,16 @@ public sealed class TestHandlerNoSandboxFailsTests
     public async Task ExecuteAsync_TestFrameworkDetected_NoSandbox_ReturnsFail()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.DetectedProject, new DetectedProject(
-            Language: "csharp",
-            Runtime: ".NET 8",
-            PackageManager: null,
-            BuildCommand: "dotnet build",
-            TestCommand: "dotnet test",
+        // p0131b: ProjectMap (populated by AnalyzeProjectHandler) is now the
+        // source of truth for language/test-command resolution.
+        pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
+            PrimaryLanguage: "csharp",
             Frameworks: Array.Empty<string>(),
-            Infrastructure: Array.Empty<string>(),
-            KeyFiles: Array.Empty<string>(),
-            Sdks: Array.Empty<string>()));
+            Modules: Array.Empty<Module>(),
+            TestProjects: Array.Empty<TestProject>(),
+            EntryPoints: Array.Empty<string>(),
+            Conventions: new Conventions(null, null, null),
+            Ci: new CiConfig(false, null, null, null)));
 
         var context = NewTestContext(pipeline);
 

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131c
+goal: "D7 slice 3/4: delete LegacyTriageStrategy + TriageResponseParser + TriageResult. With p0131c-pre routing mad-discussion + legal-analysis through StructuredTriage and p0130c migrating init-project off the Triage path entirely, autonomous is the last remaining Discussion-type preset that lands at Triage. autonomous is also pipeline_name-fenced (no `pipeline_name = \"autonomous\"` skills in the catalog) — its silent-no-op-via-Legacy was already non-productive. Routing it through Structured yields a Fail-loud on empty AvailableRoles, which is more correct."
+
+requires: ["p0127c", "p0131c-pre"]
+
+scope:
+  in: |
+    (1) Delete src/AgentSmith.Application/Services/Triage/LegacyTriageStrategy.cs.
+    (2) Delete src/AgentSmith.Application/Services/Handlers/TriageResponseParser.cs
+        (only consumer was LegacyTriageStrategy; the internal TriageResult
+        record retired with it).
+    (3) TriageStrategySelector: collapse to a one-liner that returns
+        StructuredTriageStrategy for every (PipelineType, name) pair. The
+        autonomous preset stops getting Legacy treatment and now Fail-louds
+        on empty skills like every other preset.
+    (4) ITriageStrategy doc updated: only StructuredTriageStrategy ships;
+        the interface stays as a DI seam for future routing decisions.
+    (5) DI: drop AddTransient<LegacyTriageStrategy>().
+    (6) Tests: TriageStrategySelectorTests rewritten — single theory asserting
+        every (type, name) pair returns Structured.
+  out: |
+    - autonomous catalog gap (no `pipeline_name = "autonomous"` skills) — that
+      remains a skills-repo concern; this slice does not add a noop strategy
+      or special-case autonomous. Operators running autonomous get a Fail-loud
+      on Triage now (vs the previous silent Ok-with-no-roles), which surfaces
+      the gap explicitly.
+    - Skipped-test + validator cleanup (p0131d). Most of it already happened
+      as a side-effect of p0131a's field removal.
+
+decisions:
+  - key: |
+      autonomous routes to StructuredTriage now, not retained on Legacy.
+      Reason: autonomous is `pipeline_name`-fenced (the enum doesn't include
+      "autonomous", so PipelineNameInitializer throws ArgumentException at
+      the head of every chain). End-to-end autonomous runs are already
+      broken; the Legacy "no roles → Ok" branch was a silent no-op that
+      hid the gap. StructuredTriage's HasLoadedSkills Fail-loud surfaces
+      the gap explicitly, which is more correct. -- alternatives: add a
+      NoopTriageStrategy for autonomous (rejected: special-casing one
+      preset for behavior that's wrong upstream); leave Legacy in for
+      autonomous (rejected: keeps a 135-line strategy alive for one
+      consumer whose pipeline doesn't actually work today).
+  - key: |
+      ITriageStrategy interface kept (one-strategy world). Reason: future
+      routing decisions (provider-specific variants, replay-from-trace,
+      different prompts per pipeline shape) will plug in via this seam
+      without re-wiring TriageHandler / TriageStrategySelector. Removing
+      the interface and inlining StructuredTriage into TriageHandler would
+      save ~10 lines today and re-create the interface tomorrow when the
+      first variant lands. -- alternatives: inline (rejected: short-term
+      win, long-term churn).
+  - key: |
+      TriageResponseParser deleted with LegacyTriageStrategy. Reason: the
+      parser was an internal helper for the legacy-discussion-prompt JSON
+      shape (Lead + Participants + Reasoning); StructuredTriage uses
+      ParseJson + TriageOutputDto in TriageOutputProducer with a different
+      grammar (Phases dict, Confidence, Rationale). The parser had no
+      other consumers. -- alternatives: keep as dead code (rejected: rot).
+
+steps:
+  - id: delete
+    action: "Delete LegacyTriageStrategy + TriageResponseParser"
+    delete:
+      - "src/AgentSmith.Application/Services/Triage/LegacyTriageStrategy.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TriageResponseParser.cs"
+
+  - id: simplify
+    action: "Collapse selector + drop DI + update docs"
+    modify:
+      - "src/AgentSmith.Application/Services/Triage/TriageStrategySelector.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+      - "src/AgentSmith.Contracts/Services/ITriageStrategy.cs"
+
+  - id: tests
+    action: "Rewrite TriageStrategySelectorTests"
+    modify:
+      - "tests/AgentSmith.Tests/Triage/TriageStrategySelectorTests.cs"
+
+tests:
+  - "Build clean"
+  - "All tests pass; no LegacyTriageStrategy references remain"
+  - "Selector returns Structured for every (PipelineType, pipelineName) pair"
+
+done:
+  - "LegacyTriageStrategy.cs + TriageResponseParser.cs deleted"
+  - "TriageStrategySelector simplified to a single Structured return"
+  - "DI registration for LegacyTriageStrategy removed"
+  - "1501 main + 62 sandbox tests passing"

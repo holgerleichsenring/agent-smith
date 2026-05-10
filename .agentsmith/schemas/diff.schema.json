@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-smith.org/schemas/diff/1.0.json",
+  "title": "Diff",
+  "description": "Output contract for skills with output_schema=diff. Phase C of D4 (p0128).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["changes", "tests_added", "tests_modified", "build_status", "test_status"],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "operation", "summary", "patch"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "operation": { "type": "string", "enum": ["modify", "add", "delete"] },
+          "summary": { "type": "string", "maxLength": 200 },
+          "patch": { "type": "string" }
+        }
+      }
+    },
+    "tests_added": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "summary"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "tests_modified": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "summary"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "build_status": { "type": "string", "enum": ["ok", "failed", "not_run"] },
+    "test_status": { "type": "string", "enum": ["ok", "failed", "not_run"] }
+  }
+}

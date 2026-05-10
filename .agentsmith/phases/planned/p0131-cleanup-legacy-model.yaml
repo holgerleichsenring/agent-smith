@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131
+goal: "D7 parent: remove the legacy skill-model + bootstrap + triage code paths. roles_supported / role_assignment / activation.* fields gone from SkillMdFrontmatter; SkillBodySplitter deleted; CodeMapGenerator + code-map.yaml retired; LegacyTriageStrategy removed; BootstrapProjectHandler retired. The codebase reflects the A/B/C model without legacy ballast. Sliced into a/b/c/d."
+
+requires: ["p0125d", "p0127c", "p0128c", "p0129c", "p0130"]
+
+scope:
+  in: "Parent design for D7. Four slices, each focused on one concern: (a) Skill loader + frontmatter cleanup — remove `RolesSupported`, `RoleAssignment`, `Activation`, `References`, `OutputContract`, `RawXxx` classes from `SkillMdFrontmatter`. p0127c already deleted them as runtime concerns and kept `RolesSupported` as a rejection probe; this slice removes the probe too (the v2.0.0 cutover is complete; pre-cutover agent-smith-skills versions are explicitly unsupported). `SkillMdParser` legacy code paths drop. `SkillBodySplitter` deleted. `RoleSkillDefinition`'s now-unused `[Obsolete]` properties (RolesSupported, RoleAssignments, Activation, OutputContract, References) removed; consumer call sites cleaned up. `NewFormatSkillBuilder` simplified (no dual-write to legacy fields). (b) Bootstrap + project-meta cleanup — `BootstrapProjectHandler` deleted. The auto-bootstrap path inside FixBug / FixNoTest / AddFeature presets (a `BootstrapProject` step that historically wrote a stub context.yaml) is replaced by the BootstrapCheck gate from p0130a. CodeMapGenerator + code-map.yaml retired. `LoadCodeMap` step removed from presets. The few skills that referenced CodeMap context (mostly via prompt placeholders) updated to read `context.yaml` content directly via the existing PromptCatalog. `code-map.yaml` files in operator repos become orphan artifacts that downstream pipelines no longer load. (c) Triage cleanup — `LegacyTriageStrategy` deleted. p0111c shipped both LegacyTriageStrategy (Discussion pipelines) and StructuredTriageStrategy (Plan/Review/Final). With every pipeline now driven by activates_when (post-p0127c), the legacy LLM-based discussion-triage path is unused. `ITriageStrategySelector` simplified to always return StructuredTriageStrategy. `TriageOutputProducer` legacy retry-with-vocabulary-fallback path (the p0124 follow-up that accepted any vocab key) tightens since post-p0127c every skill carries activates_when. (d) Test-pack + concept-vocabulary transition cleanup — `[Obsolete]` markers on legacy properties removed (the properties themselves are gone). Skipped tests in `SkillMdParserExtendedTests` (RolesSupportedFrontmatter_ParsesAllRoles, BodySplitByH2Header_ProducesRoleBodyMap) deleted entirely. ConceptVocabularyValidator's transition-period warnings (those that flagged skills carrying both old + new fields during p0127c migration) removed. ValidateConceptsCommand's category-enum check tightens — pre-D7 it allowed `*` plus the closed enum; post-D7 the closed enum is the only valid set."
+  out: "ProjectMap entity itself stays — it's still used at runtime to detect language / build commands for ProjectAnalyzer + bootstrap detection. Only the persisted `code-map.yaml` artifact retires. Migration script for operator repos that still have a `code-map.yaml` — separate operator-tool concern; this phase deletes the writer + the loader, leaving stale operator-side files orphaned (harmless). PR-comment / dialogue / autonomous pipelines — those handle TriggerInput as free-form text; no legacy field cleanup needed there. Wildcard removal in PermissivePhaseDataFlow and per-preset edge tightening — that's a separate post-D7 enforcement phase (already noted in p0128c + p0129a decisions). Provider-specific SKILL.<provider>.md override path from p0111d — still useful, kept as-is."
+
+decisions:
+  - key: "Four slices, each in one well-bounded concern. Reason: D7's 'remove the dead code' is structurally heterogeneous — skill loader, bootstrap, triage, validators each have distinct test packs and consumers. Bundling into one phase risks one slice's regression masking another's. The a/b/c/d split lets each cleanup land independently with its own test signal. Same discipline as p0125, p0127, p0128 used. -- alternatives: one big cleanup commit (rejected: hard to bisect on regression); slice by file rather than concern (rejected: same dead code touches multiple files; per-concern reads naturally)."
+  - key: "Legacy field deletion, not deprecation cycle. Reason: p0127c shipped the v2.0.0 hard cutover for SKILL.md format; agent-smith-skills 2.0.0+ never has legacy fields. Pre-2.0.0 skills are explicitly unsupported (CHANGELOG breaking-change entry, agentsmith.yml pin enforces 2.0.0+). Keeping legacy fields as `[Obsolete]` for a deprecation cycle would extend the cleanup over multiple releases for no operator benefit. -- alternatives: 6-month deprecation cycle (rejected: nobody pinned to <2.0.0 today); silent removal without CHANGELOG (rejected: minor-version bump for breaking-change is a discipline anchor)."
+  - key: "code-map.yaml retirement is opt-in for operator-side files (orphan-safe). Reason: deleting `LoadCodeMap` + `CodeMapGenerator` removes the writer and the loader. Operators with existing `.agentsmith/code-map.yaml` files keep them on disk; agent-smith no longer reads them. No active deletion; no migration needed. The persisted-artifact concept retires; the in-memory ProjectMap stays as the runtime equivalent for language/build-command detection. -- alternatives: actively delete operator-side files (rejected: agent-smith doesn't own operator-repo cleanup); preserve code-map.yaml as read-only (rejected: dead code stays in the codebase)."
+  - key: "LegacyTriageStrategy delete, not refactor-into-StructuredTriageStrategy. Reason: post-p0127c every skill has activates_when; the legacy strategy's LLM-based discussion-triage path has zero callers in the new model. Refactoring to merge concerns would conflate two abstractions for theoretical reuse; deletion keeps the architecture clean. ITriageStrategySelector becomes a one-line return. -- alternatives: keep LegacyTriageStrategy for backward-compat (rejected: nothing depends on it post-p0127c); merge the two strategies (rejected: nothing benefits from the merge)."
+
+steps:
+  - id: slice-a-pointer
+    action: "p0131a — Skill loader + frontmatter cleanup"
+    new:
+      - "Spec: written when the user requests implementation. Sketch: SkillMdFrontmatter shrinks to new-format-only fields; SkillBodySplitter deleted; SkillMdParser drops legacy DetectFormat / BuildLegacyRole branches; RoleSkillDefinition's [Obsolete] legacy properties removed with consumer cleanup; NewFormatSkillBuilder simplified (no dual-write). ~30 test-pack adjustments + ~500 LoC removed."
+
+  - id: slice-b-pointer
+    action: "p0131b — Bootstrap + ProjectMap-artifact cleanup"
+    new:
+      - "Spec: written when p0131a lands. Sketch: BootstrapProjectHandler deleted; CodeMapGenerator + code-map.yaml writer/loader retired; LoadCodeMap step removed from presets; consumer skills updated to read context.yaml directly. ~300 LoC removed."
+
+  - id: slice-c-pointer
+    action: "p0131c — Triage cleanup"
+    new:
+      - "Spec: written when p0131a lands. Sketch: LegacyTriageStrategy + ITriageStrategySelector simplification; TriageOutputProducer's vocab-fallback retry path tightened. ~200 LoC removed."
+
+  - id: slice-d-pointer
+    action: "p0131d — Test-pack + validator cleanup"
+    new:
+      - "Spec: written after a/b/c. Sketch: skipped tests deleted; transition-period warnings retired; ValidateConceptsCommand category-enum tightens to closed-enum-only. ~100 LoC removed."
+
+tests:
+  - "See per-slice specs"
+
+done:
+  - "p0131a + b + c + d all land"
+  - "SkillMdFrontmatter has no legacy fields (RolesSupported, RoleAssignment, Activation, References, OutputContract gone)"
+  - "SkillBodySplitter deleted; CodeMapGenerator deleted; BootstrapProjectHandler deleted; LegacyTriageStrategy deleted"
+  - "Skipped tests removed; ConceptVocabulary transition-warnings removed; ValidateConceptsCommand category check uses closed enum only"
+  - "Total LoC reduction estimated 1500-2500 (matches phase-d.md D7 estimate)"
+  - "All existing tests pass; manual smoke against fix-bug + add-feature + security-scan + api-security-scan + mad-discussion confirms no regressions"
+  - "agent-smith-skills version pin remains 2.x — no skills-repo changes in p0131"

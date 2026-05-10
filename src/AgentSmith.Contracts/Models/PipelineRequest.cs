@@ -12,4 +12,5 @@ public sealed record PipelineRequest(
     TicketId? TicketId = null,
     bool IsInit = false,
     bool Headless = false,
-    Dictionary<string, object>? Context = null);
+    Dictionary<string, object>? Context = null,
+    Dictionary<string, string>? PlanAnswers = null);
