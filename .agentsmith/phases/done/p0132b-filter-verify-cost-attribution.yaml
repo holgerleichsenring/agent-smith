@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0132b
+goal: "Slice 2/3 of p0132. Extend per-skill cost attribution to FilterRoundHandler (both list-mode batches and artifact-mode) and VerifyRoundHandler (per-verifier rounds). PerSkillBreakdown now covers every LLM call routed through these handlers — every filter batch and every verifier shows up as its own line in result.md."
+
+requires: ["p0126", "p0127c", "p0132a"]
+
+scope:
+  in: |
+    (1) FilterRoundHandler.FilterBatchAsync: wrap the chat-call in a
+        `using (costTracker.BeginCall(role.Name, "filter",
+        SkillExecutionPhase.Filter))` scope. Each batch is its own
+        scope — operators see N entries in PerSkillBreakdown for a
+        filter skill whose input exceeded the token-budget split.
+    (2) FilterRoundHandler.ApplyArtifactAsync: same wrap with
+        SkillExecutionPhase.Synthesize (artifact-mode is consolidation,
+        not pure filtering).
+    (3) VerifyRoundHandler.InvokeVerifierAsync: wrap the per-verifier
+        chat-call with SkillExecutionPhase.Verify. Each verifier
+        (scope-verifier / build-verifier / test-verifier /
+        architecture-verifier) shows up individually.
+  out: |
+    - Gate-path cost-scope (gateRetryCoordinator). The coordinator owns
+      its own chat-loop with retry semantics; cleanly wrapping requires
+      a coordinator-side onResponse hook similar to the runtime's
+      RetryCoordinator. Deferred to a post-p0132 follow-up.
+    - SkillCallRuntime full migration of filter / verify (limits, retry,
+      structured trace). Deferred for the same reasons as p0132a — the
+      cost-scope alone delivers the operator-visible value.
+    - Verifier tool access (p0132c).
+
+decisions:
+  - key: |
+      Filter batches each get their own scope, not a single rolled-up
+      filter-skill scope. Reason: when a filter skill receives N
+      observations exceeding the token-budget, TokenBudgetBatcher splits
+      them into batches and FilterBatchAsync is invoked per batch.
+      Per-batch attribution surfaces the actual cost distribution
+      (sometimes one batch dominates because its observations are
+      verbose) instead of hiding it behind a single rolled-up entry.
+      Operators reading result.md can see exactly which batch was
+      expensive. -- alternatives: aggregate into one scope per filter
+      call (rejected: hides per-batch cost variance); aggregate per
+      filter skill across the entire pipeline run (rejected: scopes are
+      per-LLM-call by design).
+  - key: |
+      Artifact-mode filter uses SkillExecutionPhase.Synthesize, not
+      Filter. Reason: artifact-mode consolidates observations into a
+      single output document — the closest SkillExecutionPhase match
+      is Synthesize. List-mode (which actually filters) uses Filter.
+      Same enum-mapping discipline as p0132a's MapPhase helper. --
+      alternatives: both modes use Filter (rejected: loses the
+      semantic distinction in PerSkillBreakdown).
+  - key: |
+      Verifiers use SkillExecutionPhase.Verify. Reason: matches the
+      already-existing Verify enum value; the verifier role is the
+      direct semantic match. The handler's role argument
+      ("investigator" from the SKILL.md role field) is preserved
+      verbatim; phase is the where-in-pipeline-lifecycle attribute.
+
+steps:
+  - id: filter-wrap
+    action: "Wrap both FilterRoundHandler chat-call sites in BeginCall scopes"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs"
+
+  - id: verify-wrap
+    action: "Wrap VerifyRoundHandler.InvokeVerifierAsync chat-call in a BeginCall scope"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs"
+
+tests:
+  - "Build clean"
+  - "1501 main + 62 sandbox tests passing — no regression"
+  - "Manual smoke: result.md PerSkillBreakdown shows entries for every filter batch + every verifier"
+
+done:
+  - "FilterRoundHandler list-mode + artifact-mode both wrap in BeginCall scopes"
+  - "VerifyRoundHandler.InvokeVerifierAsync wraps per-verifier in a BeginCall scope"
+  - "PerSkillBreakdown now covers SkillRound + FilterRound + VerifyRound non-Gate paths"
+  - "Gate-path scope + full runtime migration + verifier tool access still pending (p0132c)"

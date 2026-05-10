@@ -124,9 +124,18 @@ public sealed class VerifyRoundHandler(
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        var response = await chat.GetResponseAsync(
-            messages, new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0132b: per-verifier cost attribution. Each verifier round opens its
+        // own SkillCallScope so PerSkillBreakdown shows scope-verifier /
+        // build-verifier / test-verifier / architecture-verifier individually.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        ChatResponse response;
+        using (var _ = costTracker.BeginCall(
+            verifier.Name, verifier.Role ?? "investigator", SkillExecutionPhase.Verify))
+        {
+            response = await chat.GetResponseAsync(
+                messages, new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            costTracker.Track(response);
+        }
         var responseText = response.Text ?? string.Empty;
         var parsed = ObservationParser.ParseWithoutIds(responseText, verifier.Name, logger);
         return ApplyConfidenceThreshold(parsed, verifier.Name);
