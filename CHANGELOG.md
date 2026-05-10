@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.41.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.40.1...v0.41.0) (2026-05-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* SkillMdParser drops the legacy code path; only the new single-body format with role-as-frontmatter and activates_when loads. Pairs synchronously with agent-smith-skills 2.0.0 release.
+
+### Features
+
+* D4-D7 + p0132 — concept-vocabulary, verify-phase, init-project, cleanup, cost-attribution ([#91](https://github.com/holgerleichsenring/agent-smith/issues/91)) ([7261bed](https://github.com/holgerleichsenring/agent-smith/commit/7261bedaebd4137db084aea173dd96ce000a4ecb))
+
 ## [0.40.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.40.0...v0.40.1) (2026-05-10)
 
 
