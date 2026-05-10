@@ -56,14 +56,16 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void InitProject_HasMinimalCommands()
+    public void InitProject_ContainsKeyCommands()
     {
-        // p0125c: count is 4 (PipelineNameInitializer + the original three).
-        PipelinePresets.InitProject.Should().HaveCount(4);
+        // p0130c: BootstrapProject retired from this preset; replaced by the
+        // AnalyzeCode → PublishProjectLanguage → LoadSkills → BootstrapDispatch
+        // chain. Full step sequence is asserted in InitProjectPipelinePresetTests.
         PipelinePresets.InitProject.Should().Contain(CommandNames.PipelineNameInitializer);
         PipelinePresets.InitProject.Should().Contain(CommandNames.CheckoutSource);
-        PipelinePresets.InitProject.Should().Contain(CommandNames.BootstrapProject);
+        PipelinePresets.InitProject.Should().Contain(CommandNames.BootstrapDispatch);
         PipelinePresets.InitProject.Should().Contain(CommandNames.InitCommit);
+        PipelinePresets.InitProject.Should().NotContain(CommandNames.BootstrapProject);
     }
 
     [Fact]

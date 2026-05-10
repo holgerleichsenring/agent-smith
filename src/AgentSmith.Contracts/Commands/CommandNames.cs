@@ -82,6 +82,10 @@ public static class CommandNames
     // p0130a: bootstrap-files gate (aborts when context.yaml or coding-principles.md is missing)
     public const string BootstrapGate = "BootstrapGateCommand";
 
+    // p0130c: project-language publication + bootstrap-skill dispatch (init-project)
+    public const string PublishProjectLanguage = "PublishProjectLanguageCommand";
+    public const string BootstrapDispatch = "BootstrapDispatchCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -161,6 +165,8 @@ public static class CommandNames
         [PlanOpenQuestions] = "Posting Plan open questions",
         [RunVerifyPhase] = "Running verify phase",
         [BootstrapGate] = "Verifying bootstrap files",
+        [PublishProjectLanguage] = "Publishing project language",
+        [BootstrapDispatch] = "Dispatching bootstrap skill",
     };
 
     /// <summary>

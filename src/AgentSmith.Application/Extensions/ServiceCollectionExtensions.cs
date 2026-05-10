@@ -211,6 +211,16 @@ public static class ServiceCollectionExtensions
         // BootstrapCheckHandler and aborts the pipeline when bootstrap files are missing.
         services.AddTransient<ICommandHandler<BootstrapGateContext>, BootstrapGateHandler>();
 
+        // p0130c: PublishProjectLanguage publishes the project_language enum (IConceptWriter)
+        services.AddTransient<PublishProjectLanguageHandler>();
+        services.AddTransient<ICommandHandler<PublishProjectLanguageContext>>(sp =>
+            sp.GetRequiredService<PublishProjectLanguageHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<PublishProjectLanguageHandler>());
+
+        // p0130c: BootstrapDispatch deterministic SkillRound emit for init-project
+        services.AddTransient<ICommandHandler<BootstrapDispatchContext>, BootstrapDispatchHandler>();
+
         services.AddSingleton<ConceptWriterRegistry>();
     }
 
@@ -280,6 +290,8 @@ public static class ServiceCollectionExtensions
         AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
         AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
+        AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);
+        AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
