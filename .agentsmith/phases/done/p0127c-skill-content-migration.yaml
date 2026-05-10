@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0127c
+goal: "Final slice of D3. Cross-repo: every SKILL.md in agent-smith-skills migrates to the new single-body format with activates_when, role-as-frontmatter, and the eight new fields. Multi-role skills split into one-skill-per-role files. agent-smith-skills bumps 1.9.0 → 2.0.0 (breaking — legacy roles_supported shape no longer accepted by the loader). agent-smith pins to 2.0.0 in the same merge dance; SkillMdParser's legacy parsing path + the legacy frontmatter mapping are deleted; the closed enum for category is enforced at validate-concepts time."
+
+requires: ["p0127a", "p0127b"]
+
+scope:
+  in: "(1) agent-smith-skills repo: rewrite all 44 SKILL.md files. The 8 multi-role skills (3 three-role + 5 two-role) split mechanically into 19 new files (architect → architect-planner / architect-judge / architect-filter; security-reviewer → security-reviewer-planner / -judge / -filter; dba → similar; backend-developer / frontend-developer / devops / tester / api-vuln-analyst → 2 files each). Naming convention: <original>-<role-suffix> where suffix maps producer→planner, judge→judge, filter→filter, investigator→investigator with mode appended where helpful (e.g. -survey, -hint). 36 single-role skills migrate in place: roles_supported → role; role_assignment + activation removed; new fields added (output_schema, optional category for verify_hint investigators, optional investigator_mode + survey_scope or scope_hint for investigator skills, block_condition for judges, loop only when the LLM may iterate). Per-skill activates_when expressions reference concepts from the existing vocabulary (pipeline_name, source_available, etc.). Total file count after migration: 36 + 19 = 55 SKILL.md files. Body for each migrated skill is the existing legacy body merged into a single section (drop the ## as_<role> headers; per-role content collapses where it was duplicated, splits into the dedicated role-suffix file where genuinely role-distinct). (2) agent-smith-skills concept vocabulary additions if needed: scoped enums or new bools introduced by the migration land here. Cross-repo PR pairs synchronously. (3) agent-smith-skills bump: version.txt and CHANGELOG entry → 2.0.0; tarball regenerated; release-please config updated for the major bump. (4) agent-smith repo loader-side cleanup: SkillMdParser drops the legacy code path. DetectFormat keeps both-keys-present + neither-key error messages (the new shape is the only one that loads). MapRolesSupported / MapActivation / MapRoleAssignments / MapReferences / MapOutputContract / SkillBodySplitter become unreferenced and are deleted (or their classes deleted entirely if no other consumer remains). YamlSkillLoader.ValidateStrict's legacy branch (RolesSupported / RoleBodies / role_assignment / references-uniqueness checks) is dropped — only the new-format short-circuit + parse-time validation remains. SkillMdFrontmatter's legacy fields (RolesSupported, Activation, RoleAssignment, References, OutputContract) and their corresponding RawXxx classes are deleted; RoleSkillDefinition's legacy nullable properties (RolesSupported, Activation, RoleAssignments, References, OutputContract, RoleBodies) deleted. The override-merge logic loses its legacy clauses; only the new-format clauses remain. (5) agent-smith repo skills-pin bump to 2.0.0: agentsmith.yml's default skills version; tarball checksum re-pinned. (6) ValidateConceptsCommand category-enum closure: define the closed enum (auth, injection, secrets, iam, crypto, headers, inputs, outputs) and validate each new-format skill's category is in the enum when InvestigatorMode=verify_hint. (7) TriageOutputProducer + StructuredTriageStrategy cleanup: remove the activation.positive/negative fallback path now that every skill has activates_when. SkillIndexEntry simplifies to (Name, Description, Role, Category, OutputSchema, ActivatesWhen)."
+  out: "(1) Removal of legacy frontmatter classes from existing public Contracts / Models — that's still p0131 (D7); the legacy nullable properties on RoleSkillDefinition stay declared as `[Obsolete]` for one phase to give external consumers (none today, but the API shape) a deprecation window. (2) SkillCallRuntime consumer migration — still p0127's deferred follow-up (separate phase). (3) Schema-aware ISkillOutputValidator implementations — that's p0128a. The new output_schema field is stored but not yet routed to a validator; the existing NoOpSkillOutputValidator still serves until p0128a lands. (4) Removal of legacy SkillBodySplitter (it's only legacy-format) — moved to p0131 with the Frontmatter cleanup for layering reasons. (5) CHANGELOG entries describing the breaking change in detail per skill — covered by the agent-smith-skills CHANGELOG entry, not duplicated in agent-smith."
+
+decisions:
+  - key: "Hard cutover, no dual-tolerance window. Loader removes legacy parsing in the same PR that flips the agent-smith pin to 2.0.0; agent-smith-skills 2.0.0 is the first version that no longer carries any legacy SKILL.md files. Reason: same discipline as p0125a's vocabulary cutover. Two PRs is one merge dance; dual-tolerance is two pieces of code that need parallel maintenance and a deprecation timer that nobody schedules. -- alternatives: ship 2.0.0 with a one-version dual-tolerance period (rejected: extends the cleanup phase by one release cycle for no observable benefit; nobody pins to old versions today)."
+  - key: "Multi-role split mechanically, not per-skill judgment. Reason: the parent spec p0127's question 'were these multi-role originals genuinely multi-role or one role wearing different hats' is answered upfront by the migration script: every role gets its own file unless the bodies were byte-identical (which would already collapse to one role at the LLM level). Mechanical split avoids a per-skill review where each judgment compounds the migration cost. The few skills where a body was 'almost the same' re-converge naturally because the new format invites trimming duplicate guidance. -- alternatives: per-skill judgment (rejected: 8 reviews × decision points per role = bottleneck); one bigger 'multi-role' skill type in the new format (rejected: parent spec p0127 explicitly chose role-as-frontmatter, single body)."
+  - key: "Naming convention for splits: <original>-<role-suffix>. Producer → -planner; judge → -judge; investigator with verify_diff → -reviewer; investigator with verify_hint → -hinter; investigator with survey → -surveyor; filter → -filter. Reason: predictable suffixes make grep workflows trivial; operators who knew 'architect' already know 'architect-planner' is the planning facet of the same. Per the parent spec p0127 (ArchitectAsLead → architect-planner, ArchitectAsReviewer → architect-judge); same pattern carried through. -- alternatives: suffix with the original role name (lead/analyst/reviewer/filter — rejected: doesn't match the new producer/investigator/judge/filter taxonomy); reuse the same name across files (rejected: file collisions in catalog directories)."
+  - key: "category enum closed at p0127c: {auth, injection, secrets, iam, crypto, headers, inputs, outputs}. Reason: the loose-then-tight pattern from p0127a/b. The migration in c populates each verify_hint skill's category; the closed enum gets defined in this slice with the values actually used. ValidateConceptsCommand extension: any non-verify_hint skill leaves category null; verify_hint skills must declare a category in the closed enum. Adding a new category in the future means a vocabulary change + matching enum extension. -- alternatives: leave the enum open after migration (rejected: defeats the structural intent — categories are how the cluster selector groups skills; an unconstrained set is hard to route)."
+  - key: "Loader cleanup is in the same PR as the cutover, not a follow-up. Reason: same hard-cutover discipline. Leaving legacy parsing + legacy properties in the codebase 'just in case' would mean the parallel-format compatibility logic stays alive; the whole point of the cutover is to delete it. Layering note: the [Obsolete] window for RoleSkillDefinition's legacy properties is one phase (p0131) — long enough that the loader cleanup proves stable, short enough that the dead fields don't accumulate in serialization paths. -- alternatives: keep legacy parsing on for a release cycle (rejected: no consumer pins to it); delete the [Obsolete] properties immediately (rejected: tightens the cleanup window past safe — the [Obsolete] gives one merge-dance window for any unspotted external consumer)."
+  - key: "ValidateConceptsCommand stays the build-time gate; new-format runtime parsing is the load-time gate. Reason: same dual-gate pattern from p0125d. Build-time catches drift between the vocabulary, the activates_when expressions, and the category enum before deployment; load-time catches structurally broken SKILL.md files at boot. After p0127c, every loaded skill is new-format and the validator's legacy branch is dead — the new branch is the only branch."
+  - key: "TriageOutputProducer's SkillIndexEntry simplifies post-migration. The legacy ActivationCriteria + RoleAssignments fields go away; the LLM prompt's 'available_skills' rendering uses (Name, Description, Role, Category, ActivatesWhen) — one role, one activation expression, one category. The roles list collapses to a single role string. -- alternatives: keep SkillIndexEntry's legacy fields as nullable (rejected: post-cutover they're always null; carrying nullables for no consumer is dead code)."
+
+steps:
+  - id: skills-repo-multi-role-splits
+    action: "Split the 8 multi-role SKILL.md files into 19 single-role files in agent-smith-skills"
+    new:
+      - "agent-smith-skills/skills/coding/architect-planner/SKILL.md (was architect, lead role)"
+      - "agent-smith-skills/skills/coding/architect-judge/SKILL.md (was architect, reviewer role)"
+      - "agent-smith-skills/skills/coding/architect-filter/SKILL.md (was architect, filter role)"
+      - "agent-smith-skills/skills/coding/security-reviewer-planner/SKILL.md (was security-reviewer, lead role)"
+      - "agent-smith-skills/skills/coding/security-reviewer-judge/SKILL.md (was security-reviewer, reviewer role)"
+      - "agent-smith-skills/skills/coding/security-reviewer-filter/SKILL.md (was security-reviewer, filter role)"
+      - "agent-smith-skills/skills/coding/dba-planner/SKILL.md (was dba, lead role)"
+      - "agent-smith-skills/skills/coding/dba-judge/SKILL.md (was dba, reviewer role)"
+      - "agent-smith-skills/skills/coding/dba-filter/SKILL.md (was dba, filter role)"
+      - "agent-smith-skills/skills/coding/backend-developer-planner/SKILL.md (was backend-developer, lead role)"
+      - "agent-smith-skills/skills/coding/backend-developer-judge/SKILL.md (was backend-developer, reviewer role)"
+      - "agent-smith-skills/skills/coding/frontend-developer-planner/SKILL.md (was frontend-developer, lead role)"
+      - "agent-smith-skills/skills/coding/frontend-developer-judge/SKILL.md (was frontend-developer, reviewer role)"
+      - "agent-smith-skills/skills/coding/devops-planner/SKILL.md (was devops, lead role)"
+      - "agent-smith-skills/skills/coding/devops-judge/SKILL.md (was devops, reviewer role)"
+      - "agent-smith-skills/skills/coding/tester-planner/SKILL.md (was tester, lead role)"
+      - "agent-smith-skills/skills/coding/tester-judge/SKILL.md (was tester, reviewer role)"
+      - "agent-smith-skills/skills/api-security/api-vuln-analyst-investigator/SKILL.md (was api-vuln-analyst, analyst role)"
+      - "agent-smith-skills/skills/api-security/api-vuln-analyst-judge/SKILL.md (was api-vuln-analyst, reviewer role)"
+    delete:
+      - "agent-smith-skills/skills/coding/architect/ (and 7 other multi-role skill directories)"
+
+  - id: skills-repo-single-role-rewrites
+    action: "Migrate 36 single-role SKILL.md files in place to the new format"
+    modify:
+      - "Every SKILL.md under agent-smith-skills/skills/{api-security,coding,security,mad,legal}/ that currently uses roles_supported with a single role: replace roles_supported → role; remove role_assignment + activation; add description (≤200 chars), activates_when expression referencing the vocabulary, output_schema (observation/plan/diff/bootstrap), category if investigator_mode=verify_hint, investigator_mode + (survey_scope or scope_hint) for investigators, block_condition for judges, loop where iteration is intended; body becomes the existing single-section content verbatim (drop the ## as_<role> header)."
+
+  - id: skills-repo-version-bump
+    action: "agent-smith-skills bumps to 2.0.0 with breaking-change CHANGELOG"
+    modify:
+      - "agent-smith-skills/version.txt: 1.9.0 → 2.0.0"
+      - "agent-smith-skills/CHANGELOG.md: add 2.0.0 entry under '### BREAKING CHANGES' describing the new SKILL.md format, the role-suffix split list, the category enum, and the agent-smith ≥2.0.0 pin requirement"
+
+  - id: agentsmith-loader-cutover
+    action: "agent-smith SkillMdParser drops legacy parsing; legacy frontmatter classes deleted"
+    delete:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillBodySplitter.cs (legacy-only)"
+      - "RawActivationCriteria, RawActivationKey, RawSkillReference, RawOutputContract, RawHardLimits classes from SkillMdFrontmatter.cs (the file collapses to a single SkillMdFrontmatter class with the new-format fields + Name / Description / Triggers / Version / AllowedTools)"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: BuildLegacyRole + MapRolesSupported + MapActivation + MapRoleAssignments + MapReferences + MapOutputContract + TryParseRole + TryParseOutputForm + ValidateLegacyOverride deleted; DetectFormat simplifies to 'Role required, RolesSupported absent' (legacy-shape SKILL.md throws SkillFormatException with a 'migrate to 2.0.0' message); BuildRole drops the dispatch and calls _newFormatBuilder.Build directly. Class drops from ~360 lines to ~120, comfortably under the 120-line cap."
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs: ValidateStrict drops the legacy branch entirely; the new-format short-circuit becomes the only path (and is then no-op since parse-time validation is authoritative)."
+      - "src/AgentSmith.Contracts/Models/Configuration/RoleSkillDefinition.cs: legacy nullable properties (RolesSupported, Activation, RoleAssignments, References, OutputContract, RoleBodies) get [Obsolete(\"Removed in p0131\")] attributes for one-phase deprecation window."
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs: ToIndexEntry drops the legacy fields; SkillIndexEntry consumers updated to read Role + Category + ActivatesWhen instead of RolesSupported / Activation / RoleAssignments."
+      - "src/AgentSmith.Contracts/Models/Skills/SkillIndexEntry.cs: shape simplifies to (Name, Description, Role, Category?, OutputSchema?, ActivatesWhen)."
+      - "src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs: CheckNewFormatRules extends with closed-enum check for category (the spec's enum: auth, injection, secrets, iam, crypto, headers, inputs, outputs) when InvestigatorMode=verify_hint."
+
+  - id: agentsmith-skills-pin
+    action: "agent-smith pins to agent-smith-skills 2.0.0"
+    modify:
+      - "agentsmith.yml (default skills source) and any skills-version constants in code: bump to 2.0.0; tarball checksum re-pinned to the 2.0.0 release."
+
+  - id: tests
+    action: "Test pack updates: drop legacy-format tests; new-format tests cover the migrated skills"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserExtendedTests.cs: every legacy-format fixture (roles_supported, role_assignment, output_contract) is rewritten as a new-format fixture or deleted. Tests assert the new-format-only parser path."
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserOverrideTests.cs: legacy-format override tests deleted; only new-format override tests remain."
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserNewFormatTests.cs: 'Parse_OnlyRolesSupportedPresent_LoadsAsLegacy' inverts → asserts SkillFormatException now."
+      - "tests/AgentSmith.Tests/Cli/ValidateConceptsCommandNewFormatTests.cs: extend with category-enum closure tests (Validate_NewFormatCategoryNotInClosedEnum_ExitOne)."
+    new:
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserLegacyRejectionTests.cs: every former legacy fixture now asserts SkillFormatException with the migration message."
+
+tests:
+  - "SkillMdParser_LegacySkill_ThrowsSkillFormatExceptionWithMigrationMessage"
+  - "SkillMdParserNewFormat_OnlyRolesSupported_NowRejected"
+  - "ValidateConceptsCommandNewFormat_CategoryNotInClosedEnum_ExitOne"
+  - "ValidateConceptsCommandNewFormat_CategoryInClosedEnum_ExitZero"
+  - "All migrated SKILL.md files (55 total) parse via the new-format path"
+  - "agent-smith-skills 2.0.0 tarball loads cleanly into agent-smith with the new pin"
+  - "Triage path consumes the new SkillIndexEntry shape (Role + Category + ActivatesWhen) end-to-end"
+
+done:
+  - "44 → 55 SKILL.md files in agent-smith-skills, all in new format with activates_when"
+  - "agent-smith-skills 2.0.0 released with breaking-change CHANGELOG"
+  - "agent-smith pinned to 2.0.0"
+  - "SkillMdParser legacy parsing path deleted; only new-format parses"
+  - "SkillBodySplitter deleted; legacy frontmatter Raw* classes deleted"
+  - "RoleSkillDefinition's legacy properties [Obsolete]'d for one-phase removal in p0131"
+  - "SkillIndexEntry simplifies post-migration; TriageOutputProducer.ToIndexEntry rewritten"
+  - "category enum closed at validate-concepts time"
+  - "All existing tests updated; legacy-format tests deleted; new SkillMdParserLegacyRejectionTests covers the rejection path"
+  - "All tests pass; full suite green"

@@ -1,5 +1,7 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
@@ -24,6 +26,7 @@ public sealed class WriteRunResultHandler(
     private const string AgentSmithDir = ".agentsmith";
     private const string RunsDir = "runs";
     private const string ContextFileName = "context.yaml";
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public async Task<CommandResult> ExecuteAsync(
         WriteRunResultContext context, CancellationToken cancellationToken)
@@ -43,17 +46,21 @@ public sealed class WriteRunResultHandler(
         var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
         await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
 
+        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
+
         context.Pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
         context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var durationSeconds);
         context.Pipeline.TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var trail);
         context.Pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
         context.Pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var securityTrend);
         var dialogueEntries = dialogueTrail.GetAll();
+        var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
 
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket, context.Plan, context.Changes,
             nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null);
+            dialogueEntries.Count > 0 ? dialogueEntries : null,
+            perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(reader, contextPath, nextRunNumber, context.Ticket, cancellationToken);
@@ -65,6 +72,46 @@ public sealed class WriteRunResultHandler(
             nextRunNumber, runDirName);
 
         return CommandResult.Ok($"Run r{nextRunNumber:D2} recorded in {runDirName}");
+    }
+
+    /// <summary>
+    /// p0128a: persists the structured plan/diff/bootstrap artifacts alongside the
+    /// existing markdown when present. Source-of-truth for replay scenarios.
+    /// </summary>
+    private static async Task WriteOptionalArtifactsAsync(
+        ISandboxFileReader reader, string runDir, PipelineContext pipeline, CancellationToken ct)
+    {
+        if (pipeline.TryGet<string>(ContextKeys.PlanJson, out var planJson) && !string.IsNullOrEmpty(planJson))
+            await reader.WriteAsync(Path.Combine(runDir, "plan.json"), PrettyPrint(planJson), ct);
+
+        if (pipeline.TryGet<string>(ContextKeys.DiffJson, out var diffJson) && !string.IsNullOrEmpty(diffJson))
+            await reader.WriteAsync(Path.Combine(runDir, "diff.json"), PrettyPrint(diffJson), ct);
+
+        if (pipeline.TryGet<string>(ContextKeys.BootstrapMarkdown, out var bootstrapMd)
+            && !string.IsNullOrEmpty(bootstrapMd))
+            await reader.WriteAsync(Path.Combine(runDir, "bootstrap.md"), bootstrapMd, ct);
+    }
+
+    private static string PrettyPrint(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            return JsonSerializer.Serialize(doc.RootElement, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return raw;
+        }
+    }
+
+    private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<PipelineCostTracker>("PipelineCostTracker", out var tracker)
+            || tracker is null)
+            return null;
+        var breakdown = tracker.PerSkillBreakdown;
+        return breakdown.Count == 0 ? null : breakdown;
     }
 
     internal static async Task<int> DetermineNextRunNumberAsync(

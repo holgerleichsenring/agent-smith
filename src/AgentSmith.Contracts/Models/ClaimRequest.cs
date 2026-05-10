@@ -10,4 +10,5 @@ public sealed record ClaimRequest(
     string ProjectName,
     TicketId TicketId,
     string PipelineName,
-    Dictionary<string, object>? InitialContext = null);
+    Dictionary<string, object>? InitialContext = null,
+    Dictionary<string, string>? PlanAnswers = null);

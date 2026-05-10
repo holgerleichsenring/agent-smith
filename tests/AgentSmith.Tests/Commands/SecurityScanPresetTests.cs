@@ -8,18 +8,20 @@ namespace AgentSmith.Tests.Commands;
 public sealed class SecurityScanPresetTests
 {
     [Fact]
-    public void SecurityScan_LoadersAfterBootstrapProject()
+    public void SecurityScan_LoadersAfterCheckoutSource()
     {
+        // p0131b: BootstrapProject + LoadCodeMap retired. Loaders run after the
+        // source-checkout step.
         var preset = PipelinePresets.SecurityScan.ToList();
-        var bootstrapIdx = preset.IndexOf(CommandNames.BootstrapProject);
+        var checkoutIdx = preset.IndexOf(CommandNames.CheckoutSource);
         var loadCtxIdx = preset.IndexOf(CommandNames.LoadContext);
         var loadCpIdx = preset.IndexOf(CommandNames.LoadCodingPrinciples);
-        var loadMapIdx = preset.IndexOf(CommandNames.LoadCodeMap);
 
-        bootstrapIdx.Should().BeGreaterThanOrEqualTo(0);
-        loadCtxIdx.Should().BeGreaterThan(bootstrapIdx);
-        loadCpIdx.Should().BeGreaterThan(bootstrapIdx);
-        loadMapIdx.Should().BeGreaterThan(bootstrapIdx);
+        checkoutIdx.Should().BeGreaterThanOrEqualTo(0);
+        loadCtxIdx.Should().BeGreaterThan(checkoutIdx);
+        loadCpIdx.Should().BeGreaterThan(checkoutIdx);
+        preset.Should().NotContain(CommandNames.BootstrapProject);
+        preset.Should().NotContain(CommandNames.LoadCodeMap);
     }
 
     [Fact]

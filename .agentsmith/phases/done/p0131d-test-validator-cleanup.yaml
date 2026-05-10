@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131d
+goal: "D7 slice 4/4: cleanup of skipped tests + ConceptVocabularyValidator transition warnings + ValidateConceptsCommand category-enum tightening. CLOSED-AS-SUBSUMED — every concrete done-criterion of this slice landed organically as a side-effect of p0131a / p0131b. This file is a paper trail of what was checked + why no separate slice ships."
+
+requires: ["p0131a", "p0131b", "p0131c"]
+
+scope:
+  in: "Verification only — confirm that the work the parent p0131 spec attributed to slice (d) has actually landed elsewhere."
+  out: |
+    - No code changes in this slice. Each done-criterion below is verified against
+      the post-p0131c tree.
+
+decisions:
+  - key: |
+      p0131d closes as subsumed. Reason: parent spec listed four concrete tasks
+      under (d). Each is already done elsewhere:
+      (a) "Skipped tests in SkillMdParserExtendedTests deleted entirely":
+          SkillMdParserExtendedTests.cs (210 lines, including the 2 [Fact(Skip)]
+          entries `RolesSupportedFrontmatter_ParsesAllRoles` and
+          `BodySplitByH2Header_ProducesRoleBodyMap`) was deleted whole in p0131a
+          when its supporting types were removed.
+      (b) "ConceptVocabularyValidator transition warnings retired": the validator
+          was reduced to a no-op stub in p0131a (kept as a DI hook; LogTrace
+          replaces the previous transition-period warnings).
+      (c) "[Obsolete] markers removed (the properties themselves are gone)": the
+          properties never carried [Obsolete] markers in this codebase; they
+          were just removed in p0131a.
+      (d) "ValidateConceptsCommand category-enum tightens to closed-enum-only":
+          the closed enum {auth, injection, secrets, iam, crypto, headers,
+          inputs, outputs} is already enforced in
+          src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs lines 115-117;
+          no `*` wildcard ever shipped, so there's nothing to tighten.
+      Parent p0131 D7 spec closes here. -- alternatives: ship an empty
+      no-change phase commit just for the audit trail (rejected: empty commits
+      are noise — this YAML file is the audit trail).
+
+steps: []
+
+tests:
+  - "Verified: no [Fact(Skip)] entries remain in tests/AgentSmith.Tests"
+  - "Verified: ConceptVocabularyValidator is a no-op stub"
+  - "Verified: ValidateConceptsCommand category check uses the closed enum"
+
+done:
+  - "All four (d) sub-tasks confirmed landed elsewhere"
+  - "p0131 parent done — slice a/b/c/d all closed"

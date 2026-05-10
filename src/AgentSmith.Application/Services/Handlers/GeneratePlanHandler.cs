@@ -1,6 +1,7 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
@@ -19,11 +20,15 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Generates an execution plan via M.E.AI IChatClient. Builds prompts via the
 /// shared AgentPromptBuilder, calls TaskType.Planning, parses with PlanParser.
 /// Writes plan decisions to the decision log after parsing.
+/// p0128b: tries PlanParser.ParseStrict first to surface schema-validated open questions;
+/// falls back to the legacy lax path so existing prompts that don't emit the new schema
+/// keep working until plan-emitting prompts adopt the schema across the board.
 /// </summary>
 public sealed class GeneratePlanHandler(
     IChatClientFactory chatClientFactory,
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
+    PlanOutputValidator planValidator,
     ILogger<GeneratePlanHandler> logger)
     : ICommandHandler<GeneratePlanContext>
 {
@@ -38,12 +43,14 @@ public sealed class GeneratePlanHandler(
         }
 
         var projectContext = MergeContext(context);
+        var planAnswers = ResolvePlanAnswers(context.Pipeline);
 
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
 
         var systemPrompt = promptBuilder.BuildPlanSystemPrompt(
             context.CodingPrinciples, context.CodeMap, projectContext);
-        var userPrompt = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.ProjectMap);
+        var userPrompt = promptBuilder.BuildPlanUserPrompt(
+            context.Ticket, context.ProjectMap, planAnswers);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Planning);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Planning);
@@ -57,8 +64,12 @@ public sealed class GeneratePlanHandler(
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-        var plan = PlanParser.Parse(model, response.Text ?? string.Empty);
+        var rawText = response.Text ?? string.Empty;
+        var plan = ParsePlanWithFallback(model, rawText);
         context.Pipeline.Set(ContextKeys.Plan, plan);
+
+        if (plan.Status != PlanStatus.Complete || plan.OpenQuestions.Count > 0)
+            context.Pipeline.Set(ContextKeys.PlanJson, rawText);
 
         if (plan.Decisions.Count > 0)
         {
@@ -74,6 +85,29 @@ public sealed class GeneratePlanHandler(
 
         return CommandResult.Ok($"Plan generated with {plan.Steps.Count} steps");
     }
+
+    private Plan ParsePlanWithFallback(string model, string rawText)
+    {
+        var strict = PlanParser.ParseStrict(rawText, planValidator);
+        if (strict.Plan is not null)
+        {
+            logger.LogInformation(
+                "Plan parsed strictly: status={Status}, open_questions={Count}",
+                strict.Plan.Status, strict.Plan.OpenQuestions.Count);
+            return strict.Plan;
+        }
+
+        logger.LogDebug(
+            "Strict plan parse rejected ({Reason}); falling back to legacy parse",
+            strict.Validation.ErrorMessage);
+        return PlanParser.Parse(model, rawText);
+    }
+
+    private static IReadOnlyDictionary<string, string>? ResolvePlanAnswers(PipelineContext pipeline)
+        => pipeline.TryGet<Dictionary<string, string>>(ContextKeys.PlanAnswers, out var answers)
+            && answers is { Count: > 0 }
+                ? answers
+                : null;
 
     private string MergeContext(GeneratePlanContext context)
     {

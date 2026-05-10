@@ -7,53 +7,79 @@ namespace AgentSmith.Contracts.Commands;
 /// </summary>
 public static class PipelinePresets
 {
+    // p0125c: PipelineNameInitializer is prepended to every preset so pipeline_name
+    // is published once before any other handler runs. The Initializer reads
+    // ResolvedPipeline from PipelineContext (populated by PipelineConfigResolver).
+    // p0130a: BootstrapCheck + BootstrapGate are inserted directly after the
+    // source-checkout step in code-touching pipelines so missing context.yaml
+    // / coding-principles.md aborts with a clear "run init-project first"
+    // message before the Load* steps fail in less-actionable ways.
     public static readonly IReadOnlyList<string> FixBug =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
-        CommandNames.GeneratePlan,
+        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
+        CommandNames.RunVerifyPhase, // p0129a
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
     public static readonly IReadOnlyList<string> FixNoTest =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
-        CommandNames.GeneratePlan,
+        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
+    // p0130c: InitProject migrates from BootstrapProjectHandler to SkillRound dispatch.
+    // AnalyzeCode populates ProjectMap; PublishProjectLanguage maps PrimaryLanguage to
+    // the typed project_language enum; LoadSkills loads the bootstrap-* producers from
+    // skills/coding/; BootstrapDispatch deterministically emits exactly one SkillRound
+    // for the matching skill (csharp/node/python/generic-bootstrap). The skill writes
+    // .agentsmith/context.yaml + coding-principles.md via WriteFile (path-write-guard
+    // restricts writes to those two paths); InitCommit then commits the new files.
     public static readonly IReadOnlyList<string> InitProject =
     [
-        CommandNames.CheckoutSource, CommandNames.BootstrapProject,
+        CommandNames.PipelineNameInitializer,
+        CommandNames.CheckoutSource,
+        CommandNames.AnalyzeCode,                // populates ProjectMap
+        CommandNames.PublishProjectLanguage,     // p0130c: ProjectMap.PrimaryLanguage → project_language enum
+        CommandNames.LoadSkills,                 // populates AvailableRoles
+        CommandNames.BootstrapDispatch,          // p0130c: emits SkillRound for the matching bootstrap skill
+        CommandNames.WriteRunResult,
         CommandNames.InitCommit,
     ];
 
     public static readonly IReadOnlyList<string> AddFeature =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
-        CommandNames.GeneratePlan, CommandNames.Approval,
+        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
+        CommandNames.RunVerifyPhase, // p0129a
         CommandNames.Test, CommandNames.GenerateDocs,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
     ];
 
     public static readonly IReadOnlyList<string> MadDiscussion =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject, CommandNames.LoadContext,
+        CommandNames.LoadContext,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
@@ -62,6 +88,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> LegalAnalysis =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.AcquireSource,
         CommandNames.BootstrapDocument,
         CommandNames.LoadCodingPrinciples,
@@ -73,11 +100,11 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> SecurityScan =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
         CommandNames.LoadCodingPrinciples,
-        CommandNames.LoadCodeMap,             // p0105: code-map.yaml for module structure
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
@@ -97,10 +124,11 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
-        CommandNames.LoadCodeMap,           // p0104: target's .agentsmith/code-map.yaml — soft-fail if absent
         CommandNames.LoadSwagger,
         CommandNames.ApiCodeContext,        // p0102: route → handler mapping when source resolved
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
@@ -120,6 +148,7 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> SkillManager =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.DiscoverSkills,
         CommandNames.EvaluateSkills,
         CommandNames.DraftSkillFiles,
@@ -130,10 +159,10 @@ public static class PipelinePresets
 
     public static readonly IReadOnlyList<string> Autonomous =
     [
+        CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject,
+        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,
-        CommandNames.LoadCodeMap,
         CommandNames.LoadRuns,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
@@ -180,6 +209,24 @@ public static class PipelinePresets
     /// </summary>
     public static PipelineType GetPipelineType(string pipelineName) =>
         PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
+
+    /// <summary>
+    /// p0131c-pre: true when the named preset emits a single Plan-phase batch
+    /// (no <see cref="CommandNames.RunReviewPhase"/> / <see cref="CommandNames.RunFinalPhase"/>
+    /// steps). Drives <c>StructuredTriageStrategy</c>'s phase-collapse logic so
+    /// LLM-emitted Review-/Final-phase skill assignments don't get silently
+    /// dropped on presets that don't run those phases.
+    /// Unknown pipeline names default to <c>true</c> (single-phase) — safer
+    /// because emitting Review/Final commands for an unknown preset would
+    /// dispatch to handlers that may not be in the run.
+    /// </summary>
+    public static bool IsSinglePhase(string pipelineName)
+    {
+        var preset = TryResolve(pipelineName);
+        if (preset is null) return true;
+        return !preset.Contains(CommandNames.RunReviewPhase, StringComparer.Ordinal)
+            && !preset.Contains(CommandNames.RunFinalPhase, StringComparer.Ordinal);
+    }
 
     /// <summary>
     /// Default skills directory per pipeline preset.

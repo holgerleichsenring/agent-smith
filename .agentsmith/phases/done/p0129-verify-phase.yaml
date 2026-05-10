@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0129
+goal: "D5 parent: Verify phase between Implementation and delivery in fix-bug + add-feature. Four VerifyDiff investigator skills (scope, build, test, architecture) read the Diff and emit observations; first blocking observation triggers re-implementation, second escalates. Sliced into a/b/c."
+
+requires: ["p0126", "p0127c", "p0128c"]
+
+scope:
+  in: "Parent design for D5. Three slices: (a) Verify-phase wiring + scope-verifier + re-implementation loop — RunVerifyPhase command added to fix-bug + add-feature presets after RunFinalPhase; VerifyRoundHandler runs verifier skills against the persisted Diff; scope-verifier (simplest VerifyDiff investigator) compares the freed Plan's scope.files against the Diff's changed files and flags out-of-scope changes; CommandResult.InsertNext-based re-implementation when any verifier emits blocking=true; second blocking round escalates by marking the pipeline failed and writing the verify notes to the run artifact. (b) build-verifier + test-verifier — VerifyDiff skills that invoke ProjectDetector's per-language BuildCommand/TestCommand via the SandboxToolHost RunCommand tool, parse the build/test output, emit observations on failure. Higher tool-call budget (MaxToolCallsPerVerifier=20) applies. (c) architecture-verifier — the trickiest verifier: reads the Diff and the project's coding-principles.md, emits observations on declared-principle violations. Conservative initial implementation: matches a curated subset of Markdown rules (naming conventions, hard limits like class size from coding-principles.md) rather than full free-form interpretation. Full architecture-verifier quality is iterative work after p0129c lands and runs against real bug-fix tickets."
+  out: "Consumer migration of every existing handler to SkillCallRuntime — that's its own phase (mentioned in p0126c and p0127c as 'follow-up'). p0129's verifier handler is a new descendant of SkillRoundHandlerBase that uses ToolKit + PathReadGuard / PathWriteGuard from p0126c directly via SandboxToolHost construction; it does not introduce SkillCallRuntime as the new dispatch path. The runtime stays unconsumed. Skill-content additions in agent-smith-skills (4 new SKILL.md files for the verifiers) ride synchronously with the slices that introduce them; agent-smith-skills 2.0.0 → 2.1.0 (p0129a, scope-verifier) → 2.2.0 (p0129b, build + test verifiers) → 2.3.0 (p0129c, architecture-verifier). Verify-phase wiring for security-scan / api-security-scan / mad-discussion — those pipelines have their own block-style synthesis (Filter / Synthesize) and don't need a Diff verifier. init-project doesn't have a Diff to verify. Removal of legacy CodeChange in favour of Diff — that's D7. p0129 reads CodeChange via the existing context key plus the new Diff (per p0128a's typed shape) — both are available; verifiers use the structured Diff for observation references."
+
+decisions:
+  - key: "Three slices, sequenced by verifier independence. scope-verifier in (a) needs only the freed Plan + Diff — both already in context per p0128a's persistence. build/test in (b) need RunCommand integration with ProjectDetector — independent infrastructure. architecture-verifier in (c) is the iterative-quality slice; conservative initial scope, real refinement after operator runs. Reason: the same a/b/c discipline that worked for p0127 and p0128 — each slice produces verifiable end-to-end value (a: pipeline runs Verify and can re-implement; b: build/test failure caught; c: principle violations caught), each is mergeable on its own."
+  - key: "Verify uses SkillRoundHandlerBase's existing dispatch path, not the new SkillCallRuntime. Reason: p0126c shipped the runtime as standalone; p0127c explicitly deferred consumer migration to its own phase. Adding consumer migration on top of a Verify-phase introduction would mean two structural changes in one PR, doubling the merge risk. The Verify handler can pull in ToolKit (phase-keyed tool sets), PathReadGuard / PathWriteGuard, and LoopLimitsConfig.MaxToolCallsPerVerifier directly — those collaborators exist independently of the runtime. Future consumer migration phase wraps every SkillRoundHandlerBase descendant including this new VerifyRoundHandler."
+  - key: "Re-implementation loop uses CommandResult.InsertNext (p0034 pattern), not a new mechanism. Reason: PipelineExecutor.InsertFollowUps already supports dynamic command insertion into the LinkedList after the active node. On first-fail, VerifyRoundHandler's CommandResult.InsertNext is RunFinalPhase + RunVerifyPhase (re-implementation + re-verify in sequence). On second-fail, no insertion — pipeline ends with a failed CommandResult carrying the verify notes; existing escalation path (writeback to ticket) handles surfacing. The runtime cap (verify can fail-loop forever in pathological cases) is bounded by the pipeline-wide max-100-execution limit (p0034 safety) plus a new explicit per-pipeline VerifyRoundCount counter that hard-caps at 2."
+  - key: "Verifier skills use investigator_mode=verify_diff, output_schema=observation. Reason: Phase A defines VerifyDiff as a new investigator arbeitsweise; p0127c's NewFormatSkillValidator already accepts it (the enum supports verify_hint / survey / verify_diff per p0127a). Output is a list of SkillObservation per the existing schema; blocking=true observations trigger re-implementation. category is optional for verify_diff (Phase C decision: category is mandatory only for verify_hint clustering)."
+  - key: "Plan → Verify and Implementation → Verify data-flow edges added to FixBug + AddFeature PermissivePhaseDataFlow at p0129a. Reason: p0128c shipped the gating with PermissivePhaseDataFlow's wildcard edges as a starting point and explicit guidance: 'follow-up phases tighten per preset.' Adding two specific edges per preset is the tightening — Verify reads the Plan (scope-verifier checks against Plan.scope.files) and the Diff (every verifier reads it). The wildcard stays as the catch-all until tightening is comprehensive; gating-as-warning (Enforce=false default) keeps the system non-blocking during iteration."
+  - key: "build/test commands resolved from ProjectDetector, not from a new context.yaml section. Reason: p0125 + p0127's research showed context.yaml has no build/test commands today; ProjectDetector + per-language detectors (DotNet/TypeScript/Python) already produce LanguageDetectionResult with BuildCommand / TestCommand. Adding a context.yaml section would create a parallel source of truth. Reusing ProjectDetector means the existing detection logic is the single source; verifier skills consume a small bridging contract that exposes (BuildCommand, TestCommand) per active project."
+
+steps:
+  - id: slice-a-pointer
+    action: "p0129a — Verify phase wiring + scope-verifier + re-loop"
+    new:
+      - "Spec: .agentsmith/phases/planned/p0129a-*.yaml — written alongside this parent. Detail in that file."
+
+  - id: slice-b-pointer
+    action: "p0129b — build-verifier + test-verifier"
+    new:
+      - "Spec: written when p0129a lands and the Verify-phase wiring is concrete. Sketch: ProjectBuildCommandResolver bridges ProjectDetector's per-language BuildCommand/TestCommand to verifier skills; build-verifier and test-verifier SKILL.md files in agent-smith-skills 2.2.0; output parsing of build/test failures into observations. Verify-notes deduplication across rounds 1 and 2 also lands here (or in p0129c) — round-2 verifiers re-emit round-1 findings plus possibly new ones, so the writeback's combined notes need a dedup at the combine site."
+  - id: slice-c-pointer
+    action: "p0129c — architecture-verifier"
+    new:
+      - "Spec: written when p0129b lands. Sketch: conservative architecture-verifier reads coding-principles.md and matches a curated subset of declared rules (naming conventions, class-size hard limits) rather than free-form interpretation; iterative-quality follow-ups after first-week operator runs."
+
+tests:
+  - "See per-slice specs"
+
+done:
+  - "p0129a, p0129b, p0129c all land — three slices through D5"
+  - "Verify phase runs after Implementation in fix-bug + add-feature; first blocking observation triggers one re-implementation; second escalates"
+  - "Four VerifyDiff investigator skills exist in agent-smith-skills (scope-verifier, build-verifier, test-verifier, architecture-verifier)"
+  - "MaxToolCallsPerVerifier (20) is the iteration cap for verify-phase chat invocations"
+  - "Plan → Verify and Implementation → Verify data-flow edges declared in FixBug + AddFeature PermissivePhaseDataFlow"
+  - "agent-smith-skills bumped 2.0.0 → 2.3.0 across the three slices; agent-smith pin moves synchronously per slice"
+  - "Bug-18693-class regression — diff that touches files outside the freed Plan scope — is caught by scope-verifier"

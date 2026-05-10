@@ -26,7 +26,7 @@ public sealed class ChatClientFactory(
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);
     private readonly ILogger<ChatClientFactory> _logger = loggerFactory.CreateLogger<ChatClientFactory>();
 
-    public IChatClient Create(AgentConfig agent, TaskType task)
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
     {
         var assignment = GetAssignment(agent, task);
         var effectiveType = assignment.ProviderType ?? agent.Type;
@@ -41,11 +41,13 @@ public sealed class ChatClientFactory(
             task, effectiveType, assignment.Model, assignment.MaxTokens,
             ToolBearingTasks.Contains(task));
 
-        return ToolBearingTasks.Contains(task)
-            ? new ChatClientBuilder(bare)
-                .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = MaxIterationsPerRequest)
-                .Build()
-            : bare;
+        if (!ToolBearingTasks.Contains(task))
+            return bare;
+
+        var iterations = maxIterations ?? MaxIterationsPerRequest;
+        return new ChatClientBuilder(bare)
+            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
+            .Build();
     }
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => GetAssignment(agent, task).MaxTokens;

@@ -69,6 +69,23 @@ public static class CommandNames
     // p0112: branch persistence — pipeline-failure recovery commit + push
     public const string PersistWorkBranch = "PersistWorkBranchCommand";
 
+    // p0125c: typed concept publication
+    public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
+    public const string BootstrapCheck = "BootstrapCheckCommand";
+
+    // p0128b: Plan open_questions round-trip
+    public const string PlanOpenQuestions = "PlanOpenQuestionsCommand";
+
+    // p0129a: Verify phase between Implementation and delivery
+    public const string RunVerifyPhase = "RunVerifyPhaseCommand";
+
+    // p0130a: bootstrap-files gate (aborts when context.yaml or coding-principles.md is missing)
+    public const string BootstrapGate = "BootstrapGateCommand";
+
+    // p0130c: project-language publication + bootstrap-skill dispatch (init-project)
+    public const string PublishProjectLanguage = "PublishProjectLanguageCommand";
+    public const string BootstrapDispatch = "BootstrapDispatchCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -143,6 +160,13 @@ public static class CommandNames
         [RunReviewPhase] = "Running review phase",
         [RunFinalPhase] = "Running final phase",
         [PersistWorkBranch] = "Persisting work branch",
+        [PipelineNameInitializer] = "Publishing pipeline name",
+        [BootstrapCheck] = "Checking bootstrap files",
+        [PlanOpenQuestions] = "Posting Plan open questions",
+        [RunVerifyPhase] = "Running verify phase",
+        [BootstrapGate] = "Verifying bootstrap files",
+        [PublishProjectLanguage] = "Publishing project language",
+        [BootstrapDispatch] = "Dispatching bootstrap skill",
     };
 
     /// <summary>
@@ -153,6 +177,8 @@ public static class CommandNames
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["ExtractFindings"] = "ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.",
+            ["BootstrapProjectCommand"] = "BootstrapProject was retired in p0131b. The init-project pipeline now produces .agentsmith/context.yaml + coding-principles.md via a SkillRound dispatch (csharp/node/python/generic-bootstrap); other pipelines should rely on the BootstrapGate added in p0130a to fail-fast on missing files. Remove the step from your custom preset.",
+            ["LoadCodeMapCommand"] = "LoadCodeMap was retired in p0131b together with the code-map.yaml artifact. ProjectMap (populated by AnalyzeCode) is now the single source of truth for module/test-project structure; ContextKeys.CodeMap is still emitted as a free-form text rendering for prompt-builders. Remove the step from your custom preset.",
         };
 
     /// <summary>

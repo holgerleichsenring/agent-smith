@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0126b
+goal: "Slice 2/3 of p0126. Five collaborator services that SkillCallRuntime composes in p0126c. Each is independently testable: LimitEnforcer, RetryCoordinator (+ ISkillOutputValidator), LoopTraceCollector, OutcomeClassifier, PipelineConcurrencyGate. No runtime, no consumers — services exist and are exercised by their test packs."
+
+requires: ["p0126a"]
+
+scope:
+  in: "(1) LimitEnforcer in src/AgentSmith.Application/Services/Loop/: tracks tokens-in / tokens-out / wall-clock during a skill call. Constructor takes LoopLimitsConfig + a CancellationTokenSource. Methods RecordLlmCall(inputTokens, outputTokens) returns LimitDecision (Continue or Cap with reason); RecordToolCall(toolName, durationMs, success) increments ToolCallCount, no separate enforcement; CheckTimeLimit() verifies elapsed < MaxSecondsPerSkillCall, signals the CTS if exceeded. Properties: ElapsedMs, ToolCallCount, LlmCallCount, AccumulatedInputTokens, AccumulatedOutputTokens. Token caps and wall-clock cap are the only actively enforced limits — tool-call and LLM-call counters are observational (recorded into CallCostRecord later, but not separately enforced; M.E.AI's MaximumIterationsPerRequest is the hard stop on the loop). LimitDecision is a sealed record with enum-shaped state (Continue, CappedTokens, CappedTime). (2) RetryCoordinator in src/AgentSmith.Application/Services/Loop/: wraps a single chat invocation with one failed_parse / failed_validation re-try. Method `Task<RetryOutcome> InvokeAsync(IChatClient chat, IList<ChatMessage> messages, ChatOptions options, ISkillOutputValidator validator, CancellationToken ct)`. Calls chat.GetResponseAsync once; on parse failure, appends a constant 'last output was not valid JSON' hint message and retries once; on validation failure, appends the validator's concrete error and retries once. Returns the final output and a typed reason if it still failed. RetryOutcome carries (FinalOutput?, FinalKind enum {Ok, ParseFailedAfterRetry, ValidationFailedAfterRetry}, FailureReason?). (3) ISkillOutputValidator in src/AgentSmith.Application/Services/Loop/: minimal interface — `ValidationResult Validate(string output)`. ValidationResult is a sealed record with Success (bool) + ErrorMessage (string?). NoOpSkillOutputValidator is the only built-in implementation in p0126b — always returns Success=true so the retry path is reachable in tests but the no-op is the only validator wired by default. Schema validation lands in p0128. (4) LoopTraceCollector in src/AgentSmith.Application/Services/Loop/: builds the structured trace and emits it on completion. Methods AppendLlmCall(model, inputTokens, outputTokens, durationMs); AppendToolCall(toolName, argsJson, durationMs, success, errorMessage). ArgsSummary truncates argsJson to 200 chars (preserving the leading object boundary if present, appending '…'). Method `IReadOnlyList<LoopTraceEntry> Build()` returns an immutable snapshot. Method `EmitLog(ILogger logger, string skillName)` writes a structured log entry at INFO level — keys: skillName, llmCalls, toolCalls, durationMs, entries (compact representation). (5) OutcomeClassifier in src/AgentSmith.Application/Services/Loop/: pure function from (response present, parse OK, validation OK, exception type, limit hit) to a SkillCallOutcome value. Method `SkillCallOutcome Classify(ClassificationInput input)`. ClassificationInput is a sealed record with ResponsePresent (bool), ParseSuccess (bool), ValidationSuccess (bool), CaughtException (Exception?), LimitHit (LimitDecision?). Mapping per Phase B: exception → FailedRuntime; limit hit with response → Incomplete; limit hit without response → FailedRuntime (defensive); parse failure → FailedParse; validation failure → FailedValidation; otherwise → Ok. Stateless — registered as singleton. (6) PipelineConcurrencyGate in src/AgentSmith.Application/Services/Loop/: scoped service holding a SemaphoreSlim sized from LoopLimitsConfig.MaxConcurrentSkillCalls at construction. Method `Task<IDisposable> AcquireAsync(CancellationToken)` returns a release-on-dispose handle; the semaphore is per-DI-scope so each pipeline run has its own. Constructor takes IOptions<LoopLimitsConfig>. (7) Five test packs (one per service): LimitEnforcerTests, RetryCoordinatorTests, LoopTraceCollectorTests, OutcomeClassifierTests, PipelineConcurrencyGateTests. The runtime integration tests land in p0126c."
+  out: "(1) SkillCallRuntime / SkillCallScope / runtime sequencing — that's p0126c. (2) PipelineCostTracker.BeginCall/EndCall scopes — p0126c. (3) PathReadGuard / PathWriteGuard — p0126c. (4) ToolKit phase-keyed tool sets — p0126c. (5) SandboxToolHost guard injection — p0126c. (6) Schema validators beyond NoOp — p0128 (D4) when Plan/Diff schemas land. (7) DI registration of these services beyond what's needed by their tests — full pipeline wiring is p0126c's job."
+
+decisions:
+  - key: "Each collaborator stays under the 120-line cap by being narrowly scoped to one verb. Reason: the original p0126 spec called out a 5-collaborator split for exactly this reason (avoid the SkillCallRuntime God-class). Doing them one per file in p0126b before composing them in p0126c keeps each test pack focused and lets us verify the sizes before integration."
+  - key: "LimitEnforcer enforces only tokens + wall-clock; tool/LLM call counts are observational. Reason: per the M.E.AI source-of-truth decision in the original p0126 spec, the framework's MaximumIterationsPerRequest is the hard stop on iteration count. Duplicating that enforcement in LimitEnforcer creates two stop conditions racing in one loop. Counters are kept for CallCostRecord reporting; enforcement stays single-source."
+  - key: "RetryCoordinator owns the retry-hint message text as a constant. Reason: the hint 'last output was not valid JSON' is a string the LLM reads and reacts to; if it drifts between handlers we get inconsistent prompting. One constant in RetryCoordinator, asserted by RetryCoordinatorTests, keeps the contract pinned."
+  - key: "OutcomeClassifier is stateless and pure. Reason: a pure mapping function from (state) → SkillCallOutcome is testable in isolation without mocking. Tests cover all eight outcome combinations explicitly. Registered as singleton in DI."
+  - key: "PipelineConcurrencyGate is scoped, not singleton. Reason: per-pipeline-run scoping (each run gets its own semaphore instance) is the original spec's explicit choice — cross-run rate-limit contention is an external concern. DI scope per pipeline run gives the right lifetime."
+  - key: "ValidationResult and LimitDecision and RetryOutcome and ClassificationInput each get their own file. Reason: one-type-per-file is non-negotiable per coding-principles. These are small records (5-10 lines each) but they're each their own file."
+  - key: "ArgsSummary truncation in LoopTraceCollector preserves leading object boundary when the input begins with '{'. Reason: a truncated trace entry like '{ \"path\": \"/some/very/long/…' is more readable than a slice that drops the brace. The implementation walks one char if the first is '{' or '[', then truncates the remainder to 199 chars, appending '…'. If the input has no leading object boundary, the rule is plain truncate-at-200."
+
+steps:
+  - id: limit-enforcer
+    action: "LimitEnforcer tracks tokens, wall-clock, and counters during a skill call"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/LimitEnforcer.cs: ~110 lines. Constructor takes LoopLimitsConfig + CancellationTokenSource. Methods: RecordLlmCall(long inputTokens, long outputTokens) returns LimitDecision; RecordToolCall(string toolName, long durationMs, bool success); CheckTimeLimit() returns bool (true=continue, false=capped) and signals the CTS when capped. Properties: ElapsedMs, ToolCallCount, LlmCallCount, AccumulatedInputTokens, AccumulatedOutputTokens."
+      - "src/AgentSmith.Application/Services/Loop/LimitDecision.cs: sealed record. Properties: Kind (LimitDecisionKind enum), Reason (string?). Static factories: Continue(), Cap(kind, reason)."
+      - "src/AgentSmith.Application/Services/Loop/LimitDecisionKind.cs: enum with Continue, CappedTokens, CappedTime."
+
+  - id: retry-coordinator
+    action: "RetryCoordinator wraps a single chat invocation with one failed_parse/failed_validation retry"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/RetryCoordinator.cs: ~90 lines. Constants ParseRetryHint = 'last output was not valid JSON' and ValidationRetryHintPrefix = 'output failed validation: '. Method `Task<RetryOutcome> InvokeAsync(IChatClient chat, IList<ChatMessage> messages, ChatOptions options, ISkillOutputValidator validator, CancellationToken ct)`. Calls chat.GetResponseAsync once; on JSON-parse failure (System.Text.Json.JsonException), appends ParseRetryHint and retries once; on validator failure, appends ValidationRetryHintPrefix + validator.error and retries once. Owns the retry-hint constants as the single source of truth."
+      - "src/AgentSmith.Application/Services/Loop/ISkillOutputValidator.cs: interface. Method ValidationResult Validate(string output)."
+      - "src/AgentSmith.Application/Services/Loop/ValidationResult.cs: sealed record. Properties: IsValid (bool), ErrorMessage (string?). Static factories: Valid(), Invalid(string error)."
+      - "src/AgentSmith.Application/Services/Loop/NoOpSkillOutputValidator.cs: ISkillOutputValidator implementation that always returns Valid()."
+      - "src/AgentSmith.Application/Services/Loop/RetryOutcome.cs: sealed record. Properties: FinalOutput (string?), Kind (RetryOutcomeKind enum), FailureReason (string?)."
+      - "src/AgentSmith.Application/Services/Loop/RetryOutcomeKind.cs: enum with Ok, ParseFailedAfterRetry, ValidationFailedAfterRetry."
+
+  - id: loop-trace-collector
+    action: "LoopTraceCollector builds the structured trace and emits it on completion"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/LoopTraceCollector.cs: ~100 lines. Methods: AppendLlmCall(string model, long inputTokens, long outputTokens, long durationMs); AppendToolCall(string toolName, string argsJson, long durationMs, bool success, string? errorMessage). Internal: ArgsSummary truncates argsJson to 200 chars (preserving leading '{' or '[' boundary, appending '…'). Method IReadOnlyList<LoopTraceEntry> Build() returns an immutable snapshot. Method EmitLog(ILogger logger, string skillName) writes a structured log entry at INFO level."
+
+  - id: outcome-classifier
+    action: "OutcomeClassifier maps post-call state to SkillCallOutcome"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/OutcomeClassifier.cs: ~50 lines. Method SkillCallOutcome Classify(ClassificationInput input). Mapping: exception→FailedRuntime; limit hit with no response→FailedRuntime (defensive); limit hit with response→Incomplete; parse failure→FailedParse; validation failure→FailedValidation; otherwise→Ok."
+      - "src/AgentSmith.Application/Services/Loop/ClassificationInput.cs: sealed record. Properties: ResponsePresent (bool), ParseSuccess (bool), ValidationSuccess (bool), CaughtException (Exception?), LimitHit (LimitDecision?)."
+
+  - id: concurrency-gate
+    action: "PipelineConcurrencyGate enforces max_concurrent_skill_calls per run via SemaphoreSlim"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/PipelineConcurrencyGate.cs: scoped service holding a SemaphoreSlim sized from LoopLimitsConfig.MaxConcurrentSkillCalls. Constructor takes IOptions<LoopLimitsConfig>. Method `Task<IDisposable> AcquireAsync(CancellationToken)` returns a release-on-dispose handle. Implements IDisposable to dispose the semaphore."
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register PipelineConcurrencyGate as scoped, OutcomeClassifier as singleton, NoOpSkillOutputValidator as singleton."
+
+  - id: tests
+    action: "Test pack: LimitEnforcer, RetryCoordinator, LoopTraceCollector, OutcomeClassifier, PipelineConcurrencyGate"
+    new:
+      - "tests/AgentSmith.Tests/Loop/LimitEnforcerTests.cs: RecordLlmCall_AccumulatesInputAndOutputTokens; RecordLlmCall_LlmCallCountIncrements; RecordToolCall_ToolCallCountIncrements; CheckTimeLimit_BelowLimit_ReturnsTrue; CheckTimeLimit_AboveLimit_SignalsCancellationTokenSource; RecordLlmCall_TokenLimitExceeded_ReturnsCapDecision."
+      - "tests/AgentSmith.Tests/Loop/RetryCoordinatorTests.cs: InvokeAsync_OkOnFirstTry_ReturnsImmediately_NoRetry; InvokeAsync_FailedParse_RetriesOnceWithJsonHint; InvokeAsync_FailedValidation_RetriesOnceWithConcreteError; InvokeAsync_TwoFailedParse_ReturnsParseFailureAfterRetry; InvokeAsync_TwoFailedValidation_ReturnsValidationFailureAfterRetry; InvokeAsync_RetryHintAppendedToMessageThread."
+      - "tests/AgentSmith.Tests/Loop/LoopTraceCollectorTests.cs: AppendLlmCall_AppendsLlmEntryToTrace; AppendToolCall_AppendsToolEntryToTrace; AppendToolCall_LongArgsJson_TruncatesAt200CharsWithEllipsis; AppendToolCall_PreservesLeadingObjectBoundary; EmitLog_WritesStructuredEntryAtInfoLevel; Build_ReturnsImmutableSnapshot."
+      - "tests/AgentSmith.Tests/Loop/OutcomeClassifierTests.cs: Classify_ResponsePresentParseOkValidationOk_ReturnsOk; Classify_LimitHitWithResponse_ReturnsIncomplete; Classify_ParseFailure_ReturnsFailedParse; Classify_ValidationFailure_ReturnsFailedValidation; Classify_CaughtException_ReturnsFailedRuntime; Classify_LimitHitButNoResponse_ReturnsFailedRuntime."
+      - "tests/AgentSmith.Tests/Loop/PipelineConcurrencyGateTests.cs: AcquireAsync_BelowLimit_ReturnsImmediately; AcquireAsync_AboveLimit_BlocksUntilRelease; AcquireAsync_DisposeReleasesPermit; AcquireAsync_RespectsCancellationToken."
+
+tests:
+  - "LimitEnforcer_RecordLlmCall_AccumulatesInputAndOutputTokens"
+  - "LimitEnforcer_RecordLlmCall_LlmCallCountIncrements"
+  - "LimitEnforcer_RecordToolCall_ToolCallCountIncrements"
+  - "LimitEnforcer_CheckTimeLimit_BelowLimit_ReturnsTrue"
+  - "LimitEnforcer_CheckTimeLimit_AboveLimit_SignalsCancellationTokenSource"
+  - "LimitEnforcer_RecordLlmCall_TokenLimitExceeded_ReturnsCapDecision"
+  - "RetryCoordinator_InvokeAsync_OkOnFirstTry_ReturnsImmediately_NoRetry"
+  - "RetryCoordinator_InvokeAsync_FailedParse_RetriesOnceWithJsonHint"
+  - "RetryCoordinator_InvokeAsync_FailedValidation_RetriesOnceWithConcreteError"
+  - "RetryCoordinator_InvokeAsync_TwoFailedParse_ReturnsParseFailureAfterRetry"
+  - "RetryCoordinator_InvokeAsync_TwoFailedValidation_ReturnsValidationFailureAfterRetry"
+  - "RetryCoordinator_InvokeAsync_RetryHintAppendedToMessageThread"
+  - "LoopTraceCollector_AppendLlmCall_AppendsLlmEntryToTrace"
+  - "LoopTraceCollector_AppendToolCall_AppendsToolEntryToTrace"
+  - "LoopTraceCollector_AppendToolCall_LongArgsJson_TruncatesAt200CharsWithEllipsis"
+  - "LoopTraceCollector_AppendToolCall_PreservesLeadingObjectBoundary"
+  - "LoopTraceCollector_EmitLog_WritesStructuredEntryAtInfoLevel"
+  - "LoopTraceCollector_Build_ReturnsImmutableSnapshot"
+  - "OutcomeClassifier_Classify_ResponsePresentParseOkValidationOk_ReturnsOk"
+  - "OutcomeClassifier_Classify_LimitHitWithResponse_ReturnsIncomplete"
+  - "OutcomeClassifier_Classify_ParseFailure_ReturnsFailedParse"
+  - "OutcomeClassifier_Classify_ValidationFailure_ReturnsFailedValidation"
+  - "OutcomeClassifier_Classify_CaughtException_ReturnsFailedRuntime"
+  - "OutcomeClassifier_Classify_LimitHitButNoResponse_ReturnsFailedRuntime"
+  - "PipelineConcurrencyGate_AcquireAsync_BelowLimit_ReturnsImmediately"
+  - "PipelineConcurrencyGate_AcquireAsync_AboveLimit_BlocksUntilRelease"
+  - "PipelineConcurrencyGate_AcquireAsync_DisposeReleasesPermit"
+  - "PipelineConcurrencyGate_AcquireAsync_RespectsCancellationToken"
+
+done:
+  - "Five collaborator services exist under src/AgentSmith.Application/Services/Loop/: LimitEnforcer, RetryCoordinator (+ ISkillOutputValidator + NoOpSkillOutputValidator), LoopTraceCollector, OutcomeClassifier, PipelineConcurrencyGate"
+  - "Each service is ≤120 lines per coding-principles; supporting records (LimitDecision, RetryOutcome, ValidationResult, ClassificationInput) live in their own files"
+  - "RetryCoordinator owns the parse + validation retry-hint constants; tests assert the exact hint text"
+  - "PipelineConcurrencyGate registered as scoped; OutcomeClassifier and NoOpSkillOutputValidator as singletons"
+  - "All 28 new tests pass; all existing tests pass (no regressions)"

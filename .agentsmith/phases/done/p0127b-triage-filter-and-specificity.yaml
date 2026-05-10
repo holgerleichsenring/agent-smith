@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0127b
+goal: "Second slice of D3. TriageOutputProducer filters skills via activates_when expressions BEFORE the LLM call (deterministic pre-filter); the LLM picks within the narrowed candidate set. Specificity-based tie-break trims any phase whose LLM-pick exceeds the allowed-per-phase cap. Skills without activates_when fall through to the legacy LLM-driven path. No consumer migration of SkillCallRuntime yet — that's a follow-up after the triage path is proven."
+
+requires: ["p0125d", "p0127a"]
+
+scope:
+  in: "(1) New ActivationSkillFilter service in src/AgentSmith.Application/Services/Activation/. Single public method Filter(IReadOnlyList<RoleSkillDefinition>, IRunStateConcepts, ConceptVocabulary) returns the subset whose activates_when evaluates true. Internally: per-skill, parses activates_when via ActivationExpressionParser (cached per-string), evaluates against IRunStateConcepts via ActivationEvaluator. Skills with null/empty ActivatesWhen pass through unfiltered (legacy contract — they're filtered later by the LLM via activation.positive/negative). Parse failures are logged at Error and the skill is excluded (better than crashing triage on a malformed expression that should have been caught by validate-concepts). (2) New ActivationSpecificityScorer service. Single public method Score(string activatesWhen) returns an int. Heuristic: walk the parsed AST and count comparison + identifier nodes (each AND/OR sub-clause adds one); a skill with 'pipeline_name = \"security-scan\" AND findings_present' scores 2; 'findings_present' scores 1; null/empty scores 0. Higher score = more specific. Static method on the scorer rather than a separate function class — keeps the score-computation visible at one type. (3) TriageOutputProducer wires both services. The constructor gains ActivationSkillFilter + ActivationSpecificityScorer + Func<PipelineContext, IRunStateConcepts> conceptsFactory. ProduceAsync flow: BuildInput unchanged → filter input.AvailableSkills via ActivationSkillFilter (the new pre-LLM step, log 'Triage filtered {Before} skills to {After} via activates_when') → CallAndValidateAsync as before but with the filtered AvailableSkills → after the LLM returns and the result is validated, ApplySpecificityTrim caps each phase to LoopLimitsConfig.MaxSkillsPerPhase by specificity score (higher score wins; ties broken by skill name ascending for determinism). (4) LoopLimitsConfig.MaxSkillsPerPhase (int, default 5) — added next to the eight existing limits. ResolveToolCallCap unchanged. Binding picks up the new YAML key automatically (UnderscoredNamingConvention from p0126a). (5) StructuredTriageStrategy unchanged — it doesn't need to know about filtering; it consumes the producer's result. (6) Per-skill post-trim observability: when a phase is trimmed, log 'Phase {Phase} trimmed from {Before} to {After} skills by specificity (kept: {Names})' at Info. (7) DI changes: ActivationSkillFilter + ActivationSpecificityScorer registered as singletons (stateless); TriageOutputProducer constructor gains the three new params (Application's ServiceCollectionExtensions auto-resolves)."
+  out: "(1) SkillCallRuntime consumer migration — the spec parent hinted p0127b would be the natural place when triage hands a SkillCallRequest to the runtime. The actual hand-off is at SkillRoundHandlerBase (~441 lines) / FilterRoundHandler (~224 lines); migrating either requires touching their prompt-build pipelines extensively and is too big to bundle here. Deferred to its own slice (p0127b1 or absorbed into p0128 alongside Plan/Diff schemas). (2) Removal of the activation.positive/negative LLM-driven gating — stays as the fallback for legacy skills until p0127c migrates them all. (3) Skill content migration in agent-smith-skills — p0127c. The pre-filter activates with skills that have ActivatesWhen set, currently zero in production; the new path runs against test fixtures only until c lands. (4) Removal of SkillIndexEntry.Activation / RoleAssignments — they keep flowing into the LLM prompt for legacy skills; cleanup is p0131 (D7). (5) Specificity computed from a separate score field in frontmatter — Phase C didn't add one; we derive from activates_when AST shape. If operators want to override the heuristic, that's a follow-up after the heuristic proves under-specified. (6) Caching parsed expressions across runs — parse is cheap (single-digit microseconds for typical expressions); per-call parse with a per-Filter-invocation dictionary is enough."
+
+decisions:
+  - key: "Pre-filter happens inside TriageOutputProducer, not in StructuredTriageStrategy. Reason: the strategy is a thin orchestrator (currently ~66 lines, mostly logging + command expansion). Putting the filter step in the producer keeps the LLM-call wrapper colocated with the data it shapes; the strategy stays unchanged. -- alternatives: a new pre-strategy step (rejected: extra DI plumbing for no observability gain); a wrapper around producer (rejected: another type implementing ITriageOutputProducer just to insert one filter call)."
+  - key: "Specificity score is an int derived from AST shape, not a frontmatter field. Reason: Phase C didn't introduce one; deriving from activates_when keeps the spec a single source of truth. The heuristic counts comparison + identifier nodes — deeper AST = more specific. Operators who need a different score order can rewrite their activates_when to be more specific (e.g. add an AND clause). -- alternatives: explicit `specificity: <int>` frontmatter (rejected: hand-tuned numbers drift from the actual expression; two sources of truth); count of AND-clauses only (rejected: misses OR-branches and comparison density)."
+  - key: "Skills without activates_when pass through the pre-filter unchanged. Reason: parallel-format discipline from p0127a — legacy skills (no migration yet) shouldn't be gated by a check they don't participate in. They flow into the LLM prompt with their existing activation.positive/negative; the LLM still applies the legacy heuristic. After p0127c migrates every skill, every active skill carries activates_when and the legacy path is dead code (cleanup in p0131). -- alternatives: require activates_when at load time (rejected: pre-emptive break of the parallel-format compatibility window)."
+  - key: "MaxSkillsPerPhase=5 default. Reason: Phase A's vision sketched 3-5 skills per phase; 5 is the upper bound that still leaves room for the LLM to pick 'the few right ones'. Operators tune via agentsmith.yml's `limits:` section. Per-phase tuning (different cap for Plan vs Review) is a follow-up if the single number proves wrong in practice. -- alternatives: per-phase dictionary (rejected: premature; flat int covers 95% of cases); no cap, always trust the LLM (rejected: the cap is the safety net for runaway picks)."
+  - key: "Specificity tie-break is post-LLM, not pre-LLM. Reason: the LLM's job is to pick which skills genuinely match the ticket; the cap is a guardrail against runaway picks, not a substitute for the LLM's judgment. Pre-LLM trimming would make decisions blind to ticket content. The post-LLM trim only fires when the LLM exceeds the cap — typical cases (LLM picks 3 from 5 candidates) never trigger trim. -- alternatives: cap pre-LLM by hard limit (rejected: throws away signal the LLM should see); use the LLM's confidence score for trim (rejected: confidence is per-output, not per-skill)."
+  - key: "Parse-failure on activates_when excludes the skill from the candidate set instead of crashing triage. Reason: validate-concepts (p0125d) is the build-time gate; a parse failure at runtime means the gate was bypassed. Excluding the skill is fail-safe (the skill simply doesn't run); crashing triage would be fail-loud but kills the whole pipeline for one bad skill. The Error log + skill name + offset gives operators the same fix-loop as the build-time verb. -- alternatives: throw and crash triage (rejected: one bad skill shouldn't kill the run); skip with a Warn log (rejected: a parse error is structurally broken, deserves Error)."
+  - key: "ActivationSkillFilter caches parsed expressions per-Filter-invocation (Dictionary<string, ActivationExpression>), not across the process lifetime. Reason: per-call cache amortizes the parse cost when the same expression appears in multiple skills (unlikely with a 44-skill catalog) and resets cleanly between calls. A process-wide cache adds invalidation logic for hot-reload scenarios for no observed cost win. -- alternatives: process-wide static cache (rejected: invalidation complexity); no cache (rejected: still O(N) parses per filter call where N=skill count)."
+  - key: "First SkillCallRuntime consumer migration is deferred. Reason: SkillRoundHandlerBase (441 lines) and FilterRoundHandler (224 lines) both build per-role prompts via complex pipelines that don't map 1:1 to SkillCallRequest's flat shape. Migrating either is its own ~40-test phase. Bundling it into p0127b would balloon the slice past one-PR-able size. The triage path is independently demonstrable without the consumer migration: the LLM still sees a narrowed candidate set; PerSkillBreakdown lights up when the consumer migration lands. -- alternatives: migrate SkillRoundHandlerBase here (rejected: 441-line refactor + extensive prompt-build rework explodes the slice); start with a smaller fixed-purpose handler (rejected: there isn't one — every skill-running handler in the codebase is 200+ lines)."
+
+steps:
+  - id: activation-skill-filter
+    action: "ActivationSkillFilter service deterministically narrows the candidate skill set"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationSkillFilter.cs: single instance class; ctor (ActivationExpressionParser parser, ActivationEvaluator evaluator, ILogger<ActivationSkillFilter> logger). Public IReadOnlyList<RoleSkillDefinition> Filter(IReadOnlyList<RoleSkillDefinition> skills, IRunStateConcepts state, ConceptVocabulary vocabulary) walks each skill, parses ActivatesWhen if non-null (caches per-string in a local dictionary), evaluates against state, and includes the skill if true. Null/empty ActivatesWhen → passes through. Parse failure → logged at Error with skill.Name + ex.Message + ex.Offset, skill excluded. Evaluator throws → logged at Error, skill excluded. Class stays ≤60 lines."
+
+  - id: activation-specificity-scorer
+    action: "ActivationSpecificityScorer assigns an int score to an activates_when expression"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationSpecificityScorer.cs: single instance class; ctor (ActivationExpressionParser parser). Public int Score(string activatesWhen) parses the expression and walks the AST counting Comparison + Identifier nodes (each contributes 1; And/Or/Not contribute 0 themselves but their children are counted). Null/whitespace input returns 0. Parse failure returns 0 + logs Warning (the skill was already excluded by the filter step; scorer just gives a stable fallback). Class stays ≤45 lines."
+
+  - id: max-skills-per-phase-config
+    action: "LoopLimitsConfig gains MaxSkillsPerPhase with default 5"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs: add `public int MaxSkillsPerPhase { get; init; } = 5;` next to the eight existing limits. XML-doc: 'p0127b: post-LLM cap on skills selected per phase. Specificity tie-break trims any phase whose LLM-pick exceeds this number.'"
+
+  - id: triage-output-producer-wiring
+    action: "TriageOutputProducer integrates pre-filter + post-LLM specificity trim"
+    modify:
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs: ctor gains ActivationSkillFilter filter, ActivationSpecificityScorer scorer, Func<PipelineContext, IRunStateConcepts> conceptsFactory, LoopLimitsConfig limits. ProduceAsync inserts a FilterCandidates(pipeline) step between BuildInput and CallAndValidateAsync: resolves IRunStateConcepts via the factory + ConceptVocabulary from context (or Empty), passes input.AvailableSkills's underlying RoleSkillDefinition list (need a parallel BuildInputWithDefinitions that keeps the original list alongside SkillIndexEntry), runs the filter, rebuilds SkillIndexEntry list from the filtered skills. Logs 'Triage filtered {Before}→{After} skills via activates_when'. After CallAndValidateAsync returns, ApplySpecificityTrim caps each phase by limits.MaxSkillsPerPhase using scorer.Score(skill.ActivatesWhen) descending; ties by skill.Name ascending. Class stays under its current cap (now 196 lines — the new code adds ~25 lines but extracts BuildInputWithDefinitions and ApplySpecificityTrim into private methods so the class doesn't blow past 220)."
+
+  - id: di-wiring
+    action: "Application DI registers the two new services as singletons; producer ctor binds"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: AddSingleton<ActivationSkillFilter>(); AddSingleton<ActivationSpecificityScorer>(). TriageOutputProducer is already registered; the new ctor params resolve from the existing singletons."
+
+  - id: tests
+    action: "Test pack: filter behavior, scorer math, producer integration"
+    new:
+      - "tests/AgentSmith.Tests/Services/Activation/ActivationSkillFilterTests.cs: Filter_NullActivatesWhen_PassesThrough; Filter_EmptyActivatesWhen_PassesThrough; Filter_ExpressionTrue_Included; Filter_ExpressionFalse_Excluded; Filter_ParseError_ExcludesAndLogsError; Filter_MixedSkills_ReturnsOnlyMatching; Filter_ParseCachedAcrossSkills_ParserCalledOncePerExpression."
+      - "tests/AgentSmith.Tests/Services/Activation/ActivationSpecificityScorerTests.cs: Score_Null_Zero; Score_Empty_Zero; Score_SingleIdentifier_One; Score_TwoIdentifiersWithAnd_Two; Score_TwoIdentifiersWithOr_Two; Score_ComparisonAndIdentifier_Two; Score_NotedExpression_CountsInner; Score_ParseError_Zero."
+      - "tests/AgentSmith.Tests/Services/Triage/TriageOutputProducerFilterTests.cs: ProduceAsync_FilterNarrowsBeforeLlm_LlmSeesFilteredSkills (assert the LLM prompt's available_skills section contains only filtered names); ProduceAsync_NoActivatesWhenSkills_AllPassToLlm; ProduceAsync_AllExcludedByFilter_LlmStillCalled (assert empty available_skills doesn't crash); ProduceAsync_PhaseExceedsCap_TrimmedBySpecificity (assert higher-specificity skill is kept, lower-specificity dropped); ProduceAsync_PhaseExactlyAtCap_NotTrimmed; ProduceAsync_PhaseUnderCap_NotTrimmed; ProduceAsync_TieBreakByName_DeterministicOrder."
+
+tests:
+  - "ActivationSkillFilter_Filter_NullActivatesWhen_PassesThrough"
+  - "ActivationSkillFilter_Filter_EmptyActivatesWhen_PassesThrough"
+  - "ActivationSkillFilter_Filter_ExpressionTrue_Included"
+  - "ActivationSkillFilter_Filter_ExpressionFalse_Excluded"
+  - "ActivationSkillFilter_Filter_ParseError_ExcludesAndLogsError"
+  - "ActivationSkillFilter_Filter_MixedSkills_ReturnsOnlyMatching"
+  - "ActivationSkillFilter_Filter_ParseCachedAcrossSkills_ParserCalledOncePerExpression"
+  - "ActivationSpecificityScorer_Score_Null_Zero"
+  - "ActivationSpecificityScorer_Score_Empty_Zero"
+  - "ActivationSpecificityScorer_Score_SingleIdentifier_One"
+  - "ActivationSpecificityScorer_Score_TwoIdentifiersWithAnd_Two"
+  - "ActivationSpecificityScorer_Score_TwoIdentifiersWithOr_Two"
+  - "ActivationSpecificityScorer_Score_ComparisonAndIdentifier_Two"
+  - "ActivationSpecificityScorer_Score_NotedExpression_CountsInner"
+  - "ActivationSpecificityScorer_Score_ParseError_Zero"
+  - "TriageOutputProducerFilter_ProduceAsync_FilterNarrowsBeforeLlm_LlmSeesFilteredSkills"
+  - "TriageOutputProducerFilter_ProduceAsync_NoActivatesWhenSkills_AllPassToLlm"
+  - "TriageOutputProducerFilter_ProduceAsync_AllExcludedByFilter_LlmStillCalled"
+  - "TriageOutputProducerFilter_ProduceAsync_PhaseExceedsCap_TrimmedBySpecificity"
+  - "TriageOutputProducerFilter_ProduceAsync_PhaseExactlyAtCap_NotTrimmed"
+  - "TriageOutputProducerFilter_ProduceAsync_PhaseUnderCap_NotTrimmed"
+  - "TriageOutputProducerFilter_ProduceAsync_TieBreakByName_DeterministicOrder"
+
+done:
+  - "ActivationSkillFilter narrows the candidate skill list before the LLM call; null/empty activates_when passes through unchanged"
+  - "ActivationSpecificityScorer assigns an int score from the parsed activates_when AST"
+  - "LoopLimitsConfig.MaxSkillsPerPhase=5 default; agentsmith.yml `limits:` section binds it"
+  - "TriageOutputProducer logs filter narrowing (Before→After counts) and per-phase trim (kept names)"
+  - "Specificity trim only fires when LLM-pick exceeds MaxSkillsPerPhase; ties broken deterministically by skill name"
+  - "Skills with no ActivatesWhen still flow through the LLM with their legacy activation.positive/negative — fallback path lives until p0127c migrates them"
+  - "All 22 new tests pass"
+  - "All existing tests pass (no regressions)"
+  - "No SkillCallRuntime consumer migration — that's a follow-up; first migration deferred to a dedicated slice when SkillRoundHandlerBase / FilterRoundHandler are restructured"

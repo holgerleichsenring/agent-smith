@@ -25,8 +25,6 @@ public static class ContextKeys
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";
     public const string Headless = "Headless";
-    public const string DetectedProject = "DetectedProject";
-    public const string RepoSnapshot = "RepoSnapshot";
     public const string CodeMap = "CodeMap";
     public const string ProjectContext = "ProjectContext";
     public const string RunNumber = "RunNumber";
@@ -96,6 +94,12 @@ public static class ContextKeys
     public const string PlanArtifact = "PlanArtifact";
     public const string ConceptVocabulary = "ConceptVocabulary";
 
+    /// <summary>
+    /// Storage slot for the typed concept values published during a pipeline run
+    /// (Dictionary&lt;string, object&gt;). Managed by IRunStateConcepts; do not write directly.
+    /// </summary>
+    public const string ConceptValues = "ConceptValues";
+
     /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
     /// log scope so concurrent runs are filterable in shared log streams.</summary>
     public const string RunId = "RunId";
@@ -117,4 +121,32 @@ public static class ContextKeys
     /// every time SkillRoundHandlerBase.DetectBlockingFollowUp inserts a SwitchSkill follow-up.
     /// Used to break immediate A→B→A ping-pong cycles in O(1) without an explicit cap.</summary>
     public const string SwitchSkillLastSummoner = "SwitchSkillLastSummoner";
+
+    // p0128a: wire-format JSON/markdown payloads alongside the typed Plan/CodeChanges
+    // entries. Existing Plan and CodeChanges keep their typed-entity semantics; the new
+    // keys carry the persisted shape consumed by WriteRunResultHandler and the Redis
+    // pipeline-storage layer.
+    public const string PlanJson = "PlanJson";
+    public const string DiffJson = "DiffJson";
+    public const string BootstrapMarkdown = "BootstrapMarkdown";
+
+    // p0128b: Plan open_questions round-trip. OpenQuestionsAwaitingAnswer halts the
+    // pipeline cleanly when the Plan emits questions; PlanAnswers carries operator
+    // answers from the webhook re-trigger into the next Plan-skill run.
+    public const string OpenQuestionsAwaitingAnswer = "OpenQuestionsAwaitingAnswer";
+    public const string PlanAnswers = "PlanAnswers";
+
+    // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
+    // this before each step and clears it after; the gated context wrapper reads it
+    // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
+    public const string ActivePhaseStep = "ActivePhaseStep";
+
+    // p0129a: Verify phase between Implementation and delivery.
+    // VerifyRoundCount counts re-implementation rounds (1 = first run, 2 = after one re-loop).
+    // VerifyNotes is the human-readable note string fed back into AgenticExecute on re-loop.
+    // VerifyObservations carries the raw observations from each verify-phase invocation
+    // (kept separate from SkillObservations so the delivery layer doesn't render them).
+    public const string VerifyRoundCount = "VerifyRoundCount";
+    public const string VerifyNotes = "VerifyNotes";
+    public const string VerifyObservations = "VerifyObservations";
 }

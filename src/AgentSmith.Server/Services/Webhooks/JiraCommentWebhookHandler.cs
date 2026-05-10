@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -10,10 +11,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// Handles Jira comment_created webhooks. Triggers a pipeline when
 /// a comment contains the configured keyword, the issue status is in the
 /// trigger whitelist, and a matching label determines the pipeline.
+/// p0128b: detects Plan-open-questions answers and re-triggers with PlanAnswers populated.
 /// </summary>
 public sealed class JiraCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    PlanAnswerParser planAnswerParser,
     ILogger<JiraCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -30,11 +33,16 @@ public sealed class JiraCommentWebhookHandler(
 
             var commentBody = ExtractCommentBody(root);
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            var planAnswers = planAnswerParser.Parse(commentBody);
+            var hasAnswers = planAnswers.Count > 0;
+
             var (projectName, triggerConfig) = FindMatchingProject(config, commentBody);
+            if (triggerConfig is null && hasAnswers)
+                (projectName, triggerConfig) = FindFirstJiraTriggerProject(config);
 
             if (triggerConfig is null)
             {
-                logger.LogDebug("No jira_trigger with matching comment_keyword found");
+                logger.LogDebug("No jira_trigger with matching comment_keyword or PlanAnswers found");
                 return Task.FromResult(new WebhookResult(false, null, null));
             }
 
@@ -63,7 +71,9 @@ public sealed class JiraCommentWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issueKey));
+                TicketId: issueKey,
+                Platform: "jira",
+                PlanAnswers: hasAnswers ? new Dictionary<string, string>(planAnswers) : null));
         }
         catch (Exception ex)
         {
@@ -99,6 +109,23 @@ public sealed class JiraCommentWebhookHandler(
                 return (name, trigger);
         }
 
+        return (string.Empty, null);
+    }
+
+    /// <summary>
+    /// Fallback used when PlanAnswers are detected without the trigger keyword:
+    /// returns the first project that has a jira_trigger configured. Most agent-smith
+    /// deployments map one Jira project per agent-smith project; multi-project Jira
+    /// targets need to keep the keyword for disambiguation.
+    /// </summary>
+    private static (string ProjectName, JiraTriggerConfig? Config) FindFirstJiraTriggerProject(
+        AgentSmithConfig config)
+    {
+        foreach (var (name, project) in config.Projects)
+        {
+            if (project.JiraTrigger is { } trigger)
+                return (name, trigger);
+        }
         return (string.Empty, null);
     }
 }

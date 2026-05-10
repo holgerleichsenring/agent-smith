@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131a
+goal: "D7 slice 1/4: remove the legacy multi-role skill-model fields from RoleSkillDefinition + SkillMdFrontmatter + supporting types. Drops ~600 net LoC across the contract types, the loader, the body resolver, the index builder, the triage validator + producer, the filter handler, and the test pack. Post-slice the new-format SKILL.md fields (Role, OutputSchema, ActivatesWhen, Category, InvestigatorMode, ...) are the single source of truth; SkillRoleMapping translates Role string → SkillRole enum at consumption sites."
+
+requires: ["p0127c"]
+
+scope:
+  in: |
+    (1) RoleSkillDefinition: removed RolesSupported, Activation, RoleAssignments,
+        References, OutputContract, RoleBodies properties. Kept new-format fields
+        (Role, Category, InvestigatorMode, SurveyScope, ScopeHint, BlockCondition,
+        Loop, OutputSchema, ActivatesWhen) plus the universals (Name, Description,
+        Triggers, Rules, ConvergenceCriteria, Source, Orchestration, SkillDirectory).
+    (2) SkillMdFrontmatter: removed the RolesSupported rejection probe. Frontmatter
+        now ignores `roles_supported` entirely (YamlDotNet IgnoreUnmatchedProperties);
+        a missing Role field still triggers SkillFormatException at parse time.
+    (3) SkillMdParser.BuildRole: removed the legacy-rejection branch.
+    (4) NewFormatSkillBuilder: dual-write to legacy fields removed. The builder
+        now only emits new-format fields.
+    (5) SkillIndexEntry: shape simplified to (Name, Description, Role,
+        OutputSchema?, ActivatesWhen?). Legacy ActivationCriteria-bag /
+        RoleAssignments / OutputType retired.
+    (6) New helper: SkillRoleMapping.ToSkillRole(string role) — producer→Lead /
+        investigator→Analyst / judge→Reviewer / filter→Filter (mirrors the
+        mapping NewFormatSkillBuilder previously baked into the dual-write).
+    (7) TriageOutputValidator: rewritten. Role-slot check uses SkillRoleMapping.
+        Rationale-key check goes vocabulary-only (legacy per-skill criteria bag
+        retired). HasNoCriteriaAtAll defensive default removed (no criteria
+        bag exists anymore so the question is moot).
+    (8) TriageOutputProducer: ToIndexEntry + RenderSkills updated to the new
+        SkillIndexEntry shape. Skill-index rendering now reads `role` (single
+        string) + `activates_when` (or "(always)" when absent) instead of
+        legacy roles + positive-keys.
+    (9) SkillIndexBuilder: ToEntry + ToYamlShape updated. _index/<category>.yaml
+        now writes `role` / `output_schema` / `activates_when` per skill.
+        Skills missing the `role` field are excluded from the index.
+    (10) SkillBodyResolver: shrunk from 82 to 19 lines. RoleBodies branch +
+         {{ref:X}} placeholder substitution removed (References field is
+         retired). The cache stays — body interning is still cheap.
+    (11) FilterRoundHandler.ResolveOutputForm: derives OutputForm from
+         OutputSchema instead of OutputContract. observation/plan → List;
+         diff/bootstrap → Artifact.
+    (12) ConceptVocabularyValidator: load-time check is now a no-op stub
+         (kept as a DI hook for future load-time concept checks).
+    (13) Deleted dead types: ActivationCriteria, ActivationKey, RoleAssignment,
+         OutputContract, SkillReference (5 files, all in
+         AgentSmith.Contracts/Models/Skills/).
+    (14) Tests: deleted SkillMdParserExtendedTests.cs (210 lines of legacy-
+         shape fixtures, 2 of which were already skipped); updated
+         SkillBodyResolverTests / SkillIndexBuilderTests / TriageOutputValidatorTests
+         / TriageOutputProducerFilterTests / SkillMdParserNewFormatTests /
+         YamlSkillLoaderTests / RoleSkillDefinitionNewFormatFieldsTests for
+         the new shape; removed Parse_RoleAndRolesSupportedBothPresent_RejectsSkill
+         (rejection probe gone).
+
+  out: |
+    - BootstrapProjectHandler + CodeMapGenerator retirement (p0131b).
+    - LegacyTriageStrategy retirement (p0131c — autonomous catalog gap separate).
+    - Skipped-test + validator transition-period cleanup (p0131d). Most of it
+      already happened here as a side-effect of the field removal — only any
+      transition-period warnings on `ValidateConceptsCommand` remain in scope
+      for p0131d.
+    - SkillIndexEntry consumers in non-Application code (Cli / Server / etc).
+      Already verified by build-clean; nothing else reads the legacy fields.
+
+decisions:
+  - key: |
+      Output-side SkillIndexEntry simplification, not a parallel "v2" type.
+      Reason: the old shape had 4 parallel role-related collections (RolesSupported,
+      Activation, RoleAssignments, OutputType). The new shape has 3 strings
+      (Role, OutputSchema, ActivatesWhen). Rewriting the consumers is mechanical;
+      keeping a v2-vs-v1 split would force every consumer to handle both.
+      -- alternatives: deprecate-and-add-v2 (rejected: drift trap; nobody
+      pinned to legacy now post-p0127c).
+  - key: |
+      SkillRoleMapping as a static helper in Contracts.Models.Skills, not a
+      method on RoleSkillDefinition or SkillRole. Reason: the mapping is the
+      bridge between SKILL.md frontmatter (producer/investigator/judge/filter)
+      and pipeline-side SkillRole enum (Lead/Analyst/Reviewer/Filter). It
+      needs to be callable from validator + filter handler + future runtime
+      callers — instance methods on the entity would force a non-null Role,
+      and SkillRole.Parse-style would conflate enum values with frontmatter
+      strings. -- alternatives: extension method on RoleSkillDefinition
+      (rejected: same null-handling cost); switch in every caller (rejected:
+      drift on 4 places).
+  - key: |
+      TriageOutputValidator's rationale-key check goes vocabulary-only.
+      Reason: pre-p0131a the validator checked rationale keys against
+      (a) skill's Activation.Positive bag, (b) skill's RoleAssignments[role]
+      .Criteria bag, (c) the global vocabulary. Bags (a) and (b) retired
+      together with the multi-role format. The vocabulary fallback (added
+      in p0124 for resilience) becomes the only validation. The skill-
+      specific keys lived in legacy bags as priority signals to the prompt;
+      with `activates_when` they're already first-class and don't need
+      separate validation. -- alternatives: parse activates_when AST + check
+      identifiers (rejected: validates the activation contract not the
+      rationale; redundant with build-time `validate-concepts`).
+  - key: |
+      ConceptVocabularyValidator becomes a no-op stub instead of being deleted.
+      Reason: the type is wired via DI in YamlSkillLoader's constructor
+      (Infrastructure.Core/ServiceCollectionExtensions). Deleting it would
+      cascade into a constructor-signature change + DI rebinding + 5 test
+      files. Keeping it as a no-op stub (with a single LogTrace) keeps the
+      load pipeline shape stable and gives future load-time concept checks
+      (e.g. validating that `activates_when` references real vocab keys at
+      load time, not build time) a place to plug in. -- alternatives: delete
+      the class + all references (rejected: pointless cascade for the size
+      of the cleanup).
+  - key: |
+      SkillBodyResolver's {{ref:X}} placeholder mechanism retired entirely.
+      Reason: the References frontmatter field is gone. Today exactly one
+      operator-facing skill (`architect-planner`) has stale `{{ref:ddd-patterns}}`
+      / `{{ref:anti-patterns}}` placeholders in its body — those have been
+      orphaned since p0127c shipped agent-smith-skills 2.0.0 (the new format
+      doesn't carry References). Post-p0131a those placeholders just render
+      verbatim in the prompt. Not a regression — the placeholders were
+      already non-functional. -- alternatives: keep the resolution pathway
+      with NoOpReferences (rejected: dead code carrying its own complexity);
+      flag it as a build-time validation error (rejected: out of scope for
+      this slice).
+  - key: |
+      `validators ToYamlShape` _index/<category>.yaml schema is breaking-
+      changed. Reason: the YAML emitted to .agentsmith/skills/_index/<category>.yaml
+      previously carried `roles_supported: [analyst]`, `activation: {...}`,
+      `role_assignment: {...}`, `output_type: {...}`. After p0131a it's
+      `role: investigator`, `output_schema: observation`, `activates_when:
+      "..."`. Operators checking these files into git get a noisy diff on
+      next run. Acceptable: the index is auto-generated and operator-tooling
+      around it is internal. -- alternatives: keep emitting both shapes for
+      a deprecation window (rejected: dead-code; the index is a generated
+      artifact, not a stable contract).
+  - key: |
+      Tests for legacy fixtures deleted, not migrated. Reason: tests like
+      `Parse_RoleAndRolesSupportedBothPresent_RejectsSkill` asserted the
+      rejection probe — the probe is gone, so the assertion is trivially
+      false (YamlDotNet IgnoreUnmatchedProperties just drops the unknown
+      field). Migrating them would require contriving new "rejection"
+      semantics for fields that no longer exist. Better cut. The
+      RoleSkillDefinitionNewFormatFieldsTests.LegacyFormat_RejectedAtLoad
+      stays — it asserts the missing-Role rejection, which is still real.
+
+steps:
+  - id: types
+    action: "Drop legacy types + adjust new-format anchors"
+    new:
+      - "src/AgentSmith.Contracts/Models/Skills/SkillRoleMapping.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/RoleSkillDefinition.cs"
+      - "src/AgentSmith.Contracts/Models/Skills/SkillIndexEntry.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdFrontmatter.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/NewFormatSkillBuilder.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillBodyResolver.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillIndexBuilder.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyValidator.cs"
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs"
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputValidator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs"
+
+  - id: delete-dead-types
+    action: "Delete now-unused legacy types"
+    delete:
+      - "src/AgentSmith.Contracts/Models/Skills/ActivationCriteria.cs"
+      - "src/AgentSmith.Contracts/Models/Skills/ActivationKey.cs"
+      - "src/AgentSmith.Contracts/Models/Skills/RoleAssignment.cs"
+      - "src/AgentSmith.Contracts/Models/Skills/OutputContract.cs"
+      - "src/AgentSmith.Contracts/Models/Skills/SkillReference.cs"
+
+  - id: tests
+    action: "Update / drop test files"
+    delete:
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserExtendedTests.cs"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Skills/SkillBodyResolverTests.cs"
+      - "tests/AgentSmith.Tests/Services/Skills/SkillIndexBuilderTests.cs"
+      - "tests/AgentSmith.Tests/Services/Skills/SkillMdParserNewFormatTests.cs"
+      - "tests/AgentSmith.Tests/Services/YamlSkillLoaderTests.cs"
+      - "tests/AgentSmith.Tests/Triage/TriageOutputProducerFilterTests.cs"
+      - "tests/AgentSmith.Tests/Triage/TriageOutputValidatorTests.cs"
+
+tests:
+  - "Build clean across solution"
+  - "All non-deleted tests pass"
+  - "SkillIndexBuilderTests: WritesPerCategoryYaml renders the new shape; SkillsWithoutRole_OmittedFromIndex"
+  - "SkillBodyResolverTests: ResolveBody returns Rules verbatim; cache works"
+  - "TriageOutputValidatorTests: producer→Lead accepted; investigator→Lead rejected; rationale keys checked vocabulary-only"
+  - "SkillMdParserNewFormatTests + RoleSkillDefinitionNewFormatFieldsTests still pass with their existing new-format fixtures"
+
+done:
+  - "RoleSkillDefinition has no legacy multi-role fields"
+  - "SkillMdFrontmatter has no legacy fields, parser has no legacy branches"
+  - "ActivationCriteria, ActivationKey, RoleAssignment, OutputContract, SkillReference all deleted"
+  - "All consumers (TriageOutputValidator + Producer, SkillIndexBuilder, FilterRoundHandler, SkillBodyResolver, NewFormatSkillBuilder) read only new-format fields"
+  - "1562 main + 62 sandbox tests passing"
+  - "Net diff: ~ -600 LoC across 23 files"

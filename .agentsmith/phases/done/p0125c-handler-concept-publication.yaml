@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0125c
+goal: "Third slice of D1. Existing pre-skill handlers and a new BootstrapCheckHandler publish typed concepts via IRunStateConcepts. Pipeline routing publishes pipeline_name once at the head of every command-handler chain through a single PipelineNameInitializer (sitting behind p0106's PipelineConfigResolver). TriageHandler logs the active concept snapshot so a human reading the run log can reproduce the activation decision by hand. The evaluator from p0125b is still not consumed for skill selection at runtime — that's p0127. Concept publication is observable via the snapshot log, which closes Phase D1's visible-improvement criterion."
+
+requires: ["p0125b"]
+
+scope:
+  in: "(1) PipelineNameInitializer command + handler. The handler reads the resolved pipeline from PipelineContext (populated by PipelineConfigResolver per p0106), maps the pipeline string to the pipeline_name enum, and calls IRunStateConcepts.SetEnum once. The handler is queued at the head of every command-handler chain — implementation detail: PipelineExecutor (or PipelinePresets) prepends it to the handler list for each pipeline-route, before any other handler runs. (2) pipeline_name concept declared in concept-vocabulary.yaml as enum with the currently-routing values: api-security-scan, security-scan, fix-bug, feature-implementation, mad-discussion. Init-project, legal-analysis, autonomous, etc. are NOT in the enum — they are added when those routes actually publish the concept. Writers list is [PipelineNameInitializer]. (3) CheckoutSourceHandler publishes source_available (bool). At end of ExecuteAsync (after the existing Repository write), the handler calls IRunStateConcepts.SetBool('source_available', success). Failure paths (network error, missing token, etc.) publish false. source_available declared in concept-vocabulary.yaml with writers [CheckoutSourceHandler]. (4) New BootstrapCheckHandler in Application/Services/Handlers/. ICommandHandler<TContext> with a small BootstrapCheckContext (Repository.LocalPath only). ExecuteAsync reads `.agentsmith/context.yaml` and `.agentsmith/coding-principles.md` from the working repo via ISandboxFileReader (per p0117b's read-via-sandbox pattern), publishes context_yaml_present (bool) and coding_principles_present (bool). Both concepts declared in vocabulary with writers [BootstrapCheckHandler]. The handler is registered in DI but NOT inserted into any pipeline preset — that wiring is p0130 (D6, init-project pipeline) where the gating decision lives. The point of landing it here is to have the publishing code in place when D6 wires it up. (5) TriageHandler concept-snapshot logging. At the start of ExecuteAsync, after IRunStateConcepts is in scope, emit a single ILogger.LogInformation entry: `Triage concept snapshot: {Concepts}` where {Concepts} is a comma-separated `name=value` list of every non-default concept (default-valued concepts omitted — signal-to-noise: humans care about what was set). The snapshot lives in run logs only; structured artifact persistence is D4 (p0128). (6) Cross-repo: agent-smith-skills/skills/concept-vocabulary.yaml gains four new entries (pipeline_name enum, source_available, context_yaml_present, coding_principles_present) with writers lists pointing at the handler classes. Existing 68 entries unchanged. Version bumps another minor (1.8.0 → 1.9.0)."
+  out: "(1) Pipeline gating in BootstrapCheckHandler — i.e. 'fail the pipeline if context.yaml is missing'. That's a p0130 (D6) concern; this slice only publishes the concepts. (2) CLI validate-concepts verb — p0125d. (3) Skill-side activates_when consumption — p0127 (D3). (4) Persistence of the concept snapshot beyond the run log — D4. (5) Other pre-skill handlers (LoadSwagger, SpawnNuclei, SpawnZap, SpawnSpectral, etc.) publishing their domain concepts (swagger_spec_present, nuclei_findings_count, etc.) — those land when the relevant scan pipelines exist or get refreshed; for now they continue to write through ContextKeys without the typed surface. The vocabulary entries for those concepts already exist (as bool flags) from p0125a; type-changing them is part of that future refresh. (6) Production runtime use of the evaluator — still parser-only, snapshot-log-only in this slice. (7) No new pipeline implementations: init-project, legal-analysis, etc. are not extended to publish pipeline_name. They will when their routing ships the concept-publication step."
+
+decisions:
+  - key: "pipeline_name is published by a dedicated PipelineNameInitializer command-handler at the head of every chain, not by individual CLI commands or by a routing dispatcher. Reason: pipeline identity is a property of the pipeline run, not of each CLI surface (Slack/CLI/webhook all converge on the same pipeline). Putting the publication in routing-branch code would mean five-plus call sites that must stay in sync; one Initializer command keeps it in one place. The Initializer reads PipelineContext.ResolvedPipeline (set by PipelineConfigResolver from p0106 at use-case entry), so it doesn't need parameters — the source of truth is the resolver."
+  - key: "pipeline_name enum starts narrow: only currently-routing pipelines. Reason: an enum value the LLM can cite must be a pipeline that actually publishes it. Listing init-project, legal-analysis, autonomous, etc. up front would let triage activate a skill on a phantom pipeline that never sets pipeline_name — silent dead branches. The enum grows when each route's PipelineNameInitializer call actually fires. Same discipline as project_language enum landing later: start tight, expand on evidence."
+  - key: "BootstrapCheckHandler ships in p0125c but is not wired to any pipeline. Reason: the publishing code is mechanical (read two file paths, set two bools); the gating decision (do we abort the pipeline if context.yaml missing?) is a pipeline-design concern that lives next to init-project's bootstrap flow in p0130. Splitting along this line keeps p0125c about concept-publication plumbing and lets D6 own the policy. For repos that have both files (every existing project), p0130's eventual wiring is observation-only."
+  - key: "source_available is the only existing-handler concept publication added in p0125c. Reason: the four scan-handler concepts (swagger_spec_present, nuclei_findings_count, zap_findings_count, spectral_findings_count) live in pipelines that already work end-to-end and aren't the bottleneck for D1's visibility goal. Adding them now means re-touching four scan handlers across two pipelines for no behavioral change yet. They land when D2's tool-loop refresh of those handlers happens, or as a small follow-up phase if they hold us back."
+  - key: "TriageHandler snapshot is single ILogger.LogInformation line, not a structured artifact. Reason: D1's reproducibility goal is `grep concepts run-456.log` and the human sees what was true. A structured artifact (file under .agentsmith/runs/...) is justified once Plan/Diff persistence lands in D4; doing it now creates a one-off persistence path we'd refactor next phase. Default-valued concepts are omitted from the snapshot — for 100+ concepts mostly at default, the noise drowns the signal."
+  - key: "The Initializer reads ResolvedPipeline from PipelineContext rather than via constructor parameter. Reason: ICommandHandler<TContext> is a generic interface; injecting a per-pipeline name through DI is impossible without a container reconfiguration per route. Reading from PipelineContext (which p0106's resolver already populates) keeps the Initializer pipeline-agnostic — same handler instance serves every route. Trade-off: the handler has a runtime dependency on PipelineConfigResolver having run first; the test asserts the order explicitly."
+  - key: "ConceptTypeMismatchException at the SetEnum call site is the LLM-driver fence. Reason: if a future routing change publishes a pipeline_name that's not in the declared enum, the call throws at routing — pipeline never starts, error surfaces immediately. This is preferable to silent acceptance with a downstream mismatch in triage. Per p0125b's contract: SetEnum throws on unknown enum value."
+  - key: "Cross-repo coupling: vocabulary entries for the four new concepts ship in agent-smith-skills paired with this PR. Same hard-cutover discipline as p0125a — boot against an unmigrated vocabulary fails because the Initializer would call SetEnum on an undeclared concept. Version bump 1.8.0 → 1.9.0; the change is purely additive (no existing entries touched), so the 'breaking' aspect is only the pinning relationship between agent-smith and agent-smith-skills versions."
+
+steps:
+  - id: pipeline-name-initializer
+    action: "PipelineNameInitializer command + handler at the head of every chain"
+    new:
+      - "src/AgentSmith.Application/Commands/PipelineNameInitializerCommand.cs: ICommandContext record with no payload (the handler reads PipelineContext.ResolvedPipeline)."
+      - "src/AgentSmith.Application/Services/Handlers/PipelineNameInitializerHandler.cs: ICommandHandler<PipelineNameInitializerContext>. Reads ResolvedPipeline.Name from PipelineContext, calls IRunStateConcepts.SetEnum('pipeline_name', name). Length check: 1 public method ≤20 lines."
+    modify:
+      - "src/AgentSmith.Application/Services/Pipelines/PipelinePresets.cs (or whichever file builds the per-pipeline command list — locate during implementation): for each pipeline preset, prepend PipelineNameInitializerCommand to the existing step list. The writes are in five places (one per pipeline) but the alternative is changing PipelineExecutor to inject the command unconditionally — preset-side prepend is more explicit and testable per-preset."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register PipelineNameInitializerHandler."
+
+  - id: checkout-source-publication
+    action: "CheckoutSourceHandler publishes source_available"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: ExecuteAsync gains a final IRunStateConcepts.SetBool('source_available', success) call. Existing Repository write to ContextKeys remains. The handler's ctor takes IRunStateConcepts via DI; the new dependency is single-line."
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs: same change, fail-soft semantics — publishes false on any catch path. (TryCheckout is the api-scan variant.)"
+
+  - id: bootstrap-check-handler
+    action: "BootstrapCheckHandler reads context.yaml + coding-principles.md and publishes presence concepts"
+    new:
+      - "src/AgentSmith.Application/Commands/BootstrapCheckCommand.cs: ICommandContext record (no explicit payload — handler resolves Repository from pipeline context)."
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs: ICommandHandler<BootstrapCheckContext>. Constructor takes ISandboxFileReaderFactory + IRunStateConcepts. ExecuteAsync builds a reader for the current pipeline's sandbox, calls reader.ExistsAsync('/work/.agentsmith/context.yaml') and reader.ExistsAsync('/work/.agentsmith/coding-principles.md'), publishes both bools. Length: ≤20 lines."
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register BootstrapCheckHandler. Not added to any pipeline preset in this slice."
+
+  - id: triage-snapshot-log
+    action: "TriageHandler logs concept snapshot before triage decision"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TriageHandler.cs: ExecuteAsync gains a leading log line. Build the comma-separated list via a small private helper RenderSnapshot(IRunStateConcepts state, ConceptVocabulary vocabulary) that walks vocabulary.Concepts, calls the appropriate Get for each (per declared type), and emits 'name=value' for non-default values. Empty result renders as '(all defaults)'. The handler's ctor gains IRunStateConcepts + ConceptVocabulary (the latter is already on PipelineContext per the existing TriageOutputValidator vocab-fallback wiring)."
+      - "tests/AgentSmith.Tests/Triage/TriageHandlerTests.cs (existing or extended): two tests added — ExecuteAsync_ConceptsSet_LogsSnapshotLine; ExecuteAsync_NoConceptsSet_LogsAllDefaults."
+
+  - id: vocabulary-additions
+    action: "Cross-repo: add four new concepts to concept-vocabulary.yaml"
+    modify:
+      - "agent-smith-skills/skills/concept-vocabulary.yaml: append four entries (no existing entries touched). pipeline_name (type: enum, enum_values: [api-security-scan, security-scan, fix-bug, feature-implementation, mad-discussion], writers: [PipelineNameInitializerHandler]). source_available (type: bool, writers: [CheckoutSourceHandler, TryCheckoutSourceHandler]). context_yaml_present (type: bool, writers: [BootstrapCheckHandler]). coding_principles_present (type: bool, writers: [BootstrapCheckHandler]). Version bump 1.8.0 → 1.9.0 via release-please commit-message convention."
+
+  - id: tests
+    action: "Test pack: initializer, checkout publication, bootstrap-check, snapshot log"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/PipelineNameInitializerHandlerTests.cs: ExecuteAsync_FixBugPipeline_PublishesPipelineNameFixBug; ExecuteAsync_ApiSecurityScanPipeline_PublishesPipelineNameApiSecurityScan; ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum; ExecuteAsync_RunBeforeAnyOtherHandler_PipelineNameReadableInDownstream."
+      - "tests/AgentSmith.Tests/Handlers/CheckoutSourceHandlerConceptTests.cs: ExecuteAsync_CheckoutSucceeds_PublishesSourceAvailableTrue; ExecuteAsync_CheckoutFails_PublishesSourceAvailableFalse; ExecuteAsync_TryCheckoutSucceeds_PublishesSourceAvailableTrue; ExecuteAsync_TryCheckoutFailsSoft_PublishesSourceAvailableFalse."
+      - "tests/AgentSmith.Tests/Handlers/BootstrapCheckHandlerTests.cs: ExecuteAsync_BothFilesPresent_PublishesBothTrue; ExecuteAsync_ContextMissing_PublishesContextFalse; ExecuteAsync_PrinciplesMissing_PublishesPrinciplesFalse; ExecuteAsync_NeitherFile_PublishesBothFalse."
+      - "tests/AgentSmith.Tests/Triage/TriageHandlerSnapshotTests.cs: ExecuteAsync_TwoConceptsSet_LogsBothInSnapshot; ExecuteAsync_NoConceptsSet_LogsAllDefaults; ExecuteAsync_DefaultValuedConcepts_OmittedFromSnapshot."
+
+tests:
+  - "PipelineNameInitializerHandler_ExecuteAsync_FixBugPipeline_PublishesPipelineNameFixBug"
+  - "PipelineNameInitializerHandler_ExecuteAsync_ApiSecurityScanPipeline_PublishesPipelineNameApiSecurityScan"
+  - "PipelineNameInitializerHandler_ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum"
+  - "PipelineNameInitializerHandler_ExecuteAsync_RunBeforeAnyOtherHandler_PipelineNameReadableInDownstream"
+  - "CheckoutSourceHandler_ExecuteAsync_CheckoutSucceeds_PublishesSourceAvailableTrue"
+  - "CheckoutSourceHandler_ExecuteAsync_CheckoutFails_PublishesSourceAvailableFalse"
+  - "TryCheckoutSourceHandler_ExecuteAsync_TryCheckoutSucceeds_PublishesSourceAvailableTrue"
+  - "TryCheckoutSourceHandler_ExecuteAsync_TryCheckoutFailsSoft_PublishesSourceAvailableFalse"
+  - "BootstrapCheckHandler_ExecuteAsync_BothFilesPresent_PublishesBothTrue"
+  - "BootstrapCheckHandler_ExecuteAsync_ContextMissing_PublishesContextFalse"
+  - "BootstrapCheckHandler_ExecuteAsync_PrinciplesMissing_PublishesPrinciplesFalse"
+  - "BootstrapCheckHandler_ExecuteAsync_NeitherFile_PublishesBothFalse"
+  - "TriageHandler_ExecuteAsync_TwoConceptsSet_LogsBothInSnapshot"
+  - "TriageHandler_ExecuteAsync_NoConceptsSet_LogsAllDefaults"
+  - "TriageHandler_ExecuteAsync_DefaultValuedConcepts_OmittedFromSnapshot"
+
+done:
+  - "PipelineNameInitializer command + handler exist; queued at the head of every pipeline preset's step list; reads ResolvedPipeline from PipelineContext"
+  - "pipeline_name enum is declared in concept-vocabulary.yaml with values api-security-scan, security-scan, fix-bug, feature-implementation, mad-discussion only"
+  - "CheckoutSourceHandler + TryCheckoutSourceHandler publish source_available at end of ExecuteAsync (true on success, false on failure)"
+  - "BootstrapCheckHandler exists, registered in DI, publishes context_yaml_present and coding_principles_present (not yet wired into any pipeline preset)"
+  - "TriageHandler logs the concept snapshot before each triage decision; default-valued concepts omitted; empty result renders as '(all defaults)'"
+  - "agent-smith-skills/skills/concept-vocabulary.yaml has four new entries (pipeline_name, source_available, context_yaml_present, coding_principles_present) with writers lists; version 1.9.0"
+  - "All 15 listed tests pass; all existing tests pass"
+  - "All classes ≤120 lines; all methods ≤20 lines"
+  - "Phase D1's visible-improvement criterion is met: a human reading the run log sees the concept snapshot and can re-evaluate any future activates_when expression by hand"
