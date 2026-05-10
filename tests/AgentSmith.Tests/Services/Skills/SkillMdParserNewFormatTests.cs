@@ -31,24 +31,6 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
     }
 
     [Fact]
-    public void Parse_RoleAndRolesSupportedBothPresent_RejectsSkill()
-    {
-        WriteSkill("conflict", """
-            ---
-            name: conflict
-            description: "test"
-            role: producer
-            roles_supported: [lead]
-            output_schema: plan
-            activates_when: "true"
-            ---
-            Body.
-            """);
-
-        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
-    }
-
-    [Fact]
     public void Parse_OnlyRolePresent_LoadsAsNewFormat()
     {
         WriteSkill("planner", """
@@ -149,20 +131,19 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
             """);
 
         var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
-        skill.RoleBodies.Should().BeNull();
         skill.Rules.Should().Contain("This is NOT a role-section header");
         skill.Rules.Should().Contain("Body continues verbatim");
     }
 
     [Fact]
-    public void ParseNewFormat_LegacyCompatFieldsPopulatedFromRole()
+    public void ParseNewFormat_RoleStringSurfacedDirectly()
     {
-        // p0127c: NewFormatSkillBuilder dual-writes the legacy fields from the new
-        // taxonomy so existing triage / index consumers keep working during the
-        // [Obsolete] window before p0131 removes them. Producer maps to Lead.
-        WriteSkill("legacy-null", """
+        // p0131a: legacy multi-role fields removed. The new-format `role` string
+        // is the single source of truth; SkillRoleMapping translates to the
+        // pipeline-side enum at consumption sites.
+        WriteSkill("role-direct", """
             ---
-            name: legacy-null
+            name: role-direct
             description: "test"
             role: producer
             output_schema: plan
@@ -172,8 +153,8 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
             """);
 
         var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
-        skill.RolesSupported.Should().BeEquivalentTo([SkillRole.Lead]);
-        skill.RoleBodies.Should().BeNull();
+        skill.Role.Should().Be("producer");
+        skill.OutputSchema.Should().Be("plan");
     }
 
     [Fact]

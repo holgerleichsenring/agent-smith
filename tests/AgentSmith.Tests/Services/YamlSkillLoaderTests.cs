@@ -105,7 +105,6 @@ public sealed class YamlSkillLoaderTests : IDisposable
         architect.Description.Should().Be("System architecture");
         architect.Rules.Should().Contain("clean architecture");
         architect.Role.Should().Be("investigator");
-        architect.RolesSupported.Should().NotBeNull().And.ContainSingle();
         architect.ConvergenceCriteria.Should().HaveCount(2);
         architect.ConvergenceCriteria.Should().Contain("Architecture review complete");
     }

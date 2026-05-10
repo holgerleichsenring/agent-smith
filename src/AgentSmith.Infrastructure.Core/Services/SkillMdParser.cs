@@ -78,14 +78,10 @@ internal sealed class SkillMdParser(IProviderOverrideResolver overrideResolver, 
     private RoleSkillDefinition BuildRole(
         SkillMdFrontmatter meta, string body, string skillDirectory, string skillMdPath)
     {
-        if (meta.RolesSupported is not null)
-            throw new SkillFormatException(
-                skillMdPath,
-                "legacy 'roles_supported' field is no longer accepted; migrate to the single-body 'role' format introduced in agent-smith-skills 2.0.0");
         if (string.IsNullOrWhiteSpace(meta.Role))
             throw new SkillFormatException(
                 skillMdPath,
-                "missing required field 'role' (new SKILL.md format introduced in agent-smith-skills 2.0.0)");
+                "missing required field 'role' (SKILL.md format introduced in agent-smith-skills 2.0.0)");
         return _newFormatBuilder.Build(meta, body, skillDirectory, skillMdPath);
     }
 

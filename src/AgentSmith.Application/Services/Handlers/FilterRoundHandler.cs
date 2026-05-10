@@ -200,12 +200,16 @@ public sealed class FilterRoundHandler(
         return roles.FirstOrDefault(r => r.Name == skillName);
     }
 
-    private static OutputForm ResolveOutputForm(RoleSkillDefinition role)
-    {
-        if (role.OutputContract?.OutputType.TryGetValue(SkillRole.Filter, out var form) == true)
-            return form;
-        return OutputForm.List;
-    }
+    private static OutputForm ResolveOutputForm(RoleSkillDefinition role) =>
+        // p0131a: derive from new-format `output_schema` instead of legacy
+        // OutputContract. observation/plan → List rendering; diff/bootstrap →
+        // Artifact rendering. null/unknown → List (the conservative default).
+        role.OutputSchema switch
+        {
+            "diff" => OutputForm.Artifact,
+            "bootstrap" => OutputForm.Artifact,
+            _ => OutputForm.List,
+        };
 
     private static List<SkillObservation> LoadObservations(PipelineContext pipeline)
     {

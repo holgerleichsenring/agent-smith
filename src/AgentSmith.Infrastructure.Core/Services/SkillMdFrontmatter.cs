@@ -1,10 +1,10 @@
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Frontmatter model for SKILL.md files. YamlDotNet deserializes underscore_case YAML keys
-/// into these PascalCase properties via UnderscoredNamingConvention. p0127c: legacy fields
-/// (RolesSupported, Activation, RoleAssignment, References, OutputContract) are removed
-/// — all skills load via the new single-body format introduced in p0127a.
+/// Frontmatter model for SKILL.md files. YamlDotNet deserializes underscore_case
+/// YAML keys into these PascalCase properties via UnderscoredNamingConvention.
+/// p0131a: legacy <c>roles_supported</c> rejection probe removed; the v2.0.0 hard
+/// cutover is complete and pre-cutover skill packs are unsupported.
 /// </summary>
 internal sealed class SkillMdFrontmatter
 {
@@ -17,11 +17,6 @@ internal sealed class SkillMdFrontmatter
     public string? AllowedTools { get; set; }
 
     public string? ActivatesWhen { get; set; }
-
-    // p0127c: rejection probe — legacy shape with roles_supported throws
-    // SkillFormatException with a migration message. The field is parsed only
-    // so the parser can detect and reject the legacy shape; never consumed.
-    public List<string>? RolesSupported { get; set; }
 
     // p0127a/c: new SKILL.md shape (single-body, role-as-frontmatter).
     public string? Role { get; set; }

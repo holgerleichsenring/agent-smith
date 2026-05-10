@@ -72,7 +72,7 @@ public sealed class TriageOutputProducer(
     {
         var (ticketText, labels) = ResolveTicketOrSyntheticInput(pipeline);
         var excerpt = excerptBuilder.Build(pipeline);
-        var skillIndex = skills.Where(r => r.RolesSupported is not null).Select(ToIndexEntry).ToList();
+        var skillIndex = skills.Where(r => r.Role is not null).Select(ToIndexEntry).ToList();
         return new TriageInput(
             Ticket: ticketText,
             ProjectMapExcerpt: excerpt,
@@ -106,10 +106,9 @@ public sealed class TriageOutputProducer(
     private static SkillIndexEntry ToIndexEntry(RoleSkillDefinition skill) => new(
         skill.Name,
         skill.Description,
-        skill.RolesSupported ?? [],
-        skill.Activation ?? ActivationCriteria.Empty,
-        skill.RoleAssignments ?? [],
-        skill.OutputContract?.OutputType ?? new Dictionary<SkillRole, OutputForm>());
+        skill.Role!, // null-checked by caller's `Where(r => r.Role is not null)`
+        skill.OutputSchema,
+        skill.ActivatesWhen);
 
     private async Task<TriageOutput?> CallAndValidateAsync(
         TriageInput input, AgentConfig agent, ConceptVocabulary vocabulary,
@@ -163,9 +162,8 @@ public sealed class TriageOutputProducer(
         if (skills.Count == 0) return "(none)";
         var lines = skills.Select(s =>
         {
-            var roles = string.Join(",", s.RolesSupported.Select(r => r.ToString().ToLowerInvariant()));
-            var positive = string.Join(",", s.Activation.Positive.Select(k => k.Key));
-            return $"- {s.Name} (roles: {roles}; positive: {positive}): {s.Description}";
+            var activation = string.IsNullOrWhiteSpace(s.ActivatesWhen) ? "(always)" : s.ActivatesWhen;
+            return $"- {s.Name} (role: {s.Role}; activates_when: {activation}): {s.Description}";
         });
         return string.Join("\n", lines);
     }

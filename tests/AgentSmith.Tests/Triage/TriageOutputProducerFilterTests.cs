@@ -27,14 +27,14 @@ public sealed class TriageOutputProducerFilterTests
             {
                 Name = "matches",
                 Description = "matches",
-                RolesSupported = [SkillRole.Lead],
+                Role = "producer",
                 ActivatesWhen = "source_available",
             },
             new RoleSkillDefinition
             {
                 Name = "filtered_out",
                 Description = "filtered",
-                RolesSupported = [SkillRole.Lead],
+                Role = "producer",
                 ActivatesWhen = "NOT source_available",
             });
         SetSourceAvailable(pipeline, value: true);
@@ -56,14 +56,14 @@ public sealed class TriageOutputProducerFilterTests
             {
                 Name = "legacy_a",
                 Description = "x",
-                RolesSupported = [SkillRole.Lead],
+                Role = "producer",
                 ActivatesWhen = null,
             },
             new RoleSkillDefinition
             {
                 Name = "legacy_b",
                 Description = "y",
-                RolesSupported = [SkillRole.Analyst],
+                Role = "investigator",
                 ActivatesWhen = null,
             });
 
@@ -82,21 +82,21 @@ public sealed class TriageOutputProducerFilterTests
             {
                 Name = "high",
                 Description = "h",
-                RolesSupported = [SkillRole.Analyst],
+                Role = "investigator",
                 ActivatesWhen = "source_available AND context_yaml_present",
             },
             new RoleSkillDefinition
             {
                 Name = "mid",
                 Description = "m",
-                RolesSupported = [SkillRole.Analyst],
+                Role = "investigator",
                 ActivatesWhen = "source_available",
             },
             new RoleSkillDefinition
             {
                 Name = "low",
                 Description = "l",
-                RolesSupported = [SkillRole.Analyst],
+                Role = "investigator",
                 ActivatesWhen = null,
             });
         SetSourceAvailable(pipeline, value: true);

@@ -5,11 +5,13 @@ namespace AgentSmith.Application.Services.Triage;
 /// <summary>
 /// Two-layer validation for a TriageOutput:
 /// (1) structural — rationale length cap, no newlines, role/phase coherence per PhaseAssignment;
-/// (2) semantic — every assigned skill supports the assigned role; every rationale token
-/// references either a key declared in the cited skill's activation/role_assignment OR
-/// any key declared in the global concept vocabulary. The skill-specific keys remain
-/// useful as priority signals to the triage prompt (highest-fit skill picks), but the
-/// validator no longer requires the LLM's chosen key to come from that narrow whitelist.
+/// (2) semantic — every assigned skill exists in the available-skills catalog and its
+///     <c>role</c> matches the slot it was assigned to (producer→Lead, investigator→
+///     Analyst, judge→Reviewer, filter→Filter); rationale-cited keys reference the
+///     global concept vocabulary.
+/// p0131a: shape simplified — legacy ActivationCriteria-bag + RoleAssignments removed.
+/// activates_when is the activation contract; the rationale-key check now goes
+/// vocabulary-only (skill-specific keys lived in the legacy criteria bag).
 /// </summary>
 public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
 {
@@ -64,8 +66,11 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
             errors.Add($"Phase {phase}: skill '{skillName}' not in available skills");
             return;
         }
-        if (!skill.RolesSupported.Contains(role))
-            errors.Add($"Phase {phase}: skill '{skillName}' assigned role {role} not in roles_supported");
+        var supported = SkillRoleMapping.ToSkillRole(skill.Role);
+        if (supported != role)
+            errors.Add(
+                $"Phase {phase}: skill '{skillName}' assigned slot {role} but its role is " +
+                $"'{skill.Role}' (maps to {supported})");
     }
 
     private void ValidateRationaleKeys(
@@ -76,49 +81,16 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
     {
         foreach (var entry in rationaleParser.Parse(rationale))
         {
-            if (!skills.TryGetValue(entry.Skill, out var skill))
+            if (!skills.ContainsKey(entry.Skill))
             {
                 errors.Add($"Rationale references unknown skill '{entry.Skill}'");
                 continue;
             }
-            if (!HasKey(skill, entry.Key, entry.Role, vocabulary))
-                errors.Add($"Rationale: skill '{entry.Skill}' has no key '{entry.Key}'" +
-                           (entry.Role.HasValue ? $" for role {entry.Role}" : ""));
+            // p0131a: legacy ActivationCriteria-bag retired. Rationale keys are now
+            // checked against the global concept vocabulary only — the per-skill
+            // criteria store is gone post-p0127c.
+            if (!vocabulary.TryGet(entry.Key, out _))
+                errors.Add($"Rationale: cited key '{entry.Key}' is not declared in the concept vocabulary");
         }
     }
-
-    private static bool HasKey(SkillIndexEntry skill, string key, SkillRole? role, ConceptVocabulary vocabulary)
-    {
-        if (skill.Activation.Positive.Any(k => k.Key == key)) return true;
-        if (skill.Activation.Negative.Any(k => k.Key == key)) return true;
-        if (role.HasValue)
-        {
-            var roleAssignment = skill.RoleAssignments.FirstOrDefault(r => r.Role == role.Value);
-            if (roleAssignment is not null
-                && (roleAssignment.Criteria.Positive.Any(k => k.Key == key)
-                    || roleAssignment.Criteria.Negative.Any(k => k.Key == key)))
-                return true;
-        }
-
-        // Defensive default: when a skill defines NO activation criteria and NO role-assignment
-        // criteria at all, treat any cited key as acceptable. The skill author hasn't expressed
-        // constraints, so the LLM has no valid keys to cite — rejecting them would block triage
-        // on a skill-metadata gap, not a real triage error.
-        if (HasNoCriteriaAtAll(skill)) return true;
-
-        // Vocab-fallback: any key declared in the global concept vocabulary is accepted as a
-        // valid rationale even when the skill author didn't list it in role_assignment.<role>
-        // .positive. The skill-specific keys remain useful as priority signals to the triage
-        // prompt (LLM picks the BEST-FIT skill given run context), but they're no longer a
-        // closed enum the LLM must memorize. A vocab key is a known concept; if the LLM picks
-        // it as rationale, it's semantically valid. Without this, vocabulary-skill drift
-        // breaks triage hard — see p0124 / agent-smith-skills 1.7.1 incident.
-        return vocabulary.TryGet(key, out _);
-    }
-
-    private static bool HasNoCriteriaAtAll(SkillIndexEntry skill) =>
-        skill.Activation.Positive.Count == 0
-        && skill.Activation.Negative.Count == 0
-        && skill.RoleAssignments.All(r =>
-            r.Criteria.Positive.Count == 0 && r.Criteria.Negative.Count == 0);
 }

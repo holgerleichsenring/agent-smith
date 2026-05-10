@@ -4,15 +4,21 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Triage;
 
+/// <summary>
+/// p0131a: validator shape simplified — legacy ActivationCriteria-bag retired,
+/// rationale keys checked vocabulary-only, role-slot checks via
+/// <see cref="SkillRoleMapping"/> against the skill's single new-format role.
+/// </summary>
 public sealed class TriageOutputValidatorTests
 {
     private static readonly TriageRationaleParser RationaleParser = new();
     private readonly TriageOutputValidator _sut = new(RationaleParser);
 
     [Fact]
-    public void Validate_RoleNotInRolesSupported_RejectsOutput()
+    public void Validate_RoleSlotMismatchesSkillRole_RejectsOutput()
     {
-        var skills = new[] { SkillIndex("tester", roles: new[] { SkillRole.Analyst, SkillRole.Reviewer }) };
+        // tester is an investigator → maps to Analyst, NOT Lead.
+        var skills = new[] { SkillIndex("tester", role: "investigator") };
         var output = TriageWith(PipelinePhase.Plan, lead: "tester");
 
         var result = _sut.Validate(output, skills);
@@ -22,30 +28,48 @@ public sealed class TriageOutputValidatorTests
     }
 
     [Fact]
-    public void Validate_RationaleKeyNotInSkill_RejectsOutput()
+    public void Validate_ProducerAssignedToLead_Accepts()
     {
-        var skills = new[] { SkillIndex("architect", roles: new[] { SkillRole.Lead }, positiveKeys: new[] { "auth-port" }) };
+        var skills = new[] { SkillIndex("architect-planner", role: "producer") };
+        var vocabulary = Vocab(("auth-port", "auth-related boundary"));
         var output = new TriageOutput(
             new Dictionary<PipelinePhase, PhaseAssignment>
             {
-                [PipelinePhase.Plan] = new("architect", Array.Empty<string>(), Array.Empty<string>(), null)
+                [PipelinePhase.Plan] = new("architect-planner", Array.Empty<string>(), Array.Empty<string>(), null)
             },
             85,
-            "lead=architect:invented-key;");
+            "lead=architect-planner:auth-port;");
 
-        var result = _sut.Validate(output, skills);
+        var result = _sut.Validate(output, skills, vocabulary);
 
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("invented-key"));
+        result.IsValid.Should().BeTrue();
+        result.Errors.Should().BeEmpty();
     }
 
     [Fact]
-    public void Validate_RationaleExceedsMaxLength_RejectsOutput()
+    public void Validate_RationaleKeyNotInVocab_Rejects()
+    {
+        var skills = new[] { SkillIndex("architect-planner", role: "producer") };
+        var output = new TriageOutput(
+            new Dictionary<PipelinePhase, PhaseAssignment>
+            {
+                [PipelinePhase.Plan] = new("architect-planner", Array.Empty<string>(), Array.Empty<string>(), null)
+            },
+            85,
+            "lead=architect-planner:totally_made_up_concept;");
+
+        var result = _sut.Validate(output, skills, Vocab(("real_key", "exists")));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("totally_made_up_concept"));
+    }
+
+    [Fact]
+    public void Validate_RationaleExceedsMaxLength_Rejects()
     {
         var skills = Array.Empty<SkillIndexEntry>();
         var huge = new string('x', 501);
-        var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>(), 85, huge);
+        var output = new TriageOutput(new Dictionary<PipelinePhase, PhaseAssignment>(), 85, huge);
 
         var result = _sut.Validate(output, skills);
 
@@ -54,7 +78,7 @@ public sealed class TriageOutputValidatorTests
     }
 
     [Fact]
-    public void Validate_OutputContainsNewlines_RejectsOutput()
+    public void Validate_RationaleContainsNewlines_Rejects()
     {
         var skills = Array.Empty<SkillIndexEntry>();
         var output = new TriageOutput(
@@ -67,133 +91,35 @@ public sealed class TriageOutputValidatorTests
     }
 
     [Fact]
-    public void Validate_WellFormedOutput_ReturnsOk()
+    public void Validate_UnknownSkillCited_Rejects()
     {
-        var skills = new[]
-        {
-            SkillIndex("architect", roles: new[] { SkillRole.Lead }, positiveKeys: new[] { "auth-port" })
-        };
+        var skills = Array.Empty<SkillIndexEntry>();
         var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>
-            {
-                [PipelinePhase.Plan] = new("architect", Array.Empty<string>(), Array.Empty<string>(), null)
-            },
-            85,
-            "lead=architect:auth-port;");
-
-        var result = _sut.Validate(output, skills);
-
-        result.IsValid.Should().BeTrue();
-        result.Errors.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Validate_SkillWithNoCriteriaAtAll_AcceptsAnyKey()
-    {
-        // Defensive default: when a skill has no activation/role_assignment defined
-        // (e.g. older SKILL.md that lists only roles_supported), the validator must
-        // not reject every cited key. Otherwise the LLM has no valid keys to cite
-        // and triage fails on a metadata gap rather than a real error.
-        var skills = new[] { SkillIndex("filter-no-meta", roles: new[] { SkillRole.Filter }) };
-        var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>
-            {
-                [PipelinePhase.Final] = new(null, Array.Empty<string>(), Array.Empty<string>(), "filter-no-meta")
-            },
-            85,
-            "filter=filter-no-meta:always_required;");
-
-        var result = _sut.Validate(output, skills);
-
-        result.IsValid.Should().BeTrue();
-        result.Errors.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Validate_SkillWithSomeCriteria_StillRejectsInventedKeys()
-    {
-        // Once a skill defines ANY criteria (positive or negative, activation or role-assignment),
-        // the strict path applies — invented keys are rejected. Only fully-empty skills get the
-        // defensive accept-all default.
-        var skills = new[] { SkillIndex("partial", roles: new[] { SkillRole.Analyst }, positiveKeys: new[] { "real-key" }) };
-        var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>
-            {
-                [PipelinePhase.Plan] = new(null, new[] { "partial" }, Array.Empty<string>(), null)
-            },
-            85,
-            "analyst=partial:invented-key;");
+            new Dictionary<PipelinePhase, PhaseAssignment>(), 85,
+            "lead=ghost-skill:any-key;");
 
         var result = _sut.Validate(output, skills);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("invented-key"));
+        result.Errors.Should().Contain(e => e.Contains("unknown skill") && e.Contains("ghost-skill"));
     }
 
     [Fact]
-    public void Validate_RationaleKeyInVocabButNotInSkillCriteria_AcceptsOutput()
+    public void Validate_NullVocabulary_FallsBackToEmpty_RejectsAnyKey()
     {
-        // The vocab-fallback robustness rule: a key declared in the global concept-vocabulary.yaml
-        // is accepted as a valid rationale even when the skill author didn't list it in
-        // role_assignment.<role>.positive. Skill-specific keys remain useful as priority signals
-        // to the triage prompt; the validator no longer requires the LLM's chosen key to come
-        // from that narrow whitelist.
-        var skills = new[] { SkillIndex("api-vuln-analyst", roles: new[] { SkillRole.Lead }, positiveKeys: new[] { "nuclei_primary" }) };
-        var vocabulary = Vocab(("api_security_scan", "Active pipeline is api-security-scan"));
+        var skills = new[] { SkillIndex("architect-planner", role: "producer") };
         var output = new TriageOutput(
             new Dictionary<PipelinePhase, PhaseAssignment>
             {
-                [PipelinePhase.Plan] = new("api-vuln-analyst", Array.Empty<string>(), Array.Empty<string>(), null)
+                [PipelinePhase.Plan] = new("architect-planner", Array.Empty<string>(), Array.Empty<string>(), null)
             },
             85,
-            "lead=api-vuln-analyst:api_security_scan;");
-
-        var result = _sut.Validate(output, skills, vocabulary);
-
-        result.IsValid.Should().BeTrue();
-        result.Errors.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Validate_RationaleKeyNotInVocabAndNotInSkill_StillRejects()
-    {
-        // Vocab-fallback is bounded by the vocabulary itself. Keys outside both the skill's
-        // criteria AND the global vocab remain rejected — that's a true LLM hallucination.
-        var skills = new[] { SkillIndex("api-vuln-analyst", roles: new[] { SkillRole.Lead }, positiveKeys: new[] { "nuclei_primary" }) };
-        var vocabulary = Vocab(("api_security_scan", "Active pipeline is api-security-scan"));
-        var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>
-            {
-                [PipelinePhase.Plan] = new("api-vuln-analyst", Array.Empty<string>(), Array.Empty<string>(), null)
-            },
-            85,
-            "lead=api-vuln-analyst:totally_made_up_concept;");
-
-        var result = _sut.Validate(output, skills, vocabulary);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("totally_made_up_concept"));
-    }
-
-    [Fact]
-    public void Validate_NullVocabulary_FallsBackToEmptyAndStillEnforcesSkillCriteria()
-    {
-        // Backward-compat: callers that don't pass a vocabulary still get the strict
-        // skill-criteria check (no vocab fallback to relax things). Equivalent to the
-        // pre-vocab-fallback behavior.
-        var skills = new[] { SkillIndex("partial", roles: new[] { SkillRole.Analyst }, positiveKeys: new[] { "real-key" }) };
-        var output = new TriageOutput(
-            new Dictionary<PipelinePhase, PhaseAssignment>
-            {
-                [PipelinePhase.Plan] = new(null, new[] { "partial" }, Array.Empty<string>(), null)
-            },
-            85,
-            "analyst=partial:invented-key;");
+            "lead=architect-planner:any-key;");
 
         var result = _sut.Validate(output, skills, vocabulary: null);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("invented-key"));
+        result.Errors.Should().Contain(e => e.Contains("any-key"));
     }
 
     private static ConceptVocabulary Vocab(params (string Key, string Desc)[] entries)
@@ -204,15 +130,8 @@ public sealed class TriageOutputValidatorTests
         return new ConceptVocabulary(dict);
     }
 
-    private static SkillIndexEntry SkillIndex(string name, SkillRole[] roles, string[]? positiveKeys = null) =>
-        new(name,
-            $"Skill {name}",
-            roles,
-            new ActivationCriteria(
-                (positiveKeys ?? Array.Empty<string>()).Select(k => new ActivationKey(k, k)).ToList(),
-                Array.Empty<ActivationKey>()),
-            Array.Empty<RoleAssignment>(),
-            new Dictionary<SkillRole, OutputForm>());
+    private static SkillIndexEntry SkillIndex(string name, string role) =>
+        new(name, $"Skill {name}", role, OutputSchema: null, ActivatesWhen: null);
 
     private static TriageOutput TriageWith(PipelinePhase phase, string lead) =>
         new(new Dictionary<PipelinePhase, PhaseAssignment>
