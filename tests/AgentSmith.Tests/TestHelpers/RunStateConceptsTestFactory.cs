@@ -70,6 +70,13 @@ internal static class RunStateConceptsTestFactory
         if (skillsRoot is null) return FallbackMinimal;
 
         var loader = new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance);
-        return loader.Load(skillsRoot);
+        var loaded = loader.Load(skillsRoot);
+
+        // Defense in depth: if the loader returned Empty (file disappeared
+        // between IsAvailable and Load, or some yaml-parsing edge case),
+        // fall back to the hand-rolled minimal so Default never produces
+        // a vocab without pipeline_name. Empty would re-create the very
+        // class of bug this fix is preventing.
+        return loaded.Concepts.Count == 0 ? FallbackMinimal : loaded;
     }
 }
