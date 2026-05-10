@@ -6,20 +6,25 @@ namespace AgentSmith.Application.Services.Triage;
 /// Two-layer validation for a TriageOutput:
 /// (1) structural — rationale length cap, no newlines, role/phase coherence per PhaseAssignment;
 /// (2) semantic — every assigned skill supports the assigned role; every rationale token
-/// references a key declared in the cited skill's activation or role_assignment.
+/// references either a key declared in the cited skill's activation/role_assignment OR
+/// any key declared in the global concept vocabulary. The skill-specific keys remain
+/// useful as priority signals to the triage prompt (highest-fit skill picks), but the
+/// validator no longer requires the LLM's chosen key to come from that narrow whitelist.
 /// </summary>
 public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
 {
     private const int MaxRationaleChars = 500;
 
     public TriageValidationResult Validate(
-        TriageOutput output, IReadOnlyList<SkillIndexEntry> availableSkills)
+        TriageOutput output,
+        IReadOnlyList<SkillIndexEntry> availableSkills,
+        ConceptVocabulary? vocabulary = null)
     {
         var errors = new List<string>();
         ValidateRationaleStructure(output.Rationale, errors);
         var skillsByName = availableSkills.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
         ValidateAssignments(output.Phases, skillsByName, errors);
-        ValidateRationaleKeys(output.Rationale, skillsByName, errors);
+        ValidateRationaleKeys(output.Rationale, skillsByName, vocabulary ?? ConceptVocabulary.Empty, errors);
         return errors.Count == 0
             ? TriageValidationResult.Ok
             : new TriageValidationResult(false, errors);
@@ -64,7 +69,10 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
     }
 
     private void ValidateRationaleKeys(
-        string rationale, IReadOnlyDictionary<string, SkillIndexEntry> skills, List<string> errors)
+        string rationale,
+        IReadOnlyDictionary<string, SkillIndexEntry> skills,
+        ConceptVocabulary vocabulary,
+        List<string> errors)
     {
         foreach (var entry in rationaleParser.Parse(rationale))
         {
@@ -73,13 +81,13 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
                 errors.Add($"Rationale references unknown skill '{entry.Skill}'");
                 continue;
             }
-            if (!HasKey(skill, entry.Key, entry.Role))
+            if (!HasKey(skill, entry.Key, entry.Role, vocabulary))
                 errors.Add($"Rationale: skill '{entry.Skill}' has no key '{entry.Key}'" +
                            (entry.Role.HasValue ? $" for role {entry.Role}" : ""));
         }
     }
 
-    private static bool HasKey(SkillIndexEntry skill, string key, SkillRole? role)
+    private static bool HasKey(SkillIndexEntry skill, string key, SkillRole? role, ConceptVocabulary vocabulary)
     {
         if (skill.Activation.Positive.Any(k => k.Key == key)) return true;
         if (skill.Activation.Negative.Any(k => k.Key == key)) return true;
@@ -96,7 +104,16 @@ public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
         // criteria at all, treat any cited key as acceptable. The skill author hasn't expressed
         // constraints, so the LLM has no valid keys to cite — rejecting them would block triage
         // on a skill-metadata gap, not a real triage error.
-        return HasNoCriteriaAtAll(skill);
+        if (HasNoCriteriaAtAll(skill)) return true;
+
+        // Vocab-fallback: any key declared in the global concept vocabulary is accepted as a
+        // valid rationale even when the skill author didn't list it in role_assignment.<role>
+        // .positive. The skill-specific keys remain useful as priority signals to the triage
+        // prompt (LLM picks the BEST-FIT skill given run context), but they're no longer a
+        // closed enum the LLM must memorize. A vocab key is a known concept; if the LLM picks
+        // it as rationale, it's semantically valid. Without this, vocabulary-skill drift
+        // breaks triage hard — see p0124 / agent-smith-skills 1.7.1 incident.
+        return vocabulary.TryGet(key, out _);
     }
 
     private static bool HasNoCriteriaAtAll(SkillIndexEntry skill) =>
