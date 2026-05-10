@@ -142,10 +142,18 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
 
     private ProcessStartInfo BuildStartInfo(Step step)
     {
+        // Steps speak the canonical /work-relative path language (Repository
+        // .SandboxWorkPath = "/work") so CLI- and container-mode handlers
+        // share the same Step shape. ResolvePath translates /work back to
+        // this sandbox's actual temp dir; without it Process.Start hits the
+        // OS with a literal "/work" working directory and macOS / dev hosts
+        // fail with "No such file or directory".
         var psi = new ProcessStartInfo
         {
             FileName = step.Command!,
-            WorkingDirectory = step.WorkingDirectory ?? workDir,
+            WorkingDirectory = step.WorkingDirectory is null
+                ? workDir
+                : ResolvePath(step.WorkingDirectory),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
