@@ -1,14 +1,16 @@
+using AgentSmith.Contracts.Services;
+
 namespace AgentSmith.Cli;
 
 internal static class ConfigDiscovery
 {
     private static readonly string[] SearchPaths =
     [
-        Path.Combine(Directory.GetCurrentDirectory(), ".agentsmith", "agentsmith.yml"),
+        Path.Combine(Directory.GetCurrentDirectory(), ProjectMetaPaths.ConfigYaml),
         Path.Combine(Directory.GetCurrentDirectory(), "config", "agentsmith.yml"),
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".agentsmith", "agentsmith.yml"),
+            ProjectMetaPaths.ConfigYaml),
     ];
 
     public static string Resolve()

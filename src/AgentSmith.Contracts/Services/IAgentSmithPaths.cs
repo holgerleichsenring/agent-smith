@@ -18,6 +18,14 @@ public interface IAgentSmithPaths
     string CacheRoot { get; }
 
     /// <summary>
+    /// Default skill-catalog extract location (<c>{CacheRoot}/skills</c>).
+    /// <see cref="Models.Configuration.SkillsConfig.CacheDir"/> defaults to
+    /// this; server deployments override it (e.g. <c>/var/lib/agentsmith/skills</c>)
+    /// when the cache should live outside <c>$HOME</c>.
+    /// </summary>
+    string SkillsCatalogRoot { get; }
+
+    /// <summary>
     /// Per-project cache directory, keyed by the repository's remote URL so
     /// two checkouts of the same repo share a cache entry across runs and
     /// machines stay isolated from each other. Caller is responsible for

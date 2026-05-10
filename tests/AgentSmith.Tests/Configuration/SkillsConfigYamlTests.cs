@@ -1,4 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
@@ -17,7 +19,8 @@ public sealed class SkillsConfigYamlTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader(new ProjectConfigNormalizer()).LoadConfig(_tempFile);
+        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths())
+            .LoadConfig(_tempFile);
     }
 
     [Fact]
@@ -43,7 +46,7 @@ public sealed class SkillsConfigYamlTests : IDisposable
         try
         {
             Environment.SetEnvironmentVariable("XDG_CACHE_HOME", "/some/xdg");
-            SkillsConfig.ResolveDefaultCacheDir().Should().Be("/some/xdg/agentsmith/skills");
+            DefaultPaths.ComputeSkillsCatalogRoot().Should().Be("/some/xdg/agentsmith/skills");
         }
         finally
         {
@@ -60,7 +63,7 @@ public sealed class SkillsConfigYamlTests : IDisposable
         {
             Environment.SetEnvironmentVariable("XDG_CACHE_HOME", null);
             Environment.SetEnvironmentVariable("HOME", "/home/user");
-            SkillsConfig.ResolveDefaultCacheDir().Should().Be("/home/user/.cache/agentsmith/skills");
+            DefaultPaths.ComputeSkillsCatalogRoot().Should().Be("/home/user/.cache/agentsmith/skills");
         }
         finally
         {

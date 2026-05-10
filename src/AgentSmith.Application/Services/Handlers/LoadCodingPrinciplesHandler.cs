@@ -19,7 +19,7 @@ public sealed class LoadCodingPrinciplesHandler(
     ILogger<LoadCodingPrinciplesHandler> logger)
     : ICommandHandler<LoadCodingPrinciplesContext>
 {
-    private const string DefaultRelativePath = ".agentsmith/coding-principles.md";
+    private const string DefaultRelativePath = ProjectMetaPaths.CodingPrinciples;
 
     public async Task<CommandResult> ExecuteAsync(
         LoadCodingPrinciplesContext context, CancellationToken cancellationToken)
