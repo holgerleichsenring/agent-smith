@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.40.0...v0.40.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* **triage:** accept any concept-vocabulary key as valid rationale ([#89](https://github.com/holgerleichsenring/agent-smith/issues/89)) ([b4050d2](https://github.com/holgerleichsenring/agent-smith/commit/b4050d2187e358b2d5ebf8a6d9efb29c386c79dd))
+
 ## [0.40.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.39.1...v0.40.0) (2026-05-07)
 
 
