@@ -120,7 +120,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<PhaseCommandExpander>();
         services.AddSingleton<SinglePhaseCollapser>();          // p0131c-pre
         services.AddTransient<ITriageOutputProducer, TriageOutputProducer>();
-        services.AddTransient<LegacyTriageStrategy>();
         services.AddTransient<StructuredTriageStrategy>();
         services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();

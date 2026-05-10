@@ -1,37 +1,20 @@
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Triage;
 
 /// <summary>
-/// Picks the triage strategy. Hierarchical / Structured presets always go to
-/// StructuredTriage. Discussion presets split:
-///   - mad-discussion + legal-analysis route to StructuredTriage (their
-///     skill catalogs are fully activates_when-tagged post-p0127c, and
-///     StructuredTriageStrategy collapses Review/Final phases into Plan
-///     when the preset is single-phase).
-///   - everything else (autonomous; init-project no longer hits Triage
-///     after p0130c; skill-manager has no Triage step) stays on
-///     LegacyTriageStrategy. autonomous needs skills with
-///     `activates_when="pipeline_name = \"autonomous\""` before it can
-///     migrate; that's a separate skills-repo gap.
+/// p0131c: collapsed to a one-liner returning <see cref="StructuredTriageStrategy"/>
+/// for every (PipelineType, pipelineName) pair. LegacyTriageStrategy retired
+/// — every preset that runs a Triage step has full activates_when coverage
+/// post-p0127c and is handled by StructuredTriageStrategy's single-phase
+/// collapse path (added in p0131c-pre) when the preset lacks
+/// RunReviewPhase / RunFinalPhase steps. Selector retained as a DI seam so
+/// future routing decisions (e.g. provider-specific triage variants) plug
+/// in without re-wiring callers.
 /// </summary>
 public sealed class TriageStrategySelector(
-    LegacyTriageStrategy legacyStrategy,
     StructuredTriageStrategy structuredStrategy) : ITriageStrategySelector
 {
-    private static readonly HashSet<string> StructuredDiscussionPresets =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            "mad-discussion",
-            "legal-analysis",
-        };
-
-    public ITriageStrategy Select(PipelineType pipelineType, string pipelineName) =>
-        pipelineType is PipelineType.Discussion
-            ? StructuredDiscussionPresets.Contains(pipelineName)
-                ? structuredStrategy
-                : legacyStrategy
-            : structuredStrategy;
+    public ITriageStrategy Select(PipelineType pipelineType, string pipelineName) => structuredStrategy;
 }
