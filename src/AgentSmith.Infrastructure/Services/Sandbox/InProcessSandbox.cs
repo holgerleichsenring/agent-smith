@@ -106,13 +106,30 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
 
         using var process = new Process();
         process.StartInfo = BuildStartInfo(step);
+        // p0125c-followup: capture stderr into a buffer so the StepResult can
+        // surface it on non-zero exit. Pre-fix the buffer was unused — every
+        // non-zero exit returned ErrorMessage:null and callers logged
+        // "git clone failed (exit=128): " with an empty trailing message,
+        // hiding the actual git error (auth failure, repo-not-found, ...).
+        // Bounded at 8 KiB so a chatty subprocess can't blow the heap.
+        const int stderrBudget = 8 * 1024;
+        var stderrBuffer = new StringBuilder();
         process.OutputDataReceived += (_, e) =>
         {
             if (e.Data is not null) progress?.Report(MakeEvent(step.StepId, StepEventKind.Stdout, e.Data));
         };
         process.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data is not null) progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, e.Data));
+            if (e.Data is null) return;
+            progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, e.Data));
+            lock (stderrBuffer)
+            {
+                if (stderrBuffer.Length < stderrBudget)
+                {
+                    if (stderrBuffer.Length > 0) stderrBuffer.Append('\n');
+                    stderrBuffer.Append(e.Data);
+                }
+            }
         };
 
         process.Start();
@@ -135,9 +152,12 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
 
         progress?.Report(MakeEvent(step.StepId, StepEventKind.Completed,
             $"exit={process.ExitCode}"));
+        var errorMessage = process.ExitCode == 0 || stderrBuffer.Length == 0
+            ? null
+            : stderrBuffer.ToString();
         return new StepResult(StepResult.CurrentSchemaVersion, step.StepId,
             ExitCode: process.ExitCode, TimedOut: false,
-            DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: null);
+            DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: errorMessage);
     }
 
     private ProcessStartInfo BuildStartInfo(Step step)
