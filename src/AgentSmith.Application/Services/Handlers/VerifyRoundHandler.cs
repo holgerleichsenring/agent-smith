@@ -1,12 +1,15 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
@@ -26,6 +29,8 @@ public sealed class VerifyRoundHandler(
     ActivationSkillFilter activationFilter,
     ISkillBodyResolver bodyResolver,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    IDecisionLogger decisionLogger,
+    LoopLimitsConfig limits,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -100,21 +105,42 @@ public sealed class VerifyRoundHandler(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
         var combined = new List<SkillObservation>();
-        var chat = chatClientFactory.Create(agent, TaskType.Primary);
+        // p0132c: tool-enabled chat-client so build-verifier + test-verifier
+        // can invoke RunCommand for actual build/test execution. Iteration
+        // cap from LoopLimitsConfig.ResolveToolCallCap("verify_diff").
+        var iterationCap = limits.ResolveToolCallCap("verify_diff");
+        var chat = chatClientFactory.Create(agent, TaskType.Primary, maxIterations: iterationCap);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
+        var tools = ResolveVerifyTools(pipeline);
         foreach (var verifier in verifiers)
         {
             var observations = await InvokeVerifierAsync(
-                verifier, planJson, diffJson, chat, maxTokens, pipeline, cancellationToken);
+                verifier, planJson, diffJson, chat, maxTokens, tools, pipeline, cancellationToken);
             combined.AddRange(observations);
         }
         return combined;
     }
 
+    /// <summary>
+    /// p0132c: builds the Verify-phase tool surface for verifiers that want to
+    /// invoke RunCommand (build-verifier, test-verifier). When the pipeline has
+    /// no active sandbox (smoke tests, no-runtime contexts), returns an empty
+    /// tool list so verifiers degrade gracefully to LLM-only static analysis.
+    /// Architecture-verifier + scope-verifier ignore the tools regardless —
+    /// their SKILL.md bodies don't reference RunCommand.
+    /// </summary>
+    private IList<AITool> ResolveVerifyTools(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+            return new List<AITool>();
+        var host = new SandboxToolHost(sandbox, decisionLogger);
+        return new ToolKit(host).GetToolsFor(SkillExecutionPhase.Verify, investigatorMode: "verify_diff");
+    }
+
     private async Task<List<SkillObservation>> InvokeVerifierAsync(
         RoleSkillDefinition verifier, string planJson, string diffJson,
-        IChatClient chat, int maxTokens, PipelineContext pipeline,
-        CancellationToken cancellationToken)
+        IChatClient chat, int maxTokens, IList<AITool> tools,
+        PipelineContext pipeline, CancellationToken cancellationToken)
     {
         var body = bodyResolver.ResolveBody(verifier, SkillRole.Analyst);
         var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp) ? cp : null;
@@ -124,16 +150,23 @@ public sealed class VerifyRoundHandler(
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        // p0132b: per-verifier cost attribution. Each verifier round opens its
-        // own SkillCallScope so PerSkillBreakdown shows scope-verifier /
-        // build-verifier / test-verifier / architecture-verifier individually.
+        var options = new ChatOptions
+        {
+            MaxOutputTokens = maxTokens,
+            // p0132c: when a sandbox is available, verifiers get RunCommand +
+            // read-only tools. Tool-using verifiers (build-verifier, test-
+            // verifier) invoke RunCommand to execute real build/test; static-
+            // analysis verifiers (scope-verifier, architecture-verifier)
+            // ignore the tools.
+            Tools = tools.Count > 0 ? tools : null,
+        };
+        // p0132b: per-verifier cost attribution.
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
         ChatResponse response;
         using (var _ = costTracker.BeginCall(
             verifier.Name, verifier.Role ?? "investigator", SkillExecutionPhase.Verify))
         {
-            response = await chat.GetResponseAsync(
-                messages, new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            response = await chat.GetResponseAsync(messages, options, cancellationToken);
             costTracker.Track(response);
         }
         var responseText = response.Text ?? string.Empty;

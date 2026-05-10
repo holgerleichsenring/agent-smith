@@ -91,6 +91,8 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
         return new VerifyRoundHandler(
             stubFactory, filter, bodyResolver.Object,
             RunStateConceptsTestFactory.Default,
+            Mock.Of<AgentSmith.Contracts.Decisions.IDecisionLogger>(),
+            new LoopLimitsConfig(),
             NullLogger<VerifyRoundHandler>.Instance);
     }
 
