@@ -219,6 +219,24 @@ public static class PipelinePresets
         PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
 
     /// <summary>
+    /// p0131c-pre: true when the named preset emits a single Plan-phase batch
+    /// (no <see cref="CommandNames.RunReviewPhase"/> / <see cref="CommandNames.RunFinalPhase"/>
+    /// steps). Drives <c>StructuredTriageStrategy</c>'s phase-collapse logic so
+    /// LLM-emitted Review-/Final-phase skill assignments don't get silently
+    /// dropped on presets that don't run those phases.
+    /// Unknown pipeline names default to <c>true</c> (single-phase) — safer
+    /// because emitting Review/Final commands for an unknown preset would
+    /// dispatch to handlers that may not be in the run.
+    /// </summary>
+    public static bool IsSinglePhase(string pipelineName)
+    {
+        var preset = TryResolve(pipelineName);
+        if (preset is null) return true;
+        return !preset.Contains(CommandNames.RunReviewPhase, StringComparer.Ordinal)
+            && !preset.Contains(CommandNames.RunFinalPhase, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// Default skills directory per pipeline preset.
     /// Used when no explicit skills_path is configured in the project.
     /// </summary>

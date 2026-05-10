@@ -120,6 +120,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<TriageLabelOverrideApplier>();
         services.AddTransient<ProjectMapExcerptBuilder>();
         services.AddTransient<PhaseCommandExpander>();
+        services.AddSingleton<SinglePhaseCollapser>();          // p0131c-pre
         services.AddTransient<ITriageOutputProducer, TriageOutputProducer>();
         services.AddTransient<LegacyTriageStrategy>();
         services.AddTransient<StructuredTriageStrategy>();

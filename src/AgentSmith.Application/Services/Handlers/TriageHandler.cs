@@ -32,9 +32,13 @@ public sealed class TriageHandler(
 
         var pipelineType = pipeline.TryGet<PipelineType>(
             ContextKeys.PipelineTypeName, out var t) ? t : PipelineType.Discussion;
-        var strategy = strategySelector.Select(pipelineType);
-        logger.LogDebug("Triage strategy selected: {Strategy} (pipeline_type={PipelineType})",
-            strategy.GetType().Name, pipelineType);
+        var pipelineName = pipeline.TryGet<ResolvedPipelineConfig>(
+            ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
+            ? resolved.PipelineName
+            : string.Empty;
+        var strategy = strategySelector.Select(pipelineType, pipelineName);
+        logger.LogDebug("Triage strategy selected: {Strategy} (pipeline_type={PipelineType}, pipeline_name={Name})",
+            strategy.GetType().Name, pipelineType, pipelineName);
         return await strategy.ExecuteAsync(pipeline, cancellationToken);
     }
 

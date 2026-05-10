@@ -21,7 +21,7 @@ public sealed class TriageHandlerSnapshotTests
 
     public TriageHandlerSnapshotTests()
     {
-        _selectorMock.Setup(s => s.Select(It.IsAny<PipelineType>())).Returns(_strategyMock.Object);
+        _selectorMock.Setup(s => s.Select(It.IsAny<PipelineType>(), It.IsAny<string>())).Returns(_strategyMock.Object);
         _strategyMock.Setup(s => s.ExecuteAsync(It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CommandResult.Ok("done"));
     }
