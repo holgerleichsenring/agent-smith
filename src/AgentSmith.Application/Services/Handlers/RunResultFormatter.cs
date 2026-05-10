@@ -66,4 +66,34 @@ public static class RunResultFormatter
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// p0130c-followup: init-mode result.md. No Ticket, no Plan, no Changes —
+    /// the bootstrap skill writes <c>.agentsmith/context.yaml</c> and
+    /// coding-principles.md directly. Result.md captures run-level metadata
+    /// (cost, duration, decisions, dialogue, per-skill breakdown, execution
+    /// trail) that's useful regardless of mode.
+    /// </summary>
+    public static string FormatInitResult(
+        int runNumber, int durationSeconds, RunCostSummary? costSummary,
+        List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
+        IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
+        IReadOnlyList<CallCostRecord>? perSkillBreakdown = null)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"# r{runNumber:D2}: init-project");
+        sb.AppendLine();
+        sb.AppendLine("Bootstrap run — generated `.agentsmith/context.yaml` + `coding-principles.md`.");
+        sb.AppendLine($"Duration: {durationSeconds}s");
+        if (costSummary is not null)
+            sb.AppendLine($"Cost: {costSummary}");
+        sb.AppendLine();
+
+        RunResultSectionWriter.AppendDecisions(sb, decisions);
+        RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);
+        RunResultSectionWriter.AppendPerSkillBreakdown(sb, perSkillBreakdown);
+        RunResultSectionWriter.AppendExecutionTrail(sb, trail);
+
+        return sb.ToString();
+    }
 }

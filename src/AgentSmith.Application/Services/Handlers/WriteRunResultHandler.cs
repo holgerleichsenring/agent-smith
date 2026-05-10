@@ -39,12 +39,19 @@ public sealed class WriteRunResultHandler(
 
         var contextPath = Path.Combine(agentDir, ContextFileName);
         var nextRunNumber = await DetermineNextRunNumberAsync(reader, contextPath, cancellationToken);
-        var slug = GenerateSlug(context.Ticket.Title);
+
+        // p0130c-followup: init-project routes through this handler but has
+        // no Ticket/Plan/Changes — use a static "init" slug + skip plan.md
+        // (no plan to render) + render result.md in init-mode.
+        var slug = context.Ticket is not null ? GenerateSlug(context.Ticket.Title) : "init";
         var runDirName = $"r{nextRunNumber:D2}-{slug}";
         var runDir = Path.Combine(runsDir, runDirName);
 
-        var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
-        await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+        if (context.Ticket is not null && context.Plan is not null)
+        {
+            var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
+            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+        }
 
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
 
@@ -56,11 +63,16 @@ public sealed class WriteRunResultHandler(
         var dialogueEntries = dialogueTrail.GetAll();
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
 
-        var resultMd = RunResultFormatter.FormatResult(
-            context.Ticket, context.Plan, context.Changes,
-            nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null,
-            perSkillBreakdown);
+        var resultMd = context.Ticket is not null && context.Plan is not null
+            ? RunResultFormatter.FormatResult(
+                context.Ticket, context.Plan, context.Changes,
+                nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
+                dialogueEntries.Count > 0 ? dialogueEntries : null,
+                perSkillBreakdown)
+            : RunResultFormatter.FormatInitResult(
+                nextRunNumber, durationSeconds, costSummary, trail, decisions,
+                dialogueEntries.Count > 0 ? dialogueEntries : null,
+                perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(reader, contextPath, nextRunNumber, context.Ticket, cancellationToken);
@@ -147,14 +159,16 @@ public sealed class WriteRunResultHandler(
     }
 
     private static async Task AppendToContextYamlAsync(
-        ISandboxFileReader reader, string contextPath, int runNumber, Ticket ticket, CancellationToken ct)
+        ISandboxFileReader reader, string contextPath, int runNumber, Ticket? ticket, CancellationToken ct)
     {
         var content = await reader.TryReadAsync(contextPath, ct);
         if (content is null) return;
 
-        var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
-            ? "fix" : "feat";
-        var entry = $"    r{runNumber:D2}: \"{changeType} #{ticket.Id}: {ticket.Title}\"";
+        // p0130c-followup: init-mode runs have no ticket; render a "bootstrap"
+        // entry so operators see the run history grow consistently across modes.
+        var entry = ticket is not null
+            ? FormatTicketEntry(runNumber, ticket)
+            : $"    r{runNumber:D2}: \"bootstrap: init-project\"";
 
         var insertPattern = new Regex(@"^(\s+active:)", RegexOptions.Multiline);
         var match = insertPattern.Match(content);
@@ -163,5 +177,12 @@ public sealed class WriteRunResultHandler(
             content = content.Insert(match.Index, entry + "\n");
 
         await reader.WriteAsync(contextPath, content, ct);
+    }
+
+    private static string FormatTicketEntry(int runNumber, Ticket ticket)
+    {
+        var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
+            ? "fix" : "feat";
+        return $"    r{runNumber:D2}: \"{changeType} #{ticket.Id}: {ticket.Title}\"";
     }
 }
