@@ -39,8 +39,12 @@ public sealed class TriageOutputProducer(
     {
         var input = BuildInput(pipeline);
         var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
-        var output = await CallAndValidateAsync(input, agent, retry: false, cancellationToken)
-                     ?? await CallAndValidateAsync(input, agent, retry: true, cancellationToken)
+        var vocabulary = pipeline.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var loaded)
+                         && loaded is not null
+            ? loaded
+            : ConceptVocabulary.Empty;
+        var output = await CallAndValidateAsync(input, agent, vocabulary, retry: false, cancellationToken)
+                     ?? await CallAndValidateAsync(input, agent, vocabulary, retry: true, cancellationToken)
                      ?? throw new InvalidOperationException("Triage output failed validation after retry");
         return labelOverrider.Apply(output, input.TicketLabels);
     }
@@ -89,7 +93,8 @@ public sealed class TriageOutputProducer(
         skill.OutputContract?.OutputType ?? new Dictionary<SkillRole, OutputForm>());
 
     private async Task<TriageOutput?> CallAndValidateAsync(
-        TriageInput input, AgentConfig agent, bool retry, CancellationToken cancellationToken)
+        TriageInput input, AgentConfig agent, ConceptVocabulary vocabulary,
+        bool retry, CancellationToken cancellationToken)
     {
         var system = retry ? AddStrictReminder(prompts.Get("triage-structured-system")) : prompts.Get("triage-structured-system");
         var user = prompts.Render("triage-structured-user", BuildTokens(input));
@@ -108,7 +113,7 @@ public sealed class TriageOutputProducer(
             logger.LogWarning("Triage output JSON parse failed (retry={Retry})", retry);
             return null;
         }
-        var validation = validator.Validate(parsed, input.AvailableSkills);
+        var validation = validator.Validate(parsed, input.AvailableSkills, vocabulary);
         if (validation.IsValid) return parsed;
         logger.LogWarning("Triage output validation failed (retry={Retry}): {Errors}",
             retry, string.Join("; ", validation.Errors));
