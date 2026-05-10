@@ -104,8 +104,7 @@ public sealed class YamlSkillLoaderTests : IDisposable
         var architect = roles.First(r => r.Name == "architect");
         architect.Description.Should().Be("System architecture");
         architect.Rules.Should().Contain("clean architecture");
-        architect.RolesSupported.Should().NotBeNull().And.ContainSingle();
-        architect.RoleBodies.Should().NotBeNull();
+        architect.Role.Should().Be("investigator");
         architect.ConvergenceCriteria.Should().HaveCount(2);
         architect.ConvergenceCriteria.Should().Contain("Architecture review complete");
     }
@@ -323,8 +322,7 @@ public sealed class YamlSkillLoaderTests : IDisposable
     }
 
     /// <summary>
-    /// Writes a minimal valid SKILL.md (analyst-only, body section ## as_analyst) into
-    /// <paramref name="skillsDir"/>/<paramref name="name"/>/SKILL.md.
+    /// Writes a minimal valid SKILL.md in the new single-body format (p0127c).
     /// </summary>
     private static void WriteAnalystSkill(string skillsDir, string name, string description, string analystBody)
     {
@@ -335,11 +333,13 @@ public sealed class YamlSkillLoaderTests : IDisposable
             name: {name}
             version: 2.0.0
             description: "{description}"
-
-            roles_supported: [analyst]
+            role: investigator
+            investigator_mode: survey
+            survey_scope:
+              - "**/*"
+            output_schema: observation
+            activates_when: 'true'
             ---
-
-            ## as_analyst
 
             {analystBody}
             """);

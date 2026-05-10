@@ -5,37 +5,21 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Validates loaded skills against the concept vocabulary. Logs a warning for every
-/// activation.positive key that is not declared in skills/concept-vocabulary.yaml.
-/// Never fails the load — vocabulary is operator-extensible and skill rollouts may
-/// legitimately precede a vocabulary update.
+/// p0131a: load-time concept-vocabulary check is now a no-op. Pre-p0127c
+/// versions inspected each skill's <c>activation.positive</c> bag and warned
+/// for keys missing from the vocabulary. The bag retired together with the
+/// multi-role format; <c>activates_when</c> expressions are validated at
+/// build-time by <c>validate-concepts</c>. The class stays as a DI hook so
+/// future load-time concept checks can plug in here without re-wiring callers.
 /// </summary>
 public sealed class ConceptVocabularyValidator(ILogger<ConceptVocabularyValidator> logger)
 {
     public void Validate(IReadOnlyList<RoleSkillDefinition> skills, ConceptVocabulary vocabulary)
     {
-        var unknownByKey = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-
-        foreach (var skill in skills)
-        {
-            if (skill.Activation?.Positive is null) continue;
-            foreach (var key in skill.Activation.Positive)
-            {
-                if (vocabulary.TryGet(key.Key, out _)) continue;
-                if (!unknownByKey.TryGetValue(key.Key, out var skillsForKey))
-                {
-                    skillsForKey = [];
-                    unknownByKey[key.Key] = skillsForKey;
-                }
-                skillsForKey.Add(skill.Name);
-            }
-        }
-
-        foreach (var (key, skillsForKey) in unknownByKey)
-        {
-            logger.LogWarning(
-                "Activation key '{Key}' referenced by {Count} skill(s) [{Skills}] is not in concept-vocabulary.yaml",
-                key, skillsForKey.Count, string.Join(", ", skillsForKey));
-        }
+        // No-op. activates_when validation runs at build-time via the
+        // validate-concepts CLI verb (see p0125d).
+        _ = skills;
+        _ = vocabulary;
+        logger.LogTrace("ConceptVocabularyValidator no-op (activates_when checked at build-time).");
     }
 }

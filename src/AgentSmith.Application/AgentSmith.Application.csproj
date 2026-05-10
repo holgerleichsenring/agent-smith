@@ -9,6 +9,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <!-- p0128a: JSON Schema validation (Draft 2020-12) for skill outputs.
+         Pinned EXACT for the same reason the M.E.AI lockstep is pinned. -->
+    <PackageReference Include="JsonSchema.Net" Version="[7.0.4]" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -24,6 +27,13 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Prompts/Resources/**/*.md" />
+    <!-- p0128a: schemas live under .agentsmith/schemas/ as the source-of-truth visible
+         to skill authors and operators; embedded into the binary via Link so the runtime
+         loader (JsonSchemaLoader) can resolve them without filesystem dependence. -->
+    <EmbeddedResource Include="..\..\.agentsmith\schemas\plan.schema.json" Link="Services\Validation\Schemas\plan.schema.json" />
+    <EmbeddedResource Include="..\..\.agentsmith\schemas\diff.schema.json" Link="Services\Validation\Schemas\diff.schema.json" />
+    <EmbeddedResource Include="..\..\.agentsmith\schemas\bootstrap.schema.json" Link="Services\Validation\Schemas\bootstrap.schema.json" />
+    <EmbeddedResource Include="..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
   </ItemGroup>
 
 </Project>

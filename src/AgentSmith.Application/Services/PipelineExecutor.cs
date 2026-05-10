@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -29,6 +31,8 @@ public sealed class PipelineExecutor(
     ISandboxFactory sandboxFactory,
     SandboxSpecBuilder sandboxSpecBuilder,
     IProgressReporter progressReporter,
+    IPhaseDataFlowResolver dataFlowResolver,
+    AgentSmithConfig agentSmithConfig,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -107,6 +111,17 @@ public sealed class PipelineExecutor(
                     await TryPersistWorkBranchAsync(commandNames, projectConfig, context, result, cancellationToken);
                     lifecycle.MarkFailed();
                     return result;
+                }
+
+                // p0128b: PlanOpenQuestionsHandler sets OpenQuestionsAwaitingAnswer when the
+                // Plan emitted needs_user_input. Halt the pipeline cleanly — the run isn't a
+                // failure, it's parked until the operator's reply re-triggers via webhook.
+                if (context.TryGet<bool>(ContextKeys.OpenQuestionsAwaitingAnswer, out var awaiting)
+                    && awaiting)
+                {
+                    logger.LogInformation(
+                        "Pipeline parked: Plan emitted open questions; waiting on operator reply");
+                    return CommandResult.Ok("Pipeline parked: awaiting_user_input");
                 }
 
                 current = advanceTo ?? batch[^1].Next;
@@ -225,11 +240,39 @@ public sealed class PipelineExecutor(
         await progressReporter.ReportProgressAsync(executionCount, total, label, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
-        sw.Stop();
+        context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
+        using (AttachReadGate(cmd.Name, context))
+        {
+            var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
+            sw.Stop();
+            return await FinalizeStepAsync(current, commands, projectConfig, context,
+                executionCount, cmd, label, sw.Elapsed, result, cancellationToken);
+        }
+    }
+
+    private IDisposable? AttachReadGate(string activeStep, PipelineContext context)
+    {
+        var resolved = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
+            ? rp
+            : null;
+        if (resolved is null) return null;
+        var flow = dataFlowResolver.Resolve(resolved.PipelineName);
+        if (flow is null) return null;
+        var gate = new DataFlowReadGate(
+            activeStep, flow, agentSmithConfig.PipelineDataFlow.Enforce, logger);
+        return context.AttachReadGate(gate);
+    }
+
+    private async Task<(CommandResult Result, LinkedListNode<PipelineCommand>? AdvanceTo)> FinalizeStepAsync(
+        LinkedListNode<PipelineCommand> current, LinkedList<PipelineCommand> commands,
+        ProjectConfig projectConfig, PipelineContext context, int executionCount,
+        PipelineCommand cmd, string label, TimeSpan elapsed, CommandResult result,
+        CancellationToken cancellationToken)
+    {
+        var total = commands.Count;
 
         context.TrackCommand(cmd.DisplayName, result.IsSuccess, result.Message,
-            sw.Elapsed, result.InsertNext?.Count);
+            elapsed, result.InsertNext?.Count);
 
         if (!result.IsSuccess)
         {

@@ -291,6 +291,28 @@ skills:
   # url: https://...                      # source: url — explicit tarball URL
   # sha256: <hex>                         # SHA256 verification (any download mode)
 
+# Hard limits for the per-skill agentic loop. Bound to LoopLimitsConfig.
+# All limits are global; per-project overrides are out of scope.
+limits:
+  max_tool_calls_per_skill: 30                # default tool-call cap per skill call
+  max_tool_calls_per_investigator: 10         # cap when investigator_mode is verify_hint or survey
+  max_tool_calls_per_verifier: 20             # cap when investigator_mode is verify_diff
+  max_llm_calls_per_skill: 15                 # observational; recorded in CallCostRecord, not separately enforced
+  max_input_tokens_per_skill_call: 200000     # hard cap; runtime returns Incomplete if crossed
+  max_output_tokens_per_skill_call: 16000     # hard cap; runtime returns Incomplete if crossed
+  max_seconds_per_skill_call: 300             # wall-clock cap; runtime returns Incomplete if crossed
+  max_concurrent_skill_calls: 10              # per pipeline run — N parallel runs ⇒ effective concurrency 10×N. Downscale here or add a Polly layer at the IChatClient seam if provider rate limits get hit.
+
+# In-flight pipeline-storage settings (Redis-backed RunArtifactStore for plan/diff/bootstrap handoffs).
+# TTL is the safety net for runs that crash without explicitly clearing — tunable here.
+pipeline_storage:
+  redis_ttl_hours: 4
+
+# p0128c data-flow gating. enforce=false (default) logs warnings on undeclared
+# context-key reads; flip to true once the warn log is empty for your pipeline mix.
+pipeline_data_flow:
+  enforce: false
+
 secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
   # openai_api_key: ${OPENAI_API_KEY}

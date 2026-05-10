@@ -35,7 +35,7 @@ internal sealed class StubChatClient(Queue<string> responses) : IChatClient
 internal sealed class StubChatClientFactory(StubChatClient client, int maxOutputTokens = 8192)
     : IChatClientFactory
 {
-    public IChatClient Create(AgentConfig agent, TaskType task) => client;
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) => client;
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => maxOutputTokens;
     public string GetModel(AgentConfig agent, TaskType task) => "stub-model";
 }

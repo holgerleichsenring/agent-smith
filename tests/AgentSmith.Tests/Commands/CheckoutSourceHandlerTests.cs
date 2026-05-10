@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,6 +22,7 @@ public sealed class CheckoutSourceHandlerTests
     {
         _handler = new CheckoutSourceHandler(
             _factoryMock.Object,
+            RunStateConceptsTestFactory.Default,
             NullLoggerFactory.Instance.CreateLogger<CheckoutSourceHandler>());
     }
 

@@ -74,7 +74,7 @@ public sealed class ProjectMapExcerptBuilderTests
 
     private static ConceptVocabulary VocabularyWith(params string[] keys)
     {
-        var dict = keys.ToDictionary(k => k, k => new ProjectConcept(k, $"Concept {k}", "project_concepts"));
+        var dict = keys.ToDictionary(k => k, k => new ProjectConcept(k, $"Concept {k}", ConceptType.Bool, null, null, []));
         return new ConceptVocabulary(dict);
     }
 }

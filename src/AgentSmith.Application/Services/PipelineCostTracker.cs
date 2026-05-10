@@ -1,3 +1,5 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -20,6 +22,7 @@ public sealed class PipelineCostTracker
     private int _callCount;
     private string _lastModel = "unknown";
     private readonly Dictionary<string, ModelPricing> _pricing;
+    private readonly SkillCostScopeManager _scopes = new();
 
     private static readonly Dictionary<string, ModelPricing> DefaultPricing = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -50,6 +53,14 @@ public sealed class PipelineCostTracker
     public int TotalCacheReadTokens { get { lock (_gate) return _totalCacheReadTokens; } }
     public int CallCount { get { lock (_gate) return _callCount; } }
 
+    public IReadOnlyList<CallCostRecord> PerSkillBreakdown => _scopes.PerSkillBreakdown;
+
+    public SkillCallScope BeginCall(string skillName, string role, SkillExecutionPhase phase)
+        => _scopes.BeginCall(skillName, role, phase, this);
+
+    public void EndCall(SkillCallScope scope, LimitEnforcer? enforcer)
+        => _scopes.EndCall(scope, enforcer);
+
     /// <summary>
     /// Tracks a Microsoft.Extensions.AI ChatResponse. Pulls input/output from
     /// UsageDetails and reads cached/cache-creation counts from AdditionalCounts
@@ -75,6 +86,7 @@ public sealed class PipelineCostTracker
             _callCount++;
             if (!string.IsNullOrEmpty(model)) _lastModel = model;
         }
+        _scopes.AttributeTokens(billable, output, cacheCreate, cacheRead);
     }
 
     private static int ReadAdditionalCount(UsageDetails usage, string key)

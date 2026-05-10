@@ -22,7 +22,9 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
-    public string BuildPlanUserPrompt(Ticket ticket, ProjectMap projectMap)
+    public string BuildPlanUserPrompt(
+        Ticket ticket, ProjectMap projectMap,
+        IReadOnlyDictionary<string, string>? planAnswers = null)
     {
         var modules = string.Join('\n', projectMap.Modules
             .Where(m => m.Role == ModuleRole.Production)
@@ -54,6 +56,27 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
             ### Entry Points
             {entryPoints}
+            {BuildOperatorAnswersSection(planAnswers)}
+            """;
+    }
+
+    internal static string BuildOperatorAnswersSection(
+        IReadOnlyDictionary<string, string>? planAnswers)
+    {
+        if (planAnswers is null || planAnswers.Count == 0)
+            return "";
+
+        var lines = string.Join('\n', planAnswers
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .Select(kv => $"  - **Q{kv.Key}:** {kv.Value}"));
+
+        return $"""
+
+
+            ## Operator answers to prior open questions
+            The previous Plan asked clarifying questions and was halted. The operator's answers below
+            are authoritative — incorporate them into the new Plan and produce status=complete.
+            {lines}
             """;
     }
 
@@ -68,7 +91,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         });
     }
 
-    public string BuildExecutionUserPrompt(Plan plan, Repository repository)
+    public string BuildExecutionUserPrompt(
+        Plan plan, Repository repository, string? verifyNotes = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -76,7 +100,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-
+            {BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -84,6 +108,20 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             {steps}
 
             Start by listing the relevant files, then implement each step.
+            """;
+    }
+
+    internal static string BuildVerifyNotesSection(string? verifyNotes)
+    {
+        if (string.IsNullOrWhiteSpace(verifyNotes)) return "";
+        return $"""
+
+
+            ## Prior verify-phase observations
+            The previous implementation produced a Diff that the verify phase flagged.
+            Apply these to the next implementation pass.
+            {verifyNotes}
+
             """;
     }
 

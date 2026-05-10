@@ -8,14 +8,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Triage;
 
 /// <summary>
-/// Phase-based triage for fix-bug, add-feature, security-scan, api-scan.
-/// Stores the full TriageOutput in the pipeline context, sets CurrentPhase=Plan,
-/// and emits Plan-phase commands. Review/Final phases are dispatched later by
-/// RunReviewPhaseHandler / RunFinalPhaseHandler reading the same TriageOutput.
+/// Phase-based triage. Stores the full TriageOutput in the pipeline context,
+/// sets CurrentPhase=Plan, emits Plan-phase commands. Review/Final phases are
+/// dispatched later by RunReviewPhaseHandler / RunFinalPhaseHandler reading
+/// the same TriageOutput — for presets that contain those steps.
+/// p0131c-pre: when the active preset is single-phase (no RunReviewPhase /
+/// RunFinalPhase steps — true for mad-discussion + legal-analysis), the
+/// TriageOutput is collapsed via <see cref="SinglePhaseCollapser"/> so
+/// LLM-emitted Review/Final assignments don't get silently dropped.
 /// </summary>
 public sealed class StructuredTriageStrategy(
     ITriageOutputProducer producer,
     PhaseCommandExpander expander,
+    SinglePhaseCollapser singlePhaseCollapser,
     ILogger<StructuredTriageStrategy> logger) : ITriageStrategy
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -30,10 +35,21 @@ public sealed class StructuredTriageStrategy(
         }
 
         var triage = await producer.ProduceAsync(pipeline, cancellationToken);
+        var pipelineName = ResolvePipelineName(pipeline);
+
+        if (PipelinePresets.IsSinglePhase(pipelineName))
+        {
+            var collapsed = singlePhaseCollapser.Collapse(triage);
+            logger.LogInformation(
+                "Triage single-phase collapse for preset '{Preset}': merged Review/Final into Plan",
+                pipelineName);
+            triage = collapsed;
+        }
+
         pipeline.Set(ContextKeys.TriageOutput, triage);
         pipeline.Set(ContextKeys.CurrentPhase, PipelinePhase.Plan);
 
-        var skillRoundCommandName = ResolveSkillRoundCommandName(pipeline);
+        var skillRoundCommandName = PipelinePresets.GetSkillRoundCommandName(pipelineName);
         var commands = expander.ExpandPhase(triage, PipelinePhase.Plan, round: 1, skillRoundCommandName);
         if (commands.Count == 0)
         {
@@ -50,14 +66,11 @@ public sealed class StructuredTriageStrategy(
             commands.ToArray());
     }
 
-    private static string ResolveSkillRoundCommandName(PipelineContext pipeline)
-    {
-        var pipelineName = pipeline.TryGet<ResolvedPipelineConfig>(
-            ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
+    private static string ResolvePipelineName(PipelineContext pipeline) =>
+        pipeline.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var resolved)
+            && resolved is not null
             ? resolved.PipelineName
             : string.Empty;
-        return PipelinePresets.GetSkillRoundCommandName(pipelineName);
-    }
 
     private static bool HasLoadedSkills(PipelineContext pipeline) =>
         pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(

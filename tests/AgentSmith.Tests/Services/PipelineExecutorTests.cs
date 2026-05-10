@@ -35,6 +35,9 @@ public class PipelineExecutorTests
             _sandboxFactoryMock.Object,
             new SandboxSpecBuilder(),
             _progressReporterMock.Object,
+            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
+                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
+            new AgentSmithConfig(),
             NullLogger<PipelineExecutor>.Instance);
     }
 

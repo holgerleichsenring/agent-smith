@@ -14,8 +14,11 @@ public interface IChatClientFactory
     /// <summary>
     /// Returns the IChatClient configured for the given agent + task type.
     /// Tool-bearing tasks (Primary, Scout, Planning) are wrapped with FunctionInvokingChatClient.
+    /// When <paramref name="maxIterations"/> is non-null, that value is used as the
+    /// FunctionInvokingChatClient's MaximumIterationsPerRequest; null preserves the
+    /// existing default (25). p0126a additive parameter for per-call cap support.
     /// </summary>
-    IChatClient Create(AgentConfig agent, TaskType task);
+    IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null);
 
     /// <summary>
     /// Returns the per-task max output tokens (from the agent's ModelRegistryConfig).

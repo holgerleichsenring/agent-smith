@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0125d
+goal: "Fourth and final slice of D1. AgentSmith.Cli gains a `validate-concepts` verb that runs at build-time / in CI and asserts (a) every `activates_when` expression in skill SKILL.md files references concepts that exist in the loaded vocabulary, and (b) every handler that publishes concepts at runtime is declared in the corresponding writers list — and vice versa, every writers-list entry is backed by a real handler. The verb operates on top of p0125b's parser and p0125c's publishing handlers; the writer-registry is built from an explicit IConceptWriter contract that handlers implement, discovered via DI. No assembly-scanning reflection."
+
+requires: ["p0125b", "p0125c"]
+
+scope:
+  in: "(1) IConceptWriter contract: marker interface with one property `IReadOnlyList<ConceptDeclaration> DeclaredConcepts`. ConceptDeclaration is a small record (string ConceptName, ConceptType Type) capturing what the handler claims to publish. Handlers that publish concepts (CheckoutSourceHandler, TryCheckoutSourceHandler, BootstrapCheckHandler, PipelineNameInitializerHandler — all from p0125c) implement IConceptWriter. (2) ConceptWriterRegistry built from DI: takes IEnumerable<IConceptWriter> via constructor injection, exposes `IReadOnlyDictionary<string, IReadOnlyList<string>> ConceptToHandlers` (concept name → handler class names that declare it). DI auto-collects all IConceptWriter implementations registered in the container; no reflection over assemblies. (3) ValidateConceptsCommand in AgentSmith.Cli/Commands/. Loads the concept vocabulary from the configured skills directory, scans all SKILL.md files for `activates_when` frontmatter fields, parses each via ActivationExpressionParser (from p0125b), collects identifier references, asserts every referenced concept is in the vocabulary. Then asserts handler-vocabulary consistency: for each vocabulary entry with a non-empty writers list, every name in the list must match a registered IConceptWriter that declares this concept; for each IConceptWriter, every concept it declares must appear in the vocabulary's writers list for that concept. (4) Output: list of (skill, concept, error) tuples printed to stdout, one per line; exit code 0 on clean tree, exit code 1 on any error. (5) Verb registered in AgentSmith.Cli/Program.cs alongside existing verbs (apiscan/security/run/init/feature/fix/mad/legal/skills/compile-wiki/security-trend/autonomous). (6) Test pack covers IConceptWriter discovery, ConceptWriterRegistry build, vocabulary-vs-skill validation, vocabulary-vs-writer validation, exit codes."
+  out: "(1) Triage runtime consumption of activates_when — that's p0127 (D3). The verb is build-time only; no production code path reads activates_when in this slice. (2) Skill-side activates_when fields landing in real SKILL.md files — those are added per-skill in agent-smith-skills as part of p0127's migration. For p0125d, the verb is exercised by tests against synthetic skill fixtures; against the real production vocabulary + skills tree it should report 0 activates_when expressions (because none exist yet) and pass writer-registry consistency. (3) Verb wired into CI workflows — adding the call to .github/workflows/* is operator work that follows once D2/D3 ships activates_when on real skills. The verb is callable locally and from any CI step that wants it; CI integration happens when there's something to enforce. (4) Reflection-based handler discovery — explicitly rejected per coding-principles 'Registration is explicit — no assembly scanning magic' and per the user's constraint when splitting p0125. IConceptWriter + DI is the registration mechanism. (5) Validation of activation.positive keys (the legacy keys in SKILL.md activation: blocks) — that path is already covered by ConceptVocabularyValidator at startup; the new verb adds activates_when validation on top, leaving the existing positive-key validator alone."
+
+decisions:
+  - key: "Writer-registry comes from IConceptWriter implementations discovered via DI, not via reflection over assemblies. Reason: coding-principles is non-negotiable on 'no assembly scanning magic'. The explicit contract has three benefits: handlers self-declare what they publish (truth-at-the-writer), registration is single-line in DI extension methods, and discovery cost is zero (DI already enumerates implementations of an interface). Rejected alternative: [PublishesConcept] attribute + reflection over Application + Infrastructure assemblies (per the original p0125 spec, decision-13). The explicit contract trades a tiny boilerplate cost (one IReadOnlyList<ConceptDeclaration> property per publishing handler) for a build-time-discoverable, principle-aligned design."
+  - key: "ConceptDeclaration carries (ConceptName, ConceptType), not just the name. Reason: the registry checks both that the handler claims the right concept AND that it claims the right type. A handler that declares 'source_available' as Int when the vocabulary says Bool is a typo that the verb catches at build-time. Type-mismatch is a separate error tuple from name-not-in-vocabulary."
+  - key: "ValidateConceptsCommand exits 1 on any error, not just on the first error. Reason: operators want the full picture of what's wrong, not a fix-and-rerun loop. The verb collects all (skill, concept, error) tuples and prints them sorted by skill, then concept. Exit code is the boolean OR of any error existing."
+  - key: "Verb operates against the configured skills directory like other Cli verbs (skills pull, etc.) — same path resolution. Reason: skills tree is operator-configurable per project, and the verb has to discover SKILL.md files and the vocabulary file under that root. Reusing the existing skills-path resolution avoids a verb-specific config flag for the same data."
+  - key: "Empty writers list is allowed without IConceptWriter backing. Reason: not every concept is published by a handler — some are seeded externally (test fixtures, future external publishers, snapshot-only concepts). The writers-list-vs-handler check skips entries with empty writers. The reverse check (every handler-declared concept must be in the vocabulary's writers list for that concept) still applies — handlers can't publish concepts the vocabulary doesn't allow them to."
+  - key: "ActivationExpressionParser walks SKILL.md frontmatter at build-time. Reason: SKILL.md is already YAML-frontmatter-parsed by SkillMdParser at runtime; the verb reuses SkillMdParser to extract the activates_when field (when present) and feeds the string to the parser. No need to ship a YAML-frontmatter scanner specifically for the verb. If a skill's activates_when field is missing, the verb skips it silently (not yet required). If present and unparseable, the verb reports the parse error with offset and offending token (per p0125b's exception)."
+  - key: "Output is plain text, one error per line. Reason: shell-friendly, grep-able, diff-able. The (skill, concept, error) tuple format is `<skill>: <concept>: <error message>`. Structured output (JSON, SARIF) is justified once the verb feeds into a richer CI dashboard; for now stdout + exit code is enough."
+
+steps:
+  - id: concept-writer-contract
+    action: "IConceptWriter contract + ConceptDeclaration"
+    new:
+      - "src/AgentSmith.Contracts/Activation/IConceptWriter.cs: interface with single property IReadOnlyList<ConceptDeclaration> DeclaredConcepts. XML doc explains the contract — handlers that publish concepts at runtime declare them here at build-time so the validator can cross-check."
+      - "src/AgentSmith.Contracts/Activation/ConceptDeclaration.cs: sealed record (string ConceptName, ConceptType Type)."
+
+  - id: writer-registry
+    action: "ConceptWriterRegistry built from DI"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ConceptWriterRegistry.cs: sealed class. Constructor takes IEnumerable<IConceptWriter>. Exposes IReadOnlyDictionary<string, IReadOnlyList<HandlerConcept>> ConceptToHandlers (concept name → list of (handler-name, declared-type) pairs); HandlerConcept is an internal record. Length: ≤120 lines."
+      - "src/AgentSmith.Application/Services/Activation/HandlerConcept.cs: internal sealed record (string HandlerClassName, ConceptType DeclaredType)."
+
+  - id: handler-iconceptwriter-impls
+    action: "Existing publishing handlers implement IConceptWriter"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs: implements IConceptWriter; DeclaredConcepts returns [new ConceptDeclaration(\"source_available\", ConceptType.Bool)]."
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs: implements IConceptWriter; same declaration as CheckoutSourceHandler."
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs: implements IConceptWriter; DeclaredConcepts returns [(\"context_yaml_present\", Bool), (\"coding_principles_present\", Bool)]."
+      - "src/AgentSmith.Application/Services/Handlers/PipelineNameInitializerHandler.cs: implements IConceptWriter; DeclaredConcepts returns [(\"pipeline_name\", Enum)]."
+
+  - id: di-registration
+    action: "DI registers handlers as IConceptWriter alongside their existing handler registration"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: each publishing handler is also registered against IConceptWriter (services.AddSingleton<IConceptWriter>(sp => sp.GetRequiredService<CheckoutSourceHandler>()) or equivalent — preserves single-instance semantics). ConceptWriterRegistry registered as singleton."
+
+  - id: validate-concepts-command
+    action: "AgentSmith.Cli validate-concepts verb"
+    new:
+      - "src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs: System.CommandLine command class. Constructor takes ConceptVocabularyLoader, SkillMdParser, ActivationExpressionParser, ConceptWriterRegistry. Single execute method orchestrates: load vocabulary from skills directory, scan all SKILL.md files (recursive), parse each one's activates_when (when present), collect referenced identifiers, check each against vocabulary, run writer-registry consistency check (vocab.writers ↔ registry.handlers), print errors to stdout, return exit code. Length: ≤120 lines (the orchestration is thin; the heavy lifting is in injected services)."
+    modify:
+      - "src/AgentSmith.Cli/Program.cs: register validate-concepts in the existing verb hookup, alongside skills pull / apiscan / etc."
+      - "docs/configuration/concept-vocabulary.md (existing per p0111c): add a 'Validation' section describing the verb, sample output, exit codes, when to run (locally + CI)."
+
+  - id: tests
+    action: "Test pack: IConceptWriter discovery, registry build, validation paths"
+    new:
+      - "tests/AgentSmith.Tests/Activation/ConceptWriterRegistryTests.cs: Build_NoWriters_BuildsEmptyRegistry; Build_SingleWriterSingleConcept_BuildsRegistry; Build_MultipleWritersSameConcept_GroupsHandlersByConcept; Build_HandlerDeclaresMultipleConcepts_AllListed."
+      - "tests/AgentSmith.Tests/Cli/ValidateConceptsCommandTests.cs: Validate_AllSkillsClean_ExitZero; Validate_NoActivatesWhenInAnySkill_StillPassesWriterRegistry; Validate_UnknownConceptInActivatesWhen_ExitOneAndPrintsSkill; Validate_HandlerWritesUndeclaredConcept_ExitOneAndPrintsHandler; Validate_VocabularyEntryWithoutBackingHandler_ExitOneAndPrintsConcept; Validate_HandlerDeclaresWrongType_ExitOneAndPrintsTypeMismatch; Validate_MalformedActivatesWhenExpression_ExitOneAndPrintsParseError; Validate_EmptyWritersList_NoErrorWithoutHandler."
+
+tests:
+  - "ConceptWriterRegistry_Build_NoWriters_BuildsEmptyRegistry"
+  - "ConceptWriterRegistry_Build_SingleWriterSingleConcept_BuildsRegistry"
+  - "ConceptWriterRegistry_Build_MultipleWritersSameConcept_GroupsHandlersByConcept"
+  - "ConceptWriterRegistry_Build_HandlerDeclaresMultipleConcepts_AllListed"
+  - "ValidateConceptsCommand_Validate_AllSkillsClean_ExitZero"
+  - "ValidateConceptsCommand_Validate_NoActivatesWhenInAnySkill_StillPassesWriterRegistry"
+  - "ValidateConceptsCommand_Validate_UnknownConceptInActivatesWhen_ExitOneAndPrintsSkill"
+  - "ValidateConceptsCommand_Validate_HandlerWritesUndeclaredConcept_ExitOneAndPrintsHandler"
+  - "ValidateConceptsCommand_Validate_VocabularyEntryWithoutBackingHandler_ExitOneAndPrintsConcept"
+  - "ValidateConceptsCommand_Validate_HandlerDeclaresWrongType_ExitOneAndPrintsTypeMismatch"
+  - "ValidateConceptsCommand_Validate_MalformedActivatesWhenExpression_ExitOneAndPrintsParseError"
+  - "ValidateConceptsCommand_Validate_EmptyWritersList_NoErrorWithoutHandler"
+
+done:
+  - "IConceptWriter interface exists in Contracts; ConceptDeclaration record carries (name, type)"
+  - "Four publishing handlers from p0125c (CheckoutSourceHandler, TryCheckoutSourceHandler, BootstrapCheckHandler, PipelineNameInitializerHandler) implement IConceptWriter"
+  - "ConceptWriterRegistry builds from DI-discovered IConceptWriter instances; exposes concept-to-handlers lookup"
+  - "AgentSmith.Cli validate-concepts verb is registered and runnable: `agent-smith validate-concepts` exits 0 on a clean tree, exits 1 with (skill, concept, error) tuples on dirty input"
+  - "Verb covers four error categories: unknown concept in activates_when; handler declares undeclared concept; vocabulary writer not backed by handler; handler-vs-vocabulary type mismatch"
+  - "All 12 listed tests pass; all existing tests pass"
+  - "All classes ≤120 lines; all methods ≤20 lines"
+  - "Verb is documented in docs/configuration/concept-vocabulary.md (Validation section)"
+  - "D1 is complete: vocabulary, evaluator, run-state, publication, and validation are all in place. Triage rewrite (D2 / p0127) can build on top without further D1 work."

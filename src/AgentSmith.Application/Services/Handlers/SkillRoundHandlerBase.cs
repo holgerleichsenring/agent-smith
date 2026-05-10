@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -97,9 +98,20 @@ public abstract class SkillRoundHandlerBase(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, combinedUser),
         };
-        var response = await chat.GetResponseAsync(messages,
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0132a: per-skill cost attribution. The runtime's full migration
+        // (limits, retry, structured trace) is deferred — opening a
+        // SkillCallScope is enough to populate PerSkillBreakdown. Dispose
+        // closes it without a LimitEnforcer; BuildRecord falls back to
+        // elapsed-ms from StartedAt.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        ChatResponse response;
+        using (var _ = costTracker.BeginCall(
+            skillName, role.Role ?? "investigator", MapPhase(pipeline)))
+        {
+            response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            costTracker.Track(response);
+        }
         var responseText = response.Text ?? string.Empty;
 
         var rawParsed = ObservationParser.ParseWithoutIds(responseText, skillName, Logger);
@@ -358,9 +370,15 @@ public abstract class SkillRoundHandlerBase(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, combinedUser),
         };
-        var response = await chat.GetResponseAsync(messages,
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0132a: per-skill cost attribution.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        ChatResponse response;
+        using (var _ = costTracker.BeginCall(skillName, role.Role ?? "investigator", MapPhase(pipeline)))
+        {
+            response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            costTracker.Track(response);
+        }
         var responseText = response.Text ?? string.Empty;
 
         Logger.LogInformation("{Emoji} {DisplayName} [{Role}]: structured round complete",
@@ -438,4 +456,23 @@ public abstract class SkillRoundHandlerBase(
         pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) && map is not null
             ? ProjectMapPromptRenderer.RenderExistingTests(map)
             : null;
+
+    /// <summary>
+    /// p0132a: map the triage <see cref="PipelinePhase"/> from context
+    /// (Plan/Review/Final) into the per-skill <see cref="SkillExecutionPhase"/>
+    /// surface used by the cost-tracker. Falls back to Discuss when no
+    /// phase is set (legacy discussion-mode rounds).
+    /// </summary>
+    private static SkillExecutionPhase MapPhase(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<PipelinePhase>(ContextKeys.CurrentPhase, out var phase))
+            return SkillExecutionPhase.Discuss;
+        return phase switch
+        {
+            PipelinePhase.Plan => SkillExecutionPhase.Plan,
+            PipelinePhase.Review => SkillExecutionPhase.Review,
+            PipelinePhase.Final => SkillExecutionPhase.Synthesize,
+            _ => SkillExecutionPhase.Discuss,
+        };
+    }
 }

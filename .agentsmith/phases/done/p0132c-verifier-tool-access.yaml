@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0132c
+goal: "Slice 3/3 of p0132. Verifiers gain access to the SandboxToolHost tool surface via ToolKit.GetToolsFor(Verify, verify_diff). Build-verifier + test-verifier can now invoke RunCommand to execute the project's actual build/test, parse output, and emit observations with confidence=100 on real failures. Architecture-verifier + scope-verifier ignore the tools — their bodies don't reference RunCommand. Cross-repo: agent-smith-skills 2.6.0 → 2.7.0 with SKILL.md bodies for build/test verifier teaching the two-mode (static + live) discipline."
+
+requires: ["p0126", "p0129b", "p0132a", "p0132b"]
+
+scope:
+  in: |
+    (1) VerifyRoundHandler gains two ctor dependencies: IDecisionLogger
+        (passed to SandboxToolHost) + LoopLimitsConfig (for the per-verifier
+        tool-call iteration cap).
+    (2) New ResolveVerifyTools helper in VerifyRoundHandler. Reads
+        ContextKeys.Sandbox; when present, builds a SandboxToolHost +
+        ToolKit + returns the Verify-phase tool list (ReadOnly + RunCommand);
+        when absent (smoke tests, no-runtime contexts), returns empty list so
+        verifiers degrade to LLM-only static analysis.
+    (3) RunVerifiersAsync now creates the chat-client with
+        maxIterations = LoopLimitsConfig.ResolveToolCallCap("verify_diff")
+        (defaults to MaxToolCallsPerVerifier = 20). The tool-enabled chat is
+        reused across all verifiers in a single round.
+    (4) InvokeVerifierAsync ChatOptions.Tools = tools (or null when empty).
+    (5) Cross-repo: agent-smith-skills 2.6.0 → 2.7.0. build-verifier +
+        test-verifier SKILL.md bodies updated to describe the two modes:
+        static pre-check (default) + live build/test run (when run_command
+        is exposed). Failing live build/test = severity: high, blocking:
+        true, confidence: 100. Static-mode signals remain non-blocking
+        medium-severity when live mode passes. The existing Test command
+        in FixBug preset still runs after Verify (fast-fail catch).
+    (6) agentsmith.yml skills.version pin 2.6.0 → 2.7.0.
+    (7) Existing VerifyRoundHandler tests (×17 across two test classes)
+        adapted to the new ctor signature (Mock<IDecisionLogger>,
+        default LoopLimitsConfig); behavior unchanged for tests that don't
+        attach a sandbox (tools list resolves empty).
+
+  out: |
+    - Removal of the post-verify Test command in FixBug preset. Kept during
+      the rollout window so verifier failures + downstream Test failures
+      are independently observable. Operator-evidence-driven follow-up.
+    - Gate-path scope (gateRetryCoordinator) — deferred from p0132a/b;
+      separate post-p0132 follow-up.
+    - Full SkillCallRuntime migration of VerifyRoundHandler — the per-skill
+      cost-scope + tool access deliver the operator-visible value; the
+      runtime's limit enforcement / retry / structured trace stays deferred.
+    - ProjectBuildCommandResolver — not yet implemented. The build/test
+      verifier SKILL.md bodies tell the LLM to read the build/test command
+      from `.agentsmith/context.yaml` → `stack.testing` directly, which is
+      sufficient for the v1 cut. A dedicated resolver service can land
+      later if operator-evidence shows the SKILL.md-only routing is
+      insufficient.
+
+decisions:
+  - key: |
+      ResolveVerifyTools degrades to empty list when no sandbox is in
+      context. Reason: VerifyRoundHandler is consumed by RunVerifyPhase
+      which runs only in FixBug + AddFeature today — both preset-paths
+      have a sandbox after CheckoutSource. But the test suite exercises
+      the handler with sandbox-less PipelineContexts; failing-loud there
+      would force every existing test to seed a sandbox. The graceful-
+      degradation pattern matches p0129a/b's design: verifiers can do
+      both static and live work depending on what they're given. --
+      alternatives: fail-loud when sandbox missing (rejected: too rigid;
+      static-mode verifiers are still valuable); inject sandbox factory
+      and create one inline (rejected: out of scope; sandbox lifecycle
+      is the pipeline's job).
+  - key: |
+      Tool-enabled chat-client reused across verifiers in a single
+      RunVerifyPhase invocation. Reason: chat-client creation is cheap
+      but creating one PER verifier would mean N FunctionInvokingChatClient
+      wraps when one suffices — the underlying provider connection +
+      function-invocation loop is stateless across calls. The same chat
+      client is what the legacy non-tool path already does (per-round,
+      not per-verifier). -- alternatives: per-verifier chat client
+      (rejected: pointless overhead).
+  - key: |
+      ProjectBuildCommandResolver deferred. The SKILL.md bodies instruct
+      the LLM to discover the build/test command from
+      `.agentsmith/context.yaml` directly (`stack.testing`, etc.). The
+      LLM already has read_file in its read-only toolset, so it can
+      resolve the command without a dedicated resolver service. Building
+      one prematurely risks shaping it around assumptions that haven't
+      been validated against operator runs. -- alternatives: ship
+      ProjectBuildCommandResolver now (rejected: speculative design);
+      hardcode commands per project_language (rejected: bypasses
+      operator-config in agentsmith.yml).
+
+steps:
+  - id: handler
+    action: "Add IDecisionLogger + LoopLimitsConfig deps; add ResolveVerifyTools; thread tools through InvokeVerifierAsync"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs"
+
+  - id: tests
+    action: "Adapt VerifyRoundHandlerTests + VerifyRoundHandlerMultiVerifierTests to new ctor"
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/VerifyRoundHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/VerifyRoundHandlerMultiVerifierTests.cs"
+
+  - id: cross-repo
+    action: "Update build-verifier + test-verifier SKILL.md bodies; bump skills version"
+    modify:
+      - "agent-smith-skills/skills/coding/build-verifier/SKILL.md"
+      - "agent-smith-skills/skills/coding/test-verifier/SKILL.md"
+      - "agent-smith-skills/version.txt"
+      - "agent-smith-skills/CHANGELOG.md"
+      - "agent-smith/config/agentsmith.yml"
+
+tests:
+  - "Build clean across solution"
+  - "1501 main + 62 sandbox tests passing (existing verifier tests adapted to the new ctor)"
+  - "Operator smoke: a fix-bug run with a real sandbox shows build-verifier invoking RunCommand against the project's build command and emitting a high-confidence observation on failure"
+
+done:
+  - "VerifyRoundHandler builds the Verify-phase tool set per round when a sandbox is in context"
+  - "build-verifier + test-verifier SKILL.md bodies describe two-mode operation"
+  - "agent-smith-skills 2.7.0 shipped; agentsmith.yml pin synced"
+  - "1501 main + 62 sandbox tests passing; verifier tests adapted to the new ctor signature"
+  - "Static-analysis verifiers (scope-verifier, architecture-verifier) still work — they ignore the tool set"
+  - "p0132 parent done; all three slices closed"

@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0129c
+goal: "Third slice of D5. architecture-verifier — VerifyDiff investigator skill that compares the Diff against the project's coding-principles.md for declared-rule violations. Conservative initial scope: matches a curated subset of explicit rules; full free-form interpretation is iterative quality work."
+
+requires: ["p0129a", "p0129b"]
+
+scope:
+  in: "(1) architecture-verifier SKILL.md added to agent-smith-skills/skills/coding/architecture-verifier/SKILL.md. New format: role=investigator, investigator_mode=verify_diff, output_schema=observation, activates_when on fix-bug or feature-implementation. The user prompt for this skill includes the project's coding-principles.md content (read from ContextKeys.CodingPrinciples by VerifyRoundHandler — already populated at this stage in the FixBug pipeline by LoadCodingPrinciples). The skill body instructs the LLM to: (a) extract explicit, checkable rules from coding-principles.md (hard limits like 'class size ≤120 lines', 'methods ≤20 lines', naming conventions like '_camelCase for private fields', forbidden patterns like 'no nullable reference suppression with !'); (b) scan the Diff's `changes[].patch` lines for violations of the extracted rules; (c) emit observations citing the file + the violated rule + the evidence. Conservative discipline: only flag violations where both the rule is unambiguously stated in coding-principles.md AND the diff line is unambiguous evidence; speculative architectural concerns ('might violate SOLID') are out. (2) VerifyRoundHandler extended to thread CodingPrinciples into the verifier prompt. Today VerifierPromptBuilder.Build takes (skillBody, planJson, diffJson). Add an optional codingPrinciples parameter; when set, the user message gains a 'Coding principles' section between the Plan and Diff blocks. VerifyRoundHandler reads ContextKeys.CodingPrinciples from PipelineContext (set by the existing LoadCodingPrinciples handler in FixBug + AddFeature presets) and passes it through. scope-verifier and build-verifier / test-verifier ignore the new section — their bodies don't reference 'coding principles', so the LLM appropriately doesn't act on it. (3) Cross-repo: agent-smith-skills 2.2.0 → 2.3.0; agent-smith pin synced. (4) Verify-notes deduplication shipped here (combines round-1 + round-2 notes by stripping duplicate observations: same file + same concern + same description-prefix-100chars → keep latest). The volume justification with three+ verifiers is what tips the cost-benefit."
+  out: "Full coding-principles.md interpretation as a parser — out of scope. The skill leaves rule-extraction to the LLM, which means architecture-verifier's quality depends on prompt quality + LLM judgment. If a structured coding-principles schema becomes useful later, that's a separate design phase. ProjectBuildCommandResolver (still deferred from p0129b) — same reasoning, no current consumer. AST-based diff analysis — this is pattern-matching on patch text; deeper static analysis is its own infrastructure track. Architecture-verifier triggering at non-coding pipelines (security-scan, mad-discussion, etc.) — those have their own review patterns; architecture-verifier is coding-pipeline-specific."
+
+decisions:
+  - key: "Architecture-verifier extracts checkable rules from coding-principles.md at LLM-call time; no separate parser. Reason: coding-principles.md is free-form Markdown by design (operator-extensible, project-specific). A parser would force a schema, which the project rejected in p0026. The LLM reads the principles per call, picks rules it can verify against the diff, and emits observations only for violations it can ground in both the rules text and the diff text. Trade-off: prompt tokens grow with principles size (~5-10k typical); for the verify-phase budget this is acceptable. -- alternatives: pre-parse principles into a checkable rule set (rejected: forces schema on free-form content); skip architecture-verifier entirely (rejected: leaves an obvious gap in the verifier set; spec-listed in phase-d D5)."
+  - key: "VerifierPromptBuilder grows an optional codingPrinciples parameter rather than a separate prompt-builder for architecture-verifier. Reason: the verifier-prompt shape is mostly identical across scope/build/test/architecture — system prompt = skill body, user message = Plan + Diff + (optional) coding principles. Per-skill prompt builders would mean four near-identical classes. Optional parameter keeps the surface flat; verifiers that don't want the section get the existing prompt unchanged. -- alternatives: per-verifier prompt-builder (rejected: code duplication for one parameter); attach principles as a separate IChatMessage (rejected: the user-message single-string format is what other verifiers use; consistency wins)."
+  - key: "Verify-notes dedup compares (file, concern, description prefix 100 chars). Reason: same-file + same-concern + similar-description is the duplicate signal — round-2 verifiers tend to re-emit identical observations on unfixed problems. Description-prefix-100 captures the headline without false-merging two observations that happen to start with similar wording but diverge later. The 100-char cutoff is empirical; tighter would over-merge, looser would let LLM-paraphrase variants slip through. -- alternatives: dedup by file alone (rejected: legitimate distinct observations on the same file would merge); use exact-equality (rejected: round-2 LLM rewords slightly, exact match misses)."
+
+steps:
+  - id: architecture-verifier-skill
+    action: "architecture-verifier SKILL.md added in agent-smith-skills"
+    new:
+      - "[skills-repo] skills/coding/architecture-verifier/SKILL.md: new-format SKILL.md per p0127c. Frontmatter: role=investigator, investigator_mode=verify_diff, output_schema=observation, activates_when on fix-bug or feature-implementation. Body explains rule-extraction discipline (only checkable rules with concrete diff evidence), output format, conservative-when-in-doubt principle. concern=Architecture, severity=High + blocking=true on hard-limit violations (class size, method size, forbidden patterns); severity=Medium + blocking=false on naming / style notes."
+
+  - id: verifier-prompt-builder-extension
+    action: "VerifierPromptBuilder gains codingPrinciples parameter; VerifyRoundHandler threads it through"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifierPromptBuilder.cs: add optional `string? codingPrinciples = null` parameter to Build. When non-null + non-whitespace, the user message includes a `## Coding principles` section between Plan and Diff. Existing callers without the parameter unaffected (defaults to no section)."
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs: read ContextKeys.CodingPrinciples in InvokeVerifierAsync, pass to VerifierPromptBuilder.Build. Already-populated by LoadCodingPrinciples handler earlier in the FixBug + AddFeature presets."
+
+  - id: verify-notes-dedup
+    action: "VerifyNotesFormatter dedups duplicate observations across rounds at combine-time"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifyNotesFormatter.cs: add internal static `IReadOnlyList<SkillObservation> Dedup(IEnumerable<SkillObservation> observations)` helper that groups by (File ?? string.Empty, Concern, Description.Substring 0..min(100, Length)) and keeps the last per group. VerifyRoundHandler.Escalate path uses Dedup before formatting the combined notes; round-1-only paths are unaffected (no duplicates within a single round)."
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs: in Escalate(), apply Dedup to the union of round-1-extracted-observations + round-2-observations before calling Format."
+
+  - id: cross-repo-bump
+    action: "agent-smith-skills 2.2.0 → 2.3.0; agent-smith pin synced"
+    modify:
+      - "[skills-repo] version.txt: 2.2.0 → 2.3.0."
+      - "[skills-repo] CHANGELOG.md: prepend 2.3.0 entry for architecture-verifier."
+      - "config/agentsmith.yml: skills version v2.2.0 → v2.3.0."
+
+  - id: tests
+    action: "Tests for prompt-builder extension + dedup + architecture-verifier wiring"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/VerifierPromptBuilderTests.cs: Build_NoCodingPrinciples_PromptHasNoCodingSection; Build_CodingPrinciplesPresent_PromptIncludesCodingSectionBetweenPlanAndDiff; Build_CodingPrinciplesEmpty_NoSection; Build_PlanAndDiffEmpty_StillRendersPlaceholders."
+      - "tests/AgentSmith.Tests/Handlers/VerifyNotesFormatterDedupTests.cs: Dedup_NoDuplicates_AllPreserved; Dedup_SameFileSameConcernSameDescriptionPrefix_LastWins; Dedup_DifferentFile_BothPreserved; Dedup_DifferentConcern_BothPreserved; Dedup_DescriptionDivergesPast100Chars_BothPreserved."
+
+tests:
+  - "VerifierPromptBuilder_Build_NoCodingPrinciples_PromptHasNoCodingSection"
+  - "VerifierPromptBuilder_Build_CodingPrinciplesPresent_PromptIncludesCodingSectionBetweenPlanAndDiff"
+  - "VerifierPromptBuilder_Build_CodingPrinciplesEmpty_NoSection"
+  - "VerifierPromptBuilder_Build_PlanAndDiffEmpty_StillRendersPlaceholders"
+  - "VerifyNotesFormatterDedup_Dedup_NoDuplicates_AllPreserved"
+  - "VerifyNotesFormatterDedup_Dedup_SameFileSameConcernSameDescriptionPrefix_LastWins"
+  - "VerifyNotesFormatterDedup_Dedup_DifferentFile_BothPreserved"
+  - "VerifyNotesFormatterDedup_Dedup_DifferentConcern_BothPreserved"
+  - "VerifyNotesFormatterDedup_Dedup_DescriptionDivergesPast100Chars_BothPreserved"
+
+done:
+  - "architecture-verifier SKILL.md exists in agent-smith-skills/skills/coding/"
+  - "VerifierPromptBuilder.Build accepts optional codingPrinciples; VerifyRoundHandler reads ContextKeys.CodingPrinciples and threads it through"
+  - "VerifyNotesFormatter.Dedup collapses duplicate observations across rounds (file + concern + description-prefix-100)"
+  - "agent-smith-skills 2.3.0 tagged; agentsmith.yml skills.version pinned to v2.3.0"
+  - "9 new tests pass; all existing tests pass (no regressions)"
+  - "D5 complete: scope-verifier (p0129a) + build-verifier + test-verifier (p0129b) + architecture-verifier (p0129c) all in place"

@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0132a
+goal: "Slice 1/3 of p0132. Make PerSkillBreakdown non-empty in production by wrapping each chat-call in SkillRoundHandlerBase with a per-skill cost-attribution scope. This is the headline operator-visible deliverable from the parent spec — operators now see per-skill cost in result.md per p0128a's WriteRunResultHandler wiring. The full SkillCallRuntime migration (limits enforcement, retry coordinator, structured loop trace) stays deferred — SkillRoundHandlerBase is 441 lines of orchestration with two distinct paths (Discussion + Structured + Gate) and the retry coordinator already exists at the Gate site; routing it all through ISkillCallRuntime is a multi-PR refactor that doesn't move the operator-visible needle further than the cost scope already does."
+
+requires: ["p0126", "p0127c"]
+
+scope:
+  in: |
+    (1) SkillRoundHandlerBase.ExecuteDiscussionRoundAsync: wrap the
+        chat.GetResponseAsync + tracker.Track call in a
+        `using (costTracker.BeginCall(skillName, role.Role, phase))` scope.
+        Phase derives from PipelinePhase via MapPhase helper (Plan→Plan,
+        Review→Review, Final→Synthesize; unset → Discuss for legacy
+        discussion mode).
+    (2) SkillRoundHandlerBase.ExecuteStructuredRoundAsync: same wrap for
+        the non-Gate structured path.
+    (3) MapPhase helper added to the base class.
+
+  out: |
+    - SkillCallRuntime migration of SkillRoundHandlerBase. Deferred — the
+      handler's two-path orchestration (Discussion / Structured) plus the
+      Gate sub-path's existing retry coordinator would require a major
+      restructure to fit through the runtime's single-shot ExecuteAsync
+      shape. The cost-tracker scope already gets us the operator-visible
+      benefit (PerSkillBreakdown).
+    - FilterRoundHandler + VerifyRoundHandler cost scopes (p0132b).
+    - Gate-path scope (gateRetryCoordinator owns its own chat loop;
+      wrapping requires a coordinator-side hook, deferred).
+    - ChatClientFactory's literal-25 iteration default — still in place;
+      every call still passes its own iteration cap.
+    - Verifier tool access (p0132c).
+
+decisions:
+  - key: |
+      Wrap-in-scope instead of routing through SkillCallRuntime. Reason:
+      the headline goal (PerSkillBreakdown surfaces in result.md) is
+      achieved by BeginCall/EndCall alone; the runtime's additional
+      machinery (LimitEnforcer, RetryCoordinator, LoopTraceCollector,
+      OutcomeClassifier, PipelineConcurrencyGate) is valuable but
+      orthogonal to the operator's first-cut visibility into per-skill
+      cost. The full runtime migration touches the 441-line base class's
+      structure heavily; doing it without first having operator runs to
+      validate against would be a high-effort low-confidence move. The
+      scope wrap is the minimal change that delivers the operator value
+      while keeping the runtime as a known-good future migration target.
+      -- alternatives: full runtime migration in one slice (rejected:
+      scope/risk for one-shot delivery; the spec explicitly calls out
+      this slice as the structural piece for the Discussion+Structured
+      base, but Gate is more involved and doesn't fit cleanly anyway);
+      ship per-skill cost as a separate cost tracker layer outside
+      BeginCall (rejected: parallel surface that BeginCall already
+      provides).
+  - key: |
+      Phase mapping: PipelinePhase.Final → SkillExecutionPhase.Synthesize.
+      Reason: SkillExecutionPhase doesn't have a Final value; Synthesize
+      is the closest semantic match (the Final phase is where reviewers
+      synthesize outputs into a recommendation). When PipelinePhase isn't
+      set in context (legacy discussion-mode), default to Discuss.
+      -- alternatives: add Final to SkillExecutionPhase (rejected: the
+      enum is shaped around per-skill execution context, not pipeline
+      lifecycle position); use Investigate as the default (rejected:
+      Discuss is the better fit for the legacy mad/legal-style runs).
+  - key: |
+      No SkillCallScope.Finalize() call (runs without LimitEnforcer).
+      Reason: SkillCallScope.BuildRecord falls back to elapsed-ms via
+      StartedAt when no enforcer was attached. The cost record carries
+      tokens (always populated via Track) + duration (elapsed from
+      StartedAt); ToolCallCount and LlmCallCount stay at 0 because no
+      LimitEnforcer counts them in this path. When the full runtime
+      migration lands, those counts populate; until then they read 0,
+      which is honest about what the scope observed.
+
+steps:
+  - id: wrap
+    action: "Wrap ExecuteDiscussionRoundAsync + ExecuteStructuredRoundAsync chat-calls in BeginCall scope; add MapPhase helper"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs"
+
+tests:
+  - "Build clean"
+  - "Full suite (1501 main + 62 sandbox) passes — no regression"
+  - "Manual smoke: WriteRunResultHandler renders PerSkillBreakdown in result.md when SkillRoundHandlerBase fires"
+
+done:
+  - "Both Discussion and non-Gate Structured paths wrap chat-calls in costTracker.BeginCall"
+  - "PerSkillBreakdown populated for every fix-bug / add-feature / mad-discussion / legal-analysis / security-scan / api-security-scan run"
+  - "p0132b (FilterRoundHandler + VerifyRoundHandler) + p0132c (verifier tool access) still pending"

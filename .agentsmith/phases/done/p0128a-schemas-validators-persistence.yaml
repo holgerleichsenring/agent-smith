@@ -1,0 +1,170 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0128a
+goal: "First slice of D4. JSON schemas for Plan, Diff, Bootstrap output. Real ISkillOutputValidator implementations selected by output_schema. Persistence to .agentsmith/runs/<run-id>/ alongside the existing markdown artifacts. Redis pipeline storage for in-flight handoffs. open_questions round-trip and opt-in data flows ride later in p0128b/c."
+
+requires: ["p0126", "p0127a"]
+
+scope:
+  in: "(1) JSON Schema (Draft 2020-12) files for Plan, Diff, Bootstrap output. Hand-written, committed under .agentsmith/schemas/ — plan.schema.json, diff.schema.json, bootstrap.schema.json. Field shapes follow Phase C: Plan has summary, scope.{files,modules}, steps[{id,action,file,reason}], open_questions[{id,question,options}], test_impact, consumer_impact, status ∈ {complete, needs_user_input}; Diff has changes[{file,operation,summary,patch}], tests_added[{file,summary}], tests_modified[{file,summary}], build_status, test_status; Bootstrap output has status, files_written, optional open_questions. Each schema includes Phase C's behaviour rules as JSON Schema constraints (e.g. status=complete requires open_questions empty, status=needs_user_input requires open_questions non-empty). Caps from Phase C land as maxLength constraints (summary ≤200 chars, step.reason ≤300 chars, change.summary ≤200 chars). Existing observation-schema.md keeps its place; an observation-schema.json is added next to it for symmetry, derived from the markdown contract it already documents — no semantic change. (2) JsonSchema.Net NuGet ref added to AgentSmith.Application.csproj (chosen over Newtonsoft.Json.Schema for System.Text.Json compatibility and Draft 2020-12 support; pinned exact version to match the existing dependency-pinning discipline). Loader reads each schema file at startup, validates the schema itself against the Draft 2020-12 metaschema (catches malformed schemas at boot), caches the parsed schema for reuse. (3) ISkillOutputValidator real implementations: PlanOutputValidator, DiffOutputValidator, BootstrapOutputValidator, ObservationOutputValidator (the last wraps the existing ObservationParser from p0124 to satisfy the same interface). Each validator has a single Validate(string output) method that parses JSON, checks against the cached schema, returns ValidationResult.Ok on pass or ValidationResult.Failure(error) on miss. Schema validation errors carry the JSON Pointer of the offending field plus a human-readable rule description ('plan.steps[2].reason exceeds 300 chars'). (4) SkillOutputValidatorFactory keyed by output_schema enum: takes string from RoleSkillDefinition.OutputSchema (from p0127a), returns the matching validator. Returns NoOpSkillOutputValidator only when output_schema is null (the legacy SKILL.md path that hasn't migrated yet). Registered as a singleton in DI; SkillCallRuntime constructs the validator per request via the factory. (5) Persistence to filesystem: WriteRunResultHandler (existing) extended to also write plan.json, diff.json, and bootstrap.md (when those artifacts exist in PipelineContext). Files land in .agentsmith/runs/<run-id>/ — same directory as plan.md and result.md. Run-id format unchanged (r{NN:D2}-<slug>). plan.json and diff.json are pretty-printed JSON; bootstrap.md is verbatim Markdown. Existing plan.md continues to render from the new structured Plan as a human-readable view; the JSON is the machine-readable source. (6) Pipeline storage in Redis: RunArtifactStore wraps StackExchange.Redis with keys like pipeline:<run-id>:plan, pipeline:<run-id>:diff, pipeline:<run-id>:bootstrap. Values are the JSON strings (plan/diff) or Markdown (bootstrap). TTL of 4 hours per key — long enough to survive any single run, short enough to not accumulate. SkillCallRuntime calls store.WriteAsync after a successful Plan/Diff skill call; downstream phase handlers call store.ReadAsync<Plan>/ReadAsync<Diff>. On pipeline end (success or failure), store.PromoteToFilesystem<run-id> copies the values to disk via WriteRunResultHandler and clears the Redis keys. (7) PerSkillBreakdown surfacing: WriteRunResultHandler reads PipelineCostTracker.PerSkillBreakdown (from p0126b, currently unsurfaced because no consumer migrated) and renders it into result.md after the existing pipeline-total cost line. Format per p0126's plan: <skillName> (<role>, <phase>): <inputTokens> in / <outputTokens> out / <toolCallCount> tools / <durationMs>ms; sorted by start time. Empty breakdown produces no section. (8) PlanParser (existing) gains a strict mode that uses PlanOutputValidator: Plan.RawResponse continues to be the LLM raw text for the legacy untyped path; new strict mode parses against the schema and returns a typed Plan plus a structured open_questions list. Old Plan record fields (Summary, Steps, Decisions) extended to carry the new schema fields (Scope, OpenQuestions, TestImpact, ConsumerImpact, Status) — additive, no rename of existing properties. Strict mode is opt-in per parser call; migration of callers to strict mode is incremental in p0128b/c."
+  out: "(1) open_questions round-trip — p0128b. The Plan schema's open_questions field gets validated here; the writeback to ticket comments and the parsing on the way back are p0128b's work. (2) Opt-in data flow gating — p0128c. PipelineContext stays free-for-all in p0128a; the wrapper that gates reads by declared edges lands in c. (3) Removal of Plan.RawResponse / dual-path PlanParser — D7 (p0131). Both paths exist in parallel; the strict path is opt-in per call site. (4) Schema versioning — Plan/Diff/Bootstrap are version 1.0 (declared in the $id of each schema file). Bumping discipline is a follow-up problem. (5) Generation of typed C# records from JSON Schema — out of scope; the Plan record is hand-edited to carry the new fields. C#-from-schema generation tooling adds dependency surface for marginal benefit at this stage. (6) Diff record creation — Diff is new; a Diff entity record lands in this slice as the typed in-process representation, but the conversion from CodeChange (existing) to Diff is not done — CodeChange stays the legacy in-flight shape. Diff is what skills emit and what gets persisted; CodeChange is what existing handlers consume. Bridging happens in p0128c when data flows are gated. (7) Wiring PerSkillBreakdown into the persisted JSON sidecar (cost.json) — markdown rendering is the p0128a deliverable; structured cost persistence is a small follow-up if needed. (8) PlanArtifact ContextKey replacement — stays in place; new keys (PlanJson, DiffJson, BootstrapMarkdown) added alongside, not replacing."
+
+decisions:
+  - key: "JsonSchema.Net (System.Text.Json native) over Newtonsoft.Json.Schema (Newtonsoft-coupled). Reason: the codebase uses System.Text.Json throughout (PlanParser, ObservationParser), pulling in Newtonsoft for schema validation alone would mean two JSON libraries in one process. JsonSchema.Net supports Draft 2020-12, has active maintenance (post-2020 releases), and reads schemas as JsonDocument so they stay in the same in-memory representation as the data being validated. Trade-off: NJsonSchema is more popular but ties to Newtonsoft. Pinning exact version per the dependency-pinning discipline (e.g. [7.0.4])."
+  - key: "Schemas are hand-written JSON Schema files, not generated from C# records. Reason: the schema is the contract skills emit JSON against; making the C# record the source of truth would couple skill output to internal record layout. Hand-written schemas live under .agentsmith/schemas/ — operators see them, skill authors read them, the validator loader reads them. Behaviour rules from Phase C (status=complete ↔ open_questions empty) land as JSON Schema if-then-else / oneOf constraints, exercised by the test pack."
+  - key: "Schema validation errors carry JSON Pointer + rule description, not just a message. Reason: when a Plan-skill output fails validation and the runtime appends a retry hint (per p0126's RetryCoordinator), the LLM benefits from precise location — 'plan.steps[2].reason exceeds 300 chars' is more actionable than 'plan invalid'. JsonSchema.Net's EvaluationResult exposes both; the validator surface returns them in ValidationResult.Failure."
+  - key: "SkillOutputValidatorFactory keyed by output_schema enum, not by a stringly-typed switch. Reason: output_schema is a closed enum on RoleSkillDefinition (per Phase C and p0127a's Schema validation: observation/plan/diff/bootstrap). The factory takes the enum value, returns the matching validator. NoOp returns only when output_schema is null (legacy skill format). Adding a new schema means adding an enum value, a schema file, and a validator implementation — three coordinated changes that fail compile until all three land. Stringly-typed switch would lose the compiler check."
+  - key: "Persistence is filesystem-first; Redis is in-flight handoff only. Reason: replay scenarios (CI artifact retrieval, debug, audit) need durable disk artifacts. Redis ttl-bound transient is the right shape for phase-to-phase handoff inside one run. The PromoteToFilesystem step at pipeline end is the durability boundary. On Redis loss mid-run, the pipeline fails — the run hasn't completed, no artifact promised. On filesystem write failure, the run is logged-broken but the data is gone (Redis cleared); the trade-off is acceptable because filesystem failures during agent-smith runs are rare and surface as visible run-result errors."
+  - key: "Pipeline storage TTL is 4 hours, not run-bound. Reason: a run typically completes in 5-30 minutes; 4 hours covers worst-case stalls (provider timeouts, manual approval delays, retry backoffs). Run-bound TTL (clear-on-completion) is what PromoteToFilesystem implements anyway — TTL is the safety net for runs that crash without calling Promote. Past 4 hours, the run is abandoned and Redis won't surface stale artifacts in a fresh run with the same id (run-ids are date-anchored so collisions are extremely unlikely). Operator-tunable via agentsmith.yml under a new pipeline_storage section: { redis_ttl_hours: 4 }."
+  - key: "PlanParser dual-path: strict (schema-validating) and lax (today's free-form parsing). Reason: existing callers parse free-form LLM Plan text via the lax path; rewriting all callers in this slice to strict-mode would force a same-day migration. Opt-in per call site keeps p0128a focused on the schema + validator + persistence trio. Migration of callers happens incrementally in p0128b (which adds the open_questions round-trip and is the natural moment to flip Plan-emitting skills to strict). The dual path stays until D7 (p0131) drops the lax path entirely."
+  - key: "Plan record extended additively, not rewritten. Reason: ContextKeys.Plan and ContextKeys.PlanArtifact are read by multiple existing handlers (RunResultFormatter, etc.). Renaming or restructuring the Plan record breaks those readers. Adding new properties (Scope, OpenQuestions, TestImpact, ConsumerImpact, Status) lets existing readers ignore them and new readers consume them. Backward-compatible at the record level; forward progress at the schema level."
+  - key: "ObservationOutputValidator wraps existing ObservationParser, not a fresh JSON-Schema validation. Reason: ObservationParser was hardened in p0124 with caps + the resilient JSON object extractor — a battle-tested parser. Replacing it with a JSON-Schema-first validator would mean either re-implementing the resilient extraction in JSON Schema (impossible — it's structural recovery, not declarative) or losing it. The wrapper preserves p0124's recovery semantics and produces an ISkillOutputValidator surface for symmetry with the new validators."
+
+steps:
+  - id: schemas-and-loader
+    action: "JSON Schema files + loader that parses and validates them at boot"
+    new:
+      - ".agentsmith/schemas/plan.schema.json: Draft 2020-12 schema for Plan output. summary (string, 1-200 chars); scope.files (array of strings); scope.modules (array of strings); steps (array of {id: int, action: string, file: string, reason: string ≤300 chars}); open_questions (array of {id: string, question: string, options: array of strings}); test_impact (string|null); consumer_impact (string|null); status (enum: complete, needs_user_input). Constraint: status=complete requires open_questions length 0; status=needs_user_input requires open_questions length ≥1."
+      - ".agentsmith/schemas/diff.schema.json: Draft 2020-12 schema for Diff output. changes (array of {file: string, operation: enum {modify, add, delete}, summary: string ≤200 chars, patch: string}); tests_added (array of {file: string, summary: string}); tests_modified (array of {file: string, summary: string}); build_status (enum: ok, failed, not_run); test_status (enum: ok, failed, not_run)."
+      - ".agentsmith/schemas/bootstrap.schema.json: Draft 2020-12 schema for Bootstrap output. status (enum: complete, needs_user_input); files_written (array of {path: string, kind: enum {context_yaml, coding_principles}}); open_questions (array of {id: string, question: string, options: array of strings}). Constraint: status=complete requires files_written non-empty AND open_questions empty."
+      - ".agentsmith/schemas/observation.schema.json: Draft 2020-12 schema for Observation output, derived from the existing observation-schema.md contract. Field shapes match the SkillObservation record (concern, severity, confidence, file, start_line, end_line, description ≤500 chars, suggestion ≤300, rationale ≤500, optional details ≤4000)."
+      - "src/AgentSmith.Application/Services/Validation/JsonSchemaLoader.cs: ~80 lines. Loads each schema file at startup via JsonSchema.Net's JsonSchema.FromText, validates the loaded schema against Draft 2020-12 metaschema, caches by output_schema enum key. Throws JsonSchemaLoadException with file path on malformed schema."
+    modify:
+      - "src/AgentSmith.Application/AgentSmith.Application.csproj: add NuGet ref JsonSchema.Net version pinned exact (e.g. [7.0.4]) — compatible with .NET 8 and System.Text.Json native."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register JsonSchemaLoader as singleton; loaded schemas live for process lifetime."
+
+  - id: skill-output-validators
+    action: "Real ISkillOutputValidator implementations + factory selecting by output_schema"
+    new:
+      - "src/AgentSmith.Application/Services/Validation/PlanOutputValidator.cs: ~50 lines. Validates a JSON string against the cached plan.schema.json. Returns ValidationResult.Ok on pass; on fail, returns ValidationResult.Failure with each schema-validation error formatted as 'plan.<JsonPointer>: <rule description>' joined by '; '."
+      - "src/AgentSmith.Application/Services/Validation/DiffOutputValidator.cs: ~50 lines. Same shape against diff.schema.json."
+      - "src/AgentSmith.Application/Services/Validation/BootstrapOutputValidator.cs: ~50 lines. Same shape against bootstrap.schema.json."
+      - "src/AgentSmith.Application/Services/Validation/ObservationOutputValidator.cs: ~30 lines. Wraps existing ObservationParser (from p0124); calls TryParseWithoutIds; returns ValidationResult.Ok when parser produces ≥1 observation, ValidationResult.Failure otherwise. The wrapper exists for ISkillOutputValidator symmetry; the parser keeps its recovery semantics."
+      - "src/AgentSmith.Application/Services/Validation/SkillOutputValidatorFactory.cs: ~40 lines. Keyed by output_schema enum value. ForSchema(string? outputSchema) returns the matching validator instance, or NoOpSkillOutputValidator when outputSchema is null. Constructor injects all four real validators; the factory itself is a singleton."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs (existing from p0126b): construct the validator via SkillOutputValidatorFactory.ForSchema(request.OutputSchema) instead of the NoOp default. SkillCallRequest gains an OutputSchema (string?) field — RoleSkillDefinition.OutputSchema (from p0127a) flows through here when the calling handler passes it. Today's callers that don't pass it get NoOp; p0127b's triage migration is when real values flow."
+      - "src/AgentSmith.Application/Models/SkillCallRequest.cs (existing from p0126b): add OutputSchema (string?) property. Backward-compatible — null is fine."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register PlanOutputValidator, DiffOutputValidator, BootstrapOutputValidator, ObservationOutputValidator, SkillOutputValidatorFactory."
+
+  - id: plan-record-extension
+    action: "Plan record gains the new schema fields additively"
+    modify:
+      - "src/AgentSmith.Domain/Entities/Plan.cs: add Scope (PlanScope record with Files, Modules), OpenQuestions (IReadOnlyList<PlanOpenQuestion>), TestImpact (string?), ConsumerImpact (string?), Status (PlanStatus enum: Complete, NeedsUserInput). Existing Summary, Steps, Decisions, RawResponse preserved. Each new property is initialized to a sensible default (empty list, null) so existing constructions don't break."
+    new:
+      - "src/AgentSmith.Domain/Entities/PlanScope.cs: record { IReadOnlyList<string> Files, IReadOnlyList<string> Modules }."
+      - "src/AgentSmith.Domain/Entities/PlanOpenQuestion.cs: record { string Id, string Question, IReadOnlyList<string> Options }."
+      - "src/AgentSmith.Domain/Entities/PlanStatus.cs: enum { Complete, NeedsUserInput }."
+
+  - id: diff-record
+    action: "Diff entity introduced as the typed in-process Diff representation"
+    new:
+      - "src/AgentSmith.Domain/Entities/Diff.cs: record { IReadOnlyList<DiffChange> Changes, IReadOnlyList<DiffTestEntry> TestsAdded, IReadOnlyList<DiffTestEntry> TestsModified, DiffStatus BuildStatus, DiffStatus TestStatus }."
+      - "src/AgentSmith.Domain/Entities/DiffChange.cs: record { string File, DiffOperation Operation, string Summary, string Patch }."
+      - "src/AgentSmith.Domain/Entities/DiffTestEntry.cs: record { string File, string Summary }."
+      - "src/AgentSmith.Domain/Entities/DiffOperation.cs: enum { Modify, Add, Delete }."
+      - "src/AgentSmith.Domain/Entities/DiffStatus.cs: enum { Ok, Failed, NotRun }."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: add DiffJson (string), PlanJson (string), BootstrapMarkdown (string) keys for transient JSON/markdown payloads. The existing Plan and CodeChanges keys keep their typed-entity semantics; new keys are the wire-format used for persistence."
+
+  - id: plan-parser-strict-mode
+    action: "PlanParser gains opt-in strict mode that uses PlanOutputValidator"
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/PlanParser.cs: add ParseStrict(string output) method returning PlanParseResult { Plan? Plan, ValidationResult Validation }. Calls PlanOutputValidator.Validate first; if Ok, parses the JSON into a typed Plan with all new fields populated; if Failure, returns the validation failure unmodified for the caller (RetryCoordinator, run-result rendering) to handle. Existing Parse method (lax) preserved unchanged; callers opt in by calling ParseStrict instead."
+
+  - id: filesystem-persistence
+    action: "WriteRunResultHandler writes plan.json, diff.json, bootstrap.md alongside existing artifacts"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs: in ExecuteAsync, after the existing plan.md / result.md writes, check PipelineContext for ContextKeys.PlanJson, DiffJson, BootstrapMarkdown. When present, write them to <run-dir>/plan.json, diff.json, bootstrap.md respectively. Pretty-print the JSON via JsonSerializer with WriteIndented=true. Also read PipelineCostTracker.PerSkillBreakdown (from p0126b, scoped per pipeline run); when non-empty, render to a 'Per-skill cost breakdown' section in result.md sorted by start time, format `<skillName> (<role>, <phase>): <in> in / <out> out / <toolCallCount> tools / <durationMs>ms`."
+
+  - id: redis-pipeline-storage
+    action: "RunArtifactStore wraps Redis for in-flight phase handoffs"
+    new:
+      - "src/AgentSmith.Application/Services/Persistence/IRunArtifactStore.cs: interface. Methods: WritePlanAsync(runId, plan), ReadPlanAsync(runId), WriteDiffAsync(runId, diff), ReadDiffAsync(runId), WriteBootstrapAsync(runId, markdown), ReadBootstrapAsync(runId), PromoteToFilesystemAsync(runId, runDir), ClearAsync(runId)."
+      - "src/AgentSmith.Infrastructure/Services/Persistence/RedisRunArtifactStore.cs: ~120 lines. Implementation against StackExchange.Redis. Keys: pipeline:<runId>:plan, pipeline:<runId>:diff, pipeline:<runId>:bootstrap. TTL 4 hours configurable. Promote reads all keys, returns the values to the caller (which writes them to disk via WriteRunResultHandler), then deletes the keys."
+      - "src/AgentSmith.Application/Services/Persistence/InMemoryRunArtifactStore.cs: ~80 lines. Test-time and dev-time alternative when Redis isn't available. Same interface, ConcurrentDictionary-backed. TTL approximated with a Timer that purges old entries; not production."
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs: add PipelineStorage property: { RedisTtlHours (int, default 4) }."
+      - "config/agentsmith.yml: add pipeline_storage: { redis_ttl_hours: 4 } section with inline comment explaining the run-bound vs ttl-bound trade-off."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register RedisRunArtifactStore as IRunArtifactStore singleton when ConnectionMultiplexer is configured; otherwise InMemoryRunArtifactStore."
+
+  - id: tests
+    action: "Test pack: schemas, validators, factory, persistence, Plan/Diff records, PlanParser strict mode"
+    new:
+      - "tests/AgentSmith.Tests/Validation/PlanOutputValidatorTests.cs: Validate_ValidPlanComplete_ReturnsOk; Validate_ValidPlanNeedsUserInput_ReturnsOk; Validate_StatusCompleteWithOpenQuestions_ReturnsFailureCitingConstraint; Validate_StatusNeedsUserInputWithEmptyOpenQuestions_ReturnsFailure; Validate_SummaryOver200Chars_ReturnsFailureWithJsonPointer; Validate_StepReasonOver300Chars_ReturnsFailureWithJsonPointer; Validate_MissingRequiredField_ReturnsFailure; Validate_NotJson_ReturnsFailure."
+      - "tests/AgentSmith.Tests/Validation/DiffOutputValidatorTests.cs: Validate_ValidDiff_ReturnsOk; Validate_OperationOutsideEnum_ReturnsFailure; Validate_ChangeSummaryOver200Chars_ReturnsFailure; Validate_BuildStatusOutsideEnum_ReturnsFailure; Validate_MissingChanges_ReturnsFailure; Validate_NotJson_ReturnsFailure."
+      - "tests/AgentSmith.Tests/Validation/BootstrapOutputValidatorTests.cs: Validate_ValidComplete_ReturnsOk; Validate_ValidNeedsUserInput_ReturnsOk; Validate_StatusCompleteWithOpenQuestions_ReturnsFailure; Validate_FilesWrittenEmptyOnComplete_ReturnsFailure; Validate_NotJson_ReturnsFailure."
+      - "tests/AgentSmith.Tests/Validation/ObservationOutputValidatorTests.cs: Validate_ParsableObservationList_ReturnsOk; Validate_NoObservations_ReturnsFailure; Validate_RecoverableTruncatedJson_ReturnsOkViaResilientPath (asserts ObservationParser's resilient extractor still works through the wrapper)."
+      - "tests/AgentSmith.Tests/Validation/SkillOutputValidatorFactoryTests.cs: ForSchema_Plan_ReturnsPlanValidator; ForSchema_Diff_ReturnsDiffValidator; ForSchema_Bootstrap_ReturnsBootstrapValidator; ForSchema_Observation_ReturnsObservationValidator; ForSchema_Null_ReturnsNoOpValidator; ForSchema_UnknownString_ThrowsOrReturnsNoOp (decision: throw — unknown schema is a config bug, not a runtime tolerated state)."
+      - "tests/AgentSmith.Tests/Validation/JsonSchemaLoaderTests.cs: Load_AllSchemas_ParseSuccessfully; Load_MalformedSchema_ThrowsJsonSchemaLoadException; Load_SchemaFailsMetaSchema_ThrowsJsonSchemaLoadException."
+      - "tests/AgentSmith.Tests/Domain/PlanRecordExtensionTests.cs: Plan_NewFieldsDefaulted_BackwardCompatible (assert existing constructors work without new fields); Plan_AllNewFieldsSet_RoundTripThroughJson (assert serialize/deserialize preserves all fields)."
+      - "tests/AgentSmith.Tests/Domain/DiffRecordTests.cs: Diff_AllFieldsSet_RoundTripThroughJson; DiffOperation_EnumValues_MapToSchema; DiffStatus_EnumValues_MapToSchema."
+      - "tests/AgentSmith.Tests/Services/PlanParserStrictModeTests.cs: ParseStrict_ValidPlanJson_ReturnsTypedPlan; ParseStrict_InvalidJson_ReturnsValidationFailure; ParseStrict_SchemaViolation_ReturnsValidationFailureWithJsonPointer; Parse_LegacyPath_StillWorks (regression-guards the lax path)."
+      - "tests/AgentSmith.Tests/Persistence/RedisRunArtifactStoreTests.cs (integration; requires Redis fixture): WritePlanAsync_ReadPlanAsync_RoundTrip; WriteAndPromote_FilesLandInRunDir_KeysCleared; ClearAsync_RemovesAllKeys; KeysExpire_AfterConfiguredTtl (long-running test, marked Trait('Category','Slow'))."
+      - "tests/AgentSmith.Tests/Persistence/InMemoryRunArtifactStoreTests.cs: WritePlanAsync_ReadPlanAsync_RoundTrip; WriteAndPromote_FilesLandInRunDir_KeysCleared; ClearAsync_RemovesAllKeys."
+      - "tests/AgentSmith.Tests/Handlers/WriteRunResultHandlerArtifactsTests.cs: ExecuteAsync_PlanJsonInContext_WritesPlanJsonToRunDir; ExecuteAsync_DiffJsonInContext_WritesDiffJsonToRunDir; ExecuteAsync_BootstrapMarkdownInContext_WritesBootstrapMdToRunDir; ExecuteAsync_PerSkillBreakdownPresent_RendersBreakdownSection; ExecuteAsync_PerSkillBreakdownEmpty_NoBreakdownSection."
+
+tests:
+  - "PlanOutputValidator_Validate_ValidPlanComplete_ReturnsOk"
+  - "PlanOutputValidator_Validate_ValidPlanNeedsUserInput_ReturnsOk"
+  - "PlanOutputValidator_Validate_StatusCompleteWithOpenQuestions_ReturnsFailureCitingConstraint"
+  - "PlanOutputValidator_Validate_StatusNeedsUserInputWithEmptyOpenQuestions_ReturnsFailure"
+  - "PlanOutputValidator_Validate_SummaryOver200Chars_ReturnsFailureWithJsonPointer"
+  - "PlanOutputValidator_Validate_StepReasonOver300Chars_ReturnsFailureWithJsonPointer"
+  - "PlanOutputValidator_Validate_MissingRequiredField_ReturnsFailure"
+  - "PlanOutputValidator_Validate_NotJson_ReturnsFailure"
+  - "DiffOutputValidator_Validate_ValidDiff_ReturnsOk"
+  - "DiffOutputValidator_Validate_OperationOutsideEnum_ReturnsFailure"
+  - "DiffOutputValidator_Validate_ChangeSummaryOver200Chars_ReturnsFailure"
+  - "DiffOutputValidator_Validate_BuildStatusOutsideEnum_ReturnsFailure"
+  - "DiffOutputValidator_Validate_MissingChanges_ReturnsFailure"
+  - "DiffOutputValidator_Validate_NotJson_ReturnsFailure"
+  - "BootstrapOutputValidator_Validate_ValidComplete_ReturnsOk"
+  - "BootstrapOutputValidator_Validate_ValidNeedsUserInput_ReturnsOk"
+  - "BootstrapOutputValidator_Validate_StatusCompleteWithOpenQuestions_ReturnsFailure"
+  - "BootstrapOutputValidator_Validate_FilesWrittenEmptyOnComplete_ReturnsFailure"
+  - "BootstrapOutputValidator_Validate_NotJson_ReturnsFailure"
+  - "ObservationOutputValidator_Validate_ParsableObservationList_ReturnsOk"
+  - "ObservationOutputValidator_Validate_NoObservations_ReturnsFailure"
+  - "ObservationOutputValidator_Validate_RecoverableTruncatedJson_ReturnsOkViaResilientPath"
+  - "SkillOutputValidatorFactory_ForSchema_Plan_ReturnsPlanValidator"
+  - "SkillOutputValidatorFactory_ForSchema_Diff_ReturnsDiffValidator"
+  - "SkillOutputValidatorFactory_ForSchema_Bootstrap_ReturnsBootstrapValidator"
+  - "SkillOutputValidatorFactory_ForSchema_Observation_ReturnsObservationValidator"
+  - "SkillOutputValidatorFactory_ForSchema_Null_ReturnsNoOpValidator"
+  - "SkillOutputValidatorFactory_ForSchema_UnknownString_Throws"
+  - "JsonSchemaLoader_Load_AllSchemas_ParseSuccessfully"
+  - "JsonSchemaLoader_Load_MalformedSchema_ThrowsJsonSchemaLoadException"
+  - "JsonSchemaLoader_Load_SchemaFailsMetaSchema_ThrowsJsonSchemaLoadException"
+  - "PlanRecordExtension_Plan_NewFieldsDefaulted_BackwardCompatible"
+  - "PlanRecordExtension_Plan_AllNewFieldsSet_RoundTripThroughJson"
+  - "DiffRecord_Diff_AllFieldsSet_RoundTripThroughJson"
+  - "DiffRecord_DiffOperation_EnumValues_MapToSchema"
+  - "DiffRecord_DiffStatus_EnumValues_MapToSchema"
+  - "PlanParserStrictMode_ParseStrict_ValidPlanJson_ReturnsTypedPlan"
+  - "PlanParserStrictMode_ParseStrict_InvalidJson_ReturnsValidationFailure"
+  - "PlanParserStrictMode_ParseStrict_SchemaViolation_ReturnsValidationFailureWithJsonPointer"
+  - "PlanParserStrictMode_Parse_LegacyPath_StillWorks"
+  - "RedisRunArtifactStore_WritePlanAsync_ReadPlanAsync_RoundTrip"
+  - "RedisRunArtifactStore_WriteAndPromote_FilesLandInRunDir_KeysCleared"
+  - "RedisRunArtifactStore_ClearAsync_RemovesAllKeys"
+  - "RedisRunArtifactStore_KeysExpire_AfterConfiguredTtl"
+  - "InMemoryRunArtifactStore_WritePlanAsync_ReadPlanAsync_RoundTrip"
+  - "InMemoryRunArtifactStore_WriteAndPromote_FilesLandInRunDir_KeysCleared"
+  - "InMemoryRunArtifactStore_ClearAsync_RemovesAllKeys"
+  - "WriteRunResultHandlerArtifacts_ExecuteAsync_PlanJsonInContext_WritesPlanJsonToRunDir"
+  - "WriteRunResultHandlerArtifacts_ExecuteAsync_DiffJsonInContext_WritesDiffJsonToRunDir"
+  - "WriteRunResultHandlerArtifacts_ExecuteAsync_BootstrapMarkdownInContext_WritesBootstrapMdToRunDir"
+  - "WriteRunResultHandlerArtifacts_ExecuteAsync_PerSkillBreakdownPresent_RendersBreakdownSection"
+  - "WriteRunResultHandlerArtifacts_ExecuteAsync_PerSkillBreakdownEmpty_NoBreakdownSection"
+
+done:
+  - "Four JSON Schema files exist under .agentsmith/schemas/ (plan, diff, bootstrap, observation), pinned to Draft 2020-12, encoding Phase C field shapes and behaviour rules"
+  - "JsonSchemaLoader parses and caches all four at boot; malformed schemas fail boot loudly"
+  - "ISkillOutputValidator real implementations (PlanOutputValidator, DiffOutputValidator, BootstrapOutputValidator, ObservationOutputValidator) replace NoOp for skills with a declared output_schema; SkillOutputValidatorFactory resolves the right one"
+  - "Plan record gains Scope, OpenQuestions, TestImpact, ConsumerImpact, Status fields without breaking existing constructions; Diff entity introduced as the typed in-process Diff representation"
+  - "PlanParser supports both lax (legacy) and strict (schema-validating) modes; ParseStrict returns typed Plan or structured ValidationFailure"
+  - "WriteRunResultHandler persists plan.json, diff.json, bootstrap.md to .agentsmith/runs/<run-id>/; PerSkillBreakdown renders into result.md when non-empty"
+  - "RunArtifactStore (Redis-backed in production, in-memory in dev/tests) handles in-flight phase handoffs; PromoteToFilesystem moves data to durable storage at pipeline end; TTL 4 hours configurable in agentsmith.yml"
+  - "JsonSchema.Net pinned exact in AgentSmith.Application.csproj; .NET 8, System.Text.Json compatibility preserved"
+  - "All 53 new tests pass"
+  - "All existing tests pass (no regressions); existing PlanParser.Parse behaviour unchanged for legacy callers"
+  - "open_questions content is validated by the Plan schema but not yet round-tripped to humans — that's p0128b. Opt-in data-flow gating still pending — that's p0128c"

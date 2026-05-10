@@ -75,7 +75,8 @@ internal sealed class WebhookRequestProcessor(
             result.ProjectName!,
             new TicketId(result.TicketId!),
             ResolvePipelineName(result.Pipeline, config, result.ProjectName!, resolver),
-            result.InitialContext);
+            result.InitialContext,
+            result.PlanAnswers);
 
         var outcome = await claimService.ClaimAsync(claim, config, CancellationToken.None);
         return MapClaim(outcome, result);

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0129b
+goal: "Second slice of D5. build-verifier + test-verifier — VerifyDiff investigator skills that analyze the Diff for likely build / test breakage. LLM-only static analysis in this slice; actual command execution from verifiers is a separate infrastructure phase if needed."
+
+requires: ["p0129a"]
+
+scope:
+  in: "(1) build-verifier SKILL.md added to agent-smith-skills/skills/coding/build-verifier/SKILL.md. New format: role=investigator, investigator_mode=verify_diff, output_schema=observation, activates_when on fix-bug or feature-implementation. Body instructs the LLM to scan the Diff for build-breakage signals: missing using/import statements after type renames, removed members still referenced, interface signatures changed without updating implementations, syntactically improbable patches (unbalanced braces, malformed expressions). Out-of-scope: actually running the build — the existing Test pipeline command handles that fail-fast at the next step. Concern=Correctness, severity=High, blocking=true on high-confidence breakage signal. (2) test-verifier SKILL.md similarly — analyzes Diff for test-coverage gaps: new public methods/classes without corresponding test changes, removed test methods without justification, modified business logic without test updates. Heuristic, not exhaustive — the existing Test command runs the actual tests. Concern=Correctness, severity=Medium for missing-test-coverage (non-blocking note), severity=High + blocking=true only when tests are explicitly removed without a stated reason. (3) Cross-repo: agent-smith-skills 2.1.0 → 2.2.0; agent-smith pin bumped synchronously. Both skills exercise p0129a's VerifyRoundHandler dispatch path — no new C# code needed; the handler already filters by role + investigator_mode + activates_when, so adding new verifier skills is purely a skills-repo concern."
+  out: "Actual build / test command execution from inside verifier skills — that's a separate infrastructure phase. Today's path: existing Test command in the pipeline runs the build/tests AFTER verify; verify's job is to predict + flag obvious breakage from the diff alone, providing fast feedback before the slower real-run. If LLM static analysis proves insufficient, a follow-up phase wires SandboxToolHost into VerifyRoundHandler so verifiers can call RunCommand themselves. ProjectBuildCommandResolver from the parent p0129 spec is deferred to that follow-up. Verify-notes deduplication across rounds (round-1 + round-2 notes carry duplicates today) — also deferred to that infrastructure phase or to p0129c."
+
+decisions:
+  - key: "LLM-only static analysis instead of actual command execution. Reason: VerifyRoundHandler from p0129a doesn't currently pass tools (SandboxToolHost) to its IChatClient calls; verifier skills can't invoke RunCommand. Wiring tools through would require re-routing through SkillCallRuntime + ToolKit (deferred consumer migration from p0126c) or duplicating the SandboxToolHost wiring inside VerifyRoundHandler. Either is a >1-day infrastructure lift unsuited to a slice that's primarily about adding skill content. Static analysis from the diff content is a useful first-pass — the existing Test command runs the actual build/tests in the pipeline step right after Verify, so build/test failures still surface; verify just adds an LLM-driven pre-check for diff patterns that statistically correlate with build/test breakage. -- alternatives: ship tool-passing infrastructure now (rejected: scope creep into p0126/p0127 territory); skip build-verifier + test-verifier entirely and only ship architecture-verifier in p0129c (rejected: build/test-shaped concerns are the most common bug-18693-class regressions; skipping leaves an obvious gap in the verifier set)."
+  - key: "test-verifier flags missing-test-coverage as non-blocking medium-severity by default, blocking only on test-removal-without-justification. Reason: missing tests is a quality concern; blocking the pipeline on it would make verify too noisy in a codebase that hasn't reached 100% coverage discipline. Test removal is structurally suspicious — if a test was removed, the implementer should have a reason recorded somewhere (commit message, plan step). Lacking that, the diff is removing safety nets silently. -- alternatives: block on all coverage gaps (rejected: too noisy for the typical bug-fix flow); never block (rejected: silent test removal is exactly the kind of regression verify exists to catch)."
+  - key: "Verify-notes dedup deferred to a later phase, not in p0129b. Reason: round-2 verifiers re-emit round-1 findings plus possibly new ones. Dedup at the combine site would compare observations by (concern, file, description prefix) and keep the most recent — useful but mechanical. p0129b's content focus + the small dedup-logic surface area makes it cleaner to land in either p0129c (when architecture-verifier is added and the volume increases) or a dedicated cleanup phase. -- alternatives: add dedup here (rejected: scope creep); accept duplicates indefinitely (rejected: operator noise grows linearly with verifier count)."
+
+steps:
+  - id: build-verifier-skill
+    action: "build-verifier SKILL.md added in agent-smith-skills"
+    new:
+      - "[skills-repo] skills/coding/build-verifier/SKILL.md: new-format SKILL.md per p0127c. Frontmatter as documented in scope.in. Body explains the heuristic rule set + output format (single-line JSON array of observations with concern=Correctness, severity=High on confirmed breakage, file=offending path, description ≤500 chars stating the breakage signal)."
+
+  - id: test-verifier-skill
+    action: "test-verifier SKILL.md added in agent-smith-skills"
+    new:
+      - "[skills-repo] skills/coding/test-verifier/SKILL.md: new-format SKILL.md per p0127c. Frontmatter as documented in scope.in. Body lists the heuristic rule set (new public methods without test files, removed test methods without justification, business-logic changes without test updates) + output format. severity=Medium + blocking=false on coverage gaps; severity=High + blocking=true on test removal without justification."
+
+  - id: cross-repo-bump
+    action: "agent-smith-skills 2.1.0 → 2.2.0; agent-smith pin synced"
+    modify:
+      - "[skills-repo] version.txt: 2.1.0 → 2.2.0."
+      - "[skills-repo] CHANGELOG.md: prepend 2.2.0 entry for build-verifier + test-verifier."
+      - "config/agentsmith.yml: skills version v2.1.0 → v2.2.0."
+
+  - id: tests
+    action: "Smoke test: VerifyRoundHandler resolves all three verifiers when added to test fixture"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/VerifyRoundHandlerMultiVerifierTests.cs: ExecuteAsync_ThreeActiveVerifiers_AllInvokedAndObservationsAggregated; ExecuteAsync_OneBlockingFromBuildVerifier_TriggersReLoop. Uses StubChatClient with a queue of three responses + asserts call count + aggregated VerifyObservations."
+
+tests:
+  - "VerifyRoundHandlerMultiVerifier_ExecuteAsync_ThreeActiveVerifiers_AllInvokedAndObservationsAggregated"
+  - "VerifyRoundHandlerMultiVerifier_ExecuteAsync_OneBlockingFromBuildVerifier_TriggersReLoop"
+
+done:
+  - "build-verifier and test-verifier SKILL.md files exist in agent-smith-skills/skills/coding/"
+  - "agent-smith-skills 2.2.0 tagged; agent-smith config/agentsmith.yml skills.version pinned to v2.2.0"
+  - "VerifyRoundHandlerMultiVerifierTests pass (2 new tests)"
+  - "All existing tests pass (no regressions)"
+  - "Architecture-verifier and verify-notes dedup pending (p0129c or follow-up)"

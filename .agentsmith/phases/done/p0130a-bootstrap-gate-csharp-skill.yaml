@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0130a
+goal: "Wire BootstrapCheckHandler into code-touching presets and add the BootstrapGateHandler that aborts the pipeline when context.yaml or coding-principles.md is missing. Categorize the 10 presets into Strict / Conditional / None per p0130 parent decisions. First bootstrap producer skill (csharp-bootstrap) lands in agent-smith-skills 2.3.0 → 2.4.0 so init-project's existing Bootstrap step has a real producer."
+
+requires: ["p0125d", "p0127c", "p0129c"]
+
+scope:
+  in: "(1) New CommandNames.BootstrapGate + BootstrapGateContext + BootstrapGateContextBuilder + BootstrapGateHandler (Application/Services/Handlers/BootstrapGateHandler.cs). Reads context_yaml_present + coding_principles_present from IRunStateConcepts; for ApiSecurityScan additionally reads source_available and short-circuits with Ok(skipped) when source not available. Strict failure mode: CommandResult.Fail with message 'Pipeline aborted: project missing .agentsmith/context.yaml or coding-principles.md. Run init-project first.' (2) BootstrapCheckContextBuilder added (handler already in DI from p0125c, builder was missing). (3) PipelinePresets gain BootstrapCheck + BootstrapGate after the source-checkout step in: FixBug, FixNoTest, AddFeature, SecurityScan, Autonomous (Strict — gate active always); ApiSecurityScan (Conditional — TryCheckoutSource ordering preserves source_available being published before the gate evaluates). MadDiscussion + LegalAnalysis + InitProject + SkillManager unchanged (no gate). (4) DI registration in ServiceCollectionExtensions for BootstrapGateContextBuilder + BootstrapGateHandler + BootstrapCheckContextBuilder. (5) Cross-repo: agent-smith-skills 2.3.0 → 2.4.0 — new skills/coding/csharp-bootstrap/SKILL.md (role=producer, output_schema=bootstrap, activates_when='project_language = \"csharp\"'). project_language enum added to skills/concept-vocabulary.yaml with values [csharp, node, python, generic]. agentsmith.yml skills.version pin 2.3.0 → 2.4.0."
+  out: "Removal of legacy BootstrapProjectHandler — that's p0131b. Bootstrap-skill SELECTION via ActivationSkillFilter inside the init-project Bootstrap step — InitProject's Bootstrap step still routes to BootstrapProjectHandler in this slice; the new csharp-bootstrap skill loads into the catalog but is not yet dispatched (p0130b extends and p0131b cuts the legacy route). Other 3 bootstrap skills (node/python/generic) — that's p0130b. Operator-side migration scripts. CHANGELOG / CI workflow changes."
+
+decisions:
+  - key: "BootstrapGateHandler reads concepts via IRunStateConcepts (the p0125b factory delegate), not via direct ContextKeys lookup. Reason: concepts live in ContextKeys.ConceptValues dictionary; the IRunStateConcepts surface is the published reader. Spec text said 'reads ContextKeys.context_yaml_present + ContextKeys.coding_principles_present' which would bypass the typed concept layer and re-introduce a parallel state-bag — anti-pattern. The handler depends on Func<PipelineContext, IRunStateConcepts> like every other concept consumer. -- alternatives: read raw dictionary (rejected: defeats p0125b's typed surface)."
+  - key: "ApiSecurityScan conditional logic: handler reads pipeline.Resolved().PipelineName + concepts.GetBool('source_available'); when pipeline_name='api-security-scan' AND !source_available, returns Ok('Bootstrap gate skipped: passive api-scan mode (no source resolved)'). Reason: p0102a's three modes for api-scan include passive (no source). Forcing the gate would kill that mode. Hardcoded inline check (not a registry) per parent-spec decision — one consumer, registry would be premature."
+  - key: "Preset insertion is BootstrapCheck → BootstrapGate (separate steps). Reason: BootstrapCheck publishes the concepts (IConceptWriter); BootstrapGate reads them. Putting them in one step would conflate publication and policy. Same pattern as PipelineNameInitializer (publish) + downstream consumers."
+  - key: "Insertion location: directly after CheckoutSource (or TryCheckoutSource for api-scan), BEFORE LoadCodingPrinciples / LoadContext / LoadCodeMap. Reason: those Load* steps read the very files the gate is checking; running them before the gate would error on missing files in a less-actionable way. Gate-first means the operator gets the clear 'run init-project first' message."
+  - key: "InitProject preset NOT gated. Reason: init-project's whole purpose is to produce those files. Gating it would create a chicken-and-egg lock — the user runs init-project to fix the missing-files state. The InitProject preset's own Bootstrap step is the producer."
+
+steps:
+  - id: command-names
+    action: "Add CommandNames.BootstrapGate"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs"
+    new: []
+
+  - id: contexts-and-builders
+    action: "Add BootstrapGateContext + BootstrapGateContextBuilder + BootstrapCheckContextBuilder"
+    new:
+      - "src/AgentSmith.Application/Models/BootstrapGateContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/BootstrapGateContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/BootstrapCheckContextBuilder.cs"
+    modify: []
+
+  - id: handler
+    action: "Add BootstrapGateHandler"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs"
+
+  - id: di
+    action: "Register builders + handler in ServiceCollectionExtensions"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: presets
+    action: "Insert BootstrapCheck + BootstrapGate into 6 presets"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: tests
+    action: "Unit tests for handler + preset wiring"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/BootstrapGateHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Pipeline/BootstrapGatePipelinePresetsTests.cs"
+
+  - id: skill-csharp-bootstrap
+    action: "Cross-repo: agent-smith-skills 2.3.0 → 2.4.0; new csharp-bootstrap producer skill + project_language vocabulary entry"
+    new:
+      - "agent-smith-skills/skills/coding/csharp-bootstrap/SKILL.md"
+    modify:
+      - "agent-smith-skills/skills/concept-vocabulary.yaml"
+      - "agent-smith-skills/version.txt"
+      - "agent-smith-skills/CHANGELOG.md"
+      - "agentsmith.yml"
+
+tests:
+  - "BootstrapGateHandler returns Fail when context_yaml_present=false"
+  - "BootstrapGateHandler returns Fail when coding_principles_present=false"
+  - "BootstrapGateHandler returns Ok when both flags true"
+  - "BootstrapGateHandler returns Ok(skipped) when pipeline_name='api-security-scan' AND source_available=false (regardless of bootstrap flags)"
+  - "BootstrapGateHandler returns Fail when pipeline_name='api-security-scan' AND source_available=true AND files missing"
+  - "Preset wiring: FixBug + FixNoTest + AddFeature + SecurityScan + Autonomous + ApiSecurityScan all contain BootstrapCheck immediately followed by BootstrapGate after their source-checkout step"
+  - "Preset wiring: MadDiscussion + LegalAnalysis + InitProject + SkillManager DO NOT contain BootstrapGate"
+
+done:
+  - "BootstrapGate command + handler + builder + context exist; DI registered"
+  - "Six presets gain the 2-step gate; four presets remain ungated"
+  - "ApiSecurityScan ordering preserved: TryCheckoutSource → BootstrapCheck → BootstrapGate"
+  - "All existing tests pass; new gate-handler + preset-wiring tests pass"
+  - "Cross-repo: agent-smith-skills 2.4.0 ships csharp-bootstrap + project_language vocab; agentsmith.yml pin synced"

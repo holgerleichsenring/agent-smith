@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -9,10 +10,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <summary>
 /// Handles GitHub issue_comment events for re-triggering pipelines.
 /// Checks for configured keyword in comment body, respects status gate.
+/// p0128b: detects Plan-open-questions answers and re-triggers with PlanAnswers populated.
 /// </summary>
 public sealed class GitHubIssueCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    PlanAnswerParser planAnswerParser,
     ILogger<GitHubIssueCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -41,10 +44,14 @@ public sealed class GitHubIssueCommentWebhookHandler(
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
             var (projectName, triggerConfig) = GitHubIssueWebhookHandler.FindProject(config, repoUrl);
 
-            if (triggerConfig?.CommentKeyword is null)
-                return Task.FromResult(new WebhookResult(false, null, null));
+            if (triggerConfig is null) return Task.FromResult(new WebhookResult(false, null, null));
 
-            if (!commentBody.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase))
+            var planAnswers = planAnswerParser.Parse(commentBody);
+            var hasAnswers = planAnswers.Count > 0;
+            var hasKeyword = triggerConfig.CommentKeyword is not null
+                && commentBody.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase);
+
+            if (!hasAnswers && !hasKeyword)
                 return Task.FromResult(new WebhookResult(false, null, null));
 
             var issueState = issueEl.GetProperty("state").GetString() ?? "open";
@@ -55,14 +62,12 @@ public sealed class GitHubIssueCommentWebhookHandler(
             }
 
             var issueNumber = issueEl.GetProperty("number").GetInt32();
-
-            // Resolve pipeline from issue labels
             var labels = ExtractLabels(issueEl);
             var pipeline = ResolveFromLabels(triggerConfig, labels);
 
             logger.LogInformation(
-                "GitHub issue comment trigger: #{Issue} keyword '{Keyword}' -> pipeline '{Pipeline}'",
-                issueNumber, triggerConfig.CommentKeyword, pipeline);
+                "GitHub issue comment trigger: #{Issue} pipeline '{Pipeline}' answers={AnswerCount}",
+                issueNumber, pipeline, planAnswers.Count);
 
             var initialContext = new Dictionary<string, object>
             {
@@ -73,7 +78,9 @@ public sealed class GitHubIssueCommentWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issueNumber.ToString()));
+                TicketId: issueNumber.ToString(),
+                Platform: "github",
+                PlanAnswers: hasAnswers ? new Dictionary<string, string>(planAnswers) : null));
         }
         catch (Exception ex)
         {

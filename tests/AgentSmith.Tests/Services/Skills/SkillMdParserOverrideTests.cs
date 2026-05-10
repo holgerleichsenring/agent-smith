@@ -28,14 +28,17 @@ public sealed class SkillMdParserOverrideTests : IDisposable
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.md"), """
             ---
             name: architect
-            roles_supported: [lead]
+            description: x
+            role: producer
+            output_schema: plan
+            activates_when: "true"
             ---
             base body
             """);
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.openai.md"), """
             ---
             name: architect-openai
-            roles_supported: [lead]
+            role: producer
             ---
             override body
             """);
@@ -48,19 +51,22 @@ public sealed class SkillMdParserOverrideTests : IDisposable
     }
 
     [Fact]
-    public void Parse_OverrideWithMismatchedRolesSupported_RejectsWithClearError()
+    public void Parse_OverrideWithMismatchedRole_RejectsWithClearError()
     {
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.md"), """
             ---
             name: architect
-            roles_supported: [lead, analyst, reviewer]
+            description: x
+            role: producer
+            output_schema: plan
+            activates_when: "true"
             ---
             base body
             """);
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.openai.md"), """
             ---
             name: architect
-            roles_supported: [lead]
+            role: judge
             ---
             override body
             """);
@@ -69,7 +75,7 @@ public sealed class SkillMdParserOverrideTests : IDisposable
         var act = () => parser.Parse(_skillDir);
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*roles_supported*They must match*");
+            .WithMessage("*role='judge'*role='producer'*Roles must match*");
     }
 
     [Fact]
@@ -78,14 +84,16 @@ public sealed class SkillMdParserOverrideTests : IDisposable
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.md"), """
             ---
             name: architect
-            roles_supported: [lead]
+            description: base
+            role: producer
+            output_schema: plan
+            activates_when: "true"
             ---
             base body
             """);
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.openai.md"), """
             ---
             name: architect
-            roles_supported: [lead]
             description: tuned for openai
             ---
             override body
@@ -110,16 +118,17 @@ public sealed class SkillMdParserOverrideTests : IDisposable
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.md"), """
             ---
             name: architect
-            roles_supported: [lead]
             description: base description
             emoji: 🏛️
+            role: producer
+            output_schema: plan
+            activates_when: "true"
             ---
             base body
             """);
         File.WriteAllText(Path.Combine(_skillDir, "SKILL.openai.md"), """
             ---
             name: architect
-            roles_supported: [lead]
             description: openai description
             ---
             override body

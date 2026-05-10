@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0126c
+goal: "Slice 3/3 of p0126. Wire the foundation (p0126a) and collaborators (p0126b) into a working SkillCallRuntime: per-skill cost scopes on PipelineCostTracker, PathReadGuard / PathWriteGuard wrapping GitIgnoreResolver, ToolKit returning phase-keyed tool sets, SkillCallRuntime composing the five collaborators. No consumer migration — the runtime is exercised by its test pack."
+
+requires: ["p0126a", "p0126b"]
+
+scope:
+  in: "(1) PathReadGuard in src/AgentSmith.Application/Services/Tools/: constructor takes IGitIgnoreResolver and a repoRootProvider (Func<string> returning the working repo path). Method `Result AssertReadable(string path)` returns Ok or a structured error (path-outside-repo / path-gitignored / path-in-dot-git). Tool errors flow back into the loop via the M.E.AI tool-result envelope. IGitIgnoreResolver is a new contract interface in AgentSmith.Contracts.Providers/ (single-method IsIgnored(fullPath, repoPath)) so PathReadGuard depends on the contract, not the Infrastructure implementation. The existing GitIgnoreResolver in Infrastructure gains the interface. (2) PathWriteGuard in src/AgentSmith.Application/Services/Tools/: constructor takes PathReadGuard + a SkillExecutionPhase. AssertWritable(path) calls AssertReadable + checks phase ∈ {Implementation, Bootstrap}. Bootstrap phase further restricts the path to the two bootstrap files (`.agentsmith/context.yaml`, `.agentsmith/coding-principles.md`). Implementation-phase plan-file restriction is deferred to p0128. (3) Result + structured error types in src/AgentSmith.Application/Services/Tools/: Result (sealed record with IsSuccess + Error), GuardError (sealed record with Kind enum {OutsideRepo, GitIgnored, InDotGit, WriteForbiddenInPhase, NotInBootstrapFiles} + Path + Message). One file per type. (4) ToolKit in src/AgentSmith.Application/Services/Tools/: constructor takes SandboxToolHost. Method `IList<AITool> GetToolsFor(SkillExecutionPhase? phase, string? investigatorMode)` returns the tool list. Per-phase mapping: Plan/Review/Discuss/Filter/Synthesize → [ReadFile, Grep, ListFiles, LogDecision, AskHuman]; Investigate/Verify → [ReadFile, Grep, ListFiles, LogDecision, AskHuman, RunCommand]; Implementation → all 7 tools; Bootstrap → [ReadFile, Grep, ListFiles, WriteFile, LogDecision, AskHuman]; null → all 7 (legacy compat). (5) SandboxToolHost in src/AgentSmith.Application/Services/Tools/: constructor accepts optional IPathReadGuard + IPathWriteGuard (passed by SkillCallRuntime per-call; null in legacy compat path). ReadFile/Grep/ListFiles call PathReadGuard.AssertReadable on the input path before invoking the underlying sandbox; on guard failure, return a structured tool error string (no exception — flows back into the loop). WriteFile calls PathWriteGuard.AssertWritable. RunCommand has no path arg — phase-gating happens in ToolKit, not here. SandboxToolHostExtensions.GetAllTools() and GetScoutTools() preserved (delegate to ToolKit.GetToolsFor(null) and ToolKit.GetToolsFor(Plan, null)). (6) PipelineCostTracker per-skill scopes: add `SkillCallScope BeginCall(string skillName, string role, SkillExecutionPhase phase)` returning the scope; add `EndCall(SkillCallScope scope, LimitEnforcer enforcer)` finalizing into a CallCostRecord. Track(ChatResponse) attributes input/output/cache tokens to the active scope (when one exists; otherwise to the existing pipeline-total fields only). New property `IReadOnlyList<CallCostRecord> PerSkillBreakdown { get; }`. SkillCallScope is its own file (IDisposable; ctor takes (skillName, role, phase, tracker, startedAt); Dispose finalizes via tracker.EndCall). Existing pipeline-total properties keep their semantics. (7) ISkillCallRuntime + SkillCallRuntime in src/AgentSmith.Application/Services/Loop/: interface with `Task<SkillCallResult> ExecuteAsync(SkillCallRequest request, CancellationToken ct)`. SkillCallRuntime composes IChatClientFactory + PipelineCostTracker + PipelineConcurrencyGate + IOptions<LoopLimitsConfig> + OutcomeClassifier + RetryCoordinator + ISkillOutputValidator + ILogger. ExecuteAsync flow split across private helpers (each ≤20 lines per coding-principles): AcquirePermit, OpenScope, ResolveCap, BuildChatClient, RunRetryCoordinator, ClassifyAndBuildResult. ExecuteAsync orchestration body itself stays a thin sequencing method. The class fits under 120 lines via these helpers. (8) DI registration: ISkillCallRuntime as scoped (one per pipeline run); IPathReadGuard + IPathWriteGuard not registered as global singletons — they're constructed per-call by SkillCallRuntime since the SkillExecutionPhase is per-call data. (9) Test pack covers the new behavior: PathReadGuardTests, PathWriteGuardTests, ToolKitTests, SkillCallCostTrackingTests, SkillCallRuntimeLimitTests, SkillCallOutcomeTests, SkillCallRuntimeIntegrationTests."
+  out: "(1) No consumer migration — no SkillRoundHandlerBase descendant calls SkillCallRuntime in p0126c. PerSkillBreakdown stays empty in production runs until p0127. (2) Implementation-phase plan-file write restriction (the freed-plan-files rule) — deferred to p0128 alongside Plan schema persistence. (3) No persistence of LoopTrace artifacts — the trace lives in memory + a structured log line per the original spec. Persisting to .agentsmith/runs/<run-id>/traces/ lands once a persistence-target convention exists (p0128 territory). (4) No new tools beyond what SandboxToolHost already exposes; the toolkit narrows existing tools. (5) No M.E.AI version bump — the 10.4.0 pin holds. (6) No FunctionInvokingChatClient replacement — wrapper stays."
+
+decisions:
+  - key: "IGitIgnoreResolver as a Contracts interface, GitIgnoreResolver in Infrastructure implements it. Reason: PathReadGuard lives in Application and tests independently of Infrastructure; depending on the existing internal Infrastructure GitIgnoreResolver class would couple Application to Infrastructure. The interface promotes GitIgnoreResolver from internal to a contracted dependency without changing its behavior."
+  - key: "PathReadGuard returns a Result, not throws. Reason: the original p0126 spec is explicit — guard violations flow back into the LLM loop as a structured tool error string. Throwing would short-circuit the M.E.AI tool-result mechanism. The Result + structured error gives both the test pack and the SandboxToolHost call sites a typed surface."
+  - key: "ToolKit takes SandboxToolHost via constructor (single instance), not a factory. Reason: SandboxToolHost is per-pipeline-call (the runtime constructs one per skill call so it can inject the right phase guards). ToolKit's GetToolsFor(phase) returns a fresh AITool list each call by reading methods off the host instance. The narrow per-phase tool-set is just a filter on the host's seven methods."
+  - key: "SkillCallRuntime constructs PathReadGuard / PathWriteGuard per-call, not via DI. Reason: the SkillExecutionPhase needed for PathWriteGuard is in SkillCallRequest (per-call data), and IGitIgnoreResolver is per-pipeline-run data (loaded from /work). DI scoping would mean passing the phase through a factory delegate, which adds plumbing for no gain. Per-call construction is one line in ExecuteAsync, easy to verify."
+  - key: "PipelineCostTracker.BeginCall throws if already in a scope (defensive). Reason: skill calls don't nest — one skill, one scope, one record. If BeginCall is somehow called twice without EndCall, that's a bug in the runtime. Throwing surfaces it; silently replacing the scope hides it. Tests assert the throw on a defensive nested-call test."
+  - key: "SkillCallScope.Dispose calls tracker.EndCall. Reason: deterministic finalization. The runtime's ExecuteAsync flow uses `using var scope = tracker.BeginCall(...)` so the cost record is finalized whether ExecuteAsync exits normally or via exception. The LimitEnforcer counters at scope-close time are read into the CallCostRecord."
+  - key: "ExecuteAsync sequencing is split into six private helpers. Reason: coding-principles caps methods at 20 lines. The orchestrator body would be 30-40 lines if inlined; the helper split (AcquirePermit, OpenScope, ResolveCap, BuildChatClient, RunRetryCoordinator, ClassifyAndBuildResult) keeps each helper at 5-10 lines and the body at ~15 lines."
+  - key: "SandboxToolHost guard injection is via additional optional constructor parameters, not a separate sub-class. Reason: a parallel guarded variant of SandboxToolHost would be ~110 lines of duplicated tool definitions. Optional null guards default to no-op behavior (existing callers see no change), and SkillCallRuntime always passes non-null guards. The constructor signature grows by two parameters; this is the smallest viable change."
+
+steps:
+  - id: read-scope-enforcement
+    action: "PathReadGuard / PathWriteGuard wrap GitIgnoreResolver; SandboxToolHost path-aware tools call them"
+    new:
+      - "src/AgentSmith.Contracts/Providers/IGitIgnoreResolver.cs: interface. Method `bool IsIgnored(string fullPath, string repoPath)`."
+      - "src/AgentSmith.Application/Services/Tools/PathReadGuard.cs: ~80 lines. Constructor takes IGitIgnoreResolver + Func<string> repoRootProvider. Method Result AssertReadable(string path) returns Ok() or Fail(GuardError) for: path-outside-repo, path-gitignored, path-in-dot-git. Path normalization handles relative paths against the repo root."
+      - "src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs: ~70 lines. Constructor takes PathReadGuard + SkillExecutionPhase. Method Result AssertWritable(string path) calls AssertReadable + checks phase ∈ {Implementation, Bootstrap}. Bootstrap phase further restricts to .agentsmith/context.yaml + .agentsmith/coding-principles.md (constants in the class)."
+      - "src/AgentSmith.Application/Services/Tools/IPathReadGuard.cs: interface for PathReadGuard."
+      - "src/AgentSmith.Application/Services/Tools/IPathWriteGuard.cs: interface for PathWriteGuard."
+      - "src/AgentSmith.Application/Services/Tools/Result.cs: sealed record. Properties: IsSuccess (bool), Error (GuardError?). Static factories: Ok(), Fail(GuardError error)."
+      - "src/AgentSmith.Application/Services/Tools/GuardError.cs: sealed record. Properties: Kind (GuardErrorKind enum), Path (string), Message (string)."
+      - "src/AgentSmith.Application/Services/Tools/GuardErrorKind.cs: enum with OutsideRepo, GitIgnored, InDotGit, WriteForbiddenInPhase, NotInBootstrapFiles."
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Security/GitIgnoreResolver.cs: change visibility from internal to public, implement IGitIgnoreResolver."
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHost.cs: constructor accepts optional IPathReadGuard? + IPathWriteGuard? (default null preserves legacy behavior). ReadFile/Grep/ListFiles call PathReadGuard.AssertReadable when guard is non-null; on failure return a structured tool error string. WriteFile calls PathWriteGuard.AssertWritable when guard is non-null."
+
+  - id: tool-kit-per-phase
+    action: "ToolKit centralizes phase-keyed tool sets"
+    new:
+      - "src/AgentSmith.Application/Services/Tools/IToolKit.cs: interface. Method IList<AITool> GetToolsFor(SkillExecutionPhase? phase, string? investigatorMode)."
+      - "src/AgentSmith.Application/Services/Tools/ToolKit.cs: ~80 lines. Constructor takes SandboxToolHost. Per-phase mapping documented inline. Default fallback (phase=null) returns all 7 tools (preserves legacy GetAllTools behavior)."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHostExtensions.cs: GetAllTools/GetScoutTools become thin wrappers — they still build their tool lists directly (no ToolKit dependency in the extension methods to avoid host-instance plumbing). The original spec's intent is that ToolKit is the new entry point and the legacy extension methods are kept for unmigrated callers."
+
+  - id: per-skill-cost-tracking
+    action: "PipelineCostTracker grows Begin/End per-skill scopes and exposes the breakdown"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallScope.cs: IDisposable. Constructor takes (string skillName, string role, SkillExecutionPhase phase, PipelineCostTracker tracker, DateTimeOffset startedAt). Holds running totals (input, output, cacheCreate, cacheRead) for the active call. Method AddTokens(input, output, cacheCreate, cacheRead) called by the tracker's Track(ChatResponse). Dispose calls tracker.EndCall(this) which finalizes the CallCostRecord."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineCostTracker.cs: add internal `SkillCallScope BeginCall(string skillName, string role, SkillExecutionPhase phase)` (throws InvalidOperationException if a scope is already active); add `EndCall(SkillCallScope scope, LimitEnforcer enforcer)` finalizing into CallCostRecord and clearing the active scope. Track(ChatResponse) attributes tokens to the active scope when one exists. New property `IReadOnlyList<CallCostRecord> PerSkillBreakdown { get; }`. Class size grows ~40 lines — verify it stays ≤120; if it exceeds, extract a SkillCostScopeManager helper and inject it (followup decision logged)."
+
+  - id: skill-call-runtime
+    action: "SkillCallRuntime composes IChatClientFactory + collaborators into ExecuteAsync"
+    new:
+      - "src/AgentSmith.Application/Services/Loop/ISkillCallRuntime.cs: interface. Method Task<SkillCallResult> ExecuteAsync(SkillCallRequest request, CancellationToken cancellationToken)."
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs: ~120 lines. Constructor injects IChatClientFactory, PipelineCostTracker, PipelineConcurrencyGate, IOptions<LoopLimitsConfig>, OutcomeClassifier, RetryCoordinator, ISkillOutputValidator, ILogger<SkillCallRuntime>. ExecuteAsync orchestrates: (a) acquire concurrency permit; (b) BeginCall on cost tracker; (c) construct LimitEnforcer + LoopTraceCollector; (d) compute MaximumIterationsPerRequest from config.ResolveToolCallCap; (e) get IChatClient via factory.Create(agent, taskType, maxIterations: cap); (f) call retry coordinator; (g) classify outcome; (h) emit trace log; (i) return SkillCallResult. Body uses six private helpers each ≤20 lines."
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register ISkillCallRuntime as scoped."
+
+  - id: tests
+    action: "Test pack: scope guards, tool-kit, cost tracking, runtime limits + outcomes + integration"
+    new:
+      - "tests/AgentSmith.Tests/Loop/PathReadGuardTests.cs: AssertReadable_PathInsideRepo_ReturnsOk; AssertReadable_PathOutsideRepo_ReturnsErrorOutsideRepo; AssertReadable_PathInGitIgnore_ReturnsErrorIgnored; AssertReadable_PathInDotGit_ReturnsErrorIgnored; AssertReadable_RelativePathResolvesToInsideRepo_ReturnsOk."
+      - "tests/AgentSmith.Tests/Loop/PathWriteGuardTests.cs: AssertWritable_PlanPhase_ReturnsErrorWriteForbidden; AssertWritable_ImplementationPhase_PathInsideRepo_ReturnsOk; AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk; AssertWritable_BootstrapPhase_OtherPath_ReturnsErrorBootstrapFiles; AssertWritable_VerifyPhase_ReturnsErrorWriteForbidden."
+      - "tests/AgentSmith.Tests/Loop/ToolKitTests.cs: GetToolsFor_PlanPhase_ReturnsReadOnlySet; GetToolsFor_ImplementationPhase_ReturnsAllTools; GetToolsFor_VerifyPhase_IncludesRunCommandExcludesWriteFile; GetToolsFor_BootstrapPhase_IncludesWriteFileExcludesRunCommand; GetToolsFor_NullPhase_FallsBackToAllTools; GetToolsFor_InvestigatePhase_IncludesRunCommand."
+      - "tests/AgentSmith.Tests/Loop/SkillCallCostTrackingTests.cs: BeginCall_AccumulatesTokensInPerSkillBreakdown; BeginCall_PreservesPipelineTotals; BeginCall_NestedCallsThrow; PerSkillBreakdown_OrderedByStartTime; CallCostRecord_DurationMatchesScopeLifetime."
+      - "tests/AgentSmith.Tests/Loop/SkillCallRuntimeLimitTests.cs: ExecuteAsync_ConcurrencyLimitReached_BlocksUntilSlotAvailable; ExecuteAsync_VerifyDiffMode_UsesVerifierToolCallCap; ExecuteAsync_VerifyHintMode_UsesInvestigatorToolCallCap; ExecuteAsync_PlanPhase_UsesSkillToolCallCap; ExecuteAsync_TimeLimitReached_ReturnsIncomplete; ExecuteAsync_TokenLimitReached_ReturnsIncomplete."
+      - "tests/AgentSmith.Tests/Loop/SkillCallOutcomeTests.cs: ExecuteAsync_ValidJsonOutput_ReturnsOk; ExecuteAsync_InvalidJson_RetriesOnce_ThenFailedParse; ExecuteAsync_SchemaViolation_RetriesOnce_ThenFailedValidation; ExecuteAsync_ToolCrash_ReturnsFailedRuntime; ExecuteAsync_NetworkException_ReturnsFailedRuntime."
+      - "tests/AgentSmith.Tests/Loop/SkillCallRuntimeIntegrationTests.cs: ExecuteAsync_FullLoop_ReadsFile_ReturnsOk (against a stubbed IChatClient); ExecuteAsync_TraceCapturesEachLlmAndToolCall; ExecuteAsync_PerSkillBreakdownCapturesCallCostRecord."
+
+tests:
+  - "PathReadGuard_AssertReadable_PathInsideRepo_ReturnsOk"
+  - "PathReadGuard_AssertReadable_PathOutsideRepo_ReturnsErrorOutsideRepo"
+  - "PathReadGuard_AssertReadable_PathInGitIgnore_ReturnsErrorIgnored"
+  - "PathReadGuard_AssertReadable_PathInDotGit_ReturnsErrorIgnored"
+  - "PathReadGuard_AssertReadable_RelativePathResolvesToInsideRepo_ReturnsOk"
+  - "PathWriteGuard_AssertWritable_PlanPhase_ReturnsErrorWriteForbidden"
+  - "PathWriteGuard_AssertWritable_ImplementationPhase_PathInsideRepo_ReturnsOk"
+  - "PathWriteGuard_AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk"
+  - "PathWriteGuard_AssertWritable_BootstrapPhase_OtherPath_ReturnsErrorBootstrapFiles"
+  - "PathWriteGuard_AssertWritable_VerifyPhase_ReturnsErrorWriteForbidden"
+  - "ToolKit_GetToolsFor_PlanPhase_ReturnsReadOnlySet"
+  - "ToolKit_GetToolsFor_ImplementationPhase_ReturnsAllTools"
+  - "ToolKit_GetToolsFor_VerifyPhase_IncludesRunCommandExcludesWriteFile"
+  - "ToolKit_GetToolsFor_BootstrapPhase_IncludesWriteFileExcludesRunCommand"
+  - "ToolKit_GetToolsFor_NullPhase_FallsBackToAllTools"
+  - "ToolKit_GetToolsFor_InvestigatePhase_IncludesRunCommand"
+  - "PipelineCostTracker_BeginCall_AccumulatesTokensInPerSkillBreakdown"
+  - "PipelineCostTracker_BeginCall_PreservesPipelineTotals"
+  - "PipelineCostTracker_BeginCall_NestedCallsThrow"
+  - "PipelineCostTracker_PerSkillBreakdown_OrderedByStartTime"
+  - "PipelineCostTracker_CallCostRecord_DurationMatchesScopeLifetime"
+  - "SkillCallRuntime_ExecuteAsync_ConcurrencyLimitReached_BlocksUntilSlotAvailable"
+  - "SkillCallRuntime_ExecuteAsync_VerifyDiffMode_UsesVerifierToolCallCap"
+  - "SkillCallRuntime_ExecuteAsync_VerifyHintMode_UsesInvestigatorToolCallCap"
+  - "SkillCallRuntime_ExecuteAsync_PlanPhase_UsesSkillToolCallCap"
+  - "SkillCallRuntime_ExecuteAsync_TimeLimitReached_ReturnsIncomplete"
+  - "SkillCallRuntime_ExecuteAsync_TokenLimitReached_ReturnsIncomplete"
+  - "SkillCallRuntime_ExecuteAsync_ValidJsonOutput_ReturnsOk"
+  - "SkillCallRuntime_ExecuteAsync_InvalidJson_RetriesOnce_ThenFailedParse"
+  - "SkillCallRuntime_ExecuteAsync_SchemaViolation_RetriesOnce_ThenFailedValidation"
+  - "SkillCallRuntime_ExecuteAsync_ToolCrash_ReturnsFailedRuntime"
+  - "SkillCallRuntime_ExecuteAsync_NetworkException_ReturnsFailedRuntime"
+  - "SkillCallRuntime_ExecuteAsync_FullLoop_ReadsFile_ReturnsOk"
+  - "SkillCallRuntime_ExecuteAsync_TraceCapturesEachLlmAndToolCall"
+  - "SkillCallRuntime_ExecuteAsync_PerSkillBreakdownCapturesCallCostRecord"
+
+done:
+  - "IGitIgnoreResolver contract exists; existing GitIgnoreResolver implements it"
+  - "PathReadGuard rejects paths outside the repo, .gitignored paths, and .git directory contents; PathWriteGuard gates by phase (Implementation/Bootstrap only) and Bootstrap-files restriction"
+  - "ToolKit returns phase-keyed tool sets per the documented mapping; legacy callers without a phase get all tools"
+  - "PipelineCostTracker exposes PerSkillBreakdown alongside existing pipeline totals; per-skill tokens, tool-call counts, durations attribute correctly inside SkillCallScope; nested BeginCall throws"
+  - "SandboxToolHost optionally accepts IPathReadGuard + IPathWriteGuard; existing callers (passing nothing) see no behavior change"
+  - "ISkillCallRuntime + SkillCallRuntime exist; ExecuteAsync composes the five collaborators (LimitEnforcer, RetryCoordinator, LoopTraceCollector, OutcomeClassifier, PipelineConcurrencyGate) per the documented flow; class fits ≤120 lines via private helpers"
+  - "DI registers ISkillCallRuntime as scoped"
+  - "All 35 new tests pass; all existing tests pass (no regressions)"
+  - "No consumer of SkillCallRuntime in p0126c — SkillRoundHandlerBase descendants run unchanged. PerSkillBreakdown stays empty in production runs until p0127 wires the first consumer"

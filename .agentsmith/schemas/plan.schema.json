@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-smith.org/schemas/plan/1.0.json",
+  "title": "Plan",
+  "description": "Output contract for skills with output_schema=plan. Phase C of D4 (p0128).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "scope", "steps", "open_questions", "status"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "modules"],
+      "properties": {
+        "files": { "type": "array", "items": { "type": "string" } },
+        "modules": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action", "file", "reason"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "action": { "type": "string", "minLength": 1 },
+          "file": { "type": "string" },
+          "reason": { "type": "string", "maxLength": 300 }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "options"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "question": { "type": "string", "minLength": 1 },
+          "options": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "test_impact": { "type": ["string", "null"] },
+    "consumer_impact": { "type": ["string", "null"] },
+    "status": { "type": "string", "enum": ["complete", "needs_user_input"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "complete" } } },
+      "then": { "properties": { "open_questions": { "maxItems": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "needs_user_input" } } },
+      "then": { "properties": { "open_questions": { "minItems": 1 } } }
+    }
+  ]
+}

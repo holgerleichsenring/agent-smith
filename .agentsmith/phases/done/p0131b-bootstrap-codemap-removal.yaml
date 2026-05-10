@@ -1,0 +1,176 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131b
+goal: "D7 slice 2/4: retire BootstrapProjectHandler + CodeMapGenerator + the broader meta-file-bootstrap dependency chain (MetaFileBootstrapper, ProjectDetector, RepoSnapshotCollector, ContextGenerator, ContextValidator, CodingPrinciplesGenerator, ILanguageDetector + 3 impls, LlmResponseHelper, TreeRenderer). Six presets lose the legacy BootstrapProject + LoadCodeMap steps; operators relying on the BootstrapGate (p0130a) get fast-fail with a clear 'run init-project first' message instead. Net diff: ~ -3000 LoC across 46 files."
+
+requires: ["p0130c", "p0131a"]
+
+scope:
+  in: |
+    (1) PipelinePresets: drop CommandNames.BootstrapProject + CommandNames.LoadCodeMap
+        from FixBug, FixNoTest, AddFeature, MadDiscussion, SecurityScan, Autonomous,
+        ApiSecurityScan. (Init-project already migrated in p0130c.) The
+        BootstrapGate (p0130a) handles the missing-files case structurally;
+        nothing replaces BootstrapProject in code-touching pipelines.
+    (2) Delete handlers + their contexts/builders:
+        - BootstrapProjectHandler / BootstrapProjectContext / BootstrapProjectContextBuilder
+        - LoadCodeMapHandler / LoadCodeMapContext / LoadCodeMapContextBuilder
+    (3) Delete the entire dependency chain that BootstrapProjectHandler used:
+        - MetaFileBootstrapper / SkillYamlGenerator
+        - IProjectDetector / ProjectDetector / IContextGenerator / ContextGenerator /
+          IContextValidator / ContextValidator / IRepoSnapshotCollector /
+          RepoSnapshotCollector / ICodingPrinciplesGenerator / CodingPrinciplesGenerator
+          / ICodeMapGenerator / CodeMapGenerator / ContextUserPromptBuilder
+        - ILanguageDetector + DotNetLanguageDetector / TypeScriptLanguageDetector /
+          PythonLanguageDetector (only consumer was ProjectDetector)
+        - DetectedProject / RepoSnapshot domain records (only consumer was the
+          deleted chain)
+        - LlmResponseHelper (helper that was only used by ContextGenerator +
+          CodeMapGenerator) + TreeRenderer (only consumer was RepoSnapshotCollector)
+    (4) DI: drop registrations for all of the above (Application + Infrastructure.Core).
+    (5) ContextKeys: drop DetectedProject + RepoSnapshot constants. CodeMap stays —
+        AnalyzeProjectHandler still emits a YAML-ish text rendering for prompt-builders
+        via ToCodeMapText.
+    (6) TestHandler: ResolveTestCommand drops the DetectedProject branch; ProjectMap
+        (populated by AnalyzeProjectHandler) is the single source of truth.
+    (7) CommandNames: BootstrapProject + LoadCodeMap constants stay (they remain
+        valid YAML-config strings), but both registered in RetiredCommands with
+        migration hints so operators with custom presets get a clear startup
+        warning if they still reference them.
+    (8) Tests: delete CodeMapGeneratorTests, ContextGeneratorTests, ContextValidatorTests,
+        LoadCodeMapHandlerTests, ProjectDetectorTests, RepoSnapshotCollectorTests,
+        LlmResponseHelperTests. Update SecurityScanPresetTests +
+        ApiSecurityScanPresetTests for the new step ordering. Update
+        TestHandlerNoSandboxFailsTests to seed ProjectMap instead of DetectedProject.
+        Update CommandContextFactoryTests builder list. Update NoLibGit2SharpInGraphTests
+        to anchor on a different Infrastructure.Core type.
+  out: |
+    - LegacyTriageStrategy retirement (p0131c).
+    - InitProject preset further refinement.
+    - The CodeMap text-rendering format itself (still emitted by AnalyzeProjectHandler).
+
+decisions:
+  - key: |
+      Cascading deletion: BootstrapProjectHandler took ~10 supporting services
+      with it. Reason: the entire chain was load-time-only — IProjectDetector,
+      IRepoSnapshotCollector, IContextGenerator, IContextValidator,
+      ICodingPrinciplesGenerator, ICodeMapGenerator, MetaFileBootstrapper,
+      SkillYamlGenerator, ContextUserPromptBuilder, ILanguageDetector +
+      3 impls all lived in the BootstrapProject path. Once that path goes,
+      they're orphans. Deleting them as a package keeps the diff coherent
+      and avoids leaving dead-but-compilable types around. -- alternatives:
+      keep them as dead code (rejected: code rot); split the cleanup
+      across multiple slices (rejected: arbitrary slicing for what is
+      semantically one cut).
+  - key: |
+      CommandNames.BootstrapProject + LoadCodeMap constants kept; registered
+      in RetiredCommands with migration hints. Reason: operators with custom
+      pipeline presets in agentsmith.yml may still reference these step names.
+      Removing the constants would break YAML loading hard. Keeping them as
+      retired commands gives a clear boot-time error pointing operators to
+      the right migration. Same pattern as ExtractFindings (retired in p0123).
+      -- alternatives: delete the constants outright (rejected: cliff for
+      operator configs); silently strip them from custom presets (rejected:
+      hides drift between operator config and binary).
+  - key: |
+      ContextKeys.CodeMap stays. Reason: AnalyzeProjectHandler emits a
+      YAML-ish text rendering of ProjectMap into ContextKeys.CodeMap for
+      prompt-builders that consume the map as a single string (PlanExecution
+      builders, SkillRoundHandlerBase, ProjectBriefBuilder). Retiring it
+      now would force a parallel rewrite of those builders to consume the
+      structured ProjectMap directly — out of scope for p0131b. The text
+      key continues to exist; only its writer (LoadCodeMapHandler) goes,
+      replaced by AnalyzeProjectHandler's existing emit path.
+  - key: |
+      InitProject preset already migrated in p0130c — no changes needed
+      here. The 6 OTHER code-touching presets just lose the BootstrapProject
+      + LoadCodeMap steps; the BootstrapGate (p0130a) handles missing-files
+      failures structurally. After p0131b, the gate is the only mechanism
+      that produces the "run init-project first" message — exactly what the
+      gate was designed for.
+  - key: |
+      Tests for deleted services deleted, not migrated. The deleted code
+      was the only reason these test files existed. Migrating them would
+      mean inventing replacement APIs and writing tests against ProjectAnalyzer
+      / ProjectMap consumers — those already have their own coverage in
+      AnalyzeProjectHandlerTests / ProjectMapPromptRendererTests. Better
+      cut.
+
+steps:
+  - id: presets
+    action: "Drop BootstrapProject + LoadCodeMap from 6 presets"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: handlers
+    action: "Delete handlers, contexts, builders, dependent services"
+    delete:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapProjectHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/LoadCodeMapHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/MetaFileBootstrapper.cs"
+      - "src/AgentSmith.Application/Services/Handlers/SkillYamlGenerator.cs"
+      - "src/AgentSmith.Application/Models/BootstrapProjectContext.cs"
+      - "src/AgentSmith.Application/Models/LoadCodeMapContext.cs"
+      - "src/AgentSmith.Contracts/Services/ICodeMapGenerator.cs"
+      - "src/AgentSmith.Contracts/Services/IContextGenerator.cs"
+      - "src/AgentSmith.Contracts/Services/IContextValidator.cs"
+      - "src/AgentSmith.Contracts/Services/IProjectDetector.cs"
+      - "src/AgentSmith.Contracts/Services/IRepoSnapshotCollector.cs"
+      - "src/AgentSmith.Contracts/Services/ICodingPrinciplesGenerator.cs"
+      - "src/AgentSmith.Contracts/Services/ILanguageDetector.cs"
+      - "src/AgentSmith.Contracts/Models/DetectedProject.cs"
+      - "src/AgentSmith.Contracts/Models/RepoSnapshot.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/CodeMapGenerator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ContextGenerator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ContextValidator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ContextUserPromptBuilder.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/ProjectDetector.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/RepoSnapshotCollector.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/CodingPrinciplesGenerator.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/LlmResponseHelper.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/TreeRenderer.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/Detection/DotNetLanguageDetector.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/Detection/TypeScriptLanguageDetector.cs"
+      - "src/AgentSmith.Infrastructure.Core/Services/Detection/PythonLanguageDetector.cs"
+
+  - id: di-and-contextkeys
+    action: "Drop DI registrations + ContextKeys.DetectedProject + RepoSnapshot"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+      - "src/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs"
+      - "src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs"
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs"
+
+  - id: tests
+    action: "Delete obsolete test files; update preset+integration tests"
+    delete:
+      - "tests/AgentSmith.Tests/Services/CodeMapGeneratorTests.cs"
+      - "tests/AgentSmith.Tests/Services/ContextGeneratorTests.cs"
+      - "tests/AgentSmith.Tests/Services/ContextValidatorTests.cs"
+      - "tests/AgentSmith.Tests/Services/LoadCodeMapHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Services/ProjectDetectorTests.cs"
+      - "tests/AgentSmith.Tests/Services/RepoSnapshotCollectorTests.cs"
+      - "tests/AgentSmith.Tests/Services/LlmResponseHelperTests.cs"
+    modify:
+      - "tests/AgentSmith.Tests/Commands/SecurityScanPresetTests.cs"
+      - "tests/AgentSmith.Tests/Commands/ApiSecurityScanPresetTests.cs"
+      - "tests/AgentSmith.Tests/Commands/TestHandlerNoSandboxFailsTests.cs"
+      - "tests/AgentSmith.Tests/Services/CommandContextFactoryTests.cs"
+      - "tests/AgentSmith.Tests/Integration/NoLibGit2SharpInGraphTests.cs"
+
+tests:
+  - "Build clean across solution"
+  - "Full test suite passes (1502 main + 62 sandbox)"
+  - "SecurityScanPresetTests asserts BootstrapProject + LoadCodeMap absent"
+  - "ApiSecurityScanPresetTests asserts LoadCodeMap absent"
+  - "TestHandlerNoSandboxFailsTests works against ProjectMap (not DetectedProject)"
+
+done:
+  - "BootstrapProjectHandler + LoadCodeMapHandler deleted"
+  - "Full dependency chain (MetaFileBootstrapper, ProjectDetector, RepoSnapshotCollector, ContextGenerator, ContextValidator, CodingPrinciplesGenerator, ILanguageDetector + impls, LlmResponseHelper, TreeRenderer) deleted"
+  - "BootstrapProject + LoadCodeMap dropped from 6 presets"
+  - "ContextKeys.DetectedProject + RepoSnapshot dropped"
+  - "CommandNames.BootstrapProject + LoadCodeMap remain in RetiredCommands with migration hints"
+  - "1502 main + 62 sandbox tests passing; net diff ~ -3000 LoC across 46 files"
+  - "p0131c (LegacyTriageStrategy delete) still pending"

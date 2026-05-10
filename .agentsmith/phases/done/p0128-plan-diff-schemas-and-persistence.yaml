@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0128
+goal: "D4 parent: Plan and Diff JSON schemas, ISkillOutputValidator real implementations, run-artifact persistence (.agentsmith/runs/<run-id>/), open_questions round-trip via ticket comments, opt-in data-flow enforcement between phases. Sliced into a/b/c."
+
+requires: ["p0126", "p0127a"]
+
+scope:
+  in: "Parent design for D4. Three slices: (a) Schemas + Validators + Persistence — JSON schemas for Plan, Diff, Bootstrap output (per Phase C); ISkillOutputValidator real implementations selected by output_schema; persistence to .agentsmith/runs/<run-id>/{plan.json, diff.json, bootstrap.md} alongside the existing run-result markdown; transient pipeline storage in Redis (pipeline:<run-id>:<phase> keys with TTL) for in-flight phases. (b) open_questions round-trip — Plan with status=needs_user_input writes back to the ticket platform with structured question IDs; CommentIntent webhook (existing from p0014/p0084) parses structured human answers; re-triggered pipeline reads answers as additional Plan-skill input. Cross-platform shape (Jira, GitHub, Azure DevOps, GitLab) reuses the existing comment-posting layer in Infrastructure/Services/Providers/Tickets/. (c) Opt-in data flows — pipeline implementations declare directed edges between phases (Plan → Review, Plan → Implementation, Implementation → Verify, Investigate → Filter, Filter → Synthesize); access to phase outputs through PipelineContext is gated by the declared edges; today's free-for-all ContextKeys access becomes structured. The data-flow declaration lives next to each pipeline-preset implementation in code (per Phase C decision: code-as-truth, no parallel YAML). Final cleanup of dead ContextKeys after the gating proves out is a follow-up after D7."
+  out: "Removal of legacy free-form text plan storage (Plan.RawResponse, ContextKeys.Plan typed-entity path) — stays through D4 as the legacy consumer; p0131 (D7) drops the dual path. Schema generation tooling (e.g. emit JSON Schema Draft from C# records via NJsonSchema) — out of scope; we hand-write the schemas in p0128a and pin them into the codebase. Schema versioning across releases — Plan/Diff are 1.0; bumping discipline is a follow-up problem if and when a schema needs to evolve incompatibly. The PerSkillBreakdown wire-up to run-result rendering (deferred from p0126's no-opt-in stance) — lands here as a side benefit of persistence: PerSkillBreakdown becomes part of the persisted run artifact. Validators for output_schema=observation — already covered by ObservationParser (p0124) which becomes the IObservationOutputValidator implementation; no new validator needed for that schema."
+
+decisions:
+  - key: "Three slices, not four. Schemas + validators + persistence form one tight loop in a. open_questions in b touches webhook + ticket-provider code on both write and read. Opt-in data flows in c is structural Pipeline-context work. Reason: each is independently demonstrable, lands a clear visible improvement (a: replay primitives + validation; b: clarification round-trip; c: phase isolation). Splitting persistence away from schemas would mean one phase that builds validators with nowhere to persist their outputs and another that persists outputs with nothing to validate them — pointless seam."
+  - key: "Schemas written by hand, not generated from C# types. Reason: the schemas are external contracts skills emit JSON against; they're consumed by validators in p0128 and read by humans for skill-author guidance (per Phase C). C#-driven generation would couple the schema shape to internal record layout, which we want to evolve independently. Hand-written JSON Schema Draft 2020-12 files live under .agentsmith/schemas/ alongside the existing observation-schema.md (which becomes observation-schema.json + the existing markdown for human readers). Tests validate fixture JSON against the schemas directly, no roundtripping to typed records."
+  - key: "Validators implement ISkillOutputValidator from p0126 verbatim — same interface, real schema-checking instead of NoOp. Reason: p0126 explicitly deferred schema validators to p0128 with the comment 'schema-aware validators land in p0128 alongside Plan/Diff schema persistence'. The interface contract is `ValidationResult Validate(string output)`. Selection per skill happens via output_schema field on RoleSkillDefinition (from p0127a); the runtime constructs the right validator at SkillCallRequest setup time. p0128a includes a SkillOutputValidatorFactory keyed by output_schema enum that returns the right validator instance."
+  - key: "Persistence is filesystem-first; Redis is in-flight-only. Reason: replay scenarios (run from CI artifact, reproduce a failure, debug a regression) need durable artifacts on disk. Redis is the right transport for in-flight phase-to-phase handoffs — fast, TTL-bound, doesn't pollute the working tree with abandoned runs. The split: Redis writes happen as phases complete and outputs are passed to next phase; filesystem writes happen at pipeline end (success or failure). On replay, the pipeline reads the persisted JSON from filesystem; Redis is bypassed."
+  - key: "Run-id is r{NN:D2}-<slug> (existing convention from WriteRunResultHandler). Reason: the .agentsmith/runs/ directory already uses this format (sample run r01-p0039-legal-analysis is in the tree). Plan.json and diff.json land alongside the existing plan.md and result.md — same directory, same run-id resolution logic. No new id format invented."
+  - key: "Opt-in data flows are enforced at PipelineContext access time, not at compile time. Reason: pipeline-preset declarations live in code per the Phase C decision; static analysis would require source generators or a separate validator pass. Runtime gating via a typed wrapper around PipelineContext.Get<T> — the wrapper rejects reads of keys not declared by the active phase's incoming edges — catches violations on first execution and produces a clear error. Easier to maintain than a static-analysis layer and has the same correctness floor (a violating call hits the test pack on the first run that exercises it)."
+  - key: "Cross-platform open_questions writeback uses one shared comment-template per platform, not a JSON contract. Reason: Jira ADF, GitHub markdown, Azure DevOps comments, GitLab markdown all render markdown but with platform quirks. Posting a structured JSON would require each platform to opt in to parsing it; they don't today. The template is markdown with stable anchor IDs (Q1: ..., Q2: ...) that the parser on the read side recognizes. Operators see human-readable comments; the parser handles the round-trip mechanically. Follow-up: if any platform gains a structured-form mechanism (Jira custom fields, GitHub issue forms), opt that platform up at that point."
+
+steps:
+  - id: slice-a-pointer
+    action: "p0128a — Schemas + Validators + Persistence"
+    new:
+      - "Spec: .agentsmith/phases/planned/p0128a-*.yaml — written alongside this parent. Detail in that file."
+
+  - id: slice-b-pointer
+    action: "p0128b — open_questions round-trip via ticket comments"
+    new:
+      - "Spec: written when p0128a lands and the Plan schema is concrete. Sketch: TicketCommentTemplate with stable Q1/Q2 anchors per platform; CommentIntent webhook parsing recognizes the anchors and extracts answers; the next Plan-skill run on the same ticket reads the answers from PipelineContext."
+
+  - id: slice-c-pointer
+    action: "p0128c — Opt-in data flows enforced at PipelineContext access"
+    new:
+      - "Spec: written when p0128a lands and the run-time persistence shape is concrete. Sketch: PipelineContext gains a typed access-control wrapper; pipeline-preset code declares directed edges between phases; the wrapper rejects out-of-band reads with clear error messages naming the offending key + phase."
+
+tests:
+  - "See per-slice specs"
+
+done:
+  - "p0128a, p0128b, p0128c all land — three slices through D4"
+  - "Plan, Diff, Bootstrap schemas exist as JSON Schema files; validators implement ISkillOutputValidator and replace the NoOp default for skills that declare output_schema"
+  - "Run artifacts persist to .agentsmith/runs/<run-id>/ (plan.json, diff.json, bootstrap.md alongside existing plan.md and result.md); replay reads them back"
+  - "open_questions round-trip works end-to-end on at least one ticket platform; the second platform follows in p0128b's PR"
+  - "PipelineContext access is gated by declared data-flow edges; pre-existing free-for-all reads either fall under declared edges or get refactored"

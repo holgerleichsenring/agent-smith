@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
@@ -89,6 +90,28 @@ internal static class RunResultSectionWriter
         var last = lastValue.HasValue ? lastValue.Value.ToString() : "-";
         var deltaStr = delta > 0 ? $"+{delta}" : delta.ToString();
         sb.AppendLine($"| {metric} | {last} | {currentValue} | {deltaStr} |");
+    }
+
+    /// <summary>
+    /// p0128a: surfaces PerSkillBreakdown from PipelineCostTracker into result.md.
+    /// One line per call sorted by start time. Empty input writes nothing.
+    /// </summary>
+    internal static void AppendPerSkillBreakdown(StringBuilder sb, IReadOnlyList<CallCostRecord>? breakdown)
+    {
+        if (breakdown is null || breakdown.Count == 0) return;
+
+        sb.AppendLine();
+        sb.AppendLine("## Per-skill cost breakdown");
+        sb.AppendLine();
+
+        var ordered = breakdown.OrderBy(b => b.StartedAt).ToList();
+        foreach (var record in ordered)
+        {
+            sb.AppendLine(
+                $"- {record.SkillName} ({record.Role}, {record.Phase}): " +
+                $"{record.InputTokens} in / {record.OutputTokens} out / " +
+                $"{record.ToolCallCount} tools / {record.DurationMs}ms");
+        }
     }
 
     internal static void AppendExecutionTrail(StringBuilder sb, List<ExecutionTrailEntry>? trail)

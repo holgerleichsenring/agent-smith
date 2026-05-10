@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Server.Services.Webhooks;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -78,6 +79,7 @@ public sealed class JiraCommentWebhookHandlerTests
         return new JiraCommentWebhookHandler(
             configLoader.Object,
             new ServerContext(ConfigPath),
+            new PlanAnswerParser(),
             NullLogger<JiraCommentWebhookHandler>.Instance);
     }
 

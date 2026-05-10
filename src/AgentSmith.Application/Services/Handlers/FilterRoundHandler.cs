@@ -110,9 +110,18 @@ public sealed class FilterRoundHandler(
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        var response = await chat.GetResponseAsync(messages,
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0132b: per-batch cost attribution. Each filter batch is its own
+        // SkillCallScope so PerSkillBreakdown shows N entries (one per batch)
+        // for a filter skill that exceeded the token-budget split.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        ChatResponse response;
+        using (var _ = costTracker.BeginCall(
+            role.Name, role.Role ?? "filter", SkillExecutionPhase.Filter))
+        {
+            response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            costTracker.Track(response);
+        }
         var responseText = response.Text ?? string.Empty;
 
         var reduced = ObservationParser.TryParseWithoutIds(responseText, role.Name, logger);
@@ -140,9 +149,16 @@ public sealed class FilterRoundHandler(
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        var response = await chat.GetResponseAsync(messages,
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0132b: artifact-mode filter is a single LLM call → single scope.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        ChatResponse response;
+        using (var _ = costTracker.BeginCall(
+            skillName, role.Role ?? "filter", SkillExecutionPhase.Synthesize))
+        {
+            response = await chat.GetResponseAsync(messages,
+                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            costTracker.Track(response);
+        }
         var responseText = response.Text ?? string.Empty;
 
         if (!pipeline.TryGet<Dictionary<string, string>>(
@@ -200,12 +216,16 @@ public sealed class FilterRoundHandler(
         return roles.FirstOrDefault(r => r.Name == skillName);
     }
 
-    private static OutputForm ResolveOutputForm(RoleSkillDefinition role)
-    {
-        if (role.OutputContract?.OutputType.TryGetValue(SkillRole.Filter, out var form) == true)
-            return form;
-        return OutputForm.List;
-    }
+    private static OutputForm ResolveOutputForm(RoleSkillDefinition role) =>
+        // p0131a: derive from new-format `output_schema` instead of legacy
+        // OutputContract. observation/plan → List rendering; diff/bootstrap →
+        // Artifact rendering. null/unknown → List (the conservative default).
+        role.OutputSchema switch
+        {
+            "diff" => OutputForm.Artifact,
+            "bootstrap" => OutputForm.Artifact,
+            _ => OutputForm.List,
+        };
 
     private static List<SkillObservation> LoadObservations(PipelineContext pipeline)
     {

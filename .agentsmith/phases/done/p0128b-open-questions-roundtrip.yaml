@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0128b
+goal: "Second slice of D4. open_questions round-trip via ticket comments. Plan emissions with status=needs_user_input post a structured comment to the originating ticket; the existing CommentIntent webhook (p0014/p0084) parses operator answers and feeds them as additional Plan-skill input on the next pipeline run. Cross-platform: Jira, GitHub, Azure DevOps, GitLab — markdown comment template with stable Q1/Q2 anchor IDs; one shared template per platform sitting next to the existing comment-posting layer. Builds on p0128a (Plan/OpenQuestion records, plan.schema.json, IRunArtifactStore)."
+
+requires: ["p0128a"]
+
+scope:
+  in: "(1) ITicketCommentTemplate contract — single method Render(IReadOnlyList<PlanOpenQuestion>) returning a markdown body with stable anchors (`<!--Q1-->`, `<!--Q2-->`, etc.) plus a leading marker line `<!--agent-smith:open-questions-->` so the parser can detect Plan-question comments and ignore unrelated traffic. (2) Per-platform comment template implementations under Infrastructure/Services/Providers/Tickets/<Platform>/<Platform>OpenQuestionsCommentTemplate.cs — one per platform (Jira, GitHub, Azure DevOps, GitLab), all inheriting from a shared MarkdownOpenQuestionsCommentTemplate base that generates the canonical body; per-platform overrides exist only for ADF (Jira) where we serialise the markdown to ADF nodes via the existing JiraAdfBuilder. (3) IPlanOpenQuestionsPoster — wraps the existing IPrCommentReplyService / TicketCommentService layer to post a Plan-questions comment to the ticket platform when status=needs_user_input. Lives in Application/Services/Triage/ next to the Plan handlers; constructor takes ITicketCommentTemplate (resolved by platform) + the platform's comment-posting service. (4) PlanOpenQuestionsHandler — runs after the Plan-skill phase: reads the typed Plan from PipelineContext (or PlanJson via PlanParser.ParseStrict + the new PlanOutputValidator); when Status=NeedsUserInput, calls the poster; emits a structured `Plan-OpenQuestions-Posted` execution-trail entry; sets a new ContextKey OpenQuestionsAwaitingAnswer to short-circuit downstream Implementation phases. (5) PlanAnswerParser — extension to the existing CommentIntent webhook parsers: when a Plan-questions comment-reply is detected (anchor IDs present in the parent thread + reply text contains `Q1: <answer>` / `Q2: <answer>` lines), extract the answers into a Dictionary<string,string> keyed by question ID. Lives in Application/Services/Triage/PlanAnswerParser.cs. (6) Pipeline re-trigger plumbing — when PlanAnswerParser produces a non-empty answer map, the webhook handler enqueues a fresh PipelineRequest with the answers attached as a new PipelineRequest.PlanAnswers (Dictionary<string,string>) field; ExecutePipelineUseCase passes it into PipelineContext via a new ContextKeys.PlanAnswers slot; the next Plan-skill handler (SkillRoundHandlerBase variant) reads the slot and feeds the answers as a structured user-message block in PromptPrefixBuilder. (7) Migrate Plan-emitting skills to PlanParser.ParseStrict — incremental flip of every call site in agent-smith-skills (skills with output_schema=plan in v2.0.0+) so structured open_questions get round-tripped consistently. Skills WITHOUT output_schema=plan retain the lax path until D7 (p0131)."
+  out: "(1) Structured ticket forms (Jira custom fields, GitHub issue forms) — markdown-template-only this slice; structured forms is a follow-up. (2) Multi-turn back-and-forth (operator asks a clarifying question of their own in the reply) — out of scope; the answer-parser detects only `Q<n>: <text>` lines, anything else is ignored with a warning. (3) Re-asking when an answer is empty or off-format — when the parser fails on an answer, the next pipeline run emits the same questions again with no special handling. (4) Removing the Plan.RawResponse / dual-path PlanParser — D7 (p0131). (5) Opt-in data flow gating around PlanAnswers — that's p0128c."
+
+decisions:
+  - key: "Markdown anchor template per platform, not JSON. Reason: Phase C decision. JSON contracts would require each platform to opt-in to parsing — they don't today. Markdown with stable HTML-comment anchor IDs renders to operators as readable prose; the parser locates the anchors mechanically. Trade-off: ADF on Jira needs a small marshaller (existing JiraAdfBuilder) so anchors round-trip; other platforms accept markdown verbatim."
+  - key: "Anchor leading marker `<!--agent-smith:open-questions-->` lets PlanAnswerParser short-circuit on any comment that isn't ours. Reason: webhook traffic is high-volume; parsing every reply for `Q\\d+:` patterns would generate false positives. The marker is invisible to humans (HTML comment) but unambiguous for the parser."
+  - key: "PlanAnswers ride pipeline re-trigger via PipelineRequest, not via persistent state. Reason: agent-smith re-runs the pipeline from scratch on each comment trigger (existing webhook semantics). Persisting answers in a side store would bifurcate state — the request becomes the source of truth, the run id stays clean. Replay scenarios: the persisted plan.json from p0128a + the answer comment in the ticket history is enough to reproduce the run."
+  - key: "Plan-emitting skill migration is incremental. Reason: agent-smith-skills 2.0.0 ships a small number of skills with output_schema=plan; flipping them to strict mode in this slice is a surgical change. Skills without output_schema=plan don't migrate yet — they keep using the lax PlanParser.Parse and emit unstructured open_questions in their text body, which simply doesn't round-trip. The dual path stays until D7."
+  - key: "PlanOpenQuestionsHandler runs in the pipeline executor's failure-recovery path when status=needs_user_input. Reason: a Plan emission with open questions is a soft-fail — implementation can't proceed but the run isn't an error. The handler treats NeedsUserInput as a clean stop: posts the comment, marks the run as 'awaiting answer' in the ticket lifecycle, and exits. Heart-beat / pipeline-lifecycle coordinator changes ride this slice."
+
+steps:
+  - id: comment-template-contract
+    action: "ITicketCommentTemplate + shared markdown base"
+    new:
+      - "src/AgentSmith.Contracts/Tickets/ITicketCommentTemplate.cs: contract with single Render(IReadOnlyList<PlanOpenQuestion>) returning string."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/MarkdownOpenQuestionsCommentTemplate.cs: shared base; emits leading marker + per-question anchor blocks `<!--Q{id}-->\\n**Q{id}:** {question}\\n\\nOptions: {options}` joined by `\\n\\n`."
+      - "tests/AgentSmith.Tests/Tickets/MarkdownOpenQuestionsCommentTemplateTests.cs: Render_TwoQuestions_ProducesAnchoredMarkdown, Render_NoOptions_OmitsOptionsLine, Render_LeadingMarkerPresent."
+
+  - id: per-platform-templates
+    action: "Per-platform overrides — Jira ADF, GitHub/GitLab/AzDO inherit base"
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/Jira/JiraOpenQuestionsCommentTemplate.cs: wraps MarkdownOpenQuestionsCommentTemplate output; converts to Atlassian Document Format via existing JiraAdfBuilder so anchors survive."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHub/GitHubOpenQuestionsCommentTemplate.cs: passes markdown through verbatim."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLab/GitLabOpenQuestionsCommentTemplate.cs: passes markdown through verbatim."
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOps/AzureDevOpsOpenQuestionsCommentTemplate.cs: passes markdown through verbatim."
+      - "tests/AgentSmith.Tests/Tickets/JiraOpenQuestionsCommentTemplateTests.cs: Render_Markdown_ProducesAdfWithAnchors."
+
+  - id: poster-and-handler
+    action: "IPlanOpenQuestionsPoster + PlanOpenQuestionsHandler"
+    new:
+      - "src/AgentSmith.Application/Services/Triage/IPlanOpenQuestionsPoster.cs: contract."
+      - "src/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs: ~50 lines. Resolves the per-platform ITicketCommentTemplate + the matching IPrCommentReplyService (keyed singleton on platform name); calls Render then posts."
+      - "src/AgentSmith.Application/Services/Triage/PlanOpenQuestionsHandler.cs: ICommandHandler<PlanOpenQuestionsContext>. Runs after the Plan-skill phase; reads Plan from context; on Status=NeedsUserInput, calls the poster, sets ContextKeys.OpenQuestionsAwaitingAnswer = true, returns CommandResult.Ok with status `awaiting_user_input` so the executor halts cleanly."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: add OpenQuestionsAwaitingAnswer (bool) and PlanAnswers (Dictionary<string,string>)."
+      - "src/AgentSmith.Application/PipelinePresets.cs (existing): inject PlanOpenQuestionsHandler step right after each pipeline's Plan-emitting skill round."
+
+  - id: plan-answer-parser
+    action: "PlanAnswerParser + webhook plumbing"
+    new:
+      - "src/AgentSmith.Application/Services/Triage/PlanAnswerParser.cs: parses a comment body; rejects unless the leading marker is present in the parent comment thread; extracts `Q<id>: <answer>` lines; returns Dictionary<string,string>; warns on malformed lines."
+      - "tests/AgentSmith.Tests/Triage/PlanAnswerParserTests.cs: Parse_AnchoredReplyWithAnswers_ReturnsMap, Parse_NoLeadingMarker_ReturnsEmpty, Parse_MalformedAnswer_LogsWarningSkipsLine, Parse_MultilineAnswer_PreservesContent."
+    modify:
+      - "src/AgentSmith.Server/Services/Webhooks/<Platform>CommentWebhookHandler.cs (4 platforms): when the comment-intent parser detects a Plan-questions context (parent comment carries the anchor marker), call PlanAnswerParser; on non-empty result, enqueue a PipelineRequest with PlanAnswers populated."
+      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs: add PlanAnswers (Dictionary<string,string>?) property; serialised via existing System.Text.Json conventions."
+
+  - id: prompt-injection
+    action: "Plan-skill consumes PlanAnswers from PipelineContext"
+    modify:
+      - "src/AgentSmith.Application/Services/Builders/PromptPrefixBuilder.cs: when ContextKeys.PlanAnswers is present, render an `## Operator answers to prior open questions` user-message block with each `Q{id}: {answer}` line; appended after the existing skill prompt parts."
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs: pull ContextKeys.PlanAnswers from PipelineContext and feed it to PromptPrefixBuilder."
+
+  - id: strict-parse-migration
+    action: "Migrate Plan-emitting call sites to PlanParser.ParseStrict"
+    modify:
+      - "All call sites in src/AgentSmith.Application/ that read Plan from a Plan-skill response: switch from PlanParser.Parse to PlanParser.ParseStrict + PlanOutputValidator (DI-injected). Failures bubble through the existing GateRetryCoordinator path. Estimated touch-set is small (≤4 sites) — exact list confirmed during execution by grep for PlanParser.Parse callers in the Plan-emitting flow."
+
+  - id: tests-end-to-end
+    action: "End-to-end test pack"
+    new:
+      - "tests/AgentSmith.Tests/Triage/PlanOpenQuestionsHandlerTests.cs: ExecuteAsync_StatusNeedsUserInput_PostsComment, ExecuteAsync_StatusComplete_NoComment, ExecuteAsync_PosterFails_ReturnsFailureWithDetail."
+      - "tests/AgentSmith.Tests/Webhooks/PlanAnswersWebhookFlowTests.cs: per platform — comment with anchored Q1/Q2 reply enqueues a PipelineRequest with PlanAnswers populated."
+      - "tests/AgentSmith.Tests/Builders/PromptPrefixBuilderPlanAnswersTests.cs: Builder_WithPlanAnswers_AppendsOperatorAnswersBlock; Builder_NoAnswers_NoSection."
+
+tests:
+  - "MarkdownOpenQuestionsCommentTemplate_Render_TwoQuestions_ProducesAnchoredMarkdown"
+  - "MarkdownOpenQuestionsCommentTemplate_Render_NoOptions_OmitsOptionsLine"
+  - "MarkdownOpenQuestionsCommentTemplate_Render_LeadingMarkerPresent"
+  - "JiraOpenQuestionsCommentTemplate_Render_Markdown_ProducesAdfWithAnchors"
+  - "PlanOpenQuestionsHandler_ExecuteAsync_StatusNeedsUserInput_PostsComment"
+  - "PlanOpenQuestionsHandler_ExecuteAsync_StatusComplete_NoComment"
+  - "PlanOpenQuestionsHandler_ExecuteAsync_PosterFails_ReturnsFailureWithDetail"
+  - "PlanAnswerParser_Parse_AnchoredReplyWithAnswers_ReturnsMap"
+  - "PlanAnswerParser_Parse_NoLeadingMarker_ReturnsEmpty"
+  - "PlanAnswerParser_Parse_MalformedAnswer_LogsWarningSkipsLine"
+  - "PlanAnswerParser_Parse_MultilineAnswer_PreservesContent"
+  - "PlanAnswersWebhookFlow_GitHub_EnqueuesRequestWithAnswers"
+  - "PlanAnswersWebhookFlow_GitLab_EnqueuesRequestWithAnswers"
+  - "PlanAnswersWebhookFlow_AzureDevOps_EnqueuesRequestWithAnswers"
+  - "PlanAnswersWebhookFlow_Jira_EnqueuesRequestWithAnswers"
+  - "PromptPrefixBuilderPlanAnswers_Builder_WithPlanAnswers_AppendsOperatorAnswersBlock"
+  - "PromptPrefixBuilderPlanAnswers_Builder_NoAnswers_NoSection"
+
+done:
+  - "ITicketCommentTemplate + 4 per-platform implementations exist; markdown anchor template renders Plan open_questions consistently; Jira ADF round-trip preserved"
+  - "PlanOpenQuestionsHandler posts a Plan-questions comment when status=needs_user_input; halts the pipeline cleanly with `awaiting_user_input`"
+  - "PlanAnswerParser extracts operator answers from anchored replies; the four webhook handlers re-enqueue a PipelineRequest with PlanAnswers populated"
+  - "PromptPrefixBuilder feeds the answers as a structured user-message block on the next Plan-skill run"
+  - "All Plan-emitting call sites use PlanParser.ParseStrict + PlanOutputValidator; the lax path stays for non-Plan-emitting skills until D7"
+  - "End-to-end test pack passes; existing tests unchanged"

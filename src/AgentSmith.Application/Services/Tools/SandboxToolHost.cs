@@ -20,19 +20,22 @@ public sealed class SandboxToolHost
     private readonly IDialogueTransport? _dialogueTransport;
     private readonly string? _jobId;
     private readonly string _repoPath;
+    private readonly ToolGuardInvoker _guards;
     private readonly List<CodeChange> _changes = new();
     private readonly List<PlanDecision> _decisions = new();
 
     public SandboxToolHost(
         ISandbox sandbox, IDecisionLogger decisionLogger,
         IDialogueTransport? dialogueTransport = null, string? jobId = null,
-        string repoPath = "/work")
+        string repoPath = "/work",
+        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null)
     {
         _runner = new SandboxStepRunner(sandbox);
         _decisionLogger = decisionLogger;
         _dialogueTransport = dialogueTransport;
         _jobId = jobId;
         _repoPath = repoPath;
+        _guards = new ToolGuardInvoker(readGuard, writeGuard);
     }
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
@@ -42,7 +45,9 @@ public sealed class SandboxToolHost
     public Task<string> ReadFile(
         [Description("Repository-relative path to read.")] string path,
         CancellationToken ct = default)
-        => _runner.ReadAsync(path, ct);
+        => _guards.CheckRead(path) is { } error
+            ? Task.FromResult(error)
+            : _runner.ReadAsync(path, ct);
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]
     public async Task<string> WriteFile(
@@ -50,6 +55,7 @@ public sealed class SandboxToolHost
         [Description("Full content to write to the file.")] string content,
         CancellationToken ct = default)
     {
+        if (_guards.CheckWrite(path) is { } error) return error;
         var result = await _runner.WriteAsync(path, content, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             _changes.Add(new CodeChange(new FilePath(path), content, "Modify"));
@@ -61,7 +67,9 @@ public sealed class SandboxToolHost
         [Description("Repository-relative path to list. Use '.' for the repo root.")] string path = ".",
         [Description("Optional max depth to recurse.")] int? maxDepth = null,
         CancellationToken ct = default)
-        => _runner.ListAsync(path, maxDepth, ct);
+        => _guards.CheckRead(path) is { } error
+            ? Task.FromResult(error)
+            : _runner.ListAsync(path, maxDepth, ct);
 
     [Description("Searches files for a regular expression pattern under the given path.")]
     public Task<string> Grep(
@@ -70,7 +78,9 @@ public sealed class SandboxToolHost
         [Description("Optional glob filter (e.g. '*.cs').")] string? glob = null,
         [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
         CancellationToken ct = default)
-        => _runner.GrepAsync(pattern, path, glob, maxMatches, ct);
+        => _guards.CheckRead(path) is { } error
+            ? Task.FromResult(error)
+            : _runner.GrepAsync(pattern, path, glob, maxMatches, ct);
 
     [Description("Runs a shell command. Long-running server processes are blocked.")]
     public Task<string> RunCommand(

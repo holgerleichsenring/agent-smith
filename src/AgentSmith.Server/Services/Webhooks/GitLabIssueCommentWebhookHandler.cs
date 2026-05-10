@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -9,10 +10,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <summary>
 /// Handles GitLab Note Hook on issues for re-triggering pipelines.
 /// Checks for configured keyword in note body, respects status gate.
+/// p0128b: detects Plan-open-questions answers and re-triggers with PlanAnswers populated.
 /// </summary>
 public sealed class GitLabIssueCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    PlanAnswerParser planAnswerParser,
     ILogger<GitLabIssueCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -42,10 +45,14 @@ public sealed class GitLabIssueCommentWebhookHandler(
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
             var (projectName, triggerConfig) = GitLabIssueWebhookHandler.FindProject(config, repoUrl);
 
-            if (triggerConfig?.CommentKeyword is null)
-                return Task.FromResult(new WebhookResult(false, null, null));
+            if (triggerConfig is null) return Task.FromResult(new WebhookResult(false, null, null));
 
-            if (!noteBody.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase))
+            var planAnswers = planAnswerParser.Parse(noteBody);
+            var hasAnswers = planAnswers.Count > 0;
+            var hasKeyword = triggerConfig.CommentKeyword is not null
+                && noteBody.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase);
+
+            if (!hasAnswers && !hasKeyword)
                 return Task.FromResult(new WebhookResult(false, null, null));
 
             if (!root.TryGetProperty("issue", out var issueEl))
@@ -75,7 +82,9 @@ public sealed class GitLabIssueCommentWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: issueId.ToString()));
+                TicketId: issueId.ToString(),
+                Platform: "gitlab",
+                PlanAnswers: hasAnswers ? new Dictionary<string, string>(planAnswers) : null));
         }
         catch (Exception ex)
         {

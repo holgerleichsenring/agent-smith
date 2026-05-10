@@ -6,9 +6,10 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Loads skills/concept-vocabulary.yaml — the controlled vocabulary referenced by skill
-/// activation positive keys. Three sections (project_concepts, change_signals, run_context)
-/// flatten into a single namespace; duplicate keys across sections are an error.
+/// Loads skills/concept-vocabulary.yaml — the typed concept vocabulary referenced
+/// by skill activation positive keys. Flat list of typed concepts (bool/int/enum).
+/// Boot fails loudly on legacy three-section shape, missing required fields, or
+/// type-incompatible attributes; missing file is a warning, not a failure.
 /// </summary>
 public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> logger)
 {
@@ -17,11 +18,6 @@ public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> log
         .IgnoreUnmatchedProperties()
         .Build();
 
-    /// <summary>
-    /// Loads skills/concept-vocabulary.yaml from <paramref name="skillsDirectory"/>. Returns
-    /// <see cref="ConceptVocabulary.Empty"/> if the file is missing — callers receive a warning,
-    /// not an exception, so deployments without a vocabulary file still boot.
-    /// </summary>
     public ConceptVocabulary Load(string skillsDirectory)
     {
         var path = Path.Combine(skillsDirectory, "concept-vocabulary.yaml");
@@ -32,65 +28,99 @@ public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> log
         }
 
         var yaml = File.ReadAllText(path);
-        var raw = Deserializer.Deserialize<RawConceptVocabularyFile>(yaml);
+        RejectLegacyShape(yaml, path);
+
+        var raw = Deserializer.Deserialize<RawFile>(yaml);
         if (raw?.Concepts is null)
-        {
-            logger.LogWarning("concept-vocabulary.yaml at {Path} is empty or malformed", path);
-            return ConceptVocabulary.Empty;
-        }
+            throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path} is empty or missing the top-level 'concepts:' list");
 
-        var lookup = new Dictionary<string, ProjectConcept>(StringComparer.Ordinal);
-        Add(raw.Concepts.ProjectConcepts, "project_concepts", lookup, path);
-        Add(raw.Concepts.ChangeSignals, "change_signals", lookup, path);
-        Add(raw.Concepts.RunContext, "run_context", lookup, path);
-
-        logger.LogInformation(
-            "Loaded {Count} concepts from {Path} ({P} project, {C} change, {R} run)",
-            lookup.Count, path,
-            raw.Concepts.ProjectConcepts?.Count ?? 0,
-            raw.Concepts.ChangeSignals?.Count ?? 0,
-            raw.Concepts.RunContext?.Count ?? 0);
-
+        var lookup = BuildLookup(raw.Concepts, path);
+        logger.LogInformation("Loaded {Count} concepts from {Path}", lookup.Count, path);
         return new ConceptVocabulary(lookup);
     }
 
-    private void Add(
-        List<RawConcept>? entries,
-        string section,
-        Dictionary<string, ProjectConcept> lookup,
-        string sourcePath)
+    private static void RejectLegacyShape(string yaml, string path)
     {
-        if (entries is null) return;
+        var hasLegacySection = yaml.Contains("\n  project_concepts:") ||
+                                yaml.Contains("\n  change_signals:") ||
+                                yaml.Contains("\n  run_context:");
+        if (!hasLegacySection) return;
+        throw new InvalidOperationException(
+            $"concept-vocabulary.yaml at {path} is in the legacy three-section shape (project_concepts/change_signals/run_context). " +
+            "Migrate to the flat typed schema: concepts: [{name, type, description, enum_values?, int_range?, writers?}]. " +
+            "See p0125a phase spec for details.");
+    }
+
+    private static Dictionary<string, ProjectConcept> BuildLookup(List<RawConcept> entries, string path)
+    {
+        var lookup = new Dictionary<string, ProjectConcept>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
-            if (string.IsNullOrWhiteSpace(entry.Key)) continue;
-            if (lookup.TryGetValue(entry.Key, out var existing))
-            {
-                logger.LogError(
-                    "concept-vocabulary.yaml at {Path}: duplicate key '{Key}' in section '{Section}' (already declared in '{ExistingSection}')",
-                    sourcePath, entry.Key, section, existing.Section);
+            var concept = BuildConcept(entry, path);
+            if (lookup.ContainsKey(concept.Name))
                 throw new InvalidOperationException(
-                    $"concept-vocabulary.yaml has duplicate key '{entry.Key}' across sections '{existing.Section}' and '{section}'");
-            }
-            lookup[entry.Key] = new ProjectConcept(entry.Key, entry.Desc ?? string.Empty, section);
+                    $"concept-vocabulary.yaml at {path}: duplicate concept name '{concept.Name}'");
+            lookup[concept.Name] = concept;
         }
+        return lookup;
     }
 
-    private sealed class RawConceptVocabularyFile
+    private static ProjectConcept BuildConcept(RawConcept entry, string path)
     {
-        public RawConceptSections? Concepts { get; set; }
+        if (string.IsNullOrWhiteSpace(entry.Name))
+            throw new InvalidOperationException($"concept-vocabulary.yaml at {path}: entry is missing 'name'");
+        var type = ParseType(entry.Type, entry.Name, path);
+        ValidateAttributes(entry, type, path);
+
+        var enumValues = type == ConceptType.Enum ? entry.EnumValues!.AsReadOnly() : null;
+        var intRange = type == ConceptType.Int ? new ConceptIntRange(entry.IntRange![0], entry.IntRange[1]) : null;
+        var writers = (entry.Writers ?? []).AsReadOnly();
+        return new ProjectConcept(entry.Name, entry.Description ?? string.Empty, type, enumValues, intRange, writers);
     }
 
-    private sealed class RawConceptSections
+    private static ConceptType ParseType(string? rawType, string conceptName, string path) =>
+        rawType?.ToLowerInvariant() switch
+        {
+            "bool" => ConceptType.Bool,
+            "int" => ConceptType.Int,
+            "enum" => ConceptType.Enum,
+            null or "" => throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' is missing 'type' (must be bool, int, or enum)"),
+            _ => throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' has unknown type '{rawType}' (must be bool, int, or enum)")
+        };
+
+    private static void ValidateAttributes(RawConcept entry, ConceptType type, string path)
     {
-        public List<RawConcept>? ProjectConcepts { get; set; }
-        public List<RawConcept>? ChangeSignals { get; set; }
-        public List<RawConcept>? RunContext { get; set; }
+        var hasEnumValues = entry.EnumValues is { Count: > 0 };
+        var hasIntRange = entry.IntRange is { Count: 2 };
+        if (type == ConceptType.Enum && !hasEnumValues)
+            throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: enum concept '{entry.Name}' must declare a non-empty 'enum_values' list");
+        if (type != ConceptType.Enum && hasEnumValues)
+            throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: concept '{entry.Name}' has 'enum_values' but type is '{type.ToString().ToLowerInvariant()}' (only enum concepts may declare enum_values)");
+        if (type == ConceptType.Int && !hasIntRange)
+            throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: int concept '{entry.Name}' must declare 'int_range: [min, max]'");
+        if (type != ConceptType.Int && hasIntRange)
+            throw new InvalidOperationException(
+                $"concept-vocabulary.yaml at {path}: concept '{entry.Name}' has 'int_range' but type is '{type.ToString().ToLowerInvariant()}' (only int concepts may declare int_range)");
+    }
+
+    private sealed class RawFile
+    {
+        public List<RawConcept>? Concepts { get; set; }
     }
 
     private sealed class RawConcept
     {
-        public string Key { get; set; } = string.Empty;
-        public string? Desc { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Type { get; set; }
+        public string? Description { get; set; }
+        public List<string>? EnumValues { get; set; }
+        public List<int>? IntRange { get; set; }
+        public List<string>? Writers { get; set; }
     }
 }

@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0125b
+goal: "Second slice of D1. Pure-function boolean expression evaluator for `activates_when` strings over the typed concept vocabulary, plus a typed run-state surface (IRunStateConcepts) that lets handlers publish and read concepts during a pipeline run. The vocabulary from p0125a is wired into both. No production runtime use yet — the evaluator is exercised only by tests in this slice; handler-side concept publication arrives in p0125c."
+
+requires: ["p0125a"]
+
+scope:
+  in: "(1) Recursive-descent parser for the activates_when grammar. Operators: AND, OR, NOT, =, >, >=, <, <=. Parentheses allowed. String literals double-quoted (`pipeline_name = \"fix-bug\"`); int and bool literals unquoted. Operator precedence: comparisons tighter than NOT > AND > OR; left-associative; parens override. Implementation split into three classes ≤120 lines each: ActivationExpressionTokenizer (lexer), ActivationExpressionParser (precedence-driven assembly), and ActivationEvaluator (switch-expression dispatch over the AST). Parse errors throw ActivationExpressionParseException carrying the input offset and offending token text. (2) AST as pure data — abstract record `ActivationExpression` with sealed-record subtypes And, Or, Not, Comparison, Identifier, BoolLit, IntLit, StringLit. No behavior on the records; evaluation is the ActivationEvaluator service's job. (3) IRunStateConcepts contract in Contracts: GetBool/GetInt/GetEnum + SetBool/SetInt/SetEnum. Each Set throws ConceptTypeMismatchException at the call site if the concept's declared type doesn't match. Each Get returns the typed default from ConceptVocabulary.GetDefault when the concept is unset. SetEnum throws if the value is not in the declared enum_values. SetInt throws if the value is outside the declared int_range. (4) PipelineContextRunStateConcepts impl in Infrastructure: backed by PipelineContext + ConceptVocabulary; concept values stored under a dedicated ContextKeys.ConceptValues key (Dict<string, object>) so they don't collide with freeform run-state. (5) ContextKeys.ConceptValues added with XML-doc 'managed by IRunStateConcepts; do not write directly'. (6) DI: PipelineContextRunStateConcepts registered as scoped/transient per existing handler conventions; ActivationExpressionParser + ActivationEvaluator registered as singletons (stateless). (7) Test pack covers parser, evaluator, and run-state surface."
+  out: "(1) Pre-skill handlers publishing concepts via IRunStateConcepts — that's p0125c. Specifically, no CheckoutSourceHandler / BootstrapCheckHandler / PipelineNameInitializer changes here. (2) CLI validate-concepts verb — p0125d. (3) TriageHandler concept-snapshot log — p0125c. (4) SKILL.md activates_when fields in agent-smith-skills — those land in p0127 (D3 territory) when triage rewrites for activates_when consumption. (5) Activation expression caching: parsed expressions could be memoized per skill-load, but no skill ships activates_when yet, so there's nothing to cache. Add when the consumer arrives. (6) String-typed concepts and string concatenation operators — type system stays bool/int/enum (closed per p0125a)."
+
+decisions:
+  - key: "AST records are pure data; evaluation lives in a separate ActivationEvaluator service. Reason: coding-principles is non-negotiable on composition over inheritance and on records-for-DTOs. Putting Evaluate(state) on each AST record means a virtual base method and behavior on data — small inheritance, but still inheritance. A switch-expression in ActivationEvaluator keeps records as immutable values, centralizes evaluation logic for one-glance review, and makes 'add a new node type' a build-error-driven update (the switch warns on missing cases). Trade-off: one indirection at the call site. Worth it."
+  - key: "Parser split into three ≤120-line classes: Tokenizer + Parser + Evaluator. Reason: coding-principles caps classes at 120 lines and methods at 20. The grammar is small but a single class covering tokenize+parse+evaluate would be ~200-250 lines. Splitting along the natural seams (lex → parse-to-AST → evaluate-AST) gives three single-responsibility classes that test independently. Within Parser, per-precedence helpers (ParseOr, ParseAnd, ParseNot, ParseComparison, ParseAtom) are private methods of 5-10 lines each."
+  - key: "ActivationExpressionParseException carries position offset + offending-token text, not a generic message. Reason: parse errors on hand-written skill frontmatter are operator-debuggable; a 'parse failed' string with no location wastes their time. Position is byte-offset into the original input (column-style); offending token is the raw source slice. Both fields are public so tests assert on them and the CLI verb in p0125d formats them into per-skill error messages."
+  - key: "IRunStateConcepts.SetX throws on type-mismatch at the call site, not on the next read. Reason: writers fail loud. Silent coercion would let a handler accidentally publish a bool-shaped value to an int concept and have triage downstream make a wrong activation decision with no signal in the call chain. Throwing at Set means the stack trace points at the bug. ConceptTypeMismatchException carries (concept name, declared type, attempted type) for the error message."
+  - key: "ConceptValues storage is one Dict<string, object> under a single ContextKeys key, not per-type dictionaries. Reason: per-type dicts (Dict<string,bool>, Dict<string,int>, Dict<string,string>) split the read/write surface across three lookups and force PipelineContextRunStateConcepts to know which dict each concept lives in via the vocabulary. Single dict with `object` values is one lookup; the typed cast happens in the Getter against the vocabulary-declared type. Boxing cost is negligible (concept reads happen at triage time, not in hot loops)."
+  - key: "Comparisons (`=`, `>`, `>=`, `<`, `<=`) bind tighter than NOT. Reason: matches conventional boolean-algebra reading. `findings_count > 0 AND NOT api_internal_only` parses as `((findings_count > 0) AND (NOT api_internal_only))`. This is also Python/SQL convention. Tests assert this explicitly with mixed-precedence inputs; the parse tree is rendered via record ToString() for assertion clarity."
+  - key: "String comparisons are equality-only. `=` works on string literals; `>` `>=` `<` `<=` on strings throw ActivationExpressionEvaluateException at evaluation time. Reason: ordered string comparison is locale-sensitive and surprising in activation expressions ('apple' > 'banana' depends on culture). Equality is unambiguous. If lexicographic comparison is ever needed, the type system can grow a dedicated comparison operator; until then this stays banned."
+  - key: "Parser has no caching, no instance state. ActivationExpressionParser.Parse(string) is a pure function; the class only exists for DI registration consistency (other Parser-style classes in the codebase are instance-based per coding-principles). Reason: parsing happens at boot (CLI validate-concepts) or at skill-load (when p0127 lands). No request-path parsing, no cache invalidation problem. If parsing ever shows up in a hot path, a memoizing decorator wraps the parser without changing the contract."
+
+steps:
+  - id: ast-records
+    action: "AST records as pure data"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpression.cs: abstract sealed-marker record (no body). Path note — Application not Contracts because the AST is internal to the activation evaluator subsystem; only IRunStateConcepts crosses layers."
+      - "src/AgentSmith.Application/Services/Activation/AndExpression.cs: sealed record (ActivationExpression Left, ActivationExpression Right) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/OrExpression.cs: sealed record (ActivationExpression Left, ActivationExpression Right) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/NotExpression.cs: sealed record (ActivationExpression Inner) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/ComparisonExpression.cs: sealed record (ActivationExpression Left, ComparisonOperator Operator, ActivationExpression Right) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/ComparisonOperator.cs: enum (Equals, GreaterThan, GreaterOrEqual, LessThan, LessOrEqual)."
+      - "src/AgentSmith.Application/Services/Activation/IdentifierExpression.cs: sealed record (string Name) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/BoolLiteralExpression.cs: sealed record (bool Value) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/IntLiteralExpression.cs: sealed record (int Value) : ActivationExpression."
+      - "src/AgentSmith.Application/Services/Activation/StringLiteralExpression.cs: sealed record (string Value) : ActivationExpression."
+
+  - id: tokenizer
+    action: "Tokenizer (lexer): scans identifiers, literals, operators, parens"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationToken.cs: sealed record (ActivationTokenType Type, string Text, int Offset)."
+      - "src/AgentSmith.Application/Services/Activation/ActivationTokenType.cs: enum (Identifier, BoolLiteral, IntLiteral, StringLiteral, And, Or, Not, Equals, GreaterThan, GreaterOrEqual, LessThan, LessOrEqual, OpenParen, CloseParen, EndOfInput)."
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpressionTokenizer.cs: sealed class ≤120 lines. Single public method `IReadOnlyList<ActivationToken> Tokenize(string input)`. Whitespace-skipping; identifier rule [a-zA-Z_][a-zA-Z0-9_]*; numeric literal [0-9]+; string literal \"...\" with escape support for \\\" and \\\\; reserved-word match for true/false/AND/OR/NOT (case-insensitive — operators in YAML are conventionally upper but lower works); throws ActivationExpressionParseException on unknown char."
+
+  - id: parser
+    action: "Recursive-descent parser: precedence Or > And > Not > Comparison > Atom"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpressionParser.cs: sealed class ≤120 lines. Single public method `ActivationExpression Parse(string input)`. Internally calls Tokenizer once, then walks tokens via private ParseOr → ParseAnd → ParseNot → ParseComparison → ParseAtom helpers (5-10 lines each). End-of-input check after parse, throws if trailing tokens remain."
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpressionParseException.cs: sealed exception (string message, int offset, string offendingToken)."
+
+  - id: evaluator
+    action: "Evaluator: switch-expression dispatch over the AST"
+    new:
+      - "src/AgentSmith.Application/Services/Activation/ActivationEvaluator.cs: sealed class ≤120 lines. Single public method `bool Evaluate(ActivationExpression expression, IRunStateConcepts state)`. Switch expression covers all 9 AST node types. Identifier resolution: GetBool against state (an identifier in boolean position is always a bool concept; using an int/enum identifier as a top-level boolean throws). Comparisons: dispatched per ComparisonOperator with type-checks (string ordering throws, int comparison resolves via state.GetInt, string equality via state.GetEnum)."
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpressionEvaluateException.cs: sealed exception. Thrown when the AST is structurally valid but evaluation hits a type clash (e.g. ordered comparison on enum, comparison between int and string)."
+
+  - id: run-state-contract
+    action: "IRunStateConcepts contract + impl"
+    new:
+      - "src/AgentSmith.Contracts/Activation/IRunStateConcepts.cs: interface. Methods bool GetBool(string name); int GetInt(string name); string GetEnum(string name); void SetBool(string, bool); void SetInt(string, int); void SetEnum(string, string). XML doc on each Set documents that the call throws on type mismatch / out-of-range / unknown-enum-value."
+      - "src/AgentSmith.Contracts/Activation/ConceptTypeMismatchException.cs: sealed exception (string conceptName, ConceptType declaredType, string attemptedTypeName)."
+      - "src/AgentSmith.Infrastructure/Services/Activation/PipelineContextRunStateConcepts.cs: implementation backed by PipelineContext + ConceptVocabulary. Lazy-initializes the ContextValues dict if absent. Each Get/Set first looks up the concept declaration via vocabulary.TryGet; throws KeyNotFoundException on undeclared concept (writers fail loud on typos)."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: add `ConceptValues` typed-key for Dict<string, object>. XML-doc 'managed by IRunStateConcepts; do not write directly'."
+
+  - id: di-wiring
+    action: "DI registration"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs (or whichever existing file registers Application services): register ActivationExpressionTokenizer + ActivationExpressionParser + ActivationEvaluator as singletons (stateless)."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs (or equivalent): register IRunStateConcepts → PipelineContextRunStateConcepts as Transient (each pipeline gets its own context-bound view)."
+
+  - id: tests
+    action: "Test pack: tokenizer, parser, evaluator, run-state surface"
+    new:
+      - "tests/AgentSmith.Tests/Activation/ActivationExpressionTokenizerTests.cs: Tokenize_SingleIdentifier_ReturnsIdentifierToken; Tokenize_BoolLiteral_ReturnsBoolToken; Tokenize_StringLiteralWithEscapes_ReturnsStringToken; Tokenize_AllOperators_ReturnsCorrectTypes; Tokenize_UnknownChar_ThrowsWithOffset; Tokenize_UnclosedString_ThrowsWithOffset."
+      - "tests/AgentSmith.Tests/Activation/ActivationExpressionParserTests.cs: Parse_SingleIdentifier_ReturnsIdentifierNode; Parse_AndPrecedenceOverOr_ParsesCorrectly; Parse_NotPrecedenceOverAnd_ParsesCorrectly; Parse_ComparisonPrecedenceOverNot_ParsesCorrectly; Parse_ParensOverridePrecedence_ParsesCorrectly; Parse_StringLiteralEqual_ParsesCorrectly; Parse_IntComparisonOperators_ParseCorrectly; Parse_LeftAssociativity_ParsesCorrectly; Parse_MalformedInput_ThrowsWithPosition; Parse_EmptyString_Throws; Parse_UnclosedParen_ThrowsWithPosition; Parse_TrailingTokens_Throws."
+      - "tests/AgentSmith.Tests/Activation/ActivationEvaluatorTests.cs: Evaluate_SingleBoolConcept_ReturnsValue; Evaluate_AndShortCircuit_StopsAtFirstFalse; Evaluate_OrShortCircuit_StopsAtFirstTrue; Evaluate_MissingBoolConcept_ReturnsFalse; Evaluate_MissingIntConcept_ReturnsZero; Evaluate_MissingEnumConcept_ReturnsFirstValue; Evaluate_StringEqualsOnEnum_ReturnsCorrectBool; Evaluate_OrderedComparisonOnEnum_Throws; Evaluate_IntComparison_ReturnsCorrectBool."
+      - "tests/AgentSmith.Tests/Activation/PipelineContextRunStateConceptsTests.cs: SetBool_ValidConcept_StoresValue; SetBool_OnIntConcept_Throws; SetInt_OutsideDeclaredRange_Throws; SetEnum_UnknownValue_Throws; GetBool_UnsetConcept_ReturnsTypedDefault; GetEnum_UnsetConcept_ReturnsFirstEnumValue; SetBool_UndeclaredConcept_Throws."
+
+tests:
+  - "ActivationExpressionTokenizer_Tokenize_SingleIdentifier_ReturnsIdentifierToken"
+  - "ActivationExpressionTokenizer_Tokenize_BoolLiteral_ReturnsBoolToken"
+  - "ActivationExpressionTokenizer_Tokenize_StringLiteralWithEscapes_ReturnsStringToken"
+  - "ActivationExpressionTokenizer_Tokenize_AllOperators_ReturnsCorrectTypes"
+  - "ActivationExpressionTokenizer_Tokenize_UnknownChar_ThrowsWithOffset"
+  - "ActivationExpressionTokenizer_Tokenize_UnclosedString_ThrowsWithOffset"
+  - "ActivationExpressionParser_Parse_SingleIdentifier_ReturnsIdentifierNode"
+  - "ActivationExpressionParser_Parse_AndPrecedenceOverOr_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_NotPrecedenceOverAnd_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_ComparisonPrecedenceOverNot_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_ParensOverridePrecedence_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_StringLiteralEqual_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_IntComparisonOperators_ParseCorrectly"
+  - "ActivationExpressionParser_Parse_LeftAssociativity_ParsesCorrectly"
+  - "ActivationExpressionParser_Parse_MalformedInput_ThrowsWithPosition"
+  - "ActivationExpressionParser_Parse_EmptyString_Throws"
+  - "ActivationExpressionParser_Parse_UnclosedParen_ThrowsWithPosition"
+  - "ActivationExpressionParser_Parse_TrailingTokens_Throws"
+  - "ActivationEvaluator_Evaluate_SingleBoolConcept_ReturnsValue"
+  - "ActivationEvaluator_Evaluate_AndShortCircuit_StopsAtFirstFalse"
+  - "ActivationEvaluator_Evaluate_OrShortCircuit_StopsAtFirstTrue"
+  - "ActivationEvaluator_Evaluate_MissingBoolConcept_ReturnsFalse"
+  - "ActivationEvaluator_Evaluate_MissingIntConcept_ReturnsZero"
+  - "ActivationEvaluator_Evaluate_MissingEnumConcept_ReturnsFirstValue"
+  - "ActivationEvaluator_Evaluate_StringEqualsOnEnum_ReturnsCorrectBool"
+  - "ActivationEvaluator_Evaluate_OrderedComparisonOnEnum_Throws"
+  - "ActivationEvaluator_Evaluate_IntComparison_ReturnsCorrectBool"
+  - "PipelineContextRunStateConcepts_SetBool_ValidConcept_StoresValue"
+  - "PipelineContextRunStateConcepts_SetBool_OnIntConcept_Throws"
+  - "PipelineContextRunStateConcepts_SetInt_OutsideDeclaredRange_Throws"
+  - "PipelineContextRunStateConcepts_SetEnum_UnknownValue_Throws"
+  - "PipelineContextRunStateConcepts_GetBool_UnsetConcept_ReturnsTypedDefault"
+  - "PipelineContextRunStateConcepts_GetEnum_UnsetConcept_ReturnsFirstEnumValue"
+  - "PipelineContextRunStateConcepts_SetBool_UndeclaredConcept_Throws"
+
+done:
+  - "ActivationExpressionTokenizer scans the full grammar and reports unknown-char + unclosed-string errors with offsets"
+  - "ActivationExpressionParser produces the AST with documented precedence; parse errors carry position + offending-token"
+  - "ActivationEvaluator returns correct values for all node types including short-circuit evaluation and type-defaults from the vocabulary"
+  - "IRunStateConcepts read/write surface exists in Contracts; PipelineContextRunStateConcepts backs it via PipelineContext + ConceptVocabulary"
+  - "ContextKeys.ConceptValues is the single storage location; XML-doc warns against direct writes"
+  - "Set throws ConceptTypeMismatchException at the call site on type mismatch, out-of-range, unknown-enum-value, undeclared concept"
+  - "All listed tests pass; all existing tests pass"
+  - "DI registers the parser/evaluator pipeline and IRunStateConcepts impl; no production runtime path consumes the evaluator yet (that's p0125c/d/p0127)"
+  - "All classes ≤120 lines; all methods ≤20 lines"

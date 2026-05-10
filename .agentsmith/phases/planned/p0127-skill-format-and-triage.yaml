@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0127
+goal: "D3 parent: skill format migration + deterministic triage. New SKILL.md shape (single body, role-as-frontmatter, activates_when as runtime input). Triage filters skills via ActivationExpressionEvaluator instead of LLM-driven role assignment. Sliced into a/b/c."
+
+requires: ["p0125d", "p0126"]
+
+scope:
+  in: "Parent design for D3. Three slices: (a) Loader + Frontmatter — YamlSkillLoader gains the new SKILL.md shape parser, runs alongside the legacy multi-body parser, accepts either format per-file. New frontmatter fields (role, category, investigator_mode, survey_scope, scope_hint, block_condition, loop, output_schema) parse and store on RoleSkillDefinition without runtime consumption. (b) Triage rewrite — StructuredTriageStrategy / TriageOutputProducer consume RoleSkillDefinition.ActivatesWhen via ActivationExpressionEvaluator before the LLM-based triage runs; the LLM only sees skills whose activates_when evaluates true. Specificity-based selection breaks ties when more skills match than the phase needs. Old activation.positive/negative path stays as a fallback for skills that haven't migrated. (c) Skill content migration in agent-smith-skills — 44 SKILL.md files (4 three-role, 4 two-role, 36 single-role) split where multi-role, rewritten to the new single-body format, each with activates_when expression. Hard cutover: agent-smith-skills 1.9.0 → 2.0.0; agent-smith pin bumped synchronously; loader stops accepting legacy format. Final cleanup of legacy frontmatter fields (roles_supported, role_assignment, activation.*) lives in p0131 (D7), not here."
+  out: "Removal of legacy fields from SkillMdFrontmatter / RoleSkillDefinition — that's p0131 (D7). Removal of TriageOutputProducer's LLM call entirely — the LLM still picks among activates_when-filtered candidates; full deterministic selection (no LLM in triage) is post-D7. Removal of multi-body parsing in YamlSkillLoader — stays until p0127c lands and the agent-smith-skills 2.0.0 cutover proves the new path. Verify-phase wiring — that's p0129 (D5); p0127's frontmatter accepts investigator_mode: verify_diff but no current pipeline routes through Verify. Plan/Diff schema validation — p0128 (D4). PerSkillBreakdown consumers — until first handler migrates to SkillCallRuntime (p0126's runtime exists but no consumer); p0127b is the natural place for the first consumer migration when the new triage hands a SkillCallRequest to the runtime."
+
+decisions:
+  - key: "Three slices, not four. p0125 had a/b/c/d because validation (CLI verb) was a meaningful standalone deliverable. Here, validation is already in place from p0125d; the new fields just need their existence checks added to the same verb. The work splits along loader → triage → content migration; legacy cleanup belongs in D7. Reason: each slice is independently testable, ships behind the same parallel-format discipline as p0125 used for the vocabulary, and produces visible value (a: format parses; b: triage filters; c: skills migrated)."
+  - key: "Parallel-format discipline through a + b; hard cutover at c. The loader accepts both legacy and new SKILL.md shapes from a's land until c's land. Triage in b filters via activates_when when present, falls back to activation.positive when not. Content migration in c flips every skill in agent-smith-skills to the new format and bumps to 2.0.0; loader removes legacy parsing in the same PR; agent-smith pins to 2.0.0 synchronously. Reason: the same hard-cutover discipline that worked for the vocabulary in p0125a — coordinated PR pair, no dual-tolerance code path lingering after the cutover. Two PRs is one merge dance; dual-tolerance is two."
+  - key: "Triage stays LLM-driven for the final pick among activates_when candidates; deterministic filtering is the new pre-step. Reason: Phase A's purely-deterministic vision is the long-term goal, but jumping there in p0127 would mean rewriting TriageOutputProducer end-to-end and removing the LLM's judgment about which phase belongs in the run. The smaller, safer move is: deterministic filter narrows the candidate set; LLM picks within the narrowed set. The LLM's role shrinks but doesn't vanish. Full determinism is a follow-up after D7, when more concepts are published and the activates_when expressions are dense enough to leave at most one candidate per role per phase. The skills_count bound from Phase A is enforced after the LLM picks (specificity tie-break only fires when the LLM's pick exceeds the phase's allowed count)."
+  - key: "Skill count is 44, not 33 as Phase D claimed. Of those: 4 three-role, 4 two-role, 36 single-role — split scope is ~56 skills after the migration. Reason: phase-d.md was written before the skills repo grew. The migration script (p0127c) handles the split mechanically; manual review is per-skill on whether the multi-role original was genuinely multi-role or one role wearing different hats (the latter collapses to one skill with one body). Naming convention for splits: <original>-<role> (e.g. architect-as-lead → architect-planner; architect-as-reviewer → architect-judge)."
+  - key: "category enum closed at p0127c, not opened in a or b. Reason: per Phase C, category is mandatory for investigator_mode: verify_hint and used by the (future) clustering selector. Defining the enum now (auth, injection, secrets, iam, crypto, headers, inputs, outputs) before any verify_hint skill exists is premature ranking — content migration in c is when each skill picks one. The loader in a accepts category as free string; b uses it for nothing yet; c populates it per skill and the validator (extension of validate-concepts) closes the enum at that point. Loose then tight."
+  - key: "p0127a does not depend on p0126's runtime. Reason: a is parser work — frontmatter fields become typed properties on RoleSkillDefinition. They're storage, not consumption. p0126's SkillCallRuntime + SkillExecutionPhase enum become relevant when triage hands a SkillCallRequest to the runtime, which is p0127b's first-consumer migration. p0127a requires only p0125d (current state); p0127b adds the p0126 dependency."
+
+steps:
+  - id: slice-a-pointer
+    action: "p0127a — SKILL.md frontmatter + loader (parallel format support)"
+    new:
+      - "Spec: .agentsmith/phases/planned/p0127a-*.yaml — written alongside this parent. Detail in that file."
+
+  - id: slice-b-pointer
+    action: "p0127b — Triage filters via activates_when (parallel with legacy activation.positive)"
+    new:
+      - "Spec: written when p0127a lands and the loader's behavior is concrete. Sketch: ActivationExpressionEvaluator consumed in TriageOutputProducer pre-LLM step; specificity tie-break for over-count cases; first SkillCallRuntime consumer migration when triage hands SkillCallRequest to runtime."
+
+  - id: slice-c-pointer
+    action: "p0127c — agent-smith-skills 1.9.0 → 2.0.0 (skill content migration; hard cutover)"
+    new:
+      - "Spec: written when p0127b lands and the triage path is proven. Sketch: 44 → ~56 skill files after splitting, single-body format, activates_when expressions populated, category enum closed; agent-smith pin bumped; loader's legacy parser removed."
+
+tests:
+  - "See per-slice specs"
+
+done:
+  - "p0127a, p0127b, p0127c all land — three slices through D3"
+  - "All current SKILL.md files are migrated to new format (44 → ~56 after splits)"
+  - "Triage selects skills via activates_when filtering before the LLM step"
+  - "agent-smith-skills 2.0.0 tagged; agent-smith pinned to 2.0.0; legacy SKILL.md format no longer parses"
+  - "Legacy SkillMdFrontmatter fields (roles_supported, role_assignment, activation.*) still present in code — their removal is p0131 (D7)"

@@ -1,0 +1,248 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0130c
+goal: "Migrate the init-project preset's Bootstrap step from BootstrapProjectHandler (legacy) to a SkillRound dispatch that runs the matching language-specific bootstrap skill (csharp / node / python / generic — produced in p0130a + p0130b). Closes the gap p0130 left open: bootstrap skills exist in the catalog but no preset step actually dispatches them, so init-project still routes to the legacy handler. Without this slice, p0131b cannot delete BootstrapProjectHandler — the gate (p0130a) that tells operators 'run init-project first' would route them into a pipeline that uses the very handler we want to delete."
+
+requires: ["p0125d", "p0127c", "p0129c", "p0130a", "p0130b"]
+
+scope:
+  in: |
+    (1) Cross-repo: agent-smith-skills 2.5.0 → 2.6.0.
+        - `init-project` added to `pipeline_name` enum in `concept-vocabulary.yaml`
+          (today narrow: api-security-scan / security-scan / fix-bug /
+           feature-implementation / mad-discussion / legal-analysis;
+           p0125c's deliberate fence — must be lifted now that init-project
+           has a real producer skill set).
+        - Each bootstrap skill's `activates_when` tightens from
+          `'project_language = "csharp"'` to
+          `'pipeline_name = "init-project" AND project_language = "csharp"'`
+          (and the same shape for node / python / generic). Reason: the
+          catalog ships these skills under `skills/coding/`, the same
+          directory the fix-bug/add-feature pipelines load. Without the
+          pipeline_name gate, an operator running a fix-bug ticket on a
+          Node project could see node-bootstrap appear in triage's filtered
+          skill set — wrong. The pipeline_name gate keeps these skills
+          scoped to init-project regardless of the load location.
+
+    (2) New IConceptWriter: `ProjectLanguageMapper` (Application/Services/Handlers/).
+        Reads `ProjectMap.PrimaryLanguage` from `ContextKeys.ProjectMap`
+        (populated by AnalyzeProjectHandler), maps to the closed
+        `project_language` enum (csharp / node / python / generic), and
+        publishes via `IRunStateConcepts.SetEnum("project_language", ...)`.
+        Mapping table:
+          - "csharp", "c#", ".net", "dotnet" → csharp
+          - "typescript", "javascript", "node", "node.js", "nodejs", "ts", "js" → node
+          - "python", "py" → python
+          - everything else → generic
+        Case-insensitive; whitespace-trimmed; default to `generic` when
+        ProjectMap.PrimaryLanguage is null/empty/unrecognised.
+
+    (3) New step `RunBootstrapDispatch` (CommandNames.BootstrapDispatch +
+        BootstrapDispatchContext + BootstrapDispatchContextBuilder +
+        BootstrapDispatchHandler in Application/Services/Handlers/). Reads
+        AvailableRoles, filters via the existing `ActivationSkillFilter`
+        against `IRunStateConcepts`, and emits exactly one SkillRound
+        command for the single matching bootstrap-* skill via
+        `CommandResult.OkAndContinueWith(skillRoundCommand)`. Fails loud:
+          - 0 matches → Fail("No bootstrap skill matched project_language=X")
+          - >1 matches → Fail("Ambiguous bootstrap match: [skill1, skill2]")
+        This is a deterministic dispatcher — no LLM call. Reuses the same
+        ActivationSkillFilter that StructuredTriage uses, so the routing
+        semantics stay consistent with the rest of the system.
+
+    (4) New `LoadSkillsContext`-style step is NOT introduced — the
+        existing `LoadSkills` handler from the security-scan / api-scan
+        path is used directly. (LoadSkills already populates
+        ContextKeys.AvailableRoles from the resolved skills directory.)
+        InitProject's resolved skills_path defaults to "skills/coding"
+        per PipelinePresets.GetDefaultSkillsPath, which is exactly where
+        the bootstrap-* skills live in agent-smith-skills 2.6.0.
+
+    (5) InitProject preset rewrite in PipelinePresets.cs:
+        OLD: [PipelineNameInitializer, CheckoutSource, BootstrapProject, InitCommit]
+        NEW: [PipelineNameInitializer, CheckoutSource,
+              AnalyzeCode,             // populates ProjectMap
+              PublishProjectLanguage,  // NEW: maps + publishes project_language concept
+              LoadSkills,              // populates AvailableRoles
+              BootstrapDispatch,       // NEW: emits the matching SkillRound
+              WriteRunResult,          // persists run artifacts (bootstrap.md surfaces here per p0128a)
+              InitCommit]
+        SkillRound emitted by BootstrapDispatch runs through the existing
+        SkillRoundHandlerBase path; the bootstrap skill uses its WriteFile
+        tool calls (path-write-guard from p0126c restricts writes to
+        .agentsmith/context.yaml + .agentsmith/coding-principles.md) to
+        produce the deliverables.
+
+    (6) PipelineType for init-project STAYS `PipelineType.Discussion` for
+        now (changing it would require triage-strategy decisions that
+        belong in p0131c-pre — see notes/discussion-triage-migration.md).
+        InitProject doesn't have a Triage step in the new preset so the
+        type only affects classification labels, not behavior.
+
+    (7) DI: PublishProjectLanguageHandler + BootstrapDispatchHandler
+        registered with the three-step pattern (concrete + ICommandHandler
+        + IConceptWriter where applicable). Builders registered.
+        BootstrapCheckHandler's writer list grows from the p0125c entry
+        to also include "ProjectLanguageMapper" — vocabulary `writers`
+        list updated cross-repo.
+
+    (8) Tests: 7 new tests across:
+        - ProjectLanguageMapperTests (5: csharp / node / python / generic /
+          unrecognised-defaults-to-generic)
+        - BootstrapDispatchHandlerTests (4: single-match / no-match-fail /
+          ambiguous-fail / activates-when-honored)
+        - InitProjectPipelinePresetTests (1: preset shape matches the new
+          step sequence)
+
+  out: |
+    - Removal of BootstrapProjectHandler from the codebase. Other presets
+      (FixBug / FixNoTest / AddFeature / SecurityScan / Autonomous /
+      MadDiscussion) still call it; that retirement is p0131b. After
+      p0130c lands, BootstrapProjectHandler is no longer reachable via
+      init-project, but stays for the other six presets.
+    - PipelineNameInitializer enum-fence lifting for skill-manager and
+      autonomous. Those presets remain fenced (would throw at SetEnum)
+      until they have working skill sets — separate concern.
+    - Migration of fix-bug / add-feature etc. to use the bootstrap skills.
+      Those pipelines already trust the BootstrapGate (p0130a) to abort
+      on missing files; they don't need the producer flow.
+    - Smoke testing the actual bootstrap-skill output quality across all
+      four languages — that's operator-validation territory once
+      agent-smith-skills 2.6.0 ships.
+
+decisions:
+  - key: |
+      Deterministic BootstrapDispatch instead of full Triage for InitProject.
+      Reason: exactly one bootstrap skill matches per project_language enum
+      value (we control the catalog). An LLM-driven Triage would add cost
+      and latency for a decision that has no judgment component. The
+      ActivationSkillFilter — the same one StructuredTriage uses — is
+      sufficient on its own. -- alternatives: full Triage (rejected: LLM
+      overhead with no decision-value); hardcoded language→skill table in
+      the handler (rejected: bypasses the activates_when contract that
+      lets operators add a 5th language without code change).
+  - key: |
+      ProjectLanguageMapper as a separate handler from AnalyzeProjectHandler.
+      Reason: AnalyzeProjectHandler produces ProjectMap (a Domain entity);
+      ProjectLanguageMapper translates it into a typed concept publication
+      (a runtime side-effect). Mixing the two would reintroduce the
+      pattern p0125c explicitly chose against — that publishing handlers
+      and analyzing handlers are different concerns. -- alternatives:
+      extend AnalyzeProjectHandler to publish project_language directly
+      (rejected: 6 presets call AnalyzeCode and would all start
+      publishing project_language; today only init-project consumes it,
+      and tightening activates_when in the bootstrap skills assumes
+      publication is init-project-scoped); compute project_language
+      inline in BootstrapDispatch from ProjectMap (rejected: bypasses
+      IRunStateConcepts so other concept-aware filters can't see the
+      value).
+  - key: |
+      project_language mapping is a fixed table, not a YAML config.
+      Reason: the closed enum has 4 values; the mapping is a 10-entry
+      synonyms list (csharp/c#/.net/dotnet, typescript/javascript/node/
+      node.js/nodejs/ts/js, python/py, else). External config would
+      bloat operator surface for a stable internal translation. If a
+      5th language enters the enum, the mapping table grows by 1-3
+      entries — mechanical change, no abstraction needed.
+      -- alternatives: YAML mapping file in skills repo (rejected:
+      premature config-ification; the enum values themselves already
+      live in the skills repo's vocabulary).
+  - key: |
+      Bootstrap skills' activates_when tightens from
+      `project_language = "X"` to
+      `pipeline_name = "init-project" AND project_language = "X"`.
+      Reason: project_language is a stable per-project concept (set
+      once a repo has been analyzed); pipeline_name is the per-run
+      activation. Without the conjunction, a Node project running
+      fix-bug would see node-bootstrap appear in the
+      ActivationSkillFilter output — wrong, that skill should only
+      ever run during init-project. -- alternatives: keep narrow
+      activates_when + rely on triage prompt to filter (rejected:
+      relies on LLM judgment for what should be a structural
+      constraint).
+  - key: |
+      InitProject keeps the same name and conceptual position (it's
+      still the init-project pipeline; only its internals change).
+      Reason: the buddy / operator-facing surface is "run init-project
+      to bootstrap your repo". Renaming would invalidate the gate's
+      "Run init-project first" message and any operator docs/tickets/
+      runbooks. The slice is purely an internal step-sequence change.
+      -- alternatives: introduce a new pipeline name (rejected:
+      forces operator-side changes for zero functional gain).
+  - key: |
+      LoadSkills step inserted before BootstrapDispatch. Reason:
+      BootstrapDispatch reads ContextKeys.AvailableRoles (populated
+      by LoadSkills). Without LoadSkills the dispatch fails with
+      "no skills available." LoadSkills is a no-op when AvailableRoles
+      is already set (in case future composition adds it earlier),
+      so the step is safe to run unconditionally. -- alternatives:
+      bake skill-loading into BootstrapDispatchHandler (rejected:
+      single-responsibility — loading is LoadSkills' job, dispatch
+      is BootstrapDispatch's).
+
+steps:
+  - id: vocabulary
+    action: "Cross-repo: extend pipeline_name enum + tighten bootstrap activates_when"
+    modify:
+      - "agent-smith-skills/skills/concept-vocabulary.yaml"
+      - "agent-smith-skills/skills/coding/csharp-bootstrap/SKILL.md"
+      - "agent-smith-skills/skills/coding/node-bootstrap/SKILL.md"
+      - "agent-smith-skills/skills/coding/python-bootstrap/SKILL.md"
+      - "agent-smith-skills/skills/coding/generic-bootstrap/SKILL.md"
+      - "agent-smith-skills/version.txt"
+      - "agent-smith-skills/CHANGELOG.md"
+      - "agent-smith/config/agentsmith.yml"
+
+  - id: project-language-mapper
+    action: "Add ProjectLanguageMapper IConceptWriter + handler + context + builder"
+    new:
+      - "src/AgentSmith.Application/Models/PublishProjectLanguageContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/PublishProjectLanguageContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PublishProjectLanguageHandler.cs"
+      - "src/AgentSmith.Application/Services/Activation/ProjectLanguageMapper.cs"
+
+  - id: bootstrap-dispatch
+    action: "Add BootstrapDispatch step (CommandName + handler + builder + context)"
+    new:
+      - "src/AgentSmith.Application/Models/BootstrapDispatchContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/BootstrapDispatchContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs"
+
+  - id: di
+    action: "Register builders + handlers (+ IConceptWriter for ProjectLanguage)"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: preset
+    action: "Rewrite InitProject preset"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: tests
+    action: "Unit tests"
+    new:
+      - "tests/AgentSmith.Tests/Activation/ProjectLanguageMapperTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/BootstrapDispatchHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Pipeline/InitProjectPipelinePresetTests.cs"
+
+tests:
+  - "ProjectLanguageMapper maps 'C#' / 'csharp' / '.NET' / 'dotnet' → csharp"
+  - "ProjectLanguageMapper maps 'TypeScript' / 'JavaScript' / 'Node.js' → node"
+  - "ProjectLanguageMapper maps 'Python' / 'py' → python"
+  - "ProjectLanguageMapper maps unknown languages → generic"
+  - "ProjectLanguageMapper maps null/empty PrimaryLanguage → generic"
+  - "BootstrapDispatchHandler: single matching skill emits one SkillRound"
+  - "BootstrapDispatchHandler: no matching skill returns Fail with project_language in message"
+  - "BootstrapDispatchHandler: ambiguous match (>1) returns Fail with skill names in message"
+  - "BootstrapDispatchHandler: ActivationSkillFilter is honored (skill with non-matching pipeline_name is excluded)"
+  - "InitProject preset matches: PipelineNameInitializer, CheckoutSource, AnalyzeCode, PublishProjectLanguage, LoadSkills, BootstrapDispatch, WriteRunResult, InitCommit"
+
+done:
+  - "agent-smith-skills 2.6.0 ships: pipeline_name enum gains init-project; 4 bootstrap skills' activates_when tightened to the conjunction; agentsmith.yml pin synced"
+  - "ProjectLanguageMapper publishes project_language enum from ProjectMap.PrimaryLanguage with the documented mapping table"
+  - "BootstrapDispatchHandler emits exactly one SkillRound for the matching bootstrap skill (or Fail-loud on 0 / >1 matches)"
+  - "InitProject preset uses AnalyzeCode → PublishProjectLanguage → LoadSkills → BootstrapDispatch → SkillRound (via CommandResult.OkAndContinueWith) → WriteRunResult → InitCommit; BootstrapProjectHandler no longer reachable from init-project"
+  - "All existing tests pass; 10 new tests pass"
+  - "p0131b unblocked: BootstrapProjectHandler still consumed by 6 other presets; deletion remains p0131b's job (which can now also rewrite those presets to use BootstrapDispatch — or simply drop BootstrapProject + LoadCodeMap as the parent spec describes)"
+  - "Manual smoke (operator-validated, out of scope for this slice but trackable): init-project against agent-smith itself produces a working .agentsmith/context.yaml + coding-principles.md by routing through csharp-bootstrap"

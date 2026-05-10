@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0131c-pre
+goal: "Migrate mad-discussion + legal-analysis from LegacyTriageStrategy to StructuredTriageStrategy without breaking their output. Both presets have full activates_when coverage post-p0127c (5 mad/* skills + 5 legal/* skills) but lack RunReviewPhase / RunFinalPhase steps, so the structured strategy's Plan/Review/Final phase distribution would silently drop 80% of their skills. Adds a 'single-phase' phase-collapse mode in StructuredTriageStrategy so non-Plan-phase skills get moved to Plan when the preset doesn't have Review/Final steps. Prerequisite for p0131c (LegacyTriageStrategy retirement). Autonomous stays on LegacyTriage — it has no skills with `activates_when=\"pipeline_name = 'autonomous'\"` and would fail StructuredTriage's HasLoadedSkills check; that's a skills-repo gap, not a triage-strategy concern."
+
+requires: ["p0127c", "p0130c"]
+
+scope:
+  in: |
+    (1) New helper `PipelinePresets.IsSinglePhase(string pipelineName)` —
+        returns true when the named preset contains neither RunReviewPhase
+        nor RunFinalPhase. Cheap O(n) scan over the preset list. Centralizes
+        the "this preset emits all skills in one Plan-phase batch" knowledge.
+
+    (2) `ITriageStrategySelector.Select` signature extends from
+        `Select(PipelineType)` to `Select(PipelineType, string pipelineName)`.
+        Selector logic: Discussion-type AND pipeline_name in {mad-discussion,
+        legal-analysis} → StructuredTriageStrategy; Discussion-type otherwise
+        (autonomous, init-project — though init-project no longer has a
+        Triage step post-p0130c) → LegacyTriageStrategy; everything else →
+        StructuredTriageStrategy as before.
+
+    (3) `StructuredTriageStrategy.ExecuteAsync` detects single-phase presets
+        via `PipelinePresets.IsSinglePhase(resolved.PipelineName)`. When
+        true, collapses the LLM-emitted TriageOutput by moving every Lead /
+        Analyst / Reviewer / Filter assignment from Review and Final phases
+        into Plan, then expands only the Plan phase. The Review/Final-phase
+        commands are never emitted. Implementation detail: a small
+        `SinglePhaseCollapser` helper that takes a TriageOutput and returns
+        a new one with merged phases. Preserves order: Plan-phase Lead stays
+        Lead, then existing Plan analysts, then Review-phase analysts (now
+        analysts), then Final-phase reviewers (now analysts), then Filter
+        if any phase declared one. Duplicate skills (a name appearing in
+        multiple phases) are deduplicated, last-write-wins on role
+        assignment.
+
+    (4) `TriageHandler` updated to pass the resolved pipeline name to the
+        selector alongside the type.
+
+    (5) Tests:
+        - PipelinePresetsSinglePhaseTests×6 (mad-discussion + legal-analysis
+          + init-project + autonomous + skill-manager → true; fix-bug +
+          security-scan → false)
+        - TriageStrategySelectorTests×4 (mad-discussion → Structured,
+          legal-analysis → Structured, autonomous → Legacy, fix-bug →
+          Structured)
+        - SinglePhaseCollapserTests×4 (no Review/Final → unchanged; Review-
+          phase analysts merged into Plan analysts; Final-phase reviewers
+          merged; duplicate name resolution last-wins)
+        - StructuredTriageStrategy single-phase integration: mad-discussion
+          input with skills assigned across Plan/Review/Final → emitted
+          commands list contains all 5 skills in Plan phase (no Review/Final
+          commands)
+  out: |
+    - Deletion of LegacyTriageStrategy. That's p0131c proper, not the pre-
+      slice. After this slice mad-discussion + legal-analysis are routed to
+      Structured, autonomous remains on Legacy. p0131c lifts autonomous
+      onto Structured (or accepts that autonomous requires a skill-set
+      before it's productive, and routes it to a noop strategy).
+    - Lifting autonomous + skill-manager + init-project off the
+      `pipeline_name` enum fence beyond what p0130c already did for
+      init-project. autonomous + skill-manager remain fenced.
+    - Changes to the structured-triage prompt template. The LLM continues
+      to emit Plan/Review/Final assignments; the strategy collapses output-
+      side. A future prompt-side optimization that tells the LLM "only Plan
+      will be executed for this run" is out of scope.
+    - Cross-repo skills changes (no skill-content edits in this slice;
+      mad/* and legal/* skills already carry the pipeline_name
+      activates_when from p0127c).
+
+decisions:
+  - key: |
+      Output-side phase collapse instead of prompt-side adaptation.
+      Reason: smallest surface change. Prompt-side adaptation requires a
+      cross-repo edit to the structured-triage prompt template
+      (agent-smith-skills) AND a flag in the producer to choose between
+      prompt variants — additional moving parts. Output-side collapse is
+      a single small helper invoked conditionally in the strategy. --
+      alternatives: emit a single-phase prompt variant (rejected:
+      cross-repo coordination cost; keeps the producer's prompt path
+      single-shape); duplicate the strategy into DiscussionStructuredTriage
+      (rejected: parallel-class drift over time).
+  - key: |
+      `IsSinglePhase` lives in PipelinePresets, not in a separate config.
+      Reason: the predicate IS the preset's structural property — derived
+      from the preset's command list. Keeping it next to the preset
+      definitions means adding a new preset automatically gets the right
+      classification. -- alternatives: explicit list of single-phase
+      pipeline names (rejected: parallel knowledge that drifts);
+      pipeline-type enum value SinglePhase (rejected: semantic overlap
+      with Discussion that creates classification ambiguity).
+  - key: |
+      Selector signature change from `(PipelineType)` to
+      `(PipelineType, string pipelineName)`. Reason: per-name routing is
+      the actual decision in this slice (Discussion mad/legal → Structured
+      vs Discussion autonomous → Legacy). Adding a parameter is cheaper
+      than introducing a wrapper / strategy-of-strategies. -- alternatives:
+      keep the type-only signature and route inside StructuredTriage
+      (rejected: blends strategy-selection with strategy-execution);
+      introduce a Routing-Type enum that pre-classifies (rejected: extra
+      indirection).
+  - key: |
+      autonomous stays on LegacyTriageStrategy, NOT migrated to Structured.
+      Reason: autonomous has zero skills with `activates_when=\"pipeline_name
+      = 'autonomous'\"` in the catalog (project-vision skills were dropped
+      in p0103c). StructuredTriage's HasLoadedSkills check would Fail-loud
+      on an empty set. Legacy returns Ok("no roles needed") and lets the
+      pipeline continue to ConvergenceCheck → CompileDiscussion (a no-op
+      run from the operator's view, but not a hard failure). Migrating
+      autonomous is a skills-repo concern (need autonomous-* skills
+      shipping with `pipeline_name = \"autonomous\"`); when those exist,
+      autonomous can be added to the selector's structured list and
+      `pipeline_name` enum unfenced. -- alternatives: add autonomous to
+      Structured now and let it Fail-loud (rejected: behavior regression
+      for operators who run autonomous today expecting Ok-with-no-output);
+      delete autonomous preset (rejected: out of scope).
+  - key: |
+      Deduplication policy in collapser: last-write-wins on role assignment
+      when the same skill name appears in multiple phases. Reason: the
+      LLM-emitted TriageOutput rarely places the same skill in multiple
+      phases for these presets (the activates_when narrows to a small
+      pool), but if it does, the latest phase's intent (typically Final-
+      reviewer) is the more conservative role and survives. The other
+      direction (first-write-wins / Plan-Lead persists) would prefer the
+      structured-triage default which is fine too — picking a rule for
+      determinism's sake. -- alternatives: error on duplicate (rejected:
+      brittleness for an edge-case the LLM may produce); concatenate
+      assignments (rejected: makes no sense for Lead-or-Filter slots).
+
+steps:
+  - id: helper
+    action: "Add PipelinePresets.IsSinglePhase + adjust selector signature + collapser"
+    new:
+      - "src/AgentSmith.Application/Services/Triage/SinglePhaseCollapser.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+      - "src/AgentSmith.Contracts/Services/ITriageStrategySelector.cs"
+      - "src/AgentSmith.Application/Services/Triage/TriageStrategySelector.cs"
+      - "src/AgentSmith.Application/Services/Triage/StructuredTriageStrategy.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TriageHandler.cs"
+
+  - id: di
+    action: "Register SinglePhaseCollapser as singleton; StructuredTriageStrategy ctor extended"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: tests
+    action: "Unit tests for new behavior + selector"
+    new:
+      - "tests/AgentSmith.Tests/Triage/SinglePhaseCollapserTests.cs"
+      - "tests/AgentSmith.Tests/Triage/TriageStrategySelectorTests.cs"
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetsSinglePhaseTests.cs"
+
+tests:
+  - "PipelinePresets.IsSinglePhase: mad-discussion → true; legal-analysis → true; autonomous → true; init-project → true; skill-manager → true; fix-bug → false; security-scan → false; api-security-scan → false"
+  - "TriageStrategySelector: (Discussion, mad-discussion) → Structured; (Discussion, legal-analysis) → Structured; (Discussion, autonomous) → Legacy; (Hierarchical, fix-bug) → Structured"
+  - "SinglePhaseCollapser: no Review/Final phases → output unchanged; Review-phase analysts move into Plan analysts; Final-phase reviewers join as analysts; duplicate skill name resolves last-wins"
+  - "Integration: StructuredTriageStrategy on mad-discussion preset emits N SkillRound commands (= count of skills assigned across all phases) all targeted at Plan-round-1; no RunReviewPhase / RunFinalPhase commands emitted"
+
+done:
+  - "PipelinePresets.IsSinglePhase implemented and tested"
+  - "ITriageStrategySelector + TriageStrategySelector + TriageHandler all use the (type, name) signature"
+  - "SinglePhaseCollapser handles the three merge cases + dedup; tested"
+  - "StructuredTriageStrategy.ExecuteAsync skips Review/Final command emission when IsSinglePhase=true"
+  - "mad-discussion + legal-analysis route through Structured; autonomous stays on Legacy"
+  - "1544 main + new tests pass; no regression"
+  - "p0131c (LegacyTriageStrategy delete) unblocked once autonomous's catalog gap is resolved separately"

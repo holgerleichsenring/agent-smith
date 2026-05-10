@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -20,6 +21,7 @@ public sealed class TryCheckoutSourceHandlerTests
     {
         _handler = new TryCheckoutSourceHandler(
             _clonerMock.Object,
+            RunStateConceptsTestFactory.Default,
             NullLogger<TryCheckoutSourceHandler>.Instance);
     }
 

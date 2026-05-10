@@ -1,8 +1,10 @@
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Frontmatter model for SKILL.md files. YamlDotNet deserializes underscore_case YAML keys
-/// into these PascalCase properties via UnderscoredNamingConvention.
+/// Frontmatter model for SKILL.md files. YamlDotNet deserializes underscore_case
+/// YAML keys into these PascalCase properties via UnderscoredNamingConvention.
+/// p0131a: legacy <c>roles_supported</c> rejection probe removed; the v2.0.0 hard
+/// cutover is complete and pre-cutover skill packs are unsupported.
 /// </summary>
 internal sealed class SkillMdFrontmatter
 {
@@ -14,42 +16,15 @@ internal sealed class SkillMdFrontmatter
     public string? Version { get; set; }
     public string? AllowedTools { get; set; }
 
-    // p0111 extended frontmatter — raw YAML shapes, mapped to Contracts types in SkillMdParser.
+    public string? ActivatesWhen { get; set; }
 
-    public List<string>? RolesSupported { get; set; }
-    public RawActivationCriteria? Activation { get; set; }
-    public Dictionary<string, RawActivationCriteria>? RoleAssignment { get; set; }
-    public List<RawSkillReference>? References { get; set; }
-    public RawOutputContract? OutputContract { get; set; }
-}
-
-internal sealed class RawActivationCriteria
-{
-    public List<RawActivationKey>? Positive { get; set; }
-    public List<RawActivationKey>? Negative { get; set; }
-}
-
-internal sealed class RawActivationKey
-{
-    public string Key { get; set; } = string.Empty;
-    public string Desc { get; set; } = string.Empty;
-}
-
-internal sealed class RawSkillReference
-{
-    public string Id { get; set; } = string.Empty;
-    public string Path { get; set; } = string.Empty;
-}
-
-internal sealed class RawOutputContract
-{
-    public string? SchemaRef { get; set; }
-    public RawHardLimits? HardLimits { get; set; }
-    public Dictionary<string, string>? OutputType { get; set; }
-}
-
-internal sealed class RawHardLimits
-{
-    public int MaxObservations { get; set; }
-    public int MaxCharsPerField { get; set; }
+    // p0127a/c: new SKILL.md shape (single-body, role-as-frontmatter).
+    public string? Role { get; set; }
+    public string? Category { get; set; }
+    public string? InvestigatorMode { get; set; }
+    public List<string>? SurveyScope { get; set; }
+    public string? ScopeHint { get; set; }
+    public string? BlockCondition { get; set; }
+    public bool? Loop { get; set; }
+    public string? OutputSchema { get; set; }
 }

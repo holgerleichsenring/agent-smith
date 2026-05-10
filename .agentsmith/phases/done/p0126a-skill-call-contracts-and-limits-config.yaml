@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0126a
+goal: "Foundation slice 1/3 of p0126. Contract types (SkillCallRequest/Result/Outcome, SkillExecutionPhase, CallCostRecord, LoopTraceEntry), LoopLimitsConfig binding from agentsmith.yml, and an additive optional iteration-cap parameter on ChatClientFactory.Create. No runtime, no consumers — just the data shapes that p0126b/c plug into."
+
+requires: ["p0124"]
+
+scope:
+  in: "(1) Six contract types in src/AgentSmith.Application/Models/: SkillCallRequest (record carrying SkillName, Role, Phase, InvestigatorMode?, PromptParts, ToolSet, AgentConfig, TaskType, CancellationToken), SkillCallResult (record carrying Outcome, Output?, Cost, Trace, FailureReason?), SkillCallOutcome enum (Ok/Incomplete/FailedParse/FailedValidation/FailedRuntime — values 0..4 explicit), SkillExecutionPhase enum (Plan/Review/Implementation/Verify/Discuss/Investigate/Filter/Synthesize/Bootstrap), CallCostRecord (record), LoopTraceEntry (record discriminated union via Kind field — LlmCall variant fields + ToolCall variant fields, simple shape suitable for both JSON serialization and pattern-matching). One type per file. (2) LoopLimitsConfig in src/AgentSmith.Contracts/Models/Configuration/: POCO with the eight Phase-B defaults (MaxToolCallsPerSkill=30, MaxToolCallsPerInvestigator=10, MaxToolCallsPerVerifier=20, MaxLlmCallsPerSkill=15, MaxInputTokensPerSkillCall=200_000, MaxOutputTokensPerSkillCall=16_000, MaxSecondsPerSkillCall=300, MaxConcurrentSkillCalls=10) and a ResolveToolCallCap(SkillExecutionPhase, string? investigatorMode) method (verify_diff → Verifier; verify_hint/survey → Investigator; otherwise → Skill). (3) AgentSmithConfig grows a `Limits: LoopLimitsConfig` property; ServiceCollectionExtensions registers IOptions<LoopLimitsConfig> bound from the new agentsmith.yml `limits:` section. (4) config/agentsmith.yml grows a top-level `limits:` section with the eight defaults, each with an inline YAML comment. The max_concurrent_skill_calls comment notes the per-pipeline-run scope. (5) ChatClientFactory.Create gains an optional `int? maxIterations = null` parameter on both IChatClientFactory.Create and ChatClientFactory.Create. When null, the existing literal MaximumIterationsPerRequest=25 stays inline (legacy callers unchanged). When provided, the wrapper uses that value. No new constants. No fallback machinery. (6) LoopLimitsConfigBindingTests exercises YAML binding (all fields present, missing fields use defaults, ResolveToolCallCap per phase + mode)."
+  out: "(1) The five collaborator services (LimitEnforcer/RetryCoordinator/LoopTraceCollector/OutcomeClassifier/PipelineConcurrencyGate) — that's p0126b. (2) PathReadGuard/PathWriteGuard, ToolKit, SkillCallRuntime, PipelineCostTracker per-skill scopes — that's p0126c. (3) No consumer migration — no caller of ChatClientFactory.Create passes maxIterations in p0126a; p0126c's SkillCallRuntime is the first caller. (4) No SandboxToolHost changes here — the guard injection lands in p0126c. (5) ResolveToolCallCap mapping covers the eight enum values that have caps; the spec calls out Bootstrap separately (Bootstrap shares MaxToolCallsPerSkill=30 — implementation detail, covered by tests)."
+
+decisions:
+  - key: "SkillCallOutcome enum values are explicit integers (Ok=0, Incomplete=1, FailedParse=2, FailedValidation=3, FailedRuntime=4). Reason: future log-analysis or persistence may rely on stable integer values; explicit values make that contract visible. Default-zero is Ok which is also the friendly default for default-constructed records."
+  - key: "LoopTraceEntry as a single record with a Kind discriminator + nullable variant fields, not two record subtypes. Reason: the trace serializes to a structured log line and (in a future phase) to a JSON artifact. A discriminator-on-flat-record shape is trivial to JSON-encode without polymorphic-deserialization gymnastics, and pattern-matching on Kind in C# 12 is one switch expression. The variant subtypes proposed in the original p0126 spec optimize for richer C# ergonomics at the cost of serialization friction; the flat record favors observability needs over destructuring style."
+  - key: "ChatClientFactory iteration cap is one optional parameter, no fallback constant, no helper. Reason: the original p0126 spec was explicit about not introducing backwards-compatibility shims. The literal MaximumIterationsPerRequest=25 stays at line 47 of ChatClientFactory.cs unchanged when the optional parameter is null; legacy callers see no behavior change and no new constant to maintain."
+  - key: "LoopLimitsConfig lives in Contracts (not Application), bound via Options pattern. Reason: agentsmith.yml binding already happens in Contracts (AgentSmithConfig + ProjectConfig). Keeping the new POCO next to its siblings preserves the binding convention and lets Application/Infrastructure consumers depend on it through IOptions<LoopLimitsConfig>."
+  - key: "ResolveToolCallCap takes SkillExecutionPhase + string? investigatorMode, returning an int. Reason: the verify_diff vs verify_hint vs survey distinction is data carried per-call by SkillCallRequest, not part of the phase enum. Keeping it as a string keyed off the phase keeps the enum closed (nine values) and the dispatch one switch expression. Unknown investigator-mode strings fall through to the Investigator cap by default — operators see one cap unless they spell verify_diff exactly."
+
+steps:
+  - id: skill-call-contract
+    action: "Introduce SkillCallRequest/SkillCallResult/SkillCallOutcome/SkillExecutionPhase/CallCostRecord/LoopTraceEntry contracts"
+    new:
+      - "src/AgentSmith.Application/Models/SkillCallRequest.cs: sealed record. Properties: SkillName (string), Role (string), Phase (SkillExecutionPhase), InvestigatorMode (string?), PromptParts (IReadOnlyList<ChatMessage>), ToolSet (IReadOnlyList<AITool>), AgentConfig (AgentConfig), TaskType (TaskType), CancellationToken (CancellationToken)."
+      - "src/AgentSmith.Application/Models/SkillCallResult.cs: sealed record. Properties: Outcome (SkillCallOutcome), Output (string? — null on FailedRuntime), Cost (CallCostRecord), Trace (IReadOnlyList<LoopTraceEntry>), FailureReason (string?)."
+      - "src/AgentSmith.Application/Models/SkillCallOutcome.cs: enum with explicit values Ok=0, Incomplete=1, FailedParse=2, FailedValidation=3, FailedRuntime=4."
+      - "src/AgentSmith.Application/Models/SkillExecutionPhase.cs: enum with Plan, Review, Implementation, Verify, Discuss, Investigate, Filter, Synthesize, Bootstrap."
+      - "src/AgentSmith.Application/Models/CallCostRecord.cs: sealed record. Properties: SkillName, Role, Phase (SkillExecutionPhase), InputTokens (long), OutputTokens (long), CacheCreateTokens (long), CacheReadTokens (long), ToolCallCount (int), LlmCallCount (int), DurationMs (long), StartedAt (DateTimeOffset)."
+      - "src/AgentSmith.Application/Models/LoopTraceEntry.cs: sealed record with discriminator Kind (enum LoopTraceEntryKind { LlmCall, ToolCall }). Properties: Kind, ModelName (string?), InputTokens (long?), OutputTokens (long?), DurationMs (long), ToolName (string?), ArgsSummary (string?), Success (bool?), ErrorMessage (string?). Static factories LlmCall(...) and ToolCall(...) construct each variant."
+      - "src/AgentSmith.Application/Models/LoopTraceEntryKind.cs: enum with LlmCall, ToolCall."
+
+  - id: limits-config-binding
+    action: "LoopLimitsConfig + agentsmith.yml binding via Options pattern"
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs: POCO with eight defaults from Phase B (MaxToolCallsPerSkill=30, MaxToolCallsPerInvestigator=10, MaxToolCallsPerVerifier=20, MaxLlmCallsPerSkill=15, MaxInputTokensPerSkillCall=200_000, MaxOutputTokensPerSkillCall=16_000, MaxSecondsPerSkillCall=300, MaxConcurrentSkillCalls=10). Method ResolveToolCallCap(SkillExecutionPhase phase, string? investigatorMode) returns the right cap (verify_diff → MaxToolCallsPerVerifier; verify_hint/survey → MaxToolCallsPerInvestigator; otherwise → MaxToolCallsPerSkill). NOTE: ResolveToolCallCap takes SkillExecutionPhase from AgentSmith.Application.Models — Contracts must reference Application's enum or duplicate it. To keep Contracts free of Application-deps, the enum reference is omitted at the Contracts boundary by accepting a string phaseKey (the cap dispatch only cares about the verify path); the typed enum overload lives as an extension method in Application."
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs: add `Limits: LoopLimitsConfig` property with `new()` default."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register IOptions<LoopLimitsConfig> bound via Configure pattern from the AgentSmithConfig.Limits sub-section."
+      - "config/agentsmith.yml: add `limits:` section at root with the eight defaults, each line with an inline YAML comment. max_concurrent_skill_calls comment notes the per-pipeline-run scope."
+
+  - id: chatclient-factory-iteration-cap-parameter
+    action: "ChatClientFactory.Create gains an optional per-call iteration cap"
+    modify:
+      - "src/AgentSmith.Contracts/Services/IChatClientFactory.cs: extend Create with optional `int? maxIterations = null` parameter."
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs: thread maxIterations into the ChatClientBuilder.UseFunctionInvocation lambda. When null, the existing literal MaxIterationsPerRequest stays inline. When provided, the wrapper uses that value as MaximumIterationsPerRequest."
+
+  - id: tests
+    action: "Test pack: LoopLimitsConfig YAML binding + ResolveToolCallCap dispatch"
+    new:
+      - "tests/AgentSmith.Tests/Configuration/LoopLimitsConfigBindingTests.cs: BindFromYaml_AllFieldsPresent_BindsCorrectly; BindFromYaml_MissingFields_UsesDefaults; ResolveToolCallCap_VerifyDiffMode_ReturnsVerifierCap; ResolveToolCallCap_VerifyHintMode_ReturnsInvestigatorCap; ResolveToolCallCap_SurveyMode_ReturnsInvestigatorCap; ResolveToolCallCap_NullMode_ReturnsSkillCap; ResolveToolCallCap_UnknownMode_FallsBackToSkillCap."
+
+tests:
+  - "LoopLimitsConfig_BindFromYaml_AllFieldsPresent_BindsCorrectly"
+  - "LoopLimitsConfig_BindFromYaml_MissingFields_UsesDefaults"
+  - "LoopLimitsConfig_ResolveToolCallCap_VerifyDiffMode_ReturnsVerifierCap"
+  - "LoopLimitsConfig_ResolveToolCallCap_VerifyHintMode_ReturnsInvestigatorCap"
+  - "LoopLimitsConfig_ResolveToolCallCap_SurveyMode_ReturnsInvestigatorCap"
+  - "LoopLimitsConfig_ResolveToolCallCap_NullMode_ReturnsSkillCap"
+  - "LoopLimitsConfig_ResolveToolCallCap_UnknownMode_FallsBackToSkillCap"
+
+done:
+  - "Six contract types exist in AgentSmith.Application.Models: SkillCallRequest, SkillCallResult, SkillCallOutcome, SkillExecutionPhase, CallCostRecord, LoopTraceEntry (+ LoopTraceEntryKind)"
+  - "LoopLimitsConfig exists in AgentSmith.Contracts.Models.Configuration with eight defaults; ResolveToolCallCap returns the right value per (phase, investigatorMode) combination"
+  - "agentsmith.yml `limits:` section binds to AgentSmithConfig.Limits; IOptions<LoopLimitsConfig> is registered in DI"
+  - "IChatClientFactory.Create accepts optional `int? maxIterations` parameter; legacy callers (passing nothing) see no behavior change — the existing 25 default stays inline"
+  - "All 7 new tests pass; all existing tests pass (no regressions)"

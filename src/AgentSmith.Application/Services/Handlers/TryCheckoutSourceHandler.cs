@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -18,9 +20,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class TryCheckoutSourceHandler(
     IHostSourceCloner cloner,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     ILogger<TryCheckoutSourceHandler> logger)
-    : ICommandHandler<TryCheckoutSourceContext>
+    : ICommandHandler<TryCheckoutSourceContext>, IConceptWriter
 {
+    public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
+        [new ConceptDeclaration("source_available", ConceptType.Bool)];
+
     public async Task<CommandResult> ExecuteAsync(
         TryCheckoutSourceContext context, CancellationToken cancellationToken)
     {
@@ -93,6 +99,7 @@ public sealed class TryCheckoutSourceHandler(
     private void EmitBanner(PipelineContext pipeline, string? sourcePath)
     {
         var hasSource = sourcePath is not null;
+        conceptsFactory(pipeline).SetBool("source_available", hasSource);
         var active = HasActivePersonas(pipeline);
         var skillCount = EstimateSkillCount(active, hasSource);
         var sourceText = hasSource ? $"Source: {sourcePath}" : "Source: unavailable — passive mode";

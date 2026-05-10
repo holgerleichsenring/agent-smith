@@ -42,7 +42,11 @@ public sealed class AgenticExecuteHandler(
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
-        var userPrompt = promptBuilder.BuildExecutionUserPrompt(context.Plan, context.Repository);
+        // p0129a: VerifyRoundHandler sets ContextKeys.VerifyNotes when re-loop fires.
+        // First-run: key absent → null → no Verify section in prompt.
+        var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
+        var userPrompt = promptBuilder.BuildExecutionUserPrompt(
+            context.Plan, context.Repository, verifyNotes);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);

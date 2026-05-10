@@ -1,14 +1,18 @@
 namespace AgentSmith.Contracts.Models.Skills;
 
 /// <summary>
-/// Compact projection of a skill's frontmatter, written into _index/&lt;category&gt;.yaml
-/// and consumed by the triage step as input. Body content is excluded — triage decides
-/// role + phase from frontmatter alone.
+/// Compact projection of a skill's frontmatter, written into
+/// <c>_index/&lt;category&gt;.yaml</c> and consumed by the triage step as input.
+/// p0131a: shape simplified to the new SKILL.md fields — <c>Role</c>
+/// (producer/investigator/judge/filter, single role per skill),
+/// <c>OutputSchema</c> (observation/plan/diff/bootstrap), and the optional
+/// <c>ActivatesWhen</c> boolean expression. Legacy fields (RolesSupported,
+/// ActivationCriteria-bag, RoleAssignments, OutputType) retired together
+/// with the multi-role skill format in p0127c.
 /// </summary>
 public sealed record SkillIndexEntry(
     string Name,
     string Description,
-    IReadOnlyList<SkillRole> RolesSupported,
-    ActivationCriteria Activation,
-    IReadOnlyList<RoleAssignment> RoleAssignments,
-    IReadOnlyDictionary<SkillRole, OutputForm> OutputType);
+    string Role,
+    string? OutputSchema,
+    string? ActivatesWhen);

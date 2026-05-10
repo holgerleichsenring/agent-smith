@@ -1,17 +1,27 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Prompts;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.PipelineDataFlows;
+using AgentSmith.Application.Services.Persistence;
+using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Persistence;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Application.Services.Triage;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Application;
 
@@ -36,13 +46,48 @@ public static class ServiceCollectionExtensions
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
+        RegisterLoopServices(services);
         return services;
+    }
+
+    // p0126b: skill-call collaborator services. PipelineConcurrencyGate is scoped
+    // (one per pipeline-run DI scope); OutcomeClassifier, RetryCoordinator and the
+    // default NoOpSkillOutputValidator are stateless singletons.
+    private static void RegisterLoopServices(IServiceCollection services)
+    {
+        services.AddScoped<PipelineConcurrencyGate>();
+        services.AddSingleton<OutcomeClassifier>();
+        services.AddSingleton<NoOpSkillOutputValidator>();
+        services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
+        services.AddSingleton<RetryCoordinator>();
+        // p0126c: SkillCallRuntime is scoped (one per pipeline run); composes the
+        // five collaborator services into the public ExecuteAsync flow.
+        services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
+        // p0128a: schema validators + factory. JsonSchemaLoader caches all four
+        // hand-written schemas at boot for the process lifetime.
+        services.AddSingleton<JsonSchemaLoader>();
+        services.AddSingleton<PlanOutputValidator>();
+        services.AddSingleton<DiffOutputValidator>();
+        services.AddSingleton<BootstrapOutputValidator>();
+        services.AddSingleton<ObservationOutputValidator>();
+        services.AddSingleton<SkillOutputValidatorFactory>();
+        // p0128a: in-memory store is the safe default; AgentSmith.Cli/Server's
+        // Redis-gated registration replaces this with RedisRunArtifactStore when
+        // a ConnectionMultiplexer is available.
+        services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
     }
 
     private static void RegisterHandlers(IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
-        services.AddTransient<ICommandHandler<CheckoutSourceContext>, CheckoutSourceHandler>();
+        // p0125d: CheckoutSourceHandler also exposes IConceptWriter — three-step registration
+        // (concrete + interface + singleton-IConceptWriter) so the validate-concepts registry
+        // sees it without changing the transient lifetime used by the pipeline executor.
+        services.AddTransient<CheckoutSourceHandler>();
+        services.AddTransient<ICommandHandler<CheckoutSourceContext>>(sp =>
+            sp.GetRequiredService<CheckoutSourceHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<CheckoutSourceHandler>());
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
@@ -53,8 +98,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<SandboxGitOperations>();
         services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
-        services.AddTransient<ICommandHandler<BootstrapProjectContext>, BootstrapProjectHandler>();
-        services.AddTransient<ICommandHandler<LoadCodeMapContext>, LoadCodeMapHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
@@ -75,12 +118,18 @@ public static class ServiceCollectionExtensions
         services.AddTransient<TriageLabelOverrideApplier>();
         services.AddTransient<ProjectMapExcerptBuilder>();
         services.AddTransient<PhaseCommandExpander>();
+        services.AddSingleton<SinglePhaseCollapser>();          // p0131c-pre
         services.AddTransient<ITriageOutputProducer, TriageOutputProducer>();
-        services.AddTransient<LegacyTriageStrategy>();
         services.AddTransient<StructuredTriageStrategy>();
         services.AddTransient<ITriageStrategySelector, TriageStrategySelector>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
+        // p0129a: Verify phase
+        services.AddTransient<ICommandHandler<RunVerifyPhaseContext>, VerifyRoundHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
+        // p0128b: Plan open-questions round-trip
+        services.AddSingleton<PlanAnswerParser>();
+        services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
+        services.AddTransient<ICommandHandler<PlanOpenQuestionsContext>, PlanOpenQuestionsHandler>();
         services.AddTransient<PlanConsolidator>();
         services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
@@ -92,7 +141,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
-        services.AddTransient<ICommandHandler<TryCheckoutSourceContext>, TryCheckoutSourceHandler>();
+        // p0125d: TryCheckoutSourceHandler dual-registered as IConceptWriter (see CheckoutSourceHandler note above).
+        services.AddTransient<TryCheckoutSourceHandler>();
+        services.AddTransient<ICommandHandler<TryCheckoutSourceContext>>(sp =>
+            sp.GetRequiredService<TryCheckoutSourceHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<TryCheckoutSourceHandler>());
         services.AddTransient<ICommandHandler<CorrelateFindingsContext>, CorrelateFindingsHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
@@ -121,8 +175,50 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
-        services.AddTransient<MetaFileBootstrapper>();
         services.AddSingleton<HttpProbeRunner>();
+
+        // p0125b: activation expression pipeline (tokenizer/parser/evaluator are stateless,
+        // so singleton is safe; no production runtime path consumes them yet — that's p0125c/d/p0127).
+        services.AddSingleton<ActivationExpressionTokenizer>();
+        services.AddSingleton<ActivationExpressionParser>();
+        services.AddSingleton<ActivationEvaluator>();
+
+        // p0127b: triage pre-filter + post-LLM specificity tie-break.
+        services.AddSingleton<ActivationSkillFilter>();
+        services.AddSingleton<ActivationSpecificityScorer>();
+        services.AddSingleton<PhaseSpecificityTrimmer>();
+
+        // p0125c/d: typed concept publication. Handlers are registered three times:
+        //   1. concrete type (transient) — resolvable for IConceptWriter dual-registration
+        //   2. ICommandHandler<TContext> — pipeline execution path
+        //   3. IConceptWriter (singleton-of-handler) — build-time validate-concepts registry
+        services.AddTransient<PipelineNameInitializerHandler>();
+        services.AddTransient<ICommandHandler<PipelineNameInitializerContext>>(sp =>
+            sp.GetRequiredService<PipelineNameInitializerHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<PipelineNameInitializerHandler>());
+
+        services.AddTransient<BootstrapCheckHandler>();
+        services.AddTransient<ICommandHandler<BootstrapCheckContext>>(sp =>
+            sp.GetRequiredService<BootstrapCheckHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<BootstrapCheckHandler>());
+
+        // p0130a: BootstrapGate is a policy handler — reads concepts published by
+        // BootstrapCheckHandler and aborts the pipeline when bootstrap files are missing.
+        services.AddTransient<ICommandHandler<BootstrapGateContext>, BootstrapGateHandler>();
+
+        // p0130c: PublishProjectLanguage publishes the project_language enum (IConceptWriter)
+        services.AddTransient<PublishProjectLanguageHandler>();
+        services.AddTransient<ICommandHandler<PublishProjectLanguageContext>>(sp =>
+            sp.GetRequiredService<PublishProjectLanguageHandler>());
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<PublishProjectLanguageHandler>());
+
+        // p0130c: BootstrapDispatch deterministic SkillRound emit for init-project
+        services.AddTransient<ICommandHandler<BootstrapDispatchContext>, BootstrapDispatchHandler>();
+
+        services.AddSingleton<ConceptWriterRegistry>();
     }
 
     private static void RegisterContextBuilders(IServiceCollection services)
@@ -132,8 +228,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
-        AddBuilder<LoadCodeMapContextBuilder>(services, CommandNames.LoadCodeMap);
-        AddBuilder<BootstrapProjectContextBuilder>(services, CommandNames.BootstrapProject);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
@@ -149,6 +243,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
         AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
         AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);
+        AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
         AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
@@ -186,6 +281,12 @@ public static class ServiceCollectionExtensions
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
         AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
+        AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
+        AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
+        AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
+        AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
+        AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);
+        AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
@@ -197,6 +298,20 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IIntentParser, RegexIntentParser>();
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
+
+        // p0128c: data-flow gating. Each preset's IPhaseDataFlow is registered as a
+        // singleton so the resolver builds an O(1) name→declaration index at startup.
+        services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, AddFeatureDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, InitProjectDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, SecurityScanDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, ApiSecurityScanDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, MadDiscussionDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
+        services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();

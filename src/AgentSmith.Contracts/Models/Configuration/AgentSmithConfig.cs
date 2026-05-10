@@ -27,4 +27,23 @@ public sealed class AgentSmithConfig
     /// (default — base SKILL.md always wins).
     /// </summary>
     public string? PrimaryProvider { get; set; }
+
+    /// <summary>
+    /// Hard limits for the per-skill agentic loop (token caps, wall-clock cap,
+    /// tool-call caps, concurrency cap). Defaults match Phase B of the runtime design;
+    /// see <see cref="LoopLimitsConfig"/>.
+    /// </summary>
+    public LoopLimitsConfig Limits { get; set; } = new();
+
+    /// <summary>
+    /// In-flight pipeline-storage settings (Redis TTL for transient artifacts).
+    /// See <see cref="PipelineStorageConfig"/>.
+    /// </summary>
+    public PipelineStorageConfig PipelineStorage { get; set; } = new();
+
+    /// <summary>
+    /// p0128c data-flow gating settings. <c>Enforce=false</c> by default — the
+    /// gate logs warnings on undeclared reads but doesn't fail the run.
+    /// </summary>
+    public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
 }
