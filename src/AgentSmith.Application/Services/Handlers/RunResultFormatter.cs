@@ -84,10 +84,9 @@ public static class RunResultFormatter
         sb.AppendLine($"# r{runNumber:D2}: init-project");
         sb.AppendLine();
         sb.AppendLine("Bootstrap run — generated `.agentsmith/context.yaml` + `coding-principles.md`.");
-        sb.AppendLine($"Duration: {durationSeconds}s");
-        if (costSummary is not null)
-            sb.AppendLine($"Cost: {costSummary}");
         sb.AppendLine();
+
+        RunCostSectionWriter.AppendInitFrontmatter(sb, durationSeconds, costSummary);
 
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);

@@ -55,8 +55,15 @@ public sealed class WriteRunResultHandler(
 
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
 
-        context.Pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
-        context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var durationSeconds);
+        // p0130c-followup: RunCostSummary was never published to ContextKeys by any
+        // handler in production — pull it from the live PipelineCostTracker
+        // instead so result.md gets the tokens/cost sections it advertises.
+        // Test fixtures still pre-seed ContextKeys.RunCostSummary, so that takes
+        // precedence when present. Wall-clock duration falls back to
+        // (now - RunStartedAt) when no handler stamped RunDurationSeconds (the
+        // case for init-project, which has no AgenticExecute step).
+        var costSummary = ResolveCostSummary(context.Pipeline);
+        var durationSeconds = ResolveDurationSeconds(context.Pipeline);
         context.Pipeline.TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var trail);
         context.Pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
         context.Pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var securityTrend);
@@ -115,6 +122,24 @@ public sealed class WriteRunResultHandler(
         {
             return raw;
         }
+    }
+
+    private static RunCostSummary? ResolveCostSummary(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var explicitSummary)
+            && explicitSummary is not null)
+            return explicitSummary;
+        return PipelineCostTracker.GetOrCreate(pipeline).BuildSummary();
+    }
+
+    private static int ResolveDurationSeconds(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var explicitSeconds)
+            && explicitSeconds > 0)
+            return explicitSeconds;
+        if (pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt))
+            return (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
+        return 0;
     }
 
     private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)
