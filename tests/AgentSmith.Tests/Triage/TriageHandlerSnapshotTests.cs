@@ -83,7 +83,7 @@ public sealed class TriageHandlerSnapshotTests
     private static PipelineContext PipelineWithVocabulary()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.P0125cVocabulary);
+        pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.Real);
         return pipeline;
     }
 

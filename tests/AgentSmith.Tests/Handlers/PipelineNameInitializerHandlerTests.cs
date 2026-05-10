@@ -43,7 +43,13 @@ public sealed class PipelineNameInitializerHandlerTests
     [Fact]
     public async Task ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum()
     {
-        var pipeline = PipelineFor("init-project");
+        // p0125c-followup: vocabulary in tests is now the real shipped vocab.
+        // Pre-fix this test used "init-project" as the un-enumerated example,
+        // but init-project landed in the enum in p0130c. autonomous +
+        // skill-manager remain pipeline_name-fenced (their preset has Triage
+        // but the catalog has no skills with `pipeline_name = "autonomous"`),
+        // so they're the right shape to assert against.
+        var pipeline = PipelineFor("autonomous");
         var context = new PipelineNameInitializerContext(pipeline);
 
         var act = async () => await _sut.ExecuteAsync(context, CancellationToken.None);

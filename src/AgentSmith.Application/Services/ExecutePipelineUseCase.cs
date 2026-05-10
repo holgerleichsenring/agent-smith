@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -21,9 +22,19 @@ public sealed class ExecutePipelineUseCase(
     IPipelineExecutor pipelineExecutor,
     ISourceConfigOverrider sourceConfigOverrider,
     ISkillsCatalogResolver catalogResolver,
+    ISkillsCatalogPath catalogPath,
+    ISkillLoader skillLoader,
     IPipelineConfigResolver pipelineConfigResolver,
     ILogger<ExecutePipelineUseCase> logger)
 {
+    /// <summary>
+    /// Sub-path inside the catalog root where the shared concept vocabulary lives.
+    /// The vocabulary is global per catalog (not per-pipeline-skills-path), so it
+    /// always sits at the top of the <c>skills/</c> tree regardless of which
+    /// pipeline runs.
+    /// </summary>
+    private const string CatalogSkillsRootSubPath = "skills";
+
     public async Task<CommandResult> ExecuteAsync(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
     {
@@ -54,6 +65,20 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
+
+        // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
+        // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every
+        // preset and calls SetEnum("pipeline_name", ...) — which throws
+        // KeyNotFoundException against ConceptVocabulary.Empty. LoadSkills
+        // populates the vocabulary too, but it's much later in every preset
+        // (typically step 14+), so the early concept-writers had no vocab.
+        // Loading here, between catalog-resolve and pipeline-execute, is the
+        // single deterministic choke-point where both the catalog root and the
+        // freshly-built PipelineContext are in scope. LoadSkills still runs
+        // later but the vocabulary slot will already be populated, so the
+        // double-load is a no-op (LoadSkills sets the same vocabulary).
+        var vocabulary = LoadVocabularyFromCatalog();
+        pipeline.Set(ContextKeys.ConceptVocabulary, vocabulary);
 
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
@@ -161,6 +186,41 @@ public sealed class ExecutePipelineUseCase(
         if (!config.Projects.TryGetValue(projectName, out var project)) return fallback;
         try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
         catch (InvalidOperationException) { return fallback; }
+    }
+
+    /// <summary>
+    /// p0125c-followup: shared concept vocabulary is loaded from the catalog's
+    /// <c>skills/</c> subtree. <see cref="ISkillsCatalogPath.Root"/> points at
+    /// the extracted catalog root (e.g. <c>~/.cache/agentsmith/skills/</c>); the
+    /// vocab YAML sits at <c>{Root}/skills/concept-vocabulary.yaml</c>.
+    /// Returns <see cref="ConceptVocabulary.Empty"/> when the catalog isn't
+    /// bootstrapped yet (CLI tooling running before the resolver wired it up,
+    /// or dev-from-source with no catalog at all). The empty vocab matches the
+    /// pre-fix behavior; concept-writers in early steps will throw with the
+    /// same KeyNotFoundException as before, surfacing the missing-catalog
+    /// problem clearly rather than masking it.
+    /// </summary>
+    private ConceptVocabulary LoadVocabularyFromCatalog()
+    {
+        try
+        {
+            var skillsRoot = Path.Combine(catalogPath.Root, CatalogSkillsRootSubPath);
+            if (!Directory.Exists(skillsRoot))
+            {
+                logger.LogWarning(
+                    "Skills root {Path} not present at pipeline-bootstrap; concept vocabulary " +
+                    "will be empty until LoadSkills repopulates it.", skillsRoot);
+                return ConceptVocabulary.Empty;
+            }
+            return skillLoader.LoadVocabulary(skillsRoot) ?? ConceptVocabulary.Empty;
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex,
+                "Catalog not yet bootstrapped at pipeline-start; concept vocabulary " +
+                "will be empty until LoadSkills repopulates it.");
+            return ConceptVocabulary.Empty;
+        }
     }
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)
