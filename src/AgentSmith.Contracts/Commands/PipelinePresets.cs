@@ -19,7 +19,6 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
@@ -34,7 +33,6 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
@@ -67,7 +65,6 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions, CommandNames.Approval,
@@ -82,7 +79,7 @@ public static class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
-        CommandNames.BootstrapProject, CommandNames.LoadContext,
+        CommandNames.LoadContext,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
@@ -106,10 +103,8 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.BootstrapProject,
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
         CommandNames.LoadCodingPrinciples,
-        CommandNames.LoadCodeMap,             // p0105: code-map.yaml for module structure
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
@@ -134,7 +129,6 @@ public static class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
-        CommandNames.LoadCodeMap,           // p0104: target's .agentsmith/code-map.yaml — soft-fail if absent
         CommandNames.LoadSwagger,
         CommandNames.ApiCodeContext,        // p0102: route → handler mapping when source resolved
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
@@ -168,9 +162,7 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.BootstrapProject,
         CommandNames.LoadContext,
-        CommandNames.LoadCodeMap,
         CommandNames.LoadRuns,
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,

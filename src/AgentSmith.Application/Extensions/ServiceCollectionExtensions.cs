@@ -98,8 +98,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<SandboxGitOperations>();
         services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
-        services.AddTransient<ICommandHandler<BootstrapProjectContext>, BootstrapProjectHandler>();
-        services.AddTransient<ICommandHandler<LoadCodeMapContext>, LoadCodeMapHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
@@ -178,7 +176,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddTransient<ICommandHandler<LoadRunsContext>, LoadRunsHandler>();
         services.AddTransient<ICommandHandler<WriteTicketsContext>, WriteTicketsHandler>();
-        services.AddTransient<MetaFileBootstrapper>();
         services.AddSingleton<HttpProbeRunner>();
 
         // p0125b: activation expression pipeline (tokenizer/parser/evaluator are stateless,
@@ -232,8 +229,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
-        AddBuilder<LoadCodeMapContextBuilder>(services, CommandNames.LoadCodeMap);
-        AddBuilder<BootstrapProjectContextBuilder>(services, CommandNames.BootstrapProject);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
