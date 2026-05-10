@@ -155,6 +155,14 @@ public sealed class YamlSkillLoader(
         }
     }
 
+    public ConceptVocabulary LoadVocabulary(string skillsDirectory)
+    {
+        var resolved = ResolveDirectory(skillsDirectory);
+        if (!Directory.Exists(resolved))
+            return ConceptVocabulary.Empty;
+        return vocabularyLoader.Load(FindVocabularyDirectory(resolved));
+    }
+
     /// <summary>
     /// concept-vocabulary.yaml lives at the skills repo root (one or two levels above a per-category
     /// skillsDirectory). Walk up at most three levels to find it; fall back to skillsDirectory if absent.

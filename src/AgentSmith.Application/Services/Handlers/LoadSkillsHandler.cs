@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -36,7 +37,12 @@ public sealed class LoadSkillsHandler(
         var roles = skillLoader.LoadRoleDefinitions(skillsDir);
         context.Pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, roles);
 
-        logger.LogInformation("Loaded {Count} skill roles from {Dir}", roles.Count, skillsDir);
+        var vocabulary = skillLoader.LoadVocabulary(skillsDir) ?? ConceptVocabulary.Empty;
+        context.Pipeline.Set(ContextKeys.ConceptVocabulary, vocabulary);
+
+        logger.LogInformation(
+            "Loaded {Count} skill roles and {VocabCount} concept-vocabulary entries from {Dir}",
+            roles.Count, vocabulary.Concepts.Count, skillsDir);
         return Task.FromResult(CommandResult.Ok($"Loaded {roles.Count} skills from {skillsDir}"));
     }
 
