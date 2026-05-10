@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -9,10 +10,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <summary>
 /// Handles Azure DevOps workitem.commented events for re-triggering pipelines.
 /// Checks for configured keyword in comment text, respects state gate.
+/// p0128b: detects Plan-open-questions answers and re-triggers with PlanAnswers populated.
 /// </summary>
 public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    PlanAnswerParser planAnswerParser,
     ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -35,10 +38,14 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
             var (projectName, triggerConfig) = AzureDevOpsWorkItemWebhookHandler.FindProject(config);
 
-            if (triggerConfig?.CommentKeyword is null)
-                return Task.FromResult(new WebhookResult(false, null, null));
+            if (triggerConfig is null) return Task.FromResult(new WebhookResult(false, null, null));
 
-            if (!commentText.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase))
+            var planAnswers = planAnswerParser.Parse(commentText);
+            var hasAnswers = planAnswers.Count > 0;
+            var hasKeyword = triggerConfig.CommentKeyword is not null
+                && commentText.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase);
+
+            if (!hasAnswers && !hasKeyword)
                 return Task.FromResult(new WebhookResult(false, null, null));
 
             var fields = resource.GetProperty("fields");
@@ -71,7 +78,9 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
                 true, null, pipeline,
                 InitialContext: initialContext,
                 ProjectName: projectName,
-                TicketId: workItemId.ToString()));
+                TicketId: workItemId.ToString(),
+                Platform: "azuredevops",
+                PlanAnswers: hasAnswers ? new Dictionary<string, string>(planAnswers) : null));
         }
         catch (Exception ex)
         {

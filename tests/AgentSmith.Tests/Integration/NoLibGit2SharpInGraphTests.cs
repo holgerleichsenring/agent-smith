@@ -16,7 +16,7 @@ public sealed class NoLibGit2SharpInGraphTests
         // Force-load Application + Infrastructure + Server so transitive deps are resolved.
         _ = typeof(AgentSmith.Application.ServiceCollectionExtensions).Assembly;
         _ = typeof(AgentSmith.Infrastructure.Services.Security.StaticPatternScanner).Assembly;
-        _ = typeof(AgentSmith.Infrastructure.Core.Services.ProjectDetector).Assembly;
+        _ = typeof(AgentSmith.Infrastructure.Core.Services.SkillMdParser).Assembly;
         _ = typeof(AgentSmith.Domain.Entities.Repository).Assembly;
         _ = typeof(AgentSmith.Sandbox.Wire.Step).Assembly;
 

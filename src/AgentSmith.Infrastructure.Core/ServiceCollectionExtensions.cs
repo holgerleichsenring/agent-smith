@@ -3,7 +3,6 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
-using AgentSmith.Infrastructure.Core.Services.Detection;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,16 +18,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SecretsProvider>();
         services.AddSingleton<ProjectConfigNormalizer>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
-        services.AddSingleton<ILanguageDetector, DotNetLanguageDetector>();
-        services.AddSingleton<ILanguageDetector, TypeScriptLanguageDetector>();
-        services.AddSingleton<ILanguageDetector, PythonLanguageDetector>();
-        services.AddSingleton<IProjectDetector, ProjectDetector>();
-        services.AddSingleton<IRepoSnapshotCollector, RepoSnapshotCollector>();
-        services.AddSingleton<IContextValidator, ContextValidator>();
-        services.AddSingleton<ContextUserPromptBuilder>();
-        services.AddSingleton<IContextGenerator, ContextGenerator>();
-        services.AddSingleton<ICodeMapGenerator, CodeMapGenerator>();
-        services.AddSingleton<ICodingPrinciplesGenerator, CodingPrinciplesGenerator>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
         services.AddSingleton<SkillIndexBuilder>();

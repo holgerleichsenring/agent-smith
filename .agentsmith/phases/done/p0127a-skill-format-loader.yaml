@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0127a
+goal: "First slice of D3. SkillMdParser accepts the new single-body SKILL.md shape alongside the legacy multi-body form. Frontmatter gains the Phase C fields (role, category, investigator_mode, survey_scope, scope_hint, block_condition, loop, output_schema). RoleSkillDefinition stores them. No triage consumption yet, no skill content migration — those land in p0127b/c."
+
+requires: ["p0125d"]
+
+scope:
+  in: "(1) Format detection in SkillMdParser. The parser inspects the frontmatter and routes per shape: presence of `roles_supported` (a list) → legacy multi-body parser (current code path, unchanged); presence of `role` (a singular string) → new single-body parser. Both keys present is a loader error with a clear message — files declare one shape, not both. Files with neither key fail current validation already; behaviour preserved. (2) New-format frontmatter fields added to SkillMdFrontmatter: `Role` (string), `Category` (string, optional), `InvestigatorMode` (string, optional), `SurveyScope` (List<string>, optional), `ScopeHint` (string, optional), `BlockCondition` (string, optional), `Loop` (bool, optional), `OutputSchema` (string). YamlDotNet picks them up via the existing UnderscoredNamingConvention. Existing `ActivatesWhen` (p0125d) carries through. Legacy fields (`RolesSupported`, `RoleAssignment`, `Activation`) stay on SkillMdFrontmatter — they're still parsed for legacy files, ignored by the new path. (3) RoleSkillDefinition gains the same fields as nullable / optional properties so both paths produce a uniform consumer view. The new-format path populates them directly from frontmatter; the legacy path leaves them null (consumers read the legacy ActivationCriteria + role_assignment for those skills). (4) Validation rules for the new format, applied at SkillMdParser.ValidateStrict when format is new: `role` is non-empty and ∈ {producer, investigator, judge, filter}; `description` non-empty and ≤200 chars; `activates_when` non-empty (already validated by validate-concepts at build time, here just presence-checked at load time); `output_schema` ∈ {observation, plan, diff, bootstrap}; `investigator_mode` required when role=investigator and ∈ {verify_hint, survey, verify_diff}; `survey_scope` required and non-empty when investigator_mode=survey; `category` required when investigator_mode=verify_hint; `block_condition` required when role=judge; `output_schema=bootstrap` requires role=producer; body non-empty. Each rule failure throws a SkillFormatException with the offending file path and rule description. Error path is hard fail at boot — same discipline as p0125's vocabulary loader. (5) Body parsing for the new format: SkillBodySplitter is bypassed; the body after frontmatter (everything below the closing `---`) becomes RoleSkillDefinition.Body verbatim. No `## as_<role>` section detection. The optional Markdown sub-headings (## Aufgabe / Disziplin / Vorgehen / Output-Felder per Phase C) are not enforced in p0127a — they're a future format-linter concern. (6) Override-merge path (SKILL.<provider>.md) extended to merge the new fields. Same 'override wins, falls back to base' semantics as ActivatesWhen got in p0125d. New fields are merged independently — a base file with role=producer and a provider override that sets only category produces the merged definition with role from base, category from override. (7) ValidateConceptsCommand (p0125d) extended to also assert: each new-format skill's activates_when expression's identifiers exist in the vocabulary (already done) AND each new-format skill's category, when present, is a recognized string (the closed enum check is deferred to p0127c when content migration populates it; in p0127a, category just has to parse as a non-empty string). Loader-level validation is the load-time gate; CLI verb is the build-time gate."
+  out: "(1) Triage consumption of activates_when — that's p0127b. ActivationExpressionEvaluator stays unconsumed in skill selection. (2) Skill content migration in agent-smith-skills — p0127c. All 44 SKILL.md files keep their legacy multi-body shape; the new format is exercised only by test fixtures and any skill that voluntarily migrates (none in p0127a). (3) Removal of legacy SkillMdFrontmatter fields — p0131 (D7). RolesSupported, RoleAssignment, Activation stay parseable. (4) closed enum for category — deferred to p0127c when actual values are picked per skill. (5) Body sub-section format-linter — the recommended ## Aufgabe/Disziplin/Vorgehen/Output-Felder structure is not enforced; future format-quality phase. (6) New SkillExecutionPhase mapping from `role` — the loader stores role as string; mapping to p0126's enum is p0127b's job when triage builds SkillCallRequest. (7) `loop: true/false` runtime enforcement — p0126's runtime exists; p0127b is when triage hands a configured request. Loop value is stored, not yet consumed."
+
+decisions:
+  - key: "Format detection by frontmatter key (roles_supported vs role), not by file naming or directory layout. Reason: an in-place migration where both shapes coexist for the duration of p0127a/b is the cleanest path. Naming conventions (e.g. requiring new files to use a different extension) would force two parallel directory trees and break grep workflows operators rely on. Both keys present is a hard error so the per-skill format is unambiguous."
+  - key: "RoleSkillDefinition holds a union of legacy and new fields, all nullable on the not-applicable path. Reason: triage and runtime consumers read RoleSkillDefinition; making them branch on which path produced the definition would couple consumer logic to the parser's internals. Nullable union means: legacy skill → ActivationCriteria + RoleAssignment populated, new fields null; new skill → new fields populated, ActivationCriteria + RoleAssignment null. Each consumer reads what it needs. Cleanup in p0131 drops the now-dead legacy fields after p0127c proves the migration."
+  - key: "Validation is hard-fail at boot, not warning-and-continue. Reason: p0125's loader takes the same stance — a broken vocabulary file fails boot loudly. A SKILL.md that declares investigator_mode=verify_hint without category is structurally broken; running with it would let triage pick a skill that the cluster selector can't route. Boot-time failure with the file path and rule name turns 'silent runtime confusion' into 'fix this file'. Test pack covers each rule independently."
+  - key: "category in p0127a is loosely validated (non-empty string only); the closed enum check moves to p0127c. Reason: defining the enum now means picking values before any verify_hint skill exists in the new format. Loose-then-tight works: a accepts any string, c populates each skill's category, the validator extension at c's land closes the enum to the actually-used values. This avoids a guess-list that p0127c would have to revise."
+  - key: "Body for new format is verbatim after frontmatter; no SkillBodySplitter for the new path. Reason: the legacy parser uses SkillBodySplitter to find ## as_<role> sections per role. New format has no role sections — the entire body is one body. Forcing the new path through the splitter would mean teaching the splitter to recognize 'no sections, just body' as a valid case, which is a special branch with no behavioral upside. Cleaner: new path skips the splitter; ValidateStrict ensures body is non-empty."
+  - key: "Override-merge applies to all new fields uniformly. Reason: p0125d already extended the merge for ActivatesWhen with the rule 'override wins, falls back to base'. Same rule for the new fields keeps SKILL.<provider>.md predictable. Tests assert the merge for one new field per category (string field, optional field, list field) — the merge logic is field-agnostic so coverage of one field per shape is enough."
+  - key: "ValidateConceptsCommand gains category-presence checks but not closed-enum checks in p0127a. Reason: same loose-then-tight pattern as the loader. The verb already validates activates_when concept references (p0125d); adding 'category exists when investigator_mode=verify_hint' is a one-line extension. Closed-enum check lands in p0127c when actual values are picked. The verb's exit-code-1-with-tuples shape doesn't change."
+
+steps:
+  - id: format-detection
+    action: "SkillMdParser routes per frontmatter shape; both-keys-present is an error"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: in Parse (or the entry method), inspect frontmatter for `roles_supported` and `role`. Both present → throw SkillFormatException with message 'declare either roles_supported (legacy) or role (new), not both'. roles_supported only → existing legacy parser path, unchanged. role only → new ParseNewFormat method. Neither → throw SkillFormatException 'missing required field: role or roles_supported' (preserves current behavior; the message updates to mention the new field)."
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Exceptions/SkillFormatException.cs: standard exception, carries SkillFilePath + RuleDescription. Inherits from existing skill-loading exception base if one exists; otherwise straight Exception subclass with a brief message format `[<filePath>] <ruleDescription>`."
+
+  - id: frontmatter-extension
+    action: "SkillMdFrontmatter and RoleSkillDefinition gain the new-format fields"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdFrontmatter.cs: add nullable properties Role (string?), Category (string?), InvestigatorMode (string?), SurveyScope (List<string>?), ScopeHint (string?), BlockCondition (string?), Loop (bool?), OutputSchema (string?). YamlDotNet's UnderscoredNamingConvention handles snake_case mapping. Existing fields untouched."
+      - "src/AgentSmith.Contracts/Models/Configuration/RoleSkillDefinition.cs: add the same eight properties. Each XML-doc'd as 'set when the new SKILL.md format is used; null on legacy format'. Existing properties (Name, Version, RolesSupported, ActivationCriteria, RoleAssignment, ActivatesWhen, etc.) keep their semantics."
+
+  - id: new-format-parser
+    action: "ParseNewFormat builds RoleSkillDefinition from new-format frontmatter without SkillBodySplitter"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: add private ParseNewFormat method. Receives frontmatter + raw body string. Returns a single RoleSkillDefinition (not a list — new format is one role per file). Sets Role from frontmatter, copies the eight new fields, copies ActivatesWhen, sets Body = raw body verbatim (trimmed leading/trailing whitespace), leaves legacy fields (RolesSupported, ActivationCriteria, RoleAssignment) null."
+
+  - id: new-format-validation
+    action: "ValidateStrict for new-format skills enforces Phase C rules"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: extend ValidateStrict to dispatch on format. New-format validation rules: Role non-empty and ∈ {producer, investigator, judge, filter}; Description non-empty and ≤200 chars; ActivatesWhen non-empty; OutputSchema ∈ {observation, plan, diff, bootstrap}; InvestigatorMode non-empty when Role=investigator and ∈ {verify_hint, survey, verify_diff}; SurveyScope non-empty when InvestigatorMode=survey; Category non-empty when InvestigatorMode=verify_hint; BlockCondition non-empty when Role=judge; Role=producer when OutputSchema=bootstrap; Body non-empty. Each violation throws SkillFormatException with the file path and the rule description (e.g., 'output_schema=bootstrap requires role=producer; got role=investigator')."
+
+  - id: override-merge-extension
+    action: "MergeFrontmatter handles the eight new fields under override-wins-falls-back-to-base"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs: in MergeFrontmatter, add merge clauses for the new fields. Each clause: `merged.<Field> = override.<Field> ?? base.<Field>`. SurveyScope (list) merges as 'override list wins entirely if non-null; otherwise base list' — no element-wise merging."
+
+  - id: validate-concepts-extension
+    action: "ValidateConceptsCommand extended to check new-format presence rules"
+    modify:
+      - "src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs: in the per-skill validation loop, after the existing activates_when concept-existence check, add: if skill is new format (has Role property set), assert category presence when investigator_mode=verify_hint, block_condition presence when role=judge. These echo the loader-level rules at build time so the CLI catches issues before boot. Tuples emitted on failure follow the existing (subject, concept, error) shape but use the new-format rule names as `concept` field."
+
+  - id: tests
+    action: "Test pack: format detection, parsing, validation rules, merge, CLI extension"
+    new:
+      - "tests/AgentSmith.Tests/Services/SkillMdParserNewFormatTests.cs: Parse_RoleAndRolesSupportedBothPresent_ThrowsSkillFormatException; Parse_OnlyRolePresent_RoutesToNewFormatParser; Parse_OnlyRolesSupportedPresent_RoutesToLegacyParser; Parse_NeitherKey_ThrowsSkillFormatException; ParseNewFormat_AllFieldsValid_ReturnsRoleSkillDefinition; ParseNewFormat_BodyVerbatim_NoSectionSplitting; ParseNewFormat_LegacyFieldsNull (assert RolesSupported, ActivationCriteria, RoleAssignment are null on the resulting definition); ParseNewFormat_RoleEnumValueInvalid_Throws; ParseNewFormat_DescriptionOver200Chars_Throws; ParseNewFormat_OutputSchemaInvalid_Throws; ParseNewFormat_InvestigatorModeMissingOnInvestigator_Throws; ParseNewFormat_SurveyScopeMissingOnSurveyMode_Throws; ParseNewFormat_CategoryMissingOnVerifyHintMode_Throws; ParseNewFormat_BlockConditionMissingOnJudge_Throws; ParseNewFormat_OutputSchemaBootstrapWithNonProducerRole_Throws; ParseNewFormat_EmptyBody_Throws; ParseNewFormat_ActivatesWhenMissing_Throws."
+      - "tests/AgentSmith.Tests/Services/SkillMdParserMergeNewFieldsTests.cs: MergeFrontmatter_OverrideSetsCategory_OverrideWins; MergeFrontmatter_OverrideOmitsCategory_BaseWins; MergeFrontmatter_OverrideSetsSurveyScope_OverrideListReplacesBase (no element-wise merge); MergeFrontmatter_OverrideSetsLoopFalse_BaseTrueOverridden; MergeFrontmatter_OverrideOmitsAllNewFields_BaseValuesPreserved."
+      - "tests/AgentSmith.Tests/Services/SkillMdFrontmatterFieldsTests.cs: Yaml_AllNewFields_DeserializesCorrectly (single fixture YAML with every new field set); Yaml_NewFieldsOmitted_AllNullable; Yaml_LoopAsBool_DeserializesAsBoolean."
+      - "tests/AgentSmith.Tests/Services/RoleSkillDefinitionNewFormatFieldsTests.cs: NewFormat_FieldsCopiedFromFrontmatter (round-trip from frontmatter through ParseNewFormat to RoleSkillDefinition); LegacyFormat_NewFieldsAreNull (parse a legacy SKILL.md and assert the eight new fields are null on the resulting RoleSkillDefinition)."
+      - "tests/AgentSmith.Tests/Cli/ValidateConceptsCommandNewFormatTests.cs: Validate_NewFormatSkillVerifyHintWithoutCategory_ExitOneAndPrintsRule; Validate_NewFormatSkillJudgeWithoutBlockCondition_ExitOneAndPrintsRule; Validate_NewFormatSkillBootstrapWithNonProducerRole_ExitOneAndPrintsRule; Validate_NewFormatSkillAllRulesSatisfied_ExitZero; Validate_LegacySkillUnaffectedByNewRules_ExitZero (assert legacy skills don't trigger the new rules)."
+
+tests:
+  - "SkillMdParserNewFormat_Parse_RoleAndRolesSupportedBothPresent_ThrowsSkillFormatException"
+  - "SkillMdParserNewFormat_Parse_OnlyRolePresent_RoutesToNewFormatParser"
+  - "SkillMdParserNewFormat_Parse_OnlyRolesSupportedPresent_RoutesToLegacyParser"
+  - "SkillMdParserNewFormat_Parse_NeitherKey_ThrowsSkillFormatException"
+  - "SkillMdParserNewFormat_ParseNewFormat_AllFieldsValid_ReturnsRoleSkillDefinition"
+  - "SkillMdParserNewFormat_ParseNewFormat_BodyVerbatim_NoSectionSplitting"
+  - "SkillMdParserNewFormat_ParseNewFormat_LegacyFieldsNull"
+  - "SkillMdParserNewFormat_ParseNewFormat_RoleEnumValueInvalid_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_DescriptionOver200Chars_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_OutputSchemaInvalid_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_InvestigatorModeMissingOnInvestigator_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_SurveyScopeMissingOnSurveyMode_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_CategoryMissingOnVerifyHintMode_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_BlockConditionMissingOnJudge_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_OutputSchemaBootstrapWithNonProducerRole_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_EmptyBody_Throws"
+  - "SkillMdParserNewFormat_ParseNewFormat_ActivatesWhenMissing_Throws"
+  - "SkillMdParserMergeNewFields_MergeFrontmatter_OverrideSetsCategory_OverrideWins"
+  - "SkillMdParserMergeNewFields_MergeFrontmatter_OverrideOmitsCategory_BaseWins"
+  - "SkillMdParserMergeNewFields_MergeFrontmatter_OverrideSetsSurveyScope_OverrideListReplacesBase"
+  - "SkillMdParserMergeNewFields_MergeFrontmatter_OverrideSetsLoopFalse_BaseTrueOverridden"
+  - "SkillMdParserMergeNewFields_MergeFrontmatter_OverrideOmitsAllNewFields_BaseValuesPreserved"
+  - "SkillMdFrontmatterFields_Yaml_AllNewFields_DeserializesCorrectly"
+  - "SkillMdFrontmatterFields_Yaml_NewFieldsOmitted_AllNullable"
+  - "SkillMdFrontmatterFields_Yaml_LoopAsBool_DeserializesAsBoolean"
+  - "RoleSkillDefinitionNewFormatFields_NewFormat_FieldsCopiedFromFrontmatter"
+  - "RoleSkillDefinitionNewFormatFields_LegacyFormat_NewFieldsAreNull"
+  - "ValidateConceptsCommandNewFormat_Validate_NewFormatSkillVerifyHintWithoutCategory_ExitOneAndPrintsRule"
+  - "ValidateConceptsCommandNewFormat_Validate_NewFormatSkillJudgeWithoutBlockCondition_ExitOneAndPrintsRule"
+  - "ValidateConceptsCommandNewFormat_Validate_NewFormatSkillBootstrapWithNonProducerRole_ExitOneAndPrintsRule"
+  - "ValidateConceptsCommandNewFormat_Validate_NewFormatSkillAllRulesSatisfied_ExitZero"
+  - "ValidateConceptsCommandNewFormat_Validate_LegacySkillUnaffectedByNewRules_ExitZero"
+
+done:
+  - "SkillMdParser routes per frontmatter shape: roles_supported → legacy parser; role → new parser; both → SkillFormatException"
+  - "SkillMdFrontmatter carries the eight new fields (Role, Category, InvestigatorMode, SurveyScope, ScopeHint, BlockCondition, Loop, OutputSchema); RoleSkillDefinition exposes them as nullable properties"
+  - "New-format ParseNewFormat builds RoleSkillDefinition with body verbatim (no SkillBodySplitter), legacy fields null"
+  - "ValidateStrict for new format enforces all Phase C rules; each violation throws SkillFormatException with file path + rule description"
+  - "MergeFrontmatter merges the eight new fields under override-wins-falls-back-to-base; SurveyScope list is replaced wholesale, not element-merged"
+  - "ValidateConceptsCommand checks category-on-verify_hint and block_condition-on-judge presence at build time; closed enum for category deferred to p0127c"
+  - "Legacy SKILL.md files in agent-smith-skills (all 44 currently) parse unchanged through the legacy path"
+  - "All 32 new tests pass"
+  - "All existing tests pass (no regressions)"
+  - "No skill content migrated yet — that's p0127c. No triage consumption — that's p0127b. p0126's SkillCallRuntime is not yet hooked up to triage; first consumer migration lands in p0127b"

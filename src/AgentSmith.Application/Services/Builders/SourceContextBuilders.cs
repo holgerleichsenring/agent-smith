@@ -61,21 +61,3 @@ public sealed class LoadContextContextBuilder : IContextBuilder
     }
 }
 
-public sealed class LoadCodeMapContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new LoadCodeMapContext(repo, pipeline);
-    }
-}
-
-public sealed class BootstrapProjectContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var resolved = pipeline.Resolved();
-        return new BootstrapProjectContext(repo, resolved.Agent, resolved.SkillsPath, pipeline);
-    }
-}

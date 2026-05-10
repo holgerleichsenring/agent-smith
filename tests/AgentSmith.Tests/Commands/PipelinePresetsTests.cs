@@ -40,9 +40,12 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void ApiSecurityScan_FirstStepIsTryCheckoutSource()
+    public void ApiSecurityScan_FirstStepIsPipelineNameInitializer()
     {
-        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.TryCheckoutSource);
+        // p0125c: PipelineNameInitializer is prepended to every preset to publish
+        // the pipeline_name concept once before any other handler runs.
+        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.PipelineNameInitializer);
+        PipelinePresets.ApiSecurityScan[1].Should().Be(CommandNames.TryCheckoutSource);
     }
 
     [Fact]
@@ -53,12 +56,16 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void InitProject_HasMinimalCommands()
+    public void InitProject_ContainsKeyCommands()
     {
-        PipelinePresets.InitProject.Should().HaveCount(3);
+        // p0130c: BootstrapProject retired from this preset; replaced by the
+        // AnalyzeCode → PublishProjectLanguage → LoadSkills → BootstrapDispatch
+        // chain. Full step sequence is asserted in InitProjectPipelinePresetTests.
+        PipelinePresets.InitProject.Should().Contain(CommandNames.PipelineNameInitializer);
         PipelinePresets.InitProject.Should().Contain(CommandNames.CheckoutSource);
-        PipelinePresets.InitProject.Should().Contain(CommandNames.BootstrapProject);
+        PipelinePresets.InitProject.Should().Contain(CommandNames.BootstrapDispatch);
         PipelinePresets.InitProject.Should().Contain(CommandNames.InitCommit);
+        PipelinePresets.InitProject.Should().NotContain(CommandNames.BootstrapProject);
     }
 
     [Fact]
@@ -82,6 +89,37 @@ public class PipelinePresetsTests
     public void InitProject_DoesNotContainTriage()
     {
         PipelinePresets.InitProject.Should().NotContain(CommandNames.Triage);
+    }
+
+    [Fact]
+    public void FixBug_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
+    {
+        var list = PipelinePresets.FixBug.ToList();
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
+    }
+
+    [Fact]
+    public void AddFeature_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
+    {
+        var list = PipelinePresets.AddFeature.ToList();
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
+        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
+    }
+
+    [Fact]
+    public void FixNoTest_DoesNotContainRunVerifyPhase()
+    {
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.RunVerifyPhase);
+    }
+
+    [Fact]
+    public void NonImplementationPresets_DoNotContainRunVerifyPhase()
+    {
+        PipelinePresets.SecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.ApiSecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.MadDiscussion.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.InitProject.Should().NotContain(CommandNames.RunVerifyPhase);
     }
 
     [Theory]

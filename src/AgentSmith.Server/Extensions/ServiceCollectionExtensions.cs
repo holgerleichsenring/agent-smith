@@ -9,8 +9,10 @@ using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Lifecycle;
+using AgentSmith.Infrastructure.Services.Persistence;
 using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -35,6 +37,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IJobHeartbeatService, JobHeartbeatService>();
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
+        services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
         return services;
     }
 

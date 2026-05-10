@@ -1,8 +1,15 @@
+using AgentSmith.Contracts.Activation;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
+using AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 using AgentSmith.Infrastructure.Core;
+using AgentSmith.Infrastructure.Services.Activation;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Factories;
@@ -47,6 +54,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
+
+        // p0126a: per-skill loop limits. Defaults match Phase B of the runtime design.
+        // Composition roots that load AgentSmithConfig may replace this registration with
+        // the YAML-bound instance to honor operator-set limits.
+        services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
 
         // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
         // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
@@ -104,15 +116,37 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFindingHandlerCorrelator, Services.Security.FindingHandlerCorrelator>();
         services.AddSingleton<IBaselineLoader, Services.BaselineLoader>();
 
+        // p0125b: PipelineContextRunStateConcepts is bound to a per-pipeline PipelineContext
+        // (not a DI singleton). Register a factory so future handlers (p0125c) can inject the
+        // creation surface; the factory pulls vocabulary from the context's ConceptVocabulary
+        // slot, falling back to Empty when no skills are loaded yet (test fixtures).
+        services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
+
         // PR comment reply and conversation lookup (p59, p59b, p59c)
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
         services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
         services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
+
+        // p0128b: per-platform Plan open-questions comment templates. Keyed by platform
+        // name; PlanOpenQuestionsPoster (Application) resolves the matching template.
+        services.AddKeyedSingleton<ITicketCommentTemplate, GitHubOpenQuestionsCommentTemplate>("github");
+        services.AddKeyedSingleton<ITicketCommentTemplate, GitLabOpenQuestionsCommentTemplate>("gitlab");
+        services.AddKeyedSingleton<ITicketCommentTemplate, AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
+        services.AddKeyedSingleton<ITicketCommentTemplate, JiraOpenQuestionsCommentTemplate>("jira");
         // IConversationLookup → RedisConversationLookup is registered by AgentSmith.Cli/ServiceProviderFactory
         // when REDIS_URL is available (p0101). WebhookDialogueRouter handles the null case.
 
         return services;
+    }
+
+    private static IRunStateConcepts CreateRunStateConcepts(PipelineContext context)
+    {
+        var vocabulary = context.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var loaded)
+            && loaded is not null
+                ? loaded
+                : ConceptVocabulary.Empty;
+        return new PipelineContextRunStateConcepts(context, vocabulary);
     }
 
     private static NucleiConfig LoadNucleiConfig() =>

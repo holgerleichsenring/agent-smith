@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -22,12 +23,18 @@ public class ExecutePipelineUseCaseTests
 
     public ExecutePipelineUseCaseTests()
     {
+        var skillLoaderMock = new Mock<ISkillLoader>();
+        skillLoaderMock.Setup(s => s.LoadVocabulary(It.IsAny<string>()))
+            .Returns(ConceptVocabulary.Empty);
+
         _sut = new ExecutePipelineUseCase(
             _configMock.Object,
             _intentMock.Object,
             _pipelineMock.Object,
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
+            new StubSkillsCatalogPath(),
+            skillLoaderMock.Object,
             new PipelineConfigResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
