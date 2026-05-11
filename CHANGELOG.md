@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.42.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.41.0...v0.42.0) (2026-05-11)
+
+
+### Features
+
+* label-triggered init-project onboarding (p0133) ([#94](https://github.com/holgerleichsenring/agent-smith/issues/94)) ([f393aea](https://github.com/holgerleichsenring/agent-smith/commit/f393aead97db24125305e6e81420d3593ee6acd9))
+
+
+### Bug Fixes
+
+* **sandbox:** translate Step.WorkingDirectory '/work' to local temp dir in InProcessSandbox ([#93](https://github.com/holgerleichsenring/agent-smith/issues/93)) ([3ffd91f](https://github.com/holgerleichsenring/agent-smith/commit/3ffd91f6fa140a1deca393b9813df47d6c8611eb))
+
 ## [0.41.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.40.1...v0.41.0) (2026-05-10)
 
 
