@@ -90,6 +90,36 @@ public sealed class GitHubTicketStatusTransitionerTests
         result.Should().BeNull();
     }
 
+    [Fact]
+    public async Task TransitionAsync_OperatorAgentSmithPrefixedLabel_IsPreservedThroughTransition()
+    {
+        // p0133 follow-up: operator-defined labels that share the agent-smith:
+        // prefix (e.g. agent-smith:init triggering init-project) must survive a
+        // status transition. Before tightening, BuildLabels stripped them via
+        // a prefix-match and replaced the trigger label with the new status —
+        // which is why init-project runs were silently re-routed to fix-bug
+        // (default_pipeline) on the next poll cycle.
+        var handler = new SequentialHandler();
+        handler.Enqueue(IssueResponseMulti(["agent-smith:init", "agent-smith:pending"], etag: "\"v1\""));
+        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
+
+        var sut = Create(handler);
+        var result = await sut.TransitionAsync(
+            new TicketId("42"),
+            TicketLifecycleStatus.Pending,
+            TicketLifecycleStatus.Enqueued,
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var patchBody = handler.LastPatchBody;
+        patchBody.Should().Contain("agent-smith:init",
+            because: "operator trigger labels must survive transition");
+        patchBody.Should().Contain("agent-smith:enqueued",
+            because: "new lifecycle status must be added");
+        patchBody.Should().NotContain("agent-smith:pending",
+            because: "the previous lifecycle status must be stripped");
+    }
+
     private static GitHubTicketStatusTransitioner Create(HttpMessageHandler handler)
     {
         var client = new HttpClient(handler);
@@ -99,13 +129,16 @@ public sealed class GitHubTicketStatusTransitionerTests
     }
 
     private static HttpResponseMessage IssueResponse(string labelName, string etag)
+        => IssueResponseMulti([labelName], etag);
+
+    private static HttpResponseMessage IssueResponseMulti(string[] labelNames, string etag)
     {
+        var labelsJson = string.Join(", ",
+            labelNames.Select(n => $"{{ \"name\": \"{n}\" }}"));
         var json = $$"""
         {
             "number": 42,
-            "labels": [
-                { "name": "{{labelName}}" }
-            ]
+            "labels": [ {{labelsJson}} ]
         }
         """;
         var resp = new HttpResponseMessage(HttpStatusCode.OK)
@@ -119,11 +152,16 @@ public sealed class GitHubTicketStatusTransitionerTests
     private sealed class SequentialHandler : HttpMessageHandler
     {
         private readonly Queue<HttpResponseMessage> _responses = new();
+        public string? LastPatchBody { get; private set; }
 
         public void Enqueue(HttpResponseMessage response) => _responses.Enqueue(response);
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(_responses.Dequeue());
+        {
+            if (request.Method == HttpMethod.Patch && request.Content is not null)
+                LastPatchBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            return _responses.Dequeue();
+        }
     }
 }

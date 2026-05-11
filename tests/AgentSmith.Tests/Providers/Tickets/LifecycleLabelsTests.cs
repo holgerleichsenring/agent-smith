@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Infrastructure.Services.Providers.Tickets;
+using AgentSmith.Contracts.Tickets;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Providers.Tickets;
@@ -32,10 +32,20 @@ public sealed class LifecycleLabelsTests
         if (ok) status.Should().Be(expected);
     }
 
-    [Fact]
-    public void IsLifecycleLabel_PrefixOnly_ReturnsTrue()
+    [Theory]
+    [InlineData("agent-smith:pending", true)]
+    [InlineData("agent-smith:enqueued", true)]
+    [InlineData("agent-smith:in-progress", true)]
+    [InlineData("agent-smith:done", true)]
+    [InlineData("agent-smith:failed", true)]
+    [InlineData("agent-smith:init", false)]               // operator trigger label (p0133)
+    [InlineData("agent-smith:bug", false)]                // operator trigger label
+    [InlineData("agent-smith:no-test-adaption", false)]   // existing triage-override convention
+    [InlineData("agent-smith:skip:tester", false)]        // existing triage-override convention
+    [InlineData("agent-smith:bogus", false)]
+    [InlineData("bug", false)]
+    public void IsLifecycleLabel_OnlyClosedSetMatches_OperatorPrefixedLabelsPassThrough(string label, bool expected)
     {
-        LifecycleLabels.IsLifecycleLabel("agent-smith:anything").Should().BeTrue();
-        LifecycleLabels.IsLifecycleLabel("bug").Should().BeFalse();
+        LifecycleLabels.IsLifecycleLabel(label).Should().Be(expected);
     }
 }

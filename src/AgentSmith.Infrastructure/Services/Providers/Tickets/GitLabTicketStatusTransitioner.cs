@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
