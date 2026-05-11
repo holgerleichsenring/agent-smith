@@ -15,6 +15,18 @@ builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOpt
     options => options.IncludeScopes = true);
 builder.Logging.AddFilter("Microsoft", LogLevel.Information);
 builder.Logging.AddFilter("System", LogLevel.Information);
+// Framework noise we never want at info-level:
+//   - System.Net.Http.HttpClient emits 4 lines per outbound call (start/send/recv/end)
+//     plus an auto scope `[HTTP <verb> <url>]` — operator value is near zero and the
+//     scope content doesn't follow our `run=...` / `ticket=...` convention. Errors
+//     and timeouts still surface at Warning+.
+//   - Microsoft.AspNetCore.Hosting.Diagnostics emits "Request starting" / "Request
+//     finished" lines for every inbound request — k8s probes /health every few
+//     seconds × N replicas, drowning the actual webhook / Slack activity.
+//   - Microsoft.AspNetCore.Routing logs endpoint matching for the same requests.
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
 builder.Logging.SetMinimumLevel(
     builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
