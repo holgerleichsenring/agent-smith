@@ -187,6 +187,7 @@ projects:
     #   trigger_statuses: ["open"]
     #   done_status: "closed"
     #   pipeline_from_label:
+    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
     #     bug: fix-bug
     #     feature: add-feature
     #     security-review: security-scan
@@ -198,6 +199,7 @@ projects:
     #   trigger_statuses: ["opened"]
     #   done_status: "closed"
     #   pipeline_from_label:
+    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
     #     bug: fix-bug
     #     feature: add-feature
     #     security: security-scan
@@ -209,6 +211,7 @@ projects:
     #   trigger_statuses: ["New", "Active"]
     #   done_status: "Resolved"
     #   pipeline_from_label:
+    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
     #     bug: fix-bug
     #     security-review: security-scan
     #   default_pipeline: fix-bug
@@ -221,6 +224,7 @@ projects:
     #   trigger_statuses: ["Open", "Active"]
     #   done_status: "In Review"
     #   pipeline_from_label:
+    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
     #     bug: fix-bug
     #     feature: add-feature
     #     security-review: security-scan
