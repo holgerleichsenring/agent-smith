@@ -9,6 +9,10 @@ The trigger fires via either path:
 
 Both feed the same `TicketClaimService`. See [Polling vs Webhooks](polling-vs-webhooks.md) for the choice.
 
+## Onboarding (First Run)
+
+A repo can't run code-touching pipelines (`fix-bug`, `add-feature`, `security-scan`, …) until `.agentsmith/context.yaml` and `coding-principles.md` exist — the BootstrapGate aborts those pipelines fast with *"Run init-project first"* otherwise. The recommended first label-trigger on any new repo is `agent-smith:init → init-project`, which generates both files and opens a PR for review. See [Onboarding](onboarding.md) for the step-by-step walkthrough.
+
 ## How It Works
 
 1. A user adds a configured trigger label to a ticket.

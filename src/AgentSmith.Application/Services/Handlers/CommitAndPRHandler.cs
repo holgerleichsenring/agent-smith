@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -52,50 +53,27 @@ public sealed class CommitAndPRHandler(
         return CommandResult.Ok($"Pull request created: {prUrl}");
     }
 
-    private async Task FinalizeTicketAsync(
+    private Task FinalizeTicketAsync(
         CommitAndPRContext context, string prUrl, CancellationToken cancellationToken)
     {
-        try
-        {
-            var ticketProvider = ticketFactory.Create(context.TicketConfig);
-            var changes = string.Join("\n",
-                context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
+        var changes = string.Join("\n",
+            context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
 
-            var summary = $"""
-                ## Agent Smith - Completed
+        var summary = $"""
+            ## Agent Smith - Completed
 
-                **PR:** {prUrl}
+            **PR:** {prUrl}
 
-                ### Changes
-                {changes}
+            ### Changes
+            {changes}
 
-                This ticket was automatically processed by Agent Smith.
-                """;
+            This ticket was automatically processed by Agent Smith.
+            """;
 
-            if (context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus)
-                && !string.IsNullOrWhiteSpace(doneStatus))
-            {
-                await ticketProvider.UpdateStatusAsync(
-                    context.Ticket.Id, summary, cancellationToken);
-                await ticketProvider.TransitionToAsync(
-                    context.Ticket.Id, doneStatus, cancellationToken);
+        context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
 
-                logger.LogInformation(
-                    "Ticket {Ticket} transitioned to '{DoneStatus}' with summary",
-                    context.Ticket.Id, doneStatus);
-            }
-            else
-            {
-                await ticketProvider.CloseTicketAsync(
-                    context.Ticket.Id, summary, cancellationToken);
-
-                logger.LogInformation("Ticket {Ticket} closed with summary", context.Ticket.Id);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to finalize ticket {Ticket}, PR was still created", context.Ticket.Id);
-        }
+        return TicketLifecycle.FinalizeAsync(
+            ticketFactory, context.TicketConfig, context.Ticket.Id,
+            doneStatus, summary, logger, cancellationToken);
     }
 }
