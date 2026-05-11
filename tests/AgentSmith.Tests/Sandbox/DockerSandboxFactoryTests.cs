@@ -142,6 +142,29 @@ public sealed class DockerSandboxFactoryTests
     }
 
     [Fact]
+    public async Task CreateAsync_LoaderExitsNonZero_ThrowsWithLoaderOutput()
+    {
+        var docker = BuildDockerMock(out _);
+        Mock.Get(docker.Object.Containers)
+            .Setup(c => c.WaitContainerAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerWaitResponse { StatusCode = 1 });
+        // Loader log stream is best-effort — leave default unconfigured (returns null/0),
+        // ReadContainerLogsAsync wraps the failure and returns empty string.
+
+        var factory = new DockerSandboxFactory(
+            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
+            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+
+        var act = async () => await factory.CreateAsync(
+            new SandboxSpec("debian:bookworm", "agent-smith-sandbox-agent:latest"),
+            CancellationToken.None);
+
+        var ex = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
+        ex.Message.Should().Contain("loader exited with code 1");
+        ex.Message.Should().Contain("agent-smith-sandbox-agent:latest");
+    }
+
+    [Fact]
     public async Task CreateAsync_AgentCarrierImageMissingAndPullFails_ThrowsWithBuildHint()
     {
         var docker = BuildDockerMock(out _);

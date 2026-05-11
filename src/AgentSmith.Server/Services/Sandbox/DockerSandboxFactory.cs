@@ -45,9 +45,40 @@ public sealed class DockerSandboxFactory(
         var spec = specBuilder.BuildLoader($"agentsmith-sandbox-loader-{slug}", sharedVolume, agentImage);
         var created = await docker.Containers.CreateContainerAsync(spec, ct);
         await docker.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);
-        await docker.Containers.WaitContainerAsync(created.ID, ct);
+        var wait = await docker.Containers.WaitContainerAsync(created.ID, ct);
+
+        if (wait.StatusCode != 0)
+        {
+            var logs = await ReadContainerLogsAsync(created.ID, ct);
+            await docker.Containers.RemoveContainerAsync(created.ID,
+                new ContainerRemoveParameters { Force = true }, ct);
+            throw new InvalidOperationException(
+                $"Sandbox-agent loader exited with code {wait.StatusCode} — `{agentImage}` failed " +
+                $"to inject /shared/agent. Without the binary in place the toolchain crashes with " +
+                $"the misleading 'exec /shared/agent: no such file or directory'. Loader output: " +
+                $"{(string.IsNullOrWhiteSpace(logs) ? "<empty>" : logs.Trim())}");
+        }
+
         await docker.Containers.RemoveContainerAsync(created.ID,
             new ContainerRemoveParameters { Force = true }, ct);
+    }
+
+    private async Task<string> ReadContainerLogsAsync(string containerId, CancellationToken ct)
+    {
+        try
+        {
+            using var stream = await docker.Containers.GetContainerLogsAsync(
+                containerId,
+                tty: false,
+                new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = "200" },
+                ct);
+            var (stdout, stderr) = await stream.ReadOutputToEndAsync(ct);
+            return string.Join("\n", new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private async Task<string> StartToolchainAsync(
