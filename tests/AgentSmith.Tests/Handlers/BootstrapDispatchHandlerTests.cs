@@ -37,7 +37,7 @@ public sealed class BootstrapDispatchHandlerTests
         _filter, _conceptsFactory, NullLogger<BootstrapDispatchHandler>.Instance);
 
     [Fact]
-    public async Task ExecuteAsync_SingleMatch_EmitsSkillRound()
+    public async Task ExecuteAsync_SingleMatch_EmitsBootstrapRound()
     {
         var pipeline = PipelineFor("init-project", "csharp",
             new RoleSkillDefinition
@@ -57,7 +57,9 @@ public sealed class BootstrapDispatchHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().HaveCount(1);
         var emitted = result.InsertNext[0];
-        emitted.Name.Should().Be(CommandNames.SkillRound);
+        // p0130c-followup: dispatch now emits BootstrapRoundCommand (tool-bearing
+        // producer loop) instead of SkillRoundCommand (observation-only).
+        emitted.Name.Should().Be(CommandNames.BootstrapRound);
         emitted.SkillName.Should().Be("csharp-bootstrap");
         emitted.Round.Should().Be(1);
     }
