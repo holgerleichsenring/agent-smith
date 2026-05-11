@@ -2,6 +2,10 @@
 
 Step-by-step guides for connecting Agent Smith to chat platforms and ticket-event sources.
 
+## First Run
+
+Before any code-touching pipeline can do useful work, the target repository needs `.agentsmith/context.yaml` + `coding-principles.md`. Trigger this once per repository via the `agent-smith:init` label — the [Onboarding](onboarding.md) guide walks the operator workflow.
+
 ## Chat Platforms
 
 | Platform | Guide | Status |

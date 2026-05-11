@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0133
+goal: "Make init-project operator-triggerable via the agent-smith:init label across all four platforms — closes the D6 gap that left no documented way to bootstrap a new repo in webhook/polling-only deployments."
+
+requires: ["p0130c", "p0131b", "p0083", "p0084", "p0108"]
+
+decisions:
+  - key: "Label trigger via existing pipeline_from_label — no new endpoint, no k8s-specific operator logic. Routing primitive is universal across all four platforms since p0083/p0084/p0108; PipelineFromLabel is a plain dict with no preset whitelist (PipelinePresets.cs:178 already registers init-project)."
+  - key: "Label string `agent-smith:init` — parallel to the established short forms (agent-smith:fix / :feature / :scan). Four labels, not five."
+  - key: "Trigger ticket transitions to done_status on success, identical to fix-bug / add-feature — consistency with the p0083/p0084 lifecycle contract; otherwise the operator's mental model breaks on the very first run."
+  - key: "InitCommitHandler extended, NOT replaced by CommitAndPRHandler — init needs commit message `chore: initialize .agentsmith/` regardless of trigger source, but CommitAndPR hardcodes `fix: {Ticket.Title}`. Lifecycle code shared via a TicketLifecycle helper that takes TicketId+TicketConfig+DoneStatus (id-only; no full Ticket needed for transition+comment)."
+  - key: "InitCommitHandler reads TicketId directly from pipeline context via TryGet — no FetchTicket added to InitProject preset. Reason: TicketId is already published by ExecutePipelineUseCase (line 84) when WebhookResult carried one; DoneStatus is published via InitialContext from the webhook; TicketConfig is already in InitCommitContext. A FetchTicket addition would require making it null-tolerant, touching a handler used by 5 other presets — risks hiding bugs there. The id-only path covers everything the lifecycle (UpdateStatusAsync + TransitionToAsync/CloseTicketAsync) needs."
+  - key: "Slack-modal / CLI paths stay ticket-less and unchanged — InitCommitHandler skips the lifecycle branch when pipeline.TryGet<TicketId> is false. Slack continues to trigger init without a ticket exactly as today."
+  - key: "Smoke test covers all four platforms — onboarding is platform-agnostic from the operator's POV; per-platform routing drift on a string-keyed dispatch would silently break the first-run flow."
+
+steps:
+  - id: research
+    action: "Audit p0029 Slack-modal + chat-text path; verify no whitelist blocks pipeline=init-project; verify FetchTicket null behavior"
+    new:
+      - ".agentsmith/notes/init-trigger-audit.md"
+
+  - id: lifecycle
+    action: "Extract TicketLifecycle helper; extend InitCommitHandler with id-only finalize; delegate from CommitAndPRHandler"
+    new:
+      - "TicketLifecycle: static helper sharing FinalizeAsync(TicketId, TicketConfig, doneStatus, summary, factory, logger, ct) between InitCommitHandler and CommitAndPRHandler"
+    modify:
+      - "InitCommitHandler: post-PR, TryGet TicketId; if present, build summary + call TicketLifecycle.FinalizeAsync"
+      - "CommitAndPRHandler: delegate its FinalizeTicketAsync body to the same helper"
+
+  - id: config
+    action: "Add agent-smith:init → init-project as first entry in pipeline_from_label for all four platforms"
+    modify:
+      - "config/agentsmith.yml: jira_trigger live block + commented github/gitlab/azuredevops/jira examples"
+
+  - id: docs
+    action: "Document the operator onboarding workflow"
+    new:
+      - "docs/setup/onboarding.md: repo-connect → agent-smith:init issue → review/merge bootstrap PR → followup tickets"
+    modify:
+      - "docs/setup/label-triggers.md: short 'Onboarding (first run)' section linking onboarding.md"
+      - "docs/setup/README.md: link onboarding.md as recommended first step"
+
+  - id: tests
+    action: "Smoke-test the label-trigger routing on all four platforms; unit-test the lifecycle branch"
+    new:
+      - "InitProjectLabelTriggerSmokeTests: webhook payload → WebhookResult assertions per platform"
+      - "InitCommitHandlerLifecycleTests: no-ticket / ticket-with-done-status / ticket-without-done-status"
+
+tests:
+  - "GitHubIssueWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline"
+  - "GitLabIssueWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline"
+  - "AzureDevOpsWorkItemWebhookHandler_InitTagInPayload_ReturnsWebhookResultWithInitProjectPipeline"
+  - "JiraIssueWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline"
+  - "InitCommitHandler_NoTicketIdInPipeline_SkipsLifecycle"
+  - "InitCommitHandler_TicketIdWithDoneStatus_TransitionsAndCommentsPRLink"
+  - "InitCommitHandler_TicketIdWithoutDoneStatus_ClosesAndCommentsPRLink"
+  - "TicketLifecycleFinalize_ReusedByCommitAndPRHandler_ProducesIdenticalTicketUpdate"
+
+done:
+  - "Label-trigger routes pipeline=init-project end-to-end on all four platforms (smoke tests green)"
+  - "config/agentsmith.yml shows agent-smith:init → init-project as the first pipeline_from_label entry for github / gitlab / azuredevops / jira"
+  - "docs/setup/onboarding.md walks the operator workflow with a troubleshooting section (gate error + result.md location); linked from README.md and label-triggers.md"
+  - "InitCommitHandler transitions the trigger ticket to done_status (or closes it) with a PR-link comment when a TicketId is in pipeline context"
+  - "Slack-modal / CLI init paths still work — InitCommitHandler no-ops the lifecycle branch when no TicketId is present; audit conclusion recorded in notes/init-trigger-audit.md"
+  - "All tests pass; existing suite green"

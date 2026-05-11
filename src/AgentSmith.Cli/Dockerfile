@@ -13,6 +13,10 @@ COPY src/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/AgentSmith.S
 
 RUN dotnet restore src/AgentSmith.Cli/AgentSmith.Cli.csproj
 
+# Schemas embedded into AgentSmith.Application via Link (p0128a).
+# csproj references ../../.agentsmith/schemas/*.json relative to the project dir.
+COPY .agentsmith/schemas/ .agentsmith/schemas/
+
 # Copy source and publish
 COPY src/ src/
 RUN dotnet publish src/AgentSmith.Cli -c Release -o /app/publish --no-restore
