@@ -36,6 +36,33 @@ internal static class RunCostSectionWriter
         sb.AppendLine();
     }
 
+    /// <summary>
+    /// Init-mode variant: no ticket/changeType, but the same tokens + cost
+    /// sections so operators get consistent reporting across init / fix / feat.
+    /// </summary>
+    internal static void AppendInitFrontmatter(
+        StringBuilder sb, int durationSeconds, RunCostSummary? costSummary)
+    {
+        var ci = CultureInfo.InvariantCulture;
+
+        sb.AppendLine("---");
+        sb.AppendLine("type: init");
+        sb.AppendLine($"date: {DateTime.UtcNow:yyyy-MM-dd}");
+        sb.AppendLine("result: success");
+
+        if (durationSeconds > 0)
+            sb.AppendLine($"duration_seconds: {durationSeconds}");
+
+        if (costSummary is not null)
+        {
+            AppendTokenSection(sb, costSummary);
+            AppendCostSection(sb, costSummary, ci);
+        }
+
+        sb.AppendLine("---");
+        sb.AppendLine();
+    }
+
     private static void AppendTokenSection(StringBuilder sb, RunCostSummary costSummary)
     {
         var totalInput = costSummary.Phases.Values.Sum(p => p.InputTokens);

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
@@ -17,7 +18,8 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader(new ProjectConfigNormalizer()).LoadConfig(_tempFile);
+        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths())
+            .LoadConfig(_tempFile);
     }
 
     [Fact]

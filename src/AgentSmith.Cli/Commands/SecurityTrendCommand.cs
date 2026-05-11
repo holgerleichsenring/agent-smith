@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using System.Globalization;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -25,7 +26,7 @@ internal static class SecurityTrendCommand
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
             var projectPath = Path.GetFullPath(project);
-            var securityDir = Path.Combine(projectPath, ".agentsmith", "security");
+            var securityDir = Path.Combine(projectPath, ProjectMetaPaths.Security);
 
             if (isDryRun)
             {

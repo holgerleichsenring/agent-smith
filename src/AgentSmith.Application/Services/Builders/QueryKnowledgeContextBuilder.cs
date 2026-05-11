@@ -13,7 +13,7 @@ public sealed class QueryKnowledgeContextBuilder : IContextBuilder
     {
         var question = pipeline.Get<string>(ContextKeys.DialogueQuestion);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var wikiPath = Path.Combine(repo.LocalPath, ".agentsmith", "wiki");
+        var wikiPath = Path.Combine(repo.LocalPath, ProjectMetaPaths.Wiki);
         return new QueryKnowledgeContext(question, wikiPath, project.Agent, pipeline);
     }
 }

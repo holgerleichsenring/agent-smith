@@ -30,6 +30,14 @@ public static class ContextKeys
     public const string RunNumber = "RunNumber";
     public const string RunCostSummary = "RunCostSummary";
     public const string RunDurationSeconds = "RunDurationSeconds";
+
+    /// <summary>
+    /// <see cref="DateTimeOffset"/> stamped at pipeline start. WriteRunResultHandler
+    /// reads this to compute the run's wall-clock duration when no handler
+    /// explicitly wrote <see cref="RunDurationSeconds"/> (e.g. init-project, which
+    /// has no AgenticExecute step).
+    /// </summary>
+    public const string RunStartedAt = "RunStartedAt";
     public const string InitMode = "InitMode";
     public const string SourceFilePath = "SourceFilePath";
     public const string DocumentMarkdown = "DocumentMarkdown";

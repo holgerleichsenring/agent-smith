@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
@@ -95,6 +96,67 @@ public sealed class PipelineCostTracker
     public decimal EstimateCostUsd()
     {
         lock (_gate) return EstimateCostUsdLocked();
+    }
+
+    /// <summary>
+    /// Snapshots the tracker into a <see cref="RunCostSummary"/> for result.md
+    /// frontmatter. Per-skill records are grouped by
+    /// <see cref="SkillExecutionPhase"/>; calls that ran outside any explicit
+    /// scope (legacy direct-tracker callers like ProjectAnalyzer) land in a
+    /// synthetic "Other" phase so totals always reconcile with the tracker's
+    /// pipeline-wide counts. Returns null when no LLM calls were tracked, so
+    /// callers can decide whether to render the frontmatter cost sections.
+    /// </summary>
+    public RunCostSummary? BuildSummary()
+    {
+        lock (_gate)
+        {
+            if (_callCount == 0) return null;
+
+            var grouped = _scopes.PerSkillBreakdown
+                .GroupBy(r => r.Phase.ToString())
+                .ToDictionary(g => g.Key, g => AggregatePhase(g));
+
+            var scopedInput = _scopes.PerSkillBreakdown.Sum(r => r.InputTokens);
+            var scopedOutput = _scopes.PerSkillBreakdown.Sum(r => r.OutputTokens);
+            var unscopedInput = Math.Max(0, _totalInputTokens - (int)scopedInput);
+            var unscopedOutput = Math.Max(0, _totalOutputTokens - (int)scopedOutput);
+            if (unscopedInput > 0 || unscopedOutput > 0)
+            {
+                grouped["Other"] = new PhaseCost(
+                    Model: _lastModel,
+                    InputTokens: unscopedInput,
+                    OutputTokens: unscopedOutput,
+                    CacheReadTokens: 0,
+                    Iterations: Math.Max(0, _callCount - _scopes.PerSkillBreakdown.Sum(r => r.LlmCallCount)),
+                    Cost: EstimateUnscopedCost(unscopedInput, unscopedOutput));
+            }
+
+            return new RunCostSummary(grouped, EstimateCostUsdLocked());
+        }
+    }
+
+    private PhaseCost AggregatePhase(IEnumerable<CallCostRecord> records)
+    {
+        var input = (int)records.Sum(r => r.InputTokens);
+        var output = (int)records.Sum(r => r.OutputTokens);
+        var cacheRead = (int)records.Sum(r => r.CacheReadTokens);
+        var iterations = records.Sum(r => r.LlmCallCount);
+        var pricing = ResolvePricing(_lastModel);
+        var cost = pricing is null
+            ? 0m
+            : (input / 1_000_000m * pricing.InputPerMillion)
+              + (output / 1_000_000m * pricing.OutputPerMillion)
+              + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+        return new PhaseCost(_lastModel, input, output, cacheRead, iterations, cost);
+    }
+
+    private decimal EstimateUnscopedCost(int input, int output)
+    {
+        var pricing = ResolvePricing(_lastModel);
+        if (pricing is null) return 0m;
+        return (input / 1_000_000m * pricing.InputPerMillion)
+             + (output / 1_000_000m * pricing.OutputPerMillion);
     }
 
     public override string ToString()

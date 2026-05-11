@@ -65,10 +65,15 @@ public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
     {
+        // p0130c-followup: Plan and Ticket are optional. Init-project routes
+        // through this handler (per p0130c) but has neither. Changes defaults
+        // to empty when no implementer ran (init / mad-discussion / etc.).
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var plan = pipeline.Get<Plan>(ContextKeys.Plan);
-        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
+        pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan);
+        pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket);
+        var changes = pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var c) && c is not null
+            ? c
+            : Array.Empty<CodeChange>();
         return new WriteRunResultContext(repo, plan, ticket, changes, pipeline);
     }
 }

@@ -8,8 +8,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Ticket-based skill round: provides ticket title + description as domain context.
-/// Used by fix-bug, add-feature, MAD pipelines.
+/// Skill round used by ticket-driven pipelines (fix-bug, add-feature, MAD)
+/// AND by the bootstrap path (init-project, where no ticket exists).
+/// Provides ticket title + description as domain context when a ticket is
+/// in scope; otherwise renders a synthetic "no ticket" block so
+/// bootstrap-style skills (csharp-bootstrap, ...) can run without a ticket.
 /// </summary>
 public sealed class SkillRoundHandler(
     IChatClientFactory chatClientFactory,
@@ -25,7 +28,18 @@ public sealed class SkillRoundHandler(
 
     protected override string BuildDomainSection(PipelineContext pipeline)
     {
-        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
+        // p0125c-followup: init-project routes through SkillRound (per p0130c)
+        // but has no ticket — the ticket-driven presets tell operators "run
+        // init-project first" so init-project MUST work without a ticket.
+        // Fall back to a synthetic "no ticket" block, mirroring what
+        // TriageOutputProducer.ResolveTicketOrSyntheticInput already does
+        // for the same class of bootstrap / scan runs.
+        if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null)
+            return """
+                ## Ticket
+                (no ticket — bootstrap or ticketless scan run; rely on the
+                ProjectMap and Repository context to ground the response)
+                """;
         return $"""
             ## Ticket
             {ticket.Title}

@@ -32,6 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
 
+        services.AddSingleton<IAgentSmithPaths, AgentSmithPaths>();
+
         services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
         services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();
         services.AddSingleton<SkillsCatalogPath>();

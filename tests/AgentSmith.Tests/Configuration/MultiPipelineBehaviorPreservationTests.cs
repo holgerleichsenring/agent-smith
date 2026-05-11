@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
@@ -81,7 +82,7 @@ public class MultiPipelineBehaviorPreservationTests
         File.WriteAllText(path, AgentSmithYaml);
         try
         {
-            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer());
+            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
             return loader.LoadConfig(path);
         }
         finally

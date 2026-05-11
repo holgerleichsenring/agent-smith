@@ -53,10 +53,13 @@ public sealed class BootstrapDispatchHandler(
         logger.LogInformation(
             "BootstrapDispatch: project_language={Lang} → skill={Skill}", projectLanguage, skill.Name);
 
-        var skillRoundCommandName = PipelinePresets.GetSkillRoundCommandName(
-            context.Pipeline.Resolved().PipelineName);
+        // p0130c-followup: route to the producer-loop BootstrapRoundCommand, not
+        // SkillRoundCommand. SkillRoundHandlerBase runs an observation-only chat
+        // with no tools attached, so the producer can't emit context.yaml /
+        // coding-principles.md via WriteFile. BootstrapRoundHandler is the
+        // tool-bearing path.
         return Task.FromResult(CommandResult.OkAndContinueWith(
             $"BootstrapDispatch: routing to {skill.Name}",
-            PipelineCommand.SkillRound(skillRoundCommandName, skill.Name, round: 1)));
+            PipelineCommand.SkillRound(CommandNames.BootstrapRound, skill.Name, round: 1)));
     }
 }

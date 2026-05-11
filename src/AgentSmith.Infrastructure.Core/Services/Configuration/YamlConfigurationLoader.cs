@@ -9,8 +9,13 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// <summary>
 /// Loads configuration from a YAML file, resolves environment variable placeholders,
 /// and normalizes per-project pipeline declarations (legacy-shim + trigger validation).
+/// Also fills <see cref="SkillsConfig.CacheDir"/> from
+/// <see cref="IAgentSmithPaths.SkillsCatalogRoot"/> when the operator left it
+/// blank — keeps SkillsConfig itself as pure data, no static defaults.
 /// </summary>
-public sealed class YamlConfigurationLoader(ProjectConfigNormalizer normalizer) : IConfigurationLoader
+public sealed class YamlConfigurationLoader(
+    ProjectConfigNormalizer normalizer,
+    IAgentSmithPaths paths) : IConfigurationLoader
 {
     public AgentSmithConfig LoadConfig(string configPath)
     {
@@ -18,7 +23,14 @@ public sealed class YamlConfigurationLoader(ProjectConfigNormalizer normalizer) 
         var config = Deserialize(yaml, configPath);
         ResolveSecrets(config);
         NormalizeProjects(config);
+        FillSkillsDefaults(config);
         return config;
+    }
+
+    private void FillSkillsDefaults(AgentSmithConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.Skills.CacheDir))
+            config.Skills.CacheDir = paths.SkillsCatalogRoot;
     }
 
     private void NormalizeProjects(AgentSmithConfig config)

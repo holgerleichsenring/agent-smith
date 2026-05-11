@@ -57,9 +57,9 @@ internal static class CompileWikiCommand
                 return;
             }
 
-            if (!Directory.Exists(Path.Combine(projectPath, ".agentsmith", "runs")))
+            if (!Directory.Exists(Path.Combine(projectPath, ProjectMetaPaths.Runs)))
             {
-                Console.Error.WriteLine($"No runs directory found in {projectPath}/.agentsmith");
+                Console.Error.WriteLine($"No runs directory found in {projectPath}/{ProjectMetaPaths.Root}");
                 ctx.ExitCode = 1;
                 return;
             }

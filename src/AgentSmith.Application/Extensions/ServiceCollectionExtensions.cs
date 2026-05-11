@@ -218,6 +218,11 @@ public static class ServiceCollectionExtensions
         // p0130c: BootstrapDispatch deterministic SkillRound emit for init-project
         services.AddTransient<ICommandHandler<BootstrapDispatchContext>, BootstrapDispatchHandler>();
 
+        // p0130c-followup: producer-loop runtime for bootstrap skills (csharp/
+        // node/python/generic-bootstrap). Distinct from SkillRound because the
+        // chat call carries WriteFile + the bootstrap PathWriteGuard.
+        services.AddTransient<ICommandHandler<BootstrapRoundContext>, BootstrapRoundHandler>();
+
         services.AddSingleton<ConceptWriterRegistry>();
     }
 
@@ -287,6 +292,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
         AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);
         AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
+        AddBuilder<BootstrapRoundContextBuilder>(services, CommandNames.BootstrapRound);
     }
 
     private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)

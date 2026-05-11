@@ -1,4 +1,5 @@
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
@@ -6,7 +7,8 @@ namespace AgentSmith.Tests.Configuration;
 
 public class YamlConfigurationLoaderTests
 {
-    private readonly YamlConfigurationLoader _loader = new(new ProjectConfigNormalizer());
+    private readonly YamlConfigurationLoader _loader =
+        new(new ProjectConfigNormalizer(), new AgentSmithPaths());
 
     private static string TestDataPath(string fileName)
     {

@@ -86,6 +86,12 @@ public static class CommandNames
     public const string PublishProjectLanguage = "PublishProjectLanguageCommand";
     public const string BootstrapDispatch = "BootstrapDispatchCommand";
 
+    // p0130c-followup: producer-loop runtime for bootstrap skills (csharp/node/python/
+    // generic-bootstrap). Distinct from SkillRound because the producer needs a
+    // tool-bearing chat call (WriteFile to emit context.yaml + coding-principles.md),
+    // not the observation-only discussion path SkillRoundHandlerBase ran it through.
+    public const string BootstrapRound = "BootstrapRoundCommand";
+
     public static string GetLabel(string commandName)
     {
         if (Labels.TryGetValue(commandName, out var label))
@@ -167,6 +173,7 @@ public static class CommandNames
         [BootstrapGate] = "Verifying bootstrap files",
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",
+        [BootstrapRound] = "Producing bootstrap files",
     };
 
     /// <summary>
