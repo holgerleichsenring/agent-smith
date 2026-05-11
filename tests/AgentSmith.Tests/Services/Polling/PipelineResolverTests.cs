@@ -103,4 +103,46 @@ public sealed class PipelineResolverTests
 
         pipeline.Should().Be("fix-bug");
     }
+
+    [Fact]
+    public void Resolve_OperatorAgentSmithPrefixedLabel_PassesThroughFilter()
+    {
+        // p0133 follow-up: operator-defined labels that share the agent-smith:
+        // prefix (init / bug / feature / scan etc.) must survive the lifecycle
+        // filter — only the 5 closed-set status labels get stripped.
+        var trigger = new WebhookTriggerConfig
+        {
+            DefaultPipeline = "fix-bug",
+            PipelineFromLabel = new()
+            {
+                ["agent-smith:init"] = "init-project",
+                ["agent-smith:bug"] = "fix-bug"
+            }
+        };
+
+        var pipeline = PipelineResolver.Resolve(trigger, ["agent-smith:init"]);
+
+        pipeline.Should().Be("init-project");
+    }
+
+    [Fact]
+    public void Resolve_LifecycleStatusAndOperatorLabel_OnlyOperatorMatchesAfterFilter()
+    {
+        // Mixed input — lifecycle status labels (agent-smith:enqueued etc.) get
+        // filtered out, operator-defined ones pass through.
+        var trigger = new WebhookTriggerConfig
+        {
+            DefaultPipeline = "fix-bug",
+            PipelineFromLabel = new()
+            {
+                ["agent-smith:init"] = "init-project"
+            }
+        };
+
+        var pipeline = PipelineResolver.Resolve(
+            trigger,
+            ["agent-smith:enqueued", "agent-smith:init"]);
+
+        pipeline.Should().Be("init-project");
+    }
 }
