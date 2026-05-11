@@ -4,6 +4,7 @@ using AgentSmith.Server.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -109,7 +110,8 @@ public sealed class ServerCommandBuildPollersTests
 
         try
         {
-            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer()).LoadConfig(path);
+            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths())
+                .LoadConfig(path);
 
             var ticketFactory = new Mock<ITicketProviderFactory>();
             var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();

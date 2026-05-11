@@ -33,7 +33,9 @@ public sealed class InitCommitHandler(
         var sourceProvider = sourceFactory.Create(context.SourceConfig);
 
         var message = "chore: initialize .agentsmith/ directory";
-        await gitOps.CommitAndPushAsync(sandbox, context.Repository.CurrentBranch.Value, message, cancellationToken);
+        await gitOps.CommitAndPushAsync(
+            sandbox, context.Repository.CurrentBranch.Value, message,
+            context.SourceConfig.Type, cancellationToken);
 
         var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,

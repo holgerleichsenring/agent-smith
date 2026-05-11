@@ -48,6 +48,15 @@ public sealed class ConvergenceCheckContextBuilder : IContextBuilder
         => new ConvergenceCheckContext(pipeline.Resolved().Agent, pipeline);
 }
 
+public sealed class BootstrapRoundContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    {
+        var skillName = command.SkillName ?? string.Empty;
+        return new BootstrapRoundContext(skillName, pipeline.Resolved().Agent, pipeline);
+    }
+}
+
 public sealed class CompileDiscussionContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
