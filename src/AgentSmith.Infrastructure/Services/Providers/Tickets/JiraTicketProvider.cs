@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
