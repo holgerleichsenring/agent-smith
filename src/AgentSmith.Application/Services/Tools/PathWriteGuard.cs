@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Tools;
 
@@ -13,8 +14,8 @@ public sealed class PathWriteGuard : IPathWriteGuard
 {
     private static readonly string[] BootstrapFiles =
     {
-        ".agentsmith/context.yaml",
-        ".agentsmith/coding-principles.md"
+        ProjectMetaPaths.ContextYaml,
+        ProjectMetaPaths.CodingPrinciples
     };
 
     private readonly IPathReadGuard _readGuard;

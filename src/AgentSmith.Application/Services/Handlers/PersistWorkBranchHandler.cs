@@ -34,7 +34,9 @@ public sealed class PersistWorkBranchHandler(
 
         try
         {
-            await gitOps.CommitAndPushAsync(sandbox, repo.CurrentBranch.Value, commitMessage, cancellationToken);
+            await gitOps.CommitAndPushAsync(
+                sandbox, repo.CurrentBranch.Value, commitMessage,
+                context.Source.Type, cancellationToken);
             logger.LogInformation(
                 "PersistWorkBranch: pushed WIP commit on branch {Branch}", repo.CurrentBranch);
             return CommandResult.Ok($"Persisted WIP branch {repo.CurrentBranch}");

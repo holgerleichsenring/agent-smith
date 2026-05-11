@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -59,21 +60,13 @@ public sealed class HostSourceCloner(ILogger<HostSourceCloner> logger) : IHostSo
         psi.ArgumentList.Add("--no-tags");
         psi.ArgumentList.Add(source.Url!);
         psi.ArgumentList.Add(targetDir);
-        var token = ResolveToken(source.Type);
+        // p0125c-followup: shared via GitTokenResolver so CheckoutSourceHandler
+        // (sandbox-side clone) and HostSourceCloner (host-side clone) speak the
+        // same source-type → env-var mapping.
+        var token = GitTokenResolver.Resolve(source.Type);
         if (token is not null) psi.Environment["GIT_TOKEN"] = token;
         return psi;
     }
-
-    private static string? ResolveToken(string sourceType) => sourceType switch
-    {
-        var t when t.Equals("GitHub", StringComparison.OrdinalIgnoreCase)
-            => Environment.GetEnvironmentVariable("GITHUB_TOKEN"),
-        var t when t.Equals("GitLab", StringComparison.OrdinalIgnoreCase)
-            => Environment.GetEnvironmentVariable("GITLAB_TOKEN"),
-        var t when t.Equals("AzureRepos", StringComparison.OrdinalIgnoreCase)
-            => Environment.GetEnvironmentVariable("AZURE_DEVOPS_TOKEN"),
-        _ => null,
-    };
 
     private static async Task<(int exit, string stderr)> RunAsync(
         ProcessStartInfo psi, CancellationToken cancellationToken)

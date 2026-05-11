@@ -1,9 +1,11 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -66,7 +68,7 @@ public sealed class CheckoutSourceHandler(
         if (string.IsNullOrEmpty(context.Config.Url))
             return CommandResult.Fail("CheckoutSource requires a non-empty source URL for non-local providers.");
 
-        var cloneResult = await RunStepAsync(sandbox, BuildCloneStep(context.Config.Url), cancellationToken);
+        var cloneResult = await RunStepAsync(sandbox, BuildCloneStep(context.Config), cancellationToken);
         if (cloneResult.ExitCode != 0)
             return CommandResult.Fail($"git clone failed (exit={cloneResult.ExitCode}): {cloneResult.ErrorMessage}");
         logger.LogInformation("Sandbox-side `git clone` completed in {Duration:F1}s", cloneResult.DurationSeconds);
@@ -94,14 +96,27 @@ public sealed class CheckoutSourceHandler(
     private static Task<StepResult> RunStepAsync(ISandbox sandbox, Step step, CancellationToken ct) =>
         sandbox.RunStepAsync(step, progress: null, ct);
 
-    private static Step BuildCloneStep(string repoUrl)
+    private static Step BuildCloneStep(SourceConfig config)
     {
         const string credHelper = "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
+
+        // Server (K8s) mode injects GIT_TOKEN at pod creation via PodSpecBuilder
+        // sourcing from a Secret. CLI / InProcessSandbox mode reads the per-platform
+        // host env var (AZURE_DEVOPS_TOKEN / GITHUB_TOKEN / GITLAB_TOKEN) and stamps
+        // it as GIT_TOKEN on the Step so the credential helper has something to
+        // echo. Without this CLI-mode clones fail with exit 128 against private
+        // remotes.
+        var token = GitTokenResolver.Resolve(config.Type);
+        var env = token is null
+            ? null
+            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
+
         return new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", credHelper, "clone", repoUrl, "."],
+            Args: ["-c", credHelper, "clone", config.Url!, "."],
             WorkingDirectory: Repository.SandboxWorkPath,
+            Env: env,
             TimeoutSeconds: CloneTimeoutSeconds);
     }
 
