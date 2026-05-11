@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.42.0...v0.43.0) (2026-05-11)
+
+
+### Features
+
+* label-triggered init-project onboarding (p0133) ([#96](https://github.com/holgerleichsenring/agent-smith/issues/96)) ([f5692be](https://github.com/holgerleichsenring/agent-smith/commit/f5692be9990ce85f35b90e4c66052bafd80bf4fd))
+
 ## [0.42.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.41.0...v0.42.0) (2026-05-11)
 
 
