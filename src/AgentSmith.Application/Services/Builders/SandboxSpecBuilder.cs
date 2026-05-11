@@ -40,11 +40,19 @@ public sealed class SandboxSpecBuilder
     //
     // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
     // via its carrier dotnet/runtime-deps base — musl toolchains crash exec with
-    // a misleading ENOENT) AND git on PATH (used by CheckoutSource). Built locally
-    // from src/AgentSmith.ToolchainGeneric/Dockerfile (debian-slim + git, ~130 MB).
+    // a misleading ENOENT) AND git on PATH (used by CheckoutSource).
+    //
+    // buildpack-deps:bookworm-scm is the Docker-official SCM toolbox image:
+    // Debian bookworm (glibc 2.36) + git + ca-certs + openssl + curl + wget +
+    // hg + svn. ~371 MB pulled once per node. Public Docker Hub image — works
+    // on k8s without operator-side build steps. Earlier attempts: alpine:3.20
+    // (rejected: musl libc, agent crashes with ENOENT), debian:bookworm
+    // (rejected: no git out of the box), self-built debian-slim+git carrier
+    // (rejected: needs a CI/push pipeline that doesn't exist yet).
+    //
     // Operators with stricter base-image policies override via
     // ProjectConfig.Sandbox.ToolchainImage.
-    private const string GenericFallbackImage = "agent-smith-toolchain-generic:latest";
+    private const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
     private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
     {

@@ -40,24 +40,6 @@ services:
     image: agent-smith-sandbox-agent:latest
     profiles: [build-only]
 
-  # Generic toolchain image (debian-slim + git) used by SandboxSpecBuilder
-  # as the fallback when ProjectMap.PrimaryLanguage doesn't match a known
-  # language stack, and during the init-project window before AnalyzeCode
-  # runs. Same build-only pattern as sandbox-agent:
-  #
-  #   docker compose --profile build-only build toolchain-generic
-  #
-  # Required for any init-project or generic-pipeline run; without it the
-  # sandbox toolchain falls back to a stock debian:bookworm and git clone
-  # fails because git isn't pre-installed there. Not on Docker Hub — built
-  # locally from src/AgentSmith.ToolchainGeneric/Dockerfile.
-  toolchain-generic:
-    build:
-      context: ..
-      dockerfile: src/AgentSmith.ToolchainGeneric/Dockerfile
-    image: agent-smith-toolchain-generic:latest
-    profiles: [build-only]
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
