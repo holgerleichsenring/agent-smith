@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +18,8 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
     public async Task CommitAndPushAsync(
-        ISandbox sandbox, string branchName, string message, CancellationToken cancellationToken)
+        ISandbox sandbox, string branchName, string message,
+        string sourceType, CancellationToken cancellationToken)
     {
         await ConfigureUserAsync(sandbox, cancellationToken);
         await StageAllAsync(sandbox, cancellationToken);
@@ -27,7 +29,7 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             logger.LogInformation("Working tree clean, nothing to commit");
             throw new InvalidOperationException("nothing to commit, working tree clean");
         }
-        await PushAsync(sandbox, branchName, cancellationToken);
+        await PushAsync(sandbox, branchName, sourceType, cancellationToken);
     }
 
     private static async Task ConfigureUserAsync(ISandbox sandbox, CancellationToken ct)
@@ -49,10 +51,23 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         return false;
     }
 
-    private static async Task PushAsync(ISandbox sandbox, string branch, CancellationToken ct)
+    private static async Task PushAsync(
+        ISandbox sandbox, string branch, string sourceType, CancellationToken ct)
     {
+        // p0125c-followup: push needs GIT_TOKEN for the credential helper to
+        // echo, same as the clone Step in CheckoutSourceHandler. Resolve via
+        // the shared GitTokenResolver so CLI runs against private remotes
+        // (AzureRepos / GitHub / GitLab) authenticate correctly. Server (K8s)
+        // mode also reaches this code path; its pod-level GIT_TOKEN injection
+        // still works because Step.Env overlays on top of the inherited pod
+        // env without removing existing entries.
+        var token = GitTokenResolver.Resolve(sourceType);
+        var env = token is null
+            ? null
+            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
+
         var result = await sandbox.RunStepAsync(
-            BuildStep("git", new[] { "-c", CredHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}" }), null, ct);
+            BuildStep("git", new[] { "-c", CredHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}" }, env), null, ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
@@ -64,7 +79,8 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             throw new InvalidOperationException($"{cmd} {string.Join(' ', args)} failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
 
-    private static Step BuildStep(string cmd, IReadOnlyList<string> args) =>
+    private static Step BuildStep(string cmd, IReadOnlyList<string> args,
+        IReadOnlyDictionary<string, string>? env = null) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: cmd, Args: args, TimeoutSeconds: GitTimeoutSeconds);
+            Command: cmd, Args: args, Env: env, TimeoutSeconds: GitTimeoutSeconds);
 }

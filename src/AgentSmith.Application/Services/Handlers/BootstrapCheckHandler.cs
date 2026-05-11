@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,8 @@ public sealed class BootstrapCheckHandler(
     ILogger<BootstrapCheckHandler> logger)
     : ICommandHandler<BootstrapCheckContext>, IConceptWriter
 {
-    private const string ContextYamlPath = $"{Repository.SandboxWorkPath}/.agentsmith/context.yaml";
-    private const string CodingPrinciplesPath = $"{Repository.SandboxWorkPath}/.agentsmith/coding-principles.md";
+    private const string ContextYamlPath = $"{Repository.SandboxWorkPath}/{ProjectMetaPaths.ContextYaml}";
+    private const string CodingPrinciplesPath = $"{Repository.SandboxWorkPath}/{ProjectMetaPaths.CodingPrinciples}";
 
     public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
     [

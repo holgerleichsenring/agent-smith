@@ -60,6 +60,7 @@ public sealed class ExecutePipelineUseCase(
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, runId);
+        pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
