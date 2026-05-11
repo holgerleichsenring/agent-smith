@@ -33,12 +33,20 @@ public sealed class SandboxSpecBuilder
     }
 
     // Generic fallback for pipelines that don't compile/test project code (api-scan,
-    // security-scan, mad-discussion, legal-analysis). InProcessSandboxFactory ignores
-    // the image entirely; Docker/K8s factories use it as the toolchain container — alpine
-    // gives them a working shell + git + coreutils so the sandbox-side `git clone` Step
-    // and SandboxFileReader file IO work without a heavier language SDK on board.
-    // Operators with stricter base-image policies override via ProjectConfig.Sandbox.ToolchainImage.
-    private const string GenericFallbackImage = "alpine:3.20";
+    // security-scan, mad-discussion, legal-analysis) AND for the init-project window
+    // before AnalyzeCode populates ProjectMap. InProcessSandboxFactory ignores the
+    // image entirely; Docker/K8s factories use it as the toolchain container that
+    // exec's `/shared/agent` (the sandbox-agent self-contained .NET binary). The
+    // agent is built on dotnet/runtime-deps:8.0-bookworm — glibc-linked — so the
+    // toolchain must also be glibc-based. alpine:3.20 was tried (~8 MB, has git
+    // out of the box) and rejected: its musl libc lacks the glibc dynamic linker
+    // referenced in the agent's ELF header, so `exec /shared/agent` returns
+    // ENOENT — observable as a confusing "no such file or directory" even though
+    // ls shows the binary in place. debian:bookworm-slim is glibc + ~80 MB; git
+    // is not preinstalled there, so we use debian:bookworm (~124 MB) which ships
+    // both. Operators with stricter base-image policies override via
+    // ProjectConfig.Sandbox.ToolchainImage.
+    private const string GenericFallbackImage = "debian:bookworm";
 
     private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
     {
