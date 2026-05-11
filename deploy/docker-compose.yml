@@ -19,9 +19,26 @@ services:
     env_file:
       - ../.env
     volumes:
-      - ../config:/app/config
+      - /Users/da5id/develop/source/rhenus/RHS.AuthPort.Server/config:/app/config
       - ${SSH_KEY_PATH:-~/.ssh}:/home/agentsmith/.ssh:ro
       - /var/run/docker.sock:/var/run/docker.sock    # for Nuclei/Spectral tool containers
+
+  # Carrier image consumed by the server's DockerSandboxFactory as an
+  # init-container — never run as a long-lived service. Profile-gated so
+  # `docker compose up` ignores it; build explicitly with:
+  #
+  #   docker compose --profile build-only build sandbox-agent
+  #
+  # Required before the first labelled ticket triggers a pipeline; without
+  # the image present, DockerJobSpawner fails with DockerImageNotFoundException
+  # for `agent-smith-sandbox-agent:latest`. Not on Docker Hub — built locally
+  # from src/AgentSmith.Sandbox.Agent/Dockerfile.
+  sandbox-agent:
+    build:
+      context: ..
+      dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
+    image: agent-smith-sandbox-agent:latest
+    profiles: [build-only]
 
   redis:
     image: redis:7-alpine
@@ -58,7 +75,7 @@ services:
     ports:
       - "${SERVER_PORT:-8081}:8081"
     volumes:
-      - ../config:/app/config
+      - /Users/da5id/develop/source/rhenus/RHS.AuthPort.Server/config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
