@@ -36,17 +36,15 @@ public sealed class SandboxSpecBuilder
     // security-scan, mad-discussion, legal-analysis) AND for the init-project window
     // before AnalyzeCode populates ProjectMap. InProcessSandboxFactory ignores the
     // image entirely; Docker/K8s factories use it as the toolchain container that
-    // exec's `/shared/agent` (the sandbox-agent self-contained .NET binary). The
-    // agent is built on dotnet/runtime-deps:8.0-bookworm — glibc-linked — so the
-    // toolchain must also be glibc-based. alpine:3.20 was tried (~8 MB, has git
-    // out of the box) and rejected: its musl libc lacks the glibc dynamic linker
-    // referenced in the agent's ELF header, so `exec /shared/agent` returns
-    // ENOENT — observable as a confusing "no such file or directory" even though
-    // ls shows the binary in place. debian:bookworm-slim is glibc + ~80 MB; git
-    // is not preinstalled there, so we use debian:bookworm (~124 MB) which ships
-    // both. Operators with stricter base-image policies override via
+    // exec's `/shared/agent` and runs git clone for CheckoutSource.
+    //
+    // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
+    // via its carrier dotnet/runtime-deps base — musl toolchains crash exec with
+    // a misleading ENOENT) AND git on PATH (used by CheckoutSource). Built locally
+    // from src/AgentSmith.ToolchainGeneric/Dockerfile (debian-slim + git, ~130 MB).
+    // Operators with stricter base-image policies override via
     // ProjectConfig.Sandbox.ToolchainImage.
-    private const string GenericFallbackImage = "debian:bookworm";
+    private const string GenericFallbackImage = "agent-smith-toolchain-generic:latest";
 
     private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
     {
