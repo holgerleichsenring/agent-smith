@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -26,6 +27,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var (tags, _) = await FetchTagsAsync(ticketId, cancellationToken);
         return tags is null ? null : ParseLifecycle(tags);
     }
@@ -34,6 +36,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         logger.LogInformation(
             "AzDO Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Application.Services.Polling;
 
@@ -8,8 +9,11 @@ namespace AgentSmith.Application.Services.Polling;
 /// ResolvePipeline... methods so polling and webhooks route consistently.
 ///
 /// Rules:
-///   - Lifecycle labels (prefix "agent-smith:") are filtered before matching;
-///     they never satisfy a pipeline_from_label entry.
+///   - Lifecycle labels (the five known statuses: pending / enqueued /
+///     in-progress / done / failed) are filtered before matching; they never
+///     satisfy a pipeline_from_label entry. Operator-defined labels that share
+///     the `agent-smith:` prefix (e.g. `agent-smith:init`, `agent-smith:bug`)
+///     pass through unchanged.
 ///   - Iteration order over pipeline_from_label is the dictionary's insertion
 ///     order. First key whose value appears in the (filtered) labels wins.
 ///     Operators with overlapping keys should keep entries unambiguous.
@@ -19,13 +23,10 @@ namespace AgentSmith.Application.Services.Polling;
 /// </summary>
 public static class PipelineResolver
 {
-    private const string LifecycleLabelPrefix = "agent-smith:";
-
     public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
     {
         var userLabels = labels
-            .Where(l => !string.IsNullOrEmpty(l)
-                && !l.StartsWith(LifecycleLabelPrefix, StringComparison.Ordinal))
+            .Where(l => !string.IsNullOrEmpty(l) && !LifecycleLabels.IsLifecycleLabel(l))
             .ToList();
 
         foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)

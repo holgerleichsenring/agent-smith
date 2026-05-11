@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -32,6 +33,7 @@ public sealed class JiraTicketStatusTransitioner(
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var labels = await FetchLabelsAsync(ticketId, cancellationToken);
         return labels is null ? null : ParseLifecycle(labels);
     }
@@ -40,6 +42,7 @@ public sealed class JiraTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         logger.LogInformation(
             "Jira Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 

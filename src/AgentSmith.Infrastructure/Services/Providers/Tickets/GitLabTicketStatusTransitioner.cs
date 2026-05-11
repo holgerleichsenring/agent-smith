@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
@@ -26,6 +27,7 @@ public sealed class GitLabTicketStatusTransitioner(
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var labels = await FetchLabelsAsync(ticketId, cancellationToken);
         return labels is null ? null : ParseLifecycle(labels);
     }
@@ -34,6 +36,7 @@ public sealed class GitLabTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         logger.LogInformation(
             "GitLab Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 

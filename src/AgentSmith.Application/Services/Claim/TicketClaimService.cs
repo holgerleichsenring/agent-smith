@@ -23,6 +23,8 @@ public sealed class TicketClaimService(
     public async Task<ClaimResult> ClaimAsync(
         ClaimRequest request, AgentSmithConfig config, CancellationToken ct)
     {
+        using var scope = logger.BeginScope("ticket={Ticket}", request.TicketId.Value);
+
         var rejection = ClaimPreChecker.Check(request, config);
         if (rejection is not null) return Log(request, ClaimResult.Rejected(rejection.Value));
 

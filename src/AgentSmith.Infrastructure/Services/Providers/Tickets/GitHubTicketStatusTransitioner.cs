@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -39,6 +40,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
+        using var scope = _logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var (issue, _) = await FetchIssueAsync(ticketId, cancellationToken);
         return issue is null ? null : ReadLifecycleLabel(issue.Value);
     }
@@ -47,6 +49,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
+        using var scope = _logger.BeginScope("ticket={Ticket}", ticketId.Value);
         _logger.LogInformation(
             "GitHub Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 

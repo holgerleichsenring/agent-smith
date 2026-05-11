@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Polling;
@@ -9,26 +10,25 @@ namespace AgentSmith.Application.Services.Polling;
 /// i.e. it's a brand-new arrival or a Pending catchup. Tickets already in
 /// Enqueued/InProgress/Done/Failed are excluded so a single poll cycle can union
 /// the discovery and Pending-catchup queries without producing duplicate claims
-/// or stomping on in-flight work.
+/// or stomping on in-flight work. Operator-defined labels that share the
+/// `agent-smith:` prefix (e.g. `agent-smith:init`) are ignored — only the five
+/// known lifecycle statuses gate claimability.
 /// </summary>
 public static class LifecyclePollFilter
 {
-    private const string LifecyclePrefix = "agent-smith:";
-
     public static bool IsClaimableLifecycle(IEnumerable<string> labels)
     {
         foreach (var label in labels)
         {
-            if (!label.StartsWith(LifecyclePrefix, StringComparison.Ordinal)) continue;
-            var suffix = label[LifecyclePrefix.Length..];
-            switch (suffix)
+            if (!LifecycleLabels.TryParse(label, out var status)) continue;
+            switch (status)
             {
-                case "pending":
+                case TicketLifecycleStatus.Pending:
                     continue;
-                case "enqueued":
-                case "in-progress":
-                case "done":
-                case "failed":
+                case TicketLifecycleStatus.Enqueued:
+                case TicketLifecycleStatus.InProgress:
+                case TicketLifecycleStatus.Done:
+                case TicketLifecycleStatus.Failed:
                     return false;
             }
         }
