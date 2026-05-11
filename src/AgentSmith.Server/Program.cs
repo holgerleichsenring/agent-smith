@@ -27,6 +27,8 @@ builder.Logging.AddFilter("System", LogLevel.Information);
 builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel", LogLevel.Warning);
 builder.Logging.SetMinimumLevel(
     builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
