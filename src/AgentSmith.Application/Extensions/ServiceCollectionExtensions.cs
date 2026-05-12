@@ -319,6 +319,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddSingleton<SandboxSpecBuilder>();
+        services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
