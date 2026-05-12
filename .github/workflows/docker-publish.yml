@@ -68,6 +68,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Need HEAD~1 to detect whether this commit changed version.txt
+          # (= release-please squash merge), which is how we choose when to
+          # apply semver tags. Without fetch-depth: 2 the diff fails.
+          fetch-depth: 2
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -82,6 +87,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Release-please's GITHUB_TOKEN-driven tag push does NOT trigger downstream
+      # workflows by GitHub design — so type=semver patterns never expand here
+      # (the workflow always fires on refs/heads/main, never on refs/tags/v*).
+      # Instead: read version.txt that release-please commits with every release,
+      # and apply semver-style tags only on the commit where version.txt changed.
+      # Regular feature-PR squash merges leave version.txt untouched and only
+      # refresh :latest.
+      - name: Resolve release tags
+        id: release_tags
+        run: |
+          VERSION=$(tr -d ' \n' < version.txt)
+          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          if git diff --name-only HEAD~1 HEAD | grep -q "^version.txt$"; then
+            IS_RELEASE=true
+          else
+            IS_RELEASE=false
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major_minor=$MAJOR_MINOR" >> "$GITHUB_OUTPUT"
+          echo "is_release=$IS_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "Resolved: version=$VERSION major_minor=$MAJOR_MINOR is_release=$IS_RELEASE"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -89,8 +116,8 @@ jobs:
           images: ${{ env.DOCKER_NAMESPACE }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.release_tags.outputs.version }},enable=${{ steps.release_tags.outputs.is_release == 'true' }}
+            type=raw,value=${{ steps.release_tags.outputs.major_minor }},enable=${{ steps.release_tags.outputs.is_release == 'true' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
