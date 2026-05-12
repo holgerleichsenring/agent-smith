@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.2...v0.46.0) (2026-05-12)
+
+
+### Features
+
+* sandbox toolchain auto-detection (p0135) ([2ca1c71](https://github.com/holgerleichsenring/agent-smith/commit/2ca1c7155c7636638222705d1d106e1b8c7e0b09))
+* sandbox toolchain auto-detection (p0135) ([f6f95f9](https://github.com/holgerleichsenring/agent-smith/commit/f6f95f90b5ff9ff5f0d4dda3365682b655f58e0f))
+
 ## [0.45.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.1...v0.45.2) (2026-05-12)
 
 
