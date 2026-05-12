@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.0...v0.45.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* **k8s:** set CPU + memory limits on agent-loader initContainer ([#102](https://github.com/holgerleichsenring/agent-smith/issues/102)) ([e40f6e0](https://github.com/holgerleichsenring/agent-smith/commit/e40f6e07784dee3feb16849e92c3426ba9cffa98))
+
 ## [0.45.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.44.0...v0.45.0) (2026-05-12)
 
 
