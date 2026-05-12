@@ -34,4 +34,11 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         var result = $"Local repository - no PR created, branch pushed: {repository.CurrentBranch}";
         return Task.FromResult(result);
     }
+
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        var full = Path.Combine(basePath, path);
+        if (!File.Exists(full)) return null;
+        return await File.ReadAllTextAsync(full, cancellationToken);
+    }
 }

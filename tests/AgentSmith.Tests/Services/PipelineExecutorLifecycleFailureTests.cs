@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -33,6 +34,9 @@ public sealed class PipelineExecutorLifecycleFailureTests
         _coordinatorMock
             .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(_lifecycleMock.Object);
+        var resolverMock = new Mock<ISandboxLanguageResolver>();
+        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
         _sut = new PipelineExecutor(
             _executorMock.Object,
             _factoryMock.Object,
@@ -40,6 +44,7 @@ public sealed class PipelineExecutorLifecycleFailureTests
             _coordinatorMock.Object,
             _sandboxFactoryMock.Object,
             new SandboxSpecBuilder(),
+            resolverMock.Object,
             _progressReporterMock.Object,
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
                 Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
