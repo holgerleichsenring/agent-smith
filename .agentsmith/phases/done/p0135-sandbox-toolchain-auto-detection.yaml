@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0135
+goal: "Resolve a language-specific sandbox toolchain image without an operator override — auto-detect from cache, then remote .agentsmith/context.yaml, before falling back to the generic image."
+
+requires: ["p0130c", "p0132c"]
+
+decisions:
+  - key: "Resolution order: override → host-cache → remote-context-yaml → in-memory ProjectMap → generic. Override (deterministic) wins first. Cache (fast, local, present after the first AnalyzeCode run) before remote (REST roundtrip per pipeline start). Remote-context-yaml before in-memory because in-memory is null at sandbox-create time today but the slot stays for symmetry. Generic remains final fallback so init-project + scan pipelines don't break. -- alternatives: cache after remote (rejected: local-and-fast first); drop remote-context-yaml (rejected: a fresh server pod with empty cache would be language-blind on every fix-bug); fail-loud on unknown language (rejected: init-project + scan pipelines legitimately run on the generic toolchain)."
+  - key: "ISourceProvider.TryReadFileAsync(path) as a new interface method, not a separate helper service. Each provider has a fundamentally different file-read API (AzDO items endpoint, Octokit Content API, GitLab raw-file endpoint, Local File.ReadAllTextAsync) — the code belongs in the provider. A central helper would re-switch on provider type and own all four code paths. Returns string? (raw content), parsing is the caller's job. -- alternatives: IFileReader<TProvider> service family (rejected: ceremonial DI for what is already a provider concern); expose full repo-content interfaces (rejected: p0023 multi-repo can extend this later, we ship the minimum)."
+  - key: "Resolver returns string? language, not ProjectMap. ProjectMap is a sealed record with seven required fields — constructing a partial one full of empty defaults is busy-work and leaks empty Modules/TestProjects/Conventions into a code path that only consumes PrimaryLanguage. The new resolver returns just the language string; SandboxSpecBuilder gains a small overload that takes string? language instead of ProjectMap?. -- alternatives: synthesize partial ProjectMap (rejected: misleading shape); add new LanguageHint record (rejected: viral type proliferation for a single string)."
+  - key: "Cache-lookup goes through IAgentSmithPaths.ProjectCacheDir(source.Url) — same path AnalyzeProjectHandler writes. Reason: consistent with the existing cache infrastructure (p0132c-followup IAgentSmithPaths centralisation). If IAgentSmithPaths is ever reconfigured (different XDG cache dir, different hash algorithm), reader and writer follow automatically. -- alternatives: custom path per lookup (rejected: cache-miss by construction); pull the cache-read out of AnalyzeProjectHandler and have both callers share it (rejected: circular dependency between Application services)."
+  - key: "Layer 2b reads the remote file at the configured source URL's default branch — not the work-branch. Reason: at sandbox-create time the work-branch doesn't exist yet (CheckoutSourceCommand has not run). The default branch is the contract surface that init-project's PR was merged into. If a previous init-project run is still open as an unmerged PR, the operator hasn't shipped the bootstrap yet and language detection legitimately misses — falls through to generic, same as a brand-new repo. -- alternatives: read the work-branch (rejected: doesn't exist yet); read whatever branch the trigger ticket carries (rejected: same problem, branch is a target not a current state)."
+  - key: "Default-branch resolution is the provider's responsibility, not the resolver's. Each provider already exposes `GetDefaultBranchAsync` (with cache) for `CreatePullRequestAsync` — TryReadFileAsync reuses that. The resolver passes only the file path; the provider picks the branch. Keeps SandboxLanguageResolver agnostic of provider URL shapes and avoids a second default-branch fetch path. -- alternatives: resolver computes the default branch (rejected: duplicates provider knowledge); pass a branch parameter from the resolver (rejected: leaks branch concerns into the resolver API for a value the provider already has)."
+  - key: "Cache-stale tolerance: read PrimaryLanguage from project-map.json even when the cache-key file shows stale manifests. PrimaryLanguage is a near-immutable attribute of a repository — a .NET project does not become a Node project between runs. Manifest-hash staleness matters for module/test-project enumeration (AnalyzeProjectHandler re-runs the analyzer in that case) but not for the toolchain image. -- alternatives: enforce cache-key match (rejected: produces unnecessary cache-misses on every dependency upgrade, every dotnet add package would force generic toolchain on the next run); refresh the cache opportunistically (rejected: scope creep into AnalyzeProjectHandler's territory)."
+  - key: "Resolution-layer names are a closed enum (`SandboxToolchainResolutionLayer` in Application/Services/), not free-form log strings. The pipeline-start log line names which layer hit; if layer names drift across the code-base, operator log grep / dashboards break silently. Enum forces every call site to pick from the same set — Override, HostCache, RemoteContextYaml, InMemoryProjectMap, GenericFallback. -- alternatives: const strings (rejected: easier to typo, no compiler check); leave as inline literals (rejected: three different spellings in six months)."
+
+steps:
+  - id: source-provider-contract
+    action: "Extend ISourceProvider with TryReadFileAsync(path, ct); each provider resolves its default branch internally via the existing GetDefaultBranchAsync helper"
+    modify:
+      - "ISourceProvider: add Task<string?> TryReadFileAsync(string path, CancellationToken)"
+      - "AzureReposSourceProvider: GitHttpClient.GetItemContentAsync against GetDefaultBranchAsync, return null on 404, propagate auth + server errors"
+      - "GitHubSourceProvider: Octokit Repository.Content.GetAllContents on GetDefaultBranchAsync, return null on NotFoundException, propagate auth + rate-limit errors"
+      - "GitLabSourceProvider: REST /projects/:id/repository/files/<urlencoded>/raw?ref=<default-branch>, return null on 404, propagate auth + server errors"
+      - "LocalSourceProvider: File.ReadAllTextAsync(Path.Combine(basePath, path)), return null on FileNotFoundException"
+
+  - id: resolver
+    action: "Add SandboxLanguageResolver service with cache + remote-context-yaml lookups + enum-typed layer names"
+    new:
+      - "SandboxToolchainResolutionLayer enum: Override / HostCache / RemoteContextYaml / InMemoryProjectMap / GenericFallback"
+      - "SandboxLanguageResolver: Task<ToolchainResolutionResult> ResolveAsync(SourceConfig, CancellationToken) returning (language, layer) for the first non-null layer; the GenericFallback layer is named explicitly so the log line is symmetric"
+      - "SandboxLanguageResolver.TryResolveFromCacheAsync: reads project-map.json under IAgentSmithPaths.ProjectCacheDir(source.Url), pulls PrimaryLanguage, returns null on missing file or unparseable JSON"
+      - "SandboxLanguageResolver.TryResolveFromContextYamlAsync: calls ISourceProvider.TryReadFileAsync(.agentsmith/context.yaml), parses YAML, extracts stack.primary_language as a scalar string, returns null on missing-file / malformed YAML / non-string primary_language / missing key"
+    modify:
+      - "DI: register SandboxLanguageResolver as scoped in ServiceCollectionExtensions"
+
+  - id: builder
+    action: "Add SandboxSpecBuilder.Build overload that takes string? language instead of ProjectMap?"
+    modify:
+      - "SandboxSpecBuilder: keep existing Build(ProjectConfig, ProjectMap?) overload (delegates to the new one with projectMap?.PrimaryLanguage); add Build(ProjectConfig, string? language) that runs the LanguageImages dictionary lookup directly"
+      - "SandboxSpecBuilder.GenericFallbackImage comment: update to document the new resolution hierarchy and reference SandboxLanguageResolver"
+
+  - id: executor-wiring
+    action: "PipelineExecutor.TryCreateSandboxAsync calls the resolver before building the spec, logs which layer hit using the enum name"
+    modify:
+      - "PipelineExecutor: inject SandboxLanguageResolver, call ResolveAsync before sandboxSpecBuilder.Build, pass the resolved language to the new overload"
+      - "PipelineExecutor: log 'Sandbox toolchain resolved via {Layer} to language={Language}, image={Image}' where {Layer} is the SandboxToolchainResolutionLayer enum-name (consistent across runs, grep-stable)"
+
+  - id: config-comment
+    action: "Clarify ProjectConfig.Sandbox.ToolchainImage as override-only"
+    modify:
+      - "SandboxConfig.ToolchainImage XML doc: note auto-detection now runs by default and this field is override-only (operator with strict image policy or non-default registry)"
+
+  - id: tests-resolver
+    action: "Unit-test SandboxLanguageResolver across all hit + miss + malformed paths"
+    new:
+      - "SandboxLanguageResolverTests: ResolveAsync_CacheHasPrimaryLanguage_ReturnsLanguage / _CacheMissing_FallsThroughToRemote / _CacheMalformedJson_FallsThroughToRemote / _RemoteContextYamlHasPrimaryLanguage_ReturnsLanguage / _RemoteReturnsNull_FallsThroughToBuiltinFallback / _RemoteThrows_FallsThroughGracefully / _ContextYamlMalformed_FallsThroughGracefully"
+
+  - id: tests-providers
+    action: "Per-provider TryReadFileAsync tests covering happy path, missing file, and propagated error classes"
+    new:
+      - "AzureReposSourceProviderTests: ExistingFile_ReturnsContent / FileNotFound_ReturnsNull / ServerError_Throws / AuthError_Throws (canonical, the four cases)"
+      - "GitHubSourceProviderTests: ExistingFile_ReturnsContent / FileNotFound_ReturnsNull / ServerError_Throws / AuthError_Throws"
+      - "GitLabSourceProviderTests: ExistingFile_ReturnsContent / FileNotFound_ReturnsNull / ServerError_Throws / AuthError_Throws"
+      - "LocalSourceProviderTests: ExistingFile_ReturnsContent / FileNotFound_ReturnsNull / IOError_Throws (no auth shape — local fs)"
+
+  - id: tests-executor
+    action: "Integration test: cache returns csharp → spec resolves to dotnet image"
+    new:
+      - "PipelineExecutorSandboxResolutionTests.TryCreateSandboxAsync_CachedCsharpProjectMap_BuildsSpecWithDotnetSdkImage"
+      - "PipelineExecutorSandboxResolutionTests.TryCreateSandboxAsync_NoCacheNoRemote_FallsBackToGenericImage"
+
+tests:
+  - "SandboxLanguageResolver_CacheHasCsharp_ReturnsCsharpFromHostCacheLayer"
+  - "SandboxLanguageResolver_CacheMissing_FallsThroughToRemoteContextYaml"
+  - "SandboxLanguageResolver_RemoteContextYamlHasCsharp_ReturnsCsharpFromRemoteLayer"
+  - "SandboxLanguageResolver_AllLayersMiss_ReturnsNullFromGenericFallbackLayer"
+  - "SandboxLanguageResolver_ContextYamlMalformed_ReturnsNullWithoutThrow"
+  - "SandboxLanguageResolver_ContextYamlPrimaryLanguageNotString_ReturnsNullWithoutThrow"
+  - "SandboxLanguageResolver_RemoteThrows_ReturnsNullAndDoesNotCascade"
+  - "AzureReposSourceProvider_TryReadFileAsync_ExistingFile_ReturnsContent"
+  - "AzureReposSourceProvider_TryReadFileAsync_FileNotFound_ReturnsNull"
+  - "AzureReposSourceProvider_TryReadFileAsync_ServerError_Throws"
+  - "AzureReposSourceProvider_TryReadFileAsync_AuthError_Throws"
+  - "GitHubSourceProvider_TryReadFileAsync_ExistingFile_ReturnsContent"
+  - "GitHubSourceProvider_TryReadFileAsync_FileNotFound_ReturnsNull"
+  - "GitHubSourceProvider_TryReadFileAsync_ServerError_Throws"
+  - "GitHubSourceProvider_TryReadFileAsync_AuthError_Throws"
+  - "GitLabSourceProvider_TryReadFileAsync_ExistingFile_ReturnsContent"
+  - "GitLabSourceProvider_TryReadFileAsync_FileNotFound_ReturnsNull"
+  - "GitLabSourceProvider_TryReadFileAsync_ServerError_Throws"
+  - "GitLabSourceProvider_TryReadFileAsync_AuthError_Throws"
+  - "LocalSourceProvider_TryReadFileAsync_ExistingFile_ReturnsContent"
+  - "LocalSourceProvider_TryReadFileAsync_FileNotFound_ReturnsNull"
+  - "LocalSourceProvider_TryReadFileAsync_IOError_Throws"
+  - "PipelineExecutor_TryCreateSandboxAsync_CachedCsharpProjectMap_BuildsSpecWithDotnetSdkImage"
+  - "PipelineExecutor_TryCreateSandboxAsync_NoCacheNoRemote_FallsBackToGenericImage"
+  - "PipelineExecutor_TryCreateSandboxAsync_HitOnRemoteContextYaml_LogsRemoteContextYamlLayer"
+
+done:
+  - "Operator-facing: after a single init-project run on a .NET repo, the next fix-bug / add-feature run on the same repo creates the sandbox with mcr.microsoft.com/dotnet/sdk:8.0 without any agentsmith.yml change"
+  - "Same flow works for node / python / go / rust projects (the existing LanguageImages map values are picked)"
+  - "First-run-ever on a brand-new repo still works (no cache, no context.yaml on remote → graceful fallback to buildpack-deps:bookworm-scm)"
+  - "Cold host cache (project-map.json absent — e.g. fresh server pod, never-analyzed repo, deleted cache dir) still resolves the language via the remote-context-yaml layer when the repo has been bootstrapped; verified by running the resolver against a temp cache dir and a real-or-stubbed source provider"
+  - "Operator override via ProjectConfig.Sandbox.ToolchainImage still wins over auto-detection"
+  - "All four source providers expose TryReadFileAsync with consistent null-on-missing semantics; the resolver does not throw on any documented failure mode"
+  - "Pipeline-start log line names which resolution layer matched, so operators can debug surprising image choices without code-diving"
+  - "All new tests pass; existing test suite green"

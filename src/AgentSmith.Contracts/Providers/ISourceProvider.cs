@@ -23,4 +23,14 @@ public interface ISourceProvider : ITypedProvider
         string description,
         CancellationToken cancellationToken,
         TicketId? linkedTicketId = null);
+
+    /// <summary>
+    /// Reads a file from the repository's default branch without a full clone.
+    /// Returns null when the file does not exist (404 / file-not-found across
+    /// the four implementations). Auth + server errors propagate so the caller
+    /// can distinguish "no bootstrap yet" from "I can't talk to the remote".
+    /// Used by SandboxLanguageResolver (p0135) to peek at
+    /// .agentsmith/context.yaml before the sandbox is created.
+    /// </summary>
+    Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken);
 }

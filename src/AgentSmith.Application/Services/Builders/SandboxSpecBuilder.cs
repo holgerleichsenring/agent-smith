@@ -10,33 +10,60 @@ namespace AgentSmith.Application.Services.Builders;
 /// </summary>
 public sealed class SandboxSpecBuilder
 {
+    // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
+    // canonical: csharp / node / typescript / python / go / rust) AND the
+    // operator-facing strings the context.yaml schema documents under stack.lang
+    // (C#, .NET 8, TypeScript, JavaScript, Python, Go, Rust). The dictionary is
+    // OrdinalIgnoreCase so case variants resolve too. Adding a new language
+    // means a row here plus its image — no glue code on call sites.
     private static readonly Dictionary<string, string> LanguageImages = new(StringComparer.OrdinalIgnoreCase)
     {
+        // .NET / C# family — canonical + operator-facing variants
         ["dotnet8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         ["dotnet9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
         ["dotnet"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        [".net"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        [".net 8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        [".net 9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
         ["csharp"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        ["c#"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        // Node / TS / JS
         ["node"] = "node:20-bookworm-slim",
         ["node20"] = "node:20-bookworm-slim",
+        ["node.js"] = "node:20-bookworm-slim",
+        ["nodejs"] = "node:20-bookworm-slim",
         ["javascript"] = "node:20-bookworm-slim",
         ["typescript"] = "node:20-bookworm-slim",
+        // Python
         ["python"] = "python:3.12-slim",
         ["python3"] = "python:3.12-slim",
+        // Go
         ["go"] = "golang:1.22-bookworm",
+        ["golang"] = "golang:1.22-bookworm",
+        // Rust
         ["rust"] = "rust:1.79-bookworm"
     };
 
     public SandboxSpec Build(ProjectConfig projectConfig, ProjectMap? projectMap)
+        => Build(projectConfig, projectMap?.PrimaryLanguage);
+
+    public SandboxSpec Build(ProjectConfig projectConfig, string? language)
     {
-        var image = ResolveImage(projectConfig, projectMap);
+        var image = ResolveImage(projectConfig, language);
         return new SandboxSpec(ToolchainImage: image);
     }
 
-    // Generic fallback for pipelines that don't compile/test project code (api-scan,
-    // security-scan, mad-discussion, legal-analysis) AND for the init-project window
-    // before AnalyzeCode populates ProjectMap. InProcessSandboxFactory ignores the
-    // image entirely; Docker/K8s factories use it as the toolchain container that
-    // exec's `/shared/agent` and runs git clone for CheckoutSource.
+    // Generic fallback when no language-specific image can be resolved.
+    //
+    // Resolution chain (p0135) — the call site (PipelineExecutor.TryCreateSandboxAsync)
+    // walks these in order via SandboxLanguageResolver:
+    //   1. ProjectConfig.Sandbox.ToolchainImage (operator override) — wins outright
+    //   2. SandboxLanguageResolver.TryResolveFromCacheAsync → host-side project-map.json
+    //   3. SandboxLanguageResolver.TryResolveFromContextYamlAsync → remote
+    //      .agentsmith/context.yaml via ISourceProvider.TryReadFileAsync
+    //   4. ContextKeys.ProjectMap if already in-memory (never today, kept for symmetry)
+    //   5. This fallback — for true unknowns and for scan / discussion pipelines
+    //      that legitimately don't need a language SDK.
     //
     // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
     // via its carrier dotnet/runtime-deps base — musl toolchains crash exec with
@@ -54,12 +81,11 @@ public sealed class SandboxSpecBuilder
     // ProjectConfig.Sandbox.ToolchainImage.
     private const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
-    private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
+    private static string ResolveImage(ProjectConfig projectConfig, string? language)
     {
         var override_ = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(override_)) return override_;
 
-        var language = projectMap?.PrimaryLanguage;
         if (!string.IsNullOrEmpty(language) && LanguageImages.TryGetValue(language, out var image))
             return image;
 
