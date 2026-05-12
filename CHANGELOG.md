@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.1...v0.45.2) (2026-05-12)
+
+
+### Bug Fixes
+
+* **k8s:** pod-watcher detects init-container failures + leaves pod for inspection ([#104](https://github.com/holgerleichsenring/agent-smith/issues/104)) ([759410f](https://github.com/holgerleichsenring/agent-smith/commit/759410fea3b93ef0c0613a7f83053ff33d64e1ca))
+* **k8s:** set CPU + memory limits on agent-loader initContainer ([#105](https://github.com/holgerleichsenring/agent-smith/issues/105)) ([99f9648](https://github.com/holgerleichsenring/agent-smith/commit/99f964892c4619a086222af9c3071ca611d33c13))
+
 ## [0.45.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.0...v0.45.1) (2026-05-12)
 
 
