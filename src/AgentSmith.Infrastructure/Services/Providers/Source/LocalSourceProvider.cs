@@ -28,7 +28,8 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TicketId? linkedTicketId = null)
     {
         var result = $"Local repository - no PR created, branch pushed: {repository.CurrentBranch}";
         return Task.FromResult(result);

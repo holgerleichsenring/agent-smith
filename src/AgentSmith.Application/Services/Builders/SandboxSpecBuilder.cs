@@ -33,12 +33,26 @@ public sealed class SandboxSpecBuilder
     }
 
     // Generic fallback for pipelines that don't compile/test project code (api-scan,
-    // security-scan, mad-discussion, legal-analysis). InProcessSandboxFactory ignores
-    // the image entirely; Docker/K8s factories use it as the toolchain container — alpine
-    // gives them a working shell + git + coreutils so the sandbox-side `git clone` Step
-    // and SandboxFileReader file IO work without a heavier language SDK on board.
-    // Operators with stricter base-image policies override via ProjectConfig.Sandbox.ToolchainImage.
-    private const string GenericFallbackImage = "alpine:3.20";
+    // security-scan, mad-discussion, legal-analysis) AND for the init-project window
+    // before AnalyzeCode populates ProjectMap. InProcessSandboxFactory ignores the
+    // image entirely; Docker/K8s factories use it as the toolchain container that
+    // exec's `/shared/agent` and runs git clone for CheckoutSource.
+    //
+    // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
+    // via its carrier dotnet/runtime-deps base — musl toolchains crash exec with
+    // a misleading ENOENT) AND git on PATH (used by CheckoutSource).
+    //
+    // buildpack-deps:bookworm-scm is the Docker-official SCM toolbox image:
+    // Debian bookworm (glibc 2.36) + git + ca-certs + openssl + curl + wget +
+    // hg + svn. ~371 MB pulled once per node. Public Docker Hub image — works
+    // on k8s without operator-side build steps. Earlier attempts: alpine:3.20
+    // (rejected: musl libc, agent crashes with ENOENT), debian:bookworm
+    // (rejected: no git out of the box), self-built debian-slim+git carrier
+    // (rejected: needs a CI/push pipeline that doesn't exist yet).
+    //
+    // Operators with stricter base-image policies override via
+    // ProjectConfig.Sandbox.ToolchainImage.
+    private const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
     private static string ResolveImage(ProjectConfig projectConfig, ProjectMap? projectMap)
     {
