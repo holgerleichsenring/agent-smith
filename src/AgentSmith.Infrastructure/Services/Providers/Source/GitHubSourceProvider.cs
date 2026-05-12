@@ -103,6 +103,26 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on PR #{PrNumber}", prNumber);
     }
 
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        var client = CreateGitHubClient();
+        var branch = await GetDefaultBranchAsync(client);
+        try
+        {
+            var contents = await client.Repository.Content.GetAllContentsByRef(
+                _owner, _repo, path, branch);
+            // GetAllContentsByRef on a file returns a single-element list with
+            // the file's text. The 'Content' field is null when the file is a
+            // directory; for our use case (.agentsmith/context.yaml) it is a
+            // regular file.
+            return contents.Count == 0 ? null : contents[0].Content;
+        }
+        catch (NotFoundException)
+        {
+            return null;
+        }
+    }
+
     private GitHubClient CreateGitHubClient()
     {
         var client = new GitHubClient(new ProductHeaderValue("AgentSmith"));

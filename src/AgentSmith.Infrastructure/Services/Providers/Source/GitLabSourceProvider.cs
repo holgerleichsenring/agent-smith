@@ -103,6 +103,25 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
     }
 
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        var branch = await GetDefaultBranchAsync(cancellationToken);
+        // GitLab REST: /projects/:id/repository/files/<urlencoded-path>/raw?ref=<branch>.
+        // The colon-replacements in the path (slashes etc.) need %2F encoding;
+        // EscapeDataString covers that. The project-path identifier is itself
+        // url-encoded since GitLab accepts namespace/name as a path-id.
+        var encodedProject = Uri.EscapeDataString(_projectPath);
+        var encodedPath = Uri.EscapeDataString(path);
+        var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/files/{encodedPath}/raw?ref={Uri.EscapeDataString(branch)}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
         if (_configuredDefaultBranch is not null)

@@ -187,4 +187,31 @@ public sealed class AzureReposSourceProvider(
         return await new VssConnection(new Uri(_organizationUrl), creds)
             .GetClientAsync<GitHttpClient>(cancellationToken);
     }
+
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        var client = CreateGitClient();
+        var branch = await GetDefaultBranchAsync(cancellationToken);
+        var descriptor = new GitVersionDescriptor
+        {
+            Version = branch,
+            VersionType = GitVersionType.Branch
+        };
+        try
+        {
+            using var stream = await client.GetItemContentAsync(
+                project: project,
+                repositoryId: repoName,
+                path: path,
+                versionDescriptor: descriptor,
+                cancellationToken: cancellationToken);
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync(cancellationToken);
+        }
+        catch (VssServiceException ex) when (ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
+                                          || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+    }
 }
