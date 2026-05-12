@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.44.0...v0.45.0) (2026-05-12)
+
+
+### Features
+
+* p0133 init project label trigger ([#100](https://github.com/holgerleichsenring/agent-smith/issues/100)) ([a57f2aa](https://github.com/holgerleichsenring/agent-smith/commit/a57f2aa0eb5c1d20e0ebe31a605b03a7dc3c78cf))
+
 ## [0.44.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.43.0...v0.44.0) (2026-05-12)
 
 
