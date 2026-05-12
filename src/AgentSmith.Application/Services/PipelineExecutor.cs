@@ -30,6 +30,7 @@ public sealed class PipelineExecutor(
     IPipelineLifecycleCoordinator lifecycleCoordinator,
     ISandboxFactory sandboxFactory,
     SandboxSpecBuilder sandboxSpecBuilder,
+    AgentSmith.Application.Services.Sandbox.ISandboxLanguageResolver sandboxLanguageResolver,
     IProgressReporter progressReporter,
     IPhaseDataFlowResolver dataFlowResolver,
     AgentSmithConfig agentSmithConfig,
@@ -146,12 +147,38 @@ public sealed class PipelineExecutor(
     {
         if (!commandNames.Any(SandboxRequiringCommands.Contains)) return null;
 
-        var projectMap = context.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var pm) ? pm : null;
-        var spec = sandboxSpecBuilder.Build(projectConfig, projectMap);
-        logger.LogInformation("Creating sandbox with toolchain image {Image}", spec.ToolchainImage);
+        var (language, layer) = await ResolveToolchainLanguageAsync(projectConfig, context, cancellationToken);
+        var spec = sandboxSpecBuilder.Build(projectConfig, language);
+        logger.LogInformation(
+            "Sandbox toolchain resolved via {Layer}: language={Language}, image={Image}",
+            layer, language ?? "<none>", spec.ToolchainImage);
         var sandbox = await sandboxFactory.CreateAsync(spec, cancellationToken);
         context.Set(ContextKeys.Sandbox, sandbox);
         return sandbox;
+    }
+
+    // p0135: walk the resolution layers in priority order. Override and
+    // InMemoryProjectMap are checked inline (they don't need the resolver's
+    // disk/network calls); the cache + remote-context-yaml layers go through
+    // SandboxLanguageResolver.
+    private async Task<(string? Language, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer Layer)> ResolveToolchainLanguageAsync(
+        ProjectConfig projectConfig, PipelineContext context, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(projectConfig.Sandbox?.ToolchainImage))
+        {
+            // Builder consumes the override directly via ProjectConfig.Sandbox.ToolchainImage;
+            // language stays null because the override is image-level.
+            return (null, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer.Override);
+        }
+
+        if (context.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var inMemory)
+            && !string.IsNullOrEmpty(inMemory?.PrimaryLanguage))
+        {
+            return (inMemory.PrimaryLanguage, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer.InMemoryProjectMap);
+        }
+
+        var result = await sandboxLanguageResolver.ResolveAsync(projectConfig.Source, cancellationToken);
+        return (result.Language, result.Layer);
     }
 
     /// <summary>
