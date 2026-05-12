@@ -37,17 +37,22 @@ public sealed class InitCommitHandler(
             sandbox, context.Repository.CurrentBranch.Value, message,
             context.SourceConfig.Type, cancellationToken);
 
+        // Resolve TicketId once so the PR creation can carry the link AND the
+        // post-PR lifecycle finalize sees the same id without re-reading.
+        context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
+
         var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,
             "Initialize .agentsmith/ directory",
             "Auto-generated project context, code map, and coding principles.",
-            cancellationToken);
+            cancellationToken,
+            linkedTicketId: ticketId);
 
         context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
 
         logger.LogInformation("Init PR created: {Url}", prUrl);
 
-        if (context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) && ticketId is not null)
+        if (ticketId is not null)
         {
             context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
 

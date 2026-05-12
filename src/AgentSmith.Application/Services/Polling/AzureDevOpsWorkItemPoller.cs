@@ -42,7 +42,7 @@ public sealed class AzureDevOpsWorkItemPoller(
                 "AzureDevOps", projectName, t.Id,
                 trigger is null
                     ? fallbackPipeline
-                    : PipelineResolver.Resolve(trigger, t.Labels) ?? fallbackPipeline))
+                    : PipelineResolver.Resolve(trigger, t.Labels, logger) ?? fallbackPipeline))
             .ToList();
 
         logger.LogInformation(
