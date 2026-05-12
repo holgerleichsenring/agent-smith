@@ -56,10 +56,17 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TicketId? linkedTicketId = null)
     {
         var targetBranch = await GetDefaultBranchAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
+
+        // GitLab auto-closes referenced issues on MR merge when the description
+        // includes a "Closes #N" / "Closes !N" footer (same syntax as GitHub).
+        var body = linkedTicketId is null
+            ? description
+            : $"{description}\n\nCloses #{linkedTicketId.Value}";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("PRIVATE-TOKEN", _privateToken);
@@ -68,7 +75,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
             source_branch = repository.CurrentBranch.Value,
             target_branch = targetBranch,
             title,
-            description
+            description = body
         });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

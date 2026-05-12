@@ -69,6 +69,8 @@ public sealed class PlatformTransitionerTests
         var handler = new SequentialHandler();
         handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"\",\"System.Rev\":5}}"));
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
+        // p0133 follow-up: after-PATCH read-back diagnostic fetches tags again.
+        handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:enqueued\",\"System.Rev\":6}}"));
 
         var sut = new AzureDevOpsTicketStatusTransitioner(
             "https://dev.azure.com/org", "proj", "pat",
@@ -90,6 +92,8 @@ public sealed class PlatformTransitionerTests
         var handler = new RecordingSequentialHandler();
         handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:enqueued; bug\",\"System.Rev\":5}}"));
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
+        // p0133 follow-up: after-PATCH read-back diagnostic fetches tags again.
+        handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:in-progress; bug\",\"System.Rev\":6}}"));
 
         var sut = new AzureDevOpsTicketStatusTransitioner(
             "https://dev.azure.com/org", "proj", "pat",
@@ -101,7 +105,8 @@ public sealed class PlatformTransitionerTests
 
         result.IsSuccess.Should().BeTrue();
 
-        var patchBody = handler.SentBodies.LastOrDefault();
+        // The PATCH is the only request with a body — both fetch GETs send empty.
+        var patchBody = handler.SentBodies.FirstOrDefault(b => !string.IsNullOrEmpty(b));
         patchBody.Should().NotBeNull();
         patchBody.Should().Contain("\"op\":\"replace\"", "tags must be REPLACED, not merged");
         patchBody.Should().NotContain("\"op\":\"add\"", "op:add on System.Tags merges in AzDO");

@@ -29,7 +29,12 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
     {
         using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var (tags, _) = await FetchTagsAsync(ticketId, cancellationToken);
-        return tags is null ? null : ParseLifecycle(tags);
+        var current = tags is null ? null : ParseLifecycle(tags);
+        logger.LogInformation(
+            "AzDO ReadCurrent #{Ticket}: tags=[{Tags}] → lifecycle={Lifecycle}",
+            ticketId.Value, tags is null ? "<not-found>" : string.Join(", ", tags),
+            current?.ToString() ?? "<none>");
+        return current;
     }
 
     public async Task<TransitionResult> TransitionAsync(
@@ -58,7 +63,19 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         }
 
         var newTags = BuildTags(tags, to);
+        logger.LogInformation(
+            "AzDO Transition #{Ticket} BuildTags: in=[{In}] out=[{Out}]",
+            ticketId.Value, string.Join(", ", tags), string.Join(", ", newTags));
         var result = await PatchTagsAsync(ticketId, newTags, rev, cancellationToken);
+        if (result.IsSuccess)
+        {
+            // Verify AzDO actually applied the patch we sent — surfaces silent
+            // tag-rejection / branch-policy / automation-rule interference.
+            var (verify, _) = await FetchTagsAsync(ticketId, cancellationToken);
+            logger.LogInformation(
+                "AzDO Transition #{Ticket} ReadBack after PATCH: tags=[{Tags}]",
+                ticketId.Value, verify is null ? "<not-found>" : string.Join(", ", verify));
+        }
         logger.LogInformation(
             "AzDO Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
         return result;

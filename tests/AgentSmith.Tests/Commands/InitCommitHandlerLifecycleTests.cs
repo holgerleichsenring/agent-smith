@@ -39,7 +39,7 @@ public sealed class InitCommitHandlerLifecycleTests
 
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()))
             .ReturnsAsync("https://github.com/test/repo/pull/7");
 
         _sandboxMock.Setup(s => s.RunStepAsync(

@@ -63,6 +63,7 @@ public sealed class DockerSandboxFactoryTests
         var docker = new Mock<IDockerClient>();
         var containers = new Mock<IContainerOperations>();
         var volumes = new Mock<IVolumeOperations>();
+        var images = new Mock<IImageOperations>();
 
         containers.Setup(c => c.CreateContainerAsync(It.IsAny<CreateContainerParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CreateContainerParameters p, CancellationToken _) =>
@@ -88,9 +89,118 @@ public sealed class DockerSandboxFactoryTests
             .Callback<string, bool?, CancellationToken>((name, _, _) => local.VolumesRemoved.Add(name))
             .Returns(Task.CompletedTask);
 
+        // Default: image is present locally — no pull needed. Individual tests
+        // can override Inspect to throw DockerImageNotFoundException to exercise
+        // the IfNotPresent pull path.
+        images.Setup(i => i.InspectImageAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((image, _) => local.ImagesInspected.Add(image))
+            .ReturnsAsync(new ImageInspectResponse());
+        images.Setup(i => i.CreateImageAsync(
+                It.IsAny<ImagesCreateParameters>(),
+                It.IsAny<AuthConfig?>(),
+                It.IsAny<IProgress<JSONMessage>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<ImagesCreateParameters, AuthConfig?, IProgress<JSONMessage>, CancellationToken>(
+                (p, _, _, _) => local.ImagesPulled.Add($"{p.FromImage}:{p.Tag}"))
+            .Returns(Task.CompletedTask);
+
         docker.SetupGet(d => d.Containers).Returns(containers.Object);
         docker.SetupGet(d => d.Volumes).Returns(volumes.Object);
+        docker.SetupGet(d => d.Images).Returns(images.Object);
         return docker;
+    }
+
+    [Fact]
+    public async Task CreateAsync_ImagePresentLocally_DoesNotPull()
+    {
+        var docker = BuildDockerMock(out var calls);
+        var factory = new DockerSandboxFactory(
+            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
+            new DockerSandboxOptions { RedisUrl = "redis:6379" }, NullLoggerFactory.Instance);
+
+        await using var sandbox = await factory.CreateAsync(
+            new SandboxSpec("node:20", "agent:1"), CancellationToken.None);
+
+        calls.ImagesInspected.Should().Contain(["agent:1", "node:20"]);
+        calls.ImagesPulled.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ToolchainImageMissing_PullsThenCreatesContainer()
+    {
+        var docker = BuildDockerMock(out var calls);
+        OverrideInspectMissing(docker, "alpine:3.20");
+        var factory = new DockerSandboxFactory(
+            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
+            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+
+        await using var sandbox = await factory.CreateAsync(
+            new SandboxSpec("alpine:3.20", "agent:1"), CancellationToken.None);
+
+        calls.ImagesPulled.Should().ContainSingle().Which.Should().Be("alpine:3.20");
+        calls.ContainersCreated.Should().HaveCount(2, "pull succeeded so loader + toolchain were created");
+    }
+
+    [Fact]
+    public async Task CreateAsync_LoaderExitsNonZero_ThrowsWithLoaderOutput()
+    {
+        var docker = BuildDockerMock(out _);
+        Mock.Get(docker.Object.Containers)
+            .Setup(c => c.WaitContainerAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContainerWaitResponse { StatusCode = 1 });
+        // Loader log stream is best-effort — leave default unconfigured (returns null/0),
+        // ReadContainerLogsAsync wraps the failure and returns empty string.
+
+        var factory = new DockerSandboxFactory(
+            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
+            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+
+        var act = async () => await factory.CreateAsync(
+            new SandboxSpec("debian:bookworm", "agent-smith-sandbox-agent:latest"),
+            CancellationToken.None);
+
+        var ex = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
+        ex.Message.Should().Contain("loader exited with code 1");
+        ex.Message.Should().Contain("agent-smith-sandbox-agent:latest");
+    }
+
+    [Fact]
+    public async Task CreateAsync_AgentCarrierImageMissingAndPullFails_ThrowsWithBuildHint()
+    {
+        var docker = BuildDockerMock(out _);
+        OverrideInspectMissing(docker, "agent-smith-sandbox-agent:latest");
+        OverridePullFails(docker);
+        var factory = new DockerSandboxFactory(
+            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
+            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+
+        var act = async () => await factory.CreateAsync(
+            new SandboxSpec("alpine:3.20", "agent-smith-sandbox-agent:latest"),
+            CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .Which.Message.Should().Contain("sandbox-agent");
+    }
+
+    private static void OverrideInspectMissing(Mock<IDockerClient> docker, string image)
+    {
+        Mock.Get(docker.Object.Images)
+            .Setup(i => i.InspectImageAsync(image, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DockerImageNotFoundException(
+                System.Net.HttpStatusCode.NotFound,
+                $"No such image: {image}"));
+    }
+
+    private static void OverridePullFails(Mock<IDockerClient> docker)
+    {
+        Mock.Get(docker.Object.Images)
+            .Setup(i => i.CreateImageAsync(
+                It.IsAny<ImagesCreateParameters>(),
+                It.IsAny<AuthConfig?>(),
+                It.IsAny<IProgress<JSONMessage>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DockerApiException(
+                System.Net.HttpStatusCode.NotFound, "image not found in registry"));
     }
 
     private sealed class DockerCallTracker
@@ -101,5 +211,7 @@ public sealed class DockerSandboxFactoryTests
         public List<string> ContainersRemoved { get; } = new();
         public List<string> VolumesCreated { get; } = new();
         public List<string> VolumesRemoved { get; } = new();
+        public List<string> ImagesInspected { get; } = new();
+        public List<string> ImagesPulled { get; } = new();
     }
 }

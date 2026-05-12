@@ -51,13 +51,17 @@ jobs:
           - image: agent-smith-server
             dockerfile: src/AgentSmith.Server/Dockerfile
             publish: always
-          # p0115: sandbox-agent carrier image — gated to v* tags only.
-          # Build runs on every event (validates the Dockerfile in PRs and on main),
-          # but push to Docker Hub fires only on v* tags. Lift the gate by switching
-          # publish: tags -> always once Docker Hub repo + description are ready.
+          # Sandbox carrier image consumed by the server's spawner as an init-
+          # container. Was originally gated to v* tags only (p0115) under the
+          # assumption that release-please's tag pushes would re-trigger this
+          # workflow — they don't (release-please uses GITHUB_TOKEN, and tag
+          # pushes by GITHUB_TOKEN actions don't fire downstream workflows by
+          # design). publish: always brings it into the same per-main-push
+          # rhythm as cli + server, so every release-please squash-merge pushes
+          # the matching sandbox-agent build to Docker Hub.
           - image: agent-smith-sandbox-agent
             dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
-            publish: tags
+            publish: always
     permissions:
       contents: read
       packages: write
