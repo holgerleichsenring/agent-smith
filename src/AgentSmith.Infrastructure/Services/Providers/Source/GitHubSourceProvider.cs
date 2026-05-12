@@ -47,15 +47,24 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TicketId? linkedTicketId = null)
     {
         var client = CreateGitHubClient();
         var targetBranch = await GetDefaultBranchAsync(client);
+
+        // GitHub auto-links + auto-closes when the PR body references the issue
+        // via "Closes #N" / "Fixes #N" syntax. Appended as a footer so the
+        // operator-facing body content stays at the top.
+        var body = linkedTicketId is null
+            ? description
+            : $"{description}\n\nCloses #{linkedTicketId.Value}";
+
         var pr = await client.PullRequest.Create(
             _owner, _repo,
             new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
             {
-                Body = description
+                Body = body
             });
 
         _logger.LogInformation("Pull request created: {Url}", pr.HtmlUrl);

@@ -38,7 +38,8 @@ public sealed class AzureReposSourceProvider(
 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TicketId? linkedTicketId = null)
     {
         var client = CreateGitClient();
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
@@ -54,12 +55,71 @@ public sealed class AzureReposSourceProvider(
             var created = await client.CreatePullRequestAsync(
                 pr, project, repoName, cancellationToken: cancellationToken);
             logger.LogInformation("Pull request created: {Url}", BuildPrUrl(created.PullRequestId));
+
+            // Native AzDO work-item-to-PR link via WorkItem relations. Done after
+            // create so a relation failure does not block PR creation — operators
+            // can manually link later, the PR is the load-bearing artifact.
+            if (linkedTicketId is not null
+                && int.TryParse(linkedTicketId.Value, out var workItemId))
+            {
+                await LinkWorkItemToPrAsync(workItemId, created.PullRequestId, cancellationToken);
+            }
+
             return BuildPrUrl(created.PullRequestId);
         }
         catch (Exception ex) when (ex.Message.Contains("TF401179") || ex.Message.Contains("already exists"))
         {
             return await FindExistingPrUrlAsync(client, src, tgt, cancellationToken);
         }
+    }
+
+    private async Task LinkWorkItemToPrAsync(int workItemId, int pullRequestId, CancellationToken ct)
+    {
+        try
+        {
+            // AzDO relation between a Work Item and a Pull Request uses the
+            // `ArtifactLink` rel with a `vstfs:///Git/PullRequestId/...` artifact uri.
+            // The uri encodes project-guid / repo-guid / pr-id; resolve the GUIDs
+            // first so the relation lands on the right artifact.
+            var gitClient = CreateGitClient();
+            var repo = await gitClient.GetRepositoryAsync(project, repoName, cancellationToken: ct);
+            var projectId = repo.ProjectReference.Id;
+            var repoId = repo.Id;
+            var artifactUri = $"vstfs:///Git/PullRequestId/{projectId}%2F{repoId}%2F{pullRequestId}";
+
+            var witClient = await GetWitClientAsync(ct);
+            var patch = new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchDocument
+            {
+                new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/relations/-",
+                    Value = new
+                    {
+                        rel = "ArtifactLink",
+                        url = artifactUri,
+                        attributes = new { name = "Pull Request" }
+                    }
+                }
+            };
+            await witClient.UpdateWorkItemAsync(patch, workItemId, cancellationToken: ct);
+            logger.LogInformation(
+                "Linked work item #{WorkItem} to PR !{PrId}", workItemId, pullRequestId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to link work item #{WorkItem} to PR !{PrId} — PR is created, link is missing",
+                workItemId, pullRequestId);
+        }
+    }
+
+    private Task<Microsoft.TeamFoundation.WorkItemTracking.WebApi.WorkItemTrackingHttpClient> GetWitClientAsync(CancellationToken ct)
+    {
+        var connection = new Microsoft.VisualStudio.Services.WebApi.VssConnection(
+            new Uri(_organizationUrl),
+            new Microsoft.VisualStudio.Services.Common.VssBasicCredential(string.Empty, personalAccessToken));
+        return Task.FromResult(connection.GetClient<Microsoft.TeamFoundation.WorkItemTracking.WebApi.WorkItemTrackingHttpClient>());
     }
 
     public async Task PostCommentAsync(
