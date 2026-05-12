@@ -42,7 +42,8 @@ public sealed class CommitAndPRHandler(
             context.Repository,
             context.Ticket.Title,
             context.Ticket.Description,
-            cancellationToken);
+            cancellationToken,
+            linkedTicketId: context.Ticket.Id);
 
         context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
 

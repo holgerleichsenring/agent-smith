@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Polling;
 
@@ -24,17 +25,32 @@ namespace AgentSmith.Application.Services.Polling;
 public static class PipelineResolver
 {
     public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
+        => Resolve(trigger, labels, logger: null);
+
+    public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels, ILogger? logger)
     {
-        var userLabels = labels
+        var inputLabels = labels.ToList();
+        var userLabels = inputLabels
             .Where(l => !string.IsNullOrEmpty(l) && !LifecycleLabels.IsLifecycleLabel(l))
             .ToList();
 
         foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
         {
             if (userLabels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
+            {
+                logger?.LogInformation(
+                    "PipelineResolver: in=[{In}] user=[{User}] matched {Label} → {Pipeline}",
+                    string.Join(", ", inputLabels), string.Join(", ", userLabels),
+                    configLabel, pipeline);
                 return pipeline;
+            }
         }
 
-        return trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        var result = trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        logger?.LogInformation(
+            "PipelineResolver: in=[{In}] user=[{User}] no-match → {Pipeline} (will fall back to default)",
+            string.Join(", ", inputLabels), string.Join(", ", userLabels),
+            result ?? "<null>");
+        return result;
     }
 }

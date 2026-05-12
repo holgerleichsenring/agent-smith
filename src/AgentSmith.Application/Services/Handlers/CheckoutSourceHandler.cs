@@ -82,11 +82,35 @@ public sealed class CheckoutSourceHandler(
     {
         if (!NeedsBranchSwitch(requested, resolvedDefault)) return;
         var branchValue = requested?.Value ?? resolvedDefault.Value;
+
+        // Two-step: try to check out an existing remote-tracking branch first
+        // (a re-run on the same ticket lands here when the previous run already
+        // pushed agent-smith/<id>). If that fails, fall through to `checkout -b`
+        // to create a fresh local branch off the default. Without the fallback
+        // we'd stay on the default branch and InitCommit's push would either
+        // accidentally target the default branch or fail force-with-lease.
         var checkoutResult = await RunStepAsync(sandbox, BuildCheckoutStep(branchValue), cancellationToken);
-        if (checkoutResult.ExitCode != 0)
+        if (checkoutResult.ExitCode == 0)
+        {
+            logger.LogInformation(
+                "Sandbox-side `git checkout {Branch}` succeeded (reusing existing branch)",
+                branchValue);
+            return;
+        }
+
+        logger.LogInformation(
+            "Sandbox-side `git checkout {Branch}` did not find the branch ({Error}); creating it locally",
+            branchValue, checkoutResult.ErrorMessage ?? "no error message");
+
+        var createResult = await RunStepAsync(sandbox, BuildCreateBranchStep(branchValue), cancellationToken);
+        if (createResult.ExitCode != 0)
             logger.LogWarning(
-                "Sandbox-side `git checkout {Branch}` failed (exit={Exit}): {Error}",
-                branchValue, checkoutResult.ExitCode, checkoutResult.ErrorMessage);
+                "Sandbox-side `git checkout -b {Branch}` failed (exit={Exit}): {Error}",
+                branchValue, createResult.ExitCode, createResult.ErrorMessage);
+        else
+            logger.LogInformation(
+                "Sandbox-side `git checkout -b {Branch}` created new branch off default",
+                branchValue);
     }
 
     private static bool NeedsBranchSwitch(BranchName? requested, BranchName resolvedDefault) =>
@@ -124,6 +148,13 @@ public sealed class CheckoutSourceHandler(
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["checkout", branch],
+            WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: CheckoutTimeoutSeconds);
+
+    private static Step BuildCreateBranchStep(string branch) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: ["checkout", "-b", branch],
             WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: CheckoutTimeoutSeconds);
 }

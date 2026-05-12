@@ -76,7 +76,8 @@ internal static class SandboxServiceCollectionExtensions
         services.AddSingleton(new DockerSandboxOptions
         {
             RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? "unix:///var/run/docker.sock"
+            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? "unix:///var/run/docker.sock",
+            Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? ""
         });
         services.AddSingleton<IDockerClient>(sp =>
         {
