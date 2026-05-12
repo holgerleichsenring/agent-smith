@@ -14,6 +14,8 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 public sealed class SourceProviderFactory(
     SecretsProvider secrets,
     IHttpClientFactory httpClientFactory,
+    IGitHubClientFactory gitHubClientFactory,
+    IAzDoClientFactory azDoClientFactory,
     ILoggerFactory loggerFactory) : ISourceProviderFactory
 {
     public ISourceProvider Create(SourceConfig config)
@@ -37,7 +39,8 @@ public sealed class SourceProviderFactory(
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
         return new GitHubSourceProvider(
-            config.Url!, token, loggerFactory.CreateLogger<GitHubSourceProvider>(),
+            config.Url!, token, gitHubClientFactory,
+            loggerFactory.CreateLogger<GitHubSourceProvider>(),
             defaultBranch: config.DefaultBranch);
     }
 
@@ -59,6 +62,7 @@ public sealed class SourceProviderFactory(
         var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);
         return new AzureReposSourceProvider(
             orgUrl, project, repoName, token,
+            azDoClientFactory,
             loggerFactory.CreateLogger<AzureReposSourceProvider>());
     }
 

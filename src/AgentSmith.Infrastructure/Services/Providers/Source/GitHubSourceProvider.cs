@@ -20,18 +20,21 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly string _cloneUrl;
     private readonly string _token;
     private readonly string? _configuredDefaultBranch;
+    private readonly IGitHubClientFactory _clientFactory;
     private readonly ILogger<GitHubSourceProvider> _logger;
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "GitHub";
 
     public GitHubSourceProvider(
-        string repoUrl, string token, ILogger<GitHubSourceProvider> logger,
+        string repoUrl, string token, IGitHubClientFactory clientFactory,
+        ILogger<GitHubSourceProvider> logger,
         string? defaultBranch = null)
     {
         (_owner, _repo) = ParseGitHubUrl(repoUrl);
         _cloneUrl = repoUrl.EndsWith(".git") ? repoUrl : $"{repoUrl}.git";
         _token = token;
+        _clientFactory = clientFactory;
         _configuredDefaultBranch = defaultBranch;
         _logger = logger;
     }
@@ -71,7 +74,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         return pr.HtmlUrl;
     }
 
-    private async Task<string> GetDefaultBranchAsync(GitHubClient client)
+    private async Task<string> GetDefaultBranchAsync(IGitHubClient client)
     {
         if (_configuredDefaultBranch is not null)
             return _configuredDefaultBranch;
@@ -123,12 +126,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         }
     }
 
-    private GitHubClient CreateGitHubClient()
-    {
-        var client = new GitHubClient(new ProductHeaderValue("AgentSmith"));
-        client.Credentials = new Octokit.Credentials(_token);
-        return client;
-    }
+    private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_token);
 
     private static (string owner, string repo) ParseGitHubUrl(string url)
     {
