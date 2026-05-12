@@ -48,7 +48,27 @@ public sealed class PodSpecBuilder
         Name = "agent-loader",
         Image = agentImage,
         Args = ["--inject", $"{SharedMount}/agent"],
-        VolumeMounts = [new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount }]
+        VolumeMounts = [new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount }],
+        // Fixed limits — loader only extracts the bundled .NET single-file agent
+        // (~75 MB) and copies one binary, then exits. Namespaces with a
+        // ResourceQuota that mandates limits.cpu/limits.memory on every
+        // container (init + main) reject the pod otherwise; pod creation fails
+        // with "must specify limits.cpu for: agent-loader" before the workload
+        // even starts. Values are sized for the bundle extraction headroom plus
+        // a brief CPU burst on startup.
+        Resources = new V1ResourceRequirements
+        {
+            Limits = new Dictionary<string, ResourceQuantity>
+            {
+                ["cpu"] = new("200m"),
+                ["memory"] = new("256Mi")
+            },
+            Requests = new Dictionary<string, ResourceQuantity>
+            {
+                ["cpu"] = new("50m"),
+                ["memory"] = new("128Mi")
+            }
+        }
     };
 
     private static V1Container BuildToolchainContainer(SandboxSpec spec, string jobId, string redisUrl)
