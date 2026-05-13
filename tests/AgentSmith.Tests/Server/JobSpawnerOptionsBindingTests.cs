@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using FluentAssertions;
@@ -35,6 +36,24 @@ public sealed class JobSpawnerOptionsBindingTests
     }
 
     [Fact]
+    public void Configure_WithResourcesSection_BindsResourceLimits()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["JobSpawner:Resources:CpuRequest"] = "1000m",
+                ["JobSpawner:Resources:CpuLimit"] = "4000m",
+                ["JobSpawner:Resources:MemoryRequest"] = "2Gi",
+                ["JobSpawner:Resources:MemoryLimit"] = "8Gi"
+            }).Build();
+        var services = new ServiceCollection().AddJobSpawnerOptions(configuration);
+
+        var bound = services.BuildServiceProvider().GetRequiredService<IOptions<JobSpawnerOptions>>().Value;
+
+        bound.Resources.Should().Be(new ResourceLimits("1000m", "4000m", "2Gi", "8Gi"));
+    }
+
+    [Fact]
     public void Configure_WithoutSection_FallsBackToLegacyDefaults()
     {
         var configuration = new ConfigurationBuilder().Build();
@@ -46,5 +65,6 @@ public sealed class JobSpawnerOptionsBindingTests
         bound.Image.Should().Be("agentsmith-cli:latest");
         bound.ImagePullPolicy.Should().Be("IfNotPresent");
         bound.SecretName.Should().Be("agentsmith-secrets");
+        bound.Resources.Should().Be(ResourceLimits.Default);
     }
 }
