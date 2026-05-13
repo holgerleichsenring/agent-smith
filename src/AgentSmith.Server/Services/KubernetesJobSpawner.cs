@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Constants;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using k8s;
@@ -20,7 +22,7 @@ public sealed class KubernetesJobSpawner(
 {
     private readonly JobSpawnerOptions _options = options.Value;
     private readonly string _redisUrl =
-        Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379";
+        Environment.GetEnvironmentVariable(AgentEnvKeys.RedisUrl) ?? "redis:6379";
 
     public async Task<string> SpawnAsync(
         JobRequest request,
@@ -100,19 +102,7 @@ public sealed class KubernetesJobSpawner(
                             ImagePullPolicy = _options.ImagePullPolicy,
                             Args = BuildArgs(jobId, request, redisUrl),
                             Env = BuildEnv(jobId, request),
-                            Resources = new V1ResourceRequirements
-                            {
-                                Requests = new Dictionary<string, ResourceQuantity>
-                                {
-                                    ["cpu"] = new("250m"),
-                                    ["memory"] = new("512Mi")
-                                },
-                                Limits = new Dictionary<string, ResourceQuantity>
-                                {
-                                    ["cpu"] = new("1000m"),
-                                    ["memory"] = new("1Gi")
-                                }
-                            }
+                            Resources = BuildResources(_options.Resources)
                         }
                     ]
                 }
@@ -139,20 +129,35 @@ public sealed class KubernetesJobSpawner(
         return args;
     }
 
-    private List<V1EnvVar> BuildEnv(string jobId, JobRequest request) =>
-    [
-        EnvFromSecret("ANTHROPIC_API_KEY", _options.SecretName, "anthropic-api-key"),
-        EnvFromSecret("AZURE_DEVOPS_TOKEN", _options.SecretName, "azure-devops-token"),
-        EnvFromSecret("GITHUB_TOKEN", _options.SecretName, "github-token"),
-        EnvFromSecret("OPENAI_API_KEY", _options.SecretName, "openai-api-key"),
-        EnvFromSecret("GEMINI_API_KEY", _options.SecretName, "gemini-api-key"),
-        EnvFromSecret("REDIS_URL", _options.SecretName, "redis-url"),
-        new V1EnvVar { Name = "JOB_ID", Value = jobId },
-        new V1EnvVar { Name = "PROJECT", Value = request.Project },
-        new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
-        new V1EnvVar { Name = "USER_ID", Value = request.UserId },
-        new V1EnvVar { Name = "AGENTSMITH_PLATFORM", Value = request.Platform }
-    ];
+    private List<V1EnvVar> BuildEnv(string jobId, JobRequest request)
+    {
+        var env = AgentSecretBinding.All
+            .Select(b => EnvFromSecret(b.EnvVar, _options.SecretName, b.K8sSecretKey))
+            .ToList();
+        env.AddRange(
+        [
+            new V1EnvVar { Name = "JOB_ID", Value = jobId },
+            new V1EnvVar { Name = "PROJECT", Value = request.Project },
+            new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
+            new V1EnvVar { Name = "USER_ID", Value = request.UserId },
+            new V1EnvVar { Name = "AGENTSMITH_PLATFORM", Value = request.Platform }
+        ]);
+        return env;
+    }
+
+    private static V1ResourceRequirements BuildResources(ResourceLimits resources) => new()
+    {
+        Requests = new Dictionary<string, ResourceQuantity>
+        {
+            ["cpu"] = new(resources.CpuRequest),
+            ["memory"] = new(resources.MemoryRequest)
+        },
+        Limits = new Dictionary<string, ResourceQuantity>
+        {
+            ["cpu"] = new(resources.CpuLimit),
+            ["memory"] = new(resources.MemoryLimit)
+        }
+    };
 
     private static V1EnvVar EnvFromSecret(string envName, string secretName, string secretKey) =>
         new()
