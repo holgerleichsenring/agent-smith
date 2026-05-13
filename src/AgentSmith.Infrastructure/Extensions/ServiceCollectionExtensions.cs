@@ -39,6 +39,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
             sp.GetRequiredService<TicketStatusTransitionerFactory>());
         services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
+        services.AddSingleton<Services.Providers.Source.IGitHubClientFactory, Services.Providers.Source.DefaultGitHubClientFactory>();
+        services.AddSingleton<Services.Providers.Source.IAzDoClientFactory, Services.Providers.Source.DefaultAzDoClientFactory>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IHostSourceCloner, Services.Providers.Source.HostSourceCloner>();
         // p0119a: legacy IAgentProviderFactory / ILlmClientFactory / IAgenticAnalyzerFactory

@@ -5,7 +5,6 @@ using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 using Repository = AgentSmith.Domain.Entities.Repository;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -20,6 +19,7 @@ public sealed class AzureReposSourceProvider(
     string project,
     string repoName,
     string personalAccessToken,
+    IAzDoClientFactory clientFactory,
     ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider
 {
     private readonly string _organizationUrl = organizationUrl.TrimEnd('/');
@@ -87,7 +87,7 @@ public sealed class AzureReposSourceProvider(
             var repoId = repo.Id;
             var artifactUri = $"vstfs:///Git/PullRequestId/{projectId}%2F{repoId}%2F{pullRequestId}";
 
-            var witClient = await GetWitClientAsync(ct);
+            var witClient = clientFactory.CreateWorkItemClient(_organizationUrl, personalAccessToken);
             var patch = new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchDocument
             {
                 new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchOperation
@@ -112,14 +112,6 @@ public sealed class AzureReposSourceProvider(
                 "Failed to link work item #{WorkItem} to PR !{PrId} — PR is created, link is missing",
                 workItemId, pullRequestId);
         }
-    }
-
-    private Task<Microsoft.TeamFoundation.WorkItemTracking.WebApi.WorkItemTrackingHttpClient> GetWitClientAsync(CancellationToken ct)
-    {
-        var connection = new Microsoft.VisualStudio.Services.WebApi.VssConnection(
-            new Uri(_organizationUrl),
-            new Microsoft.VisualStudio.Services.Common.VssBasicCredential(string.Empty, personalAccessToken));
-        return Task.FromResult(connection.GetClient<Microsoft.TeamFoundation.WorkItemTracking.WebApi.WorkItemTrackingHttpClient>());
     }
 
     public async Task PostCommentAsync(
@@ -175,18 +167,11 @@ public sealed class AzureReposSourceProvider(
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{project}/_git/{repoName}/pullrequest/{prId}";
 
-    private GitHttpClient CreateGitClient()
-    {
-        var creds = new VssBasicCredential(string.Empty, personalAccessToken);
-        return new VssConnection(new Uri(_organizationUrl), creds).GetClient<GitHttpClient>();
-    }
+    private GitHttpClient CreateGitClient() =>
+        clientFactory.CreateGitClient(_organizationUrl, personalAccessToken);
 
-    private async Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken)
-    {
-        var creds = new VssBasicCredential(string.Empty, personalAccessToken);
-        return await new VssConnection(new Uri(_organizationUrl), creds)
-            .GetClientAsync<GitHttpClient>(cancellationToken);
-    }
+    private Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken) =>
+        clientFactory.CreateGitClientAsync(_organizationUrl, personalAccessToken, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
