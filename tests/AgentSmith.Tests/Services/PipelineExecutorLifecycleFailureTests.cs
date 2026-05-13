@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.Sandbox;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -43,7 +44,7 @@ public sealed class PipelineExecutorLifecycleFailureTests
             _ticketFactoryMock.Object,
             _coordinatorMock.Object,
             _sandboxFactoryMock.Object,
-            new SandboxSpecBuilder(),
+            new SandboxSpecBuilder(new StubSandboxResourceResolver()),
             resolverMock.Object,
             _progressReporterMock.Object,
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(

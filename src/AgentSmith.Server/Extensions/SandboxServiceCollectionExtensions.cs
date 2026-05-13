@@ -1,8 +1,10 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using k8s;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -11,6 +13,18 @@ namespace AgentSmith.Server.Extensions;
 
 internal static class SandboxServiceCollectionExtensions
 {
+    /// <summary>
+    /// Binds global sandbox-container resource defaults from configuration section "Sandbox"
+    /// (appsettings.json + environment variables with the Sandbox__ prefix). Per-project
+    /// blocks in agentsmith.yml under projects.&lt;name&gt;.sandbox.resources override these.
+    /// </summary>
+    internal static IServiceCollection AddSandboxOptions(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<SandboxOptions>(configuration.GetSection("Sandbox"));
+        return services;
+    }
+
     /// <summary>
     /// Auto-detects the sandbox backend at startup. Order:
     ///   SANDBOX_TYPE explicit > KUBERNETES_SERVICE_HOST > /var/run/docker.sock > inprocess fallback.
