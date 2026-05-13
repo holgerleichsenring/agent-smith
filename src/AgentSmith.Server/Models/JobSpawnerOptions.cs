@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Sandbox;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -25,4 +27,15 @@ public sealed class JobSpawnerOptions
 
     /// <summary>Docker network to attach spawned containers to. Only used by DockerJobSpawner.</summary>
     public string DockerNetwork { get; set; } = string.Empty;
+
+    /// <summary>
+    /// CPU + memory request/limit for the spawned orchestrator container
+    /// (the agentsmith-cli pod that runs the pipeline). Defaults to
+    /// <see cref="ResourceLimits.Default"/>; configurable globally via the
+    /// JobSpawner:Resources configuration section. Distinct from
+    /// <c>Sandbox</c>/<c>SandboxOptions</c> which governs the per-language
+    /// toolchain container — the orchestrator and the toolchain are two
+    /// separate K8s workloads per ticket run.
+    /// </summary>
+    public ResourceLimits Resources { get; set; } = ResourceLimits.Default;
 }

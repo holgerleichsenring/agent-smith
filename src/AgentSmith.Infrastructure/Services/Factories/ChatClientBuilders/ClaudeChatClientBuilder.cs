@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
 using Anthropic.SDK;
 using Microsoft.Extensions.AI;
@@ -16,7 +17,7 @@ public sealed class ClaudeChatClientBuilder : IChatClientBuilder
     {
         var apiKey = ResolveApiKey(agent)
             ?? throw new InvalidOperationException(
-                "ANTHROPIC_API_KEY (or configured ApiKeySecret) is required for type=claude.");
+                $"{AgentEnvKeys.AnthropicApiKey} (or configured ApiKeySecret) is required for type=claude.");
 
         var anthropic = new AnthropicClient(apiKey);
         return anthropic.Messages;
@@ -29,6 +30,6 @@ public sealed class ClaudeChatClientBuilder : IChatClientBuilder
             var secret = Environment.GetEnvironmentVariable(agent.ApiKeySecret);
             if (!string.IsNullOrEmpty(secret)) return secret;
         }
-        return Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        return Environment.GetEnvironmentVariable(AgentEnvKeys.AnthropicApiKey);
     }
 }
