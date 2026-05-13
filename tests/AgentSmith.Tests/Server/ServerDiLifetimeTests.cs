@@ -11,6 +11,7 @@ using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Extensions;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -165,15 +166,17 @@ public sealed class ServerDiLifetimeTests
         // K8s/Docker availability; mock here for the same reason.
         AddNullRedisStack(services);
         services.AddSingleton(Mock.Of<IJobSpawner>());
+        var configuration = new ConfigurationBuilder().Build();
         services.AddCoreDispatcherServices()
                 .AddServerCompositionOverrides()
                 .AddSandbox()
+                .AddSandboxOptions(configuration)
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()
                 .AddWebhookHandlers()
                 .AddLongRunningServices();
-        services.AddJobSpawnerOptions();
+        services.AddJobSpawnerOptions(configuration);
         return services;
     }
 

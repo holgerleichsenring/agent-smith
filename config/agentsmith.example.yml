@@ -158,6 +158,17 @@ projects:
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
 
+    # --- Per-project sandbox container resources (optional, p0136) ---
+    # When set, fully overrides the global Sandbox defaults from appsettings /
+    # the Sandbox__* environment variables. Partial overrides are not supported —
+    # provide all four fields, or leave the whole block out.
+    # sandbox:
+    #   resources:
+    #     cpu_request: 500m         # Kubernetes CPU quantity
+    #     cpu_limit: 2000m
+    #     memory_request: 1Gi       # Kubernetes memory quantity
+    #     memory_limit: 4Gi
+
     # --- Multi-pipeline form (p0106) ---
     # Multiple pipelines per project share the same source/tickets/agent.
     # Each entry can override agent / skills_path / coding_principles_path.

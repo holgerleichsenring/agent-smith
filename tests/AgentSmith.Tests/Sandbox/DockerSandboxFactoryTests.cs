@@ -20,7 +20,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions { RedisUrl = "redis:6379" }, NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
-            new SandboxSpec("node:20", "agent:1"), CancellationToken.None);
+            new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
 
         calls.VolumesCreated.Should().HaveCount(2);
         calls.VolumesCreated.Should().AllSatisfy(name => name.Should().StartWith("agentsmith-sandbox-"));
@@ -39,7 +39,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions(), NullLoggerFactory.Instance);
 
         var sandbox = await factory.CreateAsync(
-            new SandboxSpec("node:20", "agent:1"), CancellationToken.None);
+            new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
         calls.ContainersRemoved.Clear();
 
         await sandbox.DisposeAsync();
@@ -119,7 +119,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions { RedisUrl = "redis:6379" }, NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
-            new SandboxSpec("node:20", "agent:1"), CancellationToken.None);
+            new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
 
         calls.ImagesInspected.Should().Contain(["agent:1", "node:20"]);
         calls.ImagesPulled.Should().BeEmpty();
@@ -135,7 +135,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions(), NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
-            new SandboxSpec("alpine:3.20", "agent:1"), CancellationToken.None);
+            new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
 
         calls.ImagesPulled.Should().ContainSingle().Which.Should().Be("alpine:3.20");
         calls.ContainersCreated.Should().HaveCount(2, "pull succeeded so loader + toolchain were created");
@@ -156,7 +156,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions(), NullLoggerFactory.Instance);
 
         var act = async () => await factory.CreateAsync(
-            new SandboxSpec("debian:bookworm", "agent-smith-sandbox-agent:latest"),
+            new SandboxSpec("debian:bookworm", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),
             CancellationToken.None);
 
         var ex = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
@@ -175,7 +175,7 @@ public sealed class DockerSandboxFactoryTests
             new DockerSandboxOptions(), NullLoggerFactory.Instance);
 
         var act = async () => await factory.CreateAsync(
-            new SandboxSpec("alpine:3.20", "agent-smith-sandbox-agent:latest"),
+            new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),
             CancellationToken.None);
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
