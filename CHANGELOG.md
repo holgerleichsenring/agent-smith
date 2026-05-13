@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.47.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.46.0...v0.47.0) (2026-05-13)
+
+
+### Features
+
+* inject GitHub + AzDo SDK clients via factory (p0135 follow-up) ([72e1bc5](https://github.com/holgerleichsenring/agent-smith/commit/72e1bc57555a11feac2ca311996b4590befdb801))
+* inject GitHub + AzDo SDK clients via factory (p0135 follow-up) ([3937a9c](https://github.com/holgerleichsenring/agent-smith/commit/3937a9c68cbc7d8b6c5ef6c46802f01b781230b6))
+
 ## [0.46.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.45.2...v0.46.0) (2026-05-12)
 
 
