@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
@@ -7,8 +8,11 @@ namespace AgentSmith.Application.Services.Builders;
 /// <summary>
 /// Resolves a SandboxSpec from ProjectConfig + ProjectMap. Convention-driven:
 /// language → toolchain image. Per-project overrides via SandboxConfig win.
+/// Resources resolved through <see cref="ISandboxResourceResolver"/> so the
+/// resulting <see cref="SandboxSpec.Resources"/> always reflects the operator's
+/// per-project override or the global <c>Sandbox</c> options defaults.
 /// </summary>
-public sealed class SandboxSpecBuilder
+public sealed class SandboxSpecBuilder(ISandboxResourceResolver resourceResolver)
 {
     // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
     // canonical: csharp / node / typescript / python / go / rust) AND the
@@ -50,7 +54,8 @@ public sealed class SandboxSpecBuilder
     public SandboxSpec Build(ProjectConfig projectConfig, string? language)
     {
         var image = ResolveImage(projectConfig, language);
-        return new SandboxSpec(ToolchainImage: image);
+        var resources = resourceResolver.Resolve(projectConfig);
+        return new SandboxSpec(ToolchainImage: image, Resources: resources);
     }
 
     // Generic fallback when no language-specific image can be resolved.

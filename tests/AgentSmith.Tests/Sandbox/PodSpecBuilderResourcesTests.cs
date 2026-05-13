@@ -17,6 +17,7 @@ public sealed class PodSpecBuilderResourcesTests
 
     private static readonly SandboxSpec MinimalSpec = new(
         ToolchainImage: "debian:bookworm",
+        Resources: ResourceLimits.Default,
         AgentImage: "agent-smith-sandbox-agent:latest");
 
     [Fact]
@@ -46,13 +47,20 @@ public sealed class PodSpecBuilderResourcesTests
     }
 
     [Fact]
-    public void Build_ToolchainContainer_StillHasResourceLimits()
+    public void Build_ToolchainContainer_PopulatesBothRequestsAndLimits()
     {
-        // Regression-protect the existing toolchain limits when refactoring.
-        var pod = Builder.Build("p", "j", "redis:6379", MinimalSpec, owner: null);
+        // CPU values stay sub-core so K8s' ResourceQuantity round-trip
+        // does not normalise them (e.g. "2000m" canonicalises to "2").
+        var spec = new SandboxSpec(
+            ToolchainImage: "node:20",
+            Resources: new ResourceLimits("250m", "750m", "768Mi", "3Gi"),
+            AgentImage: "agent:1");
+        var pod = Builder.Build("p", "j", "redis:6379", spec, owner: null);
 
         var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
-        toolchain.Resources.Limits.Should().ContainKey("cpu");
-        toolchain.Resources.Limits.Should().ContainKey("memory");
+        toolchain.Resources.Requests["cpu"].ToString().Should().Be("250m");
+        toolchain.Resources.Requests["memory"].ToString().Should().Be("768Mi");
+        toolchain.Resources.Limits["cpu"].ToString().Should().Be("750m");
+        toolchain.Resources.Limits["memory"].ToString().Should().Be("3Gi");
     }
 }
