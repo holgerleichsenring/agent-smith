@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0136
+goal: "Make sandbox container CPU + memory resources configurable globally and per-project via agentsmith.yml; adopt IOptions<T> for spawning-related options as the first project-wide IOptions touchpoint."
+
+requires: ["p0135"]
+
+decisions:
+  - key: "Target the Sandbox path (ISandboxFactory / PodSpecBuilder / DockerContainerSpecBuilder) only — not the legacy IJobSpawner / KubernetesJobSpawner CLI-image path. Reason: the CLI-image spawn path is dev-tool-only; production spawns toolchain containers via ISandboxFactory (p0135). Configurability work on a path being phased out is wasted; the JobSpawner path stays at its current hardcoded values until it is removed or repurposed. -- alternatives: configure both paths in parallel (rejected: doubles surface area for a path that is going away); configure only KubernetesJobSpawner (rejected: opposite of the target architecture, the wrong file to touch)."
+
+  - key: "Resource override location: projects.<name>.sandbox.resources in agentsmith.yml. Reason: SandboxConfig already exists under projects.<name>.sandbox with ToolchainImage; resources are semantically a peer concern (override behavior of the same container) and live where operators already look for sandbox tuning. Keeps Sandbox-related operator knobs in one block. -- alternatives: projects.<name>.resources top-level (rejected: implies scope beyond the sandbox container, e.g. the server pod itself, which it does not cover); projects.<name>.runtime.resources (rejected: introduces a 'runtime' block with only one inhabitant — premature grouping)."
+
+  - key: "Expand ResourceLimits from (Memory, CpuCores) to four explicit Kubernetes quantities: CpuRequest / CpuLimit / MemoryRequest / MemoryLimit. Reason: today's record collapses requests + limits and uses a double for CPU + a single string for memory, which forces PodSpecBuilder to set Limits only — meaning the toolchain pod gets QoS BestEffort for requests and any namespace with a ResourceQuota that mandates requests rejects pod creation. Explicit Burstable/Guaranteed control is required for the Rhenus-style locked-down namespaces this codebase deploys to. -- alternatives: keep ResourceLimits and infer requests = limits in PodSpecBuilder (rejected: collapses Burstable QoS, removes operator control over headroom); add a parallel ResourceRequests record (rejected: callers carry two records, easy to drift)."
+
+  - key: "Adopt IOptions<T> as the binding mechanism in this phase (first IOptions touchpoint in Server). Reason: the existing AddJobSpawnerOptions reads each env-var manually with ?? fallbacks — it does not bind appsettings.json, does not validate, and re-implements what the configuration system already does. IOptions<T> via services.Configure<T>(config.GetSection(...)) gives appsettings + Env (with the standard JobSpawner__CpuLimit convention) + CLI binding for free, plus IValidateOptions<T> hooks. Sets the precedent for future Options classes in Server. -- alternatives: keep the manual env-var pattern for consistency with the existing codebase (rejected: consistency with a worse pattern is not a virtue; the user explicitly raised this); convert every Options POCO in Server first (rejected: scope creep — touches RedisOptions, SlackOptions etc. that are not part of this concern)."
+
+  - key: "Two Options classes, not one: SandboxOptions (new, for global sandbox defaults) and JobSpawnerOptions (existing, converted in-place to IOptions<T>). Reason: SandboxOptions belongs to the Sandbox path that this phase actually configures; JobSpawnerOptions belongs to the legacy path that this phase does not behaviour-change. Converting JobSpawnerOptions to IOptions<T> is a pattern-cleanup that ships under the same umbrella but is documented as a no-functional-change conversion. -- alternatives: merge both into one Options class (rejected: bundles two different concerns and forces every caller to depend on both); skip the JobSpawnerOptions conversion (rejected: leaves the codebase with two competing Options patterns — the cleanup is cheap given the conversion is already underway here)."
+
+  - key: "Per-project resolution returns a fully-populated SandboxResources, never partial overrides. Reason: an operator setting only memory_limit and leaving cpu_limit unset is ambiguous (do we inherit global cpu_limit, or fall back to the type default?). Forcing the resolver to materialise all four fields makes the spawn-time value predictable: per-project block fully overrides → otherwise global SandboxOptions defaults apply → otherwise hardcoded fallback. Easier to debug and matches how PodSpecBuilder consumes them today. -- alternatives: per-field override-with-fallback (rejected: each field independently inherits, producing combinations operators don't expect); reject partial blocks at config load (rejected: harsher than needed — global defaults make 'partial' a non-problem if we just don't allow partial)."
+
+  - key: "SandboxSpec.Resources stays as the Sandbox-side carrier — it already exists, PodSpecBuilder + DockerContainerSpecBuilder already read from it. The resolver populates SandboxSpec.Resources in SandboxSpecBuilder.Build; downstream container-spec builders do not need to learn about SandboxOptions or per-project config. -- alternatives: pass IOptions<SandboxOptions> into PodSpecBuilder (rejected: pushes config concerns into the wire-format builder, breaks single-responsibility — the builder produces K8s YAML, it should not resolve operator preference)."
+
+steps:
+  - id: contracts-resource-limits
+    action: "Expand ResourceLimits to explicit request + limit quantities for cpu and memory"
+    modify:
+      - "ResourceLimits: replace (string Memory, double CpuCores) with (string CpuRequest, string CpuLimit, string MemoryRequest, string MemoryLimit) — all Kubernetes-quantity strings (e.g. '250m', '512Mi'); add static Default with safe values matching today's effective behavior (CpuRequest='250m', CpuLimit='1000m', MemoryRequest='512Mi', MemoryLimit='2Gi')"
+    path: "src/AgentSmith.Contracts/Sandbox"
+
+  - id: contracts-sandbox-config
+    action: "Add per-project Resources override to SandboxConfig"
+    modify:
+      - "SandboxConfig: add public ResourceLimits? Resources { get; set; } with XML doc noting global SandboxOptions defaults apply when null"
+    path: "src/AgentSmith.Contracts/Models/Configuration"
+
+  - id: options-sandbox
+    action: "Introduce SandboxOptions as the global default carrier, bound via IOptions<T>"
+    new:
+      - "SandboxOptions: { CpuRequest:string, CpuLimit:string, MemoryRequest:string, MemoryLimit:string } — defaults mirror ResourceLimits.Default; XML doc notes per-project SandboxConfig.Resources overrides these"
+    path: "src/AgentSmith.Server/Configuration"
+
+  - id: options-jobspawner-conversion
+    action: "Convert JobSpawnerOptions registration to services.Configure<JobSpawnerOptions> and rewrite consumers to take IOptions<JobSpawnerOptions>"
+    modify:
+      - "ServiceCollectionExtensions.AddJobSpawnerOptions: replace AddSingleton(new JobSpawnerOptions{...}) with services.Configure<JobSpawnerOptions>(opts => { ... }) using IConfiguration binding from section 'JobSpawner' as the primary source and the existing env-var fallbacks as defaults for unset keys; remove the manual ParseInt helper in favor of bound int property"
+      - "KubernetesJobSpawner ctor: change JobSpawnerOptions options → IOptions<JobSpawnerOptions> options, access via options.Value"
+      - "DockerJobSpawner ctor: same conversion"
+      - "DockerNetworkResolver ctor: same conversion"
+      - "JobSpawnerSetup: pass IOptions<JobSpawnerOptions> where it currently builds JobSpawnerOptions"
+      - "ServerDiLifetimeTests: update fixture wiring to register IOptions<JobSpawnerOptions> instead of the bare POCO"
+
+  - id: options-binding-config
+    action: "Wire SandboxOptions to IConfiguration in Program.cs / ServiceCollectionExtensions"
+    modify:
+      - "ServiceCollectionExtensions: new AddSandboxOptions extension that calls services.Configure<SandboxOptions>(configuration.GetSection('Sandbox'))"
+      - "Program.cs: invoke AddSandboxOptions(builder.Configuration) alongside AddJobSpawnerOptions"
+
+  - id: resolver
+    action: "Add SandboxResourceResolver that materialises ResourceLimits from per-project override or global defaults"
+    new:
+      - "ISandboxResourceResolver: ResourceLimits Resolve(ProjectConfig projectConfig)"
+      - "SandboxResourceResolver: ctor takes IOptions<SandboxOptions>; Resolve returns projectConfig.Sandbox?.Resources ?? new ResourceLimits(opts.CpuRequest, opts.CpuLimit, opts.MemoryRequest, opts.MemoryLimit)"
+    modify:
+      - "ServiceCollectionExtensions: register ISandboxResourceResolver as singleton"
+    path: "src/AgentSmith.Application/Services/Sandbox"
+
+  - id: builder-wiring
+    action: "SandboxSpecBuilder populates SandboxSpec.Resources via the resolver instead of leaving it default"
+    modify:
+      - "SandboxSpecBuilder ctor: inject ISandboxResourceResolver"
+      - "SandboxSpecBuilder.Build(ProjectConfig, string?): pass resolver.Resolve(projectConfig) to SandboxSpec.Resources"
+      - "SandboxSpec: ensure Resources is a required ctor argument (not optional with null-coalescing default) so the resolver becomes load-bearing — no path that bypasses it"
+      - "PodSpecBuilder.BuildToolchainContainer: set both Requests (cpu+memory from ResourceLimits.CpuRequest/MemoryRequest) AND Limits (cpu+memory from ResourceLimits.CpuLimit/MemoryLimit) on the toolchain V1ResourceRequirements; the loader InitContainer's hardcoded limits stay (per p0135 follow-up rationale, those track loader-extract behavior and are not operator-tunable)"
+      - "DockerContainerSpecBuilder: apply the same mapping to Docker's HostConfig Memory/MemoryReservation/NanoCpus/CpuQuota so the limit surface is symmetric across spawners"
+
+  - id: example-config
+    action: "Document the new keys in agentsmith.example.yml"
+    modify:
+      - "config/agentsmith.example.yml: under projects.my-project add a commented-out 'sandbox: { resources: { cpu_request: 250m, cpu_limit: 1000m, memory_request: 512Mi, memory_limit: 2Gi } }' block; add a top-level commented 'Sandbox: { CpuRequest: ..., CpuLimit: ..., MemoryRequest: ..., MemoryLimit: ... }' section in the appsettings hint OR a sample 'sandbox_defaults:' note pointing to ASPNETCORE config binding"
+
+  - id: deployment-example
+    action: "Update the Rhenus k8s-management deployment with example resource env-vars + IOptions config keys"
+    modify:
+      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: add commented env-var examples for Sandbox__CpuRequest / Sandbox__CpuLimit / Sandbox__MemoryRequest / Sandbox__MemoryLimit using the IOptions binding convention; not enabled by default — operators uncomment to override global"
+
+  - id: tests-resolver
+    action: "Unit-test SandboxResourceResolver across project-override, global-default, and missing-options paths"
+    new:
+      - "SandboxResourceResolverTests.Resolve_ProjectHasResourceBlock_ReturnsProjectResources"
+      - "SandboxResourceResolverTests.Resolve_ProjectSandboxNullResourcesNull_ReturnsGlobalDefaults"
+      - "SandboxResourceResolverTests.Resolve_ProjectSandboxNull_ReturnsGlobalDefaults"
+
+  - id: tests-builder
+    action: "Update SandboxSpecBuilder + PodSpecBuilder tests for the new Resources flow"
+    modify:
+      - "SandboxSpecBuilderTests: assert Build sets Resources from the injected resolver"
+      - "PodSpecBuilderResourcesTests: replace the existing assertions on loader requests with new assertions that the toolchain container has BOTH Requests and Limits populated from the ResourceLimits passed in"
+
+  - id: tests-options
+    action: "Bind-test JobSpawnerOptions and SandboxOptions via a configuration root"
+    new:
+      - "JobSpawnerOptionsBindingTests.Configure_WithJobSpawnerSection_BindsAllProperties"
+      - "JobSpawnerOptionsBindingTests.Configure_WithEnvironmentVariables_BindsWithDoubleUnderscoreConvention"
+      - "SandboxOptionsBindingTests.Configure_WithSandboxSection_BindsAllResourceQuantities"
+
+  - id: tests-yaml-config
+    action: "ProjectConfig YAML deserialization picks up the new sandbox.resources block"
+    new:
+      - "ProjectConfigYamlTests.LoadConfig_SandboxResourcesPresent_PopulatesResourceLimitsRecord"
+      - "ProjectConfigYamlTests.LoadConfig_SandboxResourcesAbsent_LeavesResourcesNull"
+
+tests:
+  - "SandboxResourceResolver_ProjectHasResourceBlock_ReturnsProjectResources"
+  - "SandboxResourceResolver_ProjectSandboxResourcesNull_ReturnsGlobalDefaults"
+  - "SandboxResourceResolver_ProjectSandboxNull_ReturnsGlobalDefaults"
+  - "SandboxSpecBuilder_Build_SetsResourcesFromResolver"
+  - "PodSpecBuilder_BuildToolchainContainer_PopulatesBothRequestsAndLimits"
+  - "JobSpawnerOptionsBinding_AppsettingsSection_BindsAllProperties"
+  - "JobSpawnerOptionsBinding_EnvironmentVariables_BindsWithDoubleUnderscoreConvention"
+  - "SandboxOptionsBinding_AppsettingsSection_BindsAllResourceQuantities"
+  - "ProjectConfigYaml_SandboxResourcesPresent_PopulatesResourceLimitsRecord"
+  - "ProjectConfigYaml_SandboxResourcesAbsent_LeavesResourcesNull"
+
+done:
+  - "ResourceLimits has four explicit Kubernetes-quantity fields (CpuRequest, CpuLimit, MemoryRequest, MemoryLimit); old (Memory, CpuCores) shape is removed"
+  - "SandboxConfig.Resources accepts per-project ResourceLimits from agentsmith.yml under projects.<name>.sandbox.resources"
+  - "SandboxOptions exists and is bound via IOptions<T> from configuration section 'Sandbox' (appsettings + env-vars with __ convention both work)"
+  - "JobSpawnerOptions is consumed via IOptions<JobSpawnerOptions> in KubernetesJobSpawner, DockerJobSpawner, DockerNetworkResolver — no direct POCO injection of the class remains"
+  - "SandboxResourceResolver resolves per-project override → global SandboxOptions defaults; SandboxSpecBuilder uses it to populate SandboxSpec.Resources on every spawn"
+  - "PodSpecBuilder sets BOTH Requests and Limits on the toolchain container; the agent-loader InitContainer remains hardcoded per p0135-followup rationale"
+  - "DockerContainerSpecBuilder maps the same four quantities onto Docker HostConfig limits"
+  - "config/agentsmith.example.yml documents the projects.<name>.sandbox.resources block"
+  - "All new tests pass; existing PodSpecBuilderResourcesTests + SandboxSpecBuilderTests + ServerDiLifetimeTests updated and green"
+  - "Behavior is backwards-compatible: a project with no sandbox.resources block and no Sandbox config section gets ResourceLimits.Default — which matches today's effective limits (no operator-visible change without opt-in)"

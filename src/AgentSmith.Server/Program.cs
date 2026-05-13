@@ -52,6 +52,7 @@ builder.Services
     .AddCoreDispatcherServices()
     .AddServerCompositionOverrides()
     .AddSandbox()
+    .AddSandboxOptions(builder.Configuration)
     .AddSlackAdapter()
     .AddTeamsAdapter()
     .AddIntentHandlers()
@@ -59,6 +60,7 @@ builder.Services
     .AddLongRunningServices();
 
 await builder.Services.AddJobSpawnerAsync(
+    builder.Configuration,
     LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
 
 var app = builder.Build();

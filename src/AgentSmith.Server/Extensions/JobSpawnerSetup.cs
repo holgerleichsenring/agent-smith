@@ -4,6 +4,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
 using Docker.DotNet;
 using k8s;
+using Microsoft.Extensions.Configuration;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -11,6 +12,7 @@ internal static class JobSpawnerSetup
 {
     internal static async Task AddJobSpawnerAsync(
         this IServiceCollection services,
+        IConfiguration configuration,
         ILogger logger)
     {
         var spawnerType = (Environment.GetEnvironmentVariable("SPAWNER_TYPE") ?? DispatcherDefaults.SpawnerType)
@@ -18,7 +20,7 @@ internal static class JobSpawnerSetup
 
         logger.LogInformation("Spawner type: {SpawnerType}", spawnerType);
 
-        services.AddJobSpawnerOptions();
+        services.AddJobSpawnerOptions(configuration);
 
         if (spawnerType == DispatcherDefaults.SpawnerTypeDocker)
             await services.AddDockerSpawnerAsync(logger);
