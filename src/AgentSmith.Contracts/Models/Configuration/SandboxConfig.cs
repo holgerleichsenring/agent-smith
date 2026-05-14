@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Sandbox;
+
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
@@ -18,4 +20,13 @@ public sealed class SandboxConfig
     /// pick the matching public image.
     /// </summary>
     public string? ToolchainImage { get; set; }
+
+    /// <summary>
+    /// Per-project CPU + memory request/limit override. When null, the global
+    /// SandboxOptions section (appsettings / env-vars under section "Sandbox")
+    /// applies; when SandboxOptions itself is unset, <see cref="ResourceLimits.Default"/>
+    /// is used. Block is all-or-nothing: partial overrides (e.g. memory_limit
+    /// without cpu_limit) are not supported — pick one resolution layer.
+    /// </summary>
+    public ResourceLimits? Resources { get; set; }
 }

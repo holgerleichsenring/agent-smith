@@ -20,6 +20,7 @@ using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Hosting;
 using AgentSmith.Server.Services.Webhooks;
+using Microsoft.Extensions.Configuration;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
@@ -197,17 +198,27 @@ internal static class ServiceCollectionExtensions
         return services;
     }
 
-    internal static IServiceCollection AddJobSpawnerOptions(this IServiceCollection services)
+    /// <summary>
+    /// Registers <see cref="JobSpawnerOptions"/> via the IOptions&lt;T&gt; pattern.
+    /// Layered binding: legacy operator env-vars (K8S_NAMESPACE, AGENTSMITH_IMAGE,
+    /// IMAGE_PULL_POLICY, K8S_SECRET_NAME, DOCKER_NETWORK) are applied first as
+    /// defaults; the "JobSpawner" configuration section (appsettings.json or
+    /// JobSpawner__&lt;Key&gt; env-vars) overrides any value it sets. The combined
+    /// chain stays backwards-compatible with existing K8s deployments that wire
+    /// the legacy env-var names.
+    /// </summary>
+    internal static IServiceCollection AddJobSpawnerOptions(
+        this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton(new JobSpawnerOptions
+        services.Configure<JobSpawnerOptions>(opts =>
         {
-            Namespace = Environment.GetEnvironmentVariable("K8S_NAMESPACE") ?? DispatcherDefaults.K8sNamespace,
-            Image = Environment.GetEnvironmentVariable("AGENTSMITH_IMAGE") ?? DispatcherDefaults.AgentImage,
-            ImagePullPolicy = Environment.GetEnvironmentVariable("IMAGE_PULL_POLICY") ?? DispatcherDefaults.ImagePullPolicy,
-            SecretName = Environment.GetEnvironmentVariable("K8S_SECRET_NAME") ?? DispatcherDefaults.K8sSecretName,
-            TtlSecondsAfterFinished = 300,
-            DockerNetwork = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? string.Empty,
+            opts.Namespace = Environment.GetEnvironmentVariable("K8S_NAMESPACE") ?? DispatcherDefaults.K8sNamespace;
+            opts.Image = Environment.GetEnvironmentVariable("AGENTSMITH_IMAGE") ?? DispatcherDefaults.AgentImage;
+            opts.ImagePullPolicy = Environment.GetEnvironmentVariable("IMAGE_PULL_POLICY") ?? DispatcherDefaults.ImagePullPolicy;
+            opts.SecretName = Environment.GetEnvironmentVariable("K8S_SECRET_NAME") ?? DispatcherDefaults.K8sSecretName;
+            opts.DockerNetwork = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? string.Empty;
         });
+        services.Configure<JobSpawnerOptions>(configuration.GetSection("JobSpawner"));
         return services;
     }
 }

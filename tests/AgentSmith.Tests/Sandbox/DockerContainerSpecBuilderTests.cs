@@ -24,7 +24,7 @@ public sealed class DockerContainerSpecBuilderTests
         var spec = _builder.BuildToolchain(
             "tc-1", "shared-vol-1", "work-vol-1", "job-abc",
             "redis:6379",
-            new SandboxSpec(ToolchainImage: "node:20", AgentImage: "agent:1"));
+            new SandboxSpec(ToolchainImage: "node:20", Resources: ResourceLimits.Default, AgentImage: "agent:1"));
 
         spec.Image.Should().Be("node:20");
         spec.WorkingDir.Should().Be("/work");
@@ -38,7 +38,7 @@ public sealed class DockerContainerSpecBuilderTests
     {
         var spec = _builder.BuildToolchain(
             "tc-1", "s", "w", "job-abc", "redis:6379",
-            new SandboxSpec("img", "ai"));
+            new SandboxSpec("img", ResourceLimits.Default, "ai"));
 
         spec.Cmd.Should().BeEquivalentTo("/shared/agent", "--redis-url", "redis:6379", "--job-id", "job-abc");
         spec.Env.Should().Contain("JOB_ID=job-abc");
@@ -50,22 +50,35 @@ public sealed class DockerContainerSpecBuilderTests
     [InlineData("512Mi", 512L * 1024 * 1024)]
     [InlineData("1G", 1_000_000_000L)]
     [InlineData("256M", 256_000_000L)]
-    public void BuildToolchain_ParsesMemory_ToBytes(string memoryString, long expectedBytes)
+    public void BuildToolchain_ParsesMemoryLimit_ToBytes(string memoryString, long expectedBytes)
     {
         var spec = _builder.BuildToolchain(
             "tc-1", "s", "w", "job", "redis",
-            new SandboxSpec("img", "ai", Resources: new ResourceLimits(Memory: memoryString)));
+            new SandboxSpec("img", new ResourceLimits("250m", "1000m", "256Mi", memoryString), "ai"));
 
         spec.HostConfig.Memory.Should().Be(expectedBytes);
     }
 
-    [Fact]
-    public void BuildToolchain_ConvertsCpuCoresToNanoCpus()
+    [Theory]
+    [InlineData("500m", 500_000_000L)]
+    [InlineData("2", 2_000_000_000L)]
+    [InlineData("1.5", 1_500_000_000L)]
+    public void BuildToolchain_ParsesCpuLimit_ToNanoCpus(string cpuString, long expectedNanoCpus)
     {
         var spec = _builder.BuildToolchain(
             "tc-1", "s", "w", "job", "redis",
-            new SandboxSpec("img", "ai", Resources: new ResourceLimits(CpuCores: 1.5)));
+            new SandboxSpec("img", new ResourceLimits("100m", cpuString, "256Mi", "2Gi"), "ai"));
 
-        spec.HostConfig.NanoCPUs.Should().Be(1_500_000_000L);
+        spec.HostConfig.NanoCPUs.Should().Be(expectedNanoCpus);
+    }
+
+    [Fact]
+    public void BuildToolchain_MapsMemoryRequest_ToMemoryReservation()
+    {
+        var spec = _builder.BuildToolchain(
+            "tc-1", "s", "w", "job", "redis",
+            new SandboxSpec("img", new ResourceLimits("250m", "1000m", "768Mi", "2Gi"), "ai"));
+
+        spec.HostConfig.MemoryReservation.Should().Be(768L * 1024 * 1024);
     }
 }

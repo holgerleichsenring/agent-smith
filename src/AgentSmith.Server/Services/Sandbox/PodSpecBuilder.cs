@@ -71,32 +71,39 @@ public sealed class PodSpecBuilder
         }
     };
 
-    private static V1Container BuildToolchainContainer(SandboxSpec spec, string jobId, string redisUrl)
+    private static V1Container BuildToolchainContainer(SandboxSpec spec, string jobId, string redisUrl) => new()
     {
-        var resources = spec.Resources ?? new ResourceLimits();
-        return new V1Container
+        Name = "toolchain",
+        Image = spec.ToolchainImage,
+        Command = [$"{SharedMount}/agent"],
+        Args = ["--redis-url", redisUrl, "--job-id", jobId],
+        Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef),
+        VolumeMounts =
+        [
+            new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
+            new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount }
+        ],
+        WorkingDir = WorkMount,
+        Resources = BuildToolchainResources(spec.Resources)
+    };
+
+    // Both Requests and Limits are emitted: Requests so the pod survives namespaces
+    // with a ResourceQuota that mandates limits.cpu + requests.cpu + memory variants,
+    // Limits so the toolchain container has a hard CFS/OOM cap. Quantities are passed
+    // through to Kubernetes verbatim from <see cref="ResourceLimits"/>.
+    private static V1ResourceRequirements BuildToolchainResources(ResourceLimits resources) => new()
+    {
+        Requests = new Dictionary<string, ResourceQuantity>
         {
-            Name = "toolchain",
-            Image = spec.ToolchainImage,
-            Command = [$"{SharedMount}/agent"],
-            Args = ["--redis-url", redisUrl, "--job-id", jobId],
-            Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef),
-            VolumeMounts =
-            [
-                new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
-                new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount }
-            ],
-            WorkingDir = WorkMount,
-            Resources = new V1ResourceRequirements
-            {
-                Limits = new Dictionary<string, ResourceQuantity>
-                {
-                    ["cpu"] = new(resources.CpuCores.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)),
-                    ["memory"] = new(resources.Memory)
-                }
-            }
-        };
-    }
+            ["cpu"] = new(resources.CpuRequest),
+            ["memory"] = new(resources.MemoryRequest)
+        },
+        Limits = new Dictionary<string, ResourceQuantity>
+        {
+            ["cpu"] = new(resources.CpuLimit),
+            ["memory"] = new(resources.MemoryLimit)
+        }
+    };
 
     private static List<V1EnvVar> BuildEnv(string jobId, string redisUrl, SecretRef? gitToken)
     {

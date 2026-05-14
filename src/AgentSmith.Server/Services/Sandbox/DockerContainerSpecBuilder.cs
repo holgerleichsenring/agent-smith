@@ -49,7 +49,7 @@ public sealed class DockerContainerSpecBuilder
 
     private static HostConfig BuildHostConfig(string sharedVolume, string workVolume, SandboxSpec spec)
     {
-        var resources = spec.Resources ?? new ResourceLimits();
+        var r = spec.Resources;
         return new HostConfig
         {
             AutoRemove = false,
@@ -58,12 +58,28 @@ public sealed class DockerContainerSpecBuilder
                 $"{sharedVolume}:{SharedMount}:ro",
                 $"{workVolume}:{WorkMount}"
             ],
-            NanoCPUs = (long)(resources.CpuCores * 1_000_000_000L),
-            Memory = ParseMemory(resources.Memory)
+            NanoCPUs = ParseCpuToNanoCpus(r.CpuLimit),
+            Memory = ParseMemoryToBytes(r.MemoryLimit),
+            MemoryReservation = ParseMemoryToBytes(r.MemoryRequest)
         };
     }
 
-    private static long ParseMemory(string raw)
+    // Kubernetes CPU quantities: bare number = cores (e.g. "2" = 2 cores),
+    // "m" suffix = millicores (e.g. "500m" = 0.5 cores). Docker NanoCpus = 1e9 per core.
+    private static long ParseCpuToNanoCpus(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return 0;
+        var trimmed = raw.Trim();
+        if (trimmed.EndsWith("m", StringComparison.Ordinal))
+        {
+            return long.TryParse(trimmed[..^1], out var milli)
+                ? milli * 1_000_000L : 0;
+        }
+        return double.TryParse(trimmed, System.Globalization.CultureInfo.InvariantCulture, out var cores)
+            ? (long)(cores * 1_000_000_000L) : 0;
+    }
+
+    private static long ParseMemoryToBytes(string raw)
     {
         if (string.IsNullOrEmpty(raw)) return 0;
         var trimmed = raw.Trim();
