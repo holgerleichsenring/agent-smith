@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.49.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.49.0...v0.49.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* give dispatcher user a real home directory in Server Dockerfile ([b1d2d02](https://github.com/holgerleichsenring/agent-smith/commit/b1d2d025ae3264bae1dc952cd80fd821454ff517))
+* give dispatcher user a real home directory in Server Dockerfile ([d411747](https://github.com/holgerleichsenring/agent-smith/commit/d4117471b1b66433937491c948973df11eff78c4))
+
 ## [0.49.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.48.1...v0.49.0) (2026-05-14)
 
 
