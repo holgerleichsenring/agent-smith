@@ -29,4 +29,19 @@ public sealed class SandboxConfig
     /// without cpu_limit) are not supported — pick one resolution layer.
     /// </summary>
     public ResourceLimits? Resources { get; set; }
+
+    /// <summary>
+    /// Per-project override of the sandbox agent's container registry
+    /// (e.g. <c>my-corp-mirror</c>). Null = inherit the top-level <c>sandbox.agent_registry</c>
+    /// from agentsmith.yml. Use this when a single project must pull the agent
+    /// image from a different registry than the rest of the deployment.
+    /// </summary>
+    public string? AgentRegistry { get; set; }
+
+    /// <summary>
+    /// Per-project override of the sandbox agent's image tag (e.g. <c>0.49.0-beta</c>).
+    /// Null = inherit the top-level <c>sandbox.agent_version</c> from agentsmith.yml.
+    /// Use this to pin a specific project to a different agent build (canary, rollback).
+    /// </summary>
+    public string? AgentVersion { get; set; }
 }
