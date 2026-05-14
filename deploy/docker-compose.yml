@@ -14,7 +14,9 @@ services:
     build:
       context: ..
       dockerfile: src/AgentSmith.Cli/Dockerfile
-    image: agentsmith-cli:latest
+    # p0137d: pinned via env-var with safe default — set AGENTSMITH_VERSION in .env
+    # to track your deployment's release. Falling back to :latest is non-reproducible.
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.48.0}
     restart: "no"
     env_file:
       - ../.env
@@ -37,7 +39,9 @@ services:
     build:
       context: ..
       dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
-    image: agent-smith-sandbox-agent:latest
+    # p0137d: pinned via env-var with safe default — operators bump this in
+    # lockstep with sandbox.agent_version in agentsmith.yml.
+    image: agent-smith-sandbox-agent:${AGENT_VERSION:-0.48.0}
     profiles: [build-only]
 
   redis:
@@ -70,7 +74,7 @@ services:
       - REDIS_URL=redis:6379
       - SPAWNER_TYPE=${SPAWNER_TYPE:-docker}
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:latest}
+      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:${AGENTSMITH_VERSION:-0.48.0}}
       - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
     ports:
       - "${SERVER_PORT:-8081}:8081"
