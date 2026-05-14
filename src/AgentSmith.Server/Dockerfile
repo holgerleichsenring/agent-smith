@@ -31,9 +31,14 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root user
+# Non-root user with a real home directory — DefaultPaths.ComputeCacheRoot
+# falls back to $HOME/.cache/agentsmith when XDG_CACHE_HOME is unset, and
+# AnalyzeProjectHandler.PersistCacheAsync writes the project-map cache there.
+# Without --create-home, /home/dispatcher exists in /etc/passwd but the
+# directory itself is missing and /home is root-owned — Directory.CreateDirectory
+# fails with "Access to the path '/home/dispatcher' is denied".
 RUN groupadd --gid 1000 dispatcher && \
-    useradd --uid 1000 --gid 1000 --no-create-home dispatcher
+    useradd --uid 1000 --gid 1000 --create-home dispatcher
 
 COPY --from=build /app/publish .
 
@@ -41,7 +46,7 @@ COPY --from=build /app/publish .
 # /app/config/agentsmith.yml via a K8s ConfigMap volume or a Docker bind-mount.
 # If the file is missing, Server fails fast at startup with a clear error.
 RUN mkdir -p /app/config /tmp/agentsmith && \
-    chown -R dispatcher:dispatcher /app/config /tmp/agentsmith
+    chown -R dispatcher:dispatcher /app/config /tmp/agentsmith /home/dispatcher
 
 USER dispatcher
 
