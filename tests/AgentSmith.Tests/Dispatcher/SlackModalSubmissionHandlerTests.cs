@@ -1,4 +1,7 @@
+using AgentSmith.Application.Services.Orchestrator;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
@@ -43,11 +46,28 @@ public sealed class SlackModalSubmissionHandlerTests
             messageRouter.Object,
             NullLogger<MessageBusListener>.Instance);
 
+        var orchestratorImageResolver = new Mock<IOrchestratorImageResolver>();
+        orchestratorImageResolver
+            .Setup(r => r.Resolve(It.IsAny<ProjectConfig>()))
+            .Returns("agentsmith-cli:test");
+        var orchestratorResourceResolver = new Mock<IOrchestratorResourceResolver>();
+        orchestratorResourceResolver
+            .Setup(r => r.Resolve(It.IsAny<ProjectConfig>()))
+            .Returns(ResourceLimits.Default);
+        _configLoader
+            .Setup(l => l.LoadConfig(It.IsAny<string>()))
+            .Returns(new AgentSmithConfig());
+        var serverContext = new ServerContext("/tmp/agentsmith.yml");
+
         var fixHandler = new FixTicketIntentHandler(
             _spawner.Object,
             _adapter.Object,
             stateManager,
             listener,
+            orchestratorImageResolver.Object,
+            orchestratorResourceResolver.Object,
+            _configLoader.Object,
+            serverContext,
             NullLogger<FixTicketIntentHandler>.Instance);
 
         var listHandler = new ListTicketsIntentHandler(
@@ -67,6 +87,10 @@ public sealed class SlackModalSubmissionHandlerTests
             _adapter.Object,
             stateManager,
             listener,
+            orchestratorImageResolver.Object,
+            orchestratorResourceResolver.Object,
+            _configLoader.Object,
+            serverContext,
             NullLogger<InitProjectIntentHandler>.Instance);
 
         _sut = new SlackModalSubmissionHandler(

@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0137d
+goal: "Move declarative configuration that is currently embedded in code or compose-files into appsettings.json + a docker-socket-proxy sidecar: log filters, JobSpawnerOptions env-var fallbacks, the server's user:root + bind-mounted /var/run/docker.sock, and the :latest tag defaults."
+
+requires: ["p0137a", "p0137b", "p0137c"]
+
+decisions:
+  - key: "Logging filters move from Program.cs into appsettings.json under the standard 'Logging:LogLevel' + 'Logging:Console' sections. Reason: filters embedded in C# code are operator-invisible — an operator who wants to enable Microsoft.AspNetCore.Hosting.Diagnostics at Information level cannot, without a rebuild. The standard config-based pattern is what tooling (Azure App Configuration, Helm values, K8s ConfigMaps) expects. The current Program.cs filters carry a long justification comment about per-category noise; that justification moves into appsettings.json comments AND a one-paragraph block in deploy/README.md or equivalent operator-facing doc. -- alternatives: keep filters in code with a 'config to override' escape hatch (rejected: code is the source of truth wherever it exists, so any appsettings override would not stick); split into a logging-config helper class (rejected: indirection for what is a YAML/JSON declaration)."
+
+  - key: "Server container loses user:root and the bind-mounted /var/run/docker.sock; a docker-socket-proxy sidecar (Tecnativa/docker-socket-proxy) exposes a least-privilege subset of the Docker API on a private network the server attaches to. Reason: user:root + docker.sock = host root via container, even at the proxy level the Docker API is power-equivalent to root on the host. A dedicated socket-proxy with explicit endpoint allow-listing (CONTAINERS=1, IMAGES=1, NETWORKS=1, VOLUMES=1; the rest off) reduces blast radius significantly while keeping DockerJobSpawner + DockerSandboxFactory working unchanged. The server container can then run as the agentsmith user as defined in its Dockerfile. -- alternatives: keep user:root + correct the misleading comment (rejected: addresses the comment but not the security posture); add the agentsmith user to a docker group whose GID matches the host socket owner (rejected: macOS hosts socket-owned by root:wheel — there is no portable GID match); use rootless Docker (rejected: out of scope, operator-environment-dependent, breaks Docker Desktop)."
+
+  - key: "Pinned image tags in deploy/docker-compose.yml replace ':latest' references. The agentsmith-cli image becomes ':${AGENTSMITH_VERSION:-0.47.0}', the sandbox-agent image becomes ':${AGENT_VERSION:-0.47.0}'. Reason: ':latest' is non-reproducible across container restarts — the same compose file at the same SHA could spawn two different binaries on two different days. The .env file (or shell environment) sets the canonical version; the default literal '0.47.0' acts as a fail-soft for fresh clones. -- alternatives: keep ':latest' (rejected: covered above); pin to a hash digest (rejected: too granular for compose-level operator ergonomics; that level belongs in K8s production manifests not the compose-up dev flow); read the version from a top-level VERSION file (rejected: introduces a sequencing step at compose-up time that the standard ${VAR:-default} substitution handles cleaner)."
+
+  - key: "Environment-variable fallbacks in ServiceCollectionExtensions.AddJobSpawnerOptions (K8S_NAMESPACE, AGENTSMITH_IMAGE, IMAGE_PULL_POLICY, K8S_SECRET_NAME, DOCKER_NETWORK at lines 215-219) are removed in favour of the standard IConfiguration binding (which already supports JobSpawner__Namespace, etc.). Reason: the dual binding (manual env-var read AS DEFAULT under the appsettings binding) was a p0136 transition concession; with IOptions binding live and stable, the dual path is now technical debt that confuses 'where does this value come from?'. K8s manifests + Helm charts get updated to use the JobSpawner__Namespace convention, which is the .NET-canonical mapping for IConfiguration. p0137a already deprecated AGENTSMITH_IMAGE specifically; this step retires the rest. -- alternatives: keep all fallbacks for backwards-compat (rejected: pure cruft once p0137a + this phase ship); retire them silently (rejected: operators with K8S_NAMESPACE set need notice — deprecation warning at startup, removal one release later)."
+
+  - key: "Operator-facing migration note is the deliverable, not a runtime shim. The retired env-var names emit a one-line ILogger.LogWarning at startup naming the replacement key (e.g. 'K8S_NAMESPACE is deprecated — use JobSpawner__Namespace; will be removed in the next release'). One release window of overlap, then a hard remove in a follow-on cleanup phase. -- alternatives: hard-remove now (rejected: operators with deployed manifests deserve one cycle of warning); soft-deprecate forever (rejected: defeats the cleanup, leaves the codebase with two binding paths indefinitely)."
+
+  - key: "docker-socket-proxy lives in the same docker-compose.yml as a profile-gated service (profiles: [spawner-docker]) — operators using SPAWNER_TYPE=kubernetes do not need it and skip its image pull. The server's DOCKER_HOST env-var points to tcp://docker-socket-proxy:2375 so DockerJobSpawner + DockerSandboxFactory resolve the proxy transparently via the existing ResolveDockerUri path. -- alternatives: ship the proxy as a separate compose file (rejected: two compose files for what is one local-dev story); make the proxy unconditional (rejected: penalises the K8s-only operator with an unused image pull)."
+
+steps:
+  - id: appsettings-logging
+    action: "Move Program.cs logging filters into appsettings.json + appsettings.Development.json"
+    modify:
+      - "Program.cs lines 13-33: delete the inline AddFilter / SetMinimumLevel block; keep AddConsole + the custom CompactConsoleFormatter registration (those are formatter wiring, not filter config)"
+      - "src/AgentSmith.Server/appsettings.json: add a 'Logging' section with LogLevel.Default=Information, LogLevel.Microsoft=Information, LogLevel.System=Information, LogLevel.System.Net.Http.HttpClient=Warning, LogLevel.Microsoft.AspNetCore.Hosting.Diagnostics=Warning, LogLevel.Microsoft.AspNetCore.Routing=Warning, LogLevel.Microsoft.AspNetCore.Mvc=Warning, LogLevel.Microsoft.AspNetCore.Server.Kestrel=Warning"
+      - "src/AgentSmith.Server/appsettings.Development.json: override LogLevel.Default=Debug (matches the Program.cs SetMinimumLevel ternary)"
+      - "src/AgentSmith.Server/appsettings.json: under 'Logging:Console:IncludeScopes' set true (matches the existing CompactConsoleFormatter wiring)"
+
+  - id: docker-socket-proxy
+    action: "Add docker-socket-proxy sidecar to deploy/docker-compose.yml and rewire the server"
+    modify:
+      - "deploy/docker-compose.yml: add a new service 'docker-socket-proxy' using image 'tecnativa/docker-socket-proxy:0.3.0' (pinned), with profile [spawner-docker], CONTAINERS=1 IMAGES=1 NETWORKS=1 VOLUMES=1 INFO=1 environment, the /var/run/docker.sock bind mount (read-only) lives ONLY on this service, port 2375 exposed only to the internal compose network"
+      - "deploy/docker-compose.yml server service: remove 'user: root' line and the misleading socket-access comment; remove the /var/run/docker.sock volume mount from the server; add 'environment: DOCKER_HOST=tcp://docker-socket-proxy:2375' under the conditional SPAWNER_TYPE=docker block (or unconditionally with a no-op note when SPAWNER_TYPE=kubernetes); add 'depends_on: docker-socket-proxy: condition: service_started' guarded by the spawner-docker profile"
+      - "src/AgentSmith.Server/Dockerfile: confirm the agentsmith user is created with a stable UID (e.g. 1000); container starts as that user once user:root is removed from compose"
+
+  - id: docker-host-fallback
+    action: "DockerJobSpawner + DockerSandboxFactory honour DOCKER_HOST consistently"
+    modify:
+      - "DockerJobSpawner.CreateDockerClient: already honours DOCKER_HOST first, then OS-default; no change required, but the path is now load-bearing for the proxy hop"
+      - "JobSpawnerSetup.ResolveDockerUri: same code path — verify (no functional change)"
+
+  - id: pin-image-tags
+    action: "Replace :latest with version-pinned tags in deploy/docker-compose.yml"
+    modify:
+      - "deploy/docker-compose.yml agentsmith service: 'image: agentsmith-cli:latest' → 'image: agentsmith-cli:${AGENTSMITH_VERSION:-0.47.0}'"
+      - "deploy/docker-compose.yml sandbox-agent service: 'image: agent-smith-sandbox-agent:latest' → 'image: agent-smith-sandbox-agent:${AGENT_VERSION:-0.47.0}'"
+      - "deploy/docker-compose.yml server service AGENTSMITH_IMAGE env: change '${AGENTSMITH_IMAGE:-agentsmith-cli:latest}' → '${AGENTSMITH_IMAGE:-agentsmith-cli:${AGENTSMITH_VERSION:-0.47.0}}' (preserve the explicit-override escape, default to the pinned form)"
+      - ".env.example: add documented AGENTSMITH_VERSION + AGENT_VERSION entries with the current release value and a comment instructing operators to update on every upgrade"
+
+  - id: env-var-fallback-removal
+    action: "Remove legacy env-var fallbacks in AddJobSpawnerOptions; emit deprecation warnings"
+    modify:
+      - "Server/Extensions/ServiceCollectionExtensions.cs AddJobSpawnerOptions lines 213-220: replace the manual env-var-as-default block with a no-op or with a deprecation logger that detects any of K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK being set, logs a single warning naming the new key (e.g. 'K8S_NAMESPACE is deprecated — use JobSpawner__Namespace'), and binds the value into JobSpawnerOptions as it would have"
+      - "AGENTSMITH_IMAGE handling: already covered by p0137a's deprecation; this phase keeps the warning, removes the manual default-assignment line (since JobSpawnerOptions.Image's empty default is now load-bearing per p0137a)"
+      - "Plan to delete these warnings in a follow-on phase (one release window of overlap)"
+
+  - id: k8s-deployment-update
+    action: "Acme k8s-management manifests use the new env-var convention"
+    modify:
+      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: replace K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK env-vars with their JobSpawner__* equivalents; keep the old names commented for one release as operator hint"
+
+  - id: docs
+    action: "Operator-facing migration note"
+    modify:
+      - "deploy/README.md (or equivalent): add a short 'Upgrade notes for this release' block listing the four retired env-vars, the new JobSpawner__* equivalents, the new docker-socket-proxy sidecar requirement for SPAWNER_TYPE=docker, and the AGENTSMITH_VERSION / AGENT_VERSION env-var pinning convention"
+
+  - id: tests-logging
+    action: "Verify logging filters bind from appsettings"
+    new:
+      - "ServerLoggingConfigTests.AppsettingsLoaded_LogLevelMicrosoft_BindsToInformation"
+      - "ServerLoggingConfigTests.AppsettingsLoaded_LogLevelHttpClient_BindsToWarning"
+      - "ServerLoggingConfigTests.AppsettingsDevelopmentOverride_LogLevelDefault_BindsToDebug"
+
+  - id: tests-env-deprecation
+    action: "Deprecation warning is emitted when legacy env-var is set"
+    new:
+      - "JobSpawnerOptionsDeprecationTests.K8sNamespaceEnvSet_BindsTheValue_AndEmitsDeprecationWarning"
+      - "JobSpawnerOptionsDeprecationTests.JobSpawnerNamespaceConfigSet_NoWarning_BindsTheValue"
+
+  - id: tests-compose-pin
+    action: "compose file contains no :latest tags"
+    new:
+      - "DeploymentArchitectureTests.DockerCompose_ContainsNoLatestTagReferences — text scan of deploy/docker-compose.yml asserts ':latest' is absent in image: lines"
+
+tests:
+  - "ServerLoggingConfig_AppsettingsLoaded_LogLevelMicrosoft_BindsToInformation"
+  - "ServerLoggingConfig_AppsettingsLoaded_LogLevelHttpClient_BindsToWarning"
+  - "ServerLoggingConfig_AppsettingsDevelopmentOverride_LogLevelDefault_BindsToDebug"
+  - "JobSpawnerOptionsDeprecation_K8sNamespaceEnvSet_BindsValueAndEmitsWarning"
+  - "JobSpawnerOptionsDeprecation_JobSpawnerNamespaceConfigSet_NoWarning_BindsValue"
+  - "DeploymentArchitecture_DockerCompose_ContainsNoLatestTagReferences"
+
+done:
+  - "Program.cs has no inline AddFilter / SetMinimumLevel calls; logging filters live entirely in appsettings.json + appsettings.Development.json"
+  - "deploy/docker-compose.yml server service runs as the agentsmith user (no user:root); /var/run/docker.sock is mounted only on the docker-socket-proxy sidecar"
+  - "docker-socket-proxy is profile-gated (spawner-docker) so SPAWNER_TYPE=kubernetes operators skip its image pull"
+  - "DOCKER_HOST=tcp://docker-socket-proxy:2375 routes DockerJobSpawner + DockerSandboxFactory through the proxy when SPAWNER_TYPE=docker; functional behavior matches today"
+  - "All :latest image references in deploy/docker-compose.yml are replaced with ${AGENTSMITH_VERSION:-X.Y.Z} / ${AGENT_VERSION:-X.Y.Z} substitution"
+  - ".env.example documents AGENTSMITH_VERSION + AGENT_VERSION as canonical pinning point"
+  - "Legacy env-vars K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK still bind their values, but emit a startup ILogger warning naming the JobSpawner__* replacement; one release window of overlap before removal in a follow-on phase"
+  - "Acme k8s-management manifests (config/aad-dev/agentsmith/backend/8-deployment-server.yaml) use the JobSpawner__* convention"
+  - "deploy/README.md operator-upgrade note covers all four changes: log filters in appsettings, socket-proxy sidecar, image-tag pinning, env-var rename"
+  - "All new tests pass; existing test suite green"

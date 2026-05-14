@@ -12,6 +12,7 @@ using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Pipeline;
+using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Pipeline;
@@ -321,6 +322,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
+        services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();

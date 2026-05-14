@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,7 @@ public sealed class DockerJobSpawner(
 
         var createParams = new CreateContainerParameters
         {
-            Name = containerName, Image = _options.Image,
+            Name = containerName, Image = request.OrchestratorImage,
             Cmd = BuildArgs(jobId, request), Env = BuildEnv(jobId, request),
             Labels = new Dictionary<string, string>
             {
@@ -46,8 +47,9 @@ public sealed class DockerJobSpawner(
             HostConfig = new HostConfig
             {
                 AutoRemove = true, NetworkMode = network,
-                Memory = 1 * 1024 * 1024 * 1024L, MemoryReservation = 512 * 1024 * 1024L,
-                NanoCPUs = 1_000_000_000L,
+                Memory = request.OrchestratorResources.MemoryLimitToBytes(),
+                MemoryReservation = request.OrchestratorResources.MemoryRequestToBytes(),
+                NanoCPUs = request.OrchestratorResources.CpuLimitToNanoCpus(),
             }
         };
 
@@ -59,7 +61,7 @@ public sealed class DockerJobSpawner(
         catch (DockerImageNotFoundException)
         {
             throw new InvalidOperationException(
-                $"Agent image '{_options.Image}' not found. Run: docker build -t {_options.Image} .");
+                $"Orchestrator image '{request.OrchestratorImage}' not found. Pull it or run: docker build -t {request.OrchestratorImage} .");
         }
 
         await client.Containers.StartContainerAsync(response.ID, new ContainerStartParameters(), cancellationToken);
