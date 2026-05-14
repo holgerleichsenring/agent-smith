@@ -160,7 +160,6 @@ internal static class ServiceCollectionExtensions
 
     internal static IServiceCollection AddTeamsAdapter(this IServiceCollection services)
     {
-        services.AddHttpClient();
         var options = new TeamsAdapterOptions
         {
             AppId = Environment.GetEnvironmentVariable("TEAMS_APP_ID") ?? string.Empty,
@@ -172,8 +171,13 @@ internal static class ServiceCollectionExtensions
         services.AddTransient<TeamsQuestionCardBuilder>();
         services.AddTransient<TeamsStatusCardBuilder>();
         services.AddTransient<TeamsCardBuilder>();
-        services.AddSingleton<BotFrameworkTokenProvider>();
-        services.AddSingleton<TeamsApiClient>();
+        // p0137b: typed HttpClients — IHttpClientFactory owns the handler pool.
+        // 30 s timeout matches the previous default and aligns with the rest of
+        // the platform-API call shape (Bot Framework + Teams). Service-URL is
+        // resolved dynamically per conversation in TeamsApiClient (Bot Framework's
+        // regional routing), so no BaseAddress is set here.
+        services.AddHttpClient<BotFrameworkTokenProvider>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient<TeamsApiClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<TeamsTypedQuestionTracker>();
         services.AddSingleton<TeamsAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
@@ -183,13 +187,18 @@ internal static class ServiceCollectionExtensions
 
     internal static IServiceCollection AddSlackAdapter(this IServiceCollection services)
     {
-        services.AddHttpClient();
         services.AddSingleton(new SlackAdapterOptions
         {
             BotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN") ?? string.Empty,
             SigningSecret = Environment.GetEnvironmentVariable("SLACK_SIGNING_SECRET") ?? string.Empty
         });
-        services.AddSingleton<SlackApiClient>();
+        // p0137b: typed HttpClient for Slack — IHttpClientFactory-managed handler pool,
+        // 30 s default timeout for slack.com/api/* calls.
+        services.AddHttpClient<SlackApiClient>(c =>
+        {
+            c.BaseAddress = new Uri("https://slack.com/api/");
+            c.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddTransient<SlackTypedQuestionBlockBuilder>();
         services.AddTransient<SlackMessageBlockBuilder>();
         services.AddTransient<SlackProgressFormatter>();
