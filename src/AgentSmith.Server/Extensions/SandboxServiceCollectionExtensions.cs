@@ -1,5 +1,7 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
@@ -7,6 +9,7 @@ using k8s;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
@@ -22,6 +25,23 @@ internal static class SandboxServiceCollectionExtensions
         this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<SandboxOptions>(configuration.GetSection("Sandbox"));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IOptions{TOptions}"/> of <see cref="SandboxGlobalConfig"/>
+    /// pulled from the loaded agentsmith.yml top-level <c>sandbox:</c> block.
+    /// Consumed by <see cref="AgentSmith.Application.Services.Sandbox.AgentImageResolver"/>
+    /// (and any future agentsmith.yml-driven sandbox setting).
+    /// </summary>
+    internal static IServiceCollection AddSandboxGlobalConfig(this IServiceCollection services)
+    {
+        services.AddSingleton<IOptions<SandboxGlobalConfig>>(sp =>
+        {
+            var loader = sp.GetRequiredService<IConfigurationLoader>();
+            var context = sp.GetRequiredService<ServerContext>();
+            return Options.Create(loader.LoadConfig(context.ConfigPath).Sandbox);
+        });
         return services;
     }
 
