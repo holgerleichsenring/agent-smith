@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.48.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.48.0...v0.48.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* configurable sandbox agent image (registry + version) via agents… ([d1d7c24](https://github.com/holgerleichsenring/agent-smith/commit/d1d7c247ec1bdbc4412bdc56545a9ef36b55ed4c))
+* configurable sandbox agent image (registry + version) via agentsmith.yml ([7b21acd](https://github.com/holgerleichsenring/agent-smith/commit/7b21acdb4e85dd1ef75d714bc8d75c90ae617b5b))
+
 ## [0.48.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.47.0...v0.48.0) (2026-05-14)
 
 
