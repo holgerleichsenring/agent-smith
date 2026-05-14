@@ -33,7 +33,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentSmithInfrastructure(this IServiceCollection services)
     {
         services.AddAgentSmithCore();
-        services.AddHttpClient();
+        // p0137b: AddHttpClient() is called once at the composition root (Server's
+        // Program.cs / CLI's ServiceProviderFactory). Per-feature extensions use
+        // AddHttpClient<T>() typed clients instead of the bare factory registration.
         services.AddSingleton<ITicketProviderFactory, TicketProviderFactory>();
         services.AddSingleton<TicketStatusTransitionerFactory>();
         services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
