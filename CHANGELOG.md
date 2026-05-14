@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.48.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.47.0...v0.48.0) (2026-05-14)
+
+
+### Features
+
+* configurable KubernetesJobSpawner resources + central env-var constants (p0136 follow-up) ([76e8b93](https://github.com/holgerleichsenring/agent-smith/commit/76e8b93e45b76b8fab2b76071e3cbeef8bf3c8f6))
+* p0136 per project sandbox resources ([2842b8b](https://github.com/holgerleichsenring/agent-smith/commit/2842b8b66a29d28266be608901c17325797993ea))
+* per-project sandbox container resources via IOptions (p0136) ([d03553e](https://github.com/holgerleichsenring/agent-smith/commit/d03553e3285c8b7ad74f82fa9be1625db20de4f1))
+
 ## [0.47.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.46.0...v0.47.0) (2026-05-13)
 
 
