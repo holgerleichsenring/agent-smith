@@ -62,7 +62,10 @@ public sealed class JobSpawnerOptionsBindingTests
         var bound = services.BuildServiceProvider().GetRequiredService<IOptions<JobSpawnerOptions>>().Value;
 
         bound.Namespace.Should().Be("default");
-        bound.Image.Should().Be("agentsmith-cli:latest");
+        // p0137a: Image default is empty — IOrchestratorImageResolver is the
+        // canonical resolution path. The legacy AGENTSMITH_IMAGE env-var still
+        // binds, but unset = empty here.
+        bound.Image.Should().BeEmpty();
         bound.ImagePullPolicy.Should().Be("IfNotPresent");
         bound.SecretName.Should().Be("agentsmith-secrets");
         bound.Resources.Should().Be(ResourceLimits.Default);

@@ -13,8 +13,17 @@ public sealed class JobSpawnerOptions
     /// <summary>Kubernetes namespace for spawned jobs. Only used by KubernetesJobSpawner.</summary>
     public string Namespace { get; set; } = "default";
 
-    /// <summary>Agent container image name.</summary>
-    public string Image { get; set; } = "agentsmith-cli:latest";
+    /// <summary>
+    /// Legacy orchestrator image override. Default empty — the canonical
+    /// resolution path runs through <c>IOrchestratorImageResolver</c> against
+    /// <see cref="OrchestratorGlobalConfig"/> / <see cref="OrchestratorConfig"/>
+    /// at intent-handling time. When this field is set (via the legacy
+    /// <c>AGENTSMITH_IMAGE</c> env-var or the <c>JobSpawner:Image</c>
+    /// configuration key) a deprecation warning is emitted at startup
+    /// directing operators to the orchestrator config block; this field
+    /// is otherwise unused.
+    /// </summary>
+    public string Image { get; set; } = string.Empty;
 
     /// <summary>Image pull policy. Use IfNotPresent locally, Always in prod.</summary>
     public string ImagePullPolicy { get; set; } = "IfNotPresent";
