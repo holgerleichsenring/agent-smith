@@ -1,0 +1,187 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0137a
+goal: "Bring IJobSpawner (orchestrator container spawn) to configuration parity with ISandboxFactory: per-project image registry/version override, IOptions-bound resources, fail-loud on missing version — mirror of the p0135/p0136 work on the sandbox path."
+
+requires: ["p0135", "p0136"]
+
+decisions:
+  - key: "Keep IJobSpawner as a separate abstraction from ISandboxFactory — do NOT merge. The two concerns are genuinely different: IJobSpawner spawns the orchestrator (the pipeline-runner container that hosts the .NET process running the pipeline), ISandboxFactory spawns the per-language sandbox (the toolchain container inside which agent skills run). Two levels of indirection, two failure domains, two cleanup lifecycles. Merging would conflate orchestrator-as-K8s-Job (BatchV1) with sandbox-as-Pod (CoreV1) and force one set of resources/secrets/restart-policy semantics onto both. -- alternatives: collapse both into one factory (rejected: bundles two cleanups, two image families, two RBAC profiles); replace IJobSpawner with in-process pipeline execution (rejected: server already spawns one job per ticket for isolation + per-ticket K8s resource accounting + crash containment — removing it is an architectural shift, not a refactor)."
+
+  - key: "Per-project orchestrator overrides go under projects.<name>.orchestrator.{registry,version,resources} in agentsmith.yml — peer block to projects.<name>.sandbox, not a child. Reason: the orchestrator is a distinct workload from the sandbox; an operator who pins a sandbox-agent version 0.49.0 may legitimately want the orchestrator at 0.48.0 (canary the agent without re-running every orchestrator path) or vice-versa. Conflating both under sandbox.* would force the operator to update them in lockstep. -- alternatives: reuse projects.<name>.sandbox.{agent_*,resources} for both (rejected: cross-cuts two workloads under one config key); add only resources but not version (rejected: half-symmetric, harder to explain); add a generic projects.<name>.images.* block (rejected: invents a new abstraction for two callers)."
+
+  - key: "Introduce IOrchestratorImageResolver as a peer to IAgentImageResolver, with identical resolution semantics (project override → global → fail-loud on missing version). Reuses the AgentImageResolver pattern verbatim — only the config source and image-name constant differ. Same DI lifetime (singleton). Same fail-mode (InvalidOperationException at resolve-time, well before SpawnAsync). -- alternatives: reuse IAgentImageResolver with a parameter for which image-name constant to use (rejected: leaks the orchestrator vs sandbox distinction into the resolver API for a one-line difference); resolve inline in the intent handlers (rejected: every handler would re-implement the override+global+fail chain — that is exactly what p0135's resolver pattern fixed for sandbox)."
+
+  - key: "Resolution happens in the intent handlers (FixTicketIntentHandler, InitProjectIntentHandler), NOT in the spawner. The spawners stay agnostic of ProjectConfig — they consume a fully-resolved image string + ResourceLimits from JobRequest. Reason: spawners do not have a ProjectConfig in scope (today they only have JobRequest); pushing config resolution down to them would force IConfigurationLoader as a spawner dependency, widen the test surface, and mix concerns. Handlers already resolve config to construct JobRequest — they are the natural resolve site. -- alternatives: spawner pulls ProjectConfig via JobRequest.Project (rejected: adds IConfigurationLoader to KubernetesJobSpawner + DockerJobSpawner + the in-cluster auth probe path); handler passes a callback to the spawner (rejected: overengineered)."
+
+  - key: "JobRequest gains OrchestratorImage + OrchestratorResources fields (required, not optional). Reason: the JobRequest record is the contract between the handler and the spawner; making the resolved values part of that contract makes the handler-must-resolve invariant load-bearing — no code path can construct a JobRequest that bypasses resolution. -- alternatives: optional fields with spawner-side fallback to JobSpawnerOptions defaults (rejected: re-introduces the asymmetry this phase exists to remove); a separate ResolvedJobRequest record (rejected: gratuitous type proliferation for two added fields)."
+
+  - key: "JobSpawnerOptions.Image loses its 'agentsmith-cli:latest' default; default is empty string and resolution fails loud when neither global nor per-project sets it. Same as SandboxGlobalConfig.AgentVersion did in p0136. Reason: a hardcoded :latest default mints implicit dependencies on whatever the operator's registry currently has tagged 'latest' — non-reproducible across restarts. -- alternatives: keep :latest with a deprecation warning (rejected: warnings are ignored, the next ErrImagePull is the actual feedback loop); pick a versioned default at build time via CI tag injection (rejected: build complexity for a value the operator should own)."
+
+  - key: "Orchestrator image-name constant lives in AgentImageDefaults.OrchestratorImageName, alongside the existing SandboxAgentImageName. The name 'agentsmith-cli' stays for the image itself (Docker registry namespace untouched) but the constant introduces the operator-facing word 'orchestrator' so logs + config docs stop conflating 'the CLI you run on your laptop' with 'the container the dispatcher spawns to run a pipeline'. Renaming the image itself is a separate ops-track concern, out of scope here. -- alternatives: rename the Docker image too (rejected: cascades into compose / CI / Helm / operator-internal docs — costs an order of magnitude more than this phase's scope); leave the constant named AgentImage (rejected: the word 'agent' already overloaded across sandbox-agent, CLI agent, orchestrator)."
+
+  - key: "Operators with existing AGENTSMITH_IMAGE / JobSpawner:Image config keep working unchanged — those bind to the global default tier, identical to p0136's backwards-compat story. Only operators who actively set agentsmith-cli:latest as the explicit value need to switch to a pinned tag at upgrade time; an operator who never set the variable and relied on the hardcoded default sees a fail-loud message with the exact config line to add. -- alternatives: stay backwards-compatible with a stealth default (rejected: defeats the fail-loud rationale); break compat unconditionally (rejected: gratuitous churn for operators already setting the value)."
+
+  - key: "Bundle the 'LoadSkillsCommand missing from FixBug / FixNoTest / AddFeature / MadDiscussion presets' regression fix into this phase rather than spinning a separate slip. Reason: the bug is the dual of the work this phase already does — p0137a closes the orchestrator-side configurability gap so the dispatcher spawns the right pipeline-runner; without skills loaded into the pipeline context, StructuredTriageStrategy (the chosen triage strategy for these presets since p0111c) bails at TriageCommand with 'No skills loaded — triage cannot assign roles'. Same failure domain (a green-startup orchestrator that crashes mid-pipeline), same review surface (pipeline-spawn + first-handlers correctness), same compatibility profile (no agentsmith.yml change required, just preset constants). Inserting LoadSkills before Triage in the four code-flow presets restores symmetry with init-project / security-scan / api-security-scan, all of which already include it. -- alternatives: separate p0137a-prelude phase (rejected: ceremony for a four-constant change blocking prod); ship-as-hotfix without a phase entry (rejected: leaves a regression-guard test without recorded decision context, and the four presets all share one root-cause that benefits from being explained once)."
+
+steps:
+  - id: contracts-orchestrator-config
+    action: "Mirror the SandboxGlobalConfig / SandboxConfig contract pair for the orchestrator"
+    new:
+      - "OrchestratorGlobalConfig: { Registry:string (default empty — when empty no '<registry>/' prefix is prepended), Version:string (default empty — fail-loud at resolve when neither global nor project sets it) }"
+      - "OrchestratorConfig: { Registry:string?, Version:string?, Resources:ResourceLimits? } — per-project override; all fields nullable for partial override (resolver walks field-by-field per p0135 precedent)"
+    modify:
+      - "ProjectConfig: add 'public OrchestratorConfig? Orchestrator { get; set; }' as a peer to existing 'Sandbox' block"
+      - "AgentImageDefaults: add 'public const string OrchestratorImageName = \"agentsmith-cli\";' next to existing SandboxAgentImageName"
+    path: "src/AgentSmith.Contracts/Models/Configuration"
+
+  - id: resolver
+    action: "Add IOrchestratorImageResolver implementing the same chain as IAgentImageResolver"
+    new:
+      - "IOrchestratorImageResolver: string Resolve(ProjectConfig projectConfig)"
+      - "OrchestratorImageResolver: ctor takes IOptions<OrchestratorGlobalConfig>; Resolve combines projectConfig.Orchestrator?.{Registry,Version} field-by-field over global, throws InvalidOperationException with operator-actionable message when Version is empty after merge"
+    modify:
+      - "ServiceCollectionExtensions: register IOrchestratorImageResolver as singleton in AddSandbox() (companion to AgentImageResolver registration)"
+    path: "src/AgentSmith.Application/Services/Sandbox"
+
+  - id: resource-resolver
+    action: "Reuse the existing ISandboxResourceResolver pattern for the orchestrator's CPU+memory override"
+    new:
+      - "IOrchestratorResourceResolver: ResourceLimits Resolve(ProjectConfig projectConfig)"
+      - "OrchestratorResourceResolver: ctor takes IOptions<JobSpawnerOptions> (existing — its Resources field is the global default surface); Resolve returns projectConfig.Orchestrator?.Resources ?? jobSpawnerOptions.Resources"
+    modify:
+      - "ServiceCollectionExtensions: register IOrchestratorResourceResolver as singleton"
+    path: "src/AgentSmith.Application/Services/Sandbox"
+
+  - id: job-request-contract
+    action: "Surface the resolved values on the spawner contract"
+    modify:
+      - "JobRequest record: add 'required string OrchestratorImage { get; init; }' and 'required ResourceLimits OrchestratorResources { get; init; }' — required so the compiler enforces resolution at construction site"
+
+  - id: handler-resolution
+    action: "Intent handlers resolve before constructing JobRequest"
+    modify:
+      - "FixTicketIntentHandler: inject IOrchestratorImageResolver + IOrchestratorResourceResolver + IConfigurationLoader; load ProjectConfig from the resolved project name; pass resolver outputs to JobRequest"
+      - "InitProjectIntentHandler: same wiring"
+
+  - id: spawner-consumes-request
+    action: "Spawners read image + resources from JobRequest instead of JobSpawnerOptions"
+    modify:
+      - "KubernetesJobSpawner: BuildJob uses request.OrchestratorImage instead of _options.Image; BuildResources uses request.OrchestratorResources instead of _options.Resources; _options retains ImagePullPolicy/Namespace/SecretName/TtlSecondsAfterFinished (operator-side concerns, no per-project peer)"
+      - "DockerJobSpawner: same — request.OrchestratorImage replaces _options.Image, request.OrchestratorResources drives HostConfig.Memory + NanoCPUs (mapping mirrors PodSpecBuilder.BuildToolchainResources)"
+
+  - id: options-defaults
+    action: "JobSpawnerOptions.Image default goes empty (fail-loud parity with SandboxGlobalConfig.AgentVersion)"
+    modify:
+      - "JobSpawnerOptions: Image default changes from 'agentsmith-cli:latest' to string.Empty; XML doc updated to note the resolver fails loud when neither global nor per-project sets a value"
+      - "ServiceCollectionExtensions.AddJobSpawnerOptions: env-var fallback for AGENTSMITH_IMAGE stays for one release (operator transition window), but emits a one-line ILogger warning at startup naming the config key replacement"
+      - "DispatcherDefaults: remove AgentImage constant (no longer the source of truth — resolver is)"
+
+  - id: options-binding
+    action: "Wire OrchestratorGlobalConfig to IConfiguration"
+    modify:
+      - "ServiceCollectionExtensions: add AddOrchestratorGlobalConfig extension that calls services.Configure<OrchestratorGlobalConfig>(configuration.GetSection('Orchestrator'))"
+      - "Program.cs: invoke AddOrchestratorGlobalConfig alongside AddSandboxGlobalConfig"
+
+  - id: example-config
+    action: "Document the new keys"
+    modify:
+      - "config/agentsmith.example.yml: add a top-level 'orchestrator:' block with registry + version, and under projects.my-project add a commented-out 'orchestrator: { registry: my-corp-mirror, version: 0.49.0-beta, resources: { ... } }' block"
+      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: add the Orchestrator__Version env-var as the canonical pinning point with a comment pointing operators to agentsmith.yml as the preferred location"
+
+  - id: deprecation-note
+    action: "Operator-facing changelog hint"
+    modify:
+      - "Add a one-paragraph operator-upgrade note in deploy/ — change ASPNETCORE_ENVIRONMENT-style note to: 'Operators who relied on the hardcoded agentsmith-cli:latest default must now pin orchestrator.version (top-level or per-project) — the dispatcher fails fast at startup with the missing-config message otherwise.'"
+
+  - id: tests-resolver
+    action: "Unit-test OrchestratorImageResolver across all override / fail paths"
+    new:
+      - "OrchestratorImageResolverTests.Resolve_ProjectOverridesRegistryAndVersion_BuildsFullyQualifiedImage"
+      - "OrchestratorImageResolverTests.Resolve_ProjectOverridesVersionOnly_KeepsGlobalRegistry"
+      - "OrchestratorImageResolverTests.Resolve_ProjectOverridesRegistryOnly_KeepsGlobalVersion"
+      - "OrchestratorImageResolverTests.Resolve_BothEmpty_ThrowsInvalidOperationWithActionableMessage"
+      - "OrchestratorImageResolverTests.Resolve_GlobalRegistryEmpty_ProducesBareImageNameWithTag"
+
+  - id: tests-resource-resolver
+    action: "Unit-test OrchestratorResourceResolver"
+    new:
+      - "OrchestratorResourceResolverTests.Resolve_ProjectHasResources_ReturnsProjectResources"
+      - "OrchestratorResourceResolverTests.Resolve_ProjectOrchestratorNullResourcesNull_ReturnsGlobalDefaults"
+      - "OrchestratorResourceResolverTests.Resolve_ProjectOrchestratorNull_ReturnsGlobalDefaults"
+
+  - id: tests-handlers
+    action: "Verify handlers resolve before spawning"
+    new:
+      - "FixTicketIntentHandlerTests.Execute_ResolvedOrchestratorImageFromProjectConfig_PassedToJobRequest"
+      - "InitProjectIntentHandlerTests.Execute_ResolvedOrchestratorImageFromProjectConfig_PassedToJobRequest"
+
+  - id: tests-spawners
+    action: "Spawners use JobRequest fields, not options.Image"
+    new:
+      - "KubernetesJobSpawnerTests.SpawnAsync_UsesJobRequestOrchestratorImage_NotOptionsImage"
+      - "KubernetesJobSpawnerTests.SpawnAsync_UsesJobRequestOrchestratorResources_BothRequestsAndLimits"
+      - "DockerJobSpawnerTests.SpawnAsync_UsesJobRequestOrchestratorImage_NotOptionsImage"
+      - "DockerJobSpawnerTests.SpawnAsync_UsesJobRequestOrchestratorResources_MapsToHostConfigLimits"
+
+  - id: tests-yaml-config
+    action: "ProjectConfig YAML deserialization picks up the new orchestrator block"
+    new:
+      - "ProjectConfigYamlTests.LoadConfig_OrchestratorVersionPresent_PopulatesOrchestratorConfig"
+      - "ProjectConfigYamlTests.LoadConfig_OrchestratorResourcesPresent_PopulatesResourceLimits"
+      - "ProjectConfigYamlTests.LoadConfig_OrchestratorAbsent_LeavesOrchestratorNull"
+
+  - id: tests-fail-loud
+    action: "Fail-loud at startup when no version is configured"
+    new:
+      - "FixTicketIntentHandlerTests.Execute_NoOrchestratorVersionConfigured_ThrowsBeforeSpawn"
+
+  - id: preset-load-skills
+    action: "Insert LoadSkillsCommand before TriageCommand in the four code-flow presets that currently skip it"
+    modify:
+      - "PipelinePresets.FixBug: insert CommandNames.LoadSkills between LoadContext and AnalyzeCode — same ordering SecurityScan / ApiSecurityScan already use, so skills are in PipelineContext before any handler can consume AvailableRoles"
+      - "PipelinePresets.FixNoTest: same insertion (preset is a near-clone of FixBug minus the Test step)"
+      - "PipelinePresets.AddFeature: same insertion"
+      - "PipelinePresets.MadDiscussion: insert CommandNames.LoadSkills between LoadContext and Triage — MadDiscussion has no AnalyzeCode step, so the slot is one position earlier"
+    path: "src/AgentSmith.Contracts/Commands"
+
+  - id: preset-consistency-guard
+    action: "Regression test asserting every preset containing Triage also contains LoadSkills before it"
+    new:
+      - "PipelinePresetsConsistencyTests.EveryPresetWithTriage_ContainsLoadSkillsBeforeIt: theory-data over PipelinePresets.All entries; for each preset that includes CommandNames.Triage, asserts CommandNames.LoadSkills appears at a strictly lower index. Fails noisily if a future preset is added without LoadSkills or someone removes LoadSkills from an existing one."
+      - "PipelinePresetsConsistencyTests.EveryPresetWithSkillRound_ContainsLoadSkillsBeforeIt: same guard for SkillRound / SecuritySkillRound / ApiSecuritySkillRound / FilterRound steps, which all rely on the same AvailableRoles slot"
+
+tests:
+  - "OrchestratorImageResolver_ProjectOverridesRegistryAndVersion_BuildsFullyQualifiedImage"
+  - "OrchestratorImageResolver_ProjectOverridesVersionOnly_KeepsGlobalRegistry"
+  - "OrchestratorImageResolver_BothEmpty_ThrowsInvalidOperationWithActionableMessage"
+  - "OrchestratorImageResolver_GlobalRegistryEmpty_ProducesBareImageNameWithTag"
+  - "OrchestratorResourceResolver_ProjectHasResources_ReturnsProjectResources"
+  - "OrchestratorResourceResolver_ProjectOrchestratorNull_ReturnsGlobalDefaults"
+  - "FixTicketIntentHandler_ResolvedOrchestratorImage_PassedToJobRequest"
+  - "InitProjectIntentHandler_ResolvedOrchestratorImage_PassedToJobRequest"
+  - "KubernetesJobSpawner_SpawnAsync_UsesJobRequestOrchestratorImage"
+  - "KubernetesJobSpawner_SpawnAsync_UsesJobRequestOrchestratorResources"
+  - "DockerJobSpawner_SpawnAsync_UsesJobRequestOrchestratorImage"
+  - "DockerJobSpawner_SpawnAsync_UsesJobRequestOrchestratorResources"
+  - "ProjectConfigYaml_OrchestratorVersionPresent_PopulatesOrchestratorConfig"
+  - "ProjectConfigYaml_OrchestratorResourcesPresent_PopulatesResourceLimits"
+  - "FixTicketIntentHandler_NoOrchestratorVersionConfigured_ThrowsBeforeSpawn"
+  - "PipelinePresetsConsistency_EveryPresetWithTriage_ContainsLoadSkillsBeforeIt"
+  - "PipelinePresetsConsistency_EveryPresetWithSkillRound_ContainsLoadSkillsBeforeIt"
+
+done:
+  - "ProjectConfig.Orchestrator block accepts per-project Registry/Version/Resources from agentsmith.yml"
+  - "OrchestratorGlobalConfig exists and is bound via IOptions<T> from configuration section 'Orchestrator'"
+  - "IOrchestratorImageResolver resolves per-project → global with fail-loud on missing version; behaviour mirrors IAgentImageResolver verbatim"
+  - "IOrchestratorResourceResolver resolves per-project Resources → JobSpawnerOptions.Resources global default"
+  - "JobRequest carries required OrchestratorImage + OrchestratorResources; no code path constructs a JobRequest without invoking the resolvers"
+  - "FixTicketIntentHandler + InitProjectIntentHandler are the only resolution sites; spawners are project-config-free"
+  - "KubernetesJobSpawner + DockerJobSpawner read image + resources exclusively from JobRequest; JobSpawnerOptions.Image is no longer consulted at spawn time"
+  - "JobSpawnerOptions.Image default is empty; the legacy AGENTSMITH_IMAGE env-var still binds but emits a deprecation warning naming the new Orchestrator__Version key"
+  - "DispatcherDefaults.AgentImage constant is removed; AgentImageDefaults.OrchestratorImageName is the new authority for the orchestrator's image-name segment"
+  - "config/agentsmith.example.yml documents the new orchestrator block"
+  - "An operator who previously relied on the hardcoded agentsmith-cli:latest default sees a fail-loud startup error with the exact config line to add — no ErrImagePull surprise at first ticket"
+  - "An operator who pins orchestrator.version: 0.49.0 sees that version spawned on every Slack/Teams fix or init across both Kubernetes and Docker spawners"
+  - "FixBug, FixNoTest, AddFeature, MadDiscussion presets each include LoadSkills before Triage; an operator running fix-bug end-to-end no longer hits 'No skills loaded — triage cannot assign roles' at step 9"
+  - "PipelinePresetsConsistencyTests guards the AvailableRoles dependency contract across all presets — adding a new preset that uses Triage / *SkillRound without LoadSkills fails at build time"
+  - "All new tests pass; existing test suite green"
