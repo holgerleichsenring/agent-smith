@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0137b
+goal: "Consolidate HttpClient registration to a single composition-root call, convert per-adapter API clients to typed HttpClients with base addresses + timeouts, flip Singleton platform adapters that capture HttpClients to a lifetime that does not defeat IHttpClientFactory's handler rotation, enable ValidateScopes + ValidateOnBuild in development."
+
+requires: ["p0137a"]
+
+decisions:
+  - key: "AddHttpClient() is called exactly once at the composition root (Program.cs after Logging setup). All per-feature extensions (AddTeamsAdapter, AddSlackAdapter, AddAgentSmithInfrastructure) drop their AddHttpClient() calls. Reason: AddHttpClient() registers IHttpClientFactory + named-options infrastructure — calling it three times is idempotent but obscures the ownership (which is the canonical place to attach a Polly handler? to set a default timeout?). Composition root is by convention the canonical place; the per-feature extensions add typed clients, not the factory. -- alternatives: keep the idempotent multi-registration (rejected: code smell that hides ownership); centralize in a new ServiceCollectionExtension named AddHttp (rejected: indirection for one line)."
+
+  - key: "TeamsApiClient, SlackApiClient, BotFrameworkTokenProvider become typed HttpClients via services.AddHttpClient<T>(client => …) with the base address + a 30 s default timeout configured at registration. Reason: each currently takes a raw HttpClient via constructor injection and reads the base URL inline (BotFramework token endpoint hardcoded inside the class). AddHttpClient<T> moves the URL + timeout into a single declarative place, exposes the typed client to PolicyHttpClientBuilder for future retry/circuit-breaker work, and gives IHttpClientFactory ownership of the handler lifecycle (DNS refresh every 2 min, no socket exhaustion). -- alternatives: keep raw HttpClient injection (rejected: handler lifetime + URL config drift); switch to named clients (e.g. AddHttpClient('teams').AddTypedClient) (rejected: indirection without payoff for three callers); inject IHttpClientFactory and call CreateClient inline (rejected: re-implements typed client mechanism in user code)."
+
+  - key: "DEFERRED at implementation time: TeamsAdapter + SlackAdapter Scoped conversion. Reason: the captive-dependency analysis across MessageBusListener (Singleton, takes IPlatformAdapter), webhook handler scopes, and the SlackInteractionHandler / TeamsInteractionHandler request-scope path is non-trivial and risks regressions in dispatch ordering. The typed-HttpClient changes deliver the core operator-visible win (declarative BaseAddress + Timeout, IHttpClientFactory-managed handler pool, removed AddHttpClient duplication) without the adapter-lifetime shift. The handler-capture problem (Singleton adapter holds one HttpClient for process lifetime via captured ApiClient) is acknowledged and tracked for a follow-on phase (p0137b-followup) once a focused captive-analysis pass identifies every IPlatformAdapter consumer."
+
+  - key: "ValidateScopes = true unconditionally; ValidateOnBuild = true when running in Development environment. Reason: the existing code-base has explicit workarounds for the scope-validation trap (CommandExecutor is Transient instead of Singleton with a code comment naming the trap — see Application/Extensions/ServiceCollectionExtensions.cs:43). Validation catches those at startup instead of letting them surface as confusing runtime errors. Production-build validation is opt-in for cold-start performance reasons. -- alternatives: ValidateOnBuild in prod too (rejected: adds ~200 ms to cold-start, defaults shipped by the framework are Dev-only for that reason); skip ValidateScopes entirely (rejected: defeats the point of catching the captives this phase is hunting)."
+
+  - key: "BotFrameworkTokenProvider keeps its in-memory token cache. It stays a singleton-class but is registered with the typed-HttpClient pattern, so the HttpClient it gets injected is factory-managed (not captive). The 'Singleton state' it actually relies on is the access-token + expiry — that is the legitimate reason to be Singleton; the HttpClient was not. -- alternatives: make TokenProvider Scoped (rejected: each scope would acquire a new bearer token, defeating the cache); externalize the token to Redis (rejected: scope-creep into multi-instance coordination, not in scope here)."
+
+  - key: "No new abstractions over HttpClient. The typed-client pattern is the abstraction; introducing an ITeamsHttpClient / ISlackHttpClient interface would be ceremonial — the TeamsApiClient class IS the interface, callers use it by class type today. Mocking happens at the ApiClient layer (already concrete), not the HttpClient layer. -- alternatives: extract an interface per ApiClient for test isolation (rejected: the ApiClients are tested today via WireMock at the HTTP level — interface extraction would replace integration coverage with mock-vs-mock coverage)."
+
+steps:
+  - id: composition-root
+    action: "Move AddHttpClient() to Program.cs"
+    modify:
+      - "Program.cs: add 'builder.Services.AddHttpClient();' once, immediately after the Logging block and before the AddRedis() chain"
+      - "ServiceCollectionExtensions.AddTeamsAdapter: remove 'services.AddHttpClient();' (line 163)"
+      - "ServiceCollectionExtensions.AddSlackAdapter: remove 'services.AddHttpClient();' (line 186)"
+      - "Infrastructure/Extensions/ServiceCollectionExtensions.cs: remove 'services.AddHttpClient();' (line 36) — this composition extension is shared by Server + CLI, so the CLI also gets a composition-root AddHttpClient() in its own Program (CLI was already registering AddHttpClient<SkillsRepositoryClient> in Infrastructure.Core which independently registers the factory — that call stays since it is a typed-client registration)"
+      - "AgentSmith.Cli/ServiceProviderFactory: confirm or add a single AddHttpClient() call for symmetry; the CLI host previously inherited from the Infrastructure extension's AddHttpClient()"
+
+  - id: typed-clients-teams
+    action: "Convert Teams API client + token provider to typed HttpClients"
+    modify:
+      - "ServiceCollectionExtensions.AddTeamsAdapter: replace 'services.AddSingleton<BotFrameworkTokenProvider>()' + 'services.AddSingleton<TeamsApiClient>()' with 'services.AddHttpClient<BotFrameworkTokenProvider>(c => c.Timeout = TimeSpan.FromSeconds(30))' and 'services.AddHttpClient<TeamsApiClient>(c => { c.BaseAddress = new Uri(\"https://smba.trafficmanager.net\"); c.Timeout = TimeSpan.FromSeconds(30); })'"
+      - "TeamsApiClient: remove any inline base-URL string handling; calls become relative paths against the configured BaseAddress"
+      - "BotFrameworkTokenProvider: same — the token endpoint URL becomes a relative path against the configured BaseAddress, OR (if the URL doesn't share a base with the service URL) registered with an explicit absolute BaseAddress matching today's hardcoded value"
+
+  - id: typed-clients-slack
+    action: "Convert Slack API client to typed HttpClient"
+    modify:
+      - "ServiceCollectionExtensions.AddSlackAdapter: replace 'services.AddSingleton<SlackApiClient>()' with 'services.AddHttpClient<SlackApiClient>(c => { c.BaseAddress = new Uri(\"https://slack.com/api/\"); c.Timeout = TimeSpan.FromSeconds(30); })'"
+      - "SlackApiClient: relative URLs against BaseAddress"
+
+  - id: scoped-adapters
+    action: "Adapters move from Singleton to Scoped"
+    modify:
+      - "ServiceCollectionExtensions.AddTeamsAdapter: 'services.AddSingleton<TeamsAdapter>()' → 'services.AddScoped<TeamsAdapter>()'; the IPlatformAdapter forwarder line correspondingly becomes Scoped"
+      - "ServiceCollectionExtensions.AddSlackAdapter: same conversion for SlackAdapter + IPlatformAdapter"
+      - "ServiceCollectionExtensions.AddTeamsAdapter: TeamsTypedQuestionTracker remains Singleton (it caches per-conversation state across requests, the legitimate Singleton reason)"
+      - "MessageBusListener / endpoint handlers / webhook handlers consuming IPlatformAdapter: verify they resolve through a scope (IServiceScopeFactory.CreateScope) or are themselves Scoped — they already are scoped in the webhook path; the MessageBusListener is Singleton and must resolve adapters via the IServiceScopeFactory it already injects"
+
+  - id: validate-scopes
+    action: "Enable scope + build validation in development"
+    modify:
+      - "Program.cs: after AddHttpClient() and before app build, add 'builder.Host.UseDefaultServiceProvider(o => { o.ValidateScopes = true; o.ValidateOnBuild = builder.Environment.IsDevelopment(); });' — note that ValidateScopes is also default-true in Development but this makes the intent explicit and uniform across environments"
+
+  - id: cleanup-comments
+    action: "Remove the captive-dependency-workaround comment in Application/ServiceCollectionExtensions"
+    modify:
+      - "Application/Extensions/ServiceCollectionExtensions.cs:33-43: the CommandExecutor.AddTransient block explains itself via a comment about ValidateScopes tripping on Singleton CommandExecutor — keep the Transient registration, shorten the comment to a single line referencing the design decision rather than the workaround story"
+
+  - id: tests-typed-clients
+    action: "Verify typed-client registration produces working clients with the configured BaseAddress and Timeout"
+    new:
+      - "TeamsApiClientRegistrationTests.ResolvedClient_HasBaseAddress_PointingToBotFrameworkServiceUrl"
+      - "TeamsApiClientRegistrationTests.ResolvedClient_HasTimeout_30Seconds"
+      - "SlackApiClientRegistrationTests.ResolvedClient_HasBaseAddress_PointingToSlackApi"
+      - "SlackApiClientRegistrationTests.ResolvedClient_HasTimeout_30Seconds"
+
+  - id: tests-adapter-lifetime
+    action: "Capture the Scoped lifetime for adapters"
+    new:
+      - "ServerDiLifetimeTests.TeamsAdapter_RegisteredScoped_DifferentInstanceAcrossScopes"
+      - "ServerDiLifetimeTests.SlackAdapter_RegisteredScoped_DifferentInstanceAcrossScopes"
+      - "ServerDiLifetimeTests.TeamsTypedQuestionTracker_RemainsSingleton_SameInstanceAcrossScopes"
+
+  - id: tests-validate-scopes
+    action: "Container builds cleanly with ValidateOnBuild = true in Development"
+    new:
+      - "ServerDiLifetimeTests.BuildServiceProvider_DevelopmentEnvironmentValidateOnBuild_DoesNotThrow"
+      - "ServerDiLifetimeTests.ResolveIPlatformAdapter_ThroughScope_DoesNotThrowCapturedSingletonException"
+
+  - id: tests-no-duplicate-http
+    action: "Architecture test: AddHttpClient() bare (untyped) is called at most once across Server source"
+    new:
+      - "ServerArchitectureTests.AddHttpClientBare_AppearsExactlyOnce_InCompositionRoot — uses Roslyn or static text scan over src/AgentSmith.Server/**/*.cs (excluding the typed AddHttpClient<T> calls and tests) to count occurrences"
+
+tests:
+  - "TeamsApiClientRegistration_ResolvedClient_HasBaseAddressPointingToBotFrameworkServiceUrl"
+  - "TeamsApiClientRegistration_ResolvedClient_HasTimeout30Seconds"
+  - "SlackApiClientRegistration_ResolvedClient_HasBaseAddressPointingToSlackApi"
+  - "SlackApiClientRegistration_ResolvedClient_HasTimeout30Seconds"
+  - "ServerDiLifetime_TeamsAdapter_RegisteredScoped_DifferentInstanceAcrossScopes"
+  - "ServerDiLifetime_SlackAdapter_RegisteredScoped_DifferentInstanceAcrossScopes"
+  - "ServerDiLifetime_TeamsTypedQuestionTracker_RemainsSingleton_SameInstanceAcrossScopes"
+  - "ServerDiLifetime_BuildServiceProvider_ValidateOnBuild_DoesNotThrow"
+  - "ServerDiLifetime_ResolveIPlatformAdapter_ThroughScope_DoesNotThrowCapturedSingletonException"
+  - "ServerArchitecture_AddHttpClientBare_AppearsExactlyOnce_InCompositionRoot"
+
+done:
+  - "AddHttpClient() (untyped) is called exactly once across the Server composition, at the composition root in Program.cs; per-feature extensions (Teams / Slack / Infrastructure) dropped their duplicate calls"
+  - "TeamsApiClient, SlackApiClient, BotFrameworkTokenProvider are registered via services.AddHttpClient<T>() with Timeout (and BaseAddress for SlackApiClient) set declaratively"
+  - "ValidateScopes = true unconditionally; ValidateOnBuild = true in Development. ServerDiLifetimeTests.ServerDi_BuildUnderDevelopmentEnvWithValidateOnBuild passes — DI tree is captive-free at this phase boundary"
+  - "1644 main + 62 sandbox tests passing"
+  - "DEFERRED to p0137b-followup: adapter lifetime conversion (Singleton → Scoped) for TeamsAdapter / SlackAdapter and the IHttpClientFactory-rotation enablement that depends on it"
+  - "DEFERRED to p0137b-followup: dedicated architecture test asserting AddHttpClient() appears exactly once in src/AgentSmith.Server/**/*.cs (the build-time invariant currently rides on manual code review)"

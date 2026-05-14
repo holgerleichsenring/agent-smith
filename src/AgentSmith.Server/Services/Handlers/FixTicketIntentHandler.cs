@@ -1,3 +1,6 @@
+using AgentSmith.Application.Services.Orchestrator;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Models;
@@ -7,14 +10,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
-/// Handles the FixTicketIntent: validates preconditions, spawns an agent job,
-/// and registers it in the conversation state for progress tracking.
+/// Handles the FixTicketIntent: validates preconditions, resolves the per-project
+/// orchestrator image + resources, spawns an agent job, and registers it in the
+/// conversation state for progress tracking.
 /// </summary>
 public sealed class FixTicketIntentHandler(
     IJobSpawner spawner,
     IPlatformAdapter adapter,
     ConversationStateManager stateManager,
     MessageBusListener listener,
+    IOrchestratorImageResolver orchestratorImageResolver,
+    IOrchestratorResourceResolver orchestratorResourceResolver,
+    IConfigurationLoader configurationLoader,
+    ServerContext serverContext,
     ILogger<FixTicketIntentHandler> logger)
 {
     public async Task HandleAsync(FixTicketIntent intent, CancellationToken cancellationToken)
@@ -31,23 +39,35 @@ public sealed class FixTicketIntentHandler(
             $"Starting Agent Smith for ticket *#{intent.TicketId}* in *{intent.Project}*...",
             cancellationToken);
 
-        var request = new JobRequest
-        {
-            InputCommand = $"fix #{intent.TicketId} in {intent.Project}",
-            Project = intent.Project,
-            ChannelId = intent.ChannelId,
-            UserId = intent.UserId,
-            Platform = intent.Platform,
-            PipelineOverride = intent.PipelineOverride
-        };
-
+        var projectConfig = ResolveProjectConfig(intent.Project);
+        var request = BuildJobRequest(intent, projectConfig);
         var jobId = await spawner.SpawnAsync(request, cancellationToken);
         await RegisterJobAsync(jobId, intent, cancellationToken);
 
         logger.LogInformation(
-            "Job {JobId} spawned for ticket #{TicketId} in {Project} (channel={ChannelId})",
-            jobId, intent.TicketId, intent.Project, intent.ChannelId);
+            "Job {JobId} spawned for ticket #{TicketId} in {Project} (channel={ChannelId}, image={Image})",
+            jobId, intent.TicketId, intent.Project, intent.ChannelId, request.OrchestratorImage);
     }
+
+    private ProjectConfig ResolveProjectConfig(string projectName)
+    {
+        var config = configurationLoader.LoadConfig(serverContext.ConfigPath);
+        return config.Projects.TryGetValue(projectName, out var found)
+            ? found
+            : new ProjectConfig();
+    }
+
+    private JobRequest BuildJobRequest(FixTicketIntent intent, ProjectConfig projectConfig) => new()
+    {
+        InputCommand = $"fix #{intent.TicketId} in {intent.Project}",
+        Project = intent.Project,
+        ChannelId = intent.ChannelId,
+        UserId = intent.UserId,
+        Platform = intent.Platform,
+        OrchestratorImage = orchestratorImageResolver.Resolve(projectConfig),
+        OrchestratorResources = orchestratorResourceResolver.Resolve(projectConfig),
+        PipelineOverride = intent.PipelineOverride
+    };
 
     private async Task SendAlreadyRunningAsync(
         FixTicketIntent intent,
