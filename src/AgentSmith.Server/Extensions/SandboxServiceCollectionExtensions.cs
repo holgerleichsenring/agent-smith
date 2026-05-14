@@ -1,8 +1,10 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
+using AgentSmith.Server.Services.Orchestrator;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using k8s;
@@ -42,6 +44,26 @@ internal static class SandboxServiceCollectionExtensions
             var context = sp.GetRequiredService<ServerContext>();
             return Options.Create(loader.LoadConfig(context.ConfigPath).Sandbox);
         });
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IOptions{TOptions}"/> of <see cref="OrchestratorGlobalConfig"/>
+    /// pulled from the loaded agentsmith.yml top-level <c>orchestrator:</c> block.
+    /// Consumed by <see cref="AgentSmith.Application.Services.Orchestrator.OrchestratorImageResolver"/>.
+    /// Also registers <see cref="IOrchestratorResourceResolver"/> backed by
+    /// <see cref="OrchestratorResourceResolver"/> (Server impl — accesses Server-resident
+    /// <c>JobSpawnerOptions.Resources</c> as the global-default surface).
+    /// </summary>
+    internal static IServiceCollection AddOrchestratorGlobalConfig(this IServiceCollection services)
+    {
+        services.AddSingleton<IOptions<OrchestratorGlobalConfig>>(sp =>
+        {
+            var loader = sp.GetRequiredService<IConfigurationLoader>();
+            var context = sp.GetRequiredService<ServerContext>();
+            return Options.Create(loader.LoadConfig(context.ConfigPath).Orchestrator);
+        });
+        services.AddSingleton<IOrchestratorResourceResolver, OrchestratorResourceResolver>();
         return services;
     }
 

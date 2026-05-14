@@ -213,7 +213,11 @@ internal static class ServiceCollectionExtensions
         services.Configure<JobSpawnerOptions>(opts =>
         {
             opts.Namespace = Environment.GetEnvironmentVariable("K8S_NAMESPACE") ?? DispatcherDefaults.K8sNamespace;
-            opts.Image = Environment.GetEnvironmentVariable("AGENTSMITH_IMAGE") ?? DispatcherDefaults.AgentImage;
+            // AGENTSMITH_IMAGE is deprecated in p0137a — the canonical pinning point
+            // is agentsmith.yml's top-level 'orchestrator.version' (and per-project
+            // overrides). The env-var still binds for one release window; a startup
+            // deprecation warning is emitted when set (see DeprecationWarningsLogger).
+            opts.Image = Environment.GetEnvironmentVariable("AGENTSMITH_IMAGE") ?? string.Empty;
             opts.ImagePullPolicy = Environment.GetEnvironmentVariable("IMAGE_PULL_POLICY") ?? DispatcherDefaults.ImagePullPolicy;
             opts.SecretName = Environment.GetEnvironmentVariable("K8S_SECRET_NAME") ?? DispatcherDefaults.K8sSecretName;
             opts.DockerNetwork = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? string.Empty;

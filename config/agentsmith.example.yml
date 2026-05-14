@@ -12,6 +12,17 @@ sandbox:
   agent_registry: holgerleichsenring   # docker hub user / private registry path
   agent_version: 0.48.0                # pin the agent-smith release tag
 
+# --- Orchestrator container image (REQUIRED for K8s/Docker spawners) ---
+# Process-wide defaults for the agentsmith-cli orchestrator container the
+# dispatcher spawns per ticket. version MUST be pinned (no implicit 'latest'
+# default) — set it to the agent-smith release that matches the rest of your
+# deployment. Distinct from the sandbox carrier above: the orchestrator hosts
+# the pipeline-runner process, the sandbox carrier hosts the agent runtime
+# inside the per-language toolchain.
+orchestrator:
+  registry: holgerleichsenring         # docker hub user / private registry path (leave empty for unprefixed local image)
+  version: 0.48.0                      # pin the agent-smith release tag
+
 projects:
   my-project:
     source:
@@ -183,6 +194,20 @@ projects:
     #     cpu_limit: 2000m
     #     memory_request: 1Gi         # Kubernetes memory quantity
     #     memory_limit: 4Gi
+
+    # --- Per-project orchestrator overrides (optional) ---
+    # Each field falls back to the top-level orchestrator: block when null
+    # (and to JobSpawner:Resources for the resources field). Use this for
+    # canary releases, per-project mirrors, or projects that need a different
+    # resource envelope than the deployment-wide default.
+    # orchestrator:
+    #   registry: corp-mirror         # override top-level orchestrator.registry
+    #   version: 0.49.0-beta          # override top-level orchestrator.version
+    #   resources:
+    #     cpu_request: 250m
+    #     cpu_limit: 1000m
+    #     memory_request: 512Mi
+    #     memory_limit: 2Gi
 
     # --- Multi-pipeline form (p0106) ---
     # Multiple pipelines per project share the same source/tickets/agent.

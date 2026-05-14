@@ -15,7 +15,8 @@ internal static class DispatcherDefaults
     public const string SpawnerTypeDocker = "docker";
 
     // --- Agent image ---
-    public const string AgentImage = "agentsmith-cli:latest";
+    // AgentImage const removed in p0137a — the orchestrator image is now resolved
+    // through IOrchestratorImageResolver (per-project + global agentsmith.yml).
     public const string ImagePullPolicy = "IfNotPresent";
 
     // --- Kubernetes ---

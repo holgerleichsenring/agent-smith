@@ -54,6 +54,7 @@ builder.Services
     .AddSandbox()
     .AddSandboxOptions(builder.Configuration)
     .AddSandboxGlobalConfig()
+    .AddOrchestratorGlobalConfig()
     .AddSlackAdapter()
     .AddTeamsAdapter()
     .AddIntentHandlers()

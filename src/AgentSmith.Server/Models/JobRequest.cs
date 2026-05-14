@@ -1,8 +1,13 @@
+using AgentSmith.Contracts.Sandbox;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// Generic job request that abstracts over the intent type.
 /// Both FixTicket and InitProject create a JobRequest for the spawner.
+/// The orchestrator image + resources are resolved per-project in the
+/// intent handler before the request is constructed — spawners consume
+/// the resolved values directly and do not re-derive them.
 /// </summary>
 public sealed record JobRequest
 {
@@ -20,6 +25,12 @@ public sealed record JobRequest
 
     /// <summary>Platform: "slack", "teams", etc.</summary>
     public required string Platform { get; init; }
+
+    /// <summary>Fully-qualified orchestrator image reference resolved by IOrchestratorImageResolver from per-project + global config. Format: "{registry}/{name}:{version}" or "{name}:{version}".</summary>
+    public required string OrchestratorImage { get; init; }
+
+    /// <summary>CPU + memory request/limit for the orchestrator container, resolved by IOrchestratorResourceResolver.</summary>
+    public required ResourceLimits OrchestratorResources { get; init; }
 
     /// <summary>Optional pipeline override, e.g. "init-project".</summary>
     public string? PipelineOverride { get; init; }
