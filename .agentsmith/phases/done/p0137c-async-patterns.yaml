@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0137c
+goal: "Eliminate Task.Run inside async TAP code: replace fire-and-forget spawns in hosted-service wrappers, leader-election work delegates, and webhook ack-then-dispatch handlers with direct task tracking and a shared IBackgroundTaskQueue + BackgroundService consumer."
+
+requires: ["p0137b"]
+
+decisions:
+  - key: "No Task.Run inside an async method. The single allowed exception is a synchronous constructor that needs to start a long-running consumer (RedisEventChannel) — and this phase converts that one site to an explicit StartAsync method so even that exception goes away. Reason: Task.Run inside TAP wraps an already-async delegate in a ThreadPool queue, which (a) loses the SynchronizationContext, (b) breaks the otherwise-tracked async causality chain in diagnostics, (c) makes 'is this awaited or fire-and-forget?' invisible at the call site. The codebase has an explicit user-stated principle 'never Task.Run inside TAP' — this phase codifies it. -- alternatives: keep Task.Run as a 'safety' wrapper for synchronous prefixes (rejected: the synchronous prefix should be removed at the source, not papered over); allow Task.Run for CPU-bound work (rejected: there is no CPU-bound work in this codebase — every Task.Run currently wraps I/O)."
+
+  - key: "Webhook ack-then-dispatch (Slack and Teams endpoints) moves to IBackgroundTaskQueue backed by Channel<Func<IServiceProvider, CancellationToken, Task>>, with a single BackgroundTaskQueueProcessor BackgroundService draining the channel and creating a per-work-item DI scope. Reason: the existing pattern '_ = Task.Run(async () => { using var scope = scopeFactory.CreateScope(); … })' has three problems — (1) the fire-and-forget task is not tracked, so it cannot honor the application stop signal; (2) the scope is created inside the spawned task, which works but obscures the scope-lifetime invariant; (3) exceptions escape into the unhandled-task-exception channel only because the `try { … } catch { logger.LogError }` block is duplicated at every call site. Centralising the dispatch in one queue + consumer fixes all three. -- alternatives: rely on Hangfire / Quartz (rejected: heavy-weight dependency for an in-process channel); use IHostApplicationLifetime + manual Task list (rejected: re-implements the channel/consumer pattern); leave it as-is (rejected: the user explicitly raised it as smell, plus a quitting webhook on shutdown leaks the in-flight dispatch)."
+
+  - key: "PipelineQueueConsumer.cs:39 — Task.Run is removed; RunOneAsync is invoked directly and its returned Task is added to inFlight. RunOneAsync starts with synchronous services.CreateScope() (cheap, <1 ms) followed immediately by await; the threadpool offload Task.Run provided is unnecessary because the loop only blocks on await semaphore.WaitAsync, not on the body. -- alternatives: keep Task.Run for paranoia about a future synchronous prefix being added (rejected: forward-paranoia is anti-principle — write the right code now)."
+
+  - key: "LeaderElectedHostedService.cs:43 — Task.Run is removed; `work` is invoked directly (`var workTask = work(inner.Token);`). The work delegate is already a Func<CancellationToken, Task> — invoking it returns the running Task without a threadpool hop. The original Task.Run wrapping was defensive against a hypothetical synchronous prefix in the supplied delegate; this phase trusts the contract (Func<CancellationToken, Task>) and removes the wrap. -- alternatives: keep Task.Run for the sync-prefix case (rejected: synchronous-prefix-in-async-delegate is a bug worth surfacing, not papering over)."
+
+  - key: "JobHeartbeatService.Start is synchronous and intentionally fire-and-forget — that one stays the contract (DisposeAsync awaits the task). Internally Task.Run is replaced with a direct call `var task = RenewLoopAsync(key, cts.Token);` so the Task object captured by Handle is the actual renewal loop, not a Task.Run wrapper around it. The behaviour is unchanged; the Task identity is now meaningful for diagnostics. -- alternatives: convert Start to async StartAsync (rejected: caller would have to await heartbeat start before pipeline execution; the heartbeat is best-effort and should not block pipeline start)."
+
+  - key: "RedisEventChannel constructor stops doing work — it builds the channel and exposes an explicit StartAsync that callers invoke. Reason: starting a long-running consumer Task in the constructor is the one historically defensible Task.Run site (constructor cannot await), but it forces the type to be both initialised AND ready in one go, which (a) makes it unfriendly to DI lifetime validation, (b) hides the consumer start from call-site readability, (c) is the documented .NET anti-pattern that BackgroundService exists to replace. Sandbox.Agent owns its event channel as a manual instance (not via DI) so the StartAsync call lives at the construction site and pairs with the existing DisposeAsync call symmetrically. -- alternatives: keep Task.Run in the constructor with a comment (rejected: the principle is 'no Task.Run', not 'no Task.Run except where convenient'); convert RedisEventChannel to a BackgroundService (rejected: BackgroundService is for IHost-managed services, this instance is owned by the agent's main loop and disposed there)."
+
+  - key: "IBackgroundTaskQueue lives in AgentSmith.Server.Services.Hosting (not in Application or Infrastructure), because the only consumers are HTTP endpoint handlers and the only owner is the Server's host. Centralising it server-side avoids leaking the abstraction into the CLI graph, where it has no caller. -- alternatives: put it in Application for symmetry with other shared services (rejected: no CLI consumer exists; symmetry is not a goal); make it a static singleton (rejected: untestable + non-DI-managed lifetime)."
+
+steps:
+  - id: background-task-queue
+    action: "Introduce IBackgroundTaskQueue and BackgroundTaskQueueProcessor"
+    new:
+      - "IBackgroundTaskQueue: ValueTask QueueAsync(Func<IServiceProvider, CancellationToken, Task> workItem) + ValueTask<Func<IServiceProvider, CancellationToken, Task>> DequeueAsync(CancellationToken cancellationToken)"
+      - "BackgroundTaskQueue: Channel<Func<IServiceProvider, CancellationToken, Task>>-backed implementation; bounded capacity (default 1000, configurable via BackgroundTaskQueueOptions) with BoundedChannelFullMode.Wait so a flooding endpoint produces backpressure instead of dropping ack-acknowledged work"
+      - "BackgroundTaskQueueProcessor: BackgroundService that loops on DequeueAsync, creates an IServiceScope per work item, awaits the work item with the scope's IServiceProvider, logs unhandled exceptions, releases the scope, continues; honors stoppingToken on shutdown by completing in-flight work then exiting the loop"
+      - "BackgroundTaskQueueOptions: { Capacity:int default 1000 } — registered via services.Configure<BackgroundTaskQueueOptions>(configuration.GetSection('BackgroundTaskQueue'))"
+    path: "src/AgentSmith.Server/Services/Hosting"
+
+  - id: webhook-handlers-migration
+    action: "Slack + Teams endpoint handlers replace Task.Run with IBackgroundTaskQueue.QueueAsync"
+    modify:
+      - "SlackEventEndpointHandler.cs:53 (and any second call site): replace the '_ = Task.Run(async () => { using var scope = scopeFactory.CreateScope(); … });' block with 'await queue.QueueAsync((sp, ct) => sp.GetRequiredService<SlackMessageDispatcher>().HandleAsync(..., ct));' — handler injects IBackgroundTaskQueue instead of IServiceScopeFactory"
+      - "SlackEndpoints.cs:49 and :76: same conversion pattern"
+      - "TeamsEndpoints.cs:68 and :96: same conversion pattern — work item resolves TeamsInteractionHandler from the provided IServiceProvider"
+    path: "src/AgentSmith.Server/Extensions"
+
+  - id: pipeline-queue-consumer
+    action: "Remove Task.Run from PipelineQueueConsumer"
+    modify:
+      - "PipelineQueueConsumer.cs:39: 'var task = Task.Run(() => RunOneAsync(request, semaphore, cancellationToken), cancellationToken);' → 'var task = RunOneAsync(request, semaphore, cancellationToken);' — the returned Task continues to be added to inFlight, AwaitGraceAsync still works"
+
+  - id: leader-elected-hosted-service
+    action: "Remove Task.Run from LeaderElectedHostedService"
+    modify:
+      - "LeaderElectedHostedService.cs:43: 'var workTask = Task.Run(() => work(inner.Token), inner.Token);' → 'var workTask = work(inner.Token);' — the Func<CancellationToken, Task> contract guarantees the returned Task is the running operation"
+
+  - id: job-heartbeat-service
+    action: "Remove Task.Run from JobHeartbeatService.Start (kept sync, kept fire-and-forget)"
+    modify:
+      - "JobHeartbeatService.cs:24: 'var task = Task.Run(() => RenewLoopAsync(key, cts.Token));' → 'var task = RenewLoopAsync(key, cts.Token);' — the Handle's DisposeAsync still awaits this task"
+
+  - id: redis-event-channel
+    action: "Move consumer-task start out of RedisEventChannel constructor into an explicit StartAsync"
+    modify:
+      - "RedisEventChannel constructor: drop the 'Task.Run(ConsumeAsync)' line; the field _consumerTask becomes nullable (Task?), initialised by StartAsync"
+      - "RedisEventChannel: add 'public Task StartAsync() { _consumerTask = ConsumeAsync(); return Task.CompletedTask; }' — the method name signals intent; returning the consumer task directly (without Task.Run) means it starts on the calling thread until first await inside ConsumeAsync"
+      - "RedisEventChannel.DisposeAsync: tolerate _consumerTask being null (channel was never started)"
+    path: "src/AgentSmith.Sandbox.Agent/Services"
+    new:
+      - "RedisEventChannelStartTests: confirms the consumer doesn't start until StartAsync is called"
+
+  - id: redis-event-channel-callers
+    action: "Update RedisEventChannel construction sites to call StartAsync"
+    modify:
+      - "Sandbox.Agent main entry / wiring: every place that does 'new RedisEventChannel(...)' adds 'channel.StartAsync()' immediately after; the call is fire-and-forget by design (no await — StartAsync returns CompletedTask, the consumer task is owned by the channel)"
+
+  - id: di-registration
+    action: "Wire BackgroundTaskQueue + Processor into the Server"
+    modify:
+      - "ServiceCollectionExtensions: new AddBackgroundTaskQueue extension — services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>(); services.AddHostedService<BackgroundTaskQueueProcessor>(); services.Configure<BackgroundTaskQueueOptions>(configuration.GetSection('BackgroundTaskQueue'));"
+      - "Program.cs: invoke AddBackgroundTaskQueue() in the AddLongRunningServices chain"
+
+  - id: architecture-test
+    action: "Roslyn / static scan banning Task.Run inside async methods in src/**/*.cs"
+    new:
+      - "AsyncPatternArchitectureTests.TaskRun_InsideAsyncMethod_ProducesNoMatchesAcrossSourceTree — scans every .cs file under src/ (excluding test projects), finds any 'Task.Run(' occurrence inside a method declared `async`, and asserts zero matches; failure message lists file + line; this is the regression guard"
+
+  - id: tests-background-queue
+    action: "Cover the queue + processor contract"
+    new:
+      - "BackgroundTaskQueueTests.QueueAsync_ThenDequeueAsync_ReturnsWorkItem"
+      - "BackgroundTaskQueueTests.DequeueAsync_NoItems_AwaitsUntilQueued"
+      - "BackgroundTaskQueueTests.QueueAsync_AtCapacity_AppliesBackpressure"
+      - "BackgroundTaskQueueProcessorTests.WorkItem_RunsInFreshScope_DifferentInstancePerItem"
+      - "BackgroundTaskQueueProcessorTests.WorkItemThrows_ContinuesProcessingFollowingItems"
+      - "BackgroundTaskQueueProcessorTests.ApplicationStopping_DrainsInFlightAndExits"
+
+  - id: tests-webhook-migration
+    action: "Verify webhook handlers enqueue (no Task.Run) and the dispatched work runs with a fresh scope"
+    new:
+      - "SlackEventEndpointHandlerTests.HandleAsync_EnqueuesWorkItem_DoesNotInvokeDispatcherInline"
+      - "TeamsEndpointsTests.HandleAsync_EnqueuesWorkItem_DoesNotInvokeHandlerInline"
+
+  - id: tests-no-regression
+    action: "Existing behavior preserved for queue consumer + leader-elected + heartbeat"
+    new:
+      - "PipelineQueueConsumerTests.RunAsync_ConcurrencyHonored_WhenSemaphoreBounds"
+      - "LeaderElectedHostedServiceTests.WorkDelegate_RunsConcurrentWithRenewal"
+      - "JobHeartbeatServiceTests.Start_BeginsRenewing_BeforeDispose"
+      - "JobHeartbeatServiceTests.DisposeAsync_AwaitsRenewalLoopCompletion"
+
+tests:
+  - "AsyncPatternArchitecture_TaskRun_InsideAsyncMethod_ProducesNoMatchesAcrossSourceTree"
+  - "BackgroundTaskQueue_QueueThenDequeue_ReturnsWorkItem"
+  - "BackgroundTaskQueue_DequeueWhenEmpty_AwaitsUntilQueued"
+  - "BackgroundTaskQueue_QueueAtCapacity_AppliesBackpressure"
+  - "BackgroundTaskQueueProcessor_WorkItem_RunsInFreshScope"
+  - "BackgroundTaskQueueProcessor_WorkItemThrows_ContinuesProcessingFollowingItems"
+  - "BackgroundTaskQueueProcessor_ApplicationStopping_DrainsInFlightAndExits"
+  - "SlackEventEndpointHandler_HandleAsync_EnqueuesWorkItem_DoesNotInvokeDispatcherInline"
+  - "TeamsEndpoints_HandleAsync_EnqueuesWorkItem_DoesNotInvokeHandlerInline"
+  - "PipelineQueueConsumer_RunAsync_ConcurrencyHonored_WhenSemaphoreBounds"
+  - "LeaderElectedHostedService_WorkDelegate_RunsConcurrentWithRenewal"
+  - "JobHeartbeatService_Start_BeginsRenewing_BeforeDispose"
+  - "JobHeartbeatService_DisposeAsync_AwaitsRenewalLoopCompletion"
+  - "RedisEventChannel_StartAsync_BeginsConsumerLoop_NotBeforehand"
+
+done:
+  - "No 'Task.Run(' call remains inside an async method anywhere under src/ — verified by the architecture test"
+  - "Slack + Teams webhook fire-and-forget paths route through IBackgroundTaskQueue; each work item runs in a fresh DI scope; exceptions are logged centrally rather than at every call site"
+  - "PipelineQueueConsumer + LeaderElectedHostedService + JobHeartbeatService call their inner methods directly; the Task identity surfaced for diagnostics is the actual work, not a Task.Run wrapper"
+  - "RedisEventChannel does no work in its constructor; callers explicitly call StartAsync"
+  - "BackgroundTaskQueue applies backpressure at the configured capacity (1000 default) instead of unbounded growth"
+  - "Application shutdown drains in-flight queue items before the process exits; no orphaned dispatches"
+  - "All new tests pass; existing test suite green"

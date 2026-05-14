@@ -20,6 +20,7 @@ public static class PipelinePresets
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticExecute,
@@ -34,6 +35,7 @@ public static class PipelinePresets
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticExecute,
@@ -66,6 +68,7 @@ public static class PipelinePresets
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions, CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
@@ -80,6 +83,7 @@ public static class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.LoadContext,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
@@ -92,6 +96,7 @@ public static class PipelinePresets
         CommandNames.AcquireSource,
         CommandNames.BootstrapDocument,
         CommandNames.LoadCodingPrinciples,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
@@ -164,6 +169,7 @@ public static class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,
         CommandNames.LoadRuns,
+        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.Triage,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,

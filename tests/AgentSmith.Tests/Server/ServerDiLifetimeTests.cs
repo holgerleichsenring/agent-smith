@@ -171,6 +171,8 @@ public sealed class ServerDiLifetimeTests
                 .AddServerCompositionOverrides()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
+                .AddSandboxGlobalConfig()
+                .AddOrchestratorGlobalConfig()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()

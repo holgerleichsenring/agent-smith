@@ -53,4 +53,11 @@ public sealed class AgentSmithConfig
     /// <see cref="SandboxConfig"/> block overrides them. See <see cref="SandboxGlobalConfig"/>.
     /// </summary>
     public SandboxGlobalConfig Sandbox { get; set; } = new();
+
+    /// <summary>
+    /// Process-wide orchestrator defaults — image registry + version for the
+    /// pipeline-runner container the dispatcher spawns per ticket. Per-project
+    /// <see cref="OrchestratorConfig"/> blocks override these field-by-field.
+    /// </summary>
+    public OrchestratorGlobalConfig Orchestrator { get; set; } = new();
 }

@@ -98,11 +98,11 @@ public sealed class KubernetesJobSpawner(
                         new V1Container
                         {
                             Name = "agentsmith",
-                            Image = _options.Image,
+                            Image = request.OrchestratorImage,
                             ImagePullPolicy = _options.ImagePullPolicy,
                             Args = BuildArgs(jobId, request, redisUrl),
                             Env = BuildEnv(jobId, request),
-                            Resources = BuildResources(_options.Resources)
+                            Resources = BuildResources(request.OrchestratorResources)
                         }
                     ]
                 }
