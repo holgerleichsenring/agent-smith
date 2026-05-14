@@ -1,8 +1,10 @@
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Services;
 
@@ -11,14 +13,15 @@ namespace AgentSmith.Server.Services;
 /// Used in local Docker Compose mode (SPAWNER_TYPE=docker).
 /// </summary>
 public sealed class DockerJobSpawner(
-    JobSpawnerOptions options,
+    IOptions<JobSpawnerOptions> options,
     ILogger<DockerJobSpawner> logger) : IJobSpawner
 {
+    private readonly JobSpawnerOptions _options = options.Value;
     private static readonly string[] ForwardedEnvVars =
     [
-        "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
-        "GITHUB_TOKEN", "AZURE_DEVOPS_TOKEN", "GITLAB_TOKEN",
-        "JIRA_TOKEN", "JIRA_EMAIL", "REDIS_URL",
+        AgentEnvKeys.AnthropicApiKey, AgentEnvKeys.OpenAiApiKey, AgentEnvKeys.GeminiApiKey,
+        AgentEnvKeys.GitHubToken, AgentEnvKeys.AzureDevOpsToken, AgentEnvKeys.GitLabToken,
+        AgentEnvKeys.JiraToken, AgentEnvKeys.JiraEmail, AgentEnvKeys.RedisUrl,
     ];
 
     public async Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken)
@@ -32,7 +35,7 @@ public sealed class DockerJobSpawner(
 
         var createParams = new CreateContainerParameters
         {
-            Name = containerName, Image = options.Image,
+            Name = containerName, Image = _options.Image,
             Cmd = BuildArgs(jobId, request), Env = BuildEnv(jobId, request),
             Labels = new Dictionary<string, string>
             {
@@ -56,7 +59,7 @@ public sealed class DockerJobSpawner(
         catch (DockerImageNotFoundException)
         {
             throw new InvalidOperationException(
-                $"Agent image '{options.Image}' not found. Run: docker build -t {options.Image} .");
+                $"Agent image '{_options.Image}' not found. Run: docker build -t {_options.Image} .");
         }
 
         await client.Containers.StartContainerAsync(response.ID, new ContainerStartParameters(), cancellationToken);
@@ -90,7 +93,7 @@ public sealed class DockerJobSpawner(
         var args = new List<string>
         {
             "run", "--headless", "--job-id", jobId,
-            "--redis-url", Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
+            "--redis-url", Environment.GetEnvironmentVariable(AgentEnvKeys.RedisUrl) ?? "redis:6379",
             "--platform", request.Platform, "--channel-id", request.ChannelId,
         };
         if (!string.IsNullOrEmpty(request.PipelineOverride))
