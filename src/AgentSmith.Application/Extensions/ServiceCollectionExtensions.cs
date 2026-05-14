@@ -320,6 +320,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
+        services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();

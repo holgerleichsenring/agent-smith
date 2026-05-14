@@ -47,7 +47,7 @@ public sealed class PipelineExecutorPersistGuardTests
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
             _sandBoxFactory.Object,
-            new SandboxSpecBuilder(new StubSandboxResourceResolver()),
+            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
             resolverMock.Object,
             _progressReporterMock.Object,
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(

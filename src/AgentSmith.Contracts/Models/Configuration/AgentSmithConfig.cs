@@ -46,4 +46,11 @@ public sealed class AgentSmithConfig
     /// gate logs warnings on undeclared reads but doesn't fail the run.
     /// </summary>
     public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
+
+    /// <summary>
+    /// Process-wide sandbox defaults — agent carrier registry + version that
+    /// every spawned sandbox pod references unless a project's
+    /// <see cref="SandboxConfig"/> block overrides them. See <see cref="SandboxGlobalConfig"/>.
+    /// </summary>
+    public SandboxGlobalConfig Sandbox { get; set; } = new();
 }
