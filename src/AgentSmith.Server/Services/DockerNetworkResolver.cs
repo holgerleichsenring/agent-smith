@@ -1,6 +1,7 @@
 using AgentSmith.Server.Models;
 using Docker.DotNet;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Services;
 
@@ -9,15 +10,17 @@ namespace AgentSmith.Server.Services;
 /// Priority: explicit config > auto-detect from hostname > fallback to bridge.
 /// </summary>
 internal sealed class DockerNetworkResolver(
-    JobSpawnerOptions options,
+    IOptions<JobSpawnerOptions> options,
     ILogger logger)
 {
+    private readonly JobSpawnerOptions _options = options.Value;
+
     public async Task<string> ResolveAsync(DockerClient client, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(options.DockerNetwork))
+        if (!string.IsNullOrWhiteSpace(_options.DockerNetwork))
         {
-            logger.LogDebug("Using configured Docker network: {Network}", options.DockerNetwork);
-            return options.DockerNetwork;
+            logger.LogDebug("Using configured Docker network: {Network}", _options.DockerNetwork);
+            return _options.DockerNetwork;
         }
 
         try
