@@ -32,6 +32,19 @@ builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel", LogLevel.Warnin
 builder.Logging.SetMinimumLevel(
     builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
+// p0137b: single composition-root AddHttpClient() — registers IHttpClientFactory + named-options
+// infrastructure. Per-feature extensions (AddTeamsAdapter, AddSlackAdapter, AddAgentSmithInfrastructure)
+// add their typed clients via AddHttpClient<T>() on top of this.
+builder.Services.AddHttpClient();
+
+// p0137b: scope validation always on; build-time validation in Development catches lifetime
+// violations (e.g. Singleton consuming Scoped) at startup instead of as confusing runtime errors.
+builder.Host.UseDefaultServiceProvider(o =>
+{
+    o.ValidateScopes = true;
+    o.ValidateOnBuild = builder.Environment.IsDevelopment();
+});
+
 var configPath = Environment.GetEnvironmentVariable("CONFIG_PATH") ?? "/app/config/agentsmith.yml";
 if (!File.Exists(configPath))
 {
