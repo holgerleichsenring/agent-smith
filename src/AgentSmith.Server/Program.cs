@@ -10,27 +10,12 @@ DispatcherBanner.Print();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// p0137d: log filters + minimum level moved to appsettings.json + appsettings.Development.json.
+// Console formatter wiring stays here — it's code-shape config (selecting CompactConsoleFormatter
+// over the default one), not log-level filtering.
 builder.Logging.AddConsole(options => options.FormatterName = CompactConsoleFormatter.FormatterName);
 builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOptions>(
     options => options.IncludeScopes = true);
-builder.Logging.AddFilter("Microsoft", LogLevel.Information);
-builder.Logging.AddFilter("System", LogLevel.Information);
-// Framework noise we never want at info-level:
-//   - System.Net.Http.HttpClient emits 4 lines per outbound call (start/send/recv/end)
-//     plus an auto scope `[HTTP <verb> <url>]` — operator value is near zero and the
-//     scope content doesn't follow our `run=...` / `ticket=...` convention. Errors
-//     and timeouts still surface at Warning+.
-//   - Microsoft.AspNetCore.Hosting.Diagnostics emits "Request starting" / "Request
-//     finished" lines for every inbound request — k8s probes /health every few
-//     seconds × N replicas, drowning the actual webhook / Slack activity.
-//   - Microsoft.AspNetCore.Routing logs endpoint matching for the same requests.
-builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc", LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel", LogLevel.Warning);
-builder.Logging.SetMinimumLevel(
-    builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
 // p0137b: single composition-root AddHttpClient() — registers IHttpClientFactory + named-options
 // infrastructure. Per-feature extensions (AddTeamsAdapter, AddSlackAdapter, AddAgentSmithInfrastructure)
