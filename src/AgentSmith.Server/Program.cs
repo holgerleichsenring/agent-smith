@@ -53,6 +53,7 @@ builder.Services
     .AddServerCompositionOverrides()
     .AddSandbox()
     .AddSandboxOptions(builder.Configuration)
+    .AddSandboxGlobalConfig()
     .AddSlackAdapter()
     .AddTeamsAdapter()
     .AddIntentHandlers()
