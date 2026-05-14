@@ -21,7 +21,10 @@ public sealed class JobHeartbeatService(
     {
         var key = KeyFor(ticketId);
         var cts = new CancellationTokenSource();
-        var task = Task.Run(() => RenewLoopAsync(key, cts.Token));
+        // p0137c: removed Task.Run wrapper — RenewLoopAsync is async; invoking it
+        // returns the running task directly. The Handle captures the actual loop
+        // for DisposeAsync to await, not a Task.Run shell.
+        var task = RenewLoopAsync(key, cts.Token);
         logger.LogDebug("Heartbeat started for ticket {Ticket}", ticketId.Value);
         return new Handle(redis, key, cts, task, logger);
     }

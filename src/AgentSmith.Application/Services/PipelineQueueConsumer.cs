@@ -36,9 +36,10 @@ public sealed class PipelineQueueConsumer(
                     "Dequeued: {Project}/#{Ticket} pipeline={Pipeline} (in-flight: {InFlight}/{Max})",
                     request.ProjectName, request.TicketId?.Value ?? "—",
                     request.PipelineName, inFlight.Count(t => !t.IsCompleted) + 1, maxParallelJobs);
-                var task = Task.Run(
-                    () => RunOneAsync(request, semaphore, cancellationToken),
-                    cancellationToken);
+                // p0137c: removed Task.Run wrapper — RunOneAsync is async and returns
+                // its task directly; the threadpool offload was defensive against a
+                // hypothetical synchronous prefix that doesn't exist.
+                var task = RunOneAsync(request, semaphore, cancellationToken);
                 inFlight.Add(task);
                 inFlight.RemoveAll(t => t.IsCompleted);
             }

@@ -15,7 +15,7 @@ internal sealed class RedisEventChannel : IAsyncDisposable
     private readonly IDatabase _database;
     private readonly ILogger _logger;
     private readonly Channel<EventBatch> _channel;
-    private readonly Task _consumerTask;
+    private Task? _consumerTask;
 
     public RedisEventChannel(IDatabase database, ILogger logger)
     {
@@ -27,8 +27,12 @@ internal sealed class RedisEventChannel : IAsyncDisposable
             SingleReader = true,
             SingleWriter = false
         });
-        _consumerTask = Task.Run(ConsumeAsync);
     }
+
+    // p0137c: explicit Start replaces the constructor-side Task.Run. Callers
+    // invoke this immediately after construction; the consumer task captured
+    // here is what DisposeAsync awaits during shutdown.
+    public void Start() => _consumerTask = ConsumeAsync();
 
     public void TryEnqueue(string jobId, IReadOnlyList<StepEvent> events)
     {
@@ -41,7 +45,8 @@ internal sealed class RedisEventChannel : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _channel.Writer.TryComplete();
-        await Task.WhenAny(_consumerTask, Task.Delay(DrainTimeout));
+        if (_consumerTask is not null)
+            await Task.WhenAny(_consumerTask, Task.Delay(DrainTimeout));
     }
 
     private async Task ConsumeAsync()

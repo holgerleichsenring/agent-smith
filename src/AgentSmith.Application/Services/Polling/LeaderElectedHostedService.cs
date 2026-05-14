@@ -40,7 +40,9 @@ public sealed class LeaderElectedHostedService(
     {
         logger.LogInformation("Lease '{Key}' active — starting work delegate", leaseKey);
         using var inner = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var workTask = Task.Run(() => work(inner.Token), inner.Token);
+        // p0137c: removed Task.Run wrapper — `work` is Func<CancellationToken, Task>,
+        // invoking it returns the running task directly without a threadpool hop.
+        var workTask = work(inner.Token);
         try
         {
             while (!ct.IsCancellationRequested)
