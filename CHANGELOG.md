@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.49.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.48.1...v0.49.0) (2026-05-14)
+
+
+### Features
+
+* DI hygiene — single AddHttpClient + typed clients + ValidateScopes (p0137b) ([9ec65bf](https://github.com/holgerleichsenring/agent-smith/commit/9ec65bfb8c7a0777a8f44fb6a87677af1a6da32f))
+* drop Task.Run wrappers in hosted services + RedisEventChannel Start (p0137c) ([93bf69f](https://github.com/holgerleichsenring/agent-smith/commit/93bf69f32916debcc26ae876d295e3ec15dab4f5))
+* log filters to appsettings + compose tag pinning (p0137d) ([bfe7c8f](https://github.com/holgerleichsenring/agent-smith/commit/bfe7c8f5341864b8afc5fc08fdff0283e2f62540))
+* orchestrator-spawn-path configuration symmetry (p0137a) ([7f0f8ab](https://github.com/holgerleichsenring/agent-smith/commit/7f0f8ab3c82cd125e814abb600256128b1d845d9))
+
 ## [0.48.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.48.0...v0.48.1) (2026-05-14)
 
 
