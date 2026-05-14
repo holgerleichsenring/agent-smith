@@ -1,8 +1,11 @@
+using AgentSmith.Contracts.Constants;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using k8s;
 using k8s.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Services;
 
@@ -14,11 +17,12 @@ namespace AgentSmith.Server.Services;
 /// </summary>
 public sealed class KubernetesJobSpawner(
     IKubernetes k8sClient,
-    JobSpawnerOptions options,
+    IOptions<JobSpawnerOptions> options,
     ILogger<KubernetesJobSpawner> logger) : IJobSpawner
 {
+    private readonly JobSpawnerOptions _options = options.Value;
     private readonly string _redisUrl =
-        Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379";
+        Environment.GetEnvironmentVariable(AgentEnvKeys.RedisUrl) ?? "redis:6379";
 
     public async Task<string> SpawnAsync(
         JobRequest request,
@@ -30,7 +34,7 @@ public sealed class KubernetesJobSpawner(
         var job = BuildJob(jobName, jobId, request, _redisUrl);
 
         await k8sClient.BatchV1.CreateNamespacedJobAsync(
-            job, options.Namespace, cancellationToken: cancellationToken);
+            job, _options.Namespace, cancellationToken: cancellationToken);
 
         logger.LogInformation(
             "Spawned K8s Job {JobName} (id={JobId}) for {Command} in {Project}",
@@ -46,7 +50,7 @@ public sealed class KubernetesJobSpawner(
         try
         {
             var job = await k8sClient.BatchV1.ReadNamespacedJobAsync(
-                jobName, options.Namespace, cancellationToken: cancellationToken);
+                jobName, _options.Namespace, cancellationToken: cancellationToken);
 
             // Active > 0 means the pod is still running
             return job.Status?.Active is > 0;
@@ -63,7 +67,7 @@ public sealed class KubernetesJobSpawner(
         Metadata = new V1ObjectMeta
         {
             Name = jobName,
-            NamespaceProperty = options.Namespace,
+            NamespaceProperty = _options.Namespace,
             Labels = new Dictionary<string, string>
             {
                 ["app"] = "agentsmith",
@@ -74,7 +78,7 @@ public sealed class KubernetesJobSpawner(
         },
         Spec = new V1JobSpec
         {
-            TtlSecondsAfterFinished = options.TtlSecondsAfterFinished,
+            TtlSecondsAfterFinished = _options.TtlSecondsAfterFinished,
             BackoffLimit = 0,
             Template = new V1PodTemplateSpec
             {
@@ -94,23 +98,11 @@ public sealed class KubernetesJobSpawner(
                         new V1Container
                         {
                             Name = "agentsmith",
-                            Image = options.Image,
-                            ImagePullPolicy = options.ImagePullPolicy,
+                            Image = _options.Image,
+                            ImagePullPolicy = _options.ImagePullPolicy,
                             Args = BuildArgs(jobId, request, redisUrl),
                             Env = BuildEnv(jobId, request),
-                            Resources = new V1ResourceRequirements
-                            {
-                                Requests = new Dictionary<string, ResourceQuantity>
-                                {
-                                    ["cpu"] = new("250m"),
-                                    ["memory"] = new("512Mi")
-                                },
-                                Limits = new Dictionary<string, ResourceQuantity>
-                                {
-                                    ["cpu"] = new("1000m"),
-                                    ["memory"] = new("1Gi")
-                                }
-                            }
+                            Resources = BuildResources(_options.Resources)
                         }
                     ]
                 }
@@ -137,20 +129,35 @@ public sealed class KubernetesJobSpawner(
         return args;
     }
 
-    private List<V1EnvVar> BuildEnv(string jobId, JobRequest request) =>
-    [
-        EnvFromSecret("ANTHROPIC_API_KEY", options.SecretName, "anthropic-api-key"),
-        EnvFromSecret("AZURE_DEVOPS_TOKEN", options.SecretName, "azure-devops-token"),
-        EnvFromSecret("GITHUB_TOKEN", options.SecretName, "github-token"),
-        EnvFromSecret("OPENAI_API_KEY", options.SecretName, "openai-api-key"),
-        EnvFromSecret("GEMINI_API_KEY", options.SecretName, "gemini-api-key"),
-        EnvFromSecret("REDIS_URL", options.SecretName, "redis-url"),
-        new V1EnvVar { Name = "JOB_ID", Value = jobId },
-        new V1EnvVar { Name = "PROJECT", Value = request.Project },
-        new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
-        new V1EnvVar { Name = "USER_ID", Value = request.UserId },
-        new V1EnvVar { Name = "AGENTSMITH_PLATFORM", Value = request.Platform }
-    ];
+    private List<V1EnvVar> BuildEnv(string jobId, JobRequest request)
+    {
+        var env = AgentSecretBinding.All
+            .Select(b => EnvFromSecret(b.EnvVar, _options.SecretName, b.K8sSecretKey))
+            .ToList();
+        env.AddRange(
+        [
+            new V1EnvVar { Name = "JOB_ID", Value = jobId },
+            new V1EnvVar { Name = "PROJECT", Value = request.Project },
+            new V1EnvVar { Name = "CHANNEL_ID", Value = request.ChannelId },
+            new V1EnvVar { Name = "USER_ID", Value = request.UserId },
+            new V1EnvVar { Name = "AGENTSMITH_PLATFORM", Value = request.Platform }
+        ]);
+        return env;
+    }
+
+    private static V1ResourceRequirements BuildResources(ResourceLimits resources) => new()
+    {
+        Requests = new Dictionary<string, ResourceQuantity>
+        {
+            ["cpu"] = new(resources.CpuRequest),
+            ["memory"] = new(resources.MemoryRequest)
+        },
+        Limits = new Dictionary<string, ResourceQuantity>
+        {
+            ["cpu"] = new(resources.CpuLimit),
+            ["memory"] = new(resources.MemoryLimit)
+        }
+    };
 
     private static V1EnvVar EnvFromSecret(string envName, string secretName, string secretKey) =>
         new()
@@ -166,29 +173,4 @@ public sealed class KubernetesJobSpawner(
                 }
             }
         };
-}
-
-/// <summary>
-/// Configuration options for job spawning, shared by both KubernetesJobSpawner
-/// and DockerJobSpawner where applicable.
-/// </summary>
-public sealed class JobSpawnerOptions
-{
-    /// <summary>Kubernetes namespace for spawned jobs. Only used by KubernetesJobSpawner.</summary>
-    public string Namespace { get; set; } = "default";
-
-    /// <summary>Agent container image name.</summary>
-    public string Image { get; set; } = "agentsmith-cli:latest";
-
-    /// <summary>Image pull policy. Use IfNotPresent locally, Always in prod.</summary>
-    public string ImagePullPolicy { get; set; } = "IfNotPresent";
-
-    /// <summary>K8s Secret name containing API tokens. Only used by KubernetesJobSpawner.</summary>
-    public string SecretName { get; set; } = "agentsmith-secrets";
-
-    /// <summary>Seconds after job completion before K8s cleans it up. Only used by KubernetesJobSpawner.</summary>
-    public int TtlSecondsAfterFinished { get; set; } = 300;
-
-    /// <summary>Docker network to attach spawned containers to. Only used by DockerJobSpawner.</summary>
-    public string DockerNetwork { get; set; } = string.Empty;
 }

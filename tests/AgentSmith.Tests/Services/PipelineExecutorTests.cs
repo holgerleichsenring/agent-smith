@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Tests.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -37,7 +38,7 @@ public class PipelineExecutorTests
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
             _sandboxFactoryMock.Object,
-            new SandboxSpecBuilder(),
+            new SandboxSpecBuilder(new StubSandboxResourceResolver()),
             resolverMock.Object,
             _progressReporterMock.Object,
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
