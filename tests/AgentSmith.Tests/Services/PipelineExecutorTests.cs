@@ -38,7 +38,7 @@ public class PipelineExecutorTests
             _ticketFactoryMock.Object,
             _lifecycleMock.Object,
             _sandboxFactoryMock.Object,
-            new SandboxSpecBuilder(new StubSandboxResourceResolver()),
+            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
             resolverMock.Object,
             _progressReporterMock.Object,
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
