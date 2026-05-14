@@ -20,6 +20,7 @@ internal sealed class RedisJobBus : IRedisJobBus
         _multiplexer = multiplexer;
         _database = multiplexer.GetDatabase();
         _eventChannel = new RedisEventChannel(_database, logger);
+        _eventChannel.Start(); // p0137c: explicit consumer start (was constructor-side Task.Run)
         _ownsMultiplexer = ownsMultiplexer;
     }
 
