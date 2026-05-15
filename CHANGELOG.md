@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.50.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.0...v0.50.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* CLI api-scan source→sandbox handoff (BootstrapCheck false negati… ([152c0cd](https://github.com/holgerleichsenring/agent-smith/commit/152c0cd5ee905f673338c9ae8e4508c02a758aed))
+* CLI api-scan source→sandbox handoff (BootstrapCheck false negatives) ([7eb07d1](https://github.com/holgerleichsenring/agent-smith/commit/7eb07d1c7cc5968fc347feeac147a24e04529f68))
+
 ## [0.50.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.49.1...v0.50.0) (2026-05-15)
 
 
