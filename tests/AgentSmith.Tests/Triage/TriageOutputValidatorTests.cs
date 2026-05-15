@@ -68,13 +68,28 @@ public sealed class TriageOutputValidatorTests
     public void Validate_RationaleExceedsMaxLength_Rejects()
     {
         var skills = Array.Empty<SkillIndexEntry>();
-        var huge = new string('x', 501);
+        var huge = new string('x', 1001);
         var output = new TriageOutput(new Dictionary<PipelinePhase, PhaseAssignment>(), 85, huge);
 
         var result = _sut.Validate(output, skills);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("500 chars"));
+        result.Errors.Should().Contain(e => e.Contains("1000 chars"));
+    }
+
+    [Fact]
+    public void Validate_RationaleAt800Chars_PassesBetween500and1000Cap()
+    {
+        // p0138-followup: cap raised from 500 to 1000 — rationales in the 500-800 band
+        // (typical for api-security-scan / security-scan catalogs with 15-20 skills)
+        // are now legal where they previously failed validation.
+        var skills = Array.Empty<SkillIndexEntry>();
+        var mid = new string('x', 800);
+        var output = new TriageOutput(new Dictionary<PipelinePhase, PhaseAssignment>(), 85, mid);
+
+        var result = _sut.Validate(output, skills);
+
+        result.Errors.Should().NotContain(e => e.Contains("chars"));
     }
 
     [Fact]
