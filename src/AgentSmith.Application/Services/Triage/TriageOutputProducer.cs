@@ -115,7 +115,7 @@ public sealed class TriageOutputProducer(
         bool retry, CancellationToken cancellationToken)
     {
         var system = retry ? AddStrictReminder(prompts.Get("triage-structured-system")) : prompts.Get("triage-structured-system");
-        var user = prompts.Render("triage-structured-user", BuildTokens(input));
+        var user = prompts.Render("triage-structured-user", BuildTokens(input, vocabulary));
         var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Reasoning);
         var messages = new List<ChatMessage>
@@ -138,7 +138,8 @@ public sealed class TriageOutputProducer(
         return null;
     }
 
-    private static IReadOnlyDictionary<string, string> BuildTokens(TriageInput input) =>
+    private static IReadOnlyDictionary<string, string> BuildTokens(
+        TriageInput input, ConceptVocabulary vocabulary) =>
         new Dictionary<string, string>
         {
             ["ticket"] = input.Ticket,
@@ -146,7 +147,17 @@ public sealed class TriageOutputProducer(
             ["labels"] = input.TicketLabels.Count > 0 ? string.Join(", ", input.TicketLabels) : "(none)",
             ["phases"] = string.Join(", ", input.Phases),
             ["available_skills"] = RenderSkills(input.AvailableSkills),
+            ["concept_vocabulary"] = RenderVocabulary(vocabulary),
         };
+
+    private static string RenderVocabulary(ConceptVocabulary vocabulary)
+    {
+        if (vocabulary.Concepts.Count == 0)
+            return "(none — the catalog ships without concept-vocabulary.yaml; do not cite any keys in your rationale)";
+        return string.Join("\n", vocabulary.Concepts.Values
+            .OrderBy(c => c.Name, StringComparer.Ordinal)
+            .Select(c => $"- {c.Name}: {c.Description}"));
+    }
 
     private static string RenderExcerpt(ProjectMapExcerpt excerpt)
     {
@@ -196,8 +207,11 @@ public sealed class TriageOutputProducer(
         ## STRICT REPROMPT
 
         Your previous response failed validation. Re-read the rules above carefully.
-        Single-line JSON only. Use only declared activation/role_assignment keys.
-        Roles must be in each cited skill's `roles_supported`. No newlines in the JSON.
+        Single-line JSON only. No newlines in the JSON. No markdown fences.
+        Every rationale key MUST appear verbatim in the `## Available Rationale Keys
+        (Concept Vocabulary)` list from the user message — do not invent keys.
+        Every skill MUST be placed in a slot matching its `role` field per the hard
+        contract: producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter.
         """;
 }
 

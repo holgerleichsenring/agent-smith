@@ -18,6 +18,10 @@
 
 {available_skills}
 
+## Available Rationale Keys (Concept Vocabulary)
+
+{concept_vocabulary}
+
 ## Instructions
 
 Assign skills to roles in the declared phases. Respond with single-line JSON only.
