@@ -15,7 +15,12 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public sealed class TriageOutputValidator(TriageRationaleParser rationaleParser)
 {
-    private const int MaxRationaleChars = 500;
+    // 1000 (raised from 500) gives the LLM headroom for security-scan / api-security-scan
+    // catalogs (15-20 skills) where each phase slot carries its own positive justification
+    // and the rejected-candidate negative entries add another bracket of tokens. Observed
+    // overshoots on the 500-cap clustered around 600-800 chars — 1000 covers them with
+    // margin while still keeping the JSON rationale field operator-readable on one screen.
+    private const int MaxRationaleChars = 1000;
 
     public TriageValidationResult Validate(
         TriageOutput output,

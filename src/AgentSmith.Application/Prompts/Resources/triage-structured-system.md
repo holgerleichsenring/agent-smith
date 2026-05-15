@@ -69,7 +69,7 @@ rejected).
 
 - Both `<skill>` AND `<key>` are mandatory in every token — the parser
   drops malformed tokens silently. Do not emit `lead=foo;` without a key.
-- Max 500 chars total. No newlines inside the JSON.
+- Max 1000 chars total. No newlines inside the JSON.
 - Every `<key>` MUST come from the concept-vocabulary list shown verbatim
   in the user message under `## Available Rationale Keys (Concept
   Vocabulary)`. Invented keys are rejected by the framework.
