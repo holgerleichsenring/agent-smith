@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.50.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.1...v0.50.2) (2026-05-15)
+
+
+### Bug Fixes
+
+* raise triage rationale cap 500 → 1000 chars (api-security-scan) ([15e78f4](https://github.com/holgerleichsenring/agent-smith/commit/15e78f42a5fa5219fdae362900ec930489b1b97d))
+* raise triage rationale cap 500 → 1000 chars (api-security-scan) ([a79a664](https://github.com/holgerleichsenring/agent-smith/commit/a79a664f2033c6d75c725a1fb19ee533355e03f4))
+
 ## [0.50.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.0...v0.50.1) (2026-05-15)
 
 
