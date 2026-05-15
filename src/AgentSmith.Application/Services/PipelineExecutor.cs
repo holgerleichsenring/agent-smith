@@ -44,13 +44,18 @@ public sealed class PipelineExecutor(
     // mode just allocates a tempdir, so the cost of creating one is trivial.
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
     {
-        // Source + lifecycle
-        CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
+        // Source + lifecycle.
+        // TryCheckoutSource is intentionally NOT here — its handler clones host-side
+        // via IHostSourceCloner and never touches ISandbox. Listing it would force
+        // upfront sandbox creation before the handler runs, breaking the
+        // InitialSourcePath handoff for the InProcessSandboxFactory.
+        CommandNames.CheckoutSource, CommandNames.AcquireSource,
         CommandNames.AgenticExecute, CommandNames.Test,
         CommandNames.GenerateTests, CommandNames.GenerateDocs,
         CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
         // Project metadata reads/writes
         CommandNames.BootstrapProject, CommandNames.BootstrapDocument,
+        CommandNames.BootstrapCheck, // p0130a-era: handler reads /work/.agentsmith/* via ISandbox
         CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
         CommandNames.LoadRuns, CommandNames.AnalyzeCode,
         CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
@@ -75,10 +80,9 @@ public sealed class PipelineExecutor(
             "Agent Smith is working on this issue...", cancellationToken);
 
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
+        ISandbox? sandbox = null;
         try
         {
-            await using var sandbox = await TryCreateSandboxAsync(commandNames, projectConfig, context, cancellationToken);
-
             var commands = new LinkedList<PipelineCommand>(
                 commandNames.Select(PipelineCommand.Simple));
             var resolvedAgent = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
@@ -91,6 +95,16 @@ public sealed class PipelineExecutor(
             while (current is not null)
             {
                 var batch = PeelBatch(current, maxConcurrent);
+
+                // Lazy sandbox creation: build it only when the first sandbox-requiring
+                // command in the batch comes up, so handlers that publish context the
+                // sandbox depends on (e.g. TryCheckoutSourceHandler → SourcePath) have
+                // already run.
+                if (sandbox is null && batch.Any(b => SandboxRequiringCommands.Contains(b.Value.Name)))
+                {
+                    sandbox = await TryCreateSandboxAsync(projectConfig, context, cancellationToken);
+                }
+
                 if (executionCount + batch.Count > MaxCommandExecutions)
                 {
                     lifecycle.MarkFailed();
@@ -139,16 +153,27 @@ public sealed class PipelineExecutor(
             lifecycle.MarkFailed();
             throw;
         }
+        finally
+        {
+            if (sandbox is not null) await sandbox.DisposeAsync();
+        }
     }
 
-    private async Task<ISandbox?> TryCreateSandboxAsync(
-        IReadOnlyList<string> commandNames, ProjectConfig projectConfig,
+    private async Task<ISandbox> TryCreateSandboxAsync(
+        ProjectConfig projectConfig,
         PipelineContext context, CancellationToken cancellationToken)
     {
-        if (!commandNames.Any(SandboxRequiringCommands.Contains)) return null;
-
         var (language, layer) = await ResolveToolchainLanguageAsync(projectConfig, context, cancellationToken);
         var spec = sandboxSpecBuilder.Build(projectConfig, language);
+        // When TryCheckoutSourceHandler (api-security-scan path) cloned the source
+        // host-side, attach the path so InProcessSandboxFactory uses it as workDir
+        // — otherwise handlers reading from /work see an empty dir (BootstrapCheck
+        // would falsely report missing context.yaml / coding-principles.md).
+        if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
+            && !string.IsNullOrEmpty(hostSourcePath))
+        {
+            spec = spec with { InitialSourcePath = hostSourcePath };
+        }
         logger.LogInformation(
             "Sandbox toolchain resolved via {Layer}: language={Language}, image={Image}",
             layer, language ?? "<none>", spec.ToolchainImage);
