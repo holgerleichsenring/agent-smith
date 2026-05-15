@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0138
+goal: "Fix the Triage failure exposed by p0137a's LoadSkills bundle: rewrite the stale triage-structured-system prompt (still references SkillMdFrontmatter fields removed in p0131a), close the coding-catalog filter-role and planner-role gaps, document the role→slot mapping at the prompt level so the LLM stops assigning investigator-role skills to Lead/Reviewer/Filter."
+
+requires: ["p0137a", "p0131a"]
+
+decisions:
+  - key: "Root cause is a stale prompt, not a missing validator branch. triage-structured-system.md still talks about `activation.positive`, `role_assignment[role].positive/negative`, and `roles_supported` — three frontmatter fields p0131a deleted from RoleSkillDefinition. The LLM therefore has no defined key-source for rationale tokens and imitates the example line (auth-port / has-tests / no-db-changes — none of which exist in concept-vocabulary.yaml). It also has no role→slot mapping documented, so it picks role names from the example without knowing that producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter is the hard contract enforced by SkillRoleMapping + TriageOutputValidator. Tightening the validator without fixing the prompt would just produce 'failed harder' — the prompt must encode the post-p0131a constraints. -- alternatives: relax TriageOutputValidator to warn instead of fail (rejected: the role-slot constraint is semantic, fail-loud is correct; the vocab constraint is a contract worth keeping); add a follow-up retry with a stricter system message (rejected: retries should converge, not contradict the first attempt — the first message should already say the right thing)."
+
+  - key: "Coding-catalog gets 4 planner skills + 1 filter skill — consistency with the existing investigator/judge pairs trumps an architect-planner-covers-backend exception. Every domain category (architect, backend-developer, frontend-developer, dba, devops, security-reviewer, tester) ends up with a {investigator, judge, planner} triple plus the verifier family on the side. Reason: an exception 'architect-planner handles backend' is inferrable from descriptions but not from the catalog's structural shape — the LLM is more likely to pick the right Lead when the naming convention is fully regular. -- alternatives: 3 planners with architect-planner description tweak (rejected: structural irregularity bites the next-largest reader, not just the LLM); collapse all planners into a single generic planner (rejected: the existing planners have non-overlapping output shapes — architect emits 'pattern + reason + files', dba emits 'schema + migration + integrity', security-reviewer emits 'threat + control + verification'; one generic planner can't carry that many output contracts)."
+
+  - key: "Hard contract for every new skill comes from SkillMdFrontmatter + TriageOutputValidator + SkillRoleMapping: required frontmatter is `name` + `role` (producer/investigator/judge/filter) + `output_schema` (plan/observation/diff/bootstrap) + `activates_when` (boolean expression over pipeline_name and concept-vocabulary keys). Role→slot is hard-mapped via SkillRoleMapping.cs:10-17 — producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter — no skill can satisfy two slots. Rationale validation post-p0131a goes vocabulary-only (the per-skill ActivationCriteria-bag is retired): every cited key MUST exist in concept-vocabulary.yaml. New planner output_schema is 'plan'; the filter's is 'observation'. -- alternatives: introduce a category field beyond role (rejected: SkillMdFrontmatter has an unused `category` slot but no consumer wires it; out of scope to add the consumer here); allow multi-role skills (rejected: SkillRoleMapping is a single-direction switch — multi-role would need a wider refactor)."
+
+  - key: "Description field follows the addyosmani/agent-skills convention of doubling as an activation hint. Their format is minimal (`name` + `description`) and the description starts with 'Use when …' phrasing that the LLM reads as routing guidance. We keep our richer frontmatter (role + output_schema + activates_when are load-bearing for the pipeline), but the description's leading sentence shifts to 'Lead when X. Analyst/reviewer otherwise.' so the LLM has the role-selection heuristic at a glance instead of inferring from the body. Affects the 4 new planner descriptions; the existing architect-/dba-/security-reviewer-planner descriptions already approximate this shape and stay unchanged. -- alternatives: rewrite all existing planner descriptions (rejected: scope creep + churn on already-working skills); skip the convention (rejected: the addyosmani comparison surfaced it as a concrete cheap improvement)."
+
+  - key: "Filter-role skill for the coding catalog is a port of security/false-positive-filter — same role + same single-skill responsibility, but rebranded for coding-pipeline observations. Reason: structural unfulfillability of the Filter slot in fix-bug / fix-no-test / add-feature / mad-discussion until p0138 lands. Coding-pipeline observations have a different shape than security findings (no severity ↔ confidence two-axis grading), so the wording differs, but the role pattern is identical. -- alternatives: leave Filter slot empty by spec (rejected: the prompt's 'at most one Filter' phrasing reads as 'usually one' to the LLM, which then picks the wrong skill); add multiple coding filters (rejected: one filter per pipeline is the architectural invariant — composing filters is out of scope here)."
+
+  - key: "Cross-repo phase, single phase number (p0138). The skills-repo bump (v2.7.0 → v2.8.0) and the agent-smith prompt rewrite ship together because either alone is incomplete — new planners without a fixed prompt still fail vocab validation; fixed prompt without new planners still leaves the structural Filter-slot gap. Same pattern as p0132c (verifier tool access + skills 2.6.0 → 2.7.0). -- alternatives: split into p0138a (skills repo) + p0138b (prompt) (rejected: a release window with only one side merged produces predictable Triage failures of a different shape — better to land coherently)."
+
+steps:
+  - id: skills-repo-planner-backend
+    action: "Add backend-developer-planner skill"
+    new:
+      - "skills/coding/backend-developer-planner/SKILL.md: role=producer, output_schema=plan, activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"'. Body covers service/handler organization, layer boundaries (controller / application / domain / infrastructure), dependency-injection shape, transaction + error-handling patterns, integration-seam decisions. Constraints mirror architect-planner shape (one-sentence reason, no hedging, missing_information observation when blocked). Description: 'Lead when ticket touches backend service code, handlers, or business logic. Analyst/reviewer when frontend/infra is primary. Backend perspective — handler shape, layer boundaries, DI wiring.'"
+    path: "agent-smith-skills repo"
+
+  - id: skills-repo-planner-frontend
+    action: "Add frontend-developer-planner skill"
+    new:
+      - "skills/coding/frontend-developer-planner/SKILL.md: role=producer, output_schema=plan, activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"'. Body covers component-tree structure, state-management decisions, accessibility patterns, design-system adherence; constraints mirror architect-planner shape. Description: 'Lead when ticket touches UI components, state management, or accessibility. Analyst/reviewer for backend-heavy work. Frontend perspective — component patterns, state shape, a11y.'"
+    path: "agent-smith-skills repo"
+
+  - id: skills-repo-planner-devops
+    action: "Add devops-planner skill"
+    new:
+      - "skills/coding/devops-planner/SKILL.md: role=producer, output_schema=plan, activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"'. Body covers deployment topology, IaC patterns (Helm/Terraform/compose), observability hooks (metrics + traces + logs), environment-promotion concerns. Description: 'Lead when ticket touches deployment, infra, CI/CD, or observability. Analyst/reviewer for code-only changes. Operations perspective — deployment topology, IaC, observability hooks.'"
+    path: "agent-smith-skills repo"
+
+  - id: skills-repo-planner-tester
+    action: "Add tester-planner skill"
+    new:
+      - "skills/coding/tester-planner/SKILL.md: role=producer, output_schema=plan, activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"'. Body covers test pyramid balance, integration vs unit ratio, coverage strategy for the ticket's surface area, regression-test selection. Description: 'Lead when ticket primarily adds or restructures tests. Analyst/reviewer when production code is the focus. Testing perspective — test pyramid, coverage strategy, regression selection.'"
+    path: "agent-smith-skills repo"
+
+  - id: skills-repo-filter-coding
+    action: "Add coding-domain filter skill"
+    new:
+      - "skills/coding/false-positive-filter/SKILL.md: role=filter, output_schema=observation, activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"fix-no-test\" OR pipeline_name = \"feature-implementation\" OR pipeline_name = \"mad-discussion\"'. Description: 'Use in Final phase to reduce coding-pipeline observations to actionable items. Removes out-of-scope concerns, framework-handled cases, test-fixture flags, already-addressed-in-code items.'"
+      - "Body: enumerate the 6 removal categories with one-line examples for each (the operator-facing contract the LLM follows). Categories: (a) Out-of-ticket-scope — observation addresses code outside the ticket's described surface (e.g. ticket says 'fix login redirect', observation flags a checkout-flow bug). (b) Framework/runtime auto-handled — the language or framework already enforces the property the observation flags (e.g. C# nullable reference types already catch the null-deref claimed; Spring's @Transactional already wraps the call). (c) Test-fixture / example-only match — observation cites a path under /tests, /fixtures, /examples (no production exposure). (d) Already-addressed in current diff or recent commits — `git log -- <file>` shows the same fix landed earlier in the work-branch. (e) Insufficient evidence — observation lacks file:line OR cites only a generic claim without a concrete code reference. (f) Duplicate — another observation in the same Final round already flagged the same line + category pair. Each kept observation requires one positive justification line ('kept because: <reason>'); each removed one requires one removal-reason line citing the category. Output is the reduced observation list (same schema, fewer items)."
+    path: "agent-smith-skills repo"
+
+  - id: skills-repo-version
+    action: "Bump catalog version 2.7.0 → 2.8.0"
+    modify:
+      - "skills.version (or version.txt — whichever the catalog uses as the canonical version source): bump to 2.8.0"
+      - "CHANGELOG.md (if present): one-paragraph entry naming the 4 new skills + the architect-planner description clarification + the cross-repo pairing with agent-smith p0138"
+    path: "agent-smith-skills repo"
+
+  - id: agent-smith-prompt-rewrite
+    action: "Rewrite triage-structured-system.md to match the post-p0131a model"
+    modify:
+      - "src/AgentSmith.Application/Prompts/Resources/triage-structured-system.md: delete references to `activation.positive`, `activation.negative`, `role_assignment[role].positive/negative`, `roles_supported` (all removed in p0131a). Replace with the current model: each skill has a single `role:` field (producer / investigator / judge / filter) and an `activates_when:` boolean expression. The skills shown to the LLM are pre-filtered by the activates_when pass — they are all known-eligible for the pipeline."
+      - "Prompt: add a `## Role → slot mapping` section spelling out producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter. State this is the hard contract — violating it makes the output invalid."
+      - "Prompt: rewrite the `## Rationale grammar` section. The only legal key source is the concept-vocabulary file shipped with the skill catalog (the LLM is told 'pick keys from the vocabulary list above' — the existing user-prompt template already injects the vocabulary)."
+      - "Prompt: update the JSON example to use 3-4 real concept-vocabulary keys (e.g. ones from concept-vocabulary.yaml that ship with the skills catalog — bootstrap-needed, has-tests, scope-localized, single-file)."
+      - "Prompt: add a short Filter-slot note — 'Final.filter requires a skill with role: filter. If no filter-role skill is available, leave Final.filter null.' (covers the case where a future catalog drops the filter again)."
+
+  - id: agent-smith-user-prompt
+    action: "Render the concept-vocabulary verbatim into the user prompt (today it is loaded into TriageOutputProducer but never injected into the prompt template)"
+    modify:
+      - "src/AgentSmith.Application/Prompts/Resources/triage-structured-user.md: insert a new section between '## Available Skills' and '## Instructions': `## Available Rationale Keys (Concept Vocabulary)\\n\\n{concept_vocabulary}`. The model needs to SEE the keys verbatim — a path-only reference does not work because the prompt is the only context the LLM gets."
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs: BuildTokens (line 148 area) — add `[\"concept_vocabulary\"] = RenderVocabulary(input.Vocabulary)` to the token dictionary. The vocabulary already loads in ProduceAsync (line 50-53) but is never passed into BuildTokens — that is the data-flow gap this step closes."
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs: add a `RenderVocabulary(ConceptVocabulary vocabulary)` private static helper that emits one bullet per entry: `- <key>: <description>`. Empty vocabulary produces a short 'None — the catalog ships without concept-vocabulary.yaml; do not cite any keys.' note so the LLM knows to leave rationale keys empty."
+      - "TriageInput (record type): add `ConceptVocabulary Vocabulary` field if not already present (likely needs to be threaded from ProduceAsync into BuildPrompts → BuildTokens — verify by reading the existing call chain)."
+
+  - id: agent-smith-skills-pin
+    action: "Pin the skills catalog version to 2.8.0 in operator config + Acme k8s manifests"
+    modify:
+      - "config/agentsmith.example.yml: bump skills.version (or equivalent pin) to 2.8.0; add operator-facing note that this catalog ships the new planner + filter skills"
+      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: same pin update if the version is configured server-side"
+
+  - id: tests-prompt-content
+    action: "Architecture test: triage prompt does not reference removed-in-p0131a fields"
+    new:
+      - "TriagePromptArchitectureTests.TriageStructuredSystemMd_DoesNotReferenceRemovedFrontmatterFields — text scan of triage-structured-system.md asserts no occurrences of `activation.positive`, `activation.negative`, `role_assignment`, `roles_supported` (regression-guard so a future copy-paste from old docs doesn't reintroduce the bug)"
+      - "TriagePromptArchitectureTests.TriageStructuredSystemMd_ContainsRoleSlotMapping — asserts the prompt contains 'producer' AND 'Lead' AND 'investigator' AND 'Analyst' AND 'judge' AND 'Reviewer' AND 'filter' AND 'Filter' on the same page so the mapping documentation is present"
+
+  - id: tests-catalog-presence
+    action: "Skill-catalog smoke test confirming new skills load + filter slot is fulfillable"
+    new:
+      - "YamlSkillLoaderCatalogTests.CodingCatalog_v2_8_0_LoadsAllPlannersAndFilter — fixture pointing at a v2.8.0 catalog: load via YamlSkillLoader, assert the 4 new skill names appear in the loaded set, assert at least one filter-role skill exists for fix-bug pipeline (activates_when matches)"
+
+  - id: tests-triage-e2e
+    action: "Integration test: a fix-bug triage with the v2.8.0 catalog produces a valid output (passes TriageOutputValidator)"
+    new:
+      - "StructuredTriageStrategyV28Tests.Triage_FixBugWithV2_8Catalog_ProducesValidOutput — feeds a synthetic fix-bug ProjectMap + the v2.8.0 skill set + a stubbed IChatClient returning the canonical example output through StructuredTriageStrategy; asserts TriageOutputProducer.ProduceAsync does NOT throw. Validates the prompt's example is itself valid (closes the 'example violates own constraints' bug class)."
+
+tests:
+  - "TriagePromptArchitecture_TriageStructuredSystemMd_DoesNotReferenceRemovedFrontmatterFields"
+  - "TriagePromptArchitecture_TriageStructuredSystemMd_ContainsRoleSlotMapping"
+  - "YamlSkillLoaderCatalog_CodingCatalog_v2_8_0_LoadsAllPlannersAndFilter"
+  - "StructuredTriageStrategyV28_Triage_FixBugWithV2_8Catalog_ProducesValidOutput"
+
+done:
+  - "agent-smith-skills catalog ships 5 new coding skills: backend-developer-planner, frontend-developer-planner, devops-planner, tester-planner (all role=producer, output_schema=plan), and false-positive-filter (role=filter, output_schema=observation). All 4 planners share the activates_when='pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"' contract; the filter's activates_when covers fix-bug + fix-no-test + feature-implementation + mad-discussion"
+  - "Every new skill follows the addyosmani-style description convention: leading 'Lead when X. Analyst/reviewer when Y.' for planners; leading 'Use in <phase> to <verb>' for the filter — the LLM sees the role-selection heuristic without parsing the body"
+  - "Coding catalog now has 11 producer skills (4 new planners + 3 existing + 4 bootstraps), 12 investigator skills, 7 judge skills, 1 filter skill (was 0). Filter slot in fix-bug / fix-no-test / add-feature / mad-discussion is structurally fulfillable"
+  - "agent-smith-skills version is bumped to 2.8.0 with a CHANGELOG entry"
+  - "triage-structured-system.md is free of `activation.positive` / `activation.negative` / `role_assignment` / `roles_supported` references (verified by architecture test)"
+  - "triage-structured-system.md documents the producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter mapping explicitly"
+  - "triage-structured-user.md (or the rendered prompt) lists the concept-vocabulary entries the LLM may cite — keys are visible in the prompt, not just referenced by path"
+  - "JSON example in the prompt uses real concept-vocabulary keys"
+  - "agentsmith.example.yml + Acme k8s manifest pin skills.version to 2.8.0"
+  - "Fresh fix-bug run on a backend-heavy ticket reaches TriageCommand and passes validation on the first attempt — no role-slot mismatch, no invented keys. Filter slot is fillable (false-positive-filter is now available)"
+  - "DEFERRED to p0138-followup: rewrite existing architect-planner / dba-planner / security-reviewer-planner descriptions into the leading 'Lead when X. Analyst/reviewer when Y.' shape so the catalog is fully consistent. The three current descriptions already work end-to-end — this is consistency-polish, not a Triage-blocker. Tracking explicitly so the catalog does not slide into a 4-on-new + 3-on-old half-state. Scope: 3 SKILL.md edits + catalog patch-bump 2.8.0 → 2.8.1"
+  - "All new tests pass; existing test suite green"
