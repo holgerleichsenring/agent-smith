@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.50.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.49.1...v0.50.0) (2026-05-15)
+
+
+### Features
+
+* rewrite triage prompt + pin skills v2.1.0 (p0138) ([6a7065f](https://github.com/holgerleichsenring/agent-smith/commit/6a7065f09c72828c282c0e3f09d6f99551a33fd4))
+* rewrite triage prompt + pin skills v2.1.0 (p0138) ([18da074](https://github.com/holgerleichsenring/agent-smith/commit/18da074f105da42d0f22e955febbdc5a157a594d))
+
 ## [0.49.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.49.0...v0.49.1) (2026-05-14)
 
 
