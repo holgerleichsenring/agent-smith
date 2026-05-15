@@ -40,6 +40,8 @@ deploy/k8s/secret-local.yaml
 
 ## Local config (only *.example.* templates are tracked)
 config/agentsmith.yml
+deploy/docker-compose.yml
+deploy/docker-compose.override.yml
 
 ## Claude Code
 .claude/
