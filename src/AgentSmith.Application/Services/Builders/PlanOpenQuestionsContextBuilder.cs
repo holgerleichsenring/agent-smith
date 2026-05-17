@@ -9,9 +9,9 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class PlanOpenQuestionsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new PlanOpenQuestionsContext(ticket, project.Tickets, pipeline);
+        return new PlanOpenQuestionsContext(ticket, project.Tracker, pipeline);
     }
 }

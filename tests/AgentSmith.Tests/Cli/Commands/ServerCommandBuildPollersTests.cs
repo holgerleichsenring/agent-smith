@@ -18,7 +18,7 @@ public sealed class ServerCommandBuildPollersTests
     [Fact]
     public void BuildPollers_GitHubProject_RegistersGitHubIssuePoller()
     {
-        var pollers = Build("github").ToList();
+        var pollers = Build(TrackerType.GitHub).ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<GitHubIssuePoller>();
         pollers[0].PlatformName.Should().Be("GitHub");
@@ -27,7 +27,7 @@ public sealed class ServerCommandBuildPollersTests
     [Fact]
     public void BuildPollers_AzureDevOpsProject_RegistersAzureDevOpsWorkItemPoller()
     {
-        var pollers = Build("azuredevops").ToList();
+        var pollers = Build(TrackerType.AzureDevOps).ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<AzureDevOpsWorkItemPoller>();
         pollers[0].PlatformName.Should().Be("AzureDevOps");
@@ -36,7 +36,7 @@ public sealed class ServerCommandBuildPollersTests
     [Fact]
     public void BuildPollers_GitLabProject_RegistersGitLabIssuePoller()
     {
-        var pollers = Build("gitlab").ToList();
+        var pollers = Build(TrackerType.GitLab).ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<GitLabIssuePoller>();
         pollers[0].PlatformName.Should().Be("GitLab");
@@ -45,7 +45,7 @@ public sealed class ServerCommandBuildPollersTests
     [Fact]
     public void BuildPollers_JiraProject_RegistersJiraIssuePoller()
     {
-        var pollers = Build("jira").ToList();
+        var pollers = Build(TrackerType.Jira).ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<JiraIssuePoller>();
         pollers[0].PlatformName.Should().Be("Jira");
@@ -54,21 +54,21 @@ public sealed class ServerCommandBuildPollersTests
     [Fact]
     public void BuildPollers_UnsupportedTicketType_RegistersNothing()
     {
-        var pollers = Build("ollama-local").ToList();
+        var pollers = Build((TrackerType)999).ToList();
         pollers.Should().BeEmpty();
     }
 
     [Fact]
     public void BuildPollers_PollingDisabled_RegistersNothing()
     {
-        var pollers = Build("github", pollingEnabled: false).ToList();
+        var pollers = Build(TrackerType.GitHub, pollingEnabled: false).ToList();
         pollers.Should().BeEmpty();
     }
 
     [Fact]
     public void BuildPollers_TypeMatchIsCaseInsensitive()
     {
-        var pollers = Build("GitHub").ToList();
+        var pollers = Build(TrackerType.GitHub).ToList();
         pollers.Should().HaveCount(1);
         pollers[0].Should().BeOfType<GitHubIssuePoller>();
     }
@@ -82,25 +82,40 @@ public sealed class ServerCommandBuildPollersTests
     public void BuildPollers_LoadsYamlConfig_RegistersAllFourPlatformPollers()
     {
         var yaml = """
+            agents:
+              a: { type: Claude }
+            repos:
+              gh-repo: { type: GitHub, url: https://github.com/o/r, auth: token }
+              azdo-repo: { type: AzureDevOps, url: https://dev.azure.com/o/p/_git/r, auth: pat }
+              gl-repo: { type: GitLab, url: https://gitlab.com/g/r, auth: token }
+            trackers:
+              gh-tr: { type: GitHub, url: https://github.com/o/r, auth: token }
+              azdo-tr: { type: AzureDevOps, organization: https://dev.azure.com/o, project: p, auth: pat }
+              gl-tr: { type: GitLab, project: g/r, auth: token }
+              jr-tr: { type: Jira, url: https://jira.example, project: PROJ, auth: token }
             projects:
               gh:
-                source: { type: GitHub, url: https://github.com/o/r }
-                tickets: { type: github, url: https://github.com/o/r, auth: token }
+                agent: a
+                tracker: gh-tr
+                repos: [gh-repo]
                 pipeline: fix-bug
                 polling: { enabled: true }
               azdo:
-                source: { type: AzureDevOps, url: https://dev.azure.com/o/p/_git/r }
-                tickets: { type: azuredevops, organization: https://dev.azure.com/o, project: p, auth: pat }
+                agent: a
+                tracker: azdo-tr
+                repos: [azdo-repo]
                 pipeline: fix-bug
                 polling: { enabled: true }
               gl:
-                source: { type: GitLab, url: https://gitlab.com/g/r }
-                tickets: { type: gitlab, project: g/r, auth: token }
+                agent: a
+                tracker: gl-tr
+                repos: [gl-repo]
                 pipeline: fix-bug
                 polling: { enabled: true }
               jr:
-                source: { type: GitHub, url: https://github.com/o/r }
-                tickets: { type: jira, url: https://jira.example, project: PROJ, auth: token }
+                agent: a
+                tracker: jr-tr
+                repos: [gh-repo]
                 pipeline: fix-bug
                 polling: { enabled: true }
             """;
@@ -110,12 +125,12 @@ public sealed class ServerCommandBuildPollersTests
 
         try
         {
-            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths())
+            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths())
                 .LoadConfig(path);
 
             var ticketFactory = new Mock<ITicketProviderFactory>();
             var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();
-            transitionerFactory.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+            transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
                 .Returns(new Mock<ITicketStatusTransitioner>().Object);
 
             var services = new ServiceCollection();
@@ -141,11 +156,11 @@ public sealed class ServerCommandBuildPollersTests
     }
 
     private static IEnumerable<IEventPoller> Build(
-        string ticketType, bool pollingEnabled = true)
+        TrackerType ticketType, bool pollingEnabled = true)
     {
         var ticketFactory = new Mock<ITicketProviderFactory>();
         var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();
-        transitionerFactory.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(new Mock<ITicketStatusTransitioner>().Object);
 
         var services = new ServiceCollection();
@@ -156,9 +171,9 @@ public sealed class ServerCommandBuildPollersTests
         var provider = services.BuildServiceProvider();
 
         var config = new AgentSmithConfig();
-        config.Projects["test"] = new ProjectConfig
+        config.Projects["test"] = new ResolvedProject
         {
-            Tickets = new TicketConfig { Type = ticketType },
+            Tracker = new TrackerConnection { Type = ticketType },
             Polling = new PollingConfig { Enabled = pollingEnabled }
         };
 

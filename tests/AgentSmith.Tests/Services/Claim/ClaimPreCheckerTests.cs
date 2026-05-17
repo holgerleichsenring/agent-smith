@@ -60,7 +60,7 @@ public sealed class ClaimPreCheckerTests
         {
             Projects = new()
             {
-                ["my-project"] = new ProjectConfig
+                ["my-project"] = new ResolvedProject
                 {
                     GithubTrigger = new WebhookTriggerConfig
                     {
@@ -95,7 +95,7 @@ public sealed class ClaimPreCheckerTests
     {
         Projects = new()
         {
-            ["my-project"] = new ProjectConfig
+            ["my-project"] = new ResolvedProject
             {
                 GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = pipeline }
             }

@@ -14,9 +14,9 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_SourceConfigDefaultBranchSet_PassesAsBranchName()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
-            Source = new SourceConfig { Type = "github", Url = "u", DefaultBranch = "develop" }
+            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = "develop" }
         };
 
         var context = (TryCheckoutSourceContext)_builder.Build(
@@ -28,9 +28,9 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_SourceConfigDefaultBranchUnset_PassesNullBranch()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
-            Source = new SourceConfig { Type = "github", Url = "u", DefaultBranch = null }
+            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null }
         };
 
         var context = (TryCheckoutSourceContext)_builder.Build(
@@ -42,9 +42,9 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_IgnoresContextKeysCheckoutBranchAndTicketId()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
-            Source = new SourceConfig { Type = "github", Url = "u", DefaultBranch = null }
+            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null }
         };
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.CheckoutBranch, "feature/from-webhook");

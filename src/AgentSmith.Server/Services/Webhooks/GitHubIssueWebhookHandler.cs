@@ -93,7 +93,7 @@ public sealed class GitHubIssueWebhookHandler(
     {
         foreach (var (name, project) in config.Projects)
         {
-            if (repoUrl.Equals(project.Source.Url, StringComparison.OrdinalIgnoreCase))
+            if (repoUrl.Equals(project.Repo.Url, StringComparison.OrdinalIgnoreCase))
                 return (name, project.GithubTrigger);
         }
 
@@ -106,7 +106,7 @@ public sealed class GitHubIssueWebhookHandler(
 
     internal static string? ResolvePipeline(WebhookTriggerConfig trigger, string label)
     {
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
+        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel ?? new())
         {
             if (configLabel.Equals(label, StringComparison.OrdinalIgnoreCase))
                 return pipeline;
@@ -114,6 +114,6 @@ public sealed class GitHubIssueWebhookHandler(
 
         // If no pipeline_from_label entries match, check if this is ANY configured label
         // If pipeline_from_label is empty, accept any label and use default pipeline
-        return trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        return (trigger.PipelineFromLabel?.Count ?? 0) == 0 ? trigger.DefaultPipeline : null;
     }
 }

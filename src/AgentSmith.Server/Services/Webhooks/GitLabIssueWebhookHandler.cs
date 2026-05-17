@@ -82,7 +82,7 @@ public sealed class GitLabIssueWebhookHandler(
     {
         foreach (var (name, project) in config.Projects)
         {
-            if (repoUrl.Equals(project.Source.Url, StringComparison.OrdinalIgnoreCase))
+            if (repoUrl.Equals(project.Repo.Url, StringComparison.OrdinalIgnoreCase))
                 return (name, project.GitlabTrigger);
         }
         return (null, null);
@@ -108,11 +108,11 @@ public sealed class GitLabIssueWebhookHandler(
 
     internal static string? ResolvePipeline(WebhookTriggerConfig trigger, List<string> labels)
     {
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
+        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel ?? new())
         {
             if (labels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
                 return pipeline;
         }
-        return trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        return (trigger.PipelineFromLabel?.Count ?? 0) == 0 ? trigger.DefaultPipeline : null;
     }
 }

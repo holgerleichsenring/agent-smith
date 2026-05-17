@@ -8,5 +8,5 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface ITicketStatusTransitionerFactory
 {
-    ITicketStatusTransitioner Create(TicketConfig config);
+    ITicketStatusTransitioner Create(TrackerConnection config);
 }

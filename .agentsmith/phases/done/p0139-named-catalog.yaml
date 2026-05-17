@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0139
+goal: "Introduce top-level catalogs for agents, repos, trackers, and pipeline_triggers in agentsmith.yml. Projects shrink to references-by-name plus project-specific trigger settings. Eliminates the per-project duplication of full agent/tracker blocks that today causes a 5-line edit (e.g. new pricing tier) to become a 5×N-line edit. Breaking change; no compat shim; existing agentsmith.yml is migrated manually once."
+
+requires: ["p0133"]
+
+scope:
+  in: "New top-level YAML sections: `agents:`, `repos:`, `trackers:`, `pipeline_triggers:`. Project block is reshaped: `agent:` and `tracker:` become string references; `source:` is replaced by `repos: [name, ...]` (list of one or more repo references); `tickets:` block on project moves to the named tracker entry; trigger-block (`azuredevops_trigger`/`github_trigger`/`gitlab_trigger`/`jira_trigger`/`email_trigger`) stays on the project but its `pipeline_from_label` becomes optional (falls back to global `pipeline_triggers`). Loader: ConfigBasedAgentSmithConfigLoader resolves catalog references at load time, fails fast with clear error on unresolved names. Validator: detect duplicate catalog keys, unresolved references, projects that reference a missing repo/tracker/agent."
+  out: "Per-pipeline overrides inside a project (`agent` per pipeline, `skills_path` per pipeline) — that's p0140's job, not this one. Multi-repo execution mechanics (spawning N pipelines from one ticket) — also p0140. Email trigger provider — p0141. Project-resolution strategy for webhook→project routing — also p0140 (the catalog refactor is orthogonal). Pipeline catalog (i.e. defining pipelines themselves in YAML rather than in code) — explicitly out, pipelines stay code-defined. Per-project override of `pipeline_triggers` map — explicitly excluded as discussed; global only for now. Backward-compat shim for the old per-project inline blocks — explicitly rejected, this is v0.5.x, migration is a one-time manual rewrite."
+
+decisions:
+  - key: "Four top-level catalogs (`agents:`, `repos:`, `trackers:`, `pipeline_triggers:`) — not three. Trackers carry their own connection metadata (org/url/auth/open_states/done_status), which today is glued into the project's `tickets:` block. Pulling it out is the same refactor as agents; doing it inconsistently (agents extracted, trackers not) would re-duplicate tracker config across every project that touches the same Jira/ADO/GitHub install."
+  - key: "Project references catalog entries by NAME (string), not by inline structure. Inline definitions are explicitly NOT supported. Reason: dual-mode loader (name OR inline) doubles validation surface, makes error messages worse, and lets duplication creep back in unnoticed. The catalog is the only entry point; a project that wants 'a unique agent for just this project' adds a one-off entry to `agents:` and references it."
+  - key: "Catalog keys are simple strings — `azure-openai-default`, `claude-haiku-light`, `sample-a-server`, `acme-cloud-dev`. No namespacing prefix. Reason: catalogs live inside one file; collisions across catalogs are impossible because catalogs are namespaced by their parent key (`agents.foo` vs `repos.foo` is fine). Inside one catalog, duplicates fail validation at load time."
+  - key: "`pipeline_triggers:` is global, not per-project. Today every project repeats `pipeline_from_label: { agent-smith:bug: fix-bug, ... }` — same 4-5 entries, copied. The Trigger→Pipeline mapping is a property of the pipeline catalog (which pipelines exist + how they're invoked by label), not a property of any one project. Per-project override is deliberately excluded in this phase; if a project needs a custom mapping for one label, that's a known limitation and reopens in a follow-up if real use emerges."
+  - key: "`repos:` on the project is a LIST, even when it's just one. Reason: p0140 will activate multi-repo spawning over the same list. Forcing scalar→list later would break every config a second time. Configs that have only one repo simply write `repos: [my-repo]` — cost: 2 chars vs `repo: my-repo`."
+  - key: "Trigger-block (`azuredevops_trigger` etc.) stays ON THE PROJECT, not in the tracker catalog. Reason: trigger settings (which labels route to which pipelines, which area path identifies which project, which assignee triggers, polling on/off) are project-specific even when two projects share the same tracker. The tracker entry holds only the connection (URL, org, auth, lifecycle states); the routing logic stays where it belongs."
+  - key: "No backward-compat layer. The current `agentsmith.yml` format is replaced; any existing config file is rewritten by hand. Migration tooling/scripts are NOT part of this phase or this product — explicitly deferred. This is v0.5.x; breaking config changes are accepted."
+  - key: "Loader fails fast on unresolved references. A typo like `agent: claude-defaultt` is rejected at startup with `Configuration error: project 'sample-a' references agent 'claude-defaultt' which is not defined in agents: catalog`. No silent fallback to defaults. Reason: silent fallback makes catalog mistakes ship to production, and the new pattern relies on references being the only source of truth."
+  - key: "`pipeline_triggers:` is a flat map (label string → pipeline name string). Not a list of objects. Reason: matches the existing `pipeline_from_label:` shape exactly, so the inner matching logic (`PipelineFromLabel.TryGetValue`) stays bit-for-bit identical. The change is only WHERE the map lives, not WHAT it looks like."
+  - key: "Validator runs at config load, not at pipeline-execute time. A misconfigured `agentsmith.yml` (unknown agent name, duplicate repo key, missing tracker) prevents server startup entirely. Reason: lazy validation lets the server appear healthy and then fail mysteriously when the first webhook arrives. Operator should know within seconds of deploy whether config parses."
+  - key: "Existing helper for tracker connection lookup (today inlined per project) becomes a single `IAgentSmithConfig.GetTracker(name)` method that all platform-specific resolvers (AzureDevOps/Jira/GitHub/GitLab) call into. The four platform-resolvers themselves are unchanged; only the source of the tracker-connection record moves."
+  - key: "Singular Repo accessor is a transitional shim. ResolvedProject exposes both `Repos` (list, the source of truth) and `Repo` (singular, asserts `Repos.Count == 1` and returns Repos[0]). The singular accessor exists ONLY to keep p0139's consumer migration minimal — every call site that today reads `project.Source` is rewritten to `project.Repo` in p0139, then bulk-rewritten to iterate `project.Repos` in p0140. The singular accessor is deleted in p0140; that phase's done-criteria include its removal."
+
+steps:
+  - id: schema
+    action: "Define the new YAML schema as a JSON-schema file alongside the existing phase-spec.schema.json"
+    new:
+      - "config/agentsmith.schema.json: top-level keys agents, repos, trackers, pipeline_triggers, projects, skills, limits, pipeline_storage, pipeline_data_flow, secrets. Per-key shape: agents{name: AgentConfig}, repos{name: RepoConnection}, trackers{name: TrackerConnection}, pipeline_triggers{label: pipelineName}. Project shape: {tracker: string, repos: [string], agent: string, pipeline: string (single, see p0140 for the list), <provider>_trigger: TriggerBlock, polling: PollingConfig?, coding_principles_path?: string, skills_path?: string}."
+      - ".agentsmith/notes/config-migration-guide.md: side-by-side before/after for one real project (e.g. sample-a-api-security-azure-openai) showing the rewrite. Documents naming conventions (kebab-case for keys, default suffixes like `-default` for shared catalog entries). Explicitly says: hand-migrate once, no automated tool provided."
+
+  - id: domain
+    action: "Add the four catalog record types and the resolver service"
+    new:
+      - "src/AgentSmith.Domain/Configuration/RepoConnection.cs: record { string Name, RepoType Type, string Url, string? Organization, string? Project, string Auth, string DefaultBranch }. Type enum: GitHub, GitLab, AzureDevOps. Replaces the embedded source-block fields. Auth stays as a token-name string referencing the secrets block (no change in semantics)."
+      - "src/AgentSmith.Domain/Configuration/TrackerConnection.cs: record { string Name, TrackerType Type, string? Url, string? Organization, string? Project, string Auth, IReadOnlyList<string>? OpenStates, string? DoneStatus }. Type enum: GitHub, GitLab, AzureDevOps, Jira. (Email is added to the enum in p0141 alongside its provider — forward-declaring it here would create silently-accepted but unwired schema surface.) OpenStates/DoneStatus are tracker-level lifecycle config; project-level overrides remain in the trigger-block where they already are."
+      - "src/AgentSmith.Domain/Configuration/PipelineTriggerMap.cs: thin wrapper around IReadOnlyDictionary<string, string> with a single TryResolve(label, out pipelineName) method. Reason for a wrapper: makes the call-site self-documenting (`triggers.TryResolve(label, out var pipeline)`) and gives a stable target for the validator to reach into."
+      - "src/AgentSmith.Application/Services/Configuration/ConfigCatalogResolver.cs: takes the parsed top-level config; produces a ResolvedProject for each project entry by looking up its agent/tracker/repos references. Throws ConfigurationException with a precise message on unresolved name."
+
+  - id: loader
+    action: "Reshape the YAML loader to consume the new schema"
+    modify:
+      - "src/AgentSmith.Infrastructure/Configuration/ConfigBasedAgentSmithConfigLoader.cs: parse the four top-level catalogs first (agents/repos/trackers/pipeline_triggers); then parse projects; then invoke ConfigCatalogResolver. The old per-project source/tickets/agent inline parsing is deleted. ProjectConfig record gains: TrackerName (string), RepoNames (IReadOnlyList<string>), AgentName (string). The resolver materializes these to fully-bound records for downstream consumers — old direct-access patterns to ProjectConfig.Source/Tickets/Agent are migrated to the resolved view."
+      - "src/AgentSmith.Domain/Configuration/AgentSmithConfig.cs: add IReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyDictionary<string, RepoConnection> Repos, IReadOnlyDictionary<string, TrackerConnection> Trackers, PipelineTriggerMap PipelineTriggers. ProjectConfig keeps Trigger blocks unchanged; gains the three reference fields above; loses Source, Tickets, Agent direct embeddings."
+
+  - id: validator
+    action: "Add startup validation that catches catalog mistakes early"
+    new:
+      - "src/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs: runs after loader. Checks: (a) every project's AgentName, TrackerName, RepoNames resolve in their catalogs; (b) no duplicate keys in any catalog; (c) every pipeline_triggers value is a known pipeline name (cross-checked against PipelinePresets); (d) every project's <provider>_trigger matches the resolved tracker's Type (a project with tracker=jira-prod cannot have azuredevops_trigger). Returns a list of errors; if non-empty, server refuses to start with a single aggregated error message listing all issues."
+    modify:
+      - "src/AgentSmith.Hosting/Startup.cs (or equivalent composition root): invoke validator after config load; on errors, log all + throw to halt startup."
+
+  - id: consumers
+    action: "Update every place that today reads project.Source / project.Tickets / project.Agent to use the resolved references"
+    modify:
+      - "src/AgentSmith.Application/UseCases/*: handlers that read ProjectConfig.Source → use ResolvedProject.Repo (singular for now; list comes alive in p0140 — for this phase consumers see Repos[0] and assert Count==1 to keep behavior identical)."
+      - "src/AgentSmith.Application/UseCases/*: handlers that read ProjectConfig.Tickets → use ResolvedProject.Tracker."
+      - "src/AgentSmith.Application/UseCases/*: handlers that read ProjectConfig.Agent → use ResolvedProject.Agent."
+      - "src/AgentSmith.Infrastructure/Providers/Tickets/*Factory.cs: the four platform factories take TrackerConnection (a single record) instead of pulling fields from ProjectConfig.Tickets. Call-sites updated."
+
+  - id: trigger-default
+    action: "Wire the global pipeline_triggers map into the existing trigger resolution"
+    modify:
+      - "src/AgentSmith.Application/Services/Triggers/PipelineFromLabelResolver.cs (or equivalent — the existing class that holds the per-trigger PipelineFromLabel dict): when the trigger-block's PipelineFromLabel is null/empty, fall back to AgentSmithConfig.PipelineTriggers for the lookup. Default-pipeline behavior unchanged."
+      - "src/AgentSmith.Domain/Configuration/Triggers/AzureDevOpsTrigger.cs / GitHubTrigger.cs / GitLabTrigger.cs / JiraTrigger.cs: PipelineFromLabel becomes optional (nullable). Existing populated maps continue to win over the global default — important so a project CAN override even though we don't ship per-project override as a feature, just so the test of 'one project's settings still take precedence' holds."
+
+  - id: docs
+    action: "Document the new schema and the migration"
+    new:
+      - "docs/configuration/agentsmith-yml-schema.md: the canonical reference. One section per top-level key. Per-section: shape, required fields, examples, common mistakes."
+      - "docs/configuration/migration-from-pre-p0139.md: walks an operator through hand-migrating a real-world agentsmith.yml. Uses the acme sample-a + sample-b pair as the worked example because it exhibits both catalog reuse (same agent across multiple projects) and tracker reuse (same ADO project hosting two logical projects)."
+    modify:
+      - "docs/configuration/README.md: link both new files at the top; mark the old per-project block reference docs as superseded."
+      - "config/agentsmith.example.yml: replace with the new schema; show all four catalogs populated; show three projects of varied shapes (single-repo GitHub, ADO with polling, Jira with multiple repos). Email tracker examples land in p0141 alongside the provider."
+
+  - id: tests
+    action: "Schema parsing, validator, and resolver tests"
+    new:
+      - "tests/Configuration/AgentSmithConfigLoaderTests: parses a valid example fully; produces the right number of catalog entries; resolves a project's references; round-trips a minimal project (one repo, one tracker, one agent)."
+      - "tests/Configuration/AgentSmithConfigValidatorTests: rejects unresolved agent name; rejects unresolved tracker name; rejects unresolved repo name; rejects duplicate key in agents catalog; rejects mismatched provider_trigger vs tracker type (project has azuredevops_trigger but tracker is jira)."
+      - "tests/Configuration/PipelineTriggerFallbackTests: project with empty PipelineFromLabel uses the global pipeline_triggers map; project with populated PipelineFromLabel wins."
+    modify:
+      - "tests/Integration/EndToEnd/*: existing integration tests using the old schema get their fixture YAML rewritten to the new schema. No behavior assertions change — same tickets in, same PRs/comments out — only the config-input shape."
+
+tests:
+  - "ConfigLoader_ValidExampleYml_LoadsFourCatalogsAndAllProjects"
+  - "ConfigLoader_ProjectReferencesUnknownAgent_ThrowsConfigurationException"
+  - "ConfigLoader_ProjectReferencesUnknownTracker_ThrowsConfigurationException"
+  - "ConfigLoader_ProjectReferencesUnknownRepo_ThrowsConfigurationException"
+  - "ConfigValidator_DuplicateAgentName_ReturnsError"
+  - "ConfigValidator_DuplicateRepoName_ReturnsError"
+  - "ConfigValidator_PipelineTriggersReferencesUnknownPipeline_ReturnsError"
+  - "ConfigValidator_AzureDevOpsTriggerOnJiraTracker_ReturnsError"
+  - "PipelineFromLabelResolver_ProjectMapNull_FallsBackToGlobal"
+  - "PipelineFromLabelResolver_ProjectMapPopulated_WinsOverGlobal"
+  - "ResolvedProject_RepoListWithOneEntry_BehavesIdenticallyToOldSourceField"
+  - "Startup_InvalidConfig_RefusesToStartWithAggregatedErrorMessage"
+
+done:
+  - "agentsmith.yml has top-level agents/repos/trackers/pipeline_triggers catalogs; projects are reference-only"
+  - "Per-project inline blocks for source/tickets/agent are removed from the schema; loader rejects them"
+  - "ConfigValidator catches unresolved references, duplicate keys, and provider_trigger/tracker-type mismatches at startup"
+  - "Global pipeline_triggers map serves as default when a trigger-block omits PipelineFromLabel"
+  - "Existing real-world projects in config/agentsmith.example.yml (acme sample-a + sample-b + agent-smith repo) are rewritten with the new schema; no behavior change in the smoke tests for those flows"
+  - "Migration guide documents the hand-rewrite using one real project as a worked example; states explicitly that no migration tool exists"
+  - "All tests pass; existing suite green"

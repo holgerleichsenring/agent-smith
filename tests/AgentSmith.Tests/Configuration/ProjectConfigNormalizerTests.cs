@@ -12,7 +12,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacyPipelineString_TranslatesToPipelinesAndDefaultPipeline()
     {
-        var project = new ProjectConfig { Pipeline = "fix-bug" };
+        var project = new RawProjectEntry { Pipeline = "fix-bug" };
 
         _sut.Normalize("p", project);
 
@@ -24,7 +24,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacySkillsPathDefaultValue_NotCarriedToPipelineDefinition()
     {
-        var project = new ProjectConfig { Pipeline = "fix-bug", SkillsPath = "skills/coding" };
+        var project = new RawProjectEntry { Pipeline = "fix-bug", SkillsPath = "skills/coding" };
 
         _sut.Normalize("p", project);
 
@@ -34,7 +34,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacySkillsPathCustomValue_CarriedToPipelineDefinition()
     {
-        var project = new ProjectConfig { Pipeline = "security-scan", SkillsPath = "skills/security" };
+        var project = new RawProjectEntry { Pipeline = "security-scan", SkillsPath = "skills/security" };
 
         _sut.Normalize("p", project);
 
@@ -44,7 +44,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_BothLegacyAndPipelinesSet_LegacyAddedAsAdditionalPipeline()
     {
-        var project = new ProjectConfig
+        var project = new RawProjectEntry
         {
             Pipeline = "fix-bug",
             Pipelines = [new PipelineDefinition { Name = "security-scan" }],
@@ -61,7 +61,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacyPipelineAlreadyInPipelinesList_NotDuplicated()
     {
-        var project = new ProjectConfig
+        var project = new RawProjectEntry
         {
             Pipeline = "fix-bug",
             Pipelines = [new PipelineDefinition { Name = "fix-bug", SkillsPath = "skills/custom" }],
@@ -76,7 +76,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_DefaultPipelineNotInPipelinesList_ThrowsConfigurationException()
     {
-        var project = new ProjectConfig
+        var project = new RawProjectEntry
         {
             DefaultPipeline = "missing",
             Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
@@ -91,7 +91,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_TriggerPipelineFromLabelReferencesUndeclaredPipeline_DoesNotThrow()
     {
-        var project = new ProjectConfig
+        var project = new RawProjectEntry
         {
             Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
             GithubTrigger = new WebhookTriggerConfig
@@ -108,7 +108,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_PipelinesAlreadySetAndNoLegacy_NoChange()
     {
-        var project = new ProjectConfig
+        var project = new RawProjectEntry
         {
             Pipelines =
             [

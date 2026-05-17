@@ -80,6 +80,6 @@ public sealed class PlanOpenQuestionsHandlerTests
     private static Ticket NewTicket()
         => new(new TicketId("42"), "Add caching", "desc", null, "Open", "github");
 
-    private static TicketConfig NewTicketConfig()
-        => new() { Type = "github" };
+    private static TrackerConnection NewTicketConfig()
+        => new() { Type = TrackerType.GitHub };
 }

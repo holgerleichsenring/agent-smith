@@ -97,7 +97,7 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
             if (project.AzuredevopsTrigger is not null)
                 return (name, project.AzuredevopsTrigger);
             // Backward compat: match by ticket type
-            if ("AzureDevOps".Equals(project.Tickets.Type, StringComparison.OrdinalIgnoreCase))
+            if (project.Tracker.Type == TrackerType.AzureDevOps)
                 return (name, null);
         }
         return (null, null);
@@ -109,11 +109,11 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
 
     internal static string? ResolvePipelineFromTags(WebhookTriggerConfig trigger, string tags)
     {
-        foreach (var (configTag, pipeline) in trigger.PipelineFromLabel)
+        foreach (var (configTag, pipeline) in trigger.PipelineFromLabel ?? new())
         {
             if (tags.Contains(configTag, StringComparison.OrdinalIgnoreCase))
                 return pipeline;
         }
-        return trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        return (trigger.PipelineFromLabel?.Count ?? 0) == 0 ? trigger.DefaultPipeline : null;
     }
 }

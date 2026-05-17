@@ -30,12 +30,12 @@ public sealed class InitCommitHandler(
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return CommandResult.Fail("InitCommit requires an active sandbox; none in pipeline context.");
 
-        var sourceProvider = sourceFactory.Create(context.SourceConfig);
+        var sourceProvider = sourceFactory.Create(context.RepoConnection);
 
         var message = "chore: initialize .agentsmith/ directory";
         await gitOps.CommitAndPushAsync(
             sandbox, context.Repository.CurrentBranch.Value, message,
-            context.SourceConfig.Type, cancellationToken);
+            context.RepoConnection.Type, cancellationToken);
 
         // Resolve TicketId once so the PR creation can carry the link AND the
         // post-PR lifecycle finalize sees the same id without re-reading.
@@ -65,7 +65,7 @@ public sealed class InitCommitHandler(
                 """;
 
             await TicketLifecycle.FinalizeAsync(
-                ticketFactory, context.TicketConfig, ticketId,
+                ticketFactory, context.TrackerConnection, ticketId,
                 doneStatus, summary, logger, cancellationToken);
         }
 

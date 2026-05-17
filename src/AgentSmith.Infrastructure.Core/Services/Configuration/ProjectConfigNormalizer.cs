@@ -15,13 +15,13 @@ public sealed class ProjectConfigNormalizer
 {
     private const string DefaultProjectSkillsPath = "skills/coding";
 
-    public void Normalize(string projectName, ProjectConfig project)
+    public void Normalize(string projectName, RawProjectEntry project)
     {
         ApplyLegacyShim(project);
         ValidateDefaultPipeline(projectName, project);
     }
 
-    private static void ApplyLegacyShim(ProjectConfig project)
+    private static void ApplyLegacyShim(RawProjectEntry project)
     {
         if (string.IsNullOrEmpty(project.Pipeline)) return;
         if (!project.Pipelines.Any(p => string.Equals(
@@ -37,12 +37,12 @@ public sealed class ProjectConfigNormalizer
         project.DefaultPipeline ??= project.Pipeline;
     }
 
-    private static string? NonDefaultSkillsPath(ProjectConfig project) =>
+    private static string? NonDefaultSkillsPath(RawProjectEntry project) =>
         string.Equals(project.SkillsPath, DefaultProjectSkillsPath, StringComparison.Ordinal)
             ? null
             : project.SkillsPath;
 
-    private static void ValidateDefaultPipeline(string projectName, ProjectConfig project)
+    private static void ValidateDefaultPipeline(string projectName, RawProjectEntry project)
     {
         if (project.DefaultPipeline is null) return;
         if (project.Pipelines.Any(p => string.Equals(

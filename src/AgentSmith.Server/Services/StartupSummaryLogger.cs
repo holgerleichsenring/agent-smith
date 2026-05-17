@@ -21,27 +21,27 @@ public static class StartupSummaryLogger
             LogProject(name, project, logger);
     }
 
-    private static void LogProject(string name, ProjectConfig project, ILogger logger)
+    private static void LogProject(string name, ResolvedProject project, ILogger logger)
     {
         logger.LogInformation(
             "  • {Project}: source={Source}, tickets={Tickets}, agent={Agent}, polling={Polling}, pipelines=[{Pipelines}]{Triggers}",
             name,
-            FormatSource(project.Source),
-            FormatTickets(project.Tickets),
+            FormatSource(project.Repo),
+            FormatTickets(project.Tracker),
             FormatAgent(project.Agent),
             FormatPolling(project.Polling),
             FormatPipelines(project),
             FormatTriggers(project));
     }
 
-    private static string FormatSource(SourceConfig source) =>
-        string.IsNullOrEmpty(source.Url) ? source.Type : $"{source.Type} ({source.Url})";
+    private static string FormatSource(RepoConnection source) =>
+        string.IsNullOrEmpty(source.Url) ? source.Type.ToString() : $"{source.Type} ({source.Url})";
 
-    private static string FormatTickets(TicketConfig tickets)
+    private static string FormatTickets(TrackerConnection tickets)
     {
-        if (string.Equals(tickets.Type, "AzureDevOps", StringComparison.OrdinalIgnoreCase))
+        if (tickets.Type == TrackerType.AzureDevOps)
             return $"AzureDevOps ({tickets.Organization}/{tickets.Project})";
-        return string.IsNullOrEmpty(tickets.Url) ? tickets.Type : $"{tickets.Type} ({tickets.Url})";
+        return string.IsNullOrEmpty(tickets.Url) ? tickets.Type.ToString() : $"{tickets.Type} ({tickets.Url})";
     }
 
     private static string FormatAgent(AgentConfig agent)
@@ -53,7 +53,7 @@ public static class StartupSummaryLogger
     private static string FormatPolling(PollingConfig polling) =>
         polling.Enabled ? $"enabled ({polling.IntervalSeconds}s)" : "disabled";
 
-    private static string FormatPipelines(ProjectConfig project)
+    private static string FormatPipelines(ResolvedProject project)
     {
         if (project.Pipelines.Count == 0 && string.IsNullOrEmpty(project.Pipeline))
             return "<none>";
@@ -65,7 +65,7 @@ public static class StartupSummaryLogger
             : $"{names} (default: {project.DefaultPipeline})";
     }
 
-    private static string FormatTriggers(ProjectConfig project)
+    private static string FormatTriggers(ResolvedProject project)
     {
         var triggers = new List<string>();
         if (project.GithubTrigger is not null) triggers.Add("github");

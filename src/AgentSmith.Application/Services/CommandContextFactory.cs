@@ -17,7 +17,7 @@ public sealed class CommandContextFactory(
         builders.ToDictionary(b => b.CommandName, b => b.Builder);
 
     public ICommandContext Create(
-        PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+        PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         if (!_builders.TryGetValue(command.Name, out var builder))
         {

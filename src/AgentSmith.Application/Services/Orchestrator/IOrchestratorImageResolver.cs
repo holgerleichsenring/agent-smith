@@ -12,5 +12,5 @@ namespace AgentSmith.Application.Services.Orchestrator;
 public interface IOrchestratorImageResolver
 {
     /// <summary>Returns "{registry}/{image-name}:{version}". Throws when no version is configured at either layer.</summary>
-    string Resolve(ProjectConfig projectConfig);
+    string Resolve(ResolvedProject projectConfig);
 }

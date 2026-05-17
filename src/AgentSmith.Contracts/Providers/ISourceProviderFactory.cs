@@ -7,5 +7,5 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface ISourceProviderFactory
 {
-    ISourceProvider Create(SourceConfig config);
+    ISourceProvider Create(RepoConnection config);
 }

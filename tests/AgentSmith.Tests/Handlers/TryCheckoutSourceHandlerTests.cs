@@ -29,7 +29,7 @@ public sealed class TryCheckoutSourceHandlerTests
     public async Task ExecuteAsync_NoSourceConfigured_OkAndSourcePathUnset()
     {
         var pipeline = new PipelineContext();
-        var context = new TryCheckoutSourceContext(new SourceConfig(), null, pipeline);
+        var context = new TryCheckoutSourceContext(new RepoConnection(), null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -46,14 +46,14 @@ public sealed class TryCheckoutSourceHandlerTests
             var pipeline = new PipelineContext();
             pipeline.Set(ContextKeys.SourcePath, temp);
             var context = new TryCheckoutSourceContext(
-                new SourceConfig { Type = "github", Url = "https://github.com/x/y" }, null, pipeline);
+                new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" }, null, pipeline);
 
             var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
             result.IsSuccess.Should().BeTrue();
             pipeline.Get<string>(ContextKeys.SourcePath).Should().Be(temp);
             _clonerMock.Verify(
-                c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()),
+                c => c.TryCloneAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
         finally { TryDelete(temp); }
@@ -67,7 +67,7 @@ public sealed class TryCheckoutSourceHandlerTests
         {
             var pipeline = new PipelineContext();
             var context = new TryCheckoutSourceContext(
-                new SourceConfig { Type = "local", Path = temp }, null, pipeline);
+                new RepoConnection { Type = RepoType.Local, Path = temp }, null, pipeline);
 
             var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -82,7 +82,7 @@ public sealed class TryCheckoutSourceHandlerTests
     {
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "local", Path = "/does/not/exist/" + Guid.NewGuid() },
+            new RepoConnection { Type = RepoType.Local, Path = "/does/not/exist/" + Guid.NewGuid() },
             null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
@@ -95,12 +95,12 @@ public sealed class TryCheckoutSourceHandlerTests
     public async Task ExecuteAsync_RemoteCloneSucceeds_SetsSourcePathToHostTempdir()
     {
         var hostPath = "/tmp/agentsmith-src-" + Guid.NewGuid().ToString("N");
-        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(hostPath);
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "github", Url = "https://github.com/x/y" }, null, pipeline);
+            new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -114,26 +114,26 @@ public sealed class TryCheckoutSourceHandlerTests
     {
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "github", Url = null }, null, pipeline);
+            new RepoConnection { Type = RepoType.GitHub, Url = null }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<string>(ContextKeys.SourcePath, out _).Should().BeFalse();
         _clonerMock.Verify(
-            c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()),
+            c => c.TryCloneAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
     public async Task ExecuteAsync_RemoteCloneReturnsNull_OkAndSourcePathUnset()
     {
-        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+        _clonerMock.Setup(c => c.TryCloneAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new SourceConfig { Type = "gitlab", Url = "https://gitlab.com/x/y" }, null, pipeline);
+            new RepoConnection { Type = RepoType.GitLab, Url = "https://gitlab.com/x/y" }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 

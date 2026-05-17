@@ -105,7 +105,7 @@ public sealed class GitHubIssueCommentWebhookHandler(
 
     private static string ResolveFromLabels(WebhookTriggerConfig trigger, List<string> labels)
     {
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
+        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel ?? new())
         {
             if (labels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
                 return pipeline;

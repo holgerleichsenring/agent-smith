@@ -49,15 +49,15 @@ public sealed class FixTicketIntentHandler(
             jobId, intent.TicketId, intent.Project, intent.ChannelId, request.OrchestratorImage);
     }
 
-    private ProjectConfig ResolveProjectConfig(string projectName)
+    private ResolvedProject ResolveProjectConfig(string projectName)
     {
         var config = configurationLoader.LoadConfig(serverContext.ConfigPath);
-        return config.Projects.TryGetValue(projectName, out var found)
-            ? found
-            : new ProjectConfig();
+        if (config.Projects.TryGetValue(projectName, out var found)) return found;
+        throw new InvalidOperationException(
+            $"Project '{projectName}' is not defined in agentsmith.yml.");
     }
 
-    private JobRequest BuildJobRequest(FixTicketIntent intent, ProjectConfig projectConfig) => new()
+    private JobRequest BuildJobRequest(FixTicketIntent intent, ResolvedProject projectConfig) => new()
     {
         InputCommand = $"fix #{intent.TicketId} in {intent.Project}",
         Project = intent.Project,

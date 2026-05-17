@@ -145,7 +145,7 @@ public sealed class JiraAssigneeWebhookHandler(
 
     internal static string ResolvePipeline(JiraTriggerConfig trigger, List<string> labels)
     {
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
+        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel ?? new())
         {
             if (labels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
                 return pipeline;

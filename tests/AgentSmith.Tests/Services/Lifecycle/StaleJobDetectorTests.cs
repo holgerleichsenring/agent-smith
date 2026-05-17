@@ -62,8 +62,8 @@ public sealed class StaleJobDetectorTests
 
         public Harness()
         {
-            TicketFactory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(Provider.Object);
-            TransitionerFactory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(Transitioner.Object);
+            TicketFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Provider.Object);
+            TransitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Transitioner.Object);
             Transitioner.Setup(t => t.TransitionAsync(
                 It.IsAny<TicketId>(),
                 It.IsAny<TicketLifecycleStatus>(),
@@ -71,7 +71,7 @@ public sealed class StaleJobDetectorTests
                 It.IsAny<CancellationToken>())).ReturnsAsync(TransitionResult.Succeeded());
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
-                Projects = new() { ["proj"] = new ProjectConfig() }
+                Projects = new() { ["proj"] = new ResolvedProject() }
             });
         }
 

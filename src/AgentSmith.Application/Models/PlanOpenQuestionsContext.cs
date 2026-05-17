@@ -12,5 +12,5 @@ namespace AgentSmith.Application.Models;
 /// </summary>
 public sealed record PlanOpenQuestionsContext(
     Ticket Ticket,
-    TicketConfig TicketConfig,
+    TrackerConnection TrackerConnection,
     PipelineContext Pipeline) : ICommandContext;

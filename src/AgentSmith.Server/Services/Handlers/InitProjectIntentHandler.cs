@@ -52,15 +52,15 @@ public sealed class InitProjectIntentHandler(
             jobId, intent.Project, intent.ChannelId, request.OrchestratorImage);
     }
 
-    private ProjectConfig ResolveProjectConfig(string projectName)
+    private ResolvedProject ResolveProjectConfig(string projectName)
     {
         var config = configurationLoader.LoadConfig(serverContext.ConfigPath);
-        return config.Projects.TryGetValue(projectName, out var found)
-            ? found
-            : new ProjectConfig();
+        if (config.Projects.TryGetValue(projectName, out var found)) return found;
+        throw new InvalidOperationException(
+            $"Project '{projectName}' is not defined in agentsmith.yml.");
     }
 
-    private JobRequest BuildJobRequest(InitProjectIntent intent, ProjectConfig projectConfig) => new()
+    private JobRequest BuildJobRequest(InitProjectIntent intent, ResolvedProject projectConfig) => new()
     {
         InputCommand = $"init {intent.Project}",
         Project = intent.Project,

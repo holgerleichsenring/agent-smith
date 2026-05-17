@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0141
+goal: "Add Email as a tracker type. One email becomes one pipeline run. A minimal example pipeline (schedule-appointment) reads the mail, makes one tool-call to an external API, drafts a reply mail to a reviewer address. Sandbox spawn behavior is UNCHANGED from today (one pod per run) — explicit deferral of the worker-pool optimization to a later phase. The conceptual goal is: prove that a non-code pipeline (no repo checkout, no PR) fits cleanly into the existing pipeline machinery."
+
+requires: ["p0139", "p0140"]
+
+scope:
+  in: "New tracker type: Email. New TrackerConnection fields specific to Email: imap_server, imap_folder, smtp_server, from_address, poll_interval_seconds. New EmailTrigger trigger-block parallel to AzureDevOpsTrigger/etc — supports project_resolution with strategy `to_address` (from p0140's schema). New EmailTicketProvider (implements the existing ITicketProvider interface — emails are tickets in the abstraction): poll IMAP folder, return new messages as ticket envelopes with id=Message-ID, body=mail text, labels=mail flags-or-headers, source=from-address. New EmailOutputAction: instead of opening a PR, send a draft email via SMTP to a configured review address. Existing sandbox-per-run model preserved — email pipelines spawn the same Pipeline sandbox-pod that fix-bug uses. New PipelineExecutionMode discriminator on PipelinePresets: code (has checkout + PR) vs message (skips checkout, output is mail draft) — chosen by the pipeline definition itself, not by config. One example pipeline `schedule-appointment` ships: single skill that reads the mail body, calls one external API, drafts a reply."
+  out: "Worker-pool architecture for many-small-jobs (long-lived workers consuming from a Redis queue) — explicitly deferred. The acknowledged trade-off: at 500 mails/day the per-run sandbox spawn (~10-30s) is wasteful but tolerable; at 5000+/day it becomes a real bottleneck. The phase that introduces a light-worker pool is gated on actual telemetry showing the volume is high enough to matter — likely p0148+. Sandbox skipping (running message pipelines in-process in the server pod) — also deferred; same telemetry gate. Multi-action email pipelines (one mail → multiple API calls + multiple drafts) — accepted as natural future extension of the message-mode pipeline, no separate phase needed because the LLM-driven design already supports it. JMAP support — IMAP only for now. Mail attachments — text body only in v1, attachments deferred. PGP/S-MIME — out. Direct send to end-user (skipping reviewer) — out; v1 always sends to reviewer for human-in-the-loop. Per-message-pipeline learning/feedback loop — that's the separate 'lernen aus vorherigen läufen' discussion, deferred to its own phase."
+
+decisions:
+  - key: "Email is a tracker, not a new abstraction. The ITicketProvider interface designed for Jira/ADO/GitHub/GitLab fits emails when we accept that 'ticket id' = Message-ID, 'ticket body' = mail body, 'ticket labels' = mail flags / specific headers, 'ticket assignee' = to-address. Reason: building a parallel IMessageProvider hierarchy would double the trigger/polling/resolution surface with no semantic benefit. A mail IS a unit of work the agent reads and acts on; that's what a ticket is."
+  - key: "Pipelines declare their ExecutionMode (code vs message) at the preset level, not at the project level. Reason: a pipeline's mode is intrinsic — fix-bug fundamentally needs a checkout, schedule-appointment fundamentally doesn't. Putting it in the project config would invite a misconfiguration where fix-bug gets configured as message-mode and fails confusingly. The pipeline itself knows."
+  - key: "Code-mode and message-mode share the same Pipeline executor and the same sandbox. Difference: code-mode includes the Checkout step + ends with CommitAndPR or InitCommit; message-mode skips Checkout + ends with EmailDraftSend (or whatever output action is appropriate — schedule-appointment's specifically is 'draft email to review address'). The middle (Plan, Skills loop, Verify) is identical. Reason: forcing a shared backbone means message-mode automatically gets Verify, cost-tracking, decision-log, observation-pipeline — all the infrastructure for free. Email-specific code is limited to two new handlers (start: read mail vs checkout repo; end: send draft vs open PR)."
+  - key: "Sandbox spawn behavior is UNCHANGED. A message-mode pipeline spawns the same sandbox pod that a code-mode pipeline spawns. The pod runs without a code checkout (no git, no build, no test) but everything else is identical — LLM call infrastructure, tool execution, file storage for intermediate artifacts. Reason: the alternative (skip sandbox, run in-process) saves 10-30s per run but breaks isolation, breaks cost-tracking attribution, and breaks the K8s-resource accounting model. Sandbox cost is a known trade-off; the optimization is a separate phase gated on volume telemetry."
+  - key: "Email polling, not push. IMAP IDLE / push notifications are out of scope; poll every poll_interval_seconds (default 60). Reason: polling is simpler, has no firewall/inbound-port requirements, and the latency penalty (≤60s from mail arrival to pipeline start) is acceptable for the documented use case (appointment scheduling, not real-time chat)."
+  - key: "EmailOutputAction sends to a configured reviewer address, NEVER directly to the original sender, in v1. Reason: an LLM that drafts replies to external parties without human review is a class of failure mode we explicitly do not want to ship. The reviewer reviews and forwards. The eventual auto-send mode is gated on operational confidence and is a separate decision."
+  - key: "Project_resolution.strategy=to_address is the only resolution strategy for Email in v1. The to-address on the incoming mail identifies which project owns it. Multi-project to-addresses (one mail with multiple addresses, mailing-list scenarios) → resolution returns multiple projects, exactly like the multi-tag-on-ticket case in p0140; each matched project spawns its own pipeline. From-address is captured in the ticket envelope but does not participate in resolution."
+  - key: "The example pipeline `schedule-appointment` ships with exactly ONE skill (`triage-and-schedule`). Reason: the email use case explicitly does NOT want a 40-skill pipeline — the LLM reads the mail, calls one external API, drafts one reply, done. The skill itself is allowed to call multiple tools internally (read_email_body, call_external_api, draft_email, log_decision) — that's not a skills loop, that's normal tool use inside one skill. Demonstrates the minimal viable shape for message-mode pipelines."
+  - key: "`call_external_api` is added as a new generic tool, not a scheduling-specific one. It takes (url, method, body, auth_ref) and is broadly useful beyond this example. Auth via auth_ref pointing into the secrets block (same pattern as repo auth). Reason: as soon as we ship one email pipeline that needs HTTP, every other email pipeline will too. Keeping it generic from day one avoids a refactor."
+  - key: "`send_email_draft` is the email-specific output tool. Takes (to, subject, body, in_reply_to_message_id). Used by EmailOutputAction at pipeline end; also callable from within a skill if a pipeline wants to send a draft mid-flow (uncommon but supported). Reason: separating draft-send from API-call keeps each tool single-purpose; the LLM gets clearer affordances."
+  - key: "EmailTicketProvider stores already-seen Message-IDs in Redis (existing infrastructure) to avoid re-processing on poll. TTL: 30 days. Reason: prevents the classic IMAP-poll bug of replaying every mail in the folder on every poll. 30 days covers any realistic mail-retention window for the polling folder."
+  - key: "No reply-thread handling in v1. If a reviewer replies to a drafted email, the reply does NOT come back into the agent. Reason: that's a different abstraction (conversation loop, multi-turn dialogue with the same external party) and pulls in trust/auth/threading complexity that's outside the scope of 'one mail → one run → one draft'. Future phase if there's demand."
+  - key: "Email bypasses `pipeline_triggers`. Other tracker types resolve pipeline from a ticket label, falling back to the global `pipeline_triggers` map (p0139). Email has no native label concept — a mail has a subject, headers, body, sender, recipients, none of which map cleanly to 'label'. The email trigger block therefore exposes only `default_pipeline`, deliberately not `pipeline_from_label`. Subject-pattern routing (`pipeline_from_subject: { '^Cancel:': cancel-appointment }`) is the natural future extension if multiple pipelines per email-tracker become a real need; that's a follow-up phase, not blocking v1."
+  - key: "External-host allowlist lives on the PipelinePreset, not on the skill or in YAML. Three options were considered: (a) skill-frontmatter allowlist, (b) per-pipeline-preset allowlist in code, (c) per-project allowlist in agentsmith.yml. Rejected (a) because skills are meant to be reusable across pipelines and the same skill might legitimately need different hosts in different contexts. Rejected (c) because operator-editable allowlists invite 'just add this host to fix it' reactions that bypass code review; external-egress decisions belong with the developers who wrote the pipeline. (b) keeps the trust boundary at the level where someone is already reasoning about what the pipeline does end-to-end. Auth-ref protects credentials; the allowlist protects destinations — both are required."
+
+steps:
+  - id: schema
+    action: "Add Email to the tracker schema and add email_trigger to the project trigger blocks"
+    modify:
+      - "config/agentsmith.schema.json: TrackerConnection.Type gains `Email`; Email tracker fields: imap_server, imap_port, imap_folder (default 'INBOX'), imap_auth (auth-ref), smtp_server, smtp_port, smtp_auth, from_address, poll_interval_seconds (default 60). New project trigger block `email_trigger: {project_resolution, default_pipeline}` — no labels/statuses/assignees concepts (those don't map to mail)."
+      - "docs/configuration/agentsmith-yml-schema.md: section for Email tracker + email_trigger."
+      - "config/agentsmith.example.yml: add a worked example `field-ops-scheduling` project with email tracker."
+
+  - id: provider
+    action: "Add the Email ticket provider"
+    new:
+      - "src/AgentSmith.Infrastructure/Providers/Email/EmailTicketProvider.cs: implements ITicketProvider. PollAsync(): connect IMAP, fetch unseen mails in folder, filter against Redis seen-set, return as TicketEnvelope[]. GetTicketAsync(id): fetch by Message-ID. AddCommentAsync: not supported for email — throws NotSupportedException with a clear message (mail tracker doesn't have an in-band comment concept; the 'no project matched' tracker-comment from p0140 instead becomes a log-only event for email)."
+      - "src/AgentSmith.Infrastructure/Providers/Email/ImapClient.cs: thin wrapper around MailKit (proven .NET IMAP/SMTP library). Connect, list folder, fetch by UID, mark-as-seen, disconnect. No state."
+      - "src/AgentSmith.Infrastructure/Providers/Email/SmtpClient.cs: thin wrapper around MailKit SMTP. Send-message-as-draft (to+subject+body+headers). Auth via secrets block."
+      - "src/AgentSmith.Infrastructure/Providers/Email/SeenMessageStore.cs: Redis-backed Set per tracker. AddAsync(messageId, TTL=30d), ContainsAsync(messageId)."
+      - "src/AgentSmith.Application/Services/Triggers/EmailTriggerHandler.cs: poll-driven (no webhook for email in v1). On each poll: EmailTicketProvider.PollAsync → for each new envelope, ProjectResolver.Resolve → for each matched project, SpawnPipelineRunsUseCase (p0140's primitive)."
+
+  - id: pipeline-mode
+    action: "Add ExecutionMode to PipelinePresets and wire conditional checkout/output"
+    new:
+      - "src/AgentSmith.Domain/Pipelines/PipelineExecutionMode.cs: enum { Code, Message }."
+    modify:
+      - "src/AgentSmith.Application/Pipelines/PipelinePresets.cs: each preset declares ExecutionMode. fix-bug, add-feature, security-scan, api-security-scan, mad-discussion, init-project → Code. schedule-appointment → Message. Verify all existing presets get an explicit Code declaration (no implicit default)."
+      - "src/AgentSmith.Application/UseCases/ExecutePipelineUseCase.cs: at start, if Mode==Code → existing Checkout step; if Mode==Message → no checkout, set up message-context (ticket envelope = mail). At end, the Commit/PR step is replaced by EmailOutputAction for message-mode pipelines."
+
+  - id: tools
+    action: "Add the two new tools needed by message-mode pipelines"
+    new:
+      - "src/AgentSmith.Application/Services/Tools/CallExternalApiTool.cs: AIFunction with parameters (url, method, body, auth_ref). Method ∈ {GET, POST, PUT, DELETE}. auth_ref resolves into the secrets block. Returns response body + status code. Logged in DecisionLog. Standard tool, available to any preset that declares an allowlist (see below) — not email-specific."
+      - "src/AgentSmith.Application/Services/Tools/SendEmailDraftTool.cs: AIFunction (to, subject, body, in_reply_to_message_id?). Delegates to the resolved tracker's SmtpClient. Logs in DecisionLog. Email-specific."
+      - "CallExternalApiTool URL-host gating: `PipelinePreset` gains `IReadOnlyList<string>? AllowedExternalHosts`. `null` means the preset does not allow external API calls — `CallExternalApiTool` is not registered for that preset. An empty list means the preset registered the tool but explicitly allows zero hosts (effectively the same as null; reserved for future per-pipeline runtime override). A populated list means the tool is registered and the listed hosts are reachable. At invocation, `CallExternalApiTool` parses the requested URL, extracts the host, checks membership against `AllowedExternalHosts`. On miss: tool returns a tool-error with message `external API call to '{host}' rejected: not in preset's AllowedExternalHosts (allowed: {list})`. The LLM sees the error like any other tool failure and cannot retry around it (the list is fixed for the run)."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHost.cs: register `SendEmailDraftTool` for any email-mode preset; register `CallExternalApiTool` only when `preset.AllowedExternalHosts` is non-null and non-empty."
+      - "src/AgentSmith.Domain/Pipelines/PipelinePreset.cs: add `IReadOnlyList<string>? AllowedExternalHosts { get; }`. All existing presets declare `null` (status quo: no external HTTP). `ScheduleAppointmentPreset` declares `[\"api.field-ops.contoso.example\"]` as the worked example."
+
+  - id: example-pipeline
+    action: "Ship one message-mode pipeline as the canonical example"
+    new:
+      - "src/AgentSmith.Application/Pipelines/Presets/ScheduleAppointmentPreset.cs: Mode=Message. Single skill: triage-and-schedule. `AllowedExternalHosts = [\"api.field-ops.contoso.example\"]` (operator deploying against a different appointment API edits the preset source, not config — see decision). End: EmailOutputAction to reviewer-address (resolved from project config)."
+      - "skills/scheduling/triage-and-schedule.md: skill definition. Goal: read the mail, extract the appointment request (dates, location, contact), call the appointment-availability API (URL injected via tool params), draft a reply mail listing offered slots. SKILL.md format same as existing skills."
+      - "config/agentsmith.example.yml: example project `field-ops-scheduling` showing all wiring (email tracker, email_trigger, agent=haiku-light, pipelines: [schedule-appointment]). Uses a placeholder API URL with comment 'replace with real availability endpoint'."
+
+  - id: docs
+    action: "Document the email pipeline pattern as the template for non-code use cases"
+    new:
+      - "docs/use-cases/email-pipeline.md: when to use, how it differs from code pipelines, the reviewer-in-the-loop model, the per-run sandbox cost trade-off + when to consider the future worker-pool option, the schedule-appointment example walked end-to-end."
+      - "docs/configuration/email-tracker.md: IMAP/SMTP setup, secrets configuration, Redis seen-store TTL, polling interval guidance."
+    modify:
+      - "docs/configuration/README.md: link both new files."
+      - "docs/setup/onboarding.md: note that email-mode projects don't use agent-smith:init since there's no repo to bootstrap; their project entry in agentsmith.yml is hand-crafted."
+
+  - id: tests
+    action: "Provider, mode-switch, end-to-end mail-to-draft"
+    new:
+      - "tests/Providers/EmailTicketProviderTests: PollAsync returns only unseen mails; seen-store correctly tracks Message-IDs; AddCommentAsync throws NotSupportedException; second poll skips already-processed mails."
+      - "tests/Pipelines/ExecutionModeTests: code-mode pipeline goes through Checkout; message-mode skips it; message-mode ends in EmailOutputAction instead of CommitAndPR; mode is read from the preset, never overridden by config."
+      - "tests/Tools/CallExternalApiToolTests: GET/POST/PUT/DELETE wiring with host in preset's AllowedExternalHosts; auth_ref resolution; decision log entry written; host-not-in-allowlist returns tool-error and does not perform the network call; preset with `AllowedExternalHosts == null` does not register the tool at all."
+      - "tests/Pipelines/ScheduleAppointmentPresetTests: `AllowedExternalHosts` contains exactly the expected production host (regression-guard against accidental allowlist widening)."
+      - "tests/Tools/SendEmailDraftToolTests: SMTP wiring; in-reply-to header populated when supplied."
+      - "tests/EndToEnd/ScheduleAppointmentSmokeTests: simulated incoming mail → ProjectResolver matches field-ops-scheduling → spawner enqueues run → pipeline runs schedule-appointment → mocked external API returns 3 slots → draft mail sent to reviewer address with the 3 slots in body."
+
+tests:
+  - "EmailTicketProvider_PollAsync_FirstCall_ReturnsAllUnseenMails"
+  - "EmailTicketProvider_PollAsync_SecondCall_ReturnsOnlyNewMailsSinceFirst"
+  - "EmailTicketProvider_AddCommentAsync_Throws_NotSupportedException"
+  - "EmailTriggerHandler_PollerLoop_NewMail_TriggersSpawnPipelineRunsUseCase"
+  - "ProjectResolver_ToAddressStrategy_MatchesProjectByToAddress"
+  - "ExecutePipelineUseCase_CodeMode_RunsCheckoutStep"
+  - "ExecutePipelineUseCase_MessageMode_SkipsCheckoutStep"
+  - "ExecutePipelineUseCase_MessageMode_EndsInEmailOutputActionNotCommitAndPR"
+  - "CallExternalApiTool_HostInAllowlist_ExecutesSuccessfully"
+  - "CallExternalApiTool_HostNotInAllowlist_ReturnsToolErrorWithoutMakingRequest"
+  - "CallExternalApiTool_PresetWithoutAllowlist_ToolNotRegistered"
+  - "CallExternalApiTool_GetWithAuthRef_ResolvesSecretAndCallsUrl"
+  - "ScheduleAppointmentPreset_AllowlistDeclared_ContainsExpectedHost"
+  - "SendEmailDraftTool_SendsViaSmtpWithCorrectHeaders"
+  - "ScheduleAppointmentSmoke_IncomingMail_ProducesDraftReplyToReviewerWithMockedSlots"
+  - "MessageModePipeline_SpawnsSandboxPodWithNoCodeCheckout_RegressionVsCodeModeIsolation"
+
+done:
+  - "Email is a tracker type; EmailTicketProvider polls IMAP, dedupes via Redis seen-store, returns mails as TicketEnvelopes"
+  - "Project trigger block `email_trigger` works with project_resolution.strategy=to_address"
+  - "Pipelines declare ExecutionMode (Code | Message); message-mode skips Checkout and ends in EmailOutputAction"
+  - "Sandbox spawn is unchanged from code-mode — one pod per run, no in-process shortcut (deferred)"
+  - "schedule-appointment example pipeline ships with one skill (triage-and-schedule), proving the minimal message-mode shape"
+  - "Two new tools: CallExternalApiTool (generic), SendEmailDraftTool (email-specific)"
+  - "CallExternalApiTool is gated by PipelinePreset.AllowedExternalHosts; rejection produces a tool-error visible to the LLM, never a silent network call; the schedule-appointment preset declares its concrete host"
+  - "Docs cover email-pipeline use case, email tracker setup, and the deferred worker-pool decision"
+  - "End-to-end smoke test: simulated mail → draft to reviewer with mocked external API"
+  - "All tests pass; existing suite green"

@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class PublishProjectLanguageContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline) =>
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
         new PublishProjectLanguageContext(pipeline);
 }

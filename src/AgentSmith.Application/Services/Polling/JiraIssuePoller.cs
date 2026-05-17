@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Polling;
 /// </summary>
 public sealed class JiraIssuePoller(
     string projectName,
-    ProjectConfig projectConfig,
+    ResolvedProject projectConfig,
     ITicketProviderFactory ticketFactory,
     ITicketStatusTransitioner transitioner,
     ILogger<JiraIssuePoller> logger) : IEventPoller
@@ -26,7 +26,7 @@ public sealed class JiraIssuePoller(
 
     public async Task<IReadOnlyList<ClaimRequest>> PollAsync(CancellationToken cancellationToken)
     {
-        var provider = ticketFactory.Create(projectConfig.Tickets);
+        var provider = ticketFactory.Create(projectConfig.Tracker);
         var trigger = projectConfig.JiraTrigger;
 
         var pendingTickets = await provider.ListByLifecycleStatusAsync(
@@ -57,8 +57,8 @@ public sealed class JiraIssuePoller(
         WebhookTriggerConfig? trigger,
         CancellationToken ct)
     {
-        if (trigger is null || trigger.PipelineFromLabel.Count == 0) return [];
-        var labels = trigger.PipelineFromLabel.Keys.ToArray();
+        if (trigger is null || (trigger.PipelineFromLabel?.Count ?? 0) == 0) return [];
+        var labels = trigger.PipelineFromLabel?.Keys.ToArray() ?? [];
         var found = await provider.ListByLabelsInOpenStatesAsync(labels, ct) ?? [];
         var claimable = LifecyclePollFilter.KeepClaimable(found).ToList();
         logger.LogInformation(

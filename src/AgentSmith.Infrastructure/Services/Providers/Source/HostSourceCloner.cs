@@ -18,7 +18,7 @@ public sealed class HostSourceCloner(ILogger<HostSourceCloner> logger) : IHostSo
     private const string CredHelper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
-    public async Task<string?> TryCloneAsync(SourceConfig source, CancellationToken cancellationToken)
+    public async Task<string?> TryCloneAsync(RepoConnection source, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(source.Url)) return null;
         var tempDir = CreateTempDir();
@@ -44,7 +44,7 @@ public sealed class HostSourceCloner(ILogger<HostSourceCloner> logger) : IHostSo
         return path;
     }
 
-    private static ProcessStartInfo BuildStartInfo(SourceConfig source, string targetDir)
+    private static ProcessStartInfo BuildStartInfo(RepoConnection source, string targetDir)
     {
         var psi = new ProcessStartInfo("git")
         {

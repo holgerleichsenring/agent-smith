@@ -1,13 +1,13 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services.Resolvers;
 
 /// <summary>
-/// p0125c-followup: shared GitTokenResolver replaces the duplicated switch
-/// across HostSourceCloner and CheckoutSourceHandler. Tests run with each
-/// env var explicitly set/cleared so they don't depend on the host's
-/// AGENT_SMITH dev environment.
+/// Shared GitTokenResolver replaces the duplicated switch across
+/// HostSourceCloner and CheckoutSourceHandler. Tests run with each env var
+/// explicitly set/cleared so they don't depend on the host's dev environment.
 /// </summary>
 [Collection("EnvVars")]
 public sealed class GitTokenResolverTests : IDisposable
@@ -30,18 +30,15 @@ public sealed class GitTokenResolverTests : IDisposable
     }
 
     [Theory]
-    [InlineData("GitHub", "GITHUB_TOKEN")]
-    [InlineData("github", "GITHUB_TOKEN")]
-    [InlineData("GitLab", "GITLAB_TOKEN")]
-    [InlineData("gitlab", "GITLAB_TOKEN")]
-    [InlineData("AzureRepos", "AZURE_DEVOPS_TOKEN")]
-    [InlineData("azurerepos", "AZURE_DEVOPS_TOKEN")]
-    public void Resolve_KnownType_ReadsMatchingEnvVar(string sourceType, string envVar)
+    [InlineData(RepoType.GitHub, "GITHUB_TOKEN")]
+    [InlineData(RepoType.GitLab, "GITLAB_TOKEN")]
+    [InlineData(RepoType.AzureDevOps, "AZURE_DEVOPS_TOKEN")]
+    public void Resolve_KnownType_ReadsMatchingEnvVar(RepoType type, string envVar)
     {
         Environment.SetEnvironmentVariable(envVar, "test-pat-12345");
         try
         {
-            GitTokenResolver.Resolve(sourceType).Should().Be("test-pat-12345");
+            GitTokenResolver.Resolve(type).Should().Be("test-pat-12345");
         }
         finally
         {
@@ -49,14 +46,11 @@ public sealed class GitTokenResolverTests : IDisposable
         }
     }
 
-    [Theory]
-    [InlineData("Local")]
-    [InlineData("Bitbucket")]
-    [InlineData("")]
-    public void Resolve_UnknownType_ReturnsNull(string sourceType) =>
-        GitTokenResolver.Resolve(sourceType).Should().BeNull();
+    [Fact]
+    public void Resolve_LocalType_ReturnsNull() =>
+        GitTokenResolver.Resolve(RepoType.Local).Should().BeNull();
 
     [Fact]
     public void Resolve_KnownTypeButEnvVarUnset_ReturnsNull() =>
-        GitTokenResolver.Resolve("AzureRepos").Should().BeNull();
+        GitTokenResolver.Resolve(RepoType.AzureDevOps).Should().BeNull();
 }

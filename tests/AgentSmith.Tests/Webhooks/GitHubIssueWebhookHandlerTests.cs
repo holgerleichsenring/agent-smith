@@ -25,9 +25,9 @@ public sealed class GitHubIssueWebhookHandlerTests
     private static AgentSmithConfig BuildConfig(string repoUrl = "https://github.com/org/my-api") =>
         new()
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
-                ["my-api"] = new() { Source = new SourceConfig { Url = repoUrl } }
+                ["my-api"] = new() { Repo = new RepoConnection { Url = repoUrl } }
             }
         };
 

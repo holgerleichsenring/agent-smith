@@ -43,7 +43,7 @@ internal static class PollerFactory
             {
                 logger.LogWarning(ex,
                     "Polling enabled for project {Project} but poller could not be built (Tickets.Type={Type}): {Message}",
-                    name, project.Tickets.Type, ex.Message);
+                    name, project.Tracker.Type, ex.Message);
                 continue;
             }
 
@@ -51,34 +51,34 @@ internal static class PollerFactory
             {
                 logger.LogWarning(
                     "Polling enabled for project {Project} but ticket type '{Type}' has no poller — skipping",
-                    name, project.Tickets.Type);
+                    name, project.Tracker.Type);
                 continue;
             }
-            logger.LogInformation("  built poller for {Project} (Tickets.Type={Type})", name, project.Tickets.Type);
+            logger.LogInformation("  built poller for {Project} (Tickets.Type={Type})", name, project.Tracker.Type);
             yield return poller;
         }
     }
 
     private static IEventPoller? BuildOne(
-        string name, ProjectConfig project,
+        string name, ResolvedProject project,
         ITicketProviderFactory ticketFactory,
         ITicketStatusTransitionerFactory transitionerFactory,
         IPipelineConfigResolver resolver,
         ILoggerFactory loggerFactory)
     {
-        var transitioner = transitionerFactory.Create(project.Tickets);
-        return project.Tickets.Type.ToLowerInvariant() switch
+        var transitioner = transitionerFactory.Create(project.Tracker);
+        return project.Tracker.Type switch
         {
-            "github" => new GitHubIssuePoller(
+            TrackerType.GitHub => new GitHubIssuePoller(
                 name, project, ticketFactory, transitioner,
                 loggerFactory.CreateLogger<GitHubIssuePoller>()),
-            "azuredevops" => new AzureDevOpsWorkItemPoller(
+            TrackerType.AzureDevOps => new AzureDevOpsWorkItemPoller(
                 name, project, ticketFactory, transitioner, resolver,
                 loggerFactory.CreateLogger<AzureDevOpsWorkItemPoller>()),
-            "gitlab" => new GitLabIssuePoller(
+            TrackerType.GitLab => new GitLabIssuePoller(
                 name, project, ticketFactory, transitioner,
                 loggerFactory.CreateLogger<GitLabIssuePoller>()),
-            "jira" => new JiraIssuePoller(
+            TrackerType.Jira => new JiraIssuePoller(
                 name, project, ticketFactory, transitioner,
                 loggerFactory.CreateLogger<JiraIssuePoller>()),
             _ => null

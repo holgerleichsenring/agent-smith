@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class PipelineConfigResolver : IPipelineConfigResolver
 {
-    public ResolvedPipelineConfig Resolve(ProjectConfig project, string pipelineName)
+    public ResolvedPipelineConfig Resolve(ResolvedProject project, string pipelineName)
     {
         var definition = FindPipeline(project, pipelineName)
             ?? new PipelineDefinition { Name = pipelineName };
@@ -21,7 +21,7 @@ public sealed class PipelineConfigResolver : IPipelineConfigResolver
         return new ResolvedPipelineConfig(pipelineName, agent, skillsPath, codingPrinciplesPath);
     }
 
-    public string ResolveDefaultPipelineName(ProjectConfig project)
+    public string ResolveDefaultPipelineName(ResolvedProject project)
     {
         if (!string.IsNullOrEmpty(project.DefaultPipeline))
             return project.DefaultPipeline;
@@ -32,13 +32,13 @@ public sealed class PipelineConfigResolver : IPipelineConfigResolver
 
         var declared = project.Pipelines.Count == 0
             ? "<none>"
-            : string.Join(", ", project.Pipelines.ConvertAll(p => p.Name));
+            : string.Join(", ", project.Pipelines.Select(p => p.Name));
         throw new InvalidOperationException(
             $"Project has no default_pipeline and {project.Pipelines.Count} pipelines are declared " +
             $"(declared: {declared}); specify --pipeline or set default_pipeline.");
     }
 
-    private static PipelineDefinition? FindPipeline(ProjectConfig project, string pipelineName)
+    private static PipelineDefinition? FindPipeline(ResolvedProject project, string pipelineName)
     {
         foreach (var p in project.Pipelines)
             if (string.Equals(p.Name, pipelineName, StringComparison.OrdinalIgnoreCase))
@@ -47,7 +47,7 @@ public sealed class PipelineConfigResolver : IPipelineConfigResolver
         return TrySynthesizeFromLegacy(project, pipelineName);
     }
 
-    private static PipelineDefinition? TrySynthesizeFromLegacy(ProjectConfig project, string pipelineName)
+    private static PipelineDefinition? TrySynthesizeFromLegacy(ResolvedProject project, string pipelineName)
     {
         if (project.Pipelines.Count > 0) return null;
         if (!string.Equals(project.Pipeline, pipelineName, StringComparison.OrdinalIgnoreCase)) return null;

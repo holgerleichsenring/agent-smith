@@ -50,7 +50,7 @@ public sealed class JiraCommentWebhookHandlerTests
     {
         return new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-project"] = new()
                 {

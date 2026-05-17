@@ -27,10 +27,10 @@ public class PipelineExecutorTests
     public PipelineExecutorTests()
     {
         _lifecycleMock
-            .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<IAsyncPipelineLifecycle>());
         var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
         _sut = new PipelineExecutor(
             _executorMock.Object,
@@ -51,7 +51,7 @@ public class PipelineExecutorTests
     public async Task ExecuteAsync_AllCommandsSucceed_ReturnsOk()
     {
         var commands = new[] { "Cmd1", "Cmd2" };
-        var project = new ProjectConfig();
+        var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
         var mockContext1 = new Mock<ICommandContext>().Object;
@@ -79,7 +79,7 @@ public class PipelineExecutorTests
     {
         var result = await _sut.ExecuteAsync(
             Array.Empty<string>(),
-            new ProjectConfig(),
+            new ResolvedProject(),
             new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -89,13 +89,13 @@ public class PipelineExecutorTests
     public async Task ExecuteAsync_PostsWorkingStatusToTicket()
     {
         var ticketProviderMock = new Mock<ITicketProvider>();
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
-        await _sut.ExecuteAsync(Array.Empty<string>(), new ProjectConfig(), pipeline, CancellationToken.None);
+        await _sut.ExecuteAsync(Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
 
         ticketProviderMock.Verify(t => t.UpdateStatusAsync(
             It.Is<TicketId>(id => id.Value == "42"),
@@ -106,14 +106,14 @@ public class PipelineExecutorTests
     [Fact]
     public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline()
     {
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Throws(new Exception("Ticket provider unavailable"));
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
         var result = await _sut.ExecuteAsync(
-            Array.Empty<string>(), new ProjectConfig(), pipeline, CancellationToken.None);
+            Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -122,7 +122,7 @@ public class PipelineExecutorTests
     public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash()
     {
         var commands = new[] { "BadCommand" };
-        var project = new ProjectConfig();
+        var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
         _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
@@ -138,7 +138,7 @@ public class PipelineExecutorTests
     public async Task ExecuteAsync_OperationCanceled_PropagatesException()
     {
         var commands = new[] { "CancelledCommand" };
-        var project = new ProjectConfig();
+        var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
         _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
@@ -157,11 +157,11 @@ public class PipelineExecutorTests
         // which AzDO's System.History rendered as plain text. HTML is the lingua franca:
         // AzDO interprets it directly and GitHub/GitLab markdown comments accept inline HTML.
         var ticketProviderMock = new Mock<ITicketProvider>();
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);
 
         var commands = new[] { "BadCommand" };
-        var project = new ProjectConfig();
+        var project = new ResolvedProject();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 

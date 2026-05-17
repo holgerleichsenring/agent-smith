@@ -46,7 +46,7 @@ public sealed class AcquireSourceHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SourceFilePath, sourceFile);
         pipeline.Set(ContextKeys.Sandbox, MakeSandboxMock().Object);
-        var context = new AcquireSourceContext(new SourceConfig { Type = "LocalFolder" }, pipeline);
+        var context = new AcquireSourceContext(new RepoConnection { Type = RepoType.Local }, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -63,7 +63,7 @@ public sealed class AcquireSourceHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SourceFilePath, "/nonexistent/file.pdf");
         pipeline.Set(ContextKeys.Sandbox, MakeSandboxMock().Object);
-        var context = new AcquireSourceContext(new SourceConfig(), pipeline);
+        var context = new AcquireSourceContext(new RepoConnection(), pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 

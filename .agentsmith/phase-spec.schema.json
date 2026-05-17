@@ -5,18 +5,17 @@
   "description": "Compact YAML spec for a development phase. Used by AI agents to understand scope, deliverables, and completion criteria.",
   "type": "object",
   "required": ["phase", "goal"],
-  "additionalProperties": false,
   "properties": {
     "phase": {
       "type": "string",
-      "description": "Phase identifier (e.g. p0001, p0042, p0057a). Padded to 4 digits with optional lowercase letter suffix.",
-      "pattern": "^p\\d+[a-z]?$",
-      "examples": ["p0001", "p0042", "p0057a"]
+      "description": "Phase identifier (e.g. p0001, p0042, p0057a, p0131c-pre). Padded to 4 digits with optional lowercase letter suffix and optional descriptive tail.",
+      "pattern": "^p\\d+[a-z]?(-[a-z][a-z0-9-]*)?$",
+      "examples": ["p0001", "p0042", "p0057a", "p0131c-pre"]
     },
     "goal": {
       "type": "string",
-      "description": "One line: what is being built and why",
-      "maxLength": 200
+      "description": "What is being built and why. Short paragraph; the One-Liner convention from earlier phases has been relaxed.",
+      "maxLength": 2000
     },
     "requires": {
       "oneOf": [
@@ -31,28 +30,41 @@
         }
       ]
     },
+    "scope": {
+      "type": "object",
+      "description": "Explicit in/out boundaries for this phase. Use to record what is deliberately deferred or rejected.",
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "type": "string",
+          "description": "What is in scope for this phase"
+        },
+        "out": {
+          "type": "string",
+          "description": "What is explicitly NOT in scope (deferred, rejected, or belonging to another phase)"
+        }
+      }
+    },
     "decisions": {
       "type": "array",
-      "description": "Non-obvious choices made during this phase, with reasoning",
+      "description": "Non-obvious choices made during this phase, with reasoning. Modern convention: each item is `{key: 'what — why'}`. Historical phases use `{<slug>: 'reasoning'}` where the slug itself names the decision — both shapes are accepted.",
       "items": {
         "type": "object",
-        "additionalProperties": false,
+        "minProperties": 1,
         "properties": {
           "key": {
             "type": "string",
             "description": "Decision summary with reason (format: 'what — why')"
           }
-        },
-        "required": ["key"]
+        }
       }
     },
     "steps": {
       "type": "array",
-      "description": "Implementation steps, each a named unit of work",
+      "description": "Implementation steps, each a named unit of work. Historical phases occasionally include extra step fields (action_detail, new_files_tests, order, per-file) — accepted but not encouraged for new phases.",
       "items": {
         "type": "object",
-        "required": ["id", "action"],
-        "additionalProperties": false,
+        "required": ["id"],
         "properties": {
           "id": {
             "type": "string",

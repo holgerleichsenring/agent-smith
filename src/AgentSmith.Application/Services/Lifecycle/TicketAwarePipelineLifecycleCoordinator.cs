@@ -19,14 +19,14 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
     ILogger<TicketAwarePipelineLifecycleCoordinator> logger) : IPipelineLifecycleCoordinator
 {
     public async Task<IAsyncPipelineLifecycle> BeginAsync(
-        ProjectConfig projectConfig, PipelineContext context, CancellationToken cancellationToken)
+        ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
         if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
             return NoOpScope.Instance;
 
         try
         {
-            var transitioner = transitionerFactory.Create(projectConfig.Tickets);
+            var transitioner = transitionerFactory.Create(projectConfig.Tracker);
             var transition = await transitioner.TransitionAsync(
                 ticketId, TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, cancellationToken);
             if (!transition.IsSuccess)

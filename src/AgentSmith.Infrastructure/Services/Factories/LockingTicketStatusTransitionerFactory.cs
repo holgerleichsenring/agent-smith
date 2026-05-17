@@ -15,10 +15,10 @@ public sealed class LockingTicketStatusTransitionerFactory(
     IRedisClaimLock labelLock,
     ILoggerFactory loggerFactory) : ITicketStatusTransitionerFactory
 {
-    public ITicketStatusTransitioner Create(TicketConfig config)
+    public ITicketStatusTransitioner Create(TrackerConnection config)
     {
         var transitioner = inner.Create(config);
-        return string.Equals(config.Type, "jira", StringComparison.OrdinalIgnoreCase)
+        return config.Type == TrackerType.Jira
             ? new LockedTicketStatusTransitioner(
                 transitioner, labelLock,
                 loggerFactory.CreateLogger<LockedTicketStatusTransitioner>())

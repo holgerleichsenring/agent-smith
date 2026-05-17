@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class QueryKnowledgeContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var question = pipeline.Get<string>(ContextKeys.DialogueQuestion);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);

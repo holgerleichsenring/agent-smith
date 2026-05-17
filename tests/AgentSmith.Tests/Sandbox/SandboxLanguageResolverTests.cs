@@ -22,14 +22,14 @@ public sealed class SandboxLanguageResolverTests : IDisposable
     private readonly Mock<IAgentSmithPaths> _pathsMock = new();
     private readonly Mock<ISourceProviderFactory> _sourceFactoryMock = new();
     private readonly Mock<ISourceProvider> _sourceProviderMock = new();
-    private readonly SourceConfig _source = new() { Url = "https://example.com/repo.git" };
+    private readonly RepoConnection _source = new() { Url = "https://example.com/repo.git" };
     private readonly SandboxLanguageResolver _sut;
 
     public SandboxLanguageResolverTests()
     {
         Directory.CreateDirectory(_tempCacheRoot);
         _pathsMock.Setup(p => p.ProjectCacheDir(It.IsAny<string>())).Returns(_tempCacheRoot);
-        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>())).Returns(_sourceProviderMock.Object);
+        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(_sourceProviderMock.Object);
         _sut = new SandboxLanguageResolver(
             _pathsMock.Object,
             _sourceFactoryMock.Object,

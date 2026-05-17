@@ -13,7 +13,7 @@ public sealed class SandboxSpecBuilderResourcesTests
         var resolverResult = new ResourceLimits("750m", "3000m", "1Gi", "8Gi");
         var sut = new SandboxSpecBuilder(new StubSandboxResourceResolver(resolverResult), new StubAgentImageResolver());
 
-        var spec = sut.Build(new ProjectConfig(), language: "csharp");
+        var spec = sut.Build(new ResolvedProject(), language: "csharp");
 
         spec.Resources.Should().BeSameAs(resolverResult);
     }
@@ -23,7 +23,7 @@ public sealed class SandboxSpecBuilderResourcesTests
     {
         var sut = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
 
-        var spec = sut.Build(new ProjectConfig(), language: null);
+        var spec = sut.Build(new ResolvedProject(), language: null);
 
         spec.Resources.Should().Be(ResourceLimits.Default);
     }

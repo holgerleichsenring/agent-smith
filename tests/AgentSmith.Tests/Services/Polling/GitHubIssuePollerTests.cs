@@ -120,15 +120,16 @@ public sealed class GitHubIssuePollerTests
             .ReturnsAsync(discoveredTickets ?? []);
 
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
 
-        var project = new ProjectConfig();
+        WebhookTriggerConfig? trigger = null;
         if (defaultPipeline is not null || pipelineFromLabel is not null)
-            project.GithubTrigger = new WebhookTriggerConfig
+            trigger = new WebhookTriggerConfig
             {
                 DefaultPipeline = defaultPipeline ?? "fix-bug",
                 PipelineFromLabel = pipelineFromLabel ?? new()
             };
+        var project = new ResolvedProject { GithubTrigger = trigger };
 
         return new GitHubIssuePoller(
             "proj", project, factory.Object,
