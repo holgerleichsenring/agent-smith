@@ -9,5 +9,5 @@ namespace AgentSmith.Application.Models;
 /// </summary>
 public sealed record FetchTicketContext(
     TicketId TicketId,
-    TicketConfig Config,
+    TrackerConnection Config,
     PipelineContext Pipeline) : ICommandContext;

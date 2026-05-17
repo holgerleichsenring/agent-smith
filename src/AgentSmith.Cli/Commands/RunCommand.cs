@@ -90,7 +90,7 @@ internal static class RunCommand
 
     private static string ResolveDryRunPipeline(
         string? pipelineOverride,
-        Contracts.Models.Configuration.ProjectConfig? project,
+        Contracts.Models.Configuration.ResolvedProject? project,
         IPipelineConfigResolver resolver)
     {
         if (!string.IsNullOrWhiteSpace(pipelineOverride)) return pipelineOverride;

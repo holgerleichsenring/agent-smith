@@ -37,11 +37,11 @@ public sealed class InitProjectLabelTriggerSmokeTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-repo"] = new()
                 {
-                    Source = new SourceConfig { Url = "https://github.com/org/my-repo" },
+                    Repo = new RepoConnection { Url = "https://github.com/org/my-repo" },
                     GithubTrigger = new WebhookTriggerConfig
                     {
                         PipelineFromLabel = new Dictionary<string, string>
@@ -83,11 +83,11 @@ public sealed class InitProjectLabelTriggerSmokeTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-repo"] = new()
                 {
-                    Source = new SourceConfig { Url = "https://gitlab.com/org/my-repo" },
+                    Repo = new RepoConnection { Url = "https://gitlab.com/org/my-repo" },
                     GitlabTrigger = new WebhookTriggerConfig
                     {
                         PipelineFromLabel = new Dictionary<string, string>
@@ -128,11 +128,11 @@ public sealed class InitProjectLabelTriggerSmokeTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-repo"] = new()
                 {
-                    Tickets = new TicketConfig { Type = "AzureDevOps" },
+                    Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
                     AzuredevopsTrigger = new WebhookTriggerConfig
                     {
                         PipelineFromLabel = new Dictionary<string, string>
@@ -177,7 +177,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-repo"] = new()
                 {

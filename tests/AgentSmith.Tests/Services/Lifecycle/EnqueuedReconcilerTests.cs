@@ -58,10 +58,10 @@ public sealed class EnqueuedReconcilerTests
 
         public Harness()
         {
-            TicketFactory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(Provider.Object);
+            TicketFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Provider.Object);
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
-                Projects = new() { ["proj"] = new ProjectConfig { Pipeline = "fix-bug" } }
+                Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "fix-bug" } }
             });
         }
 

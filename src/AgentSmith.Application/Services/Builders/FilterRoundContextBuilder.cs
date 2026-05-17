@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class FilterRoundContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;

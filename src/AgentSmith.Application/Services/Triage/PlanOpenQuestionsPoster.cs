@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Triage;
 
 /// <summary>
 /// Default <see cref="IPlanOpenQuestionsPoster"/>. Selects the platform-specific
-/// comment template via keyed singleton (TicketConfig.Type) and posts the rendered
+/// comment template via keyed singleton (TrackerConnection.Type) and posts the rendered
 /// body via ITicketProvider.UpdateStatusAsync. Posts on the ticket itself, not on
 /// a PR, since the Plan phase precedes the PR.
 /// </summary>
@@ -31,7 +31,7 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
     }
 
     public async Task PostAsync(
-        TicketConfig ticketConfig, TicketId ticketId,
+        TrackerConnection ticketConfig, TicketId ticketId,
         IReadOnlyList<PlanOpenQuestion> questions, CancellationToken cancellationToken)
     {
         if (questions.Count == 0)
@@ -40,7 +40,7 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
             return;
         }
 
-        var template = ResolveTemplate(ticketConfig.Type);
+        var template = ResolveTemplate(ticketConfig.Type.ToString());
         var body = template.Render(questions);
         var provider = _ticketFactory.Create(ticketConfig);
 

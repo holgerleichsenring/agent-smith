@@ -25,9 +25,9 @@ public sealed class AzureDevOpsWorkItemWebhookHandlerTests
     private static AgentSmithConfig BuildConfig() =>
         new()
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
-                ["my-project"] = new() { Tickets = new TicketConfig { Type = "AzureDevOps" } }
+                ["my-project"] = new() { Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps } }
             }
         };
 

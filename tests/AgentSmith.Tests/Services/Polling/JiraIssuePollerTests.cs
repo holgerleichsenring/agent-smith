@@ -107,15 +107,16 @@ public sealed class JiraIssuePollerTests
             .ReturnsAsync(pendingTickets);
 
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
 
-        var project = new ProjectConfig();
+        JiraTriggerConfig? trigger = null;
         if (defaultPipeline is not null || pipelineFromLabel is not null)
-            project.JiraTrigger = new JiraTriggerConfig
+            trigger = new JiraTriggerConfig
             {
                 DefaultPipeline = defaultPipeline ?? "fix-bug",
                 PipelineFromLabel = pipelineFromLabel ?? new()
             };
+        var project = new ResolvedProject { JiraTrigger = trigger };
 
         return new JiraIssuePoller(
             "proj", project, factory.Object,

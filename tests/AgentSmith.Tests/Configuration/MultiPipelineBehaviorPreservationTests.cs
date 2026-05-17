@@ -14,64 +14,52 @@ namespace AgentSmith.Tests.Configuration;
 public class MultiPipelineBehaviorPreservationTests
 {
     private const string AgentSmithYaml = """
+        agents:
+          claude:
+            type: Claude
+            model: claude-sonnet-4-20250514
+          openai:
+            type: OpenAI
+            model: llama-3.3-70b-versatile
+          azopenai:
+            type: azure-openai
+            endpoint: https://oai-rhegpt-dev.openai.azure.com
+        repos:
+          agent-smith:
+            type: GitHub
+            url: https://github.com/holgerleichsenring/agent-smith
+            auth: token
+        trackers:
+          agent-smith:
+            type: GitHub
+            url: https://github.com/holgerleichsenring/agent-smith
+            auth: token
         projects:
           agent-smith:
-            source:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            tickets:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            agent:
-              type: Claude
-              model: claude-sonnet-4-20250514
+            agent: claude
+            tracker: agent-smith
+            repos: [agent-smith]
             pipeline: fix-bug
             coding_principles_path: .agentsmith/coding-principles.md
 
           agent-smith-security:
-            source:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            tickets:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            agent:
-              type: OpenAI
-              model: llama-3.3-70b-versatile
+            agent: openai
+            tracker: agent-smith
+            repos: [agent-smith]
             pipeline: security-scan
             skills_path: skills/security
 
           agent-smith-api-security-claude:
-            source:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            tickets:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            agent:
-              type: Claude
-              model: claude-sonnet-4-20250514
+            agent: claude
+            tracker: agent-smith
+            repos: [agent-smith]
             pipeline: api-security-scan
             skills_path: skills/api-security
 
           agent-smith-security-scan-azure-openai:
-            source:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            tickets:
-              type: GitHub
-              url: https://github.com/holgerleichsenring/agent-smith
-              auth: token
-            agent:
-              type: azure-openai
-              endpoint: https://oai-rhegpt-dev.openai.azure.com
+            agent: azopenai
+            tracker: agent-smith
+            repos: [agent-smith]
             pipeline: security-scan
             skills_path: skills/security
         """;
@@ -82,7 +70,7 @@ public class MultiPipelineBehaviorPreservationTests
         File.WriteAllText(path, AgentSmithYaml);
         try
         {
-            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
             return loader.LoadConfig(path);
         }
         finally

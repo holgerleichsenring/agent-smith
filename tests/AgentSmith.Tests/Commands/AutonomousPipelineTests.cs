@@ -164,7 +164,7 @@ public sealed class AutonomousPipelineTests
             .ReturnsAsync(1);
 
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(x => x.Create(It.IsAny<TicketConfig>())).Returns(ticketProvider.Object);
+        factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
 
         var handler = new WriteTicketsHandler(factory.Object, NullLogger<WriteTicketsHandler>.Instance);
         var pipeline = new PipelineContext();
@@ -177,7 +177,7 @@ public sealed class AutonomousPipelineTests
         };
         pipeline.Set(ContextKeys.AutonomousFindings, (IReadOnlyList<AutonomousFinding>)findings);
 
-        var context = new WriteTicketsContext(new TicketConfig(), MaxTickets: 2, MinConfidence: 1, pipeline);
+        var context = new WriteTicketsContext(new TrackerConnection(), MaxTickets: 2, MinConfidence: 1, pipeline);
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -194,7 +194,7 @@ public sealed class AutonomousPipelineTests
     {
         var ticketProvider = new Mock<ITicketProvider>();
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(x => x.Create(It.IsAny<TicketConfig>())).Returns(ticketProvider.Object);
+        factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
 
         var handler = new WriteTicketsHandler(factory.Object, NullLogger<WriteTicketsHandler>.Instance);
         var pipeline = new PipelineContext();
@@ -206,7 +206,7 @@ public sealed class AutonomousPipelineTests
         };
         pipeline.Set(ContextKeys.AutonomousFindings, (IReadOnlyList<AutonomousFinding>)findings);
 
-        var context = new WriteTicketsContext(new TicketConfig(), MaxTickets: 10, MinConfidence: 7, pipeline);
+        var context = new WriteTicketsContext(new TrackerConnection(), MaxTickets: 10, MinConfidence: 7, pipeline);
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -229,7 +229,7 @@ public sealed class AutonomousPipelineTests
             .ReturnsAsync(42);
 
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(x => x.Create(It.IsAny<TicketConfig>())).Returns(ticketProvider.Object);
+        factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
 
         var handler = new WriteTicketsHandler(factory.Object, NullLogger<WriteTicketsHandler>.Instance);
         var pipeline = new PipelineContext();
@@ -240,7 +240,7 @@ public sealed class AutonomousPipelineTests
         };
         pipeline.Set(ContextKeys.AutonomousFindings, (IReadOnlyList<AutonomousFinding>)findings);
 
-        var context = new WriteTicketsContext(new TicketConfig(), MaxTickets: 5, MinConfidence: 1, pipeline);
+        var context = new WriteTicketsContext(new TrackerConnection(), MaxTickets: 5, MinConfidence: 1, pipeline);
         await handler.ExecuteAsync(context, CancellationToken.None);
 
         ticketProvider.Verify(x => x.CreateAsync(
@@ -257,7 +257,7 @@ public sealed class AutonomousPipelineTests
         var handler = new WriteTicketsHandler(factory.Object, NullLogger<WriteTicketsHandler>.Instance);
         var pipeline = new PipelineContext();
 
-        var context = new WriteTicketsContext(new TicketConfig(), MaxTickets: 5, MinConfidence: 7, pipeline);
+        var context = new WriteTicketsContext(new TrackerConnection(), MaxTickets: 5, MinConfidence: 7, pipeline);
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();

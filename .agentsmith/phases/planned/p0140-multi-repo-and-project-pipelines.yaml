@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0140
+goal: "Make a project hold a LIST of repos and a LIST of pipelines. One ticket on a multi-repo project spawns one pipeline run per repo, isolated and parallel. Webhook→project routing becomes explicit via a project_resolution block in the trigger. Per-pipeline overrides (agent, skills_path) on the project let one project legitimately host fix-bug, security-scan, and api-security-scan side by side without 3x duplicated project blocks."
+
+requires: ["p0139"]
+
+scope:
+  in: "Project shape changes: `pipeline:` (single string) becomes `pipelines:` (list of either strings or `{name, agent?, skills_path?}` objects). `repos:` stays a list (introduced in p0139) but now actually drives N parallel pipeline spawns. New required sub-block inside each trigger: `project_resolution: { strategy: tag | area-path | repo | to_address, value: ... }` — tells the webhook handler which incoming ticket belongs to which project. A new MultiRepoSpawner takes a webhook-resolved (project, pipeline, ticket) and spawns one Pipeline run per project.Repos entry. The runs are independent: each spawns its own sandbox, runs the full pipeline, produces its own PR, writes back to the same ticket with a per-repo PR-link. No cross-repo state, no primary/consumer, no scope hints — explicitly LLM-driven."
+  out: "Hierarchical context.yaml for monorepos — that's a separate follow-up (the discussion notes p0139+1 or later). Email-trigger provider — p0141. Per-pipeline override of fields beyond `agent` and `skills_path` — explicitly excluded; if a pipeline needs e.g. custom limits, that opens a follow-up. Pipeline catalog (pipelines defined in YAML) — still out, pipelines remain code-defined. Cross-repo coordination (primary/consumer/CrossRepoContext) — explicitly rejected per the design discussion; the LLM handles cross-repo reasoning via context.yaml + Verify phase, not via spawner orchestration."
+
+decisions:
+  - key: "Multi-repo runs are PARALLEL and ISOLATED. Each repo's pipeline gets its own sandbox, its own plan, its own diff, its own PR. No shared state between sibling runs. Reason: discussed at length — primary/consumer/CrossRepoContext orchestration solves a problem (LLM not knowing what the other repo does) that doesn't actually exist in practice; the LLM either figures cross-repo coupling out from each repo's context.yaml + own code, or the Verify phase catches real interface breaks. Adding spawner-level orchestration would add complexity that protects against a problem we're not seeing."
+  - key: "No `sibling_repos` hint passed into the pipeline context. The LLM working in repo A does not get told 'by the way, repos B and C also got pinged with the same ticket'. Reason: a sibling-hint would either be noise (LLM doesn't know what to do with the names) or would tempt the LLM to make assumptions about parallel sibling state it cannot verify. Each run reads its own ticket, its own repo, its own context.yaml — fully self-contained."
+  - key: "`project_resolution` is REQUIRED on every trigger block. No default. Reason: with multi-tenant trackers (one ADO project hosting 60 repos for 15 logical sub-projects, one Jira install used by 8 teams), the webhook has no way to know which agent-smith project owns an incoming ticket unless config says so. Forcing the operator to declare resolution explicitly catches mistakes at config-load instead of at first-webhook-arrival."
+  - key: "Resolution strategies in v1: `tag`, `area-path`, `repo`, `to_address` (last one is for the Email tracker in p0141 — schema accepted now, handler activates in p0141). Each takes a `value:` field. Examples: `{strategy: tag, value: authport}` matches any ticket carrying tag `authport`; `{strategy: area-path, value: ContosoMain\\Billing}` matches via AreaPath prefix; `{strategy: repo, value: agent-smith}` matches when the ticket comes from GitHub repo `agent-smith` (single-repo GitHub default)."
+  - key: "Area-path matching is PREFIX-based, hierarchical. `area-path: ContosoMain\\Billing` matches `ContosoMain\\Billing` exactly AND `ContosoMain\\Billing\\Invoicing` AND deeper. Reason: ADO area paths are hierarchical by design; an operator deciding 'all billing tickets' means the subtree, not just the exact node. If exact-match is ever needed, that's a follow-up flag (`area_path_match: exact`); not now."
+  - key: "Ambiguous resolution (a single ticket matches more than one project) is handled by spawning ALL matched projects' pipelines. Reason from the discussion: 'wenn man Unsinn taggt, dann taggt man Unsinn' — the LLM in each matched project will decide whether the ticket is actually relevant for that project and skip if not (via Plan-phase open_questions or an explicit skip-observation). Hard-erroring on ambiguity would also block the legitimate case of a deliberately cross-cutting ticket."
+  - key: "Zero-match resolution (a ticket matches no project's resolution rule) → tracker-level comment 'no agent-smith project matched this ticket' and DROP. Not an error log, not a startup-fail. Reason: in a multi-tenant tracker, most tickets won't be agent-smith-relevant. Silently dropping is correct; the comment exists only so a human investigating an expected-to-trigger ticket has a footprint to find."
+  - key: "Per-pipeline overrides are EXACTLY `agent` and `skills_path`, nothing else. List entry is either a string (just the pipeline name, all project defaults apply) or `{name: <pipeline>, agent?: <agent-name>, skills_path?: <path>}`. Reason from discussion: agent + skills_path cover 100% of the observed need (Claude for one pipeline, OpenAI for another; security skills for the security pipeline, mad-discussion skills for that one). Anything else opens scope creep without a concrete driver."
+  - key: "Pipeline override of `agent` references the agents catalog by name, identical to project-level. No inline agent definitions anywhere. The override is a lookup, not a partial-merge — overriding `agent` for one pipeline doesn't inherit any field from the project's default agent; the override agent is taken whole."
+  - key: "MultiRepoSpawner runs INSIDE the webhook handler's existing async path. No new worker pod, no new queue. Reason: even at 10 repos × 1 ticket = 10 spawns, the spawn itself is cheap (it's enqueueing pipeline runs, not blocking on them). The actual pipeline runs happen in the existing sandbox-pod infrastructure, one pod per pipeline run, exactly as today. The spawner is a fan-out, not an execution engine."
+  - key: "Writeback is per-pipeline-run, not aggregated. Each pipeline run writes its own ticket comment with its own PR link when its PR opens. Result: one ticket may receive N comments (one per repo) over the course of multi-repo execution. Reason: aggregated writeback requires a coordinator that knows when 'all done', which forces shared state and a sync point we explicitly rejected. Per-run comments are also more honest about timing (different repos may finish at very different times)."
+  - key: "Behavior for a project with `repos: [single-repo]` is bit-for-bit identical to today's single-repo flow. The MultiRepoSpawner fans out to one pipeline run when Count==1; that one run goes through the existing PipelineExecutor unchanged. Regression test asserts the single-repo case still produces exactly one PR with the same commit message and ticket-comment shape."
+  - key: "When `project_resolution.strategy: repo` matches via repo identity (GitHub/GitLab webhook payload includes the repo URL), the project must have exactly ONE repo in its `repos:` list whose RepoConnection.Url matches the payload. Reason: a `strategy: repo` project that listed three repos couldn't disambiguate which-repo-triggered-which from the payload. Validator enforces this — `repos:` count == 1 when `strategy: repo`. ADO/Jira projects use `tag` or `area-path` instead and don't have this constraint."
+  - key: "Tracker capability checks are explicit, not exception-driven. `ITicketProvider.SupportsComments` is the first capability added; future capabilities (e.g. `SupportsLifecycleTransitions`) follow the same pattern. Try/catch around the call is rejected: it hides the conditional intent at the call site and makes 'this tracker doesn't support X' indistinguishable from 'the call failed at runtime'. The capability is declared by the provider author and the conditional lives at every call site so reviewers can grep for the pattern."
+  - key: "Zero-match comment defaults off. Multi-tenant trackers (one ADO project hosting many sub-projects, one Jira install used by many teams) are the realistic majority. Commenting every non-matching ticket would generate noise that operators learn to ignore — which then hides real configuration mistakes. Structured logging is unconditional and gives forensic capability (a sorted log query for `event=zero_match&ticket_id=...` finds the trace) without writing to the operator's ticket system. Single-tenant operators who want visibility can opt in per tracker via `zero_match_comment: true`."
+  - key: "Ambiguous-resolution cost is measured, not prevented. The 'spawn all matched projects, let the LLM skip irrelevant ones' decision is intentional but expensive. The `agent_smith_ambiguous_resolution_total` and `agent_smith_pipeline_skipped_as_irrelevant_total` counters make the cost visible so the team can decide later whether to add stricter resolution (e.g. requiring exact-one-match) based on real data. Without the counters this decision is unfalsifiable."
+
+steps:
+  - id: schema
+    action: "Extend agentsmith.schema.json with the new project shape and the project_resolution block"
+    modify:
+      - "config/agentsmith.schema.json: project.pipelines is array of (string | {name: string, agent?: string, skills_path?: string}); every trigger block gains a required project_resolution: {strategy: 'tag'|'area-path'|'repo'|'to_address', value: string}; tracker entry gains optional `zero_match_comment: bool` (default `false`)."
+      - "AreaPath accepts both `\\` and `/` as separators. The loader normalizes to `\\` (ADO's native form) for comparison. Operator can write `area_path: ContosoMain/Billing` or `area_path: ContosoMain\\Billing` or `area_path: \"ContosoMain\\\\Billing\"` — all three resolve to the same hierarchy match. The schema doc shows the forward-slash form as the recommended style and includes a callout about the YAML double-quoted-string escaping pitfall (`\"...\\B...\"` silently breaks)."
+      - "docs/configuration/agentsmith-yml-schema.md: section on project_resolution with all four strategies and worked examples. Section on the pipeline list with override semantics. Callout box on AreaPath: prefer forward-slashes to avoid the YAML-escape footgun."
+
+  - id: domain
+    action: "Add the per-pipeline override record and the project-resolution record"
+    new:
+      - "src/AgentSmith.Domain/Configuration/PipelineRef.cs: record { string Name, string? AgentOverride, string? SkillsPathOverride }. Resolver materializes each list entry: a string becomes PipelineRef(name, null, null); an object becomes PipelineRef(name, agent, skills_path)."
+      - "src/AgentSmith.Domain/Configuration/ProjectResolution.cs: record { ResolutionStrategy Strategy, string Value }. Strategy enum: Tag, AreaPath, Repo, ToAddress."
+      - "src/AgentSmith.Application/Services/Triggers/ProjectResolver.cs: takes the parsed config + an incoming ticket envelope (label list, area path, source repo URL, to-address). Returns the list of (project, pipeline) tuples that match, possibly empty, possibly more than one. Stateless; pure function over config + envelope."
+
+  - id: capability
+    action: "Extend ITicketProvider with explicit comment-support capability"
+    modify:
+      - "src/AgentSmith.Domain/Tickets/ITicketProvider.cs: add `bool SupportsComments { get; }`. AzureDevOps/Jira/GitHub/GitLab providers return `true` (they have in-band ticket comments). The future Email provider in p0141 returns `false`. Every call site that calls `AddCommentAsync` (zero-match path, lifecycle transitions, writeback) first checks `if (provider.SupportsComments)`; on `false`, the comment is replaced with a structured log entry (see the zero-match step for the format). The check is explicit, not try/catch around `AddCommentAsync`."
+
+  - id: spawner
+    action: "Fan-out spawner that turns a resolved (project, pipeline, ticket) into N pipeline-run enqueues"
+    new:
+      - "src/AgentSmith.Application/UseCases/SpawnPipelineRunsUseCase.cs: takes ProjectConfig + PipelineRef + TicketEnvelope. For each repo in project.Repos: build a PipelineRunRequest with the resolved agent (override or project default), the resolved skills path (override or project default), the resolved repo, the ticket envelope. Enqueue via the existing IPipelineRunQueue (or whatever current name is — same primitive that today handles a single spawn). No new queue type."
+
+  - id: webhook-wiring
+    action: "Webhook handlers go through ProjectResolver instead of today's single-project lookup"
+    modify:
+      - "src/AgentSmith.Infrastructure/Webhooks/AzureDevOpsWebhookHandler.cs: replace 'find the one project matching this org/project' with ProjectResolver.Resolve(envelope). For each (project, pipeline) returned, call SpawnPipelineRunsUseCase. Zero matches → ALWAYS emit a structured log entry `{event: 'zero_match', tracker, ticket_id, ticket_url, labels, area_path, to_address}` at info-level; THEN, only if the tracker has `zero_match_comment: true` AND `provider.SupportsComments`, also call `tracker.AddCommentAsync(ticketId, 'no agent-smith project matched this ticket')`."
+      - "src/AgentSmith.Infrastructure/Webhooks/JiraWebhookHandler.cs: same shape."
+      - "src/AgentSmith.Infrastructure/Webhooks/GitHubWebhookHandler.cs: same shape, envelope built from GitHub payload (source repo URL, labels)."
+      - "src/AgentSmith.Infrastructure/Webhooks/GitLabWebhookHandler.cs: same shape."
+      - "src/AgentSmith.Application/Services/Polling/*Poller.cs (all four platforms): same — each ticket pulled by polling goes through ProjectResolver, not direct project lookup."
+
+  - id: validator
+    action: "Extend p0139's validator with the new constraints"
+    modify:
+      - "src/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs: add checks. (a) every project has project_resolution set on its trigger block; (b) for strategy=repo, project.Repos.Count == 1; (c) pipeline override.AgentOverride resolves in agents catalog; (d) pipeline name resolves to a known pipeline (PipelinePresets). Existing checks (catalog refs, etc.) unchanged."
+
+  - id: writeback
+    action: "Per-run writeback stays simple; no aggregation"
+    modify:
+      - "src/AgentSmith.Application/UseCases/CommitAndPRHandler.cs / InitCommitHandler.cs: no functional change — they already write back per-run. Confirm that the comment format includes repo identity (so a ticket receiving 3 comments from 3 sibling runs is readable). If today's format omits the repo name, add it: 'PR opened in <repo>: <url>'."
+
+  - id: docs
+    action: "Document multi-repo behavior and resolution strategies"
+    new:
+      - "docs/configuration/multi-repo.md: when to use it, the parallel-isolation model, what the operator sees (N comments on one ticket), what happens with ambiguous tags."
+      - "docs/configuration/project-resolution.md: each strategy with a worked example (ADO multi-tenant via tag, ADO via area-path, GitHub single-repo via repo identity, email by to-address [forward-reference to p0141])."
+    modify:
+      - "docs/setup/onboarding.md: when bootstrapping a multi-repo project, mention that `agent-smith:init` must be run once PER repo (each needs its own .agentsmith/context.yaml). p0133's flow is per-repo."
+
+  - id: metrics
+    action: "Counter instrumentation for ambiguous-resolution cost visibility"
+    new:
+      - "`agent_smith_ambiguous_resolution_total{project, pipeline}` counter, incremented per matched-project when ProjectResolver returns more than one match. Labels include the matched project name and the pipeline name. Allows the operator to see 'project X is matched 200 times per week but only 30 of those are real work for X'."
+      - "`agent_smith_pipeline_skipped_as_irrelevant_total{project, pipeline, reason}` counter, incremented when a pipeline's Plan phase emits a skip-as-irrelevant observation. Reason label distinguishes 'wrong project tag' from 'wrong pipeline for ticket type' from 'ticket has insufficient info'."
+      - "Use the existing metrics infrastructure (whatever the project standard already is — Prometheus/OpenTelemetry/etc.); do not introduce a new metrics dependency. The ratio of these two counters at the (project, pipeline) granularity is the cost-of-ambiguity dashboard query."
+
+  - id: tests
+    action: "Resolver, spawner, multi-repo end-to-end smoke"
+    new:
+      - "tests/Triggers/ProjectResolverTests: tag strategy matches single, multiple, none; area-path strategy matches exact and subtree, not sibling; repo strategy matches via URL identity; ambiguous tags return multiple."
+      - "tests/UseCases/SpawnPipelineRunsUseCaseTests: project.Repos.Count==1 enqueues one run; Count==3 enqueues three; per-pipeline agent override is honored; per-pipeline skills_path override is honored; project-level defaults apply when no override."
+      - "tests/EndToEnd/MultiRepoSmokeTests: a ticket on a project with 3 repos produces 3 sandbox runs, 3 PRs, 3 ticket comments; runs are independent (one failing doesn't block the others)."
+      - "tests/EndToEnd/SingleRepoRegressionTests: existing single-repo flows (the agent-smith project, todo-list-azuredevops) produce IDENTICAL output to today — same commit messages, same comment shape, same PR titles. Bit-for-bit assertion on at least one happy-path flow per platform."
+      - "tests/Webhooks/ZeroMatchTests: handler emits structured `event=zero_match` log entry unconditionally; with `zero_match_comment: false` no comment is written; with `zero_match_comment: true` AND `SupportsComments=true` a comment is written; with `zero_match_comment: true` AND `SupportsComments=false` only the log entry is written and no exception is thrown."
+
+tests:
+  - "ProjectResolver_TagStrategy_MatchesTicketWithTag"
+  - "ProjectResolver_TagStrategy_TicketHasNoMatchingTag_ReturnsEmpty"
+  - "ProjectResolver_TagStrategy_TicketMatchesTwoProjects_ReturnsBoth"
+  - "ProjectResolver_AreaPathStrategy_MatchesExactPath"
+  - "ProjectResolver_AreaPathStrategy_MatchesSubtreeBelowConfiguredRoot"
+  - "ProjectResolver_AreaPathStrategy_DoesNotMatchSiblingPath"
+  - "AreaPathResolution_ForwardSlashAndBackslash_ResolveIdentically"
+  - "ProjectResolver_RepoStrategy_MatchesByRepoUrl"
+  - "WebhookHandler_ZeroMatch_DropsTicket_AndLogsStructuredEvent"
+  - "WebhookHandler_ZeroMatch_TrackerOptedIn_AlsoWritesComment"
+  - "WebhookHandler_ZeroMatch_TrackerOptedIn_ButProviderSupportsCommentsFalse_LogsOnlyNoCrash"
+  - "SpawnPipelineRuns_OneRepo_EnqueuesOneRun"
+  - "SpawnPipelineRuns_ThreeRepos_EnqueuesThreeRunsInParallel"
+  - "SpawnPipelineRuns_PipelineWithAgentOverride_RunReceivesOverrideAgent"
+  - "SpawnPipelineRuns_PipelineWithoutOverride_RunReceivesProjectDefaultAgent"
+  - "ConfigValidator_RepoStrategyWithMultipleRepos_ReturnsError"
+  - "ConfigValidator_PipelineOverrideAgentDoesNotExist_ReturnsError"
+  - "ConfigValidator_TriggerMissingProjectResolution_ReturnsError"
+  - "MultiRepoSmoke_AzureDevOps_TicketSpawnsThreePRsAcrossThreeRepos"
+  - "SingleRepoRegression_AgentSmithRepoFixBug_ProducesIdenticalPROutputAsPreP0140"
+
+done:
+  - "agentsmith.yml: project supports `repos: [a, b, c]` and `pipelines: [name | {name, agent?, skills_path?}]`"
+  - "Every trigger-block has a required project_resolution: {strategy, value}; validator rejects missing or malformed entries"
+  - "Webhook handlers route via ProjectResolver; zero matches → structured log entry (always) plus optional tracker comment when `zero_match_comment: true` and provider supports comments; multiple matches → all matched projects spawn"
+  - "A ticket on a multi-repo project produces N parallel pipeline runs, each in its own sandbox, each writing its own PR + ticket comment with repo identity in the comment"
+  - "Per-pipeline override of agent and skills_path works; no other override fields are accepted"
+  - "Single-repo projects produce bit-for-bit identical output to pre-p0140 — regression test green per platform"
+  - "ResolvedProject.Repo singular accessor (transitional shim from p0139) is removed; all consumers iterate `Repos`"
+  - "Ambiguous-resolution and pipeline-skip counters (`agent_smith_ambiguous_resolution_total`, `agent_smith_pipeline_skipped_as_irrelevant_total`) are wired and visible in the project's metrics dashboard"
+  - "Docs cover multi-repo behavior and all four resolution strategies"
+  - "All tests pass; existing suite green"
