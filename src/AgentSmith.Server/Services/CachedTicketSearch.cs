@@ -51,7 +51,7 @@ internal sealed class CachedTicketSearch(
 
         try
         {
-            var ticketProvider = ticketFactory.Create(projectConfig.Tickets);
+            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var tickets = await ticketProvider.ListOpenAsync(ct);
 
             var result = tickets

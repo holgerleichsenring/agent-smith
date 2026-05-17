@@ -34,8 +34,8 @@ public sealed class TicketClaimService(
 
         try
         {
-            var ticketConfig = config.Projects[request.ProjectName].Tickets;
-            return await AttemptClaimAsync(request, ticketConfig, ct);
+            var trackerConfig = config.Projects[request.ProjectName].Tracker;
+            return await AttemptClaimAsync(request, trackerConfig, ct);
         }
         finally
         {
@@ -44,7 +44,7 @@ public sealed class TicketClaimService(
     }
 
     private async Task<ClaimResult> AttemptClaimAsync(
-        ClaimRequest request, TicketConfig ticketConfig, CancellationToken ct)
+        ClaimRequest request, TrackerConnection ticketConfig, CancellationToken ct)
     {
         var transitioner = transitionerFactory.Create(ticketConfig);
 

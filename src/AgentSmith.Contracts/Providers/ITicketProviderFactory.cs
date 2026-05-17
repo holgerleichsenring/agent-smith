@@ -7,5 +7,5 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface ITicketProviderFactory
 {
-    ITicketProvider Create(TicketConfig config);
+    ITicketProvider Create(TrackerConnection config);
 }

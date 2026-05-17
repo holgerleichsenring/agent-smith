@@ -107,12 +107,12 @@ public class CommandContextFactoryTests
             .WithMessage("*Unknown command*");
     }
 
-    private static ProjectConfig CreateProjectConfig()
+    private static ResolvedProject CreateProjectConfig()
     {
-        return new ProjectConfig
+        return new ResolvedProject
         {
-            Source = new SourceConfig { Type = "local", Path = "/tmp" },
-            Tickets = new TicketConfig { Type = "github", Url = "https://github.com/test/repo" },
+            Repo = new RepoConnection { Type = RepoType.Local, Path = "/tmp" },
+            Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/test/repo" },
             Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
             Pipeline = "fix-bug",
             CodingPrinciplesPath = "config/coding-principles.md"

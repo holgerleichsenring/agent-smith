@@ -18,7 +18,7 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths())
+        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths())
             .LoadConfig(_tempFile);
     }
 

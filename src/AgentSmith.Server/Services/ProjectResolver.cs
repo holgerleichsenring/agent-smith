@@ -40,12 +40,12 @@ public sealed class ProjectResolver(
     }
 
     private async Task<List<string>> FindMatchingProjectsAsync(
-        Dictionary<string, ProjectConfig> projects,
+        IReadOnlyDictionary<string, ResolvedProject> projects,
         string ticketNumber,
         CancellationToken cancellationToken)
     {
         var tasks = projects.Select(kvp =>
-            CheckTicketExistsAsync(kvp.Key, kvp.Value.Tickets, ticketNumber, cancellationToken));
+            CheckTicketExistsAsync(kvp.Key, kvp.Value.Tracker, ticketNumber, cancellationToken));
 
         var results = await Task.WhenAll(tasks);
         return results.Where(r => r is not null).Select(r => r!).ToList();
@@ -53,7 +53,7 @@ public sealed class ProjectResolver(
 
     private async Task<string?> CheckTicketExistsAsync(
         string projectName,
-        TicketConfig ticketConfig,
+        TrackerConnection ticketConfig,
         string ticketNumber,
         CancellationToken cancellationToken)
     {

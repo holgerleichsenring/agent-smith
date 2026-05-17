@@ -51,7 +51,7 @@ public sealed class DeliverOutputHandlerTests : IDisposable
         pipeline.Set(ContextKeys.CodeChanges, (IReadOnlyList<CodeChange>)changes);
         pipeline.Set(ContextKeys.SourceFilePath, inboxPath);
 
-        var config = new SourceConfig { Type = "LocalFolder", Path = _baseDir };
+        var config = new RepoConnection { Type = RepoType.Local, Path = _baseDir };
         var context = new DeliverOutputContext(config, repo, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -79,7 +79,7 @@ public sealed class DeliverOutputHandlerTests : IDisposable
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SourceFilePath, "/some/path.pdf");
 
-        var context = new DeliverOutputContext(new SourceConfig { Path = _baseDir }, repo, pipeline);
+        var context = new DeliverOutputContext(new RepoConnection { Path = _baseDir }, repo, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 

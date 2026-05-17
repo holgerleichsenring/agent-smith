@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public enum SandboxToolchainResolutionLayer
 {
-    /// <summary>Operator pinned a specific image via ProjectConfig.Sandbox.ToolchainImage.</summary>
+    /// <summary>Operator pinned a specific image via ResolvedProject.Sandbox.ToolchainImage.</summary>
     Override,
 
     /// <summary>Host-side project-map.json cache from a prior AnalyzeProjectHandler run.</summary>

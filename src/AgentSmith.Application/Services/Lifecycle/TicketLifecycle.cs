@@ -16,7 +16,7 @@ public static class TicketLifecycle
 {
     public static async Task FinalizeAsync(
         ITicketProviderFactory ticketFactory,
-        TicketConfig ticketConfig,
+        TrackerConnection ticketConfig,
         TicketId ticketId,
         string? doneStatus,
         string summary,

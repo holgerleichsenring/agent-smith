@@ -49,7 +49,7 @@ public sealed class EnqueuedReconciler(
     }
 
     private async Task ReconcileProjectSafeAsync(
-        string projectName, ProjectConfig project, CancellationToken ct)
+        string projectName, ResolvedProject project, CancellationToken ct)
     {
         try { await ReconcileProjectAsync(projectName, project, ct); }
         catch (OperationCanceledException) { throw; }
@@ -57,14 +57,14 @@ public sealed class EnqueuedReconciler(
         {
             logger.LogWarning(ex,
                 "EnqueuedReconciler skipped project {Project} (Tickets.Type={Type}): {Message}",
-                projectName, project.Tickets.Type, ex.Message);
+                projectName, project.Tracker.Type, ex.Message);
         }
     }
 
     private async Task ReconcileProjectAsync(
-        string projectName, ProjectConfig project, CancellationToken ct)
+        string projectName, ResolvedProject project, CancellationToken ct)
     {
-        var provider = ticketFactory.Create(project.Tickets);
+        var provider = ticketFactory.Create(project.Tracker);
         var enqueued = await provider.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Enqueued, ct);
 
@@ -84,7 +84,7 @@ public sealed class EnqueuedReconciler(
         }
     }
 
-    private string? TryResolveDefaultPipeline(ProjectConfig project)
+    private string? TryResolveDefaultPipeline(ResolvedProject project)
     {
         try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
         catch (InvalidOperationException) { return null; }

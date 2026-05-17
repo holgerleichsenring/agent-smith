@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/holgerleichsenring/agent-smith/blob/main/config/agentsmith.schema.json",
+  "title": "Agent Smith Configuration",
+  "description": "Schema for agentsmith.yml (and agentsmith.example.yml). Introduced in p0139: top-level named catalogs for agents, repos, trackers, and pipeline_triggers; projects reference catalog entries by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agents": {
+      "type": "object",
+      "description": "Catalog of AI agents. Each key is a name referenced by projects.",
+      "additionalProperties": { "$ref": "#/$defs/agent" }
+    },
+    "repos": {
+      "type": "object",
+      "description": "Catalog of source repositories. Each key is a name referenced by projects.",
+      "additionalProperties": { "$ref": "#/$defs/repo" }
+    },
+    "trackers": {
+      "type": "object",
+      "description": "Catalog of issue/work-item trackers. Each key is a name referenced by projects.",
+      "additionalProperties": { "$ref": "#/$defs/tracker" }
+    },
+    "pipeline_triggers": {
+      "type": "object",
+      "description": "Global map of label/tag string to pipeline name. Project-level trigger blocks fall back to this when their pipeline_from_label is omitted.",
+      "additionalProperties": { "type": "string" }
+    },
+    "projects": {
+      "type": "object",
+      "description": "Per-project configuration. Each project references catalog entries by name plus declares its own trigger blocks.",
+      "additionalProperties": { "$ref": "#/$defs/project" }
+    },
+    "skills": { "type": "object" },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "queue": { "type": "object" },
+    "limits": { "type": "object" },
+    "pipeline_storage": { "type": "object" },
+    "pipeline_data_flow": { "type": "object" },
+    "sandbox": { "type": "object" },
+    "orchestrator": { "type": "object" },
+    "primary_provider": { "type": "string" }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "description": "AI agent definition. Sub-blocks (retry, cache, compaction, models, pricing, parallelism) are passed through to AgentConfig and validated separately by the loader.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Claude", "OpenAI", "azure-openai", "Gemini", "Ollama"]
+        },
+        "model": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "deployment": { "type": "string" },
+        "api_version": { "type": "string" },
+        "api_key_secret": { "type": "string" },
+        "retry": { "type": "object" },
+        "cache": { "type": "object" },
+        "compaction": { "type": "object" },
+        "models": { "type": "object" },
+        "pricing": { "type": "object" },
+        "parallelism": { "type": "object" }
+      }
+    },
+    "repo": {
+      "type": "object",
+      "description": "Source repository connection. Type=Local uses path; remote types use url.",
+      "required": ["type", "auth"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["GitHub", "GitLab", "AzureDevOps", "Local"]
+        },
+        "url": { "type": "string" },
+        "path": { "type": "string" },
+        "organization": { "type": "string" },
+        "project": { "type": "string" },
+        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "default_branch": { "type": "string" }
+      }
+    },
+    "tracker": {
+      "type": "object",
+      "description": "Issue/work-item tracker connection. Open states, done status, close transition, and extra fields belong here when shared across projects.",
+      "required": ["type", "auth"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["GitHub", "GitLab", "AzureDevOps", "Jira"]
+        },
+        "url": { "type": "string" },
+        "organization": { "type": "string" },
+        "project": { "type": "string" },
+        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "open_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "done_status": { "type": "string" },
+        "close_transition_name": { "type": "string", "description": "Jira only" },
+        "extra_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "description": "Project entry. References agent/tracker/repos by catalog name. Trigger blocks stay on the project; per-platform trigger settings are project-specific even when two projects share a tracker.",
+      "required": ["agent", "tracker", "repos"],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Name from agents: catalog"
+        },
+        "tracker": {
+          "type": "string",
+          "description": "Name from trackers: catalog"
+        },
+        "repos": {
+          "type": "array",
+          "description": "List of names from repos: catalog. Always a list, even when there is exactly one. p0140 activates parallel multi-repo execution over this list.",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "pipeline": { "type": "string" },
+        "pipelines": { "type": "array" },
+        "default_pipeline": { "type": "string" },
+        "coding_principles_path": { "type": "string" },
+        "skills_path": { "type": "string" },
+        "github_trigger": { "$ref": "#/$defs/webhookTrigger" },
+        "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger" },
+        "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },
+        "jira_trigger": { "$ref": "#/$defs/jiraTrigger" },
+        "polling": { "type": "object" },
+        "sandbox": { "type": "object" },
+        "orchestrator": { "type": "object" }
+      }
+    },
+    "webhookTrigger": {
+      "type": "object",
+      "description": "Trigger block shared by GitHub/GitLab/AzureDevOps. pipeline_from_label is optional; when omitted the global pipeline_triggers map applies.",
+      "properties": {
+        "pipeline_from_label": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "default_pipeline": { "type": "string" },
+        "trigger_statuses": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "done_status": { "type": "string" },
+        "comment_keyword": { "type": "string" }
+      }
+    },
+    "jiraTrigger": {
+      "allOf": [
+        { "$ref": "#/$defs/webhookTrigger" },
+        {
+          "type": "object",
+          "properties": {
+            "assignee_name": { "type": "string" },
+            "secret": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

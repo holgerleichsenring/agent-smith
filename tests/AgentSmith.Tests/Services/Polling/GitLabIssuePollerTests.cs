@@ -107,15 +107,16 @@ public sealed class GitLabIssuePollerTests
             .ReturnsAsync(pendingTickets);
 
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(provider.Object);
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
 
-        var project = new ProjectConfig();
+        WebhookTriggerConfig? trigger = null;
         if (defaultPipeline is not null || pipelineFromLabel is not null)
-            project.GitlabTrigger = new WebhookTriggerConfig
+            trigger = new WebhookTriggerConfig
             {
                 DefaultPipeline = defaultPipeline ?? "fix-bug",
                 PipelineFromLabel = pipelineFromLabel ?? new()
             };
+        var project = new ResolvedProject { GitlabTrigger = trigger };
 
         return new GitLabIssuePoller(
             "proj", project, factory.Object,

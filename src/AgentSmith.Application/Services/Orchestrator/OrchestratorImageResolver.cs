@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Orchestrator;
 /// </summary>
 public sealed class OrchestratorImageResolver(IOptions<OrchestratorGlobalConfig> globalConfig) : IOrchestratorImageResolver
 {
-    public string Resolve(ProjectConfig projectConfig)
+    public string Resolve(ResolvedProject projectConfig)
     {
         var global = globalConfig.Value;
         var registry = FirstNonEmpty(projectConfig.Orchestrator?.Registry, global.Registry);

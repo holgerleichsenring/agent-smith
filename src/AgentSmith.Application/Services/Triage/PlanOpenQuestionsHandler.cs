@@ -39,7 +39,7 @@ public sealed class PlanOpenQuestionsHandler(
         }
 
         await poster.PostAsync(
-            context.TicketConfig, context.Ticket.Id, plan.OpenQuestions, cancellationToken);
+            context.TrackerConnection, context.Ticket.Id, plan.OpenQuestions, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
         return CommandResult.Ok(

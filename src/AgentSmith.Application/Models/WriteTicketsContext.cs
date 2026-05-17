@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Models;
 /// Context for writing autonomous findings as tickets via the ticket provider.
 /// </summary>
 public sealed record WriteTicketsContext(
-    TicketConfig TicketConfig,
+    TrackerConnection TrackerConnection,
     int MaxTickets,
     int MinConfidence,
     PipelineContext Pipeline) : ICommandContext;

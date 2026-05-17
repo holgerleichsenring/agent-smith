@@ -33,12 +33,12 @@ public sealed class FetchTicketHandlerTests
         providerMock.Setup(p => p.GetTicketAsync(
                 It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ticket);
-        _factoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(providerMock.Object);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, ticketId);
-        var context = new FetchTicketContext(ticketId, new TicketConfig { Type = "github" }, pipeline);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -53,13 +53,13 @@ public sealed class FetchTicketHandlerTests
         providerMock.Setup(p => p.GetTicketAsync(
                 It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
-        _factoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(providerMock.Object);
 
         var ticketId = new TicketId("42");
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, ticketId);
-        var context = new FetchTicketContext(ticketId, new TicketConfig { Type = "github" }, pipeline);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
 
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 

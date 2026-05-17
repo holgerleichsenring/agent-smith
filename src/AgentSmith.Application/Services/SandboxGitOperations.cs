@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
@@ -19,7 +20,7 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
 
     public async Task CommitAndPushAsync(
         ISandbox sandbox, string branchName, string message,
-        string sourceType, CancellationToken cancellationToken)
+        RepoType repoType, CancellationToken cancellationToken)
     {
         await ConfigureUserAsync(sandbox, cancellationToken);
         await StageAllAsync(sandbox, cancellationToken);
@@ -29,7 +30,7 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             logger.LogInformation("Working tree clean, nothing to commit");
             throw new InvalidOperationException("nothing to commit, working tree clean");
         }
-        await PushAsync(sandbox, branchName, sourceType, cancellationToken);
+        await PushAsync(sandbox, branchName, repoType, cancellationToken);
     }
 
     private static async Task ConfigureUserAsync(ISandbox sandbox, CancellationToken ct)
@@ -52,7 +53,7 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
     }
 
     private static async Task PushAsync(
-        ISandbox sandbox, string branch, string sourceType, CancellationToken ct)
+        ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct)
     {
         // p0125c-followup: push needs GIT_TOKEN for the credential helper to
         // echo, same as the clone Step in CheckoutSourceHandler. Resolve via
@@ -61,7 +62,7 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         // mode also reaches this code path; its pod-level GIT_TOKEN injection
         // still works because Step.Env overlays on top of the inherited pod
         // env without removing existing entries.
-        var token = GitTokenResolver.Resolve(sourceType);
+        var token = GitTokenResolver.Resolve(repoType);
         var env = token is null
             ? null
             : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };

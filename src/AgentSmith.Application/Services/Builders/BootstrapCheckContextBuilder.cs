@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class BootstrapCheckContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline) =>
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
         new BootstrapCheckContext(pipeline);
 }
