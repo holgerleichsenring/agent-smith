@@ -19,11 +19,17 @@ public sealed class SandboxResourcesYamlTests : IDisposable
     public void LoadConfig_SandboxResourcesPresent_PopulatesResourceLimitsRecord()
     {
         File.WriteAllText(_tempFile, """
+            agents:
+              a: { type: Claude }
+            repos:
+              r: { type: Local, path: ./repo, auth: none }
+            trackers:
+              t: { type: GitHub, auth: token }
             projects:
               demo:
-                source:
-                  type: Local
-                  path: ./repo
+                agent: a
+                tracker: t
+                repos: [r]
                 sandbox:
                   resources:
                     cpu_request: 500m
@@ -32,7 +38,7 @@ public sealed class SandboxResourcesYamlTests : IDisposable
                     memory_limit: 4Gi
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -45,16 +51,22 @@ public sealed class SandboxResourcesYamlTests : IDisposable
     public void LoadConfig_SandboxResourcesAbsent_LeavesResourcesNull()
     {
         File.WriteAllText(_tempFile, """
+            agents:
+              a: { type: Claude }
+            repos:
+              r: { type: Local, path: ./repo, auth: none }
+            trackers:
+              t: { type: GitHub, auth: token }
             projects:
               demo:
-                source:
-                  type: Local
-                  path: ./repo
+                agent: a
+                tracker: t
+                repos: [r]
                 sandbox:
                   toolchain_image: my-registry/dotnet-sdk:8
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
         var cfg = loader.LoadConfig(_tempFile);
 

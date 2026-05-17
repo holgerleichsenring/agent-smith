@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
@@ -44,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandExecutor, CommandExecutor>();
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
         services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
+        services.AddSingleton<AgentSmithConfigValidator>();
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);

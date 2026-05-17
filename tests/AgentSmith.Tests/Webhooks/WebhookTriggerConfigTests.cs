@@ -34,7 +34,7 @@ public sealed class WebhookTriggerConfigTests
     [Fact]
     public void ProjectConfig_HasAllTriggerProperties()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             GithubTrigger = new WebhookTriggerConfig
             {

@@ -34,7 +34,7 @@ public sealed class PipelineExecutorSandboxResolutionTests
     public PipelineExecutorSandboxResolutionTests()
     {
         _coordinatorMock
-            .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(_lifecycleMock.Object);
     }
 
@@ -68,7 +68,7 @@ public sealed class PipelineExecutorSandboxResolutionTests
     private async Task<SandboxSpec> CaptureSpecForResolverResult(ToolchainResolutionResult resolverResult)
     {
         _resolverMock
-            .Setup(r => r.ResolveAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolverResult);
 
         // Capture-and-throw so the spec is observed before the pipeline tears down.
@@ -96,8 +96,9 @@ public sealed class PipelineExecutorSandboxResolutionTests
             NullLogger<PipelineExecutor>.Instance);
 
         var commands = new[] { CommandNames.CheckoutSource };
+        var project = new ResolvedProject { Repo = new RepoConnection() };
         var act = async () => await sut.ExecuteAsync(
-            commands, new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+            commands, project, new PipelineContext(), CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         captured.Should().NotBeNull("spec should be captured before the throw");

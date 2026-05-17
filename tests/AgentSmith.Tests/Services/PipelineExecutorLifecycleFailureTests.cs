@@ -33,10 +33,10 @@ public sealed class PipelineExecutorLifecycleFailureTests
     public PipelineExecutorLifecycleFailureTests()
     {
         _coordinatorMock
-            .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(_lifecycleMock.Object);
         var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
         _sut = new PipelineExecutor(
             _executorMock.Object,
@@ -68,7 +68,7 @@ public sealed class PipelineExecutorLifecycleFailureTests
 
         // Act
         var act = async () => await _sut.ExecuteAsync(
-            commands, new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+            commands, new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -80,7 +80,7 @@ public sealed class PipelineExecutorLifecycleFailureTests
     {
         // Regression guard for the happy path.
         var result = await _sut.ExecuteAsync(
-            Array.Empty<string>(), new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+            Array.Empty<string>(), new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         _lifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
@@ -92,11 +92,11 @@ public sealed class PipelineExecutorLifecycleFailureTests
         // Regression guard for the previously-working failure path.
         var commands = new[] { "BadCommand" };
         _factoryMock
-            .Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>()))
+            .Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>()))
             .Throws(new Exception("Command-level failure"));
 
         var result = await _sut.ExecuteAsync(
-            commands, new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+            commands, new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);

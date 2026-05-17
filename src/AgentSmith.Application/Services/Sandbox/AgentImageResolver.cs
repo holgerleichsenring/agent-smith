@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public sealed class AgentImageResolver(IOptions<SandboxGlobalConfig> globalConfig) : IAgentImageResolver
 {
-    public string Resolve(ProjectConfig projectConfig)
+    public string Resolve(ResolvedProject projectConfig)
     {
         var global = globalConfig.Value;
         var registry = FirstNonEmpty(projectConfig.Sandbox?.AgentRegistry, global.AgentRegistry);

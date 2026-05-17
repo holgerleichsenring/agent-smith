@@ -64,8 +64,8 @@ public sealed class GitLabMrLabelWebhookHandler(
     {
         foreach (var (name, project) in config.Projects)
         {
-            if (project.Source.Url is not null
-                && repoUrl.Contains(project.Source.Url, StringComparison.OrdinalIgnoreCase))
+            if (project.Repo.Url is not null
+                && repoUrl.Contains(project.Repo.Url, StringComparison.OrdinalIgnoreCase))
                 return name;
         }
 

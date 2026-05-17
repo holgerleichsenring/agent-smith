@@ -25,9 +25,9 @@ public class CommitAndPRHandlerTests
 
     public CommitAndPRHandlerTests()
     {
-        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>()))
+        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns(_sourceProviderMock.Object);
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(_ticketProviderMock.Object);
 
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
@@ -161,7 +161,7 @@ public class CommitAndPRHandlerTests
         {
             new(new FilePath("README.md"), "content", "Created")
         };
-        return new CommitAndPRContext(repo, changes, ticket, new SourceConfig(), new TicketConfig(), pl);
+        return new CommitAndPRContext(repo, changes, ticket, new RepoConnection(), new TrackerConnection(), pl);
     }
 
     private PipelineContext NewPipelineWithSandbox()

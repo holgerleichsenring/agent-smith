@@ -24,7 +24,7 @@ internal static class ClaimPreChecker
         return null;
     }
 
-    private static bool IsLabelTriggered(ProjectConfig project, string platform, string pipelineName)
+    private static bool IsLabelTriggered(ResolvedProject project, string platform, string pipelineName)
     {
         var trigger = GetTrigger(project, platform);
         if (trigger is null) return false;
@@ -32,11 +32,11 @@ internal static class ClaimPreChecker
         if (string.Equals(trigger.DefaultPipeline, pipelineName, StringComparison.Ordinal))
             return true;
 
-        return trigger.PipelineFromLabel.Values
-            .Any(p => string.Equals(p, pipelineName, StringComparison.Ordinal));
+        return trigger.PipelineFromLabel is { } map
+            && map.Values.Any(p => string.Equals(p, pipelineName, StringComparison.Ordinal));
     }
 
-    private static WebhookTriggerConfig? GetTrigger(ProjectConfig project, string platform)
+    private static WebhookTriggerConfig? GetTrigger(ResolvedProject project, string platform)
         => platform.ToLowerInvariant() switch
         {
             "github" => project.GithubTrigger,

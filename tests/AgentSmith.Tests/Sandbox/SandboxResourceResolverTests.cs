@@ -13,7 +13,7 @@ public sealed class SandboxResourceResolverTests
     public void Resolve_ProjectHasResourceBlock_ReturnsProjectResources()
     {
         var projectResources = new ResourceLimits("500m", "2000m", "1Gi", "4Gi");
-        var project = new ProjectConfig { Sandbox = new SandboxConfig { Resources = projectResources } };
+        var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = projectResources } };
         var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions()));
 
         var resolved = sut.Resolve(project);
@@ -24,7 +24,7 @@ public sealed class SandboxResourceResolverTests
     [Fact]
     public void Resolve_ProjectSandboxResourcesNull_ReturnsGlobalDefaults()
     {
-        var project = new ProjectConfig { Sandbox = new SandboxConfig { Resources = null } };
+        var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = null } };
         var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions
         {
             CpuRequest = "300m", CpuLimit = "1500m", MemoryRequest = "768Mi", MemoryLimit = "3Gi"
@@ -38,7 +38,7 @@ public sealed class SandboxResourceResolverTests
     [Fact]
     public void Resolve_ProjectSandboxNull_ReturnsGlobalDefaults()
     {
-        var project = new ProjectConfig { Sandbox = null };
+        var project = new ResolvedProject { Sandbox = null };
         var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions()));
 
         var resolved = sut.Resolve(project);

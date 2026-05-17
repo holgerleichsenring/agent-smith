@@ -6,7 +6,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// </summary>
 public class WebhookTriggerConfig
 {
-    public Dictionary<string, string> PipelineFromLabel { get; set; } = new();
+    public Dictionary<string, string>? PipelineFromLabel { get; set; }
     public string DefaultPipeline { get; set; } = "fix-bug";
     public List<string> TriggerStatuses { get; set; } = [];
     public string DoneStatus { get; set; } = "In Review";

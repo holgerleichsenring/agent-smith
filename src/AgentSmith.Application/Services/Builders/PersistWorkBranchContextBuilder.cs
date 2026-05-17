@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class PersistWorkBranchContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
-        => new PersistWorkBranchContext(project.Source, pipeline.Resolved().Agent, pipeline);
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+        => new PersistWorkBranchContext(project.Repo, pipeline.Resolved().Agent, pipeline);
 }

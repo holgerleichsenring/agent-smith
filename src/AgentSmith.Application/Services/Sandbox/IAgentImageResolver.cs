@@ -10,5 +10,5 @@ namespace AgentSmith.Application.Services.Sandbox;
 public interface IAgentImageResolver
 {
     /// <summary>Returns "{registry}/{image-name}:{version}". Throws when no version is configured at either layer.</summary>
-    string Resolve(ProjectConfig projectConfig);
+    string Resolve(ResolvedProject projectConfig);
 }

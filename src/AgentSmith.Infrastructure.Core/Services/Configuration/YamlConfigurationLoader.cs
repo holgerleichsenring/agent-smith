@@ -7,36 +7,38 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
-/// Loads configuration from a YAML file, resolves environment variable placeholders,
-/// and normalizes per-project pipeline declarations (legacy-shim + trigger validation).
+/// Loads agentsmith.yml: deserializes into a raw shape, resolves environment
+/// variable placeholders in secrets, normalizes per-project pipeline declarations
+/// (legacy single-pipeline shim + default-pipeline validation), then materializes
+/// catalog references via <see cref="ConfigCatalogResolver"/>.
 /// Also fills <see cref="SkillsConfig.CacheDir"/> from
-/// <see cref="IAgentSmithPaths.SkillsCatalogRoot"/> when the operator left it
-/// blank — keeps SkillsConfig itself as pure data, no static defaults.
+/// <see cref="IAgentSmithPaths.SkillsCatalogRoot"/> when the operator left it blank.
 /// </summary>
 public sealed class YamlConfigurationLoader(
     ProjectConfigNormalizer normalizer,
+    ConfigCatalogResolver resolver,
     IAgentSmithPaths paths) : IConfigurationLoader
 {
     public AgentSmithConfig LoadConfig(string configPath)
     {
         var yaml = ReadFile(configPath);
-        var config = Deserialize(yaml, configPath);
-        ResolveSecrets(config);
-        NormalizeProjects(config);
-        FillSkillsDefaults(config);
-        return config;
+        var raw = Deserialize(yaml, configPath);
+        ResolveSecrets(raw);
+        NormalizeProjects(raw);
+        FillSkillsDefaults(raw);
+        return resolver.Resolve(raw);
     }
 
-    private void FillSkillsDefaults(AgentSmithConfig config)
+    private void NormalizeProjects(RawAgentSmithConfig raw)
     {
-        if (string.IsNullOrWhiteSpace(config.Skills.CacheDir))
-            config.Skills.CacheDir = paths.SkillsCatalogRoot;
-    }
-
-    private void NormalizeProjects(AgentSmithConfig config)
-    {
-        foreach (var (name, project) in config.Projects)
+        foreach (var (name, project) in raw.Projects)
             normalizer.Normalize(name, project);
+    }
+
+    private void FillSkillsDefaults(RawAgentSmithConfig raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw.Skills.CacheDir))
+            raw.Skills.CacheDir = paths.SkillsCatalogRoot;
     }
 
     private static string ReadFile(string configPath)
@@ -47,7 +49,7 @@ public sealed class YamlConfigurationLoader(
         return File.ReadAllText(configPath);
     }
 
-    private static AgentSmithConfig Deserialize(string yaml, string configPath)
+    private static RawAgentSmithConfig Deserialize(string yaml, string configPath)
     {
         try
         {
@@ -56,7 +58,7 @@ public sealed class YamlConfigurationLoader(
                 .IgnoreUnmatchedProperties()
                 .Build();
 
-            return deserializer.Deserialize<AgentSmithConfig>(yaml)
+            return deserializer.Deserialize<RawAgentSmithConfig>(yaml)
                    ?? throw new ConfigurationException("Configuration file is empty.");
         }
         catch (Exception ex) when (ex is not ConfigurationException)
@@ -65,14 +67,14 @@ public sealed class YamlConfigurationLoader(
         }
     }
 
-    private static void ResolveSecrets(AgentSmithConfig config)
+    private static void ResolveSecrets(RawAgentSmithConfig raw)
     {
         var resolved = new Dictionary<string, string>();
 
-        foreach (var (key, value) in config.Secrets)
+        foreach (var (key, value) in raw.Secrets)
             resolved[key] = ResolveEnvironmentVariable(value);
 
-        config.Secrets = resolved;
+        raw.Secrets = resolved;
     }
 
     private static string ResolveEnvironmentVariable(string value)

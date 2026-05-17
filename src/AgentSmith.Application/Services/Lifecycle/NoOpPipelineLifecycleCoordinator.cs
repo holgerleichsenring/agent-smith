@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Lifecycle;
 public sealed class NoOpPipelineLifecycleCoordinator : IPipelineLifecycleCoordinator
 {
     public Task<IAsyncPipelineLifecycle> BeginAsync(
-        ProjectConfig projectConfig, PipelineContext context, CancellationToken cancellationToken)
+        ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
         => Task.FromResult<IAsyncPipelineLifecycle>(NoOpScope.Instance);
 
     private sealed class NoOpScope : IAsyncPipelineLifecycle

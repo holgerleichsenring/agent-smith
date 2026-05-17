@@ -48,15 +48,18 @@ public sealed class SlackModalSubmissionHandlerTests
 
         var orchestratorImageResolver = new Mock<IOrchestratorImageResolver>();
         orchestratorImageResolver
-            .Setup(r => r.Resolve(It.IsAny<ProjectConfig>()))
+            .Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
             .Returns("agentsmith-cli:test");
         var orchestratorResourceResolver = new Mock<IOrchestratorResourceResolver>();
         orchestratorResourceResolver
-            .Setup(r => r.Resolve(It.IsAny<ProjectConfig>()))
+            .Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
             .Returns(ResourceLimits.Default);
         _configLoader
             .Setup(l => l.LoadConfig(It.IsAny<string>()))
-            .Returns(new AgentSmithConfig());
+            .Returns(new AgentSmithConfig
+            {
+                Projects = new() { ["my-project"] = new ResolvedProject { Name = "my-project" } },
+            });
         var serverContext = new ServerContext("/tmp/agentsmith.yml");
 
         var fixHandler = new FixTicketIntentHandler(

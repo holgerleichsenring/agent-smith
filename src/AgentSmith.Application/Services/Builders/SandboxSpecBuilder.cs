@@ -6,7 +6,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Builders;
 
 /// <summary>
-/// Resolves a SandboxSpec from ProjectConfig + ProjectMap. Convention-driven:
+/// Resolves a SandboxSpec from ResolvedProject + ProjectMap. Convention-driven:
 /// language → toolchain image. Per-project overrides via SandboxConfig win.
 /// Resources resolved through <see cref="ISandboxResourceResolver"/> so the
 /// resulting <see cref="SandboxSpec.Resources"/> always reflects the operator's
@@ -50,10 +50,10 @@ public sealed class SandboxSpecBuilder(
         ["rust"] = "rust:1.79-bookworm"
     };
 
-    public SandboxSpec Build(ProjectConfig projectConfig, ProjectMap? projectMap)
+    public SandboxSpec Build(ResolvedProject projectConfig, ProjectMap? projectMap)
         => Build(projectConfig, projectMap?.PrimaryLanguage);
 
-    public SandboxSpec Build(ProjectConfig projectConfig, string? language)
+    public SandboxSpec Build(ResolvedProject projectConfig, string? language)
     {
         var image = ResolveImage(projectConfig, language);
         var resources = resourceResolver.Resolve(projectConfig);
@@ -65,7 +65,7 @@ public sealed class SandboxSpecBuilder(
     //
     // Resolution chain (p0135) — the call site (PipelineExecutor.TryCreateSandboxAsync)
     // walks these in order via SandboxLanguageResolver:
-    //   1. ProjectConfig.Sandbox.ToolchainImage (operator override) — wins outright
+    //   1. ResolvedProject.Sandbox.ToolchainImage (operator override) — wins outright
     //   2. SandboxLanguageResolver.TryResolveFromCacheAsync → host-side project-map.json
     //   3. SandboxLanguageResolver.TryResolveFromContextYamlAsync → remote
     //      .agentsmith/context.yaml via ISourceProvider.TryReadFileAsync
@@ -86,10 +86,10 @@ public sealed class SandboxSpecBuilder(
     // (rejected: needs a CI/push pipeline that doesn't exist yet).
     //
     // Operators with stricter base-image policies override via
-    // ProjectConfig.Sandbox.ToolchainImage.
+    // ResolvedProject.Sandbox.ToolchainImage.
     private const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
-    private static string ResolveImage(ProjectConfig projectConfig, string? language)
+    private static string ResolveImage(ResolvedProject projectConfig, string? language)
     {
         var override_ = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(override_)) return override_;

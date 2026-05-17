@@ -11,7 +11,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_PipelineWithoutOverrides_ReturnsProjectDefaults()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Agent = new AgentConfig { Type = "Claude", Model = "sonnet" },
             CodingPrinciplesPath = ".agentsmith/coding-principles.md",
@@ -31,7 +31,7 @@ public class PipelineConfigResolverTests
     {
         var baseAgent = new AgentConfig { Type = "Claude", Model = "sonnet" };
         var overrideAgent = new AgentConfig { Type = "OpenAI", Model = "gpt-4.1" };
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Agent = baseAgent,
             Pipelines = [new PipelineDefinition { Name = "security-scan", Agent = overrideAgent }],
@@ -45,7 +45,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_PipelineWithSkillsPathOverride_ReturnsExplicitPath()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipelines =
             [
@@ -61,7 +61,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_NoExplicitSkillsPath_FallsBackToPipelinePresetsDefault()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipelines = [new PipelineDefinition { Name = "security-scan" }],
         };
@@ -74,7 +74,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_UnknownPipelineWithoutPreset_FallsBackToCodingDefault()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
         };
@@ -87,7 +87,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_LegacyPipelineString_TranslatesToSinglePipeline()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Agent = new AgentConfig { Type = "Claude" },
             Pipeline = "fix-bug",
@@ -103,7 +103,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void Resolve_LegacyConfigCustomSkillsPath_CarriedThroughResolution()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipeline = "security-scan",
             SkillsPath = "skills/security",
@@ -117,7 +117,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void ResolveDefaultPipelineName_DefaultPipelineSet_ReturnsIt()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             DefaultPipeline = "security-scan",
             Pipelines =
@@ -133,7 +133,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void ResolveDefaultPipelineName_SinglePipelineNoDefault_ReturnsIt()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
         };
@@ -144,7 +144,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void ResolveDefaultPipelineName_LegacyOnly_ReturnsLegacyPipeline()
     {
-        var project = new ProjectConfig { Pipeline = "fix-bug" };
+        var project = new ResolvedProject { Pipeline = "fix-bug" };
 
         _sut.ResolveDefaultPipelineName(project).Should().Be("fix-bug");
     }
@@ -152,7 +152,7 @@ public class PipelineConfigResolverTests
     [Fact]
     public void ResolveDefaultPipelineName_MultiplePipelinesNoDefault_Throws()
     {
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Pipelines =
             [

@@ -40,7 +40,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
     {
         var sut = BuildSut(out _);
 
-        var result = sut.Create(new TicketConfig { Type = "github", Url = "https://github.com/o/r" });
+        var result = sut.Create(new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r" });
 
         result.Should().BeOfType<GitHubTicketStatusTransitioner>();
     }
@@ -50,9 +50,9 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
     {
         var sut = BuildSut(out _);
 
-        var result = sut.Create(new TicketConfig
+        var result = sut.Create(new TrackerConnection
         {
-            Type = "gitlab", Url = "https://gitlab.com", Project = "g/p"
+            Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p"
         });
 
         result.Should().BeOfType<GitLabTicketStatusTransitioner>();
@@ -63,9 +63,9 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
     {
         var sut = BuildSut(out _);
 
-        var result = sut.Create(new TicketConfig
+        var result = sut.Create(new TrackerConnection
         {
-            Type = "azuredevops", Organization = "org", Project = "proj"
+            Type = TrackerType.AzureDevOps, Organization = "org", Project = "proj"
         });
 
         result.Should().BeOfType<AzureDevOpsTicketStatusTransitioner>();
@@ -76,7 +76,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
     {
         var sut = BuildSut(out _);
 
-        var act = () => sut.Create(new TicketConfig { Type = "bitbucket" });
+        var act = () => sut.Create(new TrackerConnection { Type = (TrackerType)999 });
 
         act.Should().Throw<NotSupportedException>();
     }
@@ -102,9 +102,9 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
             inner, claimLock.Object, NullLoggerFactory.Instance);
     }
 
-    private static TicketConfig JiraConfig() => new()
+    private static TrackerConnection JiraConfig() => new()
     {
-        Type = "jira", Url = "https://jira.com", Project = "PROJ"
+        Type = TrackerType.Jira, Url = "https://jira.com", Project = "PROJ"
     };
 
     private sealed class HttpClientFactoryStub : IHttpClientFactory
