@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -24,6 +25,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class FilterRoundHandler(
     IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
+    ISkillCallRuntime skillCallRuntime,
     ILogger<FilterRoundHandler> logger) : ICommandHandler<FilterRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -104,25 +106,38 @@ public sealed class FilterRoundHandler(
         var budgetChars = (int)(maxTokens * 4 * 0.85);
 
         var (system, user) = BuildPrompt(role, rendered, OutputForm.List);
-        var chat = chatClientFactory.Create(agentConfig, TaskType.Primary);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        // p0132b: per-batch cost attribution. Each filter batch is its own
-        // SkillCallScope so PerSkillBreakdown shows N entries (one per batch)
-        // for a filter skill that exceeded the token-budget split.
+        // p0142: per-batch dispatch via SkillCallRuntime — LimitEnforcer + cost
+        // attribution per batch is now load-bearing. List-mode → Filter phase.
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        ChatResponse response;
-        using (var _ = costTracker.BeginCall(
-            role.Name, role.Role ?? "filter", SkillExecutionPhase.Filter))
+        var request = new SkillCallRequest
         {
-            response = await chat.GetResponseAsync(messages,
-                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-            costTracker.Track(response);
+            SkillName = role.Name,
+            Role = role.Role ?? "filter",
+            Phase = SkillExecutionPhase.Filter,
+            PromptParts = messages,
+            ToolSet = Array.Empty<AITool>(),
+            AgentConfig = agentConfig,
+            TaskType = TaskType.Primary,
+            PipelineName = ResolvePipelineName(pipeline)
+        };
+        var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        if (result.Outcome == SkillCallOutcome.Incomplete)
+            logger.LogWarning(
+                "Filter batch {Index}/{Total} returned Incomplete (limit: {Limit}) — using partial output",
+                batchIndex, totalBatches, result.Cost.HitLimit ?? "unknown");
+        else if (result.Outcome is not SkillCallOutcome.Ok)
+        {
+            logger.LogWarning(
+                "Filter batch {Index}/{Total}: {Outcome} ({Reason}) — batch marked failed in coverage observation",
+                batchIndex, totalBatches, result.Outcome, result.FailureReason ?? "no reason");
+            return null;
         }
-        var responseText = response.Text ?? string.Empty;
+        var responseText = result.Output ?? string.Empty;
 
         var reduced = ObservationParser.TryParseWithoutIds(responseText, role.Name, logger);
 
@@ -142,24 +157,34 @@ public sealed class FilterRoundHandler(
     {
         var rendered = RenderObservations(observations);
         var (system, user) = BuildPrompt(role, rendered, OutputForm.Artifact);
-        var chat = chatClientFactory.Create(agentConfig, TaskType.Primary);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(agentConfig, TaskType.Primary);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        // p0132b: artifact-mode filter is a single LLM call → single scope.
+        // p0142: artifact-mode filter dispatches via runtime — single scope.
+        // Artifact mode → Synthesize phase per p0132b's mapping.
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        ChatResponse response;
-        using (var _ = costTracker.BeginCall(
-            skillName, role.Role ?? "filter", SkillExecutionPhase.Synthesize))
+        var request = new SkillCallRequest
         {
-            response = await chat.GetResponseAsync(messages,
-                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-            costTracker.Track(response);
-        }
-        var responseText = response.Text ?? string.Empty;
+            SkillName = skillName,
+            Role = role.Role ?? "filter",
+            Phase = SkillExecutionPhase.Synthesize,
+            PromptParts = messages,
+            ToolSet = Array.Empty<AITool>(),
+            AgentConfig = agentConfig,
+            TaskType = TaskType.Primary,
+            PipelineName = ResolvePipelineName(pipeline)
+        };
+        var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
+            return CommandResult.Fail(
+                $"{skillName} (Filter, artifact): {result.Outcome} — {result.FailureReason ?? "no reason"}");
+        if (result.Outcome == SkillCallOutcome.Incomplete)
+            logger.LogWarning(
+                "{Skill} (Filter, artifact) returned Incomplete (limit: {Limit}) — using partial output",
+                skillName, result.Cost.HitLimit ?? "unknown");
+        var responseText = result.Output ?? string.Empty;
 
         if (!pipeline.TryGet<Dictionary<string, string>>(
                 ContextKeys.SkillOutputs, out var outputs) || outputs is null)
@@ -234,6 +259,9 @@ public sealed class FilterRoundHandler(
             return list;
         return [];
     }
+
+    private static string? ResolvePipelineName(PipelineContext pipeline)
+        => pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
 
     private static string RenderObservations(IReadOnlyList<SkillObservation> observations)
     {

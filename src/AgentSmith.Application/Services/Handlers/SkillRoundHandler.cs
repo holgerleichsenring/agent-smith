@@ -1,5 +1,7 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -20,8 +22,9 @@ public sealed class SkillRoundHandler(
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
+    ISkillCallRuntime skillCallRuntime,
     ILogger<SkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory, skillCallRuntime),
       ICommandHandler<SkillRoundContext>
 {
     protected override ILogger Logger => logger;

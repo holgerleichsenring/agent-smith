@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
@@ -25,13 +26,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// the second escalates by returning Fail with combined notes.
 /// </summary>
 public sealed class VerifyRoundHandler(
-    IChatClientFactory chatClientFactory,
     ActivationSkillFilter activationFilter,
     ISkillBodyResolver bodyResolver,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     IDecisionLogger decisionLogger,
     IToolKit toolKit,
-    LoopLimitsConfig limits,
+    ISkillCallRuntime skillCallRuntime,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -106,17 +106,11 @@ public sealed class VerifyRoundHandler(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
         var combined = new List<SkillObservation>();
-        // p0132c: tool-enabled chat-client so build-verifier + test-verifier
-        // can invoke RunCommand for actual build/test execution. Iteration
-        // cap from LoopLimitsConfig.ResolveToolCallCap("verify_diff").
-        var iterationCap = limits.ResolveToolCallCap("verify_diff");
-        var chat = chatClientFactory.Create(agent, TaskType.Primary, maxIterations: iterationCap);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
         var tools = ResolveVerifyTools(pipeline);
         foreach (var verifier in verifiers)
         {
             var observations = await InvokeVerifierAsync(
-                verifier, planJson, diffJson, chat, maxTokens, tools, pipeline, cancellationToken);
+                verifier, planJson, diffJson, agent, tools, pipeline, cancellationToken);
             combined.AddRange(observations);
         }
         return combined;
@@ -149,7 +143,7 @@ public sealed class VerifyRoundHandler(
 
     private async Task<List<SkillObservation>> InvokeVerifierAsync(
         RoleSkillDefinition verifier, string planJson, string diffJson,
-        IChatClient chat, int maxTokens, IList<AITool> tools,
+        AgentConfig agent, IList<AITool> tools,
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
         var body = bodyResolver.ResolveBody(verifier, SkillRole.Analyst);
@@ -160,26 +154,35 @@ public sealed class VerifyRoundHandler(
             new(ChatRole.System, system),
             new(ChatRole.User, user),
         };
-        var options = new ChatOptions
+        // p0142: per-verifier runtime dispatch — LimitEnforcer + cost
+        // attribution per verifier are now load-bearing. ToolSet flows
+        // through unchanged (empty when no sandbox → static-only verify).
+        var request = new SkillCallRequest
         {
-            MaxOutputTokens = maxTokens,
-            // p0132c: when a sandbox is available, verifiers get RunCommand +
-            // read-only tools. Tool-using verifiers (build-verifier, test-
-            // verifier) invoke RunCommand to execute real build/test; static-
-            // analysis verifiers (scope-verifier, architecture-verifier)
-            // ignore the tools.
-            Tools = tools.Count > 0 ? tools : null,
+            SkillName = verifier.Name,
+            Role = verifier.Role ?? "investigator",
+            Phase = SkillExecutionPhase.Verify,
+            InvestigatorMode = "verify_diff",
+            PromptParts = messages,
+            ToolSet = tools.ToList(),
+            AgentConfig = agent,
+            TaskType = TaskType.Primary,
+            PipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null
         };
-        // p0132b: per-verifier cost attribution.
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        ChatResponse response;
-        using (var _ = costTracker.BeginCall(
-            verifier.Name, verifier.Role ?? "investigator", SkillExecutionPhase.Verify))
+        var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
         {
-            response = await chat.GetResponseAsync(messages, options, cancellationToken);
-            costTracker.Track(response);
+            logger.LogWarning(
+                "Verifier {Name}: {Outcome} ({Reason}) — no observations from this verifier",
+                verifier.Name, result.Outcome, result.FailureReason ?? "no reason");
+            return [];
         }
-        var responseText = response.Text ?? string.Empty;
+        if (result.Outcome == SkillCallOutcome.Incomplete)
+            logger.LogWarning(
+                "Verifier {Name} returned Incomplete (limit: {Limit}) — using partial observations",
+                verifier.Name, result.Cost.HitLimit ?? "unknown");
+        var responseText = result.Output ?? string.Empty;
         var parsed = ObservationParser.ParseWithoutIds(responseText, verifier.Name, logger);
         return ApplyConfidenceThreshold(parsed, verifier.Name);
     }

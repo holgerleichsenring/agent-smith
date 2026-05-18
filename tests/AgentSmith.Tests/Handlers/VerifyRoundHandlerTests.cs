@@ -208,14 +208,31 @@ public sealed class VerifyRoundHandlerTests
         bodyResolver
             .Setup(b => b.ResolveBody(It.IsAny<RoleSkillDefinition>(), It.IsAny<SkillRole>()))
             .Returns("Verifier body — flag any out-of-scope file.");
+        var runtime = BuildRuntime(stubFactory);
         return new VerifyRoundHandler(
-            stubFactory, filter, bodyResolver.Object,
+            filter, bodyResolver.Object,
             RunStateConceptsTestFactory.Default,
             Mock.Of<AgentSmith.Contracts.Decisions.IDecisionLogger>(),
             new AgentSmith.Application.Services.Tools.ToolKit(
                 new AgentSmith.Application.Services.Tools.AllHostsActivePolicy()),
-            new LoopLimitsConfig(),
+            runtime,
             NullLogger<VerifyRoundHandler>.Instance);
+    }
+
+    private static AgentSmith.Application.Services.Loop.SkillCallRuntime BuildRuntime(
+        StubChatClientFactory factory)
+    {
+        var limits = new LoopLimitsConfig();
+        var noOp = new AgentSmith.Application.Services.Loop.NoOpSkillOutputValidator();
+        var validatorFactory = new AgentSmith.Application.Services.Validation.SkillOutputValidatorFactory(noOp, noOp);
+        return new AgentSmith.Application.Services.Loop.SkillCallRuntime(
+            factory,
+            new AgentSmith.Application.Services.Loop.PipelineConcurrencyGate(limits),
+            limits,
+            new AgentSmith.Application.Services.Loop.OutcomeClassifier(),
+            new AgentSmith.Application.Services.Loop.RetryCoordinator(),
+            validatorFactory,
+            NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
     }
 
     private static PipelineContext PipelineWithPlanAndDiff(IReadOnlyList<RoleSkillDefinition> roles)
