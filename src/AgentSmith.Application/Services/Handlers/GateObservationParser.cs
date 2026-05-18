@@ -63,7 +63,8 @@ internal sealed class GateObservationParser
         if (string.IsNullOrWhiteSpace(value)) return ObservationSeverity.Medium;
         return value.Trim().ToLowerInvariant() switch
         {
-            "critical" or "high" or "error" => ObservationSeverity.High,
+            "critical" => ObservationSeverity.Critical,
+            "high" or "error" => ObservationSeverity.High,
             "medium" or "warning" or "warn" => ObservationSeverity.Medium,
             "low" or "note" => ObservationSeverity.Low,
             _ => ObservationSeverity.Info,

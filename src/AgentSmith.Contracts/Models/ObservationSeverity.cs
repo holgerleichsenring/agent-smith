@@ -8,6 +8,7 @@ namespace AgentSmith.Contracts.Models;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ObservationSeverity
 {
+    Critical,
     High,
     Medium,
     Low,

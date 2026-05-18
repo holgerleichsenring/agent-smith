@@ -20,6 +20,7 @@ internal static class SecuritySnapshotBuilder
 
         pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var costSummary);
 
+        var critical = obs.Count(o => o.Severity == ObservationSeverity.Critical);
         var high = obs.Count(o => o.Severity == ObservationSeverity.High);
         var medium = obs.Count(o => o.Severity == ObservationSeverity.Medium);
 
@@ -36,7 +37,7 @@ internal static class SecuritySnapshotBuilder
         return new SecurityRunSnapshot(
             Date: DateTimeOffset.UtcNow,
             Branch: repo.CurrentBranch.Value,
-            FindingsCritical: 0,
+            FindingsCritical: critical,
             FindingsHigh: high,
             FindingsMedium: medium,
             FindingsRetained: obs.Count,

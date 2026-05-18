@@ -76,7 +76,7 @@ public sealed class ConsoleOutputStrategy(
             : "";
         var lines = new List<string>
         {
-            $"Found {summary.Total} issues ({summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW, {summary.Info} INFO){reviewInfo}",
+            $"Found {summary.Total} issues ({summary.Critical} CRITICAL, {summary.High} HIGH, {summary.Medium} MEDIUM, {summary.Low} LOW, {summary.Info} INFO){reviewInfo}",
             ""
         };
 
