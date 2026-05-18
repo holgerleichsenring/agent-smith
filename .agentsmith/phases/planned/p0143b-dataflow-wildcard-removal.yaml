@@ -1,259 +1,174 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0143b
-goal: "Schließt die DataFlow-Hälfte von p0143 die als deferred markiert wurde. Entfernt den `*`-Wildcard-Mechanismus aus DataFlowReadGate damit Handler nicht versehentlich Context-Keys lesen können, die kein vorheriger Step explizit produziert hat. Heute matched der Wildcard alles (auch wenn FixBugDataFlow + AddFeatureDataFlow daneben explizite Edges deklarieren) — der Gate ist effektiv warn-only. Post-p0143b deklariert jedes der 10 *DataFlow.cs Klassen explizit welche ContextKeys von welchem Producer-Step welcher Consumer-Step lesen darf; PermissivePhaseDataFlow base wird gelöscht; die Wildcard-Branches in DataFlowReadGate (Zeilen 59 + 70) fallen weg; per-preset Edge-Coverage-Tests fangen Drift ab."
+goal: "Close the DataFlow half of p0143 that was deferred. Replace the `*` wildcard
+  in DataFlowReadGate with per-preset explicit edges so handlers can't accidentally
+  read undeclared context keys. Today the wildcard matches everything — the gate is
+  effectively warn-only even when enforce=true."
 
 requires: ["p0143", "p0144"]
 
 scope:
   in: |
-    (1) Edge-Discovery via Shadow-Log. Statt jeden Handler manuell zu auditieren (welche
-        `pipeline.Get<T>(ContextKeys.X)` / `pipeline.TryGet<T>(ContextKeys.Y)` calls macht
-        er?) fügt p0143b einen Discovery-Modus zu DataFlowReadGate hinzu: wenn der
-        Wildcard heute matched, log mit Severity Info statt Warning, plus alle Details
-        (active step, key, candidate producer steps from the preset's command sequence).
-        Operator-Smoke gegen agent-smith selbst (fix-bug + add-feature + fix-no-test +
-        init-project + security-scan + api-security-scan + mad-discussion + legal-analysis
-        + autonomous + skill-manager) generiert das vollständige Edge-Set für jede
-        Preset/Step-Kombination. Output ist eine `dataflow-discovery.log` Datei per
-        Pipeline-Run; Aggregation per Preset gibt die explizite Edge-Liste.
+    (1) DataFlowReadMode enum (Enforce / Warn / Discover) replaces the bool
+        enforce flag on DataFlowReadGate. Discover mode logs every wildcard
+        match with (preset, fromStep, toStep, contextKey) tuples so an
+        operator smoke against all 10 presets generates the migration
+        edge-set data-driven instead of manual handler audit.
 
-    (2) Per-Preset Edge-Deklaration. Die 10 *DataFlow.cs Klassen (FixBugDataFlow,
-        FixNoTestDataFlow, AddFeatureDataFlow, InitProjectDataFlow, SecurityScanDataFlow,
-        ApiSecurityScanDataFlow, MadDiscussionDataFlow, LegalAnalysisDataFlow,
-        SkillManagerDataFlow, AutonomousDataFlow) deklarieren ihre Edges:Liste explizit,
-        ohne den `Wildcard`-Einstieg. Jeder Edge ist eine `new PhaseDataFlowEdge(
-        fromPhaseStep: "X", toPhaseStep: "Y", contextKeys: [...])` mit konkreten
-        ContextKey-Namen. Aus der p0143b-Discovery-Phase generiert; manuelles Trimmen
-        zum Eliminieren von test-only Read-Patterns die in Produktion nie firen.
+    (2) DataFlowDiscoveryAggregator collects Discover-mode tuples in-memory
+        and writes a JSON sidecar to .agentsmith/runs/<run-id>/dataflow-
+        discovery.json at pipeline end (wired via IPipelineLifecycleCoordinator
+        like PipelineCostTracker).
 
-    (3) Wildcard-Mechanik aus DataFlowReadGate entfernen. Lines 59 + 70 (EdgeCoversKey
-        Wildcard-Check + EdgeAppliesToActiveStep Wildcard-Check) fallen weg. Mit den
-        expliziten per-preset Edges ist der Wildcard nicht mehr nötig; sein Verbleib
-        würde Operator-Configs die `*`-Edges deklarieren silently tolerieren. Defense-
-        in-depth: ein neuer `PhaseDataFlowConfigValidator` (Application/Services/
-        Pipeline) wirft beim Konstruktor jeder *DataFlow.cs Klasse wenn ein Edge `*`
-        in ContextKeys oder ToPhaseStep enthält — fail-fast statt silent ignore.
+    (3) Per-preset explicit edges in the 10 *DataFlow.cs classes. Each one
+        implements IPhaseDataFlow directly (no inheritance), declaring the
+        full (FromPhaseStep, ToPhaseStep, ContextKeys[]) edge list from the
+        Discover smoke output.
 
-    (4) PermissivePhaseDataFlow base class löschen. Jeder ehemaliger Subclass wird
-        sealed mit `IPhaseDataFlow` direkt implementiert; die `protected static
-        readonly PhaseDataFlowEdge Wildcard` Bequemlichkeit löscht mit. Damit
-        können auch operator-side custom DataFlows keinen Wildcard mehr deklarieren
-        ohne explizite Begründung im Code-Review.
+    (4) Wildcard branches removed from DataFlowReadGate (today's lines 59
+        + 70). PermissivePhaseDataFlow base class deleted. New
+        PhaseDataFlowConfigValidator called from each *DataFlow.cs ctor
+        fails fast if any edge declares "*" — defence in depth against
+        wildcard drift.
 
-    (5) Default-flip von `enforce: false` auf `enforce: true` in bundled
-        config/agentsmith.yml. p0143b shippt mit der Garantie dass jede preset-step
-        Kombination einen passenden Edge hat — enforce=true ist sicher. Operator-
-        configs die ihre eigenen Pipelines mit Custom-Steps haben behalten
-        enforce=false als opt-in für die Übergangszeit (die Schema kann es weiter)
-        und kriegen Warning-Logs für undeklarierte Reads die ihnen den Migration-
-        Pfad zeigen.
+    (5) PipelineDataFlowConfig binds both legacy `enforce: true|false` and
+        new `mode: enforce|warn|discover` (custom IYamlTypeConverter for
+        backwards compat). Default flips to Enforce in bundled
+        config/agentsmith.yml; agentsmith.example.yml stays Warn for soft
+        operator migration.
 
-    (6) Per-Preset Edge-Coverage Tests. Neue Test-Klasse `PerPresetDataFlowEdgeTests`
-        unter tests/AgentSmith.Tests/PipelineDataFlows fährt einen synthetischen
-        Pipeline-Run pro Preset durch DataFlowReadGate (enforce=true, real
-        IPhaseDataFlow von DI) und assertet 0 Violations. Stub-Handler liefern
-        Standard-Pipeline-Context-Belegung; die Tests sind Regression-Guard für
-        zukünftige Handler-Änderungen die einen neuen ContextKey-Read einführen
-        ohne den Edge zu pflegen.
+    (6) PerPresetDataFlowEdgeTests: theory over PipelinePresets.Names that
+        runs synthetic Steps through each preset's DataFlow under
+        enforce=true and asserts zero violations. Regression guard for
+        future handler changes that introduce undeclared reads.
 
   out: |
-    Operator-Config-Edge-Deklaration in YAML. Die `pipeline_data_flow` YAML-Sektion
-    bleibt heute auf `enforce: bool` beschränkt; Custom-Edge-Deklaration in YAML ist
-    out of scope. Operator-spezifische Edges leben weiterhin in Code (`IPhaseDataFlow`-
-    Implementierungen registriert per DI). Eine YAML-Edge-Schema wäre ein eigenes
-    Folge-Thema sobald Operator-Evidence dafür existiert.
+    Operator-facing YAML edge declaration (pipeline_data_flow stays
+    `mode: ...` only; operator-side custom edges live in code via
+    IPhaseDataFlow implementations).
 
-    Edge-Coverage gegen die echten Production-Handler statt synthetische Stubs.
-    PerPresetDataFlowEdgeTests fährt synthetische Steps durch — das fängt deklarierte-
-    Edges-vs-aktuelle-Reads-Mismatch ab, aber NICHT "Handler X liest in Production
-    einen Key der im Test-Stub gar nicht ausgelesen wird". Die Discovery-Smoke-Phase
-    (Scope 1) deckt diesen Fall ab; sie ist eine bewusste pre-Merge Operator-Aktion,
-    kein automatisierter Test-Pack.
+    Full-handler integration tests under enforce=true (synthetic Steps
+    cover declared-vs-current-reads drift; the production gap "handler
+    reads a key in production that the test stub doesn't" is covered by
+    the Discover smoke in scope item 1).
 
-    Generalisierung zu IResourceReadGate / IRunStateReadGate. Heute ist
-    IPipelineContextReadGate auf PipelineContext.Get/TryGet spezialisiert; eine
-    Generalisierung auf andere Read-Gateways (RunStateConcepts.Get/SetEnum, Sandbox-
-    file-reads, Redis-state) ist eigenes Konzept — out of scope für eine
-    Wildcard-Tightening-Phase.
-
-    Removal von `pipeline_data_flow.enforce` setting komplett. Auch nach p0143b
-    bleibt das Setting bindbar weil operator-side Configs noch enforce=false haben
-    können (siehe oben). Hard removal ist ein Folge-Phase Aufgabe sobald
-    Operator-Evidence zeigt dass enforce=true global stabil ist.
+    Hard removal of `pipeline_data_flow.enforce` setting (stays bindable
+    for operator configs still on enforce=false).
 
 decisions:
   - key: |
-      Discovery-Smoke als Pflicht-Schritt im Spec, nicht als optionale Operator-
-      Hilfe. Reason: manuell jeden Handler auditieren (10 Presets × ~12 Steps × ~3
-      Reads each = ~360 audits) ist fehleranfällig — ein vergessener Read bricht
-      die Pipeline post-merge silently weil enforce=true sofort wirft. Discovery-
-      Smoke macht den Audit datengetrieben: jeder Pipeline-Run gegen agent-smith
-      selbst zeigt alle tatsächlich passierten Reads. Spec-Schritt 1 verlangt
-      diese Runs als pre-merge Gate. -- alternatives: manueller Handler-Audit
-      (rejected: fehleranfällig, hoher Aufwand); enforce=false als default bei
-      ship (rejected: defeats den Zweck der Wildcard-Removal).
+      Three-mode enum (Enforce / Warn / Discover) on the gate itself, not
+      a feature-flag or separate Discovery tool. Reason: same gate
+      code-path must run in all three modes to avoid divergence.
+      -- alternatives: separate DiscoveryReadGate (rejected: code-path
+      divergence).
   - key: |
-      DataFlowReadGate Discovery-Modus als dritter Modus neben enforce + warn-
-      only, nicht als Special-Build-Flag oder als separater Tool. Reason: die
-      Discovery-Logs brauchen ALLE Codepfade durch den realen Gate — feature-
-      flag oder separater Tool würde divergieren. Drei-Modus-Enum
-      (`Enforce`, `Warn`, `Discover`) am Gate selbst hält die Logik in einer
-      Klasse. -- alternatives: separater DiscoveryReadGate Tool (rejected:
-      Codepfad-Divergenz); compile-time #if (rejected: erschwert das Smoke-
-      Testen).
+      Per-preset edges in C# (not YAML). Reason: PipelinePresets, handlers,
+      ContextKeys all live in C#; co-locating the edge declarations keeps
+      Rename ContextKey / Find-References working. -- alternatives: YAML
+      edges (rejected: notation count grows + IDE tools don't see drift).
   - key: |
-      Per-Preset Edges als reine C# (kein YAML / kein DSL). Reason: PipelinePresets,
-      Handler, ContextKeys leben in C#; die Edge-Deklaration daneben in C# hält
-      die Refactoring-Tools (Rename ContextKey, Find-References) am Laufen.
-      Operator-side Custom-Pipelines die eigene DataFlows brauchen können
-      eigene IPhaseDataFlow-Klassen registrieren. -- alternatives: YAML-Edges
-      (rejected: ohne IDE-Tool-Support divergiert die Wahrheit zwischen YAML
-      und C#-Handler); DSL (rejected: ein vierter Notation neben PipelinePresets,
-      Handler, ContextKeys).
+      Wildcard rejection at *DataFlow.cs ctor time, not at pipeline run.
+      Reason: fail-fast catches the issue in CI / dev-loop; run-time
+      failure scatters the error surface. Same pattern p0125c uses for
+      vocab fence.
   - key: |
-      Wildcard-Rejection zur Konstruktor-Zeit des DataFlow-Objekts, nicht erst
-      bei Pipeline-Run. Reason: fail-fast bei DI-Boot fängt das Problem in CI/
-      dev-loop ab; fail-at-first-read würde die Fehler-Surface auf zufällige
-      Run-Zeitpunkte schieben. Neue `PhaseDataFlowConfigValidator.Validate` läuft
-      in jedem *DataFlow.cs Ctor (statisches Read der Edges-Liste reicht).
-      -- alternatives: Validate bei DI-Resolve (rejected: separater Lifecycle-
-      Punkt); silent ignore + warn (rejected: macht Wildcard-Drift wieder
-      möglich).
+      config/agentsmith.yml defaults to Enforce; agentsmith.example.yml
+      stays Warn. Reason: agent-smith's own smoke runs need Strict to
+      catch regressions; operator setup should not crash on Custom-
+      Pipelines at first run. Operator docs describe the warn→discover→
+      enforce migration path.
   - key: |
-      Default-flip enforce=false → enforce=true in der gebundelten
-      config/agentsmith.yml, NICHT in der agentsmith.example.yml. Reason: die
-      gebundelte config ist die self-test config für agent-smith's eigene
-      Smoke-Runs; sie sollte den strengsten Mode haben. agentsmith.example.yml
-      bleibt enforce=false damit operator beim ersten Setup nicht ihre Custom-
-      Pipelines mit DataFlow-Violations crashen. Eine separate Operator-Doc
-      erklärt den Migrations-Pfad. -- alternatives: beide flippen (rejected:
-      Operator-Setup-Friction); nur agentsmith.example.yml flippen (rejected:
-      agent-smith's Self-Test bleibt warn-only — wir bemerken Regressions
-      nicht in unserem eigenen Smoke).
-  - key: |
-      PerPresetDataFlowEdgeTests sind synthetische Stub-Steps, NICHT real-handler
-      integration. Reason: real-handler integration heißt full DI-Container +
-      ChatClientFactory mocks + SkillCallRuntime + ProjectMap stubs etc. — pro
-      Preset ein 200-Zeilen-Setup. Synthetische Steps reichen für "deklarierte
-      Edges decken die Standard-Read-Patterns ab" (was real-handler täten); das
-      verbleibende Gap (Handler liest in Production einen Key der im Test nicht
-      ausgelesen wird) deckt die Discovery-Smoke aus Scope 1 ab. -- alternatives:
-      Full-Handler-Integration-Tests (rejected: Wartung explodiert pro
-      Handler-Refactoring); skip Tests (rejected: zukünftige Handler-Änderungen
-      brechen DataFlow-Edges silent).
-  - key: |
-      PermissivePhaseDataFlow base class komplett löschen, nicht [Obsolete]-
-      Window. Reason: Wildcard-Verbleib in der Codebase macht es trivial für
-      future Drift ("ich erweitere FixBug mit einem schnellen Wildcard-Edge")
-      auch wenn der Validator es zur Konstruktor-Zeit wirft — die [Obsolete]
-      attribute macht das nicht kompiliert-broken. Hard delete + ctor-validator
-      ist redundante Defense-in-depth. Operator-side Code der davon erbt
-      bricht zum Compile-Zeitpunkt mit klarer Fehlermeldung. -- alternatives:
-      [Obsolete] mit error: true (rejected: gleiche Schmerzen wie Löschung
-      ohne den Code-Hygiene-Gewinn); soft-deprecate (rejected: bequemes
-      Wildcard-Re-add wenn jemand "nur kurz fixen" will).
+      PermissivePhaseDataFlow base class hard-deleted (no [Obsolete]
+      window). Reason: with the ctor-time validator the wildcard cannot
+      land via inheritance; an [Obsolete] window would allow accidental
+      re-use during "quick fix" PRs. Operator code that subclassed it
+      breaks at compile-time with a clear error.
 
 steps:
-  - id: discovery-mode
-    action: "DataFlowReadGate gewinnt einen Discover-Modus + Edge-Discovery-Log-Format"
-    modify:
-      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs: ctor `bool enforce` ersetzt durch `DataFlowReadMode mode` (neue enum: Enforce / Warn / Discover). Im Discover-Modus: matched Wildcard → emit info-log mit `[DataFlow-Discovery] preset={preset} step={activeStep} read={key} producers=[{candidate steps from _flow.Edges where ToPhaseStep matches}]`. Warn-Branche bleibt erhalten als zweite Existenzfunktion für operator-side custom presets. Enforce-Branche wirft (heute existierende Logik)."
+  - id: read-mode-enum
+    action: "Replace bool enforce with DataFlowReadMode enum (Enforce / Warn / Discover)"
     new:
-      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadMode.cs: enum `public enum DataFlowReadMode { Enforce, Warn, Discover }`. Eine Datei. ~15 Zeilen."
-      - "src/AgentSmith.Application/Services/Pipeline/DataFlowDiscoveryAggregator.cs: ~80 Zeilen. Sammelt Discovery-Log-Einträge zu (preset, fromStep, toStep, contextKey)-Tupeln in einem in-memory Set; emit als JSON-Sidecar an `.agentsmith/runs/<run-id>/dataflow-discovery.json` am Pipeline-Ende. Wird über IPipelineLifecycleCoordinator-Hook gewired (analog zu PipelineCostTracker)."
-
-  - id: enforce-mode-wiring
-    action: "PipelineExecutor liest pipeline_data_flow.mode aus Config (neuer enum statt bool)"
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadMode.cs: enum (~15 lines)."
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowDiscoveryAggregator.cs: ~80 lines, IPipelineLifecycleCoordinator-wired sidecar emitter."
     modify:
-      - "src/AgentSmith.Contracts/Models/Configuration/PipelineDataFlowConfig.cs: `bool Enforce { get; init; }` wird ersetzt durch `DataFlowReadMode Mode { get; init; } = DataFlowReadMode.Warn` (Default Warn für Backwards-Compat mit operator-configs die nur Enforce true/false binden). Custom IYamlTypeConverter mapped Legacy-YAML `enforce: true` → `mode: Enforce`, `enforce: false` → `mode: Warn`. Neue YAML-Form ist `mode: enforce|warn|discover`."
-      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: line 325 (`new DataFlowReadGate(...)`-Aufruf) gibt jetzt `config.Mode` statt `config.Enforce` weiter."
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs: ctor takes DataFlowReadMode mode. Discover branch emits info log + AddEntry on the aggregator; Warn + Enforce branches preserve existing behaviour."
+      - "src/AgentSmith.Contracts/Models/Configuration/PipelineDataFlowConfig.cs: Enforce bool replaced by Mode property; custom IYamlTypeConverter maps legacy `enforce: true|false` → `mode: Enforce|Warn`."
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: pass Mode (not Enforce) when constructing the gate."
+
+  - id: discover-smoke
+    action: "Operator smoke against all 10 presets in Discover mode; aggregate edge set per preset"
+    modify:
+      - "config/agentsmith.yml: temporarily set `pipeline_data_flow.mode: discover` for the smoke run."
+    new:
+      - ".agentsmith/runs/dataflow-discovery-aggregate.md: PR-evidence file (not committed) with the aggregated edge set per preset."
 
   - id: per-preset-edges
-    action: "Jede der 10 *DataFlow.cs Klassen deklariert ihre Edges explizit ohne Wildcard"
+    action: "Each of the 10 *DataFlow.cs classes declares explicit edges, no wildcard"
     modify:
-      - "src/AgentSmith.Application/PipelineDataFlows/FixBugDataFlow.cs: extends `IPhaseDataFlow` direkt (nicht mehr `PermissivePhaseDataFlow`); Edges-Liste enthält die explizite per-step Producer-Consumer-Map basierend auf der Discovery-Smoke gegen agent-smith selbst. Geschätzt ~15-25 Edges pro Preset (jeder Consumer-Step deklariert seine Reads). Detail-Inhalt wird in Schritt discovery-smoke-execution generiert."
-      - "src/AgentSmith.Application/PipelineDataFlows/FixNoTestDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/AddFeatureDataFlow.cs: analog (heute hat es schon einige explizite Edges + den Wildcard; Wildcard fällt weg, explizite Edges expandieren)."
-      - "src/AgentSmith.Application/PipelineDataFlows/InitProjectDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/SecurityScanDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/ApiSecurityScanDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/MadDiscussionDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/LegalAnalysisDataFlow.cs: analog."
-      - "src/AgentSmith.Application/PipelineDataFlows/SkillManagerDataFlow.cs: analog (NEU für p0144's unfenced shape: PipelineNameInitializer → LoadSkills → LoadContext → Triage → SkillRound → ConvergenceCheck → CompileDiscussion → GeneratePlan → Approval → AgenticExecute → WriteRunResult)."
-      - "src/AgentSmith.Application/PipelineDataFlows/AutonomousDataFlow.cs: analog (NEU für p0144's unfenced shape)."
-
-  - id: discovery-smoke-execution
-    action: "Operator-Smoke gegen alle 10 Presets im Discover-Modus; Aggregation des Edge-Sets pro Preset"
-    new:
-      - "config/agentsmith.yml: `pipeline_data_flow.mode: discover` (temporär für den Smoke-Run); zurück auf `mode: enforce` nach Edge-Deklaration in Schritt per-preset-edges."
-      - ".agentsmith/runs/dataflow-discovery-aggregate.md: Operator-erzeugte Markdown-Datei mit dem aggregierten Edge-Set pro Preset (geschrieben im PR-Beschreibung als Audit-Spur). Nicht committed; nur als Evidence im PR."
+      - "src/AgentSmith.Application/PipelineDataFlows/FixBugDataFlow.cs: implements IPhaseDataFlow directly; explicit edges from Discover smoke."
+      - "src/AgentSmith.Application/PipelineDataFlows/FixNoTestDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/AddFeatureDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/InitProjectDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/SecurityScanDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/ApiSecurityScanDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/MadDiscussionDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/LegalAnalysisDataFlow.cs: same."
+      - "src/AgentSmith.Application/PipelineDataFlows/SkillManagerDataFlow.cs: same (new shape post-p0144)."
+      - "src/AgentSmith.Application/PipelineDataFlows/AutonomousDataFlow.cs: same (new shape post-p0144)."
 
   - id: wildcard-removal
-    action: "DataFlowReadGate-Wildcard-Branches löschen + PhaseDataFlowConfigValidator + PermissivePhaseDataFlow base class löschen"
+    action: "Remove wildcard branches + delete PermissivePhaseDataFlow + add ctor validator"
     modify:
-      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs: lines 59 (`edge.ContextKeys.Contains(\"*\", ...)`) + 70 (`edge.ToPhaseStep == \"*\"`) komplett gelöscht. Wildcard-matching-Pfad existiert nicht mehr."
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs: lines 59 + 70 wildcard checks deleted."
     new:
-      - "src/AgentSmith.Application/Services/Pipeline/PhaseDataFlowConfigValidator.cs: ~40 Zeilen. Static method `Validate(IPhaseDataFlow flow)` wirft `InvalidOperationException` wenn irgendein Edge `*` in ContextKeys ODER in ToPhaseStep enthält. Wird im Ctor jedes neuen *DataFlow.cs-Subclasses aufgerufen (eine Zeile am Ende: `PhaseDataFlowConfigValidator.Validate(this);`)."
+      - "src/AgentSmith.Application/Services/Pipeline/PhaseDataFlowConfigValidator.cs: ~40 lines, static Validate(IPhaseDataFlow) throws on `*` in ContextKeys or ToPhaseStep. Called from each *DataFlow.cs ctor."
     delete:
-      - "src/AgentSmith.Application/PipelineDataFlows/PermissivePhaseDataFlow.cs: gelöscht."
+      - "src/AgentSmith.Application/PipelineDataFlows/PermissivePhaseDataFlow.cs"
 
   - id: default-flip
-    action: "Bundled agent-smith config flippt auf enforce, agentsmith.example.yml bleibt auf warn"
+    action: "Strict default in bundled config; operator example stays warn"
     modify:
-      - "config/agentsmith.yml: `pipeline_data_flow.mode: enforce` (final nach Discovery)."
-      - "config/agentsmith.example.yml: bleibt `pipeline_data_flow.mode: warn` (operator-friendly default — soft migration für Custom-Pipelines)."
-      - "docs/configuration/dataflow-modes.md: neue Doc (~100 Zeilen). Erklärt die drei Modi, wann jeder sinnvoll ist, Migrations-Pfad für Operator-Configs (`warn` → Logs analysieren → eigene IPhaseDataFlow declarations → `enforce`), Discovery-Modus für Audit von Custom-Pipelines."
+      - "config/agentsmith.yml: `pipeline_data_flow.mode: enforce`."
+      - "config/agentsmith.example.yml: stays `pipeline_data_flow.mode: warn`."
+    new:
+      - "docs/configuration/dataflow-modes.md: ~100 lines documenting the three modes + operator migration path."
 
   - id: tests
-    action: "Per-Preset Edge-Coverage + Validator + Mode-Wiring + Backwards-Compat-Binding"
+    action: "Per-preset edge coverage + validator + mode wiring + backwards-compat binding"
     new:
-      - "tests/AgentSmith.Tests/PipelineDataFlows/PerPresetDataFlowEdgeTests.cs: ~200 Zeilen. Theory über jede der 10 PipelinePresets.Names: konstruiere die entsprechende *DataFlow.cs Instanz, fahre einen synthetischen Run durch DataFlowReadGate(Enforce) mit Stub-Steps die die Standard-ContextKey-Read-Patterns simulieren, assert 0 Violations. Regression-Guard für zukünftige Handler-Refactorings."
-      - "tests/AgentSmith.Tests/Pipeline/PhaseDataFlowConfigValidatorTests.cs: 5 Tests. Validate_NoWildcards_DoesNotThrow; Validate_ContextKeysWildcard_ThrowsWithEdgeName; Validate_ToPhaseStepWildcard_ThrowsWithEdgeName; Validate_BothWildcards_ThrowsListingBoth; Validate_ExplicitEdges_DoesNotThrow."
-      - "tests/AgentSmith.Tests/Pipeline/DataFlowReadGateDiscoveryModeTests.cs: 4 Tests. OnRead_DiscoverMode_NoThrow_EmitsInfoLog; OnRead_DiscoverMode_LogIncludesPresetActiveStepKeyProducers; OnRead_DiscoverMode_DoesNotEmitWarn; OnRead_DiscoverMode_AggregatorReceivesEntry."
-      - "tests/AgentSmith.Tests/Pipeline/DataFlowDiscoveryAggregatorTests.cs: 3 Tests. AddEntry_NewTuple_Stored; AddEntry_DuplicateTuple_DedupedInSet; FlushToFile_WritesJsonSidecarToRunsDir."
-      - "tests/AgentSmith.Tests/Configuration/PipelineDataFlowConfigBindingTests.cs: 4 Tests. Bind_LegacyEnforceTrue_MapsToModeEnforce; Bind_LegacyEnforceFalse_MapsToModeWarn; Bind_NewModeEnforce_BindsDirectly; Bind_NewModeWarn_BindsDirectly; Bind_NewModeDiscover_BindsDirectly."
-    modify:
-      - "tests/AgentSmith.Tests/PipelineDataFlows/*-DataFlowTests.cs (any existing per-preset DataFlow tests): adapt to assert explicit edges instead of wildcard inheritance."
+      - "tests/AgentSmith.Tests/PipelineDataFlows/PerPresetDataFlowEdgeTests.cs: Theory over PipelinePresets.Names, synthetic Steps under enforce=true, assert 0 violations."
+      - "tests/AgentSmith.Tests/Pipeline/PhaseDataFlowConfigValidatorTests.cs: 5 tests."
+      - "tests/AgentSmith.Tests/Pipeline/DataFlowReadGateDiscoveryModeTests.cs: 4 tests."
+      - "tests/AgentSmith.Tests/Pipeline/DataFlowDiscoveryAggregatorTests.cs: 3 tests."
+      - "tests/AgentSmith.Tests/Configuration/PipelineDataFlowConfigBindingTests.cs: 5 tests (legacy + new + 3 mode values)."
 
 tests:
-  - "DataFlowReadGate_OnRead_DiscoverMode_NoThrow_EmitsInfoLog"
-  - "DataFlowReadGate_OnRead_DiscoverMode_LogIncludesPresetActiveStepKeyProducers"
-  - "DataFlowReadGate_OnRead_DiscoverMode_DoesNotEmitWarn"
-  - "DataFlowReadGate_OnRead_DiscoverMode_AggregatorReceivesEntry"
+  - "DataFlowReadGate_DiscoverMode_EmitsInfoLog"
+  - "DataFlowReadGate_DiscoverMode_AggregatorReceivesEntry"
+  - "DataFlowReadGate_DiscoverMode_DoesNotEmitWarn"
+  - "DataFlowReadGate_DiscoverMode_NoThrow"
   - "DataFlowDiscoveryAggregator_AddEntry_NewTuple_Stored"
-  - "DataFlowDiscoveryAggregator_AddEntry_DuplicateTuple_DedupedInSet"
-  - "DataFlowDiscoveryAggregator_FlushToFile_WritesJsonSidecarToRunsDir"
-  - "PhaseDataFlowConfigValidator_Validate_NoWildcards_DoesNotThrow"
-  - "PhaseDataFlowConfigValidator_Validate_ContextKeysWildcard_ThrowsWithEdgeName"
-  - "PhaseDataFlowConfigValidator_Validate_ToPhaseStepWildcard_ThrowsWithEdgeName"
-  - "PhaseDataFlowConfigValidator_Validate_BothWildcards_ThrowsListingBoth"
-  - "PhaseDataFlowConfigValidator_Validate_ExplicitEdges_DoesNotThrow"
-  - "PipelineDataFlowConfigBindingTests_Bind_LegacyEnforceTrue_MapsToModeEnforce"
-  - "PipelineDataFlowConfigBindingTests_Bind_LegacyEnforceFalse_MapsToModeWarn"
-  - "PipelineDataFlowConfigBindingTests_Bind_NewModeEnforce_BindsDirectly"
-  - "PipelineDataFlowConfigBindingTests_Bind_NewModeWarn_BindsDirectly"
-  - "PipelineDataFlowConfigBindingTests_Bind_NewModeDiscover_BindsDirectly"
-  - "PerPresetDataFlowEdgeTests_FixBug_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_FixNoTest_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_AddFeature_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_InitProject_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_SecurityScan_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_ApiSecurityScan_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_MadDiscussion_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_LegalAnalysis_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_SkillManager_AllSyntheticReadsCovered"
-  - "PerPresetDataFlowEdgeTests_Autonomous_AllSyntheticReadsCovered"
+  - "DataFlowDiscoveryAggregator_AddEntry_DuplicateTuple_Deduped"
+  - "DataFlowDiscoveryAggregator_FlushToFile_WritesJsonSidecar"
+  - "PhaseDataFlowConfigValidator_NoWildcards_DoesNotThrow"
+  - "PhaseDataFlowConfigValidator_ContextKeysWildcard_ThrowsWithEdgeName"
+  - "PhaseDataFlowConfigValidator_ToPhaseStepWildcard_ThrowsWithEdgeName"
+  - "PhaseDataFlowConfigValidator_BothWildcards_ThrowsListingBoth"
+  - "PhaseDataFlowConfigValidator_ExplicitEdges_DoesNotThrow"
+  - "PipelineDataFlowConfigBinding_LegacyEnforceTrue_MapsToModeEnforce"
+  - "PipelineDataFlowConfigBinding_LegacyEnforceFalse_MapsToModeWarn"
+  - "PipelineDataFlowConfigBinding_NewModeEnforce_BindsDirectly"
+  - "PipelineDataFlowConfigBinding_NewModeWarn_BindsDirectly"
+  - "PipelineDataFlowConfigBinding_NewModeDiscover_BindsDirectly"
+  - "PerPresetDataFlowEdgeTests_AllPresets_AllSyntheticReadsCovered"
 
 done:
-  - "DataFlowReadMode enum (Enforce / Warn / Discover) ersetzt das bool-`enforce` API"
+  - "DataFlowReadMode enum (Enforce / Warn / Discover) replaces bool enforce; PipelineDataFlowConfig binds both legacy and new YAML forms"
   - "DataFlowReadGate has zero wildcard branches; explicit per-preset edges are the only match path"
-  - "PhaseDataFlowConfigValidator existiert und wird im Ctor jedes *DataFlow.cs Subclasses aufgerufen; wirft fail-fast bei Wildcard-Verbleib"
-  - "PermissivePhaseDataFlow base class DELETED; jede der 10 *DataFlow.cs Klassen implementiert IPhaseDataFlow direkt"
-  - "Jede der 10 *DataFlow.cs Klassen deklariert explizite (FromPhaseStep, ToPhaseStep, ContextKeys[])-Edges basierend auf der Discovery-Smoke gegen agent-smith selbst"
-  - "DataFlowDiscoveryAggregator schreibt .agentsmith/runs/<run-id>/dataflow-discovery.json beim Discover-Modus für Operator-Audits von Custom-Pipelines"
-  - "PipelineDataFlowConfig.Mode bindet sowohl Legacy `enforce: true|false` als auch neues `mode: enforce|warn|discover` aus operator-YAML (Backwards-Compat)"
-  - "config/agentsmith.yml ist auf `pipeline_data_flow.mode: enforce` (agent-smith's eigene Self-Test-Pipelines laufen unter Strict-Mode)"
-  - "config/agentsmith.example.yml bleibt auf `pipeline_data_flow.mode: warn` (operator-friendly default)"
-  - "docs/configuration/dataflow-modes.md erklärt drei Modi + Migrations-Pfad für Operator-Configs"
-  - "26 new tests passing (DataFlowReadMode coverage + per-preset edge coverage + validator + binding backwards-compat)"
-  - "Smoke gegen agent-smith mit pipeline_data_flow.mode=enforce: alle 10 Presets (fix-bug + fix-no-test + add-feature + init-project + security-scan + api-security-scan + mad-discussion + legal-analysis + skill-manager + autonomous) laufen ohne DataFlow-Violation"
+  - "PhaseDataFlowConfigValidator throws fail-fast at *DataFlow.cs ctor time on any wildcard"
+  - "PermissivePhaseDataFlow base class DELETED; each of the 10 *DataFlow.cs classes implements IPhaseDataFlow directly with explicit edges"
+  - "DataFlowDiscoveryAggregator writes .agentsmith/runs/<run-id>/dataflow-discovery.json sidecar in Discover mode"
+  - "config/agentsmith.yml defaults to mode=enforce; config/agentsmith.example.yml stays mode=warn"
+  - "docs/configuration/dataflow-modes.md describes the three modes + operator migration path"
+  - "~21 new tests passing; existing test pack adapted; smoke against agent-smith under enforce=true completes for all 10 presets with zero violations"
