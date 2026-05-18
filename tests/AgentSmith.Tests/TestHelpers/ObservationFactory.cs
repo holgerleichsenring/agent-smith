@@ -31,7 +31,8 @@ internal static class ObservationFactory
 
     private static ObservationSeverity ParseSeverity(string s) => s.ToUpperInvariant() switch
     {
-        "CRITICAL" or "HIGH" => ObservationSeverity.High,
+        "CRITICAL" => ObservationSeverity.Critical,
+        "HIGH" => ObservationSeverity.High,
         "MEDIUM" => ObservationSeverity.Medium,
         "LOW" => ObservationSeverity.Low,
         _ => ObservationSeverity.Info,
