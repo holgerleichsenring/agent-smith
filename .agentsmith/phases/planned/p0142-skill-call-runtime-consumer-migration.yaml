@@ -1,0 +1,264 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0142
+goal: "Take over what p0132 parent defined but a/b/c only partially delivered: route SkillRoundHandlerBase + FilterRoundHandler + VerifyRoundHandler through ISkillCallRuntime instead of calling IChatClient directly. PerSkillBreakdown stays populated (already true post-p0132a) but now LimitEnforcer + RetryCoordinator + LoopTraceCollector + OutcomeClassifier actually run for every skill call. The Gate-path cost scope (deferred three times across p0132a/b/c) closes here via an onResponse hook on GateRetryCoordinator. ChatClientFactory's MaxIterationsPerRequest constant (already de-literalised in p0126a, still alive as a private const at ChatClientFactory.cs:21) retires because every call now passes ResolveToolCallCap. The Message-Pipeline-Family discussion (May 2026) needs a known-good SkillCallRuntime pathway as foundation — this phase is that foundation."
+
+requires: ["p0126", "p0127c", "p0128c", "p0129c", "p0131", "p0132c"]
+
+scope:
+  in: |
+    (1) SkillRoundHandlerBase consumer migration. ExecuteDiscussionRoundAsync + ExecuteStructuredRoundAsync rebuilt
+        around SkillCallRuntime.ExecuteAsync. The base class becomes a thin orchestrator: it still owns prompt-build
+        (via promptBuilder) + role/round resolution + observation parsing + plan-artifact storage, but the chat call
+        itself becomes one runtime.ExecuteAsync(BuildSkillCallRequest(...)) per round. The runtime returns a
+        SkillCallResult; the base translates Outcome → CommandResult (Ok/Incomplete → success, Failed* → fail with
+        structured reason). The three concrete subclasses (SkillRoundHandler, ApiSkillRoundHandler,
+        SecuritySkillRoundHandler) need no signature change — only the base's executor methods change. PerSkillBreakdown
+        keeps lighting up (p0132a's BeginCall scope is replaced by the runtime's scope which provides the same surface
+        plus LimitEnforcer-populated ToolCallCount/LlmCallCount that p0132a left at 0).
+    (2) FilterRoundHandler migration. The per-batch loop (each batch a separate LLM call since p0124's
+        TokenBudgetBatcher) becomes a per-batch runtime.ExecuteAsync. p0132b's per-batch BeginCall scope is replaced
+        by the runtime call; cost attribution per batch stays. Artifact-mode keeps SkillExecutionPhase.Synthesize,
+        list-mode keeps SkillExecutionPhase.Filter (mapping introduced in p0132b).
+    (3) VerifyRoundHandler migration. The per-verifier loop becomes per-verifier runtime.ExecuteAsync. p0132c's
+        ToolKit.GetToolsFor(Verify) wiring moves into the SkillCallRequest.ToolSet field instead of a direct
+        SandboxToolHost instantiation. The graceful-degradation behaviour from p0132c (no sandbox → empty tool list,
+        verifier runs static-only) is preserved — the empty ToolSet flows through the runtime unchanged.
+    (4) Gate-path cost scope closes. GateRetryCoordinator gains an optional onResponse callback parameter
+        (Action<ChatResponse>? onResponse = null). SkillRoundHandlerBase, when calling gateRetryCoordinator.ExecuteAsync
+        from ExecuteStructuredRoundAsync, passes a callback that invokes the runtime's per-response cost-scope
+        machinery — same shape RetryCoordinator already uses internally. Each Gate retry attempt gets a cost record.
+    (5) ChatClientFactory.MaxIterationsPerRequest const retires. With every consumer now routing through the runtime
+        which always passes maxIterations: cap, no caller reaches the default branch. The const + the null-check at
+        ChatClientFactory.cs:48-49 is replaced with a required int maxIterations parameter; IChatClientFactory.Create
+        signature changes accordingly. AgenticExecuteHandler — the one remaining direct caller — passes its own resolved
+        cap (max_tool_calls_per_skill from LoopLimitsConfig, same as a Implementation-phase skill call would get).
+    (6) LimitEnforcer actually enforces. Token-cap + wall-clock-cap + concurrency-cap (already coded in p0126c, dormant
+        because no consumer ran through the runtime) get exercised by every Discussion/Structured/Filter/Verify round.
+        When a limit hits, the runtime returns SkillCallOutcome.Incomplete with the partial response; the calling
+        handler decides whether Incomplete is acceptable (Discussion: yes, partial observations still useful; Structured:
+        no, plan-gate fails; Filter: no, batch incomplete; Verify: yes, verifier observations partial). Per-handler
+        policy lives in the Outcome→CommandResult translator.
+
+  out: |
+    AgenticExecuteHandler stays on its current FunctionInvokingChatClient + SandboxToolHost path (intentional per
+    p0132's "AgenticExecute stays off SkillCallRuntime" decision — the agentic loop's tool-host integration doesn't
+    fit the runtime's chat-then-result shape). It does NOT get migrated even though it now becomes the only direct
+    IChatClientFactory.Create caller; the new required-int signature is fine for it since it always knows its cap.
+
+    Persisted Loop-Traces under .agentsmith/runs/<run-id>/traces/<call-id>.json. Still deferred per p0132 parent.
+    LoopTraceCollector continues to ILogger only — once persistence convention firms up (post-p0128c-followup),
+    a separate phase wires the traces to disk.
+
+    cost.json sidecar. Same deferral as p0132 parent — the result.md PerSkillBreakdown table covers operator-readable
+    cases; machine-parseable cost only matters when CI dashboards need it.
+
+    Provider-specific SkillCallRuntime tuning (different limits for Anthropic vs OpenAI, etc.). Out of scope —
+    LoopLimitsConfig stays provider-agnostic. If real provider differences surface in operator runs, they get filed
+    against a follow-up phase.
+
+    PermissivePhaseDataFlow wildcard removal + per-preset edge tightening — that's p0143.
+
+    autonomous + skill-manager unfencing — that's p0144.
+
+    Removal of the post-verify Test command in FixBug preset. p0132c said "stays during rollout window". This phase
+    doesn't drop it either — operator-evidence after p0142 lands tells us whether verifier coverage is reliable
+    enough; deletion is its own small follow-up.
+
+decisions:
+  - key: |
+      Migrate all three handler families in ONE slice, not three. Reason: the three handlers share the same shape
+      change (build SkillCallRequest, hand to runtime, translate result), and the test-pack adjustments form one
+      coherent pattern (replace IChatClient mocks with ISkillCallRuntime mocks returning SkillCallResult stubs).
+      p0132 parent originally proposed three slices but that decomposition was driven by the deferred-cost-scope
+      slicing; in this phase the cost scope is already in place from p0132a/b, so the remaining work is structurally
+      uniform. One slice means one PR, one test-pack motion, one merge window. -- alternatives: slice a/b/c per
+      handler family (rejected: extends the migration over three merge windows for no risk reduction — the runtime
+      is the same surface for all three callers; per-family bugs are caught the same way regardless of slicing);
+      slice by capability rather than handler (rejected: would split SkillRoundHandlerBase's Discussion+Structured
+      paths across phases, breaking the base-class refactor coherence p0132 already noted).
+  - key: |
+      ChatClientFactory.Create's int maxIterations becomes REQUIRED, not optional. Reason: p0126a shipped it as
+      optional for transition; post-migration there are exactly two callers (SkillCallRuntime + AgenticExecuteHandler)
+      and both always know their cap. A required parameter makes the contract "the caller decides the cap" explicit
+      at the type level instead of hiding behind a default that no longer applies. The MaxIterationsPerRequest const
+      at ChatClientFactory.cs:21 is deleted in the same change; the null-check branch at line 48-49 collapses to
+      `c.MaximumIterationsPerRequest = maxIterations`. -- alternatives: keep optional with a sentinel value
+      (rejected: same maintenance hazard the original deferral identified — a dead default rotates the question
+      "what is the right fallback?" forever); split into two methods Create + CreateWithCap (rejected: arbitrary
+      bifurcation when every caller passes a cap anyway).
+  - key: |
+      Gate-path integration via onResponse callback on GateRetryCoordinator.ExecuteAsync, not by routing the gate
+      retries themselves through SkillCallRuntime. Reason: GateRetryCoordinator's retry semantics differ from
+      RetryCoordinator's (gate retries are observation-driven — judge says "rerun with these objections", not
+      mechanical parse/validation retries). Replacing GateRetryCoordinator with RetryCoordinator would conflate two
+      retry policies. The callback gives the runtime visibility into each gate attempt's ChatResponse so the
+      LimitEnforcer + PipelineCostTracker can record per-attempt cost, while leaving GateRetryCoordinator's policy
+      logic untouched. -- alternatives: move gate-retry semantics into RetryCoordinator with a strategy enum
+      (rejected: turns a clean focused class into a multi-policy switch); accept gate path remains un-instrumented
+      (rejected: p0132a/b/c already deferred this three times, the debt compounds).
+  - key: |
+      Per-handler Outcome→CommandResult translation policy lives in the calling handler, not in the runtime. Reason:
+      "Is SkillCallOutcome.Incomplete acceptable?" depends on what the caller does with the output — a Discussion
+      round can use partial observations, a Structured Plan-gate cannot. The runtime has no opinion. Each handler
+      owns a small TranslateResult helper that maps (Outcome, Output, FailureReason) → CommandResult per its own
+      policy. -- alternatives: runtime returns CommandResult directly (rejected: forces every caller onto the same
+      policy, hiding semantically different choices); ISkillOutcomePolicy strategy interface per phase (rejected:
+      ceremony for what is three short helpers).
+  - key: |
+      Test pack: existing handler tests adapt to use Mock<ISkillCallRuntime> returning canned SkillCallResult,
+      replacing the current Mock<IChatClient> + chat.GetResponseAsync setup. Reason: ISkillCallRuntime is one method
+      with a typed input + output — easier to mock than IChatClient's IAsyncEnumerable<ChatResponseUpdate> shape.
+      The shared StubChatClient helper that p0120 was supposed to introduce becomes less critical because handler
+      tests no longer need to stub the chat surface at all; only AgenticExecuteHandler tests still do. Estimate: ~50
+      existing tests across SkillRoundHandler*Tests / FilterRoundHandlerTests / VerifyRoundHandlerTests adapt; ~15
+      new tests cover the new Outcome→CommandResult policies and the GateRetryCoordinator onResponse path.
+      -- alternatives: keep IChatClient stubs and let runtime-as-DI-default exercise the runtime under test
+      (rejected: turns handler unit tests into integration tests that exercise the runtime's collaborator chain);
+      delete and rewrite (rejected: throws away the existing assertion coverage about handler behaviour).
+  - key: |
+      LimitEnforcer's Incomplete outcome is observable in PerSkillBreakdown via a new HitLimit reason field on
+      CallCostRecord, not via a new top-level enum exposed to operators. Reason: the operator-visible signal is
+      "this skill call returned partial output"; the detail "...because token cap was reached at iteration 8" is
+      diagnostic, not workflow-routing. result.md's PerSkillBreakdown rendering gets a new column "Limit" that shows
+      the reason when present. -- alternatives: top-level Limits-hit summary (rejected: redundant with per-call
+      column); silent (rejected: operators can't tell why a call returned partial without grep-ing logs).
+  - key: |
+      No Plan-restricted write enforcement in this phase. p0126 deferred PathWriteGuard's "WriteFile only on files
+      in the freed plan" rule to p0128 once Plan schema persistence existed. p0128a shipped the persistence; the
+      file-list restriction has not. Whether to add it here (since we're already touching PathWriteGuard's consumers
+      via the SkillCallRequest.ToolSet wire-up) was considered and rejected — that rule belongs with the plan-gate
+      semantics, not the runtime migration. A separate follow-up phase can add it when operator-evidence shows
+      WriteFile-outside-plan is a real failure mode. -- alternatives: bundle into p0142 (rejected: scope creep,
+      different concern); never add (rejected: p0126 explicitly said it was deferred not cancelled).
+  - key: |
+      No structured replay-from-trace artifact format in this phase. LoopTraceCollector keeps emitting structured
+      log lines (its p0126c behaviour). With every consumer now feeding it via the runtime, the log entries become
+      dense enough that the persistence question is realistic — but designing the artifact format and the
+      replay-mechanism is a separate concern from making the data flow. -- alternatives: persist to JSON in this
+      phase (rejected: scope creep, format would be premature); drop the structured logs in favour of immediate
+      persistence (rejected: removes the easy grep-on-the-fly debugging path).
+
+steps:
+  - id: skillround-base-migration
+    action: "Rewrite SkillRoundHandlerBase.ExecuteDiscussionRoundAsync + ExecuteStructuredRoundAsync to dispatch through ISkillCallRuntime"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs: ctor gains ISkillCallRuntime parameter; class field _skillCallRuntime stored. ExecuteDiscussionRoundAsync replaces the chat.GetResponseAsync + costTracker.Track + scope-using block (lines ~93-114) with `var result = await _skillCallRuntime.ExecuteAsync(BuildSkillCallRequest(skillName, role, pipeline, SkillExecutionPhase derived via MapPhase, ToolSet: empty for Discussion, PromptParts: messages, AgentConfig: agent, TaskType.Primary), cancellationToken); return TranslateResult(result);`. The MapPhase helper added in p0132a stays. The PipelineCostTracker.BeginCall block is removed — the runtime opens its own scope. ExecuteStructuredRoundAsync similar restructure: builds SkillCallRequest with SkillExecutionPhase.Plan/Review/Synthesize per the current PipelinePhase mapping; the gateRetryCoordinator.ExecuteAsync call at line 401 stays, but now passes an onResponse callback that the runtime injects via SkillCallRequest.OnGateResponse (new optional field). New private method BuildSkillCallRequest centralises the field population. New private method TranslateResult maps SkillCallResult → CommandResult per the per-handler policy (Discussion: Ok+Incomplete→success, Failed*→fail; Structured: only Ok→success, Incomplete+Failed*→fail with reason). Class size: target ~450 lines (currently 478; the chat-call inline block deletes ~25 lines but BuildSkillCallRequest + TranslateResult add ~30)."
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandler.cs: ctor signature update — pass ISkillCallRuntime to base. No body change."
+      - "src/AgentSmith.Application/Services/Handlers/ApiSkillRoundHandler.cs: same — ctor pass-through."
+      - "src/AgentSmith.Application/Services/Handlers/SecuritySkillRoundHandler.cs: same — ctor pass-through."
+
+  - id: filterround-migration
+    action: "Rewrite FilterRoundHandler's per-batch loop to dispatch through ISkillCallRuntime"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs: ctor gains ISkillCallRuntime. The per-batch FilterBatchAsync method (today builds prompt, calls chat.GetResponseAsync, parses) replaces its chat call with runtime.ExecuteAsync(BuildSkillCallRequest(..., SkillExecutionPhase: list-mode → Filter, artifact-mode → Synthesize, ToolSet: empty, PromptParts: per-batch messages)). The p0132b BeginCall scope is removed — runtime owns it. Per-batch SkillCallResult.Outcome handled: Ok → parse output; Incomplete → log warning + use partial output (filter batches are observation-aggregation, partial is acceptable); Failed* → mark batch failed in the FilterRoundResult, downstream FilterAggregator sees it. Class size: target ~235 lines."
+
+  - id: verifyround-migration
+    action: "Rewrite VerifyRoundHandler's per-verifier loop to dispatch through ISkillCallRuntime, moving ToolKit.GetToolsFor wiring into SkillCallRequest.ToolSet"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs: ctor gains ISkillCallRuntime. The per-verifier loop's chat-call replaces with runtime.ExecuteAsync(BuildSkillCallRequest(..., SkillExecutionPhase.Verify, InvestigatorMode: 'verify_diff', ToolSet: resolved via ResolveVerifyTools(pipeline))). ResolveVerifyTools keeps its p0132c graceful-degradation behaviour (no sandbox → empty list); the empty list flows through the runtime as ToolSet=[] (LLM gets no tools, runs static-only). The direct ToolKit instantiation at line 137 is removed; ToolKit becomes one of the runtime's dependencies internally. Per-verifier Outcome handling: Ok → parse observations; Incomplete → use partial observations + log warning (verifiers are observation-aggregation, partial fine); Failed* → record verifier as failed in VerifyRoundResult. Class size: target ~230 lines."
+
+  - id: gate-path-onresponse
+    action: "Add onResponse callback to GateRetryCoordinator + IGateRetryCoordinator; SkillCallRuntime passes a cost-scope callback when SkillCallRequest.OnGateResponse is non-null"
+    modify:
+      - "src/AgentSmith.Contracts/Services/IGateRetryCoordinator.cs: ExecuteAsync gains optional `Action<ChatResponse>? onResponse = null` parameter. Default null preserves existing call shape for callers that don't need per-attempt instrumentation."
+      - "src/AgentSmith.Application/Services/Handlers/GateRetryCoordinator.cs: ExecuteAsync invokes onResponse?.Invoke(response) inside each retry-attempt block after the chat.GetResponseAsync call. No semantic change to the retry-decision logic."
+      - "src/AgentSmith.Application/Models/SkillCallRequest.cs: new optional field `OnGateResponse: Action<ChatResponse>?` — passed through to the runtime, which forwards it as the gate's onResponse. Null when the skill round isn't a Structured-with-Gate flow."
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs: ExecuteAsync, when SkillCallRequest.OnGateResponse is non-null, wires it as the chat-attempt's per-response hook (each ChatResponse goes through LimitEnforcer.RecordLlmCall + PipelineCostTracker.Track + LoopTraceCollector.AppendLlmCall before being handed back to the gate coordinator). When null, the runtime's existing single-shot path runs unchanged."
+
+  - id: chatclient-factory-cleanup
+    action: "Delete ChatClientFactory.MaxIterationsPerRequest const; Create's int maxIterations becomes required"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs: delete `private const int MaxIterationsPerRequest = 25;` at line 21. Change Create's signature from `Create(AgentConfig agentConfig, TaskType taskType, int? maxIterations = null)` to `Create(AgentConfig agentConfig, TaskType taskType, int maxIterations)`. The line-48-49 conditional `c.MaximumIterationsPerRequest = iterations` becomes `c.MaximumIterationsPerRequest = maxIterations` (where iterations was the resolved value from the null-check). All null-handling code paths delete."
+      - "src/AgentSmith.Contracts/Services/IChatClientFactory.cs: signature mirrors the implementation change (int? → int required)."
+      - "src/AgentSmith.Application/Services/Handlers/AgenticExecuteHandler.cs: only remaining direct caller. Pass maxIterations: LoopLimitsConfig.MaxToolCallsPerSkill (resolved from IOptions<LoopLimitsConfig>). Same value (30) the runtime would pass for an Implementation-phase skill. Ctor gains IOptions<LoopLimitsConfig> dependency."
+
+  - id: per-call-limit-column
+    action: "PerSkillBreakdown rendering in WriteRunResultHandler gains a Limit column when CallCostRecord.HitLimit is non-null"
+    modify:
+      - "src/AgentSmith.Application/Models/CallCostRecord.cs: add optional `HitLimit: string?` property — populated by LimitEnforcer when a cap is reached (values: 'tokens', 'wall-clock', 'tool-calls', 'llm-calls', null = no limit hit)."
+      - "src/AgentSmith.Application/Services/Loop/LimitEnforcer.cs: when a CheckXxx method returns Cap, pass the cap-reason string into the CallCostRecord population path (via SkillCallScope which closes the record). Existing decision-enum stays internal; only the string reason surfaces."
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs: PerSkillBreakdown Markdown table renders a new 'Limit' column (empty when HitLimit null, the reason string otherwise). Existing columns unchanged."
+
+  - id: di-rewire
+    action: "Update DI to inject ISkillCallRuntime into the three migrated handler families"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: no change to ISkillCallRuntime registration (already AddScoped per p0126c). SkillRoundHandlerBase descendants + FilterRoundHandler + VerifyRoundHandler already resolve through DI; the new ctor parameter is auto-resolved."
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: no IChatClientFactory registration change beyond signature, but verify no caller in CLI/Server composition broke when the parameter went required."
+
+  - id: tests
+    action: "Adapt existing handler tests to ISkillCallRuntime stubs; add 15 new tests for Outcome→CommandResult policy + gate onResponse path"
+    new:
+      - "tests/AgentSmith.Tests/Helpers/StubSkillCallRuntime.cs: shared test helper. Builder pattern: `new StubSkillCallRuntime().Returns(SkillCallResult).Build()`. Replaces per-test Mock<ISkillCallRuntime> setup. ~30 lines."
+      - "tests/AgentSmith.Tests/Handlers/SkillRoundHandlerBaseOutcomeTranslationTests.cs: 9 tests covering Discussion + Structured outcome→CommandResult mappings. Test names: TranslateResult_Discussion_OkOutcome_ReturnsSuccess; TranslateResult_Discussion_IncompleteOutcome_ReturnsSuccess; TranslateResult_Discussion_FailedParseOutcome_ReturnsFailWithReason; TranslateResult_Discussion_FailedValidationOutcome_ReturnsFailWithReason; TranslateResult_Discussion_FailedRuntimeOutcome_ReturnsFailWithReason; TranslateResult_Structured_OkOutcome_ReturnsSuccess; TranslateResult_Structured_IncompleteOutcome_ReturnsFailIncompleteReason; TranslateResult_Structured_FailedParseOutcome_ReturnsFailWithReason; TranslateResult_Structured_FailedValidationOutcome_ReturnsFailWithReason."
+      - "tests/AgentSmith.Tests/Handlers/GateRetryCoordinatorOnResponseTests.cs: 3 tests. ExecuteAsync_NoOnResponse_RunsExistingPath; ExecuteAsync_OnResponseProvided_InvokedPerAttempt; ExecuteAsync_OnResponseThrows_GateLogicContinues (defensive)."
+      - "tests/AgentSmith.Tests/Loop/SkillCallRuntimeGateHookTests.cs: 3 tests. ExecuteAsync_OnGateResponseSet_PerAttemptLimitsRecorded; ExecuteAsync_OnGateResponseSet_PerAttemptCostTracked; ExecuteAsync_OnGateResponseSet_TraceCapturesEachAttempt."
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/SkillRoundHandlerTests.cs: ~10 tests adapt. Pattern change: Mock<IChatClientFactory> + Mock<IChatClient> + Setup(GetResponseAsync) → StubSkillCallRuntime.Returns(SkillCallResult.Ok(...)).Build(). Assertion coverage about handler behaviour stays identical."
+      - "tests/AgentSmith.Tests/Handlers/ApiSkillRoundHandlerTests.cs: ~8 tests adapt — same pattern."
+      - "tests/AgentSmith.Tests/Handlers/SecuritySkillRoundHandlerTests.cs: ~8 tests adapt — same pattern."
+      - "tests/AgentSmith.Tests/Handlers/FilterRoundHandlerTests.cs: ~10 tests adapt — per-batch stub returns per-batch SkillCallResult."
+      - "tests/AgentSmith.Tests/Handlers/VerifyRoundHandlerTests.cs: ~12 tests adapt — per-verifier stub returns per-verifier SkillCallResult; ToolSet population assertions added."
+      - "tests/AgentSmith.Tests/Configuration/LoopLimitsConfigBindingTests.cs: existing tests stay; add LoopLimitsConfig_MaxToolCallsPerSkill_FlowsToAgenticExecuteHandlerChatClientCreate (verifies AgenticExecute now passes resolved cap)."
+      - "tests/AgentSmith.Tests/Factories/ChatClientFactoryTests.cs: existing tests adapt — Create now requires int maxIterations; tests that previously omitted it pass an explicit value (e.g. 25 for compat assertions, or 30 for skill-call assertions)."
+
+tests:
+  - "SkillRoundHandlerBase_ExecuteDiscussionRound_RuntimeReturnsOk_HandlerReturnsSuccess"
+  - "SkillRoundHandlerBase_ExecuteDiscussionRound_RuntimeReturnsIncomplete_HandlerReturnsSuccessWithWarning"
+  - "SkillRoundHandlerBase_ExecuteDiscussionRound_RuntimeReturnsFailedParse_HandlerReturnsFailWithStructuredReason"
+  - "SkillRoundHandlerBase_ExecuteStructuredRound_RuntimeReturnsOk_HandlerReturnsSuccess"
+  - "SkillRoundHandlerBase_ExecuteStructuredRound_RuntimeReturnsIncomplete_HandlerReturnsFailIncompleteReason"
+  - "SkillRoundHandlerBase_ExecuteStructuredRound_GateRetryCoordinatorOnResponseInvokedPerAttempt"
+  - "SkillRoundHandlerBase_BuildSkillCallRequest_PopulatesPhaseFromMapPhaseHelper"
+  - "SkillRoundHandlerBase_BuildSkillCallRequest_DiscussionPhase_EmptyToolSet"
+  - "SkillRoundHandlerBase_TranslateResult_Discussion_OkOutcome_ReturnsSuccess"
+  - "SkillRoundHandlerBase_TranslateResult_Discussion_IncompleteOutcome_ReturnsSuccess"
+  - "SkillRoundHandlerBase_TranslateResult_Discussion_FailedParseOutcome_ReturnsFailWithReason"
+  - "SkillRoundHandlerBase_TranslateResult_Discussion_FailedValidationOutcome_ReturnsFailWithReason"
+  - "SkillRoundHandlerBase_TranslateResult_Discussion_FailedRuntimeOutcome_ReturnsFailWithReason"
+  - "SkillRoundHandlerBase_TranslateResult_Structured_OkOutcome_ReturnsSuccess"
+  - "SkillRoundHandlerBase_TranslateResult_Structured_IncompleteOutcome_ReturnsFailIncompleteReason"
+  - "SkillRoundHandlerBase_TranslateResult_Structured_FailedParseOutcome_ReturnsFailWithReason"
+  - "SkillRoundHandlerBase_TranslateResult_Structured_FailedValidationOutcome_ReturnsFailWithReason"
+  - "FilterRoundHandler_FilterBatchAsync_PerBatchRuntimeExecuteCalled"
+  - "FilterRoundHandler_FilterBatchAsync_OutcomeOk_BatchObservationsParsed"
+  - "FilterRoundHandler_FilterBatchAsync_OutcomeIncomplete_PartialObservationsUsedWithWarning"
+  - "FilterRoundHandler_FilterBatchAsync_OutcomeFailedParse_BatchMarkedFailedInResult"
+  - "FilterRoundHandler_FilterBatchAsync_ArtifactMode_UsesSynthesizePhaseInRequest"
+  - "FilterRoundHandler_FilterBatchAsync_ListMode_UsesFilterPhaseInRequest"
+  - "VerifyRoundHandler_PerVerifierLoop_RuntimeExecuteCalledPerVerifier"
+  - "VerifyRoundHandler_PerVerifierLoop_ToolSetPopulatedFromResolveVerifyTools"
+  - "VerifyRoundHandler_PerVerifierLoop_NoSandboxInContext_ToolSetEmptyStaticOnlyVerification"
+  - "VerifyRoundHandler_PerVerifierLoop_OutcomeOk_ObservationsParsed"
+  - "VerifyRoundHandler_PerVerifierLoop_OutcomeIncomplete_PartialObservationsWithWarning"
+  - "VerifyRoundHandler_PerVerifierLoop_OutcomeFailedRuntime_VerifierMarkedFailedInResult"
+  - "GateRetryCoordinator_ExecuteAsync_NoOnResponse_RunsExistingPath"
+  - "GateRetryCoordinator_ExecuteAsync_OnResponseProvided_InvokedPerAttempt"
+  - "GateRetryCoordinator_ExecuteAsync_OnResponseThrows_GateLogicContinues"
+  - "SkillCallRuntime_ExecuteAsync_OnGateResponseSet_PerAttemptLimitsRecorded"
+  - "SkillCallRuntime_ExecuteAsync_OnGateResponseSet_PerAttemptCostTracked"
+  - "SkillCallRuntime_ExecuteAsync_OnGateResponseSet_TraceCapturesEachAttempt"
+  - "ChatClientFactory_Create_RequiredMaxIterations_PassesToMaximumIterationsPerRequest"
+  - "ChatClientFactory_Create_MaxIterationsPerRequestConstDeleted_NoMoreNullCheckPath"
+  - "AgenticExecuteHandler_PassesMaxToolCallsPerSkillFromLoopLimitsConfig"
+  - "LoopLimitsConfig_MaxToolCallsPerSkill_FlowsToAgenticExecuteHandlerChatClientCreate"
+  - "CallCostRecord_HitLimitField_PopulatedByLimitEnforcer"
+  - "WriteRunResultHandler_PerSkillBreakdownTable_RendersLimitColumnWhenHitLimitNonNull"
+  - "WriteRunResultHandler_PerSkillBreakdownTable_OmitsLimitColumnWhenAllHitLimitNull"
+  - "LimitEnforcer_TokenCapReached_HitLimitTokensRecorded"
+  - "LimitEnforcer_WallClockCapReached_HitLimitWallClockRecorded"
+  - "LimitEnforcer_ToolCallCapReached_HitLimitToolCallsRecorded"
+
+done:
+  - "SkillRoundHandlerBase + 3 concrete subclasses (SkillRoundHandler, ApiSkillRoundHandler, SecuritySkillRoundHandler) dispatch through ISkillCallRuntime — no direct IChatClient.GetResponseAsync calls remain in the Discussion or Structured paths"
+  - "FilterRoundHandler dispatches per-batch through ISkillCallRuntime; per-batch cost attribution stays correct in PerSkillBreakdown"
+  - "VerifyRoundHandler dispatches per-verifier through ISkillCallRuntime; ToolKit.GetToolsFor(Verify) wiring now flows via SkillCallRequest.ToolSet instead of direct SandboxToolHost instantiation; graceful-degradation (no sandbox → empty tool list) preserved"
+  - "Gate-path: GateRetryCoordinator.ExecuteAsync has optional onResponse callback; SkillRoundHandlerBase passes a runtime-cost-scope callback when invoking gate from Structured rounds; each gate retry attempt produces its own CallCostRecord visible in PerSkillBreakdown"
+  - "ChatClientFactory.MaxIterationsPerRequest const deleted; Create's int maxIterations is required; AgenticExecuteHandler is the only remaining direct caller, passes LoopLimitsConfig.MaxToolCallsPerSkill"
+  - "LimitEnforcer's token-cap + wall-clock-cap + tool-call-cap + llm-call-cap actually fire per skill call; when a cap is hit, SkillCallOutcome.Incomplete returned with HitLimit reason populated on the cost record"
+  - "PerSkillBreakdown Markdown table in result.md renders a Limit column when any record has HitLimit non-null"
+  - "AgenticExecuteHandler stays on its current FunctionInvokingChatClient + SandboxToolHost path (intentional)"
+  - "ISkillCallRuntime now has 4 consumer types in production code (SkillRoundHandlerBase, FilterRoundHandler, VerifyRoundHandler, plus the existing AgenticExecuteHandler's indirect path via ChatClientFactory). grep for `ISkillCallRuntime\\|_skillCallRuntime` returns non-trivial usage outside Models/Interface/DI"
+  - "Existing handler test pack (~50 tests across SkillRoundHandler*Tests / FilterRoundHandlerTests / VerifyRoundHandlerTests) adapted to StubSkillCallRuntime pattern; no regressions"
+  - "15 new tests added covering Outcome→CommandResult translation policies, GateRetryCoordinator onResponse, SkillCallRuntime gate-hook integration, ChatClientFactory required-cap, LimitEnforcer cap-reason recording"
+  - "Smoke run against agent-smith itself (fix-bug + add-feature + security-scan + api-security-scan + mad-discussion) shows: PerSkillBreakdown in result.md including any Limit column entries; Loop-Trace entries in INFO logs; no regressions vs pre-p0142 behaviour"
+  - "Replay-from-trace persisted artifact still deferred (LoopTraceCollector continues to ILogger only); PermissivePhaseDataFlow wildcard removal is p0143; autonomous/skill-manager unfencing is p0144; post-verify Test step in FixBug stays (separate deletion follow-up)"
