@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.51.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.2...v0.51.0) (2026-05-18)
+
+
+### Features
+
+* introduce named catalogs in agentsmith.yml (p0139) ([c7eaa24](https://github.com/holgerleichsenring/agent-smith/commit/c7eaa24c48e9b5836c1ab9fea167efe2abef2934))
+* metrics + empty-plan gate + docs closeout (p0140e) ([48f8e40](https://github.com/holgerleichsenring/agent-smith/commit/48f8e4047316191e1b631fd5f8a2ae1b930f9783))
+* p0140 multi repo and project pipelines ([7c17eaf](https://github.com/holgerleichsenring/agent-smith/commit/7c17eaf2f9ebba66bf36facd269c7d431602a5eb))
+* p0140 multi repo and project pipelines ([059bf0a](https://github.com/holgerleichsenring/agent-smith/commit/059bf0a6f23e9e41d919112fdbe6caa397475d45))
+* per-tracker pollers + deprecation of project-level polling (p0140c) ([24a0b8a](https://github.com/holgerleichsenring/agent-smith/commit/24a0b8aaa03e6211228053eab84de614836f084f))
+* pipeline-scoped ToolKit + IToolHost decomposition (p0145) ([e7b0fa1](https://github.com/holgerleichsenring/agent-smith/commit/e7b0fa19240977c2da5013452caa10fbac3bbdc7))
+* project resolver foundation slice (p0140a) ([7f31fb7](https://github.com/holgerleichsenring/agent-smith/commit/7f31fb73a80381263b15cb84d1ba4cb5743ca7e4))
+* ResolvedProject.Repo shim removal + ContextKeys.CurrentRepo (p0140d) ([c5d72c9](https://github.com/holgerleichsenring/agent-smith/commit/c5d72c9b1c1a52f1b6e214e213b8132395df24e0))
+* SkillCallRuntime consumer migration + HitLimit + gate cost scope (p0142) ([135a8a1](https://github.com/holgerleichsenring/agent-smith/commit/135a8a1b8d7d2c08777be39655c210184350b2d8))
+* webhook migration + multi-repo spawner (p0140b) ([2d9332c](https://github.com/holgerleichsenring/agent-smith/commit/2d9332cca81dc99b1cabe5903c9a8c8f57a445e2))
+
 ## [0.50.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.1...v0.50.2) (2026-05-15)
 
 
