@@ -27,7 +27,7 @@ public sealed class GitLabMrLabelWebhookHandlerTests
         {
             Projects = new Dictionary<string, ResolvedProject>
             {
-                ["my-api"] = new() { Repo = new RepoConnection { Url = repoUrl } }
+                ["my-api"] = new() { Repos = new[] { new RepoConnection { Url = repoUrl } } }
             }
         };
 

@@ -6,25 +6,34 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Merges CLI-provided source overrides into the resolved project's repo.
-/// Returns a new ResolvedProject when any override applies; the original
-/// instance otherwise. p0139 single-repo assumption: overrides target the
-/// project's sole repo (project.Repo). Multi-repo override is out of scope
-/// until p0140 establishes per-repo addressing.
+/// Merges CLI-provided source overrides into the run's CurrentRepo. p0140d: reads
+/// CurrentRepo from the pipeline context (set by ExecutePipelineUseCase from
+/// PipelineRequest.RepoName) instead of project.Repo. For multi-repo projects only
+/// the run's repo is overridden; sibling repos in project.Repos are preserved.
 /// </summary>
 public sealed class SourceConfigOverrider(ILogger<SourceConfigOverrider> logger) : ISourceConfigOverrider
 {
     public ResolvedProject Apply(ResolvedProject project, PipelineContext pipeline)
     {
-        var repo = project.Repo;
-        var updated = ApplyTypeOverride(repo, pipeline);
+        var current = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var updated = ApplyTypeOverride(current, pipeline);
         updated = ApplyPathOverride(updated, pipeline);
         updated = ApplyUrlOverride(updated, pipeline);
         updated = ApplyAuthOverride(updated, pipeline);
 
-        return ReferenceEquals(repo, updated)
-            ? project
-            : project with { Repos = new[] { updated } };
+        if (ReferenceEquals(current, updated)) return project;
+
+        pipeline.Set(ContextKeys.CurrentRepo, updated);
+        return project with { Repos = ReplaceInList(project.Repos, current, updated) };
+    }
+
+    private static IReadOnlyList<RepoConnection> ReplaceInList(
+        IReadOnlyList<RepoConnection> repos, RepoConnection oldRepo, RepoConnection newRepo)
+    {
+        var arr = new RepoConnection[repos.Count];
+        for (var i = 0; i < repos.Count; i++)
+            arr[i] = ReferenceEquals(repos[i], oldRepo) ? newRepo : repos[i];
+        return arr;
     }
 
     private RepoConnection ApplyTypeOverride(RepoConnection repo, PipelineContext pipeline)

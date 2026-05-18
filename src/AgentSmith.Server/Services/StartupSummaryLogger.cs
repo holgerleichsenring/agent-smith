@@ -38,14 +38,17 @@ public static class StartupSummaryLogger
     private static void LogProject(string name, ResolvedProject project, ILogger logger)
     {
         logger.LogInformation(
-            "  • {Project}: source={Source}, tickets={Tickets}, agent={Agent}{LegacyPolling}, pipelines=[{Pipelines}]{Triggers}",
+            "  • {Project}: {RepoCount} repo(s), tickets={Tickets}, agent={Agent}{LegacyPolling}, pipelines=[{Pipelines}]{Triggers}",
             name,
-            FormatSource(project.Repo),
+            project.Repos.Count,
             FormatTickets(project.Tracker),
             FormatAgent(project.Agent),
             FormatLegacyPolling(project.Polling),
             FormatPipelines(project),
             FormatTriggers(project));
+
+        foreach (var repo in project.Repos)
+            logger.LogInformation("      - {Repo}: {Source}", repo.Name, FormatSource(repo));
     }
 
     private static string FormatLegacyPolling(PollingConfig polling)
