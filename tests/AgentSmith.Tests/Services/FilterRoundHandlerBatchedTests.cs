@@ -117,8 +117,27 @@ public sealed class FilterRoundHandlerBatchedTests
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(),
             It.IsAny<SkillRole?>(), It.IsAny<PlanArtifact?>()))
             .Returns(("system-prompt", "user-prefix", "user-suffix"));
-        return new FilterRoundHandler(factory, promptBuilder.Object,
+        // p0142: dispatch the stubbed responses through a real-ish runtime
+        // so the cost path runs end-to-end. The runtime uses factory to
+        // resolve IChatClient — same stub the test queues into.
+        var runtime = BuildRuntime(factory);
+        return new FilterRoundHandler(factory, promptBuilder.Object, runtime,
             NullLogger<FilterRoundHandler>.Instance);
+    }
+
+    private static AgentSmith.Application.Services.Loop.SkillCallRuntime BuildRuntime(
+        AgentSmith.Tests.TestHelpers.StubChatClientFactory factory)
+    {
+        var limits = new AgentSmith.Contracts.Models.Configuration.LoopLimitsConfig();
+        var gate = new AgentSmith.Application.Services.Loop.PipelineConcurrencyGate(limits);
+        var noOp = new AgentSmith.Application.Services.Loop.NoOpSkillOutputValidator();
+        var validatorFactory = new AgentSmith.Application.Services.Validation.SkillOutputValidatorFactory(noOp, noOp);
+        return new AgentSmith.Application.Services.Loop.SkillCallRuntime(
+            factory, gate, limits,
+            new AgentSmith.Application.Services.Loop.OutcomeClassifier(),
+            new AgentSmith.Application.Services.Loop.RetryCoordinator(),
+            validatorFactory,
+            NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
     }
 
     private static FilterRoundContext NewContext(PipelineContext pipeline) =>

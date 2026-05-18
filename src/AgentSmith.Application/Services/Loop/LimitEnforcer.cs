@@ -28,6 +28,13 @@ public sealed class LimitEnforcer
     public long AccumulatedInputTokens { get; private set; }
     public long AccumulatedOutputTokens { get; private set; }
 
+    /// <summary>
+    /// p0142: short cap-reason label set when any limit fires. Surfaces
+    /// through SkillCallScope → CallCostRecord.HitLimit for operator
+    /// visibility in PerSkillBreakdown.
+    /// </summary>
+    public string? HitLimit { get; private set; }
+
     public LimitDecision RecordLlmCall(long inputTokens, long outputTokens)
     {
         LlmCallCount++;
@@ -35,11 +42,11 @@ public sealed class LimitEnforcer
         AccumulatedOutputTokens += outputTokens;
 
         if (AccumulatedInputTokens > _limits.MaxInputTokensPerSkillCall)
-            return Cap(LimitDecisionKind.CappedTokens,
+            return Cap(LimitDecisionKind.CappedTokens, "tokens",
                 $"input tokens {AccumulatedInputTokens} > {_limits.MaxInputTokensPerSkillCall}");
 
         if (AccumulatedOutputTokens > _limits.MaxOutputTokensPerSkillCall)
-            return Cap(LimitDecisionKind.CappedTokens,
+            return Cap(LimitDecisionKind.CappedTokens, "tokens",
                 $"output tokens {AccumulatedOutputTokens} > {_limits.MaxOutputTokensPerSkillCall}");
 
         return LimitDecision.Continue();
@@ -58,13 +65,15 @@ public sealed class LimitEnforcer
         if (ElapsedMs <= _limits.MaxSecondsPerSkillCall * 1000L)
             return true;
 
+        HitLimit ??= "wall-clock";
         if (!_cts.IsCancellationRequested)
             _cts.Cancel();
         return false;
     }
 
-    private LimitDecision Cap(LimitDecisionKind kind, string reason)
+    private LimitDecision Cap(LimitDecisionKind kind, string label, string reason)
     {
+        HitLimit ??= label;
         if (!_cts.IsCancellationRequested)
             _cts.Cancel();
         return LimitDecision.Cap(kind, reason);

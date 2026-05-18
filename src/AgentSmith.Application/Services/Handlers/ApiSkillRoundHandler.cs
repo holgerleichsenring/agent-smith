@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -23,8 +24,9 @@ public sealed class ApiSkillRoundHandler(
     IProjectBriefBuilder projectBriefBuilder,
     IBaselineLoader baselineLoader,
     HttpProbeRunner? httpProbeRunner,
+    ISkillCallRuntime skillCallRuntime,
     ILogger<ApiSkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory, skillCallRuntime),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
     private readonly SwaggerSpecCompressor _compressor = new();

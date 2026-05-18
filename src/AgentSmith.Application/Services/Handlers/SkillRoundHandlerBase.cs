@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -15,17 +16,21 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Orchestrates a single skill round — delegates prompt building, LLM calls,
-/// gate handling, and upstream context to injected services.
-/// Subclasses provide only the domain-specific context section.
+/// gate handling, and upstream context to injected services. Post-p0142 the
+/// chat call itself goes through <see cref="ISkillCallRuntime"/> so the
+/// LimitEnforcer + RetryCoordinator + LoopTraceCollector + OutcomeClassifier
+/// actually run for every round. Subclasses provide only the domain section.
 /// </summary>
 public abstract class SkillRoundHandlerBase(
     ISkillPromptBuilder promptBuilder,
     IGateRetryCoordinator gateRetryCoordinator,
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
-    IChatClientFactory chatClientFactory)
+    IChatClientFactory chatClientFactory,
+    ISkillCallRuntime skillCallRuntime)
 {
     protected IChatClientFactory ChatClientFactory { get; } = chatClientFactory;
+    private readonly ISkillCallRuntime _skillCallRuntime = skillCallRuntime;
 
     private static readonly Regex ObjectionPattern = new(
         @"OBJECTION\s*\[?\s*(\S+)\s*\]?",
@@ -90,29 +95,31 @@ public abstract class SkillRoundHandlerBase(
             discussionForPrompt, round, existingTests, assignedRole, planArtifact);
 
         var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
-        var chat = ChatClientFactory.Create(agent, TaskType.Primary);
-        var maxTokens = ChatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
         var combinedUser = string.IsNullOrEmpty(userSuffix) ? userPrefix : $"{userPrefix}\n\n{userSuffix}";
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, combinedUser),
         };
-        // p0132a: per-skill cost attribution. The runtime's full migration
-        // (limits, retry, structured trace) is deferred — opening a
-        // SkillCallScope is enough to populate PerSkillBreakdown. Dispose
-        // closes it without a LimitEnforcer; BuildRecord falls back to
-        // elapsed-ms from StartedAt.
-        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        ChatResponse response;
-        using (var _ = costTracker.BeginCall(
-            skillName, role.Role ?? "investigator", MapPhase(pipeline)))
+        // p0142: dispatch through ISkillCallRuntime so LimitEnforcer +
+        // OutcomeClassifier + LoopTraceCollector actually run. Discussion
+        // rounds carry an empty ToolSet — the LLM emits observations only.
+        var runtimeRequest = new SkillCallRequest
         {
-            response = await chat.GetResponseAsync(messages,
-                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-            costTracker.Track(response);
-        }
-        var responseText = response.Text ?? string.Empty;
+            SkillName = skillName,
+            Role = role.Role ?? "investigator",
+            Phase = MapPhase(pipeline),
+            PromptParts = messages,
+            ToolSet = Array.Empty<AITool>(),
+            AgentConfig = agent,
+            TaskType = TaskType.Primary,
+            PipelineName = ResolvePipelineName(pipeline)
+        };
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        var runtimeResult = await _skillCallRuntime.ExecuteAsync(runtimeRequest, costTracker, cancellationToken);
+        if (TranslateDiscussionOutcome(runtimeResult, skillName, role) is { } earlyFail)
+            return earlyFail;
+        var responseText = runtimeResult.Output ?? string.Empty;
 
         var rawParsed = ObservationParser.ParseWithoutIds(responseText, skillName, Logger);
         var parsed = ApplyConfidenceThreshold(rawParsed, skillName, Logger);
@@ -362,24 +369,29 @@ public abstract class SkillRoundHandlerBase(
                 skillName, role, orch, systemPrompt, userPrefix, userSuffix, pipeline, cancellationToken);
 
         var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
-        var chat = ChatClientFactory.Create(agent, TaskType.Primary);
-        var maxTokens = ChatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary);
         var combinedUser = string.IsNullOrEmpty(userSuffix) ? userPrefix : $"{userPrefix}\n\n{userSuffix}";
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, combinedUser),
         };
-        // p0132a: per-skill cost attribution.
-        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        ChatResponse response;
-        using (var _ = costTracker.BeginCall(skillName, role.Role ?? "investigator", MapPhase(pipeline)))
+        // p0142: structured (non-gate) Lead/Reviewer rounds dispatch via runtime.
+        var runtimeRequest = new SkillCallRequest
         {
-            response = await chat.GetResponseAsync(messages,
-                new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-            costTracker.Track(response);
-        }
-        var responseText = response.Text ?? string.Empty;
+            SkillName = skillName,
+            Role = role.Role ?? "investigator",
+            Phase = MapPhase(pipeline),
+            PromptParts = messages,
+            ToolSet = Array.Empty<AITool>(),
+            AgentConfig = agent,
+            TaskType = TaskType.Primary,
+            PipelineName = ResolvePipelineName(pipeline)
+        };
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        var runtimeResult = await _skillCallRuntime.ExecuteAsync(runtimeRequest, costTracker, cancellationToken);
+        if (TranslateStructuredOutcome(runtimeResult, skillName, role) is { } earlyFail)
+            return earlyFail;
+        var responseText = runtimeResult.Output ?? string.Empty;
 
         Logger.LogInformation("{Emoji} {DisplayName} [{Role}]: structured round complete",
             role.Emoji, role.DisplayName, orch.Role);
@@ -398,8 +410,20 @@ public abstract class SkillRoundHandlerBase(
         string systemPrompt, string userPrefix, string userSuffix, PipelineContext pipeline,
         CancellationToken cancellationToken)
     {
-        var outcome = await gateRetryCoordinator.ExecuteAsync(
-            role, orch, systemPrompt, userPrefix, userSuffix, pipeline, cancellationToken);
+        // p0142 (closes deferred-3x debt from p0132a/b/c): the gate path stays
+        // direct (GateRetryCoordinator owns the corrective-retry policy), but
+        // each attempt now records cost inside a SkillCallScope so PerSkill-
+        // Breakdown reflects per-attempt tokens. The runtime is NOT involved
+        // here — its retry policy is mechanical (parse/validation), gate is
+        // observation-driven, and conflating the two would lose semantics.
+        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        GateCallOutcome outcome;
+        using (var scope = costTracker.BeginCall(skillName, role.Role ?? "investigator", MapPhase(pipeline)))
+        {
+            outcome = await gateRetryCoordinator.ExecuteAsync(
+                role, orch, systemPrompt, userPrefix, userSuffix, pipeline, cancellationToken,
+                onResponse: costTracker.Track);
+        }
 
         var buffer = new SkillRoundBuffer(skillName, 0, [], null, outcome.FinalResponseText);
         DispatchBuffer(pipeline, buffer);
@@ -409,6 +433,49 @@ public abstract class SkillRoundHandlerBase(
 
         return outcome.Result;
     }
+
+    /// <summary>
+    /// p0142 Discussion-rounds outcome→CommandResult policy:
+    /// Ok + Incomplete are both acceptable (Incomplete still produces partial
+    /// observations that downstream handlers tolerate); FailedParse / Failed-
+    /// Validation / FailedRuntime collapse to CommandResult.Fail with the
+    /// runtime's FailureReason. Returns null when the round may proceed.
+    /// </summary>
+    private CommandResult? TranslateDiscussionOutcome(
+        SkillCallResult result, string skillName, RoleSkillDefinition role)
+    {
+        switch (result.Outcome)
+        {
+            case SkillCallOutcome.Ok:
+                return null;
+            case SkillCallOutcome.Incomplete:
+                Logger.LogWarning(
+                    "{Skill} ({Role}) discussion round returned Incomplete (limit: {Limit}) — partial observations will be used",
+                    skillName, role.DisplayName, result.Cost.HitLimit ?? "unknown");
+                return null;
+            default:
+                return CommandResult.Fail(
+                    $"{role.DisplayName} ({skillName}): {result.Outcome} — {result.FailureReason ?? "no reason given"}");
+        }
+    }
+
+    /// <summary>
+    /// p0142 Structured (non-gate) outcome→CommandResult policy: Plan/Review
+    /// rounds can't tolerate partial output (downstream gate-handler would
+    /// reject), so only Ok proceeds; Incomplete + every Failed* short-circuit.
+    /// </summary>
+    private CommandResult? TranslateStructuredOutcome(
+        SkillCallResult result, string skillName, RoleSkillDefinition role)
+    {
+        return result.Outcome == SkillCallOutcome.Ok
+            ? null
+            : CommandResult.Fail(
+                $"{role.DisplayName} ({skillName}): {result.Outcome} — {result.FailureReason ?? "no reason given"}");
+    }
+
+    /// <summary>p0145+p0142: pipeline-name carrier for the future IToolKit pickup; null falls back to '*'.</summary>
+    private static string? ResolvePipelineName(PipelineContext pipeline)
+        => pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
 
     private CommandResult? DetectObjection(
         string responseText, RoleSkillDefinition role,
