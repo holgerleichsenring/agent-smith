@@ -20,10 +20,50 @@ public sealed class ResolvedProjectBuilder
         var agent = ResolveAgent(name, raw.Agent, agents, errors);
         var tracker = ResolveTracker(name, raw.Tracker, trackers, errors);
         var repoList = ResolveRepos(name, raw.Repos, repos, errors);
+        var pipelines = ResolvePipelines(name, raw.Pipelines, agents, errors);
 
-        if (agent is null || tracker is null || repoList is null) return null;
+        if (agent is null || tracker is null || repoList is null || pipelines is null) return null;
 
-        return CreateProject(name, raw, agent, tracker, repoList);
+        return CreateProject(name, raw, agent, tracker, repoList, pipelines);
+    }
+
+    private static IReadOnlyList<PipelineDefinition>? ResolvePipelines(
+        string project, IReadOnlyList<RawPipelineEntry> raws,
+        IReadOnlyDictionary<string, AgentConfig> agents, List<string> errors)
+    {
+        var result = new List<PipelineDefinition>(raws.Count);
+        var anyError = false;
+        foreach (var r in raws)
+        {
+            if (string.IsNullOrEmpty(r.Name))
+            {
+                errors.Add($"Project '{project}': pipelines entry is missing required field 'name'.");
+                anyError = true;
+                continue;
+            }
+
+            AgentConfig? resolvedAgent = null;
+            if (!string.IsNullOrEmpty(r.Agent))
+            {
+                if (!agents.TryGetValue(r.Agent, out resolvedAgent))
+                {
+                    errors.Add(
+                        $"Project '{project}': pipeline '{r.Name}' references agent '{r.Agent}' " +
+                        $"which is not defined in agents: catalog.");
+                    anyError = true;
+                }
+            }
+
+            result.Add(new PipelineDefinition
+            {
+                Name = r.Name,
+                AgentName = string.IsNullOrEmpty(r.Agent) ? null : r.Agent,
+                Agent = resolvedAgent,
+                SkillsPath = r.SkillsPath,
+                CodingPrinciplesPath = r.CodingPrinciplesPath,
+            });
+        }
+        return anyError ? null : result;
     }
 
     private static AgentConfig? ResolveAgent(
@@ -79,7 +119,8 @@ public sealed class ResolvedProjectBuilder
 
     private static ResolvedProject CreateProject(
         string name, RawProjectEntry raw,
-        AgentConfig agent, TrackerConnection tracker, IReadOnlyList<RepoConnection> repos) =>
+        AgentConfig agent, TrackerConnection tracker, IReadOnlyList<RepoConnection> repos,
+        IReadOnlyList<PipelineDefinition> pipelines) =>
         new()
         {
             Name = name,
@@ -87,7 +128,7 @@ public sealed class ResolvedProjectBuilder
             Tracker = tracker,
             Repos = repos,
             Pipeline = raw.Pipeline,
-            Pipelines = raw.Pipelines,
+            Pipelines = pipelines,
             DefaultPipeline = raw.DefaultPipeline,
             CodingPrinciplesPath = raw.CodingPrinciplesPath,
             SkillsPath = raw.SkillsPath,

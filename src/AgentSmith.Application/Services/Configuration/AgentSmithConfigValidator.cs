@@ -18,7 +18,86 @@ public sealed class AgentSmithConfigValidator
         var errors = new List<string>();
         ValidatePipelineTriggers(config.PipelineTriggers, errors);
         ValidateProjectTriggers(config.Projects, errors);
+        ValidateProjectResolutionPresence(config.Projects, errors);
+        ValidateRepoStrategySingleRepo(config.Projects, errors);
+        ValidatePipelineOverrides(config.Projects, errors);
         return errors;
+    }
+
+    private static void ValidateProjectResolutionPresence(
+        IReadOnlyDictionary<string, ResolvedProject> projects, List<string> errors)
+    {
+        foreach (var (name, project) in projects)
+        {
+            foreach (var (kind, trigger) in EnumerateTriggers(project))
+            {
+                if (trigger.ProjectResolution is not null) continue;
+                errors.Add(
+                    $"Project '{name}': {kind} is missing required 'project_resolution' " +
+                    "(p0140 — declares how the webhook handler picks this project for an " +
+                    "incoming ticket; one of tag/area-path/repo/to_address).");
+            }
+        }
+    }
+
+    private static void ValidateRepoStrategySingleRepo(
+        IReadOnlyDictionary<string, ResolvedProject> projects, List<string> errors)
+    {
+        foreach (var (name, project) in projects)
+        {
+            foreach (var (kind, trigger) in EnumerateTriggers(project))
+            {
+                if (trigger.ProjectResolution is null) continue;
+                if (trigger.ProjectResolution.Strategy != ResolutionStrategy.Repo) continue;
+                if (project.Repos.Count == 1) continue;
+                errors.Add(
+                    $"Project '{name}': {kind} project_resolution.strategy=repo requires " +
+                    $"exactly one entry in repos (has {project.Repos.Count}). Use strategy=tag " +
+                    "or area-path for multi-repo projects, since the webhook payload's repo URL " +
+                    "alone cannot disambiguate which repo of the project the ticket belongs to.");
+            }
+        }
+    }
+
+    private static void ValidatePipelineOverrides(
+        IReadOnlyDictionary<string, ResolvedProject> projects, List<string> errors)
+    {
+        foreach (var (name, project) in projects)
+        {
+            foreach (var pipeline in project.Pipelines)
+            {
+                if (string.IsNullOrEmpty(pipeline.Name))
+                {
+                    errors.Add($"Project '{name}': pipelines entry has empty name.");
+                    continue;
+                }
+                if (!PipelinePresets.Names.Contains(pipeline.Name))
+                {
+                    errors.Add(
+                        $"Project '{name}': pipelines['{pipeline.Name}'] is not a known " +
+                        $"pipeline (known: {string.Join(", ", PipelinePresets.Names)}).");
+                }
+                // AgentName resolution itself is handled by ResolvedProjectBuilder.
+                // If the agent reference was unknown, the catalog resolver already failed and
+                // we never reach this validator. So here we only re-affirm by checking that
+                // when AgentName is set, Agent was successfully populated.
+                if (!string.IsNullOrEmpty(pipeline.AgentName) && pipeline.Agent is null)
+                {
+                    errors.Add(
+                        $"Project '{name}': pipelines['{pipeline.Name}'] declares agent " +
+                        $"override '{pipeline.AgentName}' but the agent was not resolved " +
+                        "from the catalog (should have been caught at load).");
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<(string Kind, WebhookTriggerConfig Trigger)> EnumerateTriggers(ResolvedProject project)
+    {
+        if (project.GithubTrigger is not null) yield return ("github_trigger", project.GithubTrigger);
+        if (project.GitlabTrigger is not null) yield return ("gitlab_trigger", project.GitlabTrigger);
+        if (project.AzuredevopsTrigger is not null) yield return ("azuredevops_trigger", project.AzuredevopsTrigger);
+        if (project.JiraTrigger is not null) yield return ("jira_trigger", project.JiraTrigger);
     }
 
     private static void ValidatePipelineTriggers(PipelineTriggerMap map, List<string> errors)
