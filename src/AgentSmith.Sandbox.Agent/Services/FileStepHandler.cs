@@ -42,10 +42,14 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
             return Failure(step, sw, "file exceeds 1 MB limit");
 
         var bytes = File.ReadAllBytes(path);
+        var bomLen = HasUtf8Bom(bytes) ? 3 : 0;
         try
         {
             var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-            var content = encoding.GetString(bytes);
+            // Decode post-BOM bytes only — keeps the LLM from seeing U+FEFF in
+            // its tool output, which it has been observed to mangle into U+0000
+            // when echoing the content back via a WriteFile call.
+            var content = encoding.GetString(bytes, bomLen, bytes.Length - bomLen);
             return Success(step, sw, content);
         }
         catch (DecoderFallbackException)
@@ -66,10 +70,26 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
+        // Mirror the target's BOM convention. Visual Studio writes .cs files
+        // with a UTF-8 BOM by default; HandleRead strips it before the LLM
+        // sees the content, so we re-emit it on write to keep the file's
+        // encoding stable across edits.
+        var emitBom = File.Exists(path) && TargetHasUtf8Bom(path);
+        var encoding = new UTF8Encoding(emitBom);
         var tempPath = $"{path}.tmp.{Guid.NewGuid():N}";
-        await File.WriteAllTextAsync(tempPath, content, new UTF8Encoding(false), ct);
+        await File.WriteAllTextAsync(tempPath, content, encoding, ct);
         File.Move(tempPath, path, overwrite: true);
         return Success(step, sw, null);
+    }
+
+    private static bool HasUtf8Bom(ReadOnlySpan<byte> bytes) =>
+        bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+
+    private static bool TargetHasUtf8Bom(string path)
+    {
+        using var fs = File.OpenRead(path);
+        Span<byte> head = stackalloc byte[3];
+        return fs.Read(head) == 3 && HasUtf8Bom(head);
     }
 
     private static async Task<StepResult> HandleListAsync(
