@@ -63,12 +63,10 @@ public sealed class GitLabMrLabelWebhookHandler(
     private static string? FindProjectBySourceUrl(AgentSmithConfig config, string repoUrl)
     {
         foreach (var (name, project) in config.Projects)
-        {
-            if (project.Source.Url is not null
-                && repoUrl.Contains(project.Source.Url, StringComparison.OrdinalIgnoreCase))
-                return name;
-        }
-
+            foreach (var repo in project.Repos)
+                if (repo.Url is not null
+                    && repoUrl.Contains(repo.Url, StringComparison.OrdinalIgnoreCase))
+                    return name;
         return null;
     }
 }

@@ -32,9 +32,9 @@ public sealed class InitCommitHandlerLifecycleTests
 
     public InitCommitHandlerLifecycleTests()
     {
-        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>()))
+        _sourceFactoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns(_sourceProviderMock.Object);
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(_ticketProviderMock.Object);
 
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
@@ -70,7 +70,7 @@ public sealed class InitCommitHandlerLifecycleTests
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _ticketProviderMock.Verify(t => t.CloseTicketAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _ticketFactoryMock.Verify(f => f.Create(It.IsAny<TicketConfig>()), Times.Never);
+        _ticketFactoryMock.Verify(f => f.Create(It.IsAny<TrackerConnection>()), Times.Never);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class InitCommitHandlerLifecycleTests
     private InitCommitContext CreateContext(PipelineContext pipeline)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
-        return new InitCommitContext(repo, new SourceConfig(), new TicketConfig(), pipeline);
+        return new InitCommitContext(repo, new RepoConnection(), new TrackerConnection(), pipeline);
     }
 
     private PipelineContext NewPipelineWithSandbox()

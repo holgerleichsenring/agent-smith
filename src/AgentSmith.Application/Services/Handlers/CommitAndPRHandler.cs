@@ -31,12 +31,12 @@ public sealed class CommitAndPRHandler(
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return CommandResult.Fail("CommitAndPR requires an active sandbox; none in pipeline context.");
 
-        var sourceProvider = sourceFactory.Create(context.SourceConfig);
+        var sourceProvider = sourceFactory.Create(context.RepoConnection);
 
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
         await gitOps.CommitAndPushAsync(
             sandbox, context.Repository.CurrentBranch.Value, message,
-            context.SourceConfig.Type, cancellationToken);
+            context.RepoConnection.Type, cancellationToken);
 
         var prUrl = await sourceProvider.CreatePullRequestAsync(
             context.Repository,
@@ -61,7 +61,7 @@ public sealed class CommitAndPRHandler(
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
 
         var summary = $"""
-            ## Agent Smith - Completed
+            ## Agent Smith - Completed in {context.RepoConnection.Name}
 
             **PR:** {prUrl}
 
@@ -74,7 +74,7 @@ public sealed class CommitAndPRHandler(
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
 
         return TicketLifecycle.FinalizeAsync(
-            ticketFactory, context.TicketConfig, context.Ticket.Id,
+            ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, cancellationToken);
     }
 }

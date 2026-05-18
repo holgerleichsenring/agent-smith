@@ -67,7 +67,7 @@ public sealed class PipelineExecutor(
 
     public async Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
-        ProjectConfig projectConfig,
+        ResolvedProject projectConfig,
         PipelineContext context,
         CancellationToken cancellationToken)
     {
@@ -139,6 +139,17 @@ public sealed class PipelineExecutor(
                     return CommandResult.Ok("Pipeline parked: awaiting_user_input");
                 }
 
+                // p0140e: EmptyPlanCheckHandler sets EmptyPlanSkipped when the Plan produced
+                // zero steps (no actionable work). Cleanly skip the remaining handlers — the
+                // counter has already been emitted by the gate handler.
+                if (context.TryGet<bool>(ContextKeys.EmptyPlanSkipped, out var emptyPlanSkipped)
+                    && emptyPlanSkipped)
+                {
+                    logger.LogInformation(
+                        "Pipeline skipped: Plan produced zero steps (empty_plan)");
+                    return CommandResult.Ok("Pipeline skipped: empty_plan");
+                }
+
                 current = advanceTo ?? batch[^1].Next;
             }
 
@@ -160,7 +171,7 @@ public sealed class PipelineExecutor(
     }
 
     private async Task<ISandbox> TryCreateSandboxAsync(
-        ProjectConfig projectConfig,
+        ResolvedProject projectConfig,
         PipelineContext context, CancellationToken cancellationToken)
     {
         var (language, layer) = await ResolveToolchainLanguageAsync(projectConfig, context, cancellationToken);
@@ -187,11 +198,11 @@ public sealed class PipelineExecutor(
     // disk/network calls); the cache + remote-context-yaml layers go through
     // SandboxLanguageResolver.
     private async Task<(string? Language, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer Layer)> ResolveToolchainLanguageAsync(
-        ProjectConfig projectConfig, PipelineContext context, CancellationToken cancellationToken)
+        ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(projectConfig.Sandbox?.ToolchainImage))
         {
-            // Builder consumes the override directly via ProjectConfig.Sandbox.ToolchainImage;
+            // Builder consumes the override directly via ResolvedProject.Sandbox.ToolchainImage;
             // language stays null because the override is image-level.
             return (null, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer.Override);
         }
@@ -202,7 +213,8 @@ public sealed class PipelineExecutor(
             return (inMemory.PrimaryLanguage, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer.InMemoryProjectMap);
         }
 
-        var result = await sandboxLanguageResolver.ResolveAsync(projectConfig.Source, cancellationToken);
+        var currentRepo = context.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var result = await sandboxLanguageResolver.ResolveAsync(currentRepo, cancellationToken);
         return (result.Language, result.Layer);
     }
 
@@ -212,7 +224,7 @@ public sealed class PipelineExecutor(
     /// can NEVER overwrite the original failure cause already in <paramref name="originalFailure"/>.
     /// </summary>
     private async Task TryPersistWorkBranchAsync(
-        IReadOnlyList<string> commandNames, ProjectConfig projectConfig, PipelineContext context,
+        IReadOnlyList<string> commandNames, ResolvedProject projectConfig, PipelineContext context,
         CommandResult originalFailure, CancellationToken cancellationToken)
     {
         try
@@ -280,7 +292,7 @@ public sealed class PipelineExecutor(
         ExecuteSingleStepAsync(
             LinkedListNode<PipelineCommand> current,
             LinkedList<PipelineCommand> commands,
-            ProjectConfig projectConfig, PipelineContext context,
+            ResolvedProject projectConfig, PipelineContext context,
             int executionCount, CancellationToken cancellationToken)
     {
         var cmd = current.Value;
@@ -317,7 +329,7 @@ public sealed class PipelineExecutor(
 
     private async Task<(CommandResult Result, LinkedListNode<PipelineCommand>? AdvanceTo)> FinalizeStepAsync(
         LinkedListNode<PipelineCommand> current, LinkedList<PipelineCommand> commands,
-        ProjectConfig projectConfig, PipelineContext context, int executionCount,
+        ResolvedProject projectConfig, PipelineContext context, int executionCount,
         PipelineCommand cmd, string label, TimeSpan elapsed, CommandResult result,
         CancellationToken cancellationToken)
     {
@@ -344,7 +356,7 @@ public sealed class PipelineExecutor(
         ExecuteBatchStepAsync(
             IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
             LinkedList<PipelineCommand> commands,
-            ProjectConfig projectConfig, PipelineContext context,
+            ResolvedProject projectConfig, PipelineContext context,
             int firstStepIndex, CancellationToken cancellationToken)
     {
         var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
@@ -377,7 +389,7 @@ public sealed class PipelineExecutor(
     }
 
     private async Task<CommandResult> SafeExecuteAsync(
-        PipelineCommand cmd, ProjectConfig projectConfig, PipelineContext context,
+        PipelineCommand cmd, ResolvedProject projectConfig, PipelineContext context,
         CancellationToken cancellationToken)
     {
         try
@@ -415,7 +427,7 @@ public sealed class PipelineExecutor(
     private async Task ReportFailureAsync(
         int executionCount, int total, string label,
         PipelineCommand cmd, CommandResult result,
-        ProjectConfig projectConfig, PipelineContext context, CancellationToken ct)
+        ResolvedProject projectConfig, PipelineContext context, CancellationToken ct)
     {
         logger.LogWarning("Pipeline stopped at step {Step}: {Command} failed - {Message}",
             executionCount, cmd.DisplayName, result.Message);
@@ -471,7 +483,7 @@ public sealed class PipelineExecutor(
     }
 
     private async Task PostTicketStatusAsync(
-        ProjectConfig projectConfig, PipelineContext context,
+        ResolvedProject projectConfig, PipelineContext context,
         string message, CancellationToken cancellationToken)
     {
         try
@@ -479,7 +491,7 @@ public sealed class PipelineExecutor(
             if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
                 return;
 
-            var ticketProvider = ticketFactory.Create(projectConfig.Tickets);
+            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             await ticketProvider.UpdateStatusAsync(ticketId, message, cancellationToken);
         }
         catch (Exception ex)

@@ -33,7 +33,7 @@ public sealed class SandboxLanguageResolver(
     };
 
     public async Task<ToolchainResolutionResult> ResolveAsync(
-        SourceConfig source, CancellationToken cancellationToken)
+        RepoConnection source, CancellationToken cancellationToken)
     {
         var cacheLanguage = await TryResolveFromCacheAsync(source, cancellationToken);
         if (!string.IsNullOrEmpty(cacheLanguage))
@@ -47,7 +47,7 @@ public sealed class SandboxLanguageResolver(
     }
 
     private async Task<string?> TryResolveFromCacheAsync(
-        SourceConfig source, CancellationToken cancellationToken)
+        RepoConnection source, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(source.Url)) return null;
 
@@ -71,7 +71,7 @@ public sealed class SandboxLanguageResolver(
     }
 
     private async Task<string?> TryResolveFromContextYamlAsync(
-        SourceConfig source, CancellationToken cancellationToken)
+        RepoConnection source, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(source.Url)) return null;
 

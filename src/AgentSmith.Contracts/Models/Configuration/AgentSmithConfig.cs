@@ -1,63 +1,35 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// Root configuration model deserialized from agentsmith.yml.
+/// Root configuration model. Built by the loader from raw YAML plus the
+/// catalog resolver — never directly bound by YamlDotNet.
+///
+/// Projects expose <see cref="ResolvedProject"/>: catalog references
+/// (agent/tracker/repos) are already materialized to records by the time
+/// any consumer sees this object.
 /// </summary>
 public sealed class AgentSmithConfig
 {
-    public Dictionary<string, ProjectConfig> Projects { get; set; } = new();
-    public Dictionary<string, string> Secrets { get; set; } = new();
+    public Dictionary<string, AgentConfig> Agents { get; init; } = new();
+    public Dictionary<string, RepoConnection> Repos { get; init; } = new();
+    public Dictionary<string, TrackerConnection> Trackers { get; init; } = new();
+    public PipelineTriggerMap PipelineTriggers { get; init; } = PipelineTriggerMap.Empty;
+    public Dictionary<string, ResolvedProject> Projects { get; init; } = new();
+    public IReadOnlyDictionary<string, string> Secrets { get; init; } = new Dictionary<string, string>();
+
+    public QueueConfig Queue { get; init; } = new();
+    public SkillsConfig Skills { get; init; } = new();
+    public string? PrimaryProvider { get; init; }
+    public LoopLimitsConfig Limits { get; init; } = new();
+    public PipelineStorageConfig PipelineStorage { get; init; } = new();
+    public PipelineDataFlowConfig PipelineDataFlow { get; init; } = new();
+    public SandboxGlobalConfig Sandbox { get; init; } = new();
+    public OrchestratorGlobalConfig Orchestrator { get; init; } = new();
 
     /// <summary>
-    /// Process-wide queue settings. Shared across all projects — one queue, one consumer
-    /// with bounded concurrency as the backpressure knob.
+    /// Empty placeholder. Used by DI default registration when no real config
+    /// has been loaded yet (composition roots later replace it with the
+    /// loader's output).
     /// </summary>
-    public QueueConfig Queue { get; set; } = new();
-
-    /// <summary>
-    /// Skill catalog source. The server pulls or mounts the catalog at boot
-    /// based on this section. See <see cref="SkillsConfig"/>.
-    /// </summary>
-    public SkillsConfig Skills { get; set; } = new();
-
-    /// <summary>
-    /// Active provider for skill resolution (claude, openai, azure-openai, gemini, ollama).
-    /// When set, SKILL.&lt;provider&gt;.md files in skill directories are picked up as
-    /// overrides over the base SKILL.md. Null/empty disables provider overrides
-    /// (default — base SKILL.md always wins).
-    /// </summary>
-    public string? PrimaryProvider { get; set; }
-
-    /// <summary>
-    /// Hard limits for the per-skill agentic loop (token caps, wall-clock cap,
-    /// tool-call caps, concurrency cap). Defaults match Phase B of the runtime design;
-    /// see <see cref="LoopLimitsConfig"/>.
-    /// </summary>
-    public LoopLimitsConfig Limits { get; set; } = new();
-
-    /// <summary>
-    /// In-flight pipeline-storage settings (Redis TTL for transient artifacts).
-    /// See <see cref="PipelineStorageConfig"/>.
-    /// </summary>
-    public PipelineStorageConfig PipelineStorage { get; set; } = new();
-
-    /// <summary>
-    /// p0128c data-flow gating settings. <c>Enforce=false</c> by default — the
-    /// gate logs warnings on undeclared reads but doesn't fail the run.
-    /// </summary>
-    public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
-
-    /// <summary>
-    /// Process-wide sandbox defaults — agent carrier registry + version that
-    /// every spawned sandbox pod references unless a project's
-    /// <see cref="SandboxConfig"/> block overrides them. See <see cref="SandboxGlobalConfig"/>.
-    /// </summary>
-    public SandboxGlobalConfig Sandbox { get; set; } = new();
-
-    /// <summary>
-    /// Process-wide orchestrator defaults — image registry + version for the
-    /// pipeline-runner container the dispatcher spawns per ticket. Per-project
-    /// <see cref="OrchestratorConfig"/> blocks override these field-by-field.
-    /// </summary>
-    public OrchestratorGlobalConfig Orchestrator { get; set; } = new();
+    public static AgentSmithConfig Empty() => new();
 }

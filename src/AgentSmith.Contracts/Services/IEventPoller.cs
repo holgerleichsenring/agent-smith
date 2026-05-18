@@ -3,14 +3,21 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Discovers tickets eligible for the claim flow by listing tickets with the trigger
-/// label in Pending status. Label-idempotent — no cursor, the ticket status decides
-/// whether to act. Orchestration (calling ITicketClaimService) is the host's job.
+/// p0140c: per-tracker poller. Pulls all open tickets from one tracker, routes each
+/// through IEnvelopeProjectResolver, and calls ISpawnPipelineRunsUseCase per matched
+/// project. PollAsync returns a PollResult count summary; the actual spawn happens
+/// inside the poller (no longer relayed by PollerHostedService via ClaimRequests).
 /// </summary>
 public interface IEventPoller
 {
+    /// <summary>Tracker type label for logs (e.g. "GitHub", "Jira").</summary>
     string PlatformName { get; }
-    string ProjectName { get; }
+
+    /// <summary>Tracker catalog name — identifies which tracker connection this poller serves.</summary>
+    string TrackerName { get; }
+
+    /// <summary>Polling cadence in seconds. From TrackerConnection.Polling.IntervalSeconds.</summary>
     int IntervalSeconds { get; }
-    Task<IReadOnlyList<ClaimRequest>> PollAsync(CancellationToken cancellationToken);
+
+    Task<PollResult> PollAsync(CancellationToken cancellationToken);
 }

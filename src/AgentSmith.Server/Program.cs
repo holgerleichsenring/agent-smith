@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services;
@@ -72,6 +73,22 @@ app.MapHealthEndpoints()
 
 var startupConfig = app.Services.GetRequiredService<IConfigurationLoader>()
     .LoadConfig(configPath);
+
+var validationErrors = app.Services
+    .GetRequiredService<AgentSmithConfigValidator>()
+    .Validate(startupConfig);
+if (validationErrors.Count > 0)
+{
+    var logger = app.Services
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("AgentSmith.Server.Startup");
+    foreach (var err in validationErrors) logger.LogError("Config: {Error}", err);
+    throw new InvalidOperationException(
+        $"agentsmith.yml has {validationErrors.Count} validation error(s); see startup log.");
+}
+
+app.Services.GetRequiredService<PollingConfigDeprecationWarner>().Warn(startupConfig);
+
 StartupSummaryLogger.Log(
     startupConfig,
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AgentSmith.Server.Startup"));

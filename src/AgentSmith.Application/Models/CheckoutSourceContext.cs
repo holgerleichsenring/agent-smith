@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Models;
 /// Context for checking out a source repository.
 /// </summary>
 public sealed record CheckoutSourceContext(
-    SourceConfig Config,
+    RepoConnection Config,
     BranchName? Branch,
     PipelineContext Pipeline) : ICommandContext;

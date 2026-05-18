@@ -12,6 +12,6 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public sealed class SandboxResourceResolver(IOptions<SandboxOptions> options) : ISandboxResourceResolver
 {
-    public ResourceLimits Resolve(ProjectConfig projectConfig) =>
+    public ResourceLimits Resolve(ResolvedProject projectConfig) =>
         projectConfig.Sandbox?.Resources ?? options.Value.ToResourceLimits();
 }

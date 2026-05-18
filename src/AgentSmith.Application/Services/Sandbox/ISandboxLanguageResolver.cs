@@ -10,5 +10,5 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public interface ISandboxLanguageResolver
 {
-    Task<ToolchainResolutionResult> ResolveAsync(SourceConfig source, CancellationToken cancellationToken);
+    Task<ToolchainResolutionResult> ResolveAsync(RepoConnection source, CancellationToken cancellationToken);
 }

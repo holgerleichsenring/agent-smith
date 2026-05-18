@@ -9,6 +9,10 @@ public static class ContextKeys
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";
+    /// <summary>p0140d: the RepoConnection for THIS run. Resolved at the top of ExecutePipelineUseCase
+    /// from PipelineRequest.RepoName + project.Repos. Single source of truth for "which repo is
+    /// this run for" — every consumer that previously read project.Repo now reads CurrentRepo.</summary>
+    public const string CurrentRepo = "CurrentRepo";
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
     public const string ProjectMap = "ProjectMap";
@@ -83,6 +87,11 @@ public static class ContextKeys
     public const string AutonomousFindings = "AutonomousFindings";
     public const string WrittenTickets = "WrittenTickets";
     public const string PipelineTypeName = "PipelineType";
+    /// <summary>p0145: pipeline preset name (e.g. "fix-bug", "security-scan"). Set by
+    /// ExecutePipelineUseCase alongside PipelineTypeName. Distinct from the
+    /// "pipeline_name" concept (Activation-system enum) — this key is the
+    /// ToolKit pipeline-allow-list lookup key.</summary>
+    public const string PipelineName = "PipelineName";
     public const string SkillOutputs = "SkillOutputs";
     public const string ConfigDir = "ConfigDir";
     public const string DoneStatus = "DoneStatus";
@@ -143,6 +152,11 @@ public static class ContextKeys
     // answers from the webhook re-trigger into the next Plan-skill run.
     public const string OpenQuestionsAwaitingAnswer = "OpenQuestionsAwaitingAnswer";
     public const string PlanAnswers = "PlanAnswers";
+
+    /// <summary>p0140e: empty-plan gate flag. Set by EmptyPlanCheckHandler when the Plan has zero
+    /// actionable steps (and no open questions). PipelineExecutor short-circuits the same way as
+    /// OpenQuestionsAwaitingAnswer — run completes Ok without running downstream handlers.</summary>
+    public const string EmptyPlanSkipped = "EmptyPlanSkipped";
 
     // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
     // this before each step and clears it after; the gated context wrapper reads it

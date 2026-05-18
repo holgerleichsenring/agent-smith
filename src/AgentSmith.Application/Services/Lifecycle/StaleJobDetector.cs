@@ -43,7 +43,7 @@ public sealed class StaleJobDetector(
     }
 
     private async Task ScanProjectSafeAsync(
-        string projectName, ProjectConfig project, CancellationToken ct)
+        string projectName, ResolvedProject project, CancellationToken ct)
     {
         try { await ScanProjectAsync(projectName, project, ct); }
         catch (OperationCanceledException) { throw; }
@@ -51,19 +51,19 @@ public sealed class StaleJobDetector(
         {
             logger.LogWarning(ex,
                 "StaleJobDetector skipped project {Project} (Tickets.Type={Type}): {Message}",
-                projectName, project.Tickets.Type, ex.Message);
+                projectName, project.Tracker.Type, ex.Message);
         }
     }
 
     private async Task ScanProjectAsync(
-        string projectName, ProjectConfig project, CancellationToken ct)
+        string projectName, ResolvedProject project, CancellationToken ct)
     {
-        var provider = ticketFactory.Create(project.Tickets);
+        var provider = ticketFactory.Create(project.Tracker);
         var inProgress = await provider.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.InProgress, ct);
         if (inProgress.Count == 0) return;
 
-        var transitioner = transitionerFactory.Create(project.Tickets);
+        var transitioner = transitionerFactory.Create(project.Tracker);
         foreach (var ticket in inProgress)
             await RevertIfStaleAsync(transitioner, projectName, ticket, ct);
     }

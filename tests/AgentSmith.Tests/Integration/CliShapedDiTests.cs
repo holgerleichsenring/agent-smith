@@ -148,11 +148,11 @@ public sealed class CliShapedDiTests : IDisposable
         Environment.SetEnvironmentVariable("AZURE_DEVOPS_TOKEN", "x");
     }
 
-    private static TicketConfig ConfigFor(string platform) => platform switch
+    private static TrackerConnection ConfigFor(string platform) => platform switch
     {
-        "github" => new TicketConfig { Type = "github", Url = "https://github.com/o/r" },
-        "gitlab" => new TicketConfig { Type = "gitlab", Url = "https://gitlab.com", Project = "g/p" },
-        "azuredevops" => new TicketConfig { Type = "azuredevops", Organization = "org", Project = "p" },
+        "github" => new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r" },
+        "gitlab" => new TrackerConnection { Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p" },
+        "azuredevops" => new TrackerConnection { Type = TrackerType.AzureDevOps, Organization = "org", Project = "p" },
         _ => throw new ArgumentException($"unknown platform: {platform}")
     };
 }

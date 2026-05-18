@@ -11,7 +11,7 @@ namespace AgentSmith.Contracts.Services;
 public interface IPipelineLifecycleCoordinator
 {
     Task<IAsyncPipelineLifecycle> BeginAsync(
-        ProjectConfig projectConfig,
+        ResolvedProject projectConfig,
         PipelineContext context,
         CancellationToken cancellationToken);
 }

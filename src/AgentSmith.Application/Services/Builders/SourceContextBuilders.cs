@@ -9,16 +9,16 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class FetchTicketContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
-        return new FetchTicketContext(ticketId, project.Tickets, pipeline);
+        return new FetchTicketContext(ticketId, project.Tracker, pipeline);
     }
 }
 
 public sealed class CheckoutSourceContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var branch = pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var b) && !string.IsNullOrWhiteSpace(b)
             ? new BranchName(b)
@@ -26,25 +26,27 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
                 ? TicketBranchNamer.Compose(ticketId!)
                 : null;
 
-        return new CheckoutSourceContext(project.Source, branch, pipeline);
+        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        return new CheckoutSourceContext(currentRepo, branch, pipeline);
     }
 }
 
 public sealed class TryCheckoutSourceContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var branch = string.IsNullOrWhiteSpace(project.Source.DefaultBranch)
+        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var branch = string.IsNullOrWhiteSpace(currentRepo.DefaultBranch)
             ? null
-            : new BranchName(project.Source.DefaultBranch);
+            : new BranchName(currentRepo.DefaultBranch);
 
-        return new TryCheckoutSourceContext(project.Source, branch, pipeline);
+        return new TryCheckoutSourceContext(currentRepo, branch, pipeline);
     }
 }
 
 public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var path = pipeline.Resolved().CodingPrinciplesPath ?? ProjectMetaPaths.CodingPrinciples;
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
@@ -54,7 +56,7 @@ public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
 
 public sealed class LoadContextContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadContextContext(repo, pipeline);

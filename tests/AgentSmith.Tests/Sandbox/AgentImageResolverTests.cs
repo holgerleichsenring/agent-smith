@@ -16,7 +16,7 @@ public sealed class AgentImageResolverTests
             AgentVersion = "0.48.0"
         }));
 
-        sut.Resolve(new ProjectConfig())
+        sut.Resolve(new ResolvedProject())
             .Should().Be("holgerleichsenring/agent-smith-sandbox-agent:0.48.0");
     }
 
@@ -28,7 +28,7 @@ public sealed class AgentImageResolverTests
             AgentRegistry = "holgerleichsenring",
             AgentVersion = "0.48.0"
         }));
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Sandbox = new SandboxConfig { AgentRegistry = "corp-mirror" }
         };
@@ -44,7 +44,7 @@ public sealed class AgentImageResolverTests
             AgentRegistry = "holgerleichsenring",
             AgentVersion = "0.48.0"
         }));
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Sandbox = new SandboxConfig { AgentVersion = "0.49.0-beta" }
         };
@@ -61,7 +61,7 @@ public sealed class AgentImageResolverTests
             AgentVersion = ""
         }));
 
-        var act = () => sut.Resolve(new ProjectConfig());
+        var act = () => sut.Resolve(new ResolvedProject());
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*sandbox.agent_version*");
@@ -76,6 +76,6 @@ public sealed class AgentImageResolverTests
             AgentVersion = "1.0.0"
         }));
 
-        sut.Resolve(new ProjectConfig()).Should().Be("agent-smith-sandbox-agent:1.0.0");
+        sut.Resolve(new ResolvedProject()).Should().Be("agent-smith-sandbox-agent:1.0.0");
     }
 }

@@ -25,28 +25,42 @@ namespace AgentSmith.Application.Services.Polling;
 public static class PipelineResolver
 {
     public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
-        => Resolve(trigger, labels, logger: null);
+        => Resolve(trigger, labels, globalTriggers: null, logger: null);
 
     public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels, ILogger? logger)
+        => Resolve(trigger, labels, globalTriggers: null, logger);
+
+    public static string? Resolve(
+        WebhookTriggerConfig trigger,
+        IEnumerable<string> labels,
+        PipelineTriggerMap? globalTriggers,
+        ILogger? logger = null)
     {
         var inputLabels = labels.ToList();
         var userLabels = inputLabels
             .Where(l => !string.IsNullOrEmpty(l) && !LifecycleLabels.IsLifecycleLabel(l))
             .ToList();
 
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel)
+        var map = (trigger.PipelineFromLabel is { Count: > 0 } projectMap)
+            ? projectMap
+            : globalTriggers?.AsDictionary;
+
+        if (map is not null)
         {
-            if (userLabels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
+            foreach (var (configLabel, pipeline) in map)
             {
-                logger?.LogInformation(
-                    "PipelineResolver: in=[{In}] user=[{User}] matched {Label} → {Pipeline}",
-                    string.Join(", ", inputLabels), string.Join(", ", userLabels),
-                    configLabel, pipeline);
-                return pipeline;
+                if (userLabels.Contains(configLabel, StringComparer.OrdinalIgnoreCase))
+                {
+                    logger?.LogInformation(
+                        "PipelineResolver: in=[{In}] user=[{User}] matched {Label} → {Pipeline}",
+                        string.Join(", ", inputLabels), string.Join(", ", userLabels),
+                        configLabel, pipeline);
+                    return pipeline;
+                }
             }
         }
 
-        var result = trigger.PipelineFromLabel.Count == 0 ? trigger.DefaultPipeline : null;
+        var result = (map is null || map.Count == 0) ? trigger.DefaultPipeline : null;
         logger?.LogInformation(
             "PipelineResolver: in=[{In}] user=[{User}] no-match → {Pipeline} (will fall back to default)",
             string.Join(", ", inputLabels), string.Join(", ", userLabels),

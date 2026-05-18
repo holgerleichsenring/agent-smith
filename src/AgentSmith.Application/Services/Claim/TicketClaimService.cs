@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Claim;
 
 /// <summary>
-/// Single entry point for starting a pipeline from a ticket event.
-/// Runs pre-checks, acquires a Redis claim lock, transitions ticket Pending → Enqueued,
-/// and enqueues a PipelineRequest. Status stays Enqueued on enqueue failure — recovery
-/// via EnqueuedReconciler in p95c.
+/// Single entry point for starting a pipeline from a ticket event. ClaimSpawnAsync is
+/// the claim-region method for multi-repo spawn: one pre-check + one lock + one lifecycle
+/// transition + N enqueues (delegated to SpawnRegionExecutor). The single-request
+/// ClaimAsync is preserved as a 1-element wrapper for callers that don't fan out.
 /// </summary>
 public sealed class TicketClaimService(
     IRedisClaimLock claimLock,
@@ -23,19 +23,39 @@ public sealed class TicketClaimService(
     public async Task<ClaimResult> ClaimAsync(
         ClaimRequest request, AgentSmithConfig config, CancellationToken ct)
     {
-        using var scope = logger.BeginScope("ticket={Ticket}", request.TicketId.Value);
+        var results = await ClaimSpawnAsync(new[] { request }, config, ct);
+        return results[0];
+    }
 
-        var rejection = ClaimPreChecker.Check(request, config);
-        if (rejection is not null) return Log(request, ClaimResult.Rejected(rejection.Value));
+    public async Task<IReadOnlyList<ClaimResult>> ClaimSpawnAsync(
+        IReadOnlyList<ClaimRequest> requests, AgentSmithConfig config, CancellationToken ct)
+    {
+        if (requests.Count == 0) return Array.Empty<ClaimResult>();
+        AssertSharedTicket(requests);
+        var first = requests[0];
+        using var scope = logger.BeginScope("ticket={Ticket}", first.TicketId.Value);
 
-        var lockKey = $"agentsmith:claim-lock:{request.Platform}:{request.TicketId.Value}";
+        var rejection = PreCheckAll(requests, config);
+        if (rejection is not null)
+            return LogAll(requests, ClaimResult.Rejected(rejection.Value));
+
+        return await ClaimUnderLockAsync(requests, config, ct);
+    }
+
+    private async Task<IReadOnlyList<ClaimResult>> ClaimUnderLockAsync(
+        IReadOnlyList<ClaimRequest> requests, AgentSmithConfig config, CancellationToken ct)
+    {
+        var first = requests[0];
+        var lockKey = $"agentsmith:claim-lock:{first.Platform}:{first.TicketId.Value}";
         var token = await claimLock.TryAcquireAsync(lockKey, ClaimLockTtl, ct);
-        if (token is null) return Log(request, ClaimResult.AlreadyClaimed());
+        if (token is null) return LogAll(requests, ClaimResult.AlreadyClaimed());
 
         try
         {
-            var ticketConfig = config.Projects[request.ProjectName].Tickets;
-            return await AttemptClaimAsync(request, ticketConfig, ct);
+            var tracker = config.Projects[first.ProjectName].Tracker;
+            var executor = new SpawnRegionExecutor(transitionerFactory, jobQueue, logger);
+            var results = await executor.ExecuteAsync(requests, tracker, ct);
+            return LogPerRequest(requests, results);
         }
         finally
         {
@@ -43,56 +63,46 @@ public sealed class TicketClaimService(
         }
     }
 
-    private async Task<ClaimResult> AttemptClaimAsync(
-        ClaimRequest request, TicketConfig ticketConfig, CancellationToken ct)
+    private static ClaimRejectionReason? PreCheckAll(
+        IReadOnlyList<ClaimRequest> requests, AgentSmithConfig config)
     {
-        var transitioner = transitionerFactory.Create(ticketConfig);
-
-        var current = await transitioner.ReadCurrentAsync(request.TicketId, ct);
-        if (current is not null and not TicketLifecycleStatus.Pending)
-            return Log(request, ClaimResult.AlreadyClaimed());
-
-        var transition = await transitioner.TransitionAsync(
-            request.TicketId, TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, ct);
-
-        return transition.Outcome switch
+        foreach (var req in requests)
         {
-            TransitionOutcome.Succeeded => await EnqueueAsync(request, ct),
-            TransitionOutcome.PreconditionFailed => Log(request, ClaimResult.AlreadyClaimed()),
-            _ => Log(request, ClaimResult.Failed(transition.Error ?? transition.Outcome.ToString()))
-        };
+            var rejection = ClaimPreChecker.Check(req, config);
+            if (rejection is not null) return rejection;
+        }
+        return null;
     }
 
-    private async Task<ClaimResult> EnqueueAsync(ClaimRequest request, CancellationToken ct)
+    private IReadOnlyList<ClaimResult> LogAll(IReadOnlyList<ClaimRequest> requests, ClaimResult result)
     {
-        var pipelineRequest = new PipelineRequest(
-            request.ProjectName,
-            request.PipelineName,
-            TicketId: request.TicketId,
-            Headless: true,
-            Context: request.InitialContext,
-            PlanAnswers: request.PlanAnswers);
-
-        try
-        {
-            await jobQueue.EnqueueAsync(pipelineRequest, ct);
-            return Log(request, ClaimResult.Claimed());
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,
-                "Enqueue failed for {Ticket} — status stays Enqueued, reconciler will recover",
-                request.TicketId.Value);
-            return ClaimResult.Failed($"Enqueue failed: {ex.Message}");
-        }
+        var arr = new ClaimResult[requests.Count];
+        for (var i = 0; i < requests.Count; i++) arr[i] = LogOne(requests[i], result);
+        return arr;
     }
 
-    private ClaimResult Log(ClaimRequest request, ClaimResult result)
+    private IReadOnlyList<ClaimResult> LogPerRequest(
+        IReadOnlyList<ClaimRequest> requests, IReadOnlyList<ClaimResult> results)
+    {
+        for (var i = 0; i < requests.Count; i++) LogOne(requests[i], results[i]);
+        return results;
+    }
+
+    private ClaimResult LogOne(ClaimRequest request, ClaimResult result)
     {
         logger.LogInformation(
-            "Claim {Outcome} for {Platform}/{Project}/{Ticket} pipeline={Pipeline} rejection={Rejection} error={Error}",
+            "Claim {Outcome} for {Platform}/{Project}/{Ticket} repo={Repo} pipeline={Pipeline} rejection={Rejection} error={Error}",
             result.Outcome, request.Platform, request.ProjectName, request.TicketId.Value,
-            request.PipelineName, result.Rejection, result.Error);
+            request.RepoName, request.PipelineName, result.Rejection, result.Error);
         return result;
+    }
+
+    private static void AssertSharedTicket(IReadOnlyList<ClaimRequest> requests)
+    {
+        var first = requests[0];
+        for (var i = 1; i < requests.Count; i++)
+            if (requests[i].Platform != first.Platform
+                || !requests[i].TicketId.Value.Equals(first.TicketId.Value, StringComparison.Ordinal))
+                throw new ArgumentException("ClaimSpawnAsync requires shared Platform + TicketId.");
     }
 }

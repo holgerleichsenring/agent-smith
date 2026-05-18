@@ -1,0 +1,230 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0140e
+goal: "Close out the p0140 umbrella with two counters + an explicit empty-plan skip gate + the docs that explain the multi-repo + project_resolution model to operators. Introduces System.Diagnostics.Metrics infrastructure as the project's metrics surface (BCL only, no NuGet dependency added). After p0140e the operator has: (a) a counter that quantifies how often the 'spawn all matched projects and let the Plan phase skip irrelevant ones' rule actually fires, (b) a counter that quantifies how often those spawned-and-irrelevant pipelines really do skip via the new empty-plan gate, (c) three docs files that walk through the new operator-visible behaviors (multi-repo runs, project_resolution strategies, init-flow for multi-repo projects). NOTE: today there is NO empty-plan gate in the codebase — p0140e introduces it as a minimal post-Plan check (plan.Steps.Count == 0 → graceful skip + counter increment with reason='empty_plan'). Reason classification is single-value initially; future phases can add more reasons when the LLM output makes the distinction reliable."
+
+requires: ["p0140b", "p0140c", "p0140d"]
+
+scope:
+  in: |
+    (1) Metrics infrastructure. New static class AgentSmithMeter in
+        src/AgentSmith.Application/Services/Metrics/AgentSmithMeter.cs that exposes a
+        `Meter` instance with name "AgentSmith" (System.Diagnostics.Metrics). This is the
+        project's first metrics touchpoint; the meter is declared once and counters live on it.
+        No new NuGet dependency — System.Diagnostics.Metrics is BCL since .NET 6 and the
+        Application csproj targets net8.0 (audit confirmed).
+
+    (2) Counter 1: agent_smith_ambiguous_resolution_total. Counter<long> with two labels
+        (project, pipeline). Incremented inside ProjectResolver.Resolve when the match list
+        has Count > 1 — once per matched (project, pipeline) pair in the list (NOT once per
+        ambiguous event). The operator can see "project X is matched 200 times per week of
+        which 30 are the only-match — so 170 are ambiguous." Implementation: in ProjectResolver,
+        after building the matches list, if matches.Count > 1, for each match call
+        `AgentSmithMeter.AmbiguousResolution.Add(1, new(\"project\", match.ProjectName), new(\"pipeline\", match.PipelineName))`.
+
+    (3) Counter 2: agent_smith_pipeline_skipped_as_irrelevant_total. Counter<long> with three
+        labels (project, pipeline, reason). Initial reason value: 'empty_plan'. Wired from the
+        NEW empty-plan gate (item 4 below) — the counter exists to measure how often the spawn
+        actually leads to a no-op run, which is the cost-of-ambiguity signal.
+
+    (4) Empty-plan gate (NEW — does not exist today). After GeneratePlanHandler.ExecuteAsync
+        completes, a new post-Plan gate checks `plan.Steps.Count == 0`. If true:
+          a. Logs a structured info entry { event: 'empty_plan_skip', project, pipeline,
+             ticket_id, reason: 'empty_plan' }
+          b. Increments AgentSmithMeter.PipelineSkippedAsIrrelevant with labels (project,
+             pipeline, reason='empty_plan')
+          c. Signals the pipeline to stop gracefully — returns a CommandResult that the
+             PipelineExecutor recognises as 'skip' and exits the run without running
+             downstream handlers (Apply, Verify, Commit, etc.)
+        Implementation choice: introduce a minimal EmptyPlanSkipHandler that runs AFTER
+        GeneratePlanHandler in the pipeline command sequence. EmptyPlanSkipHandler reads the
+        plan from the pipeline context (the GeneratePlanHandler stores it there), checks step
+        count, emits the structured log + counter + skip signal. Pipeline-skip mechanism:
+        the handler returns `CommandResult.Skip("empty_plan")` (or whichever existing
+        pipeline-skip signal exists today — confirm in audit). If no existing skip signal
+        exists, this becomes a 2-line addition to PipelineExecutor: when a handler returns
+        a CommandResult with a 'skipped' marker, the run exits successfully (not failed).
+
+    (5) DI registration. AgentSmithMeter is static — no DI registration needed for the meter
+        itself. The counters are static Counter<long> properties on AgentSmithMeter. Consumers
+        call them directly. EmptyPlanSkipHandler IS DI-registered as a command handler in the
+        Application service collection extensions, following the existing
+        ICommandHandler<TContext> registration pattern.
+
+    (6) Operator opt-in via OpenTelemetry. The metrics infrastructure works standalone (counters
+        produce data the BCL can surface via dotnet-counters, etc.) but an operator who wants
+        Prometheus / OTLP export adds it externally (their composition root, their NuGet
+        choice). This phase intentionally does NOT pre-wire OpenTelemetry — that would lock
+        agent-smith into a specific export stack. Document the opt-in path in
+        docs/operations/metrics.md.
+
+    (7) Three doc files. Each ~150-300 lines. Each follows the existing docs/ structure
+        (preamble + Strategy section + Worked example + Operator-pitfall section + Forward-
+        reference to related phases). docs/ structure confirmed in audit: docs/configuration/,
+        docs/operations/, docs/setup/ all present.
+
+        docs/configuration/multi-repo.md: when to use multi-repo projects, the parallel-
+        isolation model (each repo's run is its own sandbox, its own diff, its own PR, its own
+        ticket comment), what the operator sees on a multi-repo run (N comments on one ticket,
+        N PRs), how ambiguous tags are intentional, the cost-of-ambiguity dashboard
+        ratio (link to docs/operations/metrics.md), the explicit non-feature of
+        cross-repo coordination (the LLM reads each repo's context.yaml + Verify phase catches
+        real interface breaks; there's no spawner-level orchestration).
+
+        docs/configuration/project-resolution.md: one section per strategy with a worked
+        example. tag (the multi-tenant Jira case: 60-project Jira install, project_resolution
+        tag distinguishes ours from the other 59). area-path (the multi-tenant ADO case:
+        ContosoMain\\Billing matches itself AND subtree; YAML escape pitfall callout). repo
+        (the GitHub single-repo case: URL identity match; only valid when project.Repos
+        has exactly one entry). to_address (forward-reference to p0141 Email; defined now,
+        used then).
+
+        docs/operations/metrics.md: the two counters, what they measure, the dashboard query
+        for cost-of-ambiguity (ratio of skipped_as_irrelevant to ambiguous_resolution per
+        (project, pipeline)), how to wire an OpenTelemetry exporter to the AgentSmith meter
+        without modifying agent-smith code, the dotnet-counters local-inspection one-liner.
+
+        Plus an update to docs/setup/onboarding.md: when bootstrapping a multi-repo project,
+        `agent-smith:init` must be run once PER repo (each needs its own
+        .agentsmith/context.yaml). Cross-reference docs/configuration/multi-repo.md. Audit
+        confirmed onboarding.md exists with task-oriented tone; the new section fits the
+        established structure.
+
+    (8) Test pack. Counter-emission tests are unusual in .NET — System.Diagnostics.Metrics
+        provides MeterListener that lets a test subscribe and verify counter increments.
+        ~6 tests covering ambiguous_resolution emission (single-match emits nothing, double-
+        match emits twice with right labels, triple-match emits three) and
+        pipeline_skipped_as_irrelevant emission (empty-plan gate triggers increment with
+        reason='empty_plan' label). Plus EmptyPlanSkipHandler unit tests: integrates with
+        existing PlanGenerationContext shape, recognises empty plans, skips downstream
+        handlers.
+
+  out: |
+    OpenTelemetry / Prometheus exporter wiring. Operators wire their own. agent-smith provides
+    the Meter; consumers attach via the standard MeterListener API or via
+    OpenTelemetry.Metrics.AddMeter(\"AgentSmith\").
+
+    Multi-reason classification beyond 'empty_plan'. p0140e ships ONE reason value because
+    that's what we can reliably detect today (plan.Steps.Count == 0). Future reasons
+    ('wrong_project_tag', 'wrong_pipeline_for_ticket_type', 'ticket_insufficient_info') are
+    LLM-output-classification work and out of scope here. The reason label is a string (not
+    an enum) so future phases can add values without a contract change.
+
+    Per-handler instrumentation beyond the two p0140 counters. Latency histograms, per-skill
+    cost metrics, etc. are all valid future additions but out of scope here — p0140's umbrella
+    only listed these two.
+
+    Metrics dashboards / Grafana templates / Prometheus alert rules. Operator-owned, not
+    agent-smith-shipped.
+
+    Plan-phase semantic improvements (richer skip reasons, structured 'no actionable work'
+    classification by the LLM). Out of scope.
+
+decisions:
+  - key: "System.Diagnostics.Metrics (BCL), not OpenTelemetry SDK. Reason: System.Diagnostics.Metrics
+      ships with .NET 6+ and is the .NET-native metrics abstraction; OpenTelemetry interops
+      with it via OpenTelemetry.Instrumentation.AspNetCore + AddMeter. Picking the BCL surface
+      means no NuGet dependency in agent-smith's csproj — operators choose their exporter
+      stack. Picking OpenTelemetry directly would lock the project into a specific exporter
+      chain that's actively churning (the OTel .NET ecosystem). BCL is the cheapest correct
+      choice for 'we want counters'."
+  - key: "AgentSmithMeter is static. Reason: the System.Diagnostics.Metrics design intends
+      Meter to be a long-lived singleton, typically held as a static field. DI registration
+      would add ceremony with no benefit — counters can't be 'scoped' in the metrics model.
+      The Meter named 'AgentSmith' is discoverable from any consumer via reflection or via
+      OpenTelemetry's AddMeter('AgentSmith') without any wiring inside agent-smith."
+  - key: "Ambiguous counter increments per matched (project, pipeline) pair, not per
+      ambiguous-event. Reason: the dashboard question is 'how often is project X picking up
+      a ticket that's also being picked up by other projects?' which is a per-project
+      question. Per-event increments would collapse that distinction. The operator who wants
+      'total ambiguous events' takes max() over the per-project counts."
+  - key: "Empty-plan gate is INTRODUCED in p0140e, not wired to an existing signal. Reason:
+      audit confirmed GeneratePlanHandler today does NOT check plan.Steps.Count — the pipeline
+      runs downstream even with zero-step plans (Apply/Verify run, do nothing useful, Commit
+      produces an empty PR). This is a latent quality bug that the umbrella spec assumed was
+      already fixed. The fix is small (a post-Plan handler that signals skip on empty steps)
+      and lets the agent_smith_pipeline_skipped_as_irrelevant_total counter measure something
+      real. Without it the counter would never fire and the cost-of-ambiguity dashboard would
+      be empty."
+  - key: "Reason label starts with one value: 'empty_plan'. Reason: classifying WHY a plan
+      came back empty (LLM judged the ticket out-of-scope vs. LLM failed to understand vs.
+      LLM thought another pipeline should handle it) requires LLM-output post-processing that
+      doesn't exist today. Shipping with one reason now + leaving the label as a string lets
+      future phases add reasons without a contract change. The umbrella spec's mention of
+      'wrong_project_tag / wrong_pipeline_for_ticket_type / ticket_insufficient_info / other'
+      is the future direction, not the p0140e ship state."
+  - key: "OpenTelemetry export is operator-owned, not shipped. Reason: the .NET OpenTelemetry
+      ecosystem has multiple exporter packages (Prometheus, OTLP, Azure Monitor, etc.) all
+      version-coupled to OpenTelemetry.Api churn. Pinning one inside agent-smith would force
+      operators using a different stack to deal with version conflicts. The Meter-by-name
+      pattern is the BCL-blessed way to keep the producer and the exporter decoupled."
+
+steps:
+  - id: meter-class
+    action: "Add AgentSmithMeter static class with the project's first Meter instance + the two counters"
+    new:
+      - "src/AgentSmith.Application/Services/Metrics/AgentSmithMeter.cs: ~30 lines. Static class. `public static readonly Meter Meter = new(\"AgentSmith\", typeof(AgentSmithMeter).Assembly.GetName().Version?.ToString() ?? \"0.0.0\");`. Static counters: `public static readonly Counter<long> AmbiguousResolution = Meter.CreateCounter<long>(\"agent_smith_ambiguous_resolution_total\", description: \"Per-matched (project, pipeline) increments when ProjectResolver returns more than one match.\");` and `public static readonly Counter<long> PipelineSkippedAsIrrelevant = Meter.CreateCounter<long>(\"agent_smith_pipeline_skipped_as_irrelevant_total\", description: \"Increments when a pipeline's Plan phase produces no actionable work.\");`."
+
+  - id: ambiguous-counter-wireup
+    action: "ProjectResolver increments AmbiguousResolution when matches.Count > 1"
+    modify:
+      - "src/AgentSmith.Application/Services/Triggers/ProjectResolver.cs: after building the matches list, before returning, add: `if (matches.Count > 1) { foreach (var m in matches) AgentSmithMeter.AmbiguousResolution.Add(1, new(\"project\", m.ProjectName), new(\"pipeline\", m.PipelineName)); }`."
+
+  - id: empty-plan-gate
+    action: "Introduce EmptyPlanSkipHandler — runs after GeneratePlanHandler, signals skip on plan.Steps.Count == 0"
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/EmptyPlanSkipHandler.cs: ~50 lines. ICommandHandler<EmptyPlanSkipContext> (or whichever existing post-Plan context type fits). Reads plan from pipeline context (key: ContextKeys.Plan or equivalent — confirm at execution time). If plan.Steps.Count == 0: emits structured log entry `{ event: 'empty_plan_skip', project, pipeline, ticket_id, reason: 'empty_plan' }`, calls AgentSmithMeter.PipelineSkippedAsIrrelevant.Add(1, new(\"project\", projectName), new(\"pipeline\", pipelineName), new(\"reason\", \"empty_plan\")), returns CommandResult.Ok with a Skip marker (or whichever signal PipelineExecutor honors as 'run completed with no further work')."
+      - "src/AgentSmith.Contracts/Commands/EmptyPlanSkipContext.cs (if a new context type is needed — most likely it isn't; can reuse the existing PlanGenerationContext or similar)."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: command sequence — insert EmptyPlanSkipHandler immediately after GeneratePlanHandler in the standard pipeline. Existing pipelines that already short-circuit on Plan-phase errors are unaffected; this gate triggers only on EMPTY plans (not failed plans)."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register EmptyPlanSkipHandler as transient via the existing command-handler registration pattern."
+
+  - id: docs-multi-repo
+    action: "Write docs/configuration/multi-repo.md"
+    new:
+      - "docs/configuration/multi-repo.md: ~250 lines. Sections: When to use multi-repo / The parallel-isolation model / What the operator sees on a multi-repo run / Ambiguous-tag handling (intentional, with the cost-of-ambiguity counter ratio) / The explicit non-feature of cross-repo coordination (link to the umbrella p0140 decision-log entry) / Related phases (p0140b/c/d/e)."
+
+  - id: docs-project-resolution
+    action: "Write docs/configuration/project-resolution.md"
+    new:
+      - "docs/configuration/project-resolution.md: ~300 lines. Sections per strategy: tag (multi-tenant Jira worked example), area-path (multi-tenant ADO worked example + the YAML \\\\ escape pitfall + the slash-vs-backslash equivalence), repo (single-repo GitHub URL match, with the validator constraint Repos.Count==1), to_address (forward reference to p0141 Email; defined now, activated then). Each section includes a complete YAML snippet operators can copy."
+
+  - id: docs-metrics
+    action: "Write docs/operations/metrics.md"
+    new:
+      - "docs/operations/metrics.md: ~200 lines. Sections: The Meter name (AgentSmith) / The two counters (agent_smith_ambiguous_resolution_total + agent_smith_pipeline_skipped_as_irrelevant_total) with label semantics / Cost-of-ambiguity dashboard query (skipped/ambiguous ratio per (project, pipeline)) / Operator-side OpenTelemetry wiring example (AddMeter(\"AgentSmith\") + AddOtlpExporter) WITHOUT shipping the dependency / dotnet-counters local-inspection one-liner / Roadmap note on adding more 'reason' values for the skipped counter as future phases land richer Plan-phase classification."
+
+  - id: docs-onboarding-update
+    action: "Update docs/setup/onboarding.md with the multi-repo init flow"
+    modify:
+      - "docs/setup/onboarding.md: add a section 'Bootstrapping a multi-repo project' that explains agent-smith:init must run once per repo (each needs its own .agentsmith/context.yaml). Cross-reference docs/configuration/multi-repo.md. Place after the existing single-repo init flow."
+
+  - id: tests
+    action: "Counter-emission tests via MeterListener + EmptyPlanSkipHandler unit tests"
+    new:
+      - "tests/AgentSmith.Tests/Triggers/ProjectResolverAmbiguousMetricsTests.cs: ~3 tests. Resolve_SingleMatch_NoAmbiguousIncrement; Resolve_TwoMatches_EmitsTwoIncrementsOnePerMatch; Resolve_ThreeMatches_EmitsThreeIncrementsWithCorrectLabels. Each test uses a MeterListener wired to the AgentSmith meter, subscribes to the AmbiguousResolution counter, and asserts the (value, tags) tuples emitted."
+      - "tests/AgentSmith.Tests/Metrics/AgentSmithMeterRegistrationTests.cs: ~2 tests. Meter_HasNameAgentSmith; Counters_AreDiscoverableViaMeterListener (subscribes a fresh MeterListener and asserts both counter instruments appear)."
+      - "tests/AgentSmith.Tests/Handlers/EmptyPlanSkipHandlerTests.cs: ~4 tests. PlanWithSteps_DoesNotSkip; PlanWithZeroSteps_LogsStructuredEvent_EmitsCounter_SignalsSkip; SkipSignal_ShortCircuitsDownstreamHandlers; CounterEmission_HasReasonLabelEmptyPlan."
+
+tests:
+  - "AgentSmithMeter_HasNameAgentSmith"
+  - "AgentSmithMeter_AmbiguousResolutionCounterDiscoverableViaMeterListener"
+  - "AgentSmithMeter_PipelineSkippedAsIrrelevantCounterDiscoverableViaMeterListener"
+  - "ProjectResolver_Resolve_SingleMatch_NoAmbiguousIncrement"
+  - "ProjectResolver_Resolve_TwoMatches_EmitsTwoIncrementsOnePerMatch"
+  - "ProjectResolver_Resolve_ThreeMatches_EmitsThreeIncrementsWithCorrectLabels"
+  - "EmptyPlanSkipHandler_PlanWithSteps_DoesNotSkip"
+  - "EmptyPlanSkipHandler_PlanWithZeroSteps_LogsStructuredEvent_EmitsCounter_SignalsSkip"
+  - "EmptyPlanSkipHandler_SkipSignal_ShortCircuitsDownstreamHandlers"
+  - "EmptyPlanSkipHandler_CounterEmission_HasReasonLabelEmptyPlan"
+
+done:
+  - "AgentSmithMeter static class exposes Meter('AgentSmith') + two Counter<long> instruments"
+  - "ProjectResolver increments AmbiguousResolution once per matched (project, pipeline) pair when matches.Count > 1"
+  - "EmptyPlanSkipHandler exists, is DI-registered, runs after GeneratePlanHandler, and increments PipelineSkippedAsIrrelevant with reason='empty_plan' when plan.Steps.Count == 0"
+  - "EmptyPlanSkipHandler signals graceful skip; PipelineExecutor honors the signal and exits the run successfully without running downstream handlers"
+  - "MeterListener-based tests prove counter emission with correct labels"
+  - "docs/configuration/multi-repo.md, docs/configuration/project-resolution.md, docs/operations/metrics.md all shipped"
+  - "docs/setup/onboarding.md gains a multi-repo bootstrap section"
+  - "No new NuGet dependency added (System.Diagnostics.Metrics is BCL, .NET 8 target confirmed); operators wire their own OpenTelemetry exporter against the named Meter"
+  - "p0140 umbrella spec moves from planned/ to done/ — the umbrella reference is now fulfilled across slices a/b/c/d/e"
+  - "All existing tests green, no regression in baseline"

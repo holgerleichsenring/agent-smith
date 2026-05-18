@@ -44,7 +44,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -52,7 +56,7 @@ public class ExecutePipelineUseCaseTests
             .ReturnsAsync(new ParsedIntent(new TicketId("123"), new ProjectName("todo-list")));
         _pipelineMock.Setup(p => p.ExecuteAsync(
                 It.IsAny<IReadOnlyList<string>>(),
-                It.IsAny<ProjectConfig>(),
+                It.IsAny<ResolvedProject>(),
                 It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CommandResult.Ok("Done"));
@@ -62,7 +66,7 @@ public class ExecutePipelineUseCaseTests
         result.IsSuccess.Should().BeTrue();
         _pipelineMock.Verify(p => p.ExecuteAsync(
             It.Is<IReadOnlyList<string>>(cmds => cmds.Contains(CommandNames.FetchTicket)),
-            It.IsAny<ProjectConfig>(),
+            It.IsAny<ResolvedProject>(),
             It.Is<PipelineContext>(ctx => ctx.Has(ContextKeys.TicketId)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -72,7 +76,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -80,10 +88,10 @@ public class ExecutePipelineUseCaseTests
             .ReturnsAsync(new ParsedIntent(new TicketId("1"), new ProjectName("todo-list")));
         _pipelineMock.Setup(p => p.ExecuteAsync(
                 It.IsAny<IReadOnlyList<string>>(),
-                It.IsAny<ProjectConfig>(),
+                It.IsAny<ResolvedProject>(),
                 It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
-            .Returns((IReadOnlyList<string> _, ProjectConfig _, PipelineContext ctx, CancellationToken _) =>
+            .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
             {
                 ctx.Set(ContextKeys.PullRequestUrl, "https://github.com/org/repo/pull/42");
                 return Task.FromResult(CommandResult.Ok("Done"));
@@ -100,16 +108,20 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ProjectConfig { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
         _pipelineMock.Setup(p => p.ExecuteAsync(
                 It.IsAny<IReadOnlyList<string>>(),
-                It.IsAny<ProjectConfig>(),
+                It.IsAny<ResolvedProject>(),
                 It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
-            .Returns((IReadOnlyList<string> _, ProjectConfig _, PipelineContext ctx, CancellationToken _) =>
+            .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
             {
                 ctx.Set(ContextKeys.PullRequestUrl, "https://github.com/org/repo/pull/99");
                 return Task.FromResult(CommandResult.Ok("Initialized"));
@@ -140,7 +152,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["myproject"] = new ProjectConfig { Pipeline = "nonexistent" } }
+            Projects = { ["myproject"] = new ResolvedProject
+            {
+                Pipeline = "nonexistent",
+                Repos = new[] { new RepoConnection { Name = "myproject" } }
+            } }
         };
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(config);
         _intentMock.Setup(i => i.ParseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

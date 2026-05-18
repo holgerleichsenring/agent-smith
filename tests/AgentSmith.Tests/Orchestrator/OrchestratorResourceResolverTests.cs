@@ -26,7 +26,7 @@ public sealed class OrchestratorResourceResolverTests
     {
         var options = Options.Create(new JobSpawnerOptions { Resources = GlobalDefault });
         var sut = new OrchestratorResourceResolver(options);
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Orchestrator = new OrchestratorConfig { Resources = ProjectOverride }
         };
@@ -39,7 +39,7 @@ public sealed class OrchestratorResourceResolverTests
     {
         var options = Options.Create(new JobSpawnerOptions { Resources = GlobalDefault });
         var sut = new OrchestratorResourceResolver(options);
-        var project = new ProjectConfig
+        var project = new ResolvedProject
         {
             Orchestrator = new OrchestratorConfig { Resources = null }
         };
@@ -53,6 +53,6 @@ public sealed class OrchestratorResourceResolverTests
         var options = Options.Create(new JobSpawnerOptions { Resources = GlobalDefault });
         var sut = new OrchestratorResourceResolver(options);
 
-        sut.Resolve(new ProjectConfig()).Should().BeEquivalentTo(GlobalDefault);
+        sut.Resolve(new ResolvedProject()).Should().BeEquivalentTo(GlobalDefault);
     }
 }

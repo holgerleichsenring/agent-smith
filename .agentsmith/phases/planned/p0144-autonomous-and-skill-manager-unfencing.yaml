@@ -1,0 +1,238 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0144
+goal: "Unfence the autonomous + skill-manager presets — both have crashed at PipelineNameInitializerHandler since p0125c's pipeline_name enum was introduced, because neither was added to the enum (and neither had skills with matching activates_when). p0144 takes the parallel work-stream noted in p0130c's TradeOff: ship pipeline_name enum entries for both, ship the catalog of skills that activate on them, and route skill-manager away from its custom DiscoverSkills/Evaluate/Install handler chain to the standard SkillRound mechanism. After p0144 both presets run end-to-end with deterministic triage (post-p0143) and runtime-routed skill calls (post-p0142)."
+
+requires: ["p0142", "p0143"]
+
+scope:
+  in: |
+    (1) Cross-repo: agent-smith-skills concept-vocabulary.yaml extends pipeline_name enum with two new values:
+        'autonomous' and 'skill-manager'. Version bump 2.x → 2.(x+1). Both values land in the same release so the
+        unfencing is one cross-repo PR pair (agent-smith-skills feature commit + agent-smith pin bump).
+    (2) agent-smith-skills: catalog of skills for the autonomous preset. Autonomous is "agent acts on triggers
+        without per-request human approval"; its skill catalog covers: autonomous-planner (when a trigger fires,
+        decide what action to take); autonomous-investigator (gather context for the decision);
+        autonomous-judge (review the planned action against operator-set safety constraints); autonomous-filter
+        (final-phase aggregation of investigator observations). 4 new SKILL.md files under skills/autonomous/,
+        each with activates_when = "pipeline_name = autonomous AND (role-specific concept)" so they only fire on
+        autonomous runs and DeterministicTriageSelector picks them correctly per phase.
+    (3) agent-smith-skills: catalog of skills for the skill-manager preset. Skill-manager is "agent helps the
+        operator extend the skill catalog"; its skill catalog covers: skill-manager-planner (decide what new
+        skill to draft based on the operator's request); skill-manager-investigator (read existing skills to
+        understand conventions); skill-manager-judge (review the proposed skill for compliance with the
+        SKILL.md format + activates_when conventions); skill-manager-filter (aggregate suggestions into a final
+        SKILL.md proposal). 4 new SKILL.md files under skills/skill-manager/, same activates_when shape.
+    (4) Skill-manager handler-chain migration. Current preset uses DiscoverSkillsHandler + EvaluateSkillsHandler +
+        ApproveSkillsHandler + InstallSkillsHandler (custom chain that bypasses SkillRound). These four handlers
+        retire; the preset becomes a standard Discussion-pipeline shape (Triage + ConvergenceCheck +
+        CompileDiscussion + WriteRunResult). The discovery / evaluate / approve / install behaviour is preserved
+        but moves into the skill-manager-* skill bodies (they're LLM prompts now, not C# handlers), with
+        Sandbox tools (ReadFile, ListFiles for discovery; WriteFile for install) gated by the standard ToolKit
+        per the active SkillExecutionPhase.
+    (5) PipelinePresets.cs update: autonomous + skill-manager presets get their command lists updated to use the
+        standard LoadSkills → Triage → SkillRound → ConvergenceCheck → CompileDiscussion → WriteRunResult sequence.
+        Skill-manager loses its DiscoverSkills/Evaluate/Approve/Install steps. Autonomous gains the standard
+        Discussion-pipeline shape (was just LoadSkills + Triage + ConvergenceCheck + CompileDiscussion before,
+        relying on legacy triage which p0131c deleted — preset has been broken since p0131c).
+    (6) Retire the four skill-manager handlers + supporting services. DiscoverSkillsHandler, EvaluateSkillsHandler,
+        ApproveSkillsHandler, InstallSkillsHandler all delete. Their command-name constants register in
+        RetiredCommands with migration hints pointing operators to "use the standard SkillRound mechanism + the
+        skill-manager-* skill catalog". The supporting services (SkillEvaluator, SkillInstaller, SkillProposalDto,
+        etc. — cumulative ~600 LoC across ~10 files) all delete as part of the handler cascade.
+    (7) PipelinePresetsConsistencyTests already exists from p0137a, asserting LoadSkills appears before Triage in
+        every preset that contains Triage. Add a similar assertion: every preset listed in PipelinePresets.cs has
+        a matching skill catalog (skills with activates_when including its pipeline_name) loadable from the
+        agent-smith-skills repo. Catches future unfencing-without-skills regressions.
+
+  out: |
+    Re-introduction of DiscoverSkills as an LLM-driven skill (preserved behaviour via prompt). Out — the operator
+    use case for skill-manager has shifted post-p0127c (skills are versioned YAML files in the operator's
+    agent-smith-skills overlay, not a separate registry); the discovery step's value-add for the new model is
+    asking the LLM to list existing skills it sees in the catalog, which a single skill body covers without a
+    dedicated handler.
+
+    Operator approval flow for skill-manager. The pre-p0144 ApproveSkillsHandler had a CLI-prompted yes/no
+    confirmation. Post-p0144 the standard SkillRound mechanism doesn't have per-skill approval gating;
+    skill-manager-judge produces a structured proposal artifact that the operator reviews via the
+    standard WriteRunResult result.md + git diff for any WriteFile-modified files. The CLI confirmation flow is
+    not re-implemented — the per-skill judgment moves into the judge skill's body + the standard
+    GeneratePlan / Approve gate that fix-bug uses.
+
+    Provider-specific autonomous-trigger semantics. autonomous-from-webhook vs autonomous-from-cron vs
+    autonomous-from-poll all flow into the same preset with whatever trigger context the launcher provides; per-
+    trigger behavioural specialisation is a follow-up.
+
+    Renaming `autonomous` or `skill-manager` to clearer names. The names are stable across the operator surface
+    (CLI command, config keys, agentsmith.yml pipeline_from_label entries). Renaming would be a separate phase.
+
+    Auto-bootstrapping the autonomous trigger sources. Slack-modal / webhook routing already exists per
+    p0133-style label-trigger semantics; autonomous gets pipeline_from_label entry `agent-smith:autonomous` in
+    the bundled example config. Custom autonomous-trigger infrastructure (e.g. polling-based agent waking up
+    periodically) is out of scope.
+
+    Removal of the `skill-manager` preset entirely (alternative to migration). Was considered — the use case is
+    arguably solved by manually editing SKILL.md files. Decision: keep the preset as a Discussion-pipeline shape
+    because it lowers the barrier for non-developer operators who want to extend the catalog through an LLM-
+    assisted conversation rather than direct YAML editing.
+
+decisions:
+  - key: |
+      Both unfencings in one phase, cross-repo PR pair. Reason: both have the same shape (pipeline_name enum
+      extension + catalog of 4 skills + preset cleanup); shipping them together amortises the cross-repo coordination
+      cost (one agent-smith-skills release, one pin bump). Splitting per-preset would mean two cross-repo PR pairs
+      for structurally identical work. -- alternatives: per-preset slices p0144a (autonomous) + p0144b (skill-manager)
+      (rejected: doubles the merge dance; the two presets are independent at the runtime level so testing them
+      together catches preset-routing regressions); skip skill-manager entirely + just unfence autonomous (rejected:
+      skill-manager preset has been broken since p0125c — leaving it broken is a known-gap that the unfencing
+      surface change makes ad-hoc to fix later).
+  - key: |
+      Skill-manager's DiscoverSkills/Evaluate/Approve/Install handler chain retires entirely; behaviour moves into
+      skill bodies + standard ToolKit access. Reason: the four handlers predate the SkillCallRuntime + ToolKit
+      model; they hardcoded a sequence of LLM calls + sandbox file IO that the standard SkillRound + Bootstrap-
+      phase ToolKit (which already gates WriteFile to the .agentsmith/ subtree) covers in a more uniform shape.
+      Operators get exactly the same capabilities through the standard pipeline — at the cost of one CLI yes/no
+      gate being replaced by the standard GeneratePlan/Approve flow. -- alternatives: keep DiscoverSkills as a
+      pre-Triage handler + use SkillRound for Evaluate/Approve/Install (rejected: half-migration that maintains
+      the bespoke discovery code while losing it for evaluation; either fully bespoke or fully standard);
+      retire the preset (rejected per scope: low-barrier extension flow has operator-evidence value).
+  - key: |
+      4 skills per preset (planner, investigator, judge, filter), not 1 or 2. Reason: matches the canonical
+      Discussion-pipeline shape that fix-bug + add-feature + security-scan use post-p0138 (planner = Lead,
+      investigator = Analyst, judge = Reviewer, filter = Final). 1-skill presets (just an investigator with no
+      planner/judge) lose the gate-retry safety net that the Discussion shape provides. 4 skills is the proven
+      shape. -- alternatives: 1 skill (rejected: no gate semantics, single-LLM-call presets); 2 skills planner +
+      judge (rejected: skips Analyst, no observation-gathering phase); 8 skills (rejected: over-fitting the
+      catalog).
+  - key: |
+      Autonomous skills' activates_when uses the pattern `pipeline_name = "autonomous" AND has_<role-trigger>`,
+      not just `pipeline_name = "autonomous"`. Reason: when DeterministicTriageSelector narrows candidates per
+      phase, having all 4 autonomous skills match every autonomous run would mean the selector always picks the
+      same 4 — fine when those are the only candidates, but masks any future role-specialised expansion (e.g. a
+      second autonomous-planner specialised for webhook triggers). Per-role activation lets the catalog grow
+      without preset code changes. -- alternatives: only pipeline_name condition (rejected: forecloses future
+      specialisation); per-skill custom concept per planner (rejected: scope creep — minimal viable activation
+      is enough).
+  - key: |
+      Concept-vocabulary extension is additive only — no entries deleted or renamed. Reason: every concept already
+      in the vocabulary has callers (publishers + activates_when consumers); deleting any would break existing
+      activates_when expressions. The two new pipeline_name values + any new concepts the skill bodies declare are
+      additive. Cross-repo coordination stays simple: agent-smith-skills bumps minor version (2.x → 2.(x+1)),
+      agent-smith pin bumps to >= the new minor in the same PR pair. -- alternatives: roll vocabulary major
+      version (rejected: nothing breaking); coordinate per-preset releases (rejected: structural-identical work,
+      one release).
+  - key: |
+      Skill-manager-judge uses the standard GeneratePlan + Approve flow for the proposed-skill artifact. Reason:
+      fix-bug's GeneratePlan emits a structured plan + Approve gates it through operator review (today: CLI
+      prompt; future: GUI). Skill-manager's proposed skill is structurally similar — a piece of YAML the operator
+      reviews before it lands on disk. Reusing GeneratePlan + Approve means one approval shape across pipelines.
+      -- alternatives: dedicated SkillApprovalGate (rejected: parallel-to-GeneratePlan/Approve, drift over time);
+      auto-install without approval (rejected: SKILL.md files are operator-trusted artifacts; auto-install of
+      LLM-drafted skills would erode that trust).
+  - key: |
+      PipelinePresetsCatalogConsistencyTests (new) verifies every preset name has matching skills loadable from
+      the catalog. Reason: the failure mode that bit autonomous + skill-manager pre-p0144 was "preset exists in
+      PipelinePresets.cs + pipeline_name enum has the value + zero skills activate". Catching this via a CI
+      test that loads the agent-smith-skills catalog at test time + checks per-preset skill presence prevents
+      regression. Pinned-version loading (the agent-smith-skills pin in agentsmith.yml) keeps the test
+      deterministic. -- alternatives: fail-loud at preset-start time if no skills match (rejected: catches the
+      regression at operator-pipeline-run-time instead of CI-time); document the invariant in CLAUDE.md only
+      (rejected: documentation doesn't fail).
+
+steps:
+  - id: vocab-extension
+    action: "Cross-repo: extend agent-smith-skills concept-vocabulary.yaml pipeline_name enum with autonomous + skill-manager"
+    modify:
+      - "agent-smith-skills/concept-vocabulary.yaml: pipeline_name enum gains 'autonomous' + 'skill-manager' values. Version bumps via release-please's feat: commit (minor version bump per release-please's bump-minor-pre-major config). agent-smith-skills CHANGELOG entry: 'feat(vocab): add autonomous + skill-manager to pipeline_name enum'."
+      - "agent-smith-skills/skills/autonomous/SKILL.md × 4: new files. autonomous-planner.md, autonomous-investigator.md, autonomous-judge.md, autonomous-filter.md. Each with new-format frontmatter (role + activates_when + output_schema + description). Activates-when patterns: planner activates on pipeline_name=autonomous AND has_pending_action; investigator on pipeline_name=autonomous AND has_pending_action; judge on pipeline_name=autonomous AND has_planned_action; filter on pipeline_name=autonomous (final phase). Body sections instruct the LLM on the autonomous-trigger behaviour."
+      - "agent-smith-skills/skills/skill-manager/SKILL.md × 4: new files. skill-manager-planner.md, skill-manager-investigator.md, skill-manager-judge.md, skill-manager-filter.md. Similar shape with skill-manager-specific activation: planner on pipeline_name=skill-manager AND has_skill_request; investigator on pipeline_name=skill-manager AND has_skill_request; judge on pipeline_name=skill-manager AND has_drafted_skill; filter on pipeline_name=skill-manager. Body sections: planner drafts SKILL.md content; investigator reads existing skills via ReadFile/ListFiles; judge reviews proposed skill against SKILL.md format conventions; filter aggregates into final proposal artifact."
+
+  - id: agent-smith-pin-bump
+    action: "Bump agent-smith's agent-smith-skills pin to the new minor version that ships the unfencing"
+    modify:
+      - ".agentsmith/skills.version: pinned version bumps to the new minor (e.g. 2.x.0 → 2.(x+1).0). The pin enforces 'this agent-smith requires at least this skills catalog version'; bumping it on the same PR ensures CI runs against the catalog with the unfencing skills present."
+      - "config/agentsmith.example.yml: pipeline_from_label section gains agent-smith:autonomous + agent-smith:skill-manager entries — operators using label-trigger routing can opt into autonomous + skill-manager from issue/MR labels. The CLI invocation `agent-smith run autonomous` + `agent-smith run skill-manager` already works post-unfence; the label entries are additive."
+
+  - id: skill-manager-handler-retirement
+    action: "Delete DiscoverSkills + EvaluateSkills + ApproveSkills + InstallSkills handlers + supporting services + register their command-name constants as retired"
+    delete:
+      - "src/AgentSmith.Application/Services/Handlers/DiscoverSkillsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/EvaluateSkillsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ApproveSkillsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/InstallSkillsHandler.cs"
+      - "src/AgentSmith.Application/Services/Builders/DiscoverSkillsContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/EvaluateSkillsContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/ApproveSkillsContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/InstallSkillsContextBuilder.cs"
+      - "src/AgentSmith.Application/Models/DiscoverSkillsContext.cs"
+      - "src/AgentSmith.Application/Models/EvaluateSkillsContext.cs"
+      - "src/AgentSmith.Application/Models/ApproveSkillsContext.cs"
+      - "src/AgentSmith.Application/Models/InstallSkillsContext.cs"
+      - "src/AgentSmith.Application/Services/SkillEvaluator.cs (if exists — verify before delete)"
+      - "src/AgentSmith.Application/Services/SkillInstaller.cs (if exists — verify before delete)"
+      - "Associated test files (DiscoverSkillsHandlerTests, EvaluateSkillsHandlerTests, ApproveSkillsHandlerTests, InstallSkillsHandlerTests + their context-builder tests; ~400 lines total)"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: keep DiscoverSkills + EvaluateSkills + ApproveSkills + InstallSkills constants; mark each with [Obsolete] explaining the migration to standard SkillRound."
+      - "src/AgentSmith.Application/Services/Pipeline/RetiredCommands.cs (existing): register the four command names with migration-hint messages pointing operators to the skill-manager-* catalog + standard SkillRound."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: remove the four handler registrations + any supporting-service registrations."
+
+  - id: preset-rewrite
+    action: "Rewrite autonomous + skill-manager preset definitions to use the standard Discussion-pipeline shape"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs: Autonomous preset becomes [PipelineNameInitializer, FetchTicket, LoadSkills, LoadContext, Triage, SkillRound, ConvergenceCheck, CompileDiscussion, WriteRunResult]. The pre-p0144 list (LoadSkills + Triage + ConvergenceCheck + CompileDiscussion) is replaced. SkillManager preset becomes [PipelineNameInitializer, LoadSkills, LoadContext, Triage, SkillRound, ConvergenceCheck, CompileDiscussion, GeneratePlan, Approve, AgenticExecute, WriteRunResult] — adds the standard Plan/Approve/Execute trio because skill-manager-judge's output is a proposed skill that needs operator approval before AgenticExecute writes it to disk via the standard WriteFile tool gated by Bootstrap-phase ToolKit. Pre-p0144 list (DiscoverSkills + EvaluateSkills + ApproveSkills + InstallSkills) is replaced."
+      - "src/AgentSmith.Application/Services/Pipeline/PipelinePresetsConsistencyTests source file (tests/AgentSmith.Tests/Pipeline/PipelinePresetsConsistencyTests.cs): existing LoadSkills-before-Triage assertion stays; new assertion added per the catalog-consistency test (step 6)."
+
+  - id: skill-call-runtime-routes-autonomous
+    action: "Verify SkillCallRuntime + DeterministicTriageSelector handle the unfenced presets correctly — no code change, smoke test only"
+    modify:
+      - "tests/AgentSmith.Tests/Smoke/AutonomousPresetSmokeTests.cs: new file. Test_RunsEndToEnd_ProducesResultMd; Test_TriageOutputContainsAllFourAutonomousSkills; Test_PerSkillBreakdownPopulated (verifies the runtime migration p0142 flows through). Test uses Mock<IChatClient> stub returning canned LLM responses + real DeterministicTriageSelector + real LoadSkills against test-fixture catalog."
+      - "tests/AgentSmith.Tests/Smoke/SkillManagerPresetSmokeTests.cs: new file. Same shape, plus Test_GeneratePlanApproveAgenticExecute_WritesProposedSkillToDisk (verifies the WriteFile path via Bootstrap-phase ToolKit gates correctly + the file lands in .agentsmith/-relative path)."
+
+  - id: preset-catalog-consistency-test
+    action: "Add PipelinePresetsCatalogConsistencyTests asserting every preset has matching skills in the loaded catalog"
+    new:
+      - "tests/AgentSmith.Tests/Pipeline/PipelinePresetsCatalogConsistencyTests.cs: ~80 lines. EveryPresetHasSkillsWithMatchingActivatesWhen [Theory MemberData(every preset name in PipelinePresets.cs)] — loads the pinned agent-smith-skills catalog via YamlSkillLoader, filters skills by activates_when containing the preset's pipeline_name value, asserts non-empty per-role coverage (planner+investigator+judge+filter for Discussion presets; planner+investigator+judge+filter+verifier for code-path presets). Uses real agent-smith-skills catalog from the pinned version (no fixture catalog) to catch real catalog drift."
+
+  - id: tests
+    action: "Smoke tests for both unfenced presets + catalog consistency test + adapt existing preset tests"
+    new:
+      - "Per step 5 (smoke tests) + step 6 (consistency test) above."
+    modify:
+      - "tests/AgentSmith.Tests/Pipeline/PipelinePresetsConsistencyTests.cs: existing LoadSkills-before-Triage test extends to assert autonomous + skill-manager presets now satisfy the invariant (they didn't before — pre-p0144 they had no LoadSkills step or had a different topology)."
+      - "tests/AgentSmith.Tests/Handlers/PipelineNameInitializerHandlerTests.cs: existing tests adapt to remove the 'autonomous + skill-manager throw ArgumentException' assertions; replacement tests assert PipelineNameInitializer succeeds for both new values."
+
+tests:
+  - "AutonomousPreset_RunsEndToEnd_ProducesResultMd"
+  - "AutonomousPreset_TriageOutputContainsAllFourAutonomousSkills"
+  - "AutonomousPreset_PerSkillBreakdownPopulated"
+  - "SkillManagerPreset_RunsEndToEnd_ProducesResultMd"
+  - "SkillManagerPreset_TriageOutputContainsAllFourSkillManagerSkills"
+  - "SkillManagerPreset_PerSkillBreakdownPopulated"
+  - "SkillManagerPreset_GeneratePlanApproveAgenticExecute_WritesProposedSkillToDisk"
+  - "SkillManagerPreset_AgenticExecute_WriteFileGatedToAgentsmithSubtree"
+  - "PipelinePresetsCatalogConsistencyTests_EveryPresetHasSkillsWithMatchingActivatesWhen_Theory"
+  - "PipelinePresetsConsistencyTests_AutonomousPreset_LoadSkillsBeforeTriage"
+  - "PipelinePresetsConsistencyTests_SkillManagerPreset_LoadSkillsBeforeTriage"
+  - "PipelineNameInitializerHandler_HandleAsync_PipelineNameAutonomous_SucceedsWithEnumValue"
+  - "PipelineNameInitializerHandler_HandleAsync_PipelineNameSkillManager_SucceedsWithEnumValue"
+  - "RetiredCommands_DiscoverSkills_MigrationHintMentionsSkillManagerCatalog"
+  - "RetiredCommands_EvaluateSkills_MigrationHintMentionsSkillManagerCatalog"
+  - "RetiredCommands_ApproveSkills_MigrationHintMentionsSkillManagerCatalog"
+  - "RetiredCommands_InstallSkills_MigrationHintMentionsSkillManagerCatalog"
+  - "DeterministicTriageSelector_Select_AutonomousPreset_AssignsAllFourSkills"
+  - "DeterministicTriageSelector_Select_SkillManagerPreset_AssignsAllFourSkills"
+
+done:
+  - "agent-smith-skills concept-vocabulary.yaml pipeline_name enum includes 'autonomous' and 'skill-manager'; minor version bumped"
+  - "agent-smith-skills ships 8 new SKILL.md files (4 autonomous-* + 4 skill-manager-*); each with new-format frontmatter + activates_when expression"
+  - "agent-smith .agentsmith/skills.version pin bumped to the new minor"
+  - "PipelineNameInitializerHandler no longer throws ArgumentException for autonomous + skill-manager runs"
+  - "PipelinePresets.cs autonomous preset is [PipelineNameInitializer, FetchTicket, LoadSkills, LoadContext, Triage, SkillRound, ConvergenceCheck, CompileDiscussion, WriteRunResult]"
+  - "PipelinePresets.cs skill-manager preset is [PipelineNameInitializer, LoadSkills, LoadContext, Triage, SkillRound, ConvergenceCheck, CompileDiscussion, GeneratePlan, Approve, AgenticExecute, WriteRunResult]"
+  - "DiscoverSkillsHandler + EvaluateSkillsHandler + ApproveSkillsHandler + InstallSkillsHandler deleted (4 handlers + 4 context-builders + 4 contexts + their tests; ~600 LoC removed)"
+  - "RetiredCommands registers the four old command names with migration hints pointing operators to the skill-manager-* catalog"
+  - "PipelinePresetsCatalogConsistencyTests asserts every preset has skills with matching activates_when in the pinned catalog — autonomous + skill-manager pass alongside the existing code-path presets"
+  - "AutonomousPresetSmokeTests + SkillManagerPresetSmokeTests run end-to-end against stubbed IChatClient + real DeterministicTriageSelector + real LoadSkills; produce result.md with PerSkillBreakdown"
+  - "Smoke run against agent-smith itself (autonomous + skill-manager via CLI `agent-smith run autonomous` + `agent-smith run skill-manager`) completes without ArgumentException + produces result.md"
+  - "config/agentsmith.example.yml pipeline_from_label section includes agent-smith:autonomous + agent-smith:skill-manager entries"
+  - "Existing test pack adapted (PipelineNameInitializerHandlerTests removes the throw-assertions; PipelinePresetsConsistencyTests extends to new presets)"
+  - "Cross-repo PR pair tagged + merged in lockstep: agent-smith-skills 2.x → 2.(x+1) feat release, agent-smith pin bump in same PR window"

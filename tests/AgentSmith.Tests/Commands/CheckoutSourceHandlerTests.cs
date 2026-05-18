@@ -36,12 +36,12 @@ public sealed class CheckoutSourceHandlerTests
         providerMock.Setup(p => p.CheckoutAsync(
                 It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(repo);
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>()))
+        _factoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns(providerMock.Object);
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new SourceConfig { Type = "local", Path = "/tmp" }, branch, pipeline);
+            new RepoConnection { Type = RepoType.Local, Path = "/tmp" }, branch, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -56,12 +56,12 @@ public sealed class CheckoutSourceHandlerTests
         providerMock.Setup(p => p.CheckoutAsync(
                 It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Clone failed"));
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>()))
+        _factoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns(providerMock.Object);
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new SourceConfig { Type = "github" }, new BranchName("feature/test"), pipeline);
+            new RepoConnection { Type = RepoType.GitHub }, new BranchName("feature/test"), pipeline);
 
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 

@@ -9,5 +9,5 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface ISourceConfigOverrider
 {
-    void Apply(ProjectConfig project, PipelineContext pipeline);
+    ResolvedProject Apply(ResolvedProject project, PipelineContext pipeline);
 }

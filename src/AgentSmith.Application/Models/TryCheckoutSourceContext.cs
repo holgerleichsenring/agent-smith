@@ -10,6 +10,6 @@ namespace AgentSmith.Application.Models;
 /// the source cannot be resolved, the run continues in passive mode.
 /// </summary>
 public sealed record TryCheckoutSourceContext(
-    SourceConfig Source,
+    RepoConnection Source,
     BranchName? Branch,
     PipelineContext Pipeline) : ICommandContext;

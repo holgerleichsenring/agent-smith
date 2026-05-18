@@ -1,382 +1,310 @@
-# Agent Smith - Example Configuration
-# Copy to agentsmith.yml and adjust to your project.
-# Supported AI providers: Claude (Anthropic), OpenAI, Azure OpenAI, Gemini (Google), Ollama
-# Supported source/ticket providers: GitHub, GitLab, Azure DevOps (Repos), Jira
+# yaml-language-server: $schema=agentsmith.schema.json
+#
+# Agent Smith — Example Configuration (p0139 catalog-first schema)
+#
+# Top-level catalogs (`agents:`, `repos:`, `trackers:`, `pipeline_triggers:`)
+# are defined once. Each project under `projects:` references catalog entries
+# by name and adds its own trigger blocks. This replaces the pre-p0139 form
+# where every project carried inline source/tickets/agent blocks (see
+# docs/configuration/migration-from-pre-p0139.md if you're migrating).
+#
+# Supported providers:
+#   - AI agents: Claude (Anthropic), OpenAI, Azure OpenAI, Gemini (Google), Ollama
+#   - Repos:     GitHub | GitLab | AzureDevOps | Local
+#   - Trackers:  GitHub | GitLab | AzureDevOps | Jira
 
 # --- Sandbox carrier image (REQUIRED for K8s/Docker spawners) ---
-# Process-wide defaults for the agent-smith-sandbox-agent carrier image
-# the server's spawner uses as an initContainer. agent_version MUST be
-# pinned (no 'latest' default in K8s production) — set it to the agent-smith
-# release that matches the agentsmith-server image you deploy.
 sandbox:
-  agent_registry: holgerleichsenring   # docker hub user / private registry path
-  agent_version: 0.48.0                # pin the agent-smith release tag
+  agent_registry: holgerleichsenring
+  agent_version: 0.48.0
 
 # --- Orchestrator container image (REQUIRED for K8s/Docker spawners) ---
-# Process-wide defaults for the agentsmith-cli orchestrator container the
-# dispatcher spawns per ticket. version MUST be pinned (no implicit 'latest'
-# default) — set it to the agent-smith release that matches the rest of your
-# deployment. Distinct from the sandbox carrier above: the orchestrator hosts
-# the pipeline-runner process, the sandbox carrier hosts the agent runtime
-# inside the per-language toolchain.
 orchestrator:
-  registry: holgerleichsenring         # docker hub user / private registry path (leave empty for unprefixed local image)
-  version: 0.48.0                      # pin the agent-smith release tag
+  registry: holgerleichsenring
+  version: 0.48.0
 
-projects:
-  my-project:
-    source:
-      type: GitHub # GitHub | AzureRepos | GitLab | Local
-      url: https://github.com/owner/repo
-      auth: token
-      # default_branch: main          # PR target branch (auto-detected from API if omitted)
-    tickets:
-      type: GitHub # GitHub | AzureDevOps | Jira | GitLab
-      url: https://github.com/owner/repo
-      auth: token
-      # Azure DevOps only:
-      # organization: my-org
-      # project: my-project
-      # open_states: ["New", "Active"]           # Whitelist of states considered "open" (ADO only)
-      # done_status: "Closed"                    # Target state when closing a ticket
-      # close_transition_name: "Close"           # Jira transition name for closing
-      # extra_fields:                            # Additional fields to fetch (ADO only)
-      #   - "Microsoft.VSTS.Common.Priority"
-
-    # --- Option A: Anthropic Claude (best tool calling, prompt caching) ---
-    agent:
-      type: Claude # claude | anthropic
-      model: claude-sonnet-4-20250514
-      retry:
-        max_retries: 5
-        initial_delay_ms: 2000
-        backoff_multiplier: 2.0
-        max_delay_ms: 60000
-      cache:
-        is_enabled: true
-        strategy: automatic
-      compaction:
-        is_enabled: true
-        threshold_iterations: 8
-        max_context_tokens: 80000
-        keep_recent_iterations: 3
-        summary_model: claude-haiku-4-5-20251001
+# ────────────────────────────────────────────────────────────────────────
+#  Agents catalog
+# ────────────────────────────────────────────────────────────────────────
+# Each named entry is the full AgentConfig that projects can reference by name.
+# Same agent reused across projects → defined once, edited once.
+agents:
+  claude-default:
+    type: Claude
+    model: claude-sonnet-4-20250514
+    retry:
+      max_retries: 5
+      initial_delay_ms: 2000
+      backoff_multiplier: 2.0
+      max_delay_ms: 60000
+    cache:
+      is_enabled: true
+      strategy: automatic
+    compaction:
+      is_enabled: true
+      threshold_iterations: 8
+      max_context_tokens: 80000
+      keep_recent_iterations: 3
+      summary_model: claude-haiku-4-5-20251001
+    models:
+      scout:
+        model: claude-haiku-4-5-20251001
+        max_tokens: 4096
+      primary:
+        model: claude-sonnet-4-20250514
+        max_tokens: 8192
+      planning:
+        model: claude-sonnet-4-20250514
+        max_tokens: 4096
+      summarization:
+        model: claude-haiku-4-5-20251001
+        max_tokens: 2048
+    pricing:
       models:
-        scout:
-          model: claude-haiku-4-5-20251001
-          max_tokens: 4096
-        primary:
-          model: claude-sonnet-4-20250514
-          max_tokens: 8192
-        planning:
-          model: claude-sonnet-4-20250514
-          max_tokens: 4096
-        summarization:
-          model: claude-haiku-4-5-20251001
-          max_tokens: 2048
-      pricing:
-        models:
-          claude-sonnet-4-20250514:
-            input_per_million: 3.0
-            output_per_million: 15.0
-            cache_read_per_million: 0.30
-          claude-haiku-4-5-20251001:
-            input_per_million: 0.80
-            output_per_million: 4.0
-            cache_read_per_million: 0.08
-      # Parallelism for same-stage skill rounds (e.g. security-scan stage 1, api-scan contributors).
-      # Default 1 = sequential. Raise to fan out contributor calls under a SemaphoreSlim throttle.
-      # Recommended for api-security-scan: 4 — required to keep parallel calls within Anthropic's
-      # 5-minute prompt-cache TTL so the prefix-cache hit rate (p0102) is realized.
-      parallelism:
-        max_concurrent_skill_rounds: 1   # set to 4 to enable parallel fan-out
+        claude-sonnet-4-20250514:
+          input_per_million: 3.0
+          output_per_million: 15.0
+          cache_read_per_million: 0.30
+        claude-haiku-4-5-20251001:
+          input_per_million: 0.80
+          output_per_million: 4.0
+          cache_read_per_million: 0.08
 
-    # --- Option B: OpenAI (uncomment to use instead of Claude) ---
-    # agent:
-    #   type: openai
-    #   model: gpt-4.1
-    #   retry:
-    #     max_retries: 5
-    #     initial_delay_ms: 2000
-    #     backoff_multiplier: 2.0
-    #     max_delay_ms: 60000
-    #   models:
-    #     primary:
-    #       model: gpt-4.1
-    #       max_tokens: 8192
-    #     planning:
-    #       model: gpt-4.1-mini
-    #       max_tokens: 4096
-    #   pricing:
-    #     models:
-    #       gpt-4.1:
-    #         input_per_million: 2.0
-    #         output_per_million: 8.0
-    #       gpt-4.1-mini:
-    #         input_per_million: 0.40
-    #         output_per_million: 1.60
+  # Required for api-security-scan to hit Anthropic's 5-min prompt-cache TTL.
+  claude-parallel:
+    type: Claude
+    model: claude-sonnet-4-20250514
+    cache:
+      is_enabled: true
+      strategy: automatic
+    models:
+      primary:
+        model: claude-sonnet-4-20250514
+        max_tokens: 8192
+      planning:
+        model: claude-sonnet-4-20250514
+        max_tokens: 4096
+    pricing:
+      models:
+        claude-sonnet-4-20250514:
+          input_per_million: 3.0
+          output_per_million: 15.0
+          cache_read_per_million: 0.30
+    parallelism:
+      max_concurrent_skill_rounds: 4
 
-    # --- Option C: Azure OpenAI (uncomment to use instead of Claude) ---
-    # agent:
-    #   type: azure-openai
-    #   endpoint: https://your-instance.openai.azure.com
-    #   api_version: 2025-01-01-preview
-    #   retry:
-    #     max_retries: 5
-    #     initial_delay_ms: 2000
-    #     backoff_multiplier: 2.0
-    #     max_delay_ms: 60000
-    #   models:
-    #     scout:
-    #       model: gpt-4.1-mini
-    #       deployment: gpt-4o-mini-deployment
-    #       max_tokens: 4096
-    #     primary:
-    #       model: gpt-4.1
-    #       deployment: gpt4-1-deployment
-    #       max_tokens: 8192
-    #     planning:
-    #       model: gpt-4.1
-    #       deployment: gpt4-1-deployment
-    #       max_tokens: 4096
-    #     summarization:
-    #       model: gpt-4.1-mini
-    #       deployment: gpt-4o-mini-deployment
-    #       max_tokens: 2048
-    #   pricing:
-    #     models:
-    #       gpt-4.1:
-    #         input_per_million: 2.0
-    #         output_per_million: 8.0
-    #         cache_read_per_million: 0.50
-    #       gpt-4.1-mini:
-    #         input_per_million: 0.40
-    #         output_per_million: 1.60
-    #         cache_read_per_million: 0.10
+  # azure-openai-default:
+  #   type: azure-openai
+  #   endpoint: https://your-instance.openai.azure.com
+  #   api_version: 2025-01-01-preview
+  #   models:
+  #     primary:
+  #       model: gpt-4.1
+  #       deployment: gpt4-1-deployment
+  #       max_tokens: 8192
+  #     planning:
+  #       model: gpt-4.1-mini
+  #       deployment: gpt-4o-mini-deployment
+  #       max_tokens: 4096
 
-    # --- Option D: Google Gemini (cheapest, fast) ---
-    # agent:
-    #   type: gemini
-    #   model: gemini-2.5-flash
-    #   models:
-    #     primary:
-    #       model: gemini-2.5-pro
-    #       max_tokens: 8192
-    #     planning:
-    #       model: gemini-2.5-flash
-    #       max_tokens: 4096
-    #   pricing:
-    #     models:
-    #       gemini-2.5-pro:
-    #         input_per_million: 1.25
-    #         output_per_million: 10.0
-    #       gemini-2.5-flash:
-    #         input_per_million: 0.15
-    #         output_per_million: 0.60
+  # gemini-default:
+  #   type: gemini
+  #   model: gemini-2.5-flash
+  #   models:
+  #     primary:
+  #       model: gemini-2.5-pro
+  #       max_tokens: 8192
 
-    # --- Single-pipeline form (legacy, still supported) ---
+# ────────────────────────────────────────────────────────────────────────
+#  Repos catalog
+# ────────────────────────────────────────────────────────────────────────
+repos:
+  acme-app:
+    type: GitHub
+    url: https://github.com/owner/acme-app
+    auth: github_token
+    # default_branch: main
+
+  acme-platform:
+    type: AzureDevOps
+    url: https://dev.azure.com/acme/platform/_git/platform-core
+    organization: acme
+    project: platform
+    auth: azure_devops_token
+
+  acme-rules-shared:
+    type: GitLab
+    url: https://gitlab.com/acme/rules-shared
+    auth: gitlab_token
+
+  acme-rules-billing:
+    type: GitLab
+    url: https://gitlab.com/acme/rules-billing
+    auth: gitlab_token
+
+  # Local repo for dev / api-security passive mode.
+  api-source-local:
+    type: Local
+    path: ./repo
+    auth: none
+
+# ────────────────────────────────────────────────────────────────────────
+#  Trackers catalog
+# ────────────────────────────────────────────────────────────────────────
+# Connection + lifecycle states shared across projects that point at the same
+# tracker install. Project-specific routing (which labels → which pipelines)
+# stays on the project's trigger block.
+trackers:
+  acme-github:
+    type: GitHub
+    url: https://github.com/owner/acme-app
+    auth: github_token
+
+  acme-ado:
+    type: AzureDevOps
+    url: https://dev.azure.com/acme
+    organization: acme
+    project: platform
+    auth: azure_devops_token
+    open_states: ["New", "Active"]
+    done_status: "Resolved"
+
+  acme-jira:
+    type: Jira
+    url: https://acme.atlassian.net/
+    auth: jira_token
+    open_states: ["To Do", "In Progress"]
+    done_status: "In Review"
+    close_transition_name: "Done"
+
+# ────────────────────────────────────────────────────────────────────────
+#  Global pipeline_triggers — label → pipeline default
+# ────────────────────────────────────────────────────────────────────────
+# Applied when a project's trigger block omits `pipeline_from_label`.
+# A populated project-level map wins over this global default.
+pipeline_triggers:
+  agent-smith:init: init-project
+  bug: fix-bug
+  feature: add-feature
+  security-review: security-scan
+  api-security-review: api-security-scan
+
+# ────────────────────────────────────────────────────────────────────────
+#  Projects
+# ────────────────────────────────────────────────────────────────────────
+projects:
+
+  # Single-repo GitHub project — uses the global pipeline_triggers map.
+  acme-app:
+    agent: claude-default
+    tracker: acme-github
+    repos: [acme-app]
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
+    github_trigger:
+      project_resolution:
+        # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the
+        # webhook payload against the project's single repo. Requires
+        # repos: [acme-app] (count == 1) — the validator enforces it.
+        strategy: repo
+        value: https://github.com/acme/app.git
+      trigger_statuses: ["open"]
+      done_status: "closed"
+      comment_keyword: "@agent-smith"
+      # pipeline_from_label omitted → inherits global pipeline_triggers map
 
-    # --- Per-project sandbox overrides (optional) ---
-    # Each field falls back to the top-level sandbox: block when null. Mix and
-    # match — set only the fields that differ for this project; leave the
-    # whole sandbox: block out to inherit all globals.
-    # sandbox:
-    #   # Carrier-image overrides (canary/rollback per project, or per-project mirror)
-    #   agent_registry: corp-mirror   # override top-level sandbox.agent_registry
-    #   agent_version: 0.49.0-beta    # override top-level sandbox.agent_version
-    #   # Toolchain image override (overrides the language-based auto-detection)
-    #   toolchain_image: my-registry/dotnet-sdk:8
-    #   # Container resources (all-or-nothing: provide all four or omit the block)
-    #   resources:
-    #     cpu_request: 500m           # Kubernetes CPU quantity
-    #     cpu_limit: 2000m
-    #     memory_request: 1Gi         # Kubernetes memory quantity
-    #     memory_limit: 4Gi
+  # Azure DevOps project with polling and an explicit per-project label map.
+  acme-platform:
+    agent: claude-default
+    tracker: acme-ado
+    repos: [acme-platform]
+    pipeline: fix-bug
+    polling:
+      enabled: true
+      interval_seconds: 60
+      jitter_percent: 10
+    azuredevops_trigger:
+      project_resolution:
+        # p0140a: ADO area-path dispatch — hierarchical prefix match. The configured
+        # value AcmeMain/Platform also matches AcmeMain/Platform/Provisioning and any
+        # deeper subtree. Backslash form (AcmeMain\\Platform with YAML-escaping) is
+        # equivalent; the loader normalises.
+        strategy: area-path
+        value: AcmeMain/Platform
+      trigger_statuses: ["New", "Active"]
+      done_status: "Resolved"
+      comment_keyword: "@agent-smith"
+      pipeline_from_label:
+        bug: fix-bug
+        security: security-scan
 
-    # --- Per-project orchestrator overrides (optional) ---
-    # Each field falls back to the top-level orchestrator: block when null
-    # (and to JobSpawner:Resources for the resources field). Use this for
-    # canary releases, per-project mirrors, or projects that need a different
-    # resource envelope than the deployment-wide default.
-    # orchestrator:
-    #   registry: corp-mirror         # override top-level orchestrator.registry
-    #   version: 0.49.0-beta          # override top-level orchestrator.version
-    #   resources:
-    #     cpu_request: 250m
-    #     cpu_limit: 1000m
-    #     memory_request: 512Mi
-    #     memory_limit: 2Gi
+  # Multi-repo Jira project — one ticket can spawn N pipeline runs once
+  # p0140 lands. Today the loader accepts the list shape; only Repos[0] is
+  # used by consumers via the transitional single-repo accessor.
+  acme-rules:
+    agent: claude-default
+    tracker: acme-jira
+    repos: [acme-rules-shared, acme-rules-billing]
+    pipeline: fix-bug
+    jira_trigger:
+      project_resolution:
+        # p0140a: Jira tag dispatch — a ticket carrying the label "acme-rules"
+        # routes to this project. Case-insensitive equality. Ambiguous tickets
+        # (a ticket with two project tags) spawn one pipeline run per matched
+        # project per p0140's documented "let the LLM skip irrelevant ones" rule.
+        strategy: tag
+        value: acme-rules
+      assignee_name: "Agent Smith"
+      secret: ${JIRA_WEBHOOK_SECRET}
+      trigger_statuses: ["To Do"]
+      done_status: "In Review"
+      comment_keyword: "@agent-smith"
 
-    # --- Multi-pipeline form (p0106) ---
-    # Multiple pipelines per project share the same source/tickets/agent.
-    # Each entry can override agent / skills_path / coding_principles_path.
-    # default_pipeline picks the one that runs when --pipeline is omitted.
-    # pipelines:
-    #   - name: fix-bug
-    #   - name: security-scan
-    #     agent:
-    #       type: OpenAI
-    #       model: gpt-4.1
-    #     skills_path: skills/security
-    # default_pipeline: fix-bug
-
-    # --- Ticket polling (alternative/complement to webhooks) ---
-    # Disabled by default — webhook-only deployments keep working unchanged.
-    # Enable when webhooks are unavailable (firewalled hosts, no public ingress)
-    # or as a safety net so missed webhook deliveries are still picked up.
-    # polling:
-    #   enabled: false           # default
-    #   interval_seconds: 60     # default
-    #   jitter_percent: 10       # default — randomizes interval to avoid thundering-herd
-
-    # --- Webhook triggers (uncomment ONE that matches your platform) ---
-
-    # GitHub Issues trigger:
-    # github_trigger:
-    #   trigger_statuses: ["open"]
-    #   done_status: "closed"
-    #   pipeline_from_label:
-    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
-    #     bug: fix-bug
-    #     feature: add-feature
-    #     security-review: security-scan
-    #   default_pipeline: fix-bug
-    #   comment_keyword: "@agent-smith"
-
-    # GitLab Issues trigger:
-    # gitlab_trigger:
-    #   trigger_statuses: ["opened"]
-    #   done_status: "closed"
-    #   pipeline_from_label:
-    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
-    #     bug: fix-bug
-    #     feature: add-feature
-    #     security: security-scan
-    #   default_pipeline: fix-bug
-    #   comment_keyword: "@agent-smith"
-
-    # Azure DevOps work item trigger:
-    # azuredevops_trigger:
-    #   trigger_statuses: ["New", "Active"]
-    #   done_status: "Resolved"
-    #   pipeline_from_label:
-    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
-    #     bug: fix-bug
-    #     security-review: security-scan
-    #   default_pipeline: fix-bug
-    #   comment_keyword: "@agent-smith"
-
-    # Jira assignee trigger:
-    # jira_trigger:
-    #   assignee_name: "Agent Smith"
-    #   secret: ${JIRA_WEBHOOK_SECRET}
-    #   trigger_statuses: ["Open", "Active"]
-    #   done_status: "In Review"
-    #   pipeline_from_label:
-    #     agent-smith:init: init-project   # first-run onboarding (p0133) — see docs/setup/onboarding.md
-    #     bug: fix-bug
-    #     feature: add-feature
-    #     security-review: security-scan
-    #   default_pipeline: fix-bug
-    #   comment_keyword: "@agent-smith"
-
-  # --- api-security project (p0102): code-aware api-scan with prefix caching ---
-  # The source: block is OPTIONAL for api-scan (p0102a). When present, the repo is
-  # auto-resolved (Local path or remote clone via ISourceProviderFactory) and the
-  # code-aware skills (auth-config-reviewer, ownership-checker, upload-validator-reviewer)
-  # run with file:line evidence. When absent or unreachable, api-scan falls back to
-  # passive schema-only mode without failing.
+  # api-security project (p0102) — local source enables code-aware skills;
+  # remote clone via repos: [acme-app] also works.
   api-security:
-    source:
-      type: Local
-      path: ./repo                      # path to the API source — enables auth-config-reviewer,
-                                        # ownership-checker, upload-validator-reviewer
-    # --- Alternative: clone a remote repo on each run (p0102a) ---
-    # source:
-    #   type: GitHub                    # GitHub | GitLab | AzureRepos | Local
-    #   url: https://github.com/owner/repo
-    #   auth: token                     # auth token resolved from secret store / env (e.g. GITHUB_TOKEN)
-    #   default_branch: main            # optional — falls back to provider default ('main') if omitted
-    agent:
-      type: Claude
-      model: claude-sonnet-4-20250514
-      cache:
-        is_enabled: true
-        strategy: automatic
-      models:
-        primary:
-          model: claude-sonnet-4-20250514
-          max_tokens: 8192
-        planning:
-          model: claude-sonnet-4-20250514
-          max_tokens: 4096
-      pricing:
-        models:
-          claude-sonnet-4-20250514:
-            input_per_million: 3.0
-            output_per_million: 15.0
-            cache_read_per_million: 0.30
-      # Required for prefix-cache hit rate within Anthropic's 5-minute TTL —
-      # at parallelism 1 contributors run sequentially and the cache expires
-      # before later skills hit it (p0102).
-      parallelism:
-        max_concurrent_skill_rounds: 4
+    agent: claude-parallel
+    tracker: acme-github
+    repos: [api-source-local]
+    pipeline: api-security-scan
 
 # Tool runner for security scanning tools (Nuclei, Spectral).
-# Type is auto-detected if not specified: docker socket → docker, else process.
 tool_runner:
-  type: auto  # auto | docker | podman | process
-  # socket: unix:///var/run/docker.sock
-  # docker_hostname: host.docker.internal
+  type: auto
   images:
     nuclei: projectdiscovery/nuclei:latest
     spectral: stoplight/spectral:6
 
-# Skill catalog source. The server pulls or mounts the catalog at boot
-# based on this section. See docs/skills/source-modes.md.
+# Skill catalog source. See docs/skills/source-modes.md.
 skills:
-  source: default                         # default | path | url
-  version: v2.1.0                         # required when source: default — ships 4 new coding planners + false-positive-filter (p0138)
-  # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then $HOME/.cache/agentsmith/skills,
-  # then {tmp}/agentsmith/skills — set explicitly only for system-managed paths (e.g. K8s mount).
+  source: default
+  version: v2.1.0
+  # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
   # cache_dir: /var/lib/agentsmith/skills
-  # path: /opt/skills                     # source: path — pre-mounted directory containing skills/
-  # url: https://...                      # source: url — explicit tarball URL
-  # sha256: <hex>                         # SHA256 verification (any download mode)
 
-# Hard limits for the per-skill agentic loop. Bound to LoopLimitsConfig.
-# All limits are global; per-project overrides are out of scope.
+# Hard limits for the per-skill agentic loop.
 limits:
-  max_tool_calls_per_skill: 30                # default tool-call cap per skill call
-  max_tool_calls_per_investigator: 10         # cap when investigator_mode is verify_hint or survey
-  max_tool_calls_per_verifier: 20             # cap when investigator_mode is verify_diff
-  max_llm_calls_per_skill: 15                 # observational; recorded in CallCostRecord, not separately enforced
-  max_input_tokens_per_skill_call: 200000     # hard cap; runtime returns Incomplete if crossed
-  max_output_tokens_per_skill_call: 16000     # hard cap; runtime returns Incomplete if crossed
-  max_seconds_per_skill_call: 300             # wall-clock cap; runtime returns Incomplete if crossed
-  max_concurrent_skill_calls: 10              # per pipeline run — N parallel runs ⇒ effective concurrency 10×N. Downscale here or add a Polly layer at the IChatClient seam if provider rate limits get hit.
+  max_tool_calls_per_skill: 30
+  max_tool_calls_per_investigator: 10
+  max_tool_calls_per_verifier: 20
+  max_llm_calls_per_skill: 15
+  max_input_tokens_per_skill_call: 200000
+  max_output_tokens_per_skill_call: 16000
+  max_seconds_per_skill_call: 300
+  max_concurrent_skill_calls: 10
 
-# In-flight pipeline-storage settings (Redis-backed RunArtifactStore for plan/diff/bootstrap handoffs).
-# TTL is the safety net for runs that crash without explicitly clearing — tunable here.
+# In-flight pipeline-storage settings.
 pipeline_storage:
   redis_ttl_hours: 4
 
-# p0128c data-flow gating. enforce=false (default) logs warnings on undeclared
-# context-key reads; flip to true once the warn log is empty for your pipeline mix.
+# p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false
 
 secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
-  # openai_api_key: ${OPENAI_API_KEY}
-  # azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
-  # gemini_api_key: ${GEMINI_API_KEY}
-  # groq_api_key: ${GROQ_API_KEY}
-  # github_token: ${GITHUB_TOKEN}
-  # gitlab_token: ${GITLAB_TOKEN}
-  # azure_devops_token: ${AZURE_DEVOPS_TOKEN}
-  # jira_token: ${JIRA_TOKEN}
-  # jira_email: ${JIRA_EMAIL}
-  # jira_webhook_secret: ${JIRA_WEBHOOK_SECRET}
+  github_token: ${GITHUB_TOKEN}
+  gitlab_token: ${GITLAB_TOKEN}
+  azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+  jira_token: ${JIRA_TOKEN}
+  jira_webhook_secret: ${JIRA_WEBHOOK_SECRET}

@@ -24,7 +24,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -39,17 +39,23 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             sandbox:
               agent_registry: holgerleichsenring
               agent_version: 0.48.0
+            agents:
+              a: { type: Claude }
+            repos:
+              r: { type: Local, path: ./repo, auth: none }
+            trackers:
+              t: { type: GitHub, auth: token }
             projects:
               demo:
-                source:
-                  type: Local
-                  path: ./repo
+                agent: a
+                tracker: t
+                repos: [r]
                 sandbox:
                   agent_registry: corp-mirror
                   agent_version: 0.49.0-beta
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -64,7 +70,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
         var cfg = loader.LoadConfig(_tempFile);
 

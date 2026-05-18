@@ -10,6 +10,6 @@ namespace AgentSmith.Application.Models;
 /// </summary>
 public sealed record InitCommitContext(
     Repository Repository,
-    SourceConfig SourceConfig,
-    TicketConfig TicketConfig,
+    RepoConnection RepoConnection,
+    TrackerConnection TrackerConnection,
     PipelineContext Pipeline) : ICommandContext;

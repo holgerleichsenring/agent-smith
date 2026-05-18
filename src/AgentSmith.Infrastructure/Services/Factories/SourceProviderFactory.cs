@@ -18,24 +18,24 @@ public sealed class SourceProviderFactory(
     IAzDoClientFactory azDoClientFactory,
     ILoggerFactory loggerFactory) : ISourceProviderFactory
 {
-    public ISourceProvider Create(SourceConfig config)
+    public ISourceProvider Create(RepoConnection config)
     {
-        return config.Type.ToLowerInvariant() switch
+        return config.Type switch
         {
-            "local" => CreateLocal(config),
-            "github" => CreateGitHub(config),
-            "gitlab" => CreateGitLab(config),
-            "azurerepos" => CreateAzureRepos(config),
+            RepoType.Local => CreateLocal(config),
+            RepoType.GitHub => CreateGitHub(config),
+            RepoType.GitLab => CreateGitLab(config),
+            RepoType.AzureDevOps => CreateAzureRepos(config),
             _ => throw new ConfigurationException($"Unknown source provider type: {config.Type}")
         };
     }
 
-    private static LocalSourceProvider CreateLocal(SourceConfig config)
+    private static LocalSourceProvider CreateLocal(RepoConnection config)
     {
         return new LocalSourceProvider(config.Path!);
     }
 
-    private GitHubSourceProvider CreateGitHub(SourceConfig config)
+    private GitHubSourceProvider CreateGitHub(RepoConnection config)
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
         return new GitHubSourceProvider(
@@ -44,7 +44,7 @@ public sealed class SourceProviderFactory(
             defaultBranch: config.DefaultBranch);
     }
 
-    private GitLabSourceProvider CreateGitLab(SourceConfig config)
+    private GitLabSourceProvider CreateGitLab(RepoConnection config)
     {
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
@@ -56,7 +56,7 @@ public sealed class SourceProviderFactory(
             defaultBranch: config.DefaultBranch);
     }
 
-    private AzureReposSourceProvider CreateAzureRepos(SourceConfig config)
+    private AzureReposSourceProvider CreateAzureRepos(RepoConnection config)
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);

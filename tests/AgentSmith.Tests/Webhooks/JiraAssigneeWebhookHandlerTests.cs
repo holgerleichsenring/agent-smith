@@ -1,8 +1,10 @@
 using System.Text.Json;
-using AgentSmith.Server.Services.Webhooks;
-using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -13,6 +15,9 @@ public sealed class JiraAssigneeWebhookHandlerTests
 {
     private const string ConfigPath = "test-config.yml";
 
+    private static readonly IDictionary<string, string> EmptyHeaders =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     private static string BuildPayload(
         string assigneeName = "Agent Smith",
         string issueKey = "PROJ-123",
@@ -20,9 +25,8 @@ public sealed class JiraAssigneeWebhookHandlerTests
         string changeField = "assignee",
         string issueStatus = "Open")
     {
-        var labelArray = labels ?? [];
+        var labelArray = labels ?? Array.Empty<string>();
         var labelsJson = JsonSerializer.Serialize(labelArray);
-
         return $$"""
         {
           "webhookEvent": "jira:issue_updated",
@@ -50,199 +54,144 @@ public sealed class JiraAssigneeWebhookHandlerTests
 
     private static AgentSmithConfig BuildConfig(
         string assigneeName = "Agent Smith",
-        string defaultPipeline = "fix-bug",
-        Dictionary<string, string>? labelMap = null,
-        List<string>? triggerStatuses = null,
-        string doneStatus = "In Review")
+        List<string>? triggerStatuses = null)
     {
         return new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 ["my-project"] = new()
                 {
+                    Name = "my-project",
+                    Repos = new[] { new RepoConnection { Name = "my-project" } },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         AssigneeName = assigneeName,
-                        DefaultPipeline = defaultPipeline,
-                        PipelineFromLabel = labelMap ?? new Dictionary<string, string>
+                        ProjectResolution = new ProjectResolutionConfig
                         {
-                            ["security-review"] = "security-scan",
-                            ["mad-discussion"] = "mad-discussion"
+                            Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                         },
-                        TriggerStatuses = triggerStatuses ?? ["Open"],
-                        DoneStatus = doneStatus
+                        DefaultPipeline = "fix-bug",
+                        TriggerStatuses = triggerStatuses ?? new List<string> { "Open" },
+                        DoneStatus = "In Review"
                     }
                 }
             }
         };
     }
 
-    private static JiraAssigneeWebhookHandler CreateHandler(AgentSmithConfig config)
+    private static (JiraAssigneeWebhookHandler handler,
+                    Mock<IEnvelopeProjectResolver> resolver,
+                    Mock<ISpawnPipelineRunsUseCase> spawn)
+        CreateHandler(AgentSmithConfig config)
     {
-        var configLoader = new Mock<IConfigurationLoader>();
-        configLoader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config);
-
-        return new JiraAssigneeWebhookHandler(
-            configLoader.Object,
-            new ServerContext(ConfigPath),
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config);
+        var resolver = new Mock<IEnvelopeProjectResolver>();
+        var spawn = new Mock<ISpawnPipelineRunsUseCase>();
+        spawn.Setup(s => s.ExecuteAsync(
+                It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+                It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()))
+            .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
+        var dispatcher = new WebhookSpawnDispatcher(
+            spawn.Object,
+            new Mock<ITicketProviderFactory>().Object,
+            NullLogger<WebhookSpawnDispatcher>.Instance);
+        var handler = new JiraAssigneeWebhookHandler(
+            loader.Object, new ServerContext(ConfigPath),
+            resolver.Object, dispatcher,
             NullLogger<JiraAssigneeWebhookHandler>.Instance);
-    }
-
-    private static readonly IDictionary<string, string> EmptyHeaders =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-    [Fact]
-    public async Task HandleAsync_AssigneeMatchesConfig_EnqueuesJob()
-    {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload();
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-        result.ProjectName.Should().Be("my-project");
-        result.TicketId.Should().Be("PROJ-123");
-        result.Pipeline.Should().Be("fix-bug");
+        return (handler, resolver, spawn);
     }
 
     [Fact]
-    public async Task HandleAsync_AssigneeDoesNotMatch_ReturnsIgnored()
+    public void CanHandle_CorrectPlatform()
     {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload(assigneeName: "Alice Example");
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeFalse();
+        var (sut, _, _) = CreateHandler(BuildConfig());
+        sut.CanHandle("jira", "issue_updated").Should().BeTrue();
+        sut.CanHandle("jira", "comment_created").Should().BeFalse();
     }
 
     [Fact]
-    public async Task HandleAsync_NotAnAssigneeChange_ReturnsIgnored()
+    public async Task HandleAsync_NotAnAssigneeChange_ReturnsNotHandled()
     {
-        var handler = CreateHandler(BuildConfig());
+        var (sut, _, spawn) = CreateHandler(BuildConfig());
         var payload = BuildPayload(changeField: "status");
 
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
+        var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeFalse();
+        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandleAsync_LabelMatchesPipelineMap_UsesMappedPipeline()
+    public async Task HandleAsync_ZeroMatches_HandledNoSpawn()
     {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload(labels: ["security-review"]);
+        var (sut, resolver, spawn) = CreateHandler(BuildConfig());
+        resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns(Array.Empty<ProjectMatch>());
 
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
+        var result = await sut.HandleAsync(BuildPayload(), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("security-scan");
+        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandleAsync_NoLabelMatch_UsesDefaultPipeline()
+    public async Task HandleAsync_AssigneeMatches_OneMatch_DispatchesSpawn()
     {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload(labels: ["backend"]);
+        var (sut, resolver, spawn) = CreateHandler(BuildConfig());
+        resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
 
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
+        var result = await sut.HandleAsync(BuildPayload(), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-project"),
+            "fix-bug",
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "PROJ-123" && e.Platform == "jira"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task HandleAsync_NoLabels_UsesDefaultPipeline()
+    public async Task HandleAsync_AssigneeMismatch_FilteredOut_NoSpawn()
     {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload(labels: []);
+        var (sut, resolver, spawn) = CreateHandler(BuildConfig());
+        // resolver returns the match, but handler-level filter rejects because
+        // assignee != AssigneeName.
+        resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
 
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
-    }
-
-    [Fact]
-    public async Task HandleAsync_MultipleLabels_ConfigOrderWins()
-    {
-        var handler = CreateHandler(BuildConfig());
-        var payload = BuildPayload(labels: ["mad-discussion", "security-review"]);
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("security-scan");
-    }
-
-    [Fact]
-    public async Task HandleAsync_SecretMissing_SkipsVerification()
-    {
-        var config = BuildConfig();
-        config.Projects["my-project"].JiraTrigger!.Secret = null;
-        var handler = CreateHandler(config);
-        var payload = BuildPayload();
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-    }
-
-    [Fact]
-    public void HandleAsync_SecretConfigured_HeaderMissing_ReturnsUnauthorized()
-    {
-        var result = WebhookSignatureValidator.ValidateJira(
-            "some payload", signatureHeader: null, secret: "my-secret");
-
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task HandleAsync_StatusNotInWhitelist_DoesNotTrigger()
-    {
-        var handler = CreateHandler(BuildConfig(triggerStatuses: ["Open", "Active"]));
-        var payload = BuildPayload(issueStatus: "In Review");
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
+        var result = await sut.HandleAsync(BuildPayload(assigneeName: "Someone Else"), EmptyHeaders);
 
         result.Handled.Should().BeFalse();
+        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandleAsync_StatusInWhitelist_Triggers()
+    public async Task HandleAsync_StatusNotInTriggerStatuses_NoSpawn()
     {
-        var handler = CreateHandler(BuildConfig(triggerStatuses: ["Open", "Active"]));
-        var payload = BuildPayload(issueStatus: "Active");
+        var (sut, resolver, spawn) =
+            CreateHandler(BuildConfig(triggerStatuses: new List<string> { "Open", "Active" }));
+        resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
 
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
+        var result = await sut.HandleAsync(BuildPayload(issueStatus: "In Review"), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.ProjectName.Should().Be("my-project");
-        result.TicketId.Should().Be("PROJ-123");
-    }
-
-    [Fact]
-    public async Task HandleAsync_StatusCheckIsCaseInsensitive()
-    {
-        var handler = CreateHandler(BuildConfig(triggerStatuses: ["open"]));
-        var payload = BuildPayload(issueStatus: "Open");
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task HandleAsync_SetsDoneStatusInInitialContext()
-    {
-        var handler = CreateHandler(BuildConfig(doneStatus: "In Review"));
-        var payload = BuildPayload();
-
-        var result = await handler.HandleAsync(payload, EmptyHeaders);
-
-        result.Handled.Should().BeTrue();
-        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus);
-        result.InitialContext![ContextKeys.DoneStatus].Should().Be("In Review");
+        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
     }
 }

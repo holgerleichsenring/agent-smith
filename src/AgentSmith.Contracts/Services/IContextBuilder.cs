@@ -10,5 +10,5 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface IContextBuilder
 {
-    ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline);
+    ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline);
 }

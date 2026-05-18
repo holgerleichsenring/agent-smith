@@ -12,5 +12,5 @@ namespace AgentSmith.Application.Services.Orchestrator;
 /// </summary>
 public interface IOrchestratorResourceResolver
 {
-    ResourceLimits Resolve(ProjectConfig projectConfig);
+    ResourceLimits Resolve(ResolvedProject projectConfig);
 }

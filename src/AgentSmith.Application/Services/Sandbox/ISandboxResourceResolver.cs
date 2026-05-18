@@ -10,5 +10,5 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public interface ISandboxResourceResolver
 {
-    ResourceLimits Resolve(ProjectConfig projectConfig);
+    ResourceLimits Resolve(ResolvedProject projectConfig);
 }

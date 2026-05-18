@@ -18,23 +18,22 @@ public sealed class TicketProviderFactory(
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<TicketProviderFactory>();
 
-    public ITicketProvider Create(TicketConfig config)
+    public ITicketProvider Create(TrackerConnection config)
     {
-        var type = config.Type.ToLowerInvariant();
-        _logger.LogDebug("TicketProviderFactory.Create: type={Type}", type);
-        var provider = type switch
+        _logger.LogDebug("TicketProviderFactory.Create: type={Type}", config.Type);
+        var provider = config.Type switch
         {
-            "azuredevops" => (ITicketProvider)CreateAzureDevOps(config),
-            "github" => CreateGitHub(config),
-            "jira" => CreateJira(config),
-            "gitlab" => CreateGitLab(config),
+            TrackerType.AzureDevOps => (ITicketProvider)CreateAzureDevOps(config),
+            TrackerType.GitHub => CreateGitHub(config),
+            TrackerType.Jira => CreateJira(config),
+            TrackerType.GitLab => CreateGitLab(config),
             _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}")
         };
         _logger.LogDebug("TicketProviderFactory.Create: returning {Provider}", provider.GetType().Name);
         return provider;
     }
 
-    private AzureDevOpsTicketProvider CreateAzureDevOps(TicketConfig config)
+    private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
         _logger.LogDebug("CreateAzureDevOps: org={Org} project={Project}", config.Organization, config.Project);
@@ -51,7 +50,7 @@ public sealed class TicketProviderFactory(
             extraFields: config.ExtraFields.Count > 0 ? config.ExtraFields : null);
     }
 
-    private GitHubTicketProvider CreateGitHub(TicketConfig config)
+    private GitHubTicketProvider CreateGitHub(TrackerConnection config)
     {
         _logger.LogDebug("CreateGitHub: url={Url}", config.Url);
         var token = secrets.GetRequired("GITHUB_TOKEN");
@@ -62,7 +61,7 @@ public sealed class TicketProviderFactory(
             loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
 
-    private JiraTicketProvider CreateJira(TicketConfig config)
+    private JiraTicketProvider CreateJira(TrackerConnection config)
     {
         var url = config.Url ?? secrets.GetRequired("JIRA_URL");
         _logger.LogDebug("CreateJira: url={Url} project={Project}", url, config.Project);
@@ -75,7 +74,7 @@ public sealed class TicketProviderFactory(
             projectKey: config.Project);
     }
 
-    private GitLabTicketProvider CreateGitLab(TicketConfig config)
+    private GitLabTicketProvider CreateGitLab(TrackerConnection config)
     {
         var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
         var projectPath = config.Project ?? secrets.GetRequired("GITLAB_PROJECT");
