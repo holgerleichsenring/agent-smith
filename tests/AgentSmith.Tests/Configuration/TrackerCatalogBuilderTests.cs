@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
 
@@ -19,7 +20,7 @@ public sealed class TrackerCatalogBuilderTests
         {
             ["tr1"] = new RawTrackerEntry
             {
-                Type = "GitHub",
+                Type = TrackerType.GitHub,
                 Auth = "token",
                 Polling = new RawPollingEntry
                 {
@@ -45,7 +46,7 @@ public sealed class TrackerCatalogBuilderTests
     {
         var raw = new Dictionary<string, RawTrackerEntry>
         {
-            ["tr1"] = new RawTrackerEntry { Type = "GitHub", Auth = "token", Polling = null }
+            ["tr1"] = new RawTrackerEntry { Type = TrackerType.GitHub, Auth = "token", Polling = null }
         };
         var errors = new List<string>();
 
@@ -62,7 +63,7 @@ public sealed class TrackerCatalogBuilderTests
         {
             ["tr1"] = new RawTrackerEntry
             {
-                Type = "GitHub",
+                Type = TrackerType.GitHub,
                 Auth = "token",
                 ZeroMatchComment = true,
             }

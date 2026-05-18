@@ -12,7 +12,7 @@ public sealed record ProjectResolutionConfig
 
     /// <summary>
     /// Strategy-specific match value. For tag/to_address: exact case-insensitive match.
-    /// For area-path: hierarchical prefix match against the normalised backslash form.
+    /// For area_path: hierarchical prefix match against the normalised backslash form.
     /// For repo: exact case-insensitive URL match against the project's single repo.
     /// </summary>
     public string Value { get; init; } = string.Empty;

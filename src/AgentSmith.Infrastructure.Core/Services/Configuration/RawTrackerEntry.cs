@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class RawTrackerEntry
 {
-    public string Type { get; set; } = string.Empty;
+    public TrackerType Type { get; set; }
     public string? Url { get; set; }
     public string? Organization { get; set; }
     public string? Project { get; set; }
