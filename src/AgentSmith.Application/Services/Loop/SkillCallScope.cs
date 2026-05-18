@@ -69,7 +69,8 @@ public sealed class SkillCallScope : IDisposable
             ToolCallCount = enforcer?.ToolCallCount ?? 0,
             LlmCallCount = enforcer?.LlmCallCount ?? 0,
             DurationMs = elapsed,
-            StartedAt = _startedAt
+            StartedAt = _startedAt,
+            HitLimit = enforcer?.HitLimit
         };
     }
 }
