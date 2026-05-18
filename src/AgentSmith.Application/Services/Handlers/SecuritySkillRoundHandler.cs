@@ -1,7 +1,9 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -21,8 +23,9 @@ public sealed class SecuritySkillRoundHandler(
     IUpstreamContextBuilder upstreamContextBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
     IProjectBriefBuilder projectBriefBuilder,
+    ISkillCallRuntime skillCallRuntime,
     ILogger<SecuritySkillRoundHandler> logger)
-    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory),
+    : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory, skillCallRuntime),
       ICommandHandler<SecuritySkillRoundContext>
 {
     protected override ILogger Logger => logger;

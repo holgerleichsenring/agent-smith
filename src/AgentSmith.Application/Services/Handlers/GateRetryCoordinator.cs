@@ -27,9 +27,10 @@ public sealed class GateRetryCoordinator(
         string userPromptPrefix,
         string userPromptSuffix,
         PipelineContext pipeline,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<ChatResponse>? onResponse = null)
     {
-        var firstText = await CallAsync(systemPrompt, userPromptPrefix, userPromptSuffix, pipeline, cancellationToken);
+        var firstText = await CallAsync(systemPrompt, userPromptPrefix, userPromptSuffix, pipeline, cancellationToken, onResponse);
         var firstResult = gateOutputHandler.Handle(role, orchestration, firstText, pipeline);
         if (firstResult.IsSuccess)
             return new GateCallOutcome(firstResult, firstText);
@@ -39,7 +40,7 @@ public sealed class GateRetryCoordinator(
             role.DisplayName, firstResult.Message);
 
         var correctiveSuffix = BuildCorrectiveSuffix(userPromptSuffix, firstText, firstResult.Message);
-        var retryText = await CallAsync(systemPrompt, userPromptPrefix, correctiveSuffix, pipeline, cancellationToken);
+        var retryText = await CallAsync(systemPrompt, userPromptPrefix, correctiveSuffix, pipeline, cancellationToken, onResponse);
         var retryResult = gateOutputHandler.Handle(role, orchestration, retryText, pipeline);
 
         if (retryResult.IsSuccess)
@@ -58,7 +59,8 @@ public sealed class GateRetryCoordinator(
 
     private async Task<string> CallAsync(
         string systemPrompt, string userPromptPrefix, string userPromptSuffix,
-        PipelineContext pipeline, CancellationToken cancellationToken)
+        PipelineContext pipeline, CancellationToken cancellationToken,
+        Action<ChatResponse>? onResponse)
     {
         var agent = pipeline.Get<AgentConfig>(ContextKeys.AgentConfig);
         var chat = chatClientFactory.Create(agent, TaskType.Primary);
@@ -74,6 +76,15 @@ public sealed class GateRetryCoordinator(
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        // p0142: when the caller (typically SkillRoundHandlerBase) owns a
+        // SkillCallScope, fire its per-attempt hook so each retry attempt
+        // gets its own LimitEnforcer.RecordLlmCall + cost-scope attribution.
+        // Defensive try/catch — a misbehaving hook must not break the gate.
+        try { onResponse?.Invoke(response); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Gate onResponse hook threw — continuing gate logic");
+        }
         return response.Text ?? string.Empty;
     }
 
