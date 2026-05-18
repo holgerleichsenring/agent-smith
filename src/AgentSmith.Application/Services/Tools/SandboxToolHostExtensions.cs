@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 
+#pragma warning disable CS0618 // bridge over the [Obsolete] SandboxToolHost facade
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
