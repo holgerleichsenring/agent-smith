@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
+# SUPERSEDED 2026-05-18 by sliced phases p0140a..p0140e — see decisions.md.
+# This file is retained as the umbrella spec for the overall design intent.
+# Implement via the slices, not this parent directly.
 phase: p0140
 goal: "Make a project hold a LIST of repos and a LIST of pipelines. One ticket on a multi-repo project spawns one pipeline run per repo, isolated and parallel. Webhook→project routing becomes explicit via a project_resolution block in the trigger. Per-pipeline overrides (agent, skills_path) on the project let one project legitimately host fix-bug, security-scan, and api-security-scan side by side without 3x duplicated project blocks."
 

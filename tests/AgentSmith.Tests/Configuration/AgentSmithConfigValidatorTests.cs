@@ -48,7 +48,7 @@ public sealed class AgentSmithConfigValidatorTests
         var config = ConfigWithProject(
             "p",
             new TrackerConnection { Name = "t", Type = TrackerType.Jira },
-            project => project with { JiraTrigger = new JiraTriggerConfig() });
+            project => project with { JiraTrigger = new JiraTriggerConfig { ProjectResolution = TagResolution("p") } });
 
         _sut.Validate(config).Should().BeEmpty();
     }
@@ -59,7 +59,7 @@ public sealed class AgentSmithConfigValidatorTests
         var config = ConfigWithProject(
             "p",
             new TrackerConnection { Name = "jira-prod", Type = TrackerType.Jira },
-            project => project with { AzuredevopsTrigger = new WebhookTriggerConfig() });
+            project => project with { AzuredevopsTrigger = new WebhookTriggerConfig { ProjectResolution = TagResolution("p") } });
 
         var errors = _sut.Validate(config);
 
@@ -75,10 +75,90 @@ public sealed class AgentSmithConfigValidatorTests
         var config = ConfigWithProject(
             "p",
             new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
-            project => project with { GithubTrigger = new WebhookTriggerConfig() });
+            project => project with { GithubTrigger = new WebhookTriggerConfig { ProjectResolution = TagResolution("p") } });
 
         _sut.Validate(config).Should().BeEmpty();
     }
+
+    // p0140a tests below
+
+    [Fact]
+    public void Validate_TriggerMissingProjectResolution_ReturnsError()
+    {
+        var config = ConfigWithProject(
+            "p",
+            new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with { GithubTrigger = new WebhookTriggerConfig() });
+
+        var errors = _sut.Validate(config);
+
+        errors.Should().Contain(e =>
+            e.Contains("github_trigger") &&
+            e.Contains("project_resolution"));
+    }
+
+    [Fact]
+    public void Validate_RepoStrategyWithMultipleRepos_ReturnsError()
+    {
+        var config = ConfigWithProject(
+            "multi",
+            new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with
+            {
+                Repos = new[]
+                {
+                    new RepoConnection { Name = "a", Url = "https://github.com/x/a.git" },
+                    new RepoConnection { Name = "b", Url = "https://github.com/x/b.git" },
+                },
+                GithubTrigger = new WebhookTriggerConfig
+                {
+                    ProjectResolution = new ProjectResolutionConfig
+                    {
+                        Strategy = ResolutionStrategy.Repo,
+                        Value = "https://github.com/x/a.git",
+                    },
+                },
+            });
+
+        var errors = _sut.Validate(config);
+
+        errors.Should().Contain(e =>
+            e.Contains("multi") &&
+            e.Contains("strategy=repo") &&
+            e.Contains("exactly one"));
+    }
+
+    [Fact]
+    public void Validate_PipelineOverrideAgentDoesNotExist_ReturnsError()
+    {
+        // Catalog resolver normally fails first; this test verifies the validator's defence-in-depth
+        // when the pipeline carries AgentName but Agent is null (e.g. test fixtures, partial loads).
+        var config = ConfigWithProject(
+            "p",
+            new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with
+            {
+                Pipelines = new[]
+                {
+                    new PipelineDefinition
+                    {
+                        Name = "fix-bug",
+                        AgentName = "missing-agent",
+                        Agent = null,
+                    },
+                },
+                GithubTrigger = new WebhookTriggerConfig { ProjectResolution = TagResolution("p") },
+            });
+
+        var errors = _sut.Validate(config);
+
+        errors.Should().Contain(e =>
+            e.Contains("pipelines['fix-bug']") &&
+            e.Contains("missing-agent"));
+    }
+
+    private static ProjectResolutionConfig TagResolution(string value) =>
+        new() { Strategy = ResolutionStrategy.Tag, Value = value };
 
     private static AgentSmithConfig ConfigWithProject(
         string name, TrackerConnection tracker, Func<ResolvedProject, ResolvedProject> shape) =>

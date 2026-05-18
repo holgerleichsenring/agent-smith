@@ -14,7 +14,7 @@ public sealed class RawProjectEntry
     public List<string> Repos { get; set; } = [];
 
     public string Pipeline { get; set; } = string.Empty;
-    public List<PipelineDefinition> Pipelines { get; set; } = [];
+    public List<RawPipelineEntry> Pipelines { get; set; } = [];
     public string? DefaultPipeline { get; set; }
 
     public string? CodingPrinciplesPath { get; set; }

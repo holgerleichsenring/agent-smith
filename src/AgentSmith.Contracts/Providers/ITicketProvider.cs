@@ -10,6 +10,15 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface ITicketProvider : ITypedProvider
 {
+    /// <summary>
+    /// p0140a: declares whether this provider's backing system supports comments on tickets.
+    /// Default true — all of today's providers (Jira/ADO/GitHub/GitLab) have in-band comments.
+    /// The future Email provider (p0141) returns false. Webhook handlers will check this
+    /// before calling <see cref="UpdateStatusAsync"/> from p0140b's zero-match / capability-
+    /// conditional paths.
+    /// </summary>
+    bool SupportsComments => true;
+
     Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken);
 
     /// <summary>

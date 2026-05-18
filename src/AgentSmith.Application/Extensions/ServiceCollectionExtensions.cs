@@ -328,6 +328,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
+        // p0140a: ProjectResolver is stateless; not yet wired to webhook handlers (p0140b).
+        services.AddSingleton<Services.Triggers.ProjectResolver>();
         services.AddTransient<ExecutePipelineUseCase>();
         // ITicketClaimService moved to Server.AddCoreDispatcherServices in p0109a — it
         // depends on IRedisJobQueue + IRedisClaimLock + IJobHeartbeatService, none of

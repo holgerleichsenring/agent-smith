@@ -27,7 +27,7 @@ public sealed class ProjectConfigNormalizer
         if (!project.Pipelines.Any(p => string.Equals(
             p.Name, project.Pipeline, StringComparison.OrdinalIgnoreCase)))
         {
-            project.Pipelines.Add(new PipelineDefinition
+            project.Pipelines.Add(new RawPipelineEntry
             {
                 Name = project.Pipeline,
                 SkillsPath = NonDefaultSkillsPath(project),

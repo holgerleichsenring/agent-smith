@@ -106,6 +106,10 @@
         "extra_fields": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "zero_match_comment": {
+          "type": "boolean",
+          "description": "When true (and the provider supports comments), posts a 'no agent-smith project matched this ticket' note on tickets whose ProjectResolver lookup returns zero matches. Default false. Single-tenant trackers can opt in for forensics; multi-tenant trackers should leave it off to avoid noise."
         }
       }
     },
@@ -128,8 +132,16 @@
           "items": { "type": "string" },
           "minItems": 1
         },
-        "pipeline": { "type": "string" },
-        "pipelines": { "type": "array" },
+        "pipeline": {
+          "type": "string",
+          "description": "Deprecated p0140. Single-pipeline shorthand; use pipelines: instead. Still accepted as a one-entry equivalent."
+        },
+        "pipelines": {
+          "type": "array",
+          "description": "Pipelines this project hosts. Each entry is either a string (pipeline name, uses project defaults) or an object {name, agent?, skills_path?}. The agent/skills_path overrides are exact-replace lookups, not partial-merge.",
+          "items": { "$ref": "#/$defs/pipelineEntry" },
+          "minItems": 1
+        },
         "default_pipeline": { "type": "string" },
         "coding_principles_path": { "type": "string" },
         "skills_path": { "type": "string" },
@@ -144,8 +156,10 @@
     },
     "webhookTrigger": {
       "type": "object",
-      "description": "Trigger block shared by GitHub/GitLab/AzureDevOps. pipeline_from_label is optional; when omitted the global pipeline_triggers map applies.",
+      "description": "Trigger block shared by GitHub/GitLab/AzureDevOps. pipeline_from_label is optional; when omitted the global pipeline_triggers map applies. project_resolution is REQUIRED (p0140) — declares how the webhook handler picks this project out of all configured projects for an incoming ticket.",
+      "required": ["project_resolution"],
       "properties": {
+        "project_resolution": { "$ref": "#/$defs/projectResolution" },
         "pipeline_from_label": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -170,6 +184,46 @@
           }
         }
       ]
+    },
+    "pipelineEntry": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Pipeline name; uses project's default agent and skills_path."
+        },
+        {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "agent": {
+              "type": "string",
+              "description": "Optional override: pipeline runs with this agent instead of the project default. Exact-replace lookup into the agents catalog (no partial-merge)."
+            },
+            "skills_path": {
+              "type": "string",
+              "description": "Optional override: this pipeline loads skills from a different path than the project default."
+            }
+          }
+        }
+      ]
+    },
+    "projectResolution": {
+      "type": "object",
+      "description": "Tells the webhook handler which agent-smith project owns an incoming ticket. With multi-tenant trackers (one ADO project hosting many sub-projects, one Jira install used by many teams) this declaration is mandatory — without it the handler has no way to route. Strategies: tag (label match on ticket), area-path (ADO AreaPath prefix match — supports both \\ and /), repo (GitHub/GitLab source-repo URL match — requires project.repos to have exactly one entry), to_address (Email tracker only, see p0141).",
+      "required": ["strategy", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["tag", "area-path", "repo", "to_address"]
+        },
+        "value": {
+          "type": "string",
+          "description": "Strategy-specific match value. tag: label string. area-path: hierarchical path (e.g. ContosoMain/Billing or ContosoMain\\Billing); matching is prefix-based on the normalized backslash form, so ContosoMain\\Billing matches both itself and ContosoMain\\Billing\\Invoicing. repo: repo URL or short name matched against the project's single repo's RepoConnection.Url. to_address: full email address."
+        }
+      }
     }
   }
 }
