@@ -30,6 +30,7 @@ public sealed class VerifyRoundHandler(
     ISkillBodyResolver bodyResolver,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     IDecisionLogger decisionLogger,
+    IToolKit toolKit,
     LoopLimitsConfig limits,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
@@ -133,8 +134,17 @@ public sealed class VerifyRoundHandler(
     {
         if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return new List<AITool>();
-        var host = new SandboxToolHost(sandbox, decisionLogger);
-        return new ToolKit(host).GetToolsFor(SkillExecutionPhase.Verify, investigatorMode: "verify_diff");
+        var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
+            ? pn
+            : IToolKit.WildcardPipelineName;
+        var hosts = new IToolHost[]
+        {
+            new FilesystemToolHost(sandbox),
+            new LogDecisionToolHost(decisionLogger),
+            new HumanToolHost()
+        };
+        return toolKit.GetToolsFor(
+            pipelineName, SkillExecutionPhase.Verify, investigatorMode: "verify_diff", hosts);
     }
 
     private async Task<List<SkillObservation>> InvokeVerifierAsync(

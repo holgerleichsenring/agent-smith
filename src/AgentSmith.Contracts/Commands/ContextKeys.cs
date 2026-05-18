@@ -87,6 +87,11 @@ public static class ContextKeys
     public const string AutonomousFindings = "AutonomousFindings";
     public const string WrittenTickets = "WrittenTickets";
     public const string PipelineTypeName = "PipelineType";
+    /// <summary>p0145: pipeline preset name (e.g. "fix-bug", "security-scan"). Set by
+    /// ExecutePipelineUseCase alongside PipelineTypeName. Distinct from the
+    /// "pipeline_name" concept (Activation-system enum) — this key is the
+    /// ToolKit pipeline-allow-list lookup key.</summary>
+    public const string PipelineName = "PipelineName";
     public const string SkillOutputs = "SkillOutputs";
     public const string ConfigDir = "ConfigDir";
     public const string DoneStatus = "DoneStatus";
