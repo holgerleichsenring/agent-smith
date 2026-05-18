@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
@@ -43,7 +44,7 @@ public sealed class WebhookSpawnDispatcher(
         string ticketStatus, Dictionary<string, string>? planAnswers, CancellationToken ct)
     {
         var project = config.Projects[match.ProjectName];
-        var trigger = SelectTriggerFor(project, match.Kind);
+        var trigger = TriggerSelectionHelper.ByKind(project, match.Kind);
         if (trigger is null) return;
 
         if (!IsStatusAllowed(trigger, ticketStatus))
@@ -99,15 +100,6 @@ public sealed class WebhookSpawnDispatcher(
         "gitlab" => TrackerType.GitLab,
         "azuredevops" => TrackerType.AzureDevOps,
         "jira" => TrackerType.Jira,
-        _ => null,
-    };
-
-    private static WebhookTriggerConfig? SelectTriggerFor(ResolvedProject project, string kind) => kind switch
-    {
-        "github" => project.GithubTrigger,
-        "gitlab" => project.GitlabTrigger,
-        "azuredevops" => project.AzuredevopsTrigger,
-        "jira" => project.JiraTrigger,
         _ => null,
     };
 

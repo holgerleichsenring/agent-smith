@@ -87,6 +87,8 @@ if (validationErrors.Count > 0)
         $"agentsmith.yml has {validationErrors.Count} validation error(s); see startup log.");
 }
 
+app.Services.GetRequiredService<PollingConfigDeprecationWarner>().Warn(startupConfig);
+
 StartupSummaryLogger.Log(
     startupConfig,
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AgentSmith.Server.Startup"));

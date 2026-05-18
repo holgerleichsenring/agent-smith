@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
         services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
         services.AddSingleton<AgentSmithConfigValidator>();
+        services.AddSingleton<Services.Configuration.PollingConfigDeprecationWarner>();
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);

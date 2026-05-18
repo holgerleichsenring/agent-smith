@@ -43,6 +43,19 @@ public sealed class TrackerCatalogBuilder
             DoneStatus = entry.DoneStatus,
             CloseTransitionName = entry.CloseTransitionName,
             ExtraFields = entry.ExtraFields,
+            ZeroMatchComment = entry.ZeroMatchComment,
+            Polling = MapPolling(entry.Polling),
+        };
+    }
+
+    private static PollingConfig MapPolling(RawPollingEntry? raw)
+    {
+        if (raw is null) return new PollingConfig();
+        return new PollingConfig
+        {
+            Enabled = raw.Enabled,
+            IntervalSeconds = raw.IntervalSeconds,
+            JitterPercent = raw.JitterPercent,
         };
     }
 }

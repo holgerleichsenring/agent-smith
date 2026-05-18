@@ -110,6 +110,15 @@
         "zero_match_comment": {
           "type": "boolean",
           "description": "When true (and the provider supports comments), posts a 'no agent-smith project matched this ticket' note on tickets whose ProjectResolver lookup returns zero matches. Default false. Single-tenant trackers can opt in for forensics; multi-tenant trackers should leave it off to avoid noise."
+        },
+        "polling": {
+          "type": "object",
+          "description": "p0140c: per-tracker polling cadence. Pollers run once per tracker (not per project). N projects sharing one tracker → one polling cycle. Omit when this tracker is webhook-only.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Default false." },
+            "interval_seconds": { "type": "integer", "minimum": 1, "description": "Default 60." },
+            "jitter_percent": { "type": "integer", "minimum": 0, "description": "Default 10." }
+          }
         }
       }
     },

@@ -26,4 +26,11 @@ public sealed record TrackerConnection
     /// webhook handlers.
     /// </summary>
     public bool ZeroMatchComment { get; init; } = false;
+
+    /// <summary>
+    /// p0140c: per-tracker polling cadence. Pollers go per-tracker after p0140c so the polling
+    /// settings move from ResolvedProject.Polling (deprecated) to here. Disabled by default so
+    /// trackers used only as webhook destinations don't trigger polling.
+    /// </summary>
+    public PollingConfig Polling { get; init; } = new();
 }
