@@ -32,15 +32,13 @@ public sealed class PollerLeaderHostedService(
 
     private async Task RunPollerAsync(CancellationToken ct)
     {
-        logger.LogInformation("RunPollerAsync entered — creating scope and resolving claim service");
+        logger.LogInformation("RunPollerAsync entered — building per-tracker pollers");
         using var scope = services.CreateScope();
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
-        var claimService = scope.ServiceProvider.GetRequiredService<ITicketClaimService>();
-        logger.LogInformation("Building pollers from {ProjectCount} projects", config.Projects.Count);
+        logger.LogInformation(
+            "Building pollers from {TrackerCount} trackers (polling-enabled subset)", config.Trackers.Count);
         var host = new PollerHostedService(
             PollerFactory.Build(services, config),
-            claimService,
-            configLoader, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<PollerHostedService>>());
         logger.LogInformation("Handing control to PollerHostedService.RunAsync");
         await host.RunAsync(ct);

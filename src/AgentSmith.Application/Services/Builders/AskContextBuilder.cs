@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Builders;
 /// </summary>
 public sealed class AskContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var question = pipeline.Get<DialogQuestion>(ContextKeys.DialogueQuestion);
         return new AskContext(question, pipeline);

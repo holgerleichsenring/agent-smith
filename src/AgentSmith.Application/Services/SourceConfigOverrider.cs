@@ -6,35 +6,62 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Merges CLI-provided source overrides into the project configuration.
-/// Follows the env-var pattern: if a CLI value is set, it wins over the config file.
+/// Merges CLI-provided source overrides into the run's CurrentRepo. p0140d: reads
+/// CurrentRepo from the pipeline context (set by ExecutePipelineUseCase from
+/// PipelineRequest.RepoName) instead of project.Repo. For multi-repo projects only
+/// the run's repo is overridden; sibling repos in project.Repos are preserved.
 /// </summary>
 public sealed class SourceConfigOverrider(ILogger<SourceConfigOverrider> logger) : ISourceConfigOverrider
 {
-    public void Apply(ProjectConfig project, PipelineContext pipeline)
+    public ResolvedProject Apply(ResolvedProject project, PipelineContext pipeline)
     {
-        if (pipeline.TryGet<string>(ContextKeys.SourceType, out var type))
-        {
-            logger.LogDebug("Overriding source type: {Type}", type);
-            project.Source.Type = type!;
-        }
+        var current = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var updated = ApplyTypeOverride(current, pipeline);
+        updated = ApplyPathOverride(updated, pipeline);
+        updated = ApplyUrlOverride(updated, pipeline);
+        updated = ApplyAuthOverride(updated, pipeline);
 
-        if (pipeline.TryGet<string>(ContextKeys.SourcePath, out var path))
-        {
-            logger.LogDebug("Overriding source path: {Path}", path);
-            project.Source.Path = path;
-        }
+        if (ReferenceEquals(current, updated)) return project;
 
-        if (pipeline.TryGet<string>(ContextKeys.SourceUrl, out var url))
-        {
-            logger.LogDebug("Overriding source url: {Url}", url);
-            project.Source.Url = url;
-        }
+        pipeline.Set(ContextKeys.CurrentRepo, updated);
+        return project with { Repos = ReplaceInList(project.Repos, current, updated) };
+    }
 
-        if (pipeline.TryGet<string>(ContextKeys.SourceAuth, out var auth))
-        {
-            logger.LogDebug("Overriding source auth: {Auth}", auth);
-            project.Source.Auth = auth!;
-        }
+    private static IReadOnlyList<RepoConnection> ReplaceInList(
+        IReadOnlyList<RepoConnection> repos, RepoConnection oldRepo, RepoConnection newRepo)
+    {
+        var arr = new RepoConnection[repos.Count];
+        for (var i = 0; i < repos.Count; i++)
+            arr[i] = ReferenceEquals(repos[i], oldRepo) ? newRepo : repos[i];
+        return arr;
+    }
+
+    private RepoConnection ApplyTypeOverride(RepoConnection repo, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.SourceType, out var type) || type is null) return repo;
+        if (!Enum.TryParse<RepoType>(type, ignoreCase: true, out var parsed)) return repo;
+        logger.LogDebug("Overriding source type: {Type}", parsed);
+        return repo with { Type = parsed };
+    }
+
+    private RepoConnection ApplyPathOverride(RepoConnection repo, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.SourcePath, out var path)) return repo;
+        logger.LogDebug("Overriding source path: {Path}", path);
+        return repo with { Path = path };
+    }
+
+    private RepoConnection ApplyUrlOverride(RepoConnection repo, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.SourceUrl, out var url)) return repo;
+        logger.LogDebug("Overriding source url: {Url}", url);
+        return repo with { Url = url };
+    }
+
+    private RepoConnection ApplyAuthOverride(RepoConnection repo, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.SourceAuth, out var auth) || auth is null) return repo;
+        logger.LogDebug("Overriding source auth: {Auth}", auth);
+        return repo with { Auth = auth };
     }
 }

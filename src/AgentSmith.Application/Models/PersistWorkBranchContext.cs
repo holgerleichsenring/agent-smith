@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Models;
 /// when local changes exist that would otherwise be lost with the container's /tmp.
 /// </summary>
 public sealed record PersistWorkBranchContext(
-    SourceConfig Source,
+    RepoConnection Source,
     AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;

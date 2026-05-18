@@ -33,7 +33,7 @@ public sealed class CreateTicketIntentHandler(
                 return;
             }
 
-            var ticketProvider = ticketFactory.Create(projectConfig.Tickets);
+            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var ticketId = await ticketProvider.CreateAsync(
                 intent.Title,
                 intent.Description ?? string.Empty,

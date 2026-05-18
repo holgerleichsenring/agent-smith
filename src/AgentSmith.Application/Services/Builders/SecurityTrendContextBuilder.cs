@@ -8,6 +8,6 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class SecurityTrendContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new SecurityTrendContext(pipeline);
 }

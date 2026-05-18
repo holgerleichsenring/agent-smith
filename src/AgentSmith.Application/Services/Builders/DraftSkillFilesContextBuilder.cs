@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Builders;
 /// </summary>
 public sealed class DraftSkillFilesContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var evaluations = pipeline.Get<IReadOnlyList<SkillEvaluation>>(ContextKeys.SkillEvaluations);
         return new DraftSkillFilesContext(evaluations, pipeline);

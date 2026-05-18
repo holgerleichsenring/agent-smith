@@ -12,7 +12,7 @@ public sealed class NoOpPipelineLifecycleCoordinatorTests
     {
         var sut = new NoOpPipelineLifecycleCoordinator();
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         var act = async () =>
         {

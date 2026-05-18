@@ -16,6 +16,6 @@ namespace AgentSmith.Server.Services.Orchestrator;
 /// </summary>
 public sealed class OrchestratorResourceResolver(IOptions<JobSpawnerOptions> options) : IOrchestratorResourceResolver
 {
-    public ResourceLimits Resolve(ProjectConfig projectConfig) =>
+    public ResourceLimits Resolve(ResolvedProject projectConfig) =>
         projectConfig.Orchestrator?.Resources ?? options.Value.Resources;
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -8,7 +9,7 @@ namespace AgentSmith.Tests.Configuration;
 public class YamlConfigurationLoaderTests
 {
     private readonly YamlConfigurationLoader _loader =
-        new(new ProjectConfigNormalizer(), new AgentSmithPaths());
+        new(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
 
     private static string TestDataPath(string fileName)
     {
@@ -62,10 +63,11 @@ public class YamlConfigurationLoaderTests
         var config = _loader.LoadConfig(TestDataPath("valid-config.yml"));
         var project = config.Projects["testproject"];
 
-        project.Source.Type.Should().Be("GitHub");
-        project.Source.Url.Should().Be("https://github.com/test/repo");
-        project.Tickets.Type.Should().Be("AzureDevOps");
-        project.Tickets.Organization.Should().Be("testorg");
+        var repo = project.Repos.Single();
+        repo.Type.Should().Be(RepoType.GitHub);
+        repo.Url.Should().Be("https://github.com/test/repo");
+        project.Tracker.Type.Should().Be(TrackerType.AzureDevOps);
+        project.Tracker.Organization.Should().Be("testorg");
         project.Agent.Type.Should().Be("Claude");
         project.Agent.Model.Should().Be("sonnet-4");
         project.Pipeline.Should().Be("fix-bug");

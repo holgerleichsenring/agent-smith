@@ -8,37 +8,37 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class LoadSwaggerContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new LoadSwaggerContext(pipeline);
 }
 
 public sealed class SessionSetupContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new SessionSetupContext(pipeline);
 }
 
 public sealed class SpawnNucleiContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new SpawnNucleiContext(pipeline);
 }
 
 public sealed class SpawnSpectralContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new SpawnSpectralContext(pipeline);
 }
 
 public sealed class SpawnZapContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new SpawnZapContext(pipeline);
 }
 
 public sealed class DeliverFindingsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         pipeline.TryGet<string>(ContextKeys.OutputFormat, out var format);
         pipeline.TryGet<string>(ContextKeys.OutputDir, out var outputDir);
@@ -53,19 +53,19 @@ public sealed class DeliverFindingsContextBuilder : IContextBuilder
 
 public sealed class LoadSkillsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new LoadSkillsContext(pipeline.Resolved().SkillsPath, pipeline);
 }
 
 public sealed class CompileFindingsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new CompileFindingsContext(pipeline);
 }
 
 public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;
@@ -75,12 +75,12 @@ public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
 
 public sealed class ApiCodeContextContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new ApiCodeContextCommandContext(pipeline);
 }
 
 public sealed class CorrelateFindingsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new CorrelateFindingsContext(pipeline);
 }

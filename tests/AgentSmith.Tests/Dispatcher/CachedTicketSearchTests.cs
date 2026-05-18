@@ -109,11 +109,11 @@ public sealed class CachedTicketSearchTests : IDisposable
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
                 [projectName] = new()
                 {
-                    Tickets = new TicketConfig { Type = "GitHub" }
+                    Tracker = new TrackerConnection { Type = TrackerType.GitHub }
                 }
             }
         };
@@ -127,7 +127,7 @@ public sealed class CachedTicketSearchTests : IDisposable
         provider.Setup(p => p.ListOpenAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(tickets);
 
-        _ticketFactory.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(provider.Object);
 
         return provider;

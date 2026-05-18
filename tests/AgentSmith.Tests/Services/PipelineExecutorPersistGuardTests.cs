@@ -36,10 +36,10 @@ public sealed class PipelineExecutorPersistGuardTests
     public PipelineExecutorPersistGuardTests()
     {
         _lifecycleMock
-            .Setup(c => c.BeginAsync(It.IsAny<ProjectConfig>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<IAsyncPipelineLifecycle>());
         var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<SourceConfig>(), It.IsAny<CancellationToken>()))
+        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
         _sut = new PipelineExecutor(
             _executorMock.Object,
@@ -64,7 +64,7 @@ public sealed class PipelineExecutorPersistGuardTests
         var commands = new[] { CommandNames.SpawnNuclei, CommandNames.Triage, CommandNames.DeliverFindings };
         ArrangeFirstCommandFailure(commands[0]);
 
-        var result = await _sut.ExecuteAsync(commands, new ProjectConfig(), pipeline, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(commands, new ResolvedProject(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         AssertPersistWasNotInvoked();
@@ -95,14 +95,14 @@ public sealed class PipelineExecutorPersistGuardTests
         result.IsSuccess.Should().BeFalse();
         _factoryMock.Verify(f => f.Create(
             It.Is<PipelineCommand>(c => c.Name == CommandNames.PersistWorkBranch),
-            It.IsAny<ProjectConfig>(),
+            It.IsAny<ResolvedProject>(),
             It.IsAny<PipelineContext>()),
             Times.Once);
     }
 
-    static ProjectConfig NewProjectConfigWithImage()
+    static ResolvedProject NewProjectConfigWithImage()
     {
-        return new ProjectConfig
+        return new ResolvedProject
         {
             Sandbox = new SandboxConfig
             {
@@ -123,7 +123,7 @@ public sealed class PipelineExecutorPersistGuardTests
     {
         _factoryMock.Setup(f => f.Create(
             It.Is<PipelineCommand>(c => c.Name == commandName),
-            It.IsAny<ProjectConfig>(),
+            It.IsAny<ResolvedProject>(),
             It.IsAny<PipelineContext>()))
             .Throws(new Exception($"{commandName} crashed for test"));
     }
@@ -132,7 +132,7 @@ public sealed class PipelineExecutorPersistGuardTests
     {
         _factoryMock.Verify(f => f.Create(
             It.Is<PipelineCommand>(c => c.Name == CommandNames.PersistWorkBranch),
-            It.IsAny<ProjectConfig>(),
+            It.IsAny<ResolvedProject>(),
             It.IsAny<PipelineContext>()),
             Times.Never);
     }
