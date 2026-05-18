@@ -51,11 +51,8 @@ public static class CommandNames
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
     public const string Ask = "AskCommand";
     public const string SpawnFix = "SpawnFixCommand";
-    public const string DiscoverSkills = "DiscoverSkillsCommand";
-    public const string EvaluateSkills = "EvaluateSkillsCommand";
-    public const string DraftSkillFiles = "DraftSkillFilesCommand";
-    public const string ApproveSkills = "ApproveSkillsCommand";
-    public const string InstallSkills = "InstallSkillsCommand";
+    // p0144: skill-manager handler chain retired; constants removed.
+    // Migration registered in RetiredCommands for operator custom presets.
     public const string CompileKnowledge = "CompileKnowledgeCommand";
     public const string QueryKnowledge = "QueryKnowledgeCommand";
     public const string LoadRuns = "LoadRunsCommand";
@@ -153,11 +150,7 @@ public static class CommandNames
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
         [SpawnFix] = "Generating security fix requests",
-        [DiscoverSkills] = "Discovering skill candidates",
-        [EvaluateSkills] = "Evaluating skill candidates",
-        [DraftSkillFiles] = "Drafting skill files",
-        [ApproveSkills] = "Awaiting skill approval",
-        [InstallSkills] = "Installing approved skills",
+        // p0144: skill-manager display labels removed alongside the handlers.
         [CompileKnowledge] = "Compiling knowledge base",
         [QueryKnowledge] = "Querying knowledge base",
         [LoadRuns] = "Loading run history",
@@ -190,6 +183,11 @@ public static class CommandNames
             ["ExtractFindings"] = "ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.",
             ["BootstrapProjectCommand"] = "BootstrapProject was retired in p0131b. The init-project pipeline now produces .agentsmith/context.yaml + coding-principles.md via a SkillRound dispatch (csharp/node/python/generic-bootstrap); other pipelines should rely on the BootstrapGate added in p0130a to fail-fast on missing files. Remove the step from your custom preset.",
             ["LoadCodeMapCommand"] = "LoadCodeMap was retired in p0131b together with the code-map.yaml artifact. ProjectMap (populated by AnalyzeCode) is now the single source of truth for module/test-project structure; ContextKeys.CodeMap is still emitted as a free-form text rendering for prompt-builders. Remove the step from your custom preset.",
+            ["DiscoverSkillsCommand"] = "DiscoverSkillsCommand was retired in p0144. The skill-manager preset now uses the standard SkillRound + Triage flow against the skill-manager-* catalog in agent-smith-skills v2.2.0+. Remove the step from your custom preset; replace with [LoadSkills, Triage, SkillRound, ...] per the standard Discussion-pipeline shape.",
+            ["EvaluateSkillsCommand"] = "EvaluateSkillsCommand was retired in p0144. The skill-manager-judge skill now performs the evaluation as a standard SkillRound. Remove the step from your custom preset.",
+            ["DraftSkillFilesCommand"] = "DraftSkillFilesCommand was retired in p0144. The skill-manager-planner skill now drafts proposed SKILL.md files as a standard SkillRound, gated by GeneratePlan/Approve. Remove the step from your custom preset.",
+            ["ApproveSkillsCommand"] = "ApproveSkillsCommand was retired in p0144. The standard Approve gate (used by fix-bug + add-feature) now handles operator approval of the skill-manager-planner's proposed SKILL.md. Remove the step from your custom preset.",
+            ["InstallSkillsCommand"] = "InstallSkillsCommand was retired in p0144. The standard AgenticExecute step now writes the approved SKILL.md to disk via WriteFile gated by Bootstrap-phase ToolKit (writes restricted to the .agentsmith/ subtree). Remove the step from your custom preset.",
         };
 
     /// <summary>
