@@ -328,8 +328,15 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
-        // p0140a: ProjectResolver is stateless; not yet wired to webhook handlers (p0140b).
+        // p0140a: ProjectResolver is stateless. p0140b: exposed as IEnvelopeProjectResolver
+        // for webhook handlers + SpawnPipelineRunsUseCase.
         services.AddSingleton<Services.Triggers.ProjectResolver>();
+        services.AddSingleton<Contracts.Services.IEnvelopeProjectResolver>(
+            sp => sp.GetRequiredService<Services.Triggers.ProjectResolver>());
+        // p0140b: SpawnPipelineRunsUseCase is the only place that builds ClaimRequests from
+        // a webhook envelope. Depends on ITicketClaimService (Server-only) so this service
+        // resolves only inside the Server composition; CLI graph doesn't use it.
+        services.AddTransient<Contracts.Services.ISpawnPipelineRunsUseCase, Services.Spawning.SpawnPipelineRunsUseCase>();
         services.AddTransient<ExecutePipelineUseCase>();
         // ITicketClaimService moved to Server.AddCoreDispatcherServices in p0109a — it
         // depends on IRedisJobQueue + IRedisClaimLock + IJobHeartbeatService, none of
