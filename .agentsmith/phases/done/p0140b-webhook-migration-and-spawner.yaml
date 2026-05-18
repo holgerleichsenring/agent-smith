@@ -1,0 +1,343 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0140b
+goal: "Wire up the actual multi-repo fan-out on the enqueue side. The 8 ticket-event webhook handlers in src/AgentSmith.Server/Services/Webhooks/ stop using their per-handler static FindProject and instead build an IncomingTicketEnvelope, call the p0140a ProjectResolver (via the new IEnvelopeProjectResolver interface), and hand each resolved (project, pipeline) pair to a new SpawnPipelineRunsUseCase that produces one PipelineRequest per repo in the project's Repos list and submits all of them through ITicketClaimService.ClaimSpawnAsync — a new claim-region method that runs ClaimPreChecker once, acquires one (platform, ticket-id) Redis lock, transitions the ticket lifecycle Pending → Enqueued once, and enqueues all N requests inside the locked region. After p0140b a single ticket on a multi-repo project produces N PipelineRequest ENQUEUES; a ticket matching no project drops with a structured log; a ticket matching multiple projects spawns all of them. End-to-end multi-repo EXECUTION (the consumer side reading the right repo per run) is unlocked by p0140d via ContextKeys.CurrentRepo; in p0140b multi-repo only works at the enqueue layer."
+
+requires: ["p0140a"]
+
+scope:
+  in: |
+    (1) ClaimRequest + PipelineRequest gain RepoName. ClaimRequest grows
+        `string? RepoName` (new last field). PipelineRequest grows `string? RepoName`
+        (new optional field positioned after ProjectName). For single-repo projects the
+        spawner sets RepoName = repos[0].Name so the shape is identical to today —
+        regression tests verify bit-for-bit equality of the enqueued PipelineRequest for
+        single-repo configs.
+
+    (2) ITicketClaimService.ClaimSpawnAsync (new method). Today's ClaimAsync(single ClaimRequest)
+        does (pre-check → Redis claim-lock → ticket-lifecycle Pending→Enqueued → enqueue).
+        The claim-lock and lifecycle transition are TICKET-LEVEL (one per (platform, ticket-id))
+        which means calling ClaimAsync N times for an N-repo spawn would silently degrade —
+        the second call reads lifecycle=Enqueued and returns AlreadyClaimed. ClaimSpawnAsync
+        takes IReadOnlyList<ClaimRequest> (all sharing Platform + TicketId, differing in
+        RepoName) and:
+          a. ClaimPreChecker.Check on every request — any rejection rejects the whole spawn
+             (an invariant: in practice all N requests share project + pipeline so checks agree)
+          b. Acquires one Redis claim-lock on key `agentsmith:claim-lock:{platform}:{ticket-id}`
+             (lock key unchanged from today — multi-repo enqueues happen under one lock)
+          c. Reads ticket lifecycle once; if not Pending → all N results are AlreadyClaimed
+          d. Transitions lifecycle Pending → Enqueued ONCE
+          e. Enqueues N PipelineRequests in order
+          f. Releases lock
+          g. Returns IReadOnlyList<ClaimResult> in input order
+        Old ClaimAsync(single) stays as a thin wrapper that wraps the request in a 1-element
+        list and calls ClaimSpawnAsync, returning the single result. No existing caller needs
+        to migrate — the old surface is preserved.
+
+    (3) IEnvelopeProjectResolver interface (new). AgentSmith.Contracts/Services. One method:
+        `IReadOnlyList<ProjectMatch> Resolve(AgentSmithConfig config, IncomingTicketEnvelope envelope)`.
+        The existing p0140a ProjectResolver class (AgentSmith.Application/Services/Triggers/)
+        implements it. The DI registration switches from `ProjectResolver` concrete to
+        `IEnvelopeProjectResolver → ProjectResolver`. The NAME IEnvelopeProjectResolver is
+        deliberate — the unrelated old Server-side IProjectResolver (ticket-existence API
+        lookup, used by IntentEngine) keeps its name and remains independent.
+
+    (4) SpawnPipelineRunsUseCase + ISpawnPipelineRunsUseCase (new).
+        src/AgentSmith.Application/Services/Spawning/. Constructor:
+        `ITicketClaimService claimService, IConfigurationLoader configLoader, ILogger<SpawnPipelineRunsUseCase>`.
+        ExecuteAsync(ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope,
+        WebhookTriggerConfig matchedTrigger, CancellationToken ct) → SpawnResult.
+        Per call: for each RepoConnection in project.Repos, build a ClaimRequest carrying
+        Platform = envelope.Platform!, ProjectName = project.Name, TicketId = new TicketId(envelope.TicketId!),
+        PipelineName = pipelineName, RepoName = repo.Name, and InitialContext built from
+        the matched trigger's DoneStatus (`{ [ContextKeys.DoneStatus] = matchedTrigger.DoneStatus }`).
+        Submit all N as one ClaimSpawnAsync call. Return SpawnResult { ClaimResults: IReadOnlyList<ClaimResult> }
+        so callers can log per-repo outcomes.
+
+    (5) Per-pipeline-overrides (agent + skills_path) actually applied. PipelineConfigResolver
+        already merges PipelineDefinition.Agent and SkillsPath into ResolvedPipelineConfig;
+        the SpawnPipelineRunsUseCase doesn't re-resolve — it lets the consumer side
+        (PipelineExecutor) look up the right pipeline config from PipelineRequest.PipelineName
+        + ProjectName as today. The override is automatically honored.
+
+    (6) Webhook handler migration (8 ticket-event handlers). The PR-Comment and PR-Label
+        / MR-Comment / MR-Label handlers are OUT OF SCOPE — they route DialogueAnswers
+        (/approve, /reject commands) to in-flight pipelines, not pipeline starts. The 8
+        ticket-event handlers in scope:
+          GitHubIssueWebhookHandler, GitHubIssueCommentWebhookHandler,
+          GitLabIssueWebhookHandler, GitLabIssueCommentWebhookHandler,
+          AzureDevOpsWorkItemWebhookHandler, AzureDevOpsWorkItemCommentWebhookHandler,
+          JiraCommentWebhookHandler, JiraAssigneeWebhookHandler.
+        (The original spec said "11" but counted PR/MR dialogue handlers; after audit the
+        migrating cohort is 8.)
+        Each handler today does:
+          var (projectName, trigger) = FindProject(config, repoUrlOrPayload);
+          if (projectName is null) return WebhookResult.NotHandled;
+          ... build WebhookResult with ProjectName/TicketId for the processor to route ...
+        Post-p0140b each handler does:
+          var envelope = WebhookEnvelopeBuilders.BuildFor{Platform}(payload, ...);
+          var matches = envelopeResolver.Resolve(config, envelope);
+          if (matches.Count == 0) {
+              logger.LogInformation("zero_match: ..." structured-log);
+              if (tracker.ZeroMatchComment && provider.SupportsComments)
+                  await provider.UpdateStatusAsync(envelope.TicketId, ZeroMatchText, ct);
+              return new WebhookResult(true, null, null);  // Handled, no routing
+          }
+          foreach (var match in matches) {
+              var project = config.Projects[match.ProjectName];
+              var trigger = SelectTriggerFor(project, match.Kind);
+              if (!IsStatusAllowed(trigger, currentStatus)) continue;  // status-filter still applied per-match
+              await spawnUseCase.ExecuteAsync(project, match.PipelineName, envelope, trigger, ct);
+          }
+          return new WebhookResult(true, null, null);  // Handled, no routing
+        The migrated handlers never set ProjectName/TicketId on WebhookResult — they have
+        handled spawn themselves. WebhookRequestProcessor.RouteToClaimServiceAsync becomes
+        dead code for these handlers (the structured-ticket routing branch is unused).
+
+    (7) WebhookRequestProcessor cleanup. After all 8 handlers migrate, the structured-ticket
+        branch `if (result.ProjectName is not null && result.Platform is not null)
+        return await RouteToClaimServiceAsync(result);` is dead. DELETE the branch and the
+        RouteToClaimServiceAsync method + the ResolvePipelineName helper + the MapClaim
+        helper. The DialogueAnswer and TriggerInput paths remain — they serve PR-dialogue
+        and the (rare) free-form TriggerInput webhooks.
+
+    (8) Backward-compat default-trigger-label fallbacks DELETED. GitHubIssueWebhookHandler's
+        `DefaultTriggerLabel = "agent-smith"` (when triggerConfig is null) and
+        AzureDevOpsWorkItemWebhookHandler's `DefaultTriggerTag = "security-review"` (when
+        AzuredevopsTrigger is null) become dead code. p0140a's validator now requires every
+        declared trigger to have project_resolution; a project without a trigger doesn't
+        match anyway. Remove the constants and the no-trigger fallback paths from the
+        handlers. (Operator-visible: a project without an explicit github_trigger /
+        azuredevops_trigger block will no longer accidentally match on the default label/tag.
+        The dogfood config has explicit triggers everywhere, so no real-world breakage.)
+
+    (9) Zero-match handling. Always emit a structured info-level log entry with
+        { event: 'zero_match', tracker, ticket_id, ticket_url, labels, area_path, to_address,
+          platform }. Only when tracker.ZeroMatchComment == true AND provider.SupportsComments
+        == true, also post a tracker comment 'No agent-smith project matched this ticket.'.
+        The capability check is explicit (`if (tracker.ZeroMatchComment && provider.SupportsComments)`),
+        not try/catch.
+
+    (10) Writeback gains repo identity. CommitAndPRHandler + InitCommitHandler header text
+         appends the repo name (RepoConnection.Name) to the comment-summary text so a ticket
+         receiving N comments from N sibling runs reads cleanly.
+           CommitAndPRHandler.cs:63 `## Agent Smith - Completed` → `## Agent Smith - Completed in {repoName}`
+           InitCommitHandler.cs:59 `## Agent Smith - Init Complete` → `## Agent Smith - Init Complete in {repoName}`
+         The handlers read the RepoConnection from the per-handler context record
+         (CommitAndPRContext, InitCommitContext) that the builders already populate. No
+         builder change is required — the builders continue to pass `project.Repo` for now.
+         (Builders migrating to read CurrentRepo from PipelineContext is p0140d's scope.)
+
+    (11) WebhookEnvelopeBuilders (new). src/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs.
+         Static-helper file (acceptable per coding-principles: pure mapping). Four methods:
+           BuildForGitHub(JsonElement payload, ...) → IncomingTicketEnvelope
+           BuildForGitLab(JsonElement payload, ...) → IncomingTicketEnvelope
+           BuildForAzureDevOps(JsonElement payload, ...) → IncomingTicketEnvelope
+           BuildForJira(JsonElement payload, ...) → IncomingTicketEnvelope
+         Each method extracts Labels, AreaPath (ADO only), SourceRepoUrl (GitHub/GitLab),
+         TicketId, TicketUrl, Platform from the platform-specific payload shape. Keeps
+         handlers thin (~40-60 lines each post-migration) and concentrates payload-shape
+         knowledge in one file.
+
+    (12) Tests. SpawnPipelineRunsUseCaseTests: one-repo enqueues one, three-repos enqueues
+         three under one claim-region, override-agent honored (verified via the resulting
+         PipelineRequest), override-skills-path honored. ClaimSpawnAsyncTests: lock acquired
+         once, lifecycle transitioned once, N enqueues happen, AlreadyClaimed on duplicate
+         spawn. WebhookHandler zero-match tests: 4 representative tests (one per tracker
+         family). Multi-repo end-to-end smoke: a ticket on a 3-repo project produces 3
+         PipelineRequest enqueues (executor side not tested here — that's p0140d).
+         Single-repo regression: today's flows produce bit-for-bit identical PipelineRequest
+         shape (including RepoName = repos[0].Name).
+
+  out: |
+    Multi-repo end-to-end EXECUTION. p0140b unlocks multi-repo at the ENQUEUE layer; the
+    consumer side (PipelineExecutor + the 12 context-builder sites that read project.Repo
+    today) still treat ResolvedProject as single-repo. For multi-repo projects, the consumer
+    will throw on project.Repo (Repos.Count > 1) because the .Repo shim only works for
+    single-repo. p0140d adds ContextKeys.CurrentRepo and migrates the 12 sites so each
+    enqueued run knows which repo it operates on — that is when end-to-end multi-repo
+    execution becomes correct. Today's projects are all single-repo, so consumer-side
+    behavior is unchanged.
+
+    Pollers. Polling-side migration to per-tracker resolution is p0140c — currently pollers
+    are built by PollerFactory per-project, structurally unchanged in p0140b.
+
+    ResolvedProject.Repo shim removal. The 12 consumer sites still use .Repo. Shim removal
+    + the 12-site migration is p0140d.
+
+    Metrics counters (agent_smith_ambiguous_resolution_total,
+    agent_smith_pipeline_skipped_as_irrelevant_total) and the metrics infrastructure
+    introduction (System.Diagnostics.Metrics). p0140e.
+
+    Docs (multi-repo.md, project-resolution.md). Land with p0140e — once the full picture
+    is stable, the docs make sense to write.
+
+    PR/MR-dialogue handlers (GitHubPrCommentWebhookHandler, GitHubPrLabelWebhookHandler,
+    AzureDevOpsPrCommentWebhookHandler, GitLabMrCommentWebhookHandler,
+    GitLabMrLabelWebhookHandler) are dialogue-routers, not pipeline-starters. They continue
+    to return WebhookResult with a DialogueAnswerData payload that WebhookRequestProcessor
+    routes via WebhookDialogueRouter. Their flow is untouched.
+
+decisions:
+  - key: "ClaimSpawnAsync replaces direct enqueue. Reason: the spec's original 'enqueue
+      via IRedisJobQueue.EnqueueAsync' bypassed TicketClaimService and lost three
+      battle-tested protections — Redis claim-lock (label-flap storm protection),
+      ClaimPreChecker config validation, and the Pending→Enqueued lifecycle transition.
+      Calling the existing single-request ClaimAsync N times is incorrect because the
+      lifecycle transition is ticket-level — the second call would see Enqueued and return
+      AlreadyClaimed. The new claim-region method (one pre-check + one lock + one lifecycle
+      transition + N enqueues) preserves all dedup protections AND enables multi-repo
+      fan-out. The single-request ClaimAsync stays as a 1-element wrapper, so no existing
+      caller migrates."
+  - key: "Multi-repo is enqueue-only in p0140b. Reason: the executor and the 12 context
+      builders that read project.Repo today still treat ResolvedProject as single-repo via
+      the .Repo shim. Making them multi-repo aware is the entire purpose of p0140d. Trying
+      to do both in p0140b would either re-litigate the .Repo migration here or leave the
+      slice in a broken intermediate state. Splitting the multi-repo invariant across two
+      slices — enqueue layer in b, consumer layer in d — keeps each PR reviewable and
+      reversible. Today's projects are all single-repo, so consumer-side behavior is
+      unchanged; the multi-repo smoke test asserts only enqueue count."
+  - key: "Per-PipelineRequest enqueue is one-per-repo, materialised at SpawnPipelineRunsUseCase
+      time, not at consumer time. Reason: keeps the consumer side (PipelineExecutor) on the
+      single-repo model the .Repo shim assumes. Each enqueued request carries one repo's
+      worth of context; downstream sees no multi-repo at all. This is what makes the
+      .Repo shim removal a separate phase (p0140d) rather than a blocker."
+  - key: "Webhook handlers fan out to SpawnPipelineRunsUseCase, NOT directly to
+      IRedisJobQueue or ITicketClaimService. Reason: SpawnPipelineRunsUseCase encapsulates
+      the per-repo loop + the override resolution + the claim-region call. Bypassing it
+      from a handler would duplicate that logic in 8 places."
+  - key: "WebhookRequestProcessor.RouteToClaimServiceAsync deleted, not deprecated. Reason:
+      after all 8 ticket-event handlers migrate to handler-side spawn, no handler returns
+      ProjectName/TicketId on its WebhookResult anymore. The structured-ticket routing
+      branch is fully dead code. Deprecation would invite operator confusion ('which path
+      runs?'). Delete it; the dialogue-router and trigger-input paths stay."
+  - key: "Backward-compat default-trigger-label fallbacks deleted (GitHub agent-smith,
+      ADO security-review). Reason: p0140a's validator now requires project_resolution
+      on every declared trigger. A project without a trigger block won't match anyway via
+      the new resolver. The default-fallback path was relying on absence of trigger to
+      match a hardcoded label — incompatible with the new resolver model. Dogfood config
+      uses explicit triggers everywhere; no real-world flow relies on the fallback."
+  - key: "IEnvelopeProjectResolver as a new interface name. Reason: the existing
+      Server-side IProjectResolver (ticket-existence API lookup, used by IntentEngine) has
+      an unrelated responsibility and a different return shape. Reusing the name would
+      require renaming the Server-side one (touches IntentEngine + tests + DI). Adding a
+      new interface name avoids the rename cost and keeps the two resolvers visibly
+      separate."
+  - key: "Repo-identity in writeback comment goes here, not in p0140a. Reason: today (and
+      in p0140a) a ticket receives at most one comment per run; repo identity in the
+      comment is noise. Starting in p0140b a ticket can receive N comments — at that point
+      repo identity is essential for readability. Coupling the comment change to the
+      fan-out change keeps the motive obvious."
+  - key: "Zero-match comment defaults off. Multi-tenant trackers are the realistic
+      majority. Single-tenant operators opt in via tracker.ZeroMatchComment = true.
+      (Matches p0140a schema decision; p0140b is where the default takes effect at
+      runtime.)"
+  - key: "PR/MR-dialogue handlers stay out of scope. Reason: they route /approve and
+      /reject answers to in-flight pipelines via WebhookDialogueRouter — they don't start
+      new pipelines and have no project-resolution to perform. Including them would be
+      scope creep."
+
+steps:
+  - id: claim-spawn
+    action: "ITicketClaimService gains ClaimSpawnAsync; ClaimRequest + PipelineRequest gain RepoName"
+    modify:
+      - "src/AgentSmith.Contracts/Models/ClaimRequest.cs: add `string? RepoName = null` as the new last positional/optional field."
+      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs: add `string? RepoName = null` (positioned after ProjectName for readability; keeps the rest of the record shape stable)."
+      - "src/AgentSmith.Contracts/Services/ITicketClaimService.cs: add `Task<IReadOnlyList<ClaimResult>> ClaimSpawnAsync(IReadOnlyList<ClaimRequest> requests, AgentSmithConfig config, CancellationToken ct);`."
+      - "src/AgentSmith.Application/Services/Claim/TicketClaimService.cs: implement ClaimSpawnAsync per scope (2) — pre-check all, one lock, one lifecycle read, single transition, N enqueues. The existing ClaimAsync becomes a 1-element wrapper that calls ClaimSpawnAsync. Watch the 120-line limit — if main class blows the budget, extract a SpawnRegionGate helper (~40 lines) that owns the lock + lifecycle invariant."
+    new:
+      - "src/AgentSmith.Application/Services/Claim/SpawnRegionGate.cs (only if TicketClaimService > 120 lines): thin instance helper that wraps lock acquisition + lifecycle read + transition for ClaimSpawnAsync. Avoids inflating TicketClaimService."
+
+  - id: envelope-resolver-interface
+    action: "Define IEnvelopeProjectResolver; existing ProjectResolver class implements it"
+    new:
+      - "src/AgentSmith.Contracts/Services/IEnvelopeProjectResolver.cs: `public interface IEnvelopeProjectResolver { IReadOnlyList<ProjectMatch> Resolve(AgentSmithConfig config, IncomingTicketEnvelope envelope); }`."
+    modify:
+      - "src/AgentSmith.Application/Services/Triggers/ProjectResolver.cs: declares `: IEnvelopeProjectResolver`. Signature stays as is — the interface mirrors the existing public Resolve method."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: DI registration changes from `services.AddTransient<ProjectResolver>()` to `services.AddTransient<IEnvelopeProjectResolver, ProjectResolver>()`."
+
+  - id: spawn-usecase
+    action: "ISpawnPipelineRunsUseCase + SpawnPipelineRunsUseCase"
+    new:
+      - "src/AgentSmith.Contracts/Services/ISpawnPipelineRunsUseCase.cs: one method `Task<SpawnResult> ExecuteAsync(ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope, WebhookTriggerConfig matchedTrigger, CancellationToken ct);`."
+      - "src/AgentSmith.Contracts/Models/SpawnResult.cs: `public sealed record SpawnResult(IReadOnlyList<ClaimResult> ClaimResults);` — small DTO callers use to log per-repo outcomes."
+      - "src/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs: ctor (ITicketClaimService claimService, IConfigurationLoader configLoader, ILogger<SpawnPipelineRunsUseCase> logger). ExecuteAsync builds N ClaimRequests (one per RepoConnection in project.Repos), constructs InitialContext from matchedTrigger.DoneStatus, calls claimService.ClaimSpawnAsync(requests, config, ct), returns SpawnResult."
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register ISpawnPipelineRunsUseCase → SpawnPipelineRunsUseCase as Transient."
+
+  - id: envelope-builders
+    action: "Per-platform helpers that build IncomingTicketEnvelope from JsonElement payloads"
+    new:
+      - "src/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs: static class. Methods BuildForGitHub, BuildForGitLab, BuildForAzureDevOps, BuildForJira — each takes the parsed JsonElement (and any extra payload pieces a handler already has, e.g. the labels array for GitHub Issue Comment), returns IncomingTicketEnvelope. Concentrates payload-shape knowledge so the handlers don't have to keep platform JSON parsing inline."
+
+  - id: webhook-migration
+    action: "Migrate the 8 ticket-event webhook handlers to envelope + IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase"
+    modify:
+      - "src/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs: ctor (IConfigurationLoader configLoader, ServerContext serverContext, IEnvelopeProjectResolver envelopeResolver, ISpawnPipelineRunsUseCase spawnUseCase, ITicketProviderFactory providerFactory, ILogger<GitHubIssueWebhookHandler> logger). Replace FindProject + WebhookResult-with-routing flow with WebhookEnvelopeBuilders.BuildForGitHub + envelopeResolver.Resolve + zero-match handle + spawn loop. Delete the FindProject + ResolvePipeline + IsStatusAllowed static helpers + the DefaultTriggerLabel constant. The status-filter check (trigger.TriggerStatuses) is still applied per-match against the matched trigger inside the spawn loop."
+      - "src/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs: same pattern. Stops calling the deleted GitHubIssueWebhookHandler.FindProject."
+      - "src/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs: same pattern. Delete FindProject."
+      - "src/AgentSmith.Server/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs: same pattern. Stops calling the deleted GitLabIssueWebhookHandler.FindProject."
+      - "src/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs: same pattern. Delete FindProject + DefaultTriggerTag."
+      - "src/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs: same pattern. Stops calling the deleted AzureDevOpsWorkItemWebhookHandler.FindProject."
+      - "src/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs: same pattern. Adapt FindMatchingProject removal."
+      - "src/AgentSmith.Server/Services/Webhooks/JiraAssigneeWebhookHandler.cs: same pattern."
+
+  - id: processor-cleanup
+    action: "WebhookRequestProcessor: delete the dead structured-ticket routing branch"
+    modify:
+      - "src/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs: delete the `if (result.ProjectName is not null && result.Platform is not null) return await RouteToClaimServiceAsync(result);` branch + the RouteToClaimServiceAsync method + the ResolvePipelineName helper + the MapClaim helper. Adjust the success log to drop the now-unused result.ProjectName / result.TicketId references (since those are always null post-migration). Keep the DialogueAnswer branch and the TriggerInput legacy branch untouched."
+
+  - id: writeback-repo-identity
+    action: "Add repo name to CommitAndPR + InitCommit writeback header text"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs: line 63 header template — change `## Agent Smith - Completed` to `## Agent Smith - Completed in {repoName}` where repoName is read from the existing RepoConnection field on CommitAndPRContext."
+      - "src/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs: line 59 header template — change `## Agent Smith - Init Complete` to `## Agent Smith - Init Complete in {repoName}` where repoName is read from the existing RepoConnection on InitCommitContext."
+
+  - id: tests
+    action: "Claim-region tests + SpawnPipelineRunsUseCase tests + zero-match handler tests + multi-repo enqueue smoke + single-repo regression"
+    new:
+      - "tests/AgentSmith.Tests/Claim/ClaimSpawnAsyncTests.cs: 5 tests. OneRequest_PreCheckPasses_LocksOnce_TransitionsOnce_EnqueuesOnce; ThreeRequests_SharedTicket_AllEnqueueUnderOneLock_OneTransition; AnyPreCheckFails_AllRejected_NoEnqueue; TicketLifecycleNotPending_AllAlreadyClaimed_NoEnqueue; ExistingClaimAsync_StillWorks_DelegatesToClaimSpawn."
+      - "tests/AgentSmith.Tests/Spawning/SpawnPipelineRunsUseCaseTests.cs: 4 tests. OneRepo_EnqueuesOneRun; ThreeRepos_EnqueuesThreeRunsInOneClaimRegion; PipelineWithAgentOverride_RequestCarriesOverride; PipelineWithoutOverride_RequestCarriesProjectDefault."
+      - "tests/AgentSmith.Tests/Webhooks/WebhookZeroMatchTests.cs: 4 tests (one per tracker family). DropsTicket_AndLogsStructuredEvent for github/gitlab/azuredevops/jira. ZeroMatchCommentOptIn + SupportsComments → comment written. ZeroMatchCommentOptIn but provider.SupportsComments=false → log only, no crash."
+      - "tests/AgentSmith.Tests/EndToEnd/MultiRepoEnqueueSmokeTests.cs: 1 test. ThreeRepos_OneTicket_EnqueuesThreePipelineRequests_UnderOneClaimRegion. (Executor-side multi-repo execution is p0140d; this test only asserts enqueue count + claim-region invariant.)"
+      - "tests/AgentSmith.Tests/EndToEnd/SingleRepoRegressionTests.cs: 4 tests (one per tracker family). Asserts the pre-p0140b PipelineRequest shape is preserved bit-for-bit for single-repo projects — same ProjectName, PipelineName, TicketId, Context, plus RepoName = repos[0].Name."
+    modify:
+      - "tests/AgentSmith.Tests/Webhooks/*.cs: every existing handler-test for the 8 migrated handlers adapts to inject IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase + ITicketProviderFactory mocks; assertions move from 'WebhookResult.ProjectName == X' to 'spawnUseCase.ExecuteAsync invoked with project X'."
+      - "tests/AgentSmith.Tests/Services/WebhookRequestProcessorTests.cs (if exists): adapt for the deleted RouteToClaimServiceAsync branch. Remove tests that assert claim-routing behavior; add a test that the migrated structured-ticket path returns (202, 'Accepted') without touching claim routing."
+
+tests:
+  - "ClaimSpawn_OneRequest_PreCheckPasses_LocksOnce_TransitionsOnce_EnqueuesOnce"
+  - "ClaimSpawn_ThreeRequests_SharedTicket_AllEnqueueUnderOneLock_OneTransition"
+  - "ClaimSpawn_AnyPreCheckFails_AllRejected_NoEnqueue"
+  - "ClaimSpawn_TicketLifecycleNotPending_AllAlreadyClaimed_NoEnqueue"
+  - "ClaimAsync_SingleRequest_DelegatesToClaimSpawn"
+  - "SpawnPipelineRuns_OneRepo_EnqueuesOneRun"
+  - "SpawnPipelineRuns_ThreeRepos_EnqueuesThreeRunsInOneClaimRegion"
+  - "SpawnPipelineRuns_PipelineWithAgentOverride_RequestCarriesOverride"
+  - "SpawnPipelineRuns_PipelineWithoutOverride_RequestCarriesProjectDefault"
+  - "WebhookHandler_GitHub_ZeroMatch_DropsTicket_AndLogsStructuredEvent"
+  - "WebhookHandler_GitLab_ZeroMatch_DropsTicket_AndLogsStructuredEvent"
+  - "WebhookHandler_AzureDevOps_ZeroMatch_DropsTicket_AndLogsStructuredEvent"
+  - "WebhookHandler_Jira_ZeroMatch_DropsTicket_AndLogsStructuredEvent"
+  - "WebhookHandler_ZeroMatch_TrackerOptedIn_AlsoWritesComment"
+  - "WebhookHandler_ZeroMatch_TrackerOptedIn_ButSupportsCommentsFalse_LogsOnlyNoCrash"
+  - "MultiRepoEnqueueSmoke_ThreeRepos_OneTicket_EnqueuesThreePipelineRequests_UnderOneClaimRegion"
+  - "SingleRepoRegression_GitHub_ProducesIdenticalRequestShapeAsPreP0140b"
+  - "SingleRepoRegression_GitLab_ProducesIdenticalRequestShapeAsPreP0140b"
+  - "SingleRepoRegression_AzureDevOps_ProducesIdenticalRequestShapeAsPreP0140b"
+  - "SingleRepoRegression_Jira_ProducesIdenticalRequestShapeAsPreP0140b"
+
+done:
+  - "ITicketClaimService.ClaimSpawnAsync exists; single-request ClaimAsync stays as a 1-element wrapper; no existing caller migrated"
+  - "ClaimRequest and PipelineRequest both carry RepoName; SpawnPipelineRunsUseCase populates it (= repos[0].Name for single-repo, = repo.Name for multi-repo)"
+  - "IEnvelopeProjectResolver interface exists in Contracts.Services; ProjectResolver class implements it; DI registration switched"
+  - "SpawnPipelineRunsUseCase exists, is DI-registered, and is the only place that builds ClaimRequests from a webhook envelope"
+  - "All 8 ticket-event webhook handlers route through IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase; no handler retains the static FindProject pattern or the default-trigger-label backward-compat fallback"
+  - "WebhookRequestProcessor.RouteToClaimServiceAsync + helpers DELETED — the structured-ticket branch is gone"
+  - "Zero-match: always structured-logged; optionally also commented per tracker.ZeroMatchComment + provider.SupportsComments"
+  - "Multi-match: every matched project's pipeline gets enqueued (deliberate, per p0140-umbrella decision)"
+  - "CommitAndPR + InitCommit writeback include repo name in the header"
+  - "Multi-repo enqueue smoke green: 3 repos → 3 PipelineRequest enqueues under one claim-region"
+  - "Single-repo regression green: every tracker family produces a PipelineRequest with the same shape as pre-p0140b (+ RepoName = repos[0].Name)"
+  - "All existing webhook tests adapted; baseline test count does not regress"
+  - "PR/MR-dialogue handlers untouched; pollers still per-project (p0140c); .Repo shim still in place (p0140d); no metrics yet (p0140e)"
+  - "Consumer-side multi-repo execution NOT delivered in p0140b — runs through a multi-repo project's pipeline still throw on project.Repo. Today's projects are all single-repo so this is invisible; p0140d delivers the consumer-side migration"

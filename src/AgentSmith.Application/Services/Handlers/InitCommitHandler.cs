@@ -57,7 +57,7 @@ public sealed class InitCommitHandler(
             context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
 
             var summary = $"""
-                ## Agent Smith - Init Complete
+                ## Agent Smith - Init Complete in {context.RepoConnection.Name}
 
                 **PR:** {prUrl}
 

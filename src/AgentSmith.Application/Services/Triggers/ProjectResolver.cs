@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Triggers;
@@ -19,7 +20,7 @@ namespace AgentSmith.Application.Services.Triggers;
 /// so the existing pipeline-from-label / default-pipeline / global-fallback chain stays
 /// authoritative. The resolver itself is project-only.
 /// </summary>
-public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null)
+public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : IEnvelopeProjectResolver
 {
     public IReadOnlyList<ProjectMatch> Resolve(AgentSmithConfig config, IncomingTicketEnvelope envelope)
     {
@@ -88,9 +89,3 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null)
             && string.Equals(envelope.ToAddress, value, StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>
-/// One (project, pipeline) match produced by <see cref="ProjectResolver"/>.
-/// Kind is the trigger-block name that matched ("github"/"gitlab"/"azuredevops"/"jira")
-/// — useful for diagnostics; the caller doesn't need it for spawn.
-/// </summary>
-public readonly record struct ProjectMatch(string ProjectName, string PipelineName, string Kind);
