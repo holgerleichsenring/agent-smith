@@ -13,6 +13,10 @@ public static class CommandNames
     public const string LoadContext = "LoadContextCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";
     public const string GeneratePlan = "GeneratePlanCommand";
+    /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.
+    /// Emits agent_smith_pipeline_skipped_as_irrelevant_total with reason='empty_plan' and
+    /// sets ContextKeys.EmptyPlanSkipped; PipelineExecutor short-circuits on the flag.</summary>
+    public const string EmptyPlanCheck = "EmptyPlanCheckCommand";
     public const string Approval = "ApprovalCommand";
     public const string AgenticExecute = "AgenticExecuteCommand";
     public const string Test = "TestCommand";
