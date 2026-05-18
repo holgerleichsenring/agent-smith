@@ -202,6 +202,12 @@ projects:
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
     github_trigger:
+      project_resolution:
+        # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the
+        # webhook payload against the project's single repo. Requires
+        # repos: [acme-app] (count == 1) — the validator enforces it.
+        strategy: repo
+        value: https://github.com/acme/app.git
       trigger_statuses: ["open"]
       done_status: "closed"
       comment_keyword: "@agent-smith"
@@ -218,6 +224,13 @@ projects:
       interval_seconds: 60
       jitter_percent: 10
     azuredevops_trigger:
+      project_resolution:
+        # p0140a: ADO area-path dispatch — hierarchical prefix match. The configured
+        # value AcmeMain/Platform also matches AcmeMain/Platform/Provisioning and any
+        # deeper subtree. Backslash form (AcmeMain\\Platform with YAML-escaping) is
+        # equivalent; the loader normalises.
+        strategy: area-path
+        value: AcmeMain/Platform
       trigger_statuses: ["New", "Active"]
       done_status: "Resolved"
       comment_keyword: "@agent-smith"
@@ -234,6 +247,13 @@ projects:
     repos: [acme-rules-shared, acme-rules-billing]
     pipeline: fix-bug
     jira_trigger:
+      project_resolution:
+        # p0140a: Jira tag dispatch — a ticket carrying the label "acme-rules"
+        # routes to this project. Case-insensitive equality. Ambiguous tickets
+        # (a ticket with two project tags) spawn one pipeline run per matched
+        # project per p0140's documented "let the LLM skip irrelevant ones" rule.
+        strategy: tag
+        value: acme-rules
       assignee_name: "Agent Smith"
       secret: ${JIRA_WEBHOOK_SECRET}
       trigger_statuses: ["To Do"]

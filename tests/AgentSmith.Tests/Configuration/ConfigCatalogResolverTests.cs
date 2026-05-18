@@ -154,6 +154,61 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         config.Projects["demo"].Repo.Url.Should().Be("https://example.com");
     }
 
+    // p0140a tests
+
+    [Fact]
+    public void LoadConfig_PipelineEntryWithAgentName_ResolvesAgentFromCatalog()
+    {
+        Write("""
+            agents:
+              fast: { type: Claude, model: claude-haiku-4-5-20251001 }
+              big: { type: Claude, model: claude-opus-4-7 }
+            repos:
+              r: { type: GitHub, url: https://x, auth: t }
+            trackers:
+              t: { type: GitHub, auth: t }
+            projects:
+              demo:
+                agent: fast
+                tracker: t
+                repos: [r]
+                pipelines:
+                  - { name: fix-bug, agent: big, skills_path: skills/heavy }
+            """);
+
+        var config = Load();
+
+        var pipeline = config.Projects["demo"].Pipelines.Single(p => p.Name == "fix-bug");
+        pipeline.AgentName.Should().Be("big");
+        pipeline.Agent.Should().NotBeNull();
+        pipeline.Agent!.Model.Should().Be("claude-opus-4-7");
+        pipeline.SkillsPath.Should().Be("skills/heavy");
+    }
+
+    [Fact]
+    public void LoadConfig_PipelineEntryReferencesUnknownAgent_ThrowsConfigurationException()
+    {
+        Write("""
+            agents:
+              real: { type: Claude }
+            repos:
+              r: { type: GitHub, url: https://x, auth: t }
+            trackers:
+              t: { type: GitHub, auth: t }
+            projects:
+              demo:
+                agent: real
+                tracker: t
+                repos: [r]
+                pipelines:
+                  - { name: fix-bug, agent: ghost-agent }
+            """);
+
+        var act = () => Load();
+        act.Should().Throw<ConfigurationException>()
+            .WithMessage("*pipeline 'fix-bug' references agent 'ghost-agent'*");
+    }
+
     private void Write(string yaml) => File.WriteAllText(_tempFile, yaml);
 
     private AgentSmithConfig Load() =>
