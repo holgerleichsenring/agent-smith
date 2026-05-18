@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.52.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.51.0...v0.52.0) (2026-05-18)
+
+
+### Features
+
+* p0140 multi repo and project pipelines ([32f3b8f](https://github.com/holgerleichsenring/agent-smith/commit/32f3b8fb062c4da3dbd2fe2d480bf2c67015d3cb))
+* unfence autonomous + skill-manager presets (p0144) ([6347c25](https://github.com/holgerleichsenring/agent-smith/commit/6347c25c58f3cff19873ff5d31712782ba226635))
+
+
+### Bug Fixes
+
+* increase agent smith skills version ([e8cac4a](https://github.com/holgerleichsenring/agent-smith/commit/e8cac4ad432b121ceb8ace51bb46eb41e81fe6ac))
+
 ## [0.51.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.50.2...v0.51.0) (2026-05-18)
 
 
