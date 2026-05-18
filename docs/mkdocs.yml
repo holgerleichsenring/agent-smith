@@ -120,6 +120,7 @@ nav:
     - Custom Security Patterns: security/custom-patterns.md
   - Skill Catalog:
     - Source Modes: skills/source-modes.md
+    - Bootstrap Skills: skills/bootstrap.md
     - Air-gap Installs: skills/airgap.md
     - Local Iteration: skills/local-iteration.md
   - AI Providers:
