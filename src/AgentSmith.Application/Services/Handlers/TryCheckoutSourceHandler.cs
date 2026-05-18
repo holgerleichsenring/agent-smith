@@ -34,14 +34,7 @@ public sealed class TryCheckoutSourceHandler(
         if (TryHonorCliOverride(pipeline)) return Ok();
 
         var source = context.Source;
-        if (string.IsNullOrWhiteSpace(source.Type))
-        {
-            logger.LogDebug("No source configured, passive mode");
-            EmitBanner(pipeline, sourcePath: null);
-            return Ok();
-        }
-
-        if (string.Equals(source.Type, "local", StringComparison.OrdinalIgnoreCase))
+        if (source.Type == RepoType.Local)
             return ResolveLocal(source, pipeline);
 
         return await CloneRemoteAsync(context, cancellationToken);
@@ -57,7 +50,7 @@ public sealed class TryCheckoutSourceHandler(
         return true;
     }
 
-    private CommandResult ResolveLocal(SourceConfig source, PipelineContext pipeline)
+    private CommandResult ResolveLocal(RepoConnection source, PipelineContext pipeline)
     {
         if (string.IsNullOrWhiteSpace(source.Path) || !Directory.Exists(source.Path))
             return WarnPassive(pipeline, $"Local source path missing or absent: {source.Path}");

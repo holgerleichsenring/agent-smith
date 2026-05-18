@@ -1,27 +1,28 @@
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles Azure DevOps workitem.commented events for re-triggering pipelines.
-/// Checks for configured keyword in comment text, respects state gate.
-/// p0128b: detects Plan-open-questions answers and re-triggers with PlanAnswers populated.
+/// Handles Azure DevOps workitem.commented events for re-triggering pipelines. Filters
+/// on comment_keyword / PlanAnswers presence and the state gate before dispatching.
 /// </summary>
 public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    IEnvelopeProjectResolver envelopeResolver,
+    WebhookSpawnDispatcher dispatcher,
     PlanAnswerParser planAnswerParser,
     ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "azuredevops" && eventType == "workitem.commented";
 
-    public Task<WebhookResult> HandleAsync(
+    public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
@@ -32,60 +33,54 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
 
             var resource = root.GetProperty("resource");
             var commentText = resource.TryGetProperty("text", out var textEl)
-                ? textEl.GetString() ?? ""
-                : "";
-
-            var config = configLoader.LoadConfig(serverContext.ConfigPath);
-            var (projectName, triggerConfig) = AzureDevOpsWorkItemWebhookHandler.FindProject(config);
-
-            if (triggerConfig is null) return Task.FromResult(new WebhookResult(false, null, null));
+                ? textEl.GetString() ?? "" : "";
+            var fields = resource.GetProperty("fields");
+            var workItemId = resource.GetProperty("id").GetInt32();
+            var state = fields.TryGetProperty("System.State", out var stateEl)
+                ? stateEl.GetString() ?? "" : "";
+            var ticketUrl = resource.TryGetProperty("url", out var urlEl) ? urlEl.GetString() : null;
 
             var planAnswers = planAnswerParser.Parse(commentText);
-            var hasAnswers = planAnswers.Count > 0;
-            var hasKeyword = triggerConfig.CommentKeyword is not null
-                && commentText.Contains(triggerConfig.CommentKeyword, StringComparison.OrdinalIgnoreCase);
+            var envelope = WebhookEnvelopeBuilders.BuildForAzureDevOpsWorkItem(
+                fields, workItemId.ToString(), ticketUrl);
 
-            if (!hasAnswers && !hasKeyword)
-                return Task.FromResult(new WebhookResult(false, null, null));
+            var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            var matches = envelopeResolver.Resolve(config, envelope);
+            var filtered = FilterByKeywordOrAnswers(config, matches, commentText, planAnswers.Count > 0);
 
-            var fields = resource.GetProperty("fields");
-            var state = fields.TryGetProperty("System.State", out var stateEl)
-                ? stateEl.GetString() ?? ""
-                : "";
-
-            if (!AzureDevOpsWorkItemWebhookHandler.IsStatusAllowed(triggerConfig, state))
+            if (filtered.Count == 0 && matches.Count > 0)
             {
-                logger.LogDebug("Work item state '{State}' not in trigger_statuses, ignoring comment", state);
-                return Task.FromResult(new WebhookResult(false, null, null));
+                logger.LogDebug(
+                    "ADO comment #{Id}: matched but no keyword/answers — ignoring", workItemId);
+                return WebhookResult.NotHandled();
             }
 
-            var workItemId = resource.GetProperty("id").GetInt32();
-            var tags = fields.TryGetProperty("System.Tags", out var tagsEl)
-                ? tagsEl.GetString() ?? ""
-                : "";
-            var pipeline = AzureDevOpsWorkItemWebhookHandler.ResolvePipelineFromTags(triggerConfig, tags)
-                           ?? triggerConfig.DefaultPipeline;
-
-            logger.LogInformation("Azure DevOps comment trigger: #{Id} keyword '{Keyword}' -> pipeline '{Pipeline}'",
-                workItemId, triggerConfig.CommentKeyword, pipeline);
-
-            var initialContext = new Dictionary<string, object>
-            {
-                [ContextKeys.DoneStatus] = triggerConfig.DoneStatus
-            };
-
-            return Task.FromResult(new WebhookResult(
-                true, null, pipeline,
-                InitialContext: initialContext,
-                ProjectName: projectName,
-                TicketId: workItemId.ToString(),
-                Platform: "azuredevops",
-                PlanAnswers: hasAnswers ? new Dictionary<string, string>(planAnswers) : null));
+            var planAnswersDict = planAnswers.Count > 0
+                ? new Dictionary<string, string>(planAnswers) : null;
+            await dispatcher.DispatchAsync(
+                config, filtered, envelope, state, planAnswersDict, cancellationToken);
+            return WebhookResult.HandledNoRoute();
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse Azure DevOps workitem.commented webhook");
-            return Task.FromResult(new WebhookResult(false, null, null));
+            return WebhookResult.NotHandled();
         }
+    }
+
+    private static IReadOnlyList<ProjectMatch> FilterByKeywordOrAnswers(
+        AgentSmithConfig config, IReadOnlyList<ProjectMatch> matches,
+        string commentText, bool hasAnswers)
+    {
+        if (matches.Count == 0) return matches;
+        var kept = new List<ProjectMatch>(matches.Count);
+        foreach (var match in matches)
+        {
+            var trigger = config.Projects[match.ProjectName].AzuredevopsTrigger;
+            var hasKeyword = trigger?.CommentKeyword is { } kw
+                && commentText.Contains(kw, StringComparison.OrdinalIgnoreCase);
+            if (hasAnswers || hasKeyword) kept.Add(match);
+        }
+        return kept;
     }
 }

@@ -17,18 +17,18 @@ public sealed class TicketStatusTransitionerFactory(
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory) : ITicketStatusTransitionerFactory
 {
-    public ITicketStatusTransitioner Create(TicketConfig config)
-        => config.Type.ToLowerInvariant() switch
+    public ITicketStatusTransitioner Create(TrackerConnection config)
+        => config.Type switch
         {
-            "github" => CreateGitHub(config),
-            "gitlab" => CreateGitLab(config),
-            "azuredevops" => CreateAzureDevOps(config),
-            "jira" => CreateJira(config),
+            TrackerType.GitHub => CreateGitHub(config),
+            TrackerType.GitLab => CreateGitLab(config),
+            TrackerType.AzureDevOps => CreateAzureDevOps(config),
+            TrackerType.Jira => CreateJira(config),
             _ => throw new NotSupportedException(
                 $"ITicketStatusTransitioner not implemented for platform '{config.Type}'")
         };
 
-    private GitHubTicketStatusTransitioner CreateGitHub(TicketConfig config)
+    private GitHubTicketStatusTransitioner CreateGitHub(TrackerConnection config)
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
         return new GitHubTicketStatusTransitioner(
@@ -38,7 +38,7 @@ public sealed class TicketStatusTransitionerFactory(
             loggerFactory.CreateLogger<GitHubTicketStatusTransitioner>());
     }
 
-    private GitLabTicketStatusTransitioner CreateGitLab(TicketConfig config)
+    private GitLabTicketStatusTransitioner CreateGitLab(TrackerConnection config)
     {
         var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
         var token = secrets.GetRequired("GITLAB_TOKEN");
@@ -50,7 +50,7 @@ public sealed class TicketStatusTransitionerFactory(
             loggerFactory.CreateLogger<GitLabTicketStatusTransitioner>());
     }
 
-    private AzureDevOpsTicketStatusTransitioner CreateAzureDevOps(TicketConfig config)
+    private AzureDevOpsTicketStatusTransitioner CreateAzureDevOps(TrackerConnection config)
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
@@ -60,7 +60,7 @@ public sealed class TicketStatusTransitionerFactory(
             loggerFactory.CreateLogger<AzureDevOpsTicketStatusTransitioner>());
     }
 
-    private JiraTicketStatusTransitioner CreateJira(TicketConfig config)
+    private JiraTicketStatusTransitioner CreateJira(TrackerConnection config)
     {
         var url = config.Url ?? secrets.GetRequired("JIRA_URL");
         var email = secrets.GetRequired("JIRA_EMAIL");

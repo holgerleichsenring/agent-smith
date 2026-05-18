@@ -35,7 +35,7 @@ public sealed class ListTicketsIntentHandler(
                 return;
             }
 
-            var ticketProvider = ticketFactory.Create(projectConfig.Tickets);
+            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var tickets = await ticketProvider.ListOpenAsync(cancellationToken: cancellationToken);
 
             await SendTicketListAsync(intent, tickets, cancellationToken);

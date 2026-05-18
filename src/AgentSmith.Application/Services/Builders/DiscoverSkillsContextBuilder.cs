@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Builders;
 /// </summary>
 public sealed class DiscoverSkillsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var skillsPath = pipeline.Resolved().SkillsPath;
 

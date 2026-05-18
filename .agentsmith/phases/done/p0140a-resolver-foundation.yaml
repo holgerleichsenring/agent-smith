@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0140a
+goal: "Foundation slice of p0140 (multi-repo + project pipelines). Adds the schema, domain records, and ProjectResolver service that the later slices will plug into. NO production caller goes through ProjectResolver in this slice — webhook handlers and pollers still use today's per-platform FindProject lookups. The point of the slice is: get the foundation in, with tests, without breaking anything that runs today."
+
+requires: ["p0139"]
+
+scope:
+  in: |
+    (1) Schema (config/agentsmith.schema.json). webhookTrigger gains a REQUIRED project_resolution
+        sub-block. tracker gains optional zero_match_comment: bool (default false). pipelines: on
+        a project becomes a typed array (oneOf string | object with name/agent?/skills_path?).
+        New $def projectResolution with strategy enum (tag, area-path, repo, to_address) and
+        a free-form value string.
+
+    (2) Domain records (src/AgentSmith.Contracts/Models/Configuration/). New ProjectResolutionConfig
+        record + ResolutionStrategy enum. New IncomingTicketEnvelope record (the input to the
+        resolver: labels, area-path, source-repo-url, to-address — all optional). WebhookTriggerConfig
+        gains ProjectResolution: ProjectResolutionConfig? property (deserialized from the schema).
+
+    (3) ITicketProvider capability. Add bool SupportsComments { get; } with a default of true on
+        the interface (so today's four trackers don't need to change). Reason: the future Email
+        provider in p0141 will return false, and the zero-match path in p0140b needs to know
+        whether the tracker can carry a comment. Adding it in p0140a means consumers added in
+        p0140b find the property already there.
+
+    (4) ProjectResolver service (src/AgentSmith.Application/Services/Triggers/ProjectResolver.cs).
+        Stateless. ResolveAsync(config, envelope) → IReadOnlyList<ResolvedMatch> where
+        ResolvedMatch = (project name, pipeline name). Strategies:
+          - tag: envelope.Labels contains resolution.Value (case-insensitive)
+          - area-path: envelope.AreaPath starts with resolution.Value after both sides normalised
+            to backslash form. Hierarchical prefix match (ContosoMain\\Billing matches itself
+            AND ContosoMain\\Billing\\Invoicing).
+          - repo: envelope.SourceRepoUrl equals project.Repos[0].Url (case-insensitive).
+          - to_address: envelope.ToAddress equals resolution.Value (case-insensitive).
+        Pipeline selection within a matched project: today's PipelineResolver.Resolve logic stays —
+        ProjectResolver only picks the PROJECT; pipeline-from-label or default_pipeline still picks
+        the pipeline once project is known. ProjectResolver returns one match per (project,
+        resolved-pipeline-name) tuple.
+
+    (5) Validator extensions (src/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs).
+        Three new checks:
+          - Every trigger block on a project (github/gitlab/azuredevops/jira) must have
+            project_resolution set.
+          - When project_resolution.strategy == repo, project.Repos.Count must == 1.
+          - Per-pipeline override agent (when pipelines: contains an object with `agent:`) must
+            resolve in the agents catalog. Per-pipeline name must resolve to a known pipeline
+            (PipelinePresets.Names).
+
+    (6) Pipelines list parsing. RawProjectEntry + ConfigCatalogResolver are extended to parse
+        `pipelines:` as a YAML sequence whose items can be either a string OR a mapping with
+        `name` + optional `agent` + optional `skills_path`. String items become PipelineDefinition
+        with no overrides. Mapping items become PipelineDefinition with AgentName + SkillsPath
+        populated. NEW field PipelineDefinition.AgentName: string? — replaces the unused
+        AgentConfig? Agent inline-override field. The agents-catalog lookup for AgentName
+        happens at config-load (ConfigCatalogResolver materialises the agent and writes it
+        into PipelineDefinition.Agent).
+
+    (7) Dogfood + example YAML updates. config/agentsmith.yml: every project's existing trigger
+        block (github/gitlab/azuredevops/jira) gains a project_resolution block. Repo-strategy
+        for the agent-smith project, Jira via tag for the Jira-using projects, ADO via tag or
+        area-path for ADO projects. config/agentsmith.example.yml: one worked example per
+        strategy (tag, area-path, repo).
+
+    (8) Tests. Resolver: 7 named tests covering all four strategies + zero-match + multiple-match
+        + area-path slash normalisation. Validator: 3 named tests covering the new error
+        conditions. PipelineDefinition catalog-lookup: 1 test confirming AgentName resolves.
+
+  out: |
+    NO production caller goes through ProjectResolver in p0140a. Webhook handlers still use today's
+    per-platform FindProject. Pollers still receive per-project ResolvedProject from DI. The
+    resolver exists, is wired into DI, has tests — but isn't called yet. The first caller migration
+    lands in p0140b.
+
+    NO SpawnPipelineRunsUseCase in this slice. Multi-repo fan-out is p0140b's job.
+
+    NO ResolvedProject.Repo shim removal. The 18 consumer sites stay on the shim. Shim removal
+    is p0140d.
+
+    NO metrics counters. agent_smith_ambiguous_resolution_total and
+    agent_smith_pipeline_skipped_as_irrelevant_total land in p0140e together with the metrics
+    infrastructure introduction.
+
+    NO writeback comment changes (repo-identity in CommitAndPR comment is p0140b — paired with
+    the fan-out that makes per-repo comments meaningful).
+
+    NO pollers restructure. That's p0140c.
+
+decisions:
+  - key: "Slice p0140 into 5 phases (a/b/c/d/e), implement a first. Reason: codebase exploration
+      showed the spec assumptions diverge from reality enough that one-shot implementation is
+      4-7 sessions of focused work. Slice a delivers the foundation cleanly so b/c/d/e can plug
+      in without re-litigating the data model. Each slice is one PR, one merge window. The
+      umbrella p0140 spec is retained as the design-intent reference."
+  - key: "Adding SupportsComments to ITicketProvider in p0140a (not p0140b where it's first
+      consumed). Reason: an interface change touches all 4 provider implementations and is
+      noisy in a PR. Doing it in the foundation slice keeps the noise out of the webhook-
+      migration slice (p0140b) where the focus needs to be on handler structure changes. The
+      default-true means today's 4 providers don't need explicit returns; Email in p0141
+      will explicitly return false."
+  - key: "PipelineDefinition.AgentName as string-catalog-ref, not retaining the old
+      AgentConfig? Agent inline-override field. Reason: p0139 established the catalog model
+      (no inline agents anywhere). The old field was dead weight from pre-p0139. Removing it
+      now (rather than keeping both side-by-side) avoids confusing operators about which one
+      wins."
+  - key: "ProjectResolver returns (project, pipeline) tuples — but pipeline resolution stays
+      with today's PipelineResolver.Resolve(trigger, labels, globalTriggers). The new resolver
+      is project-only; pipeline-within-project is unchanged. Reason: pipeline-routing is
+      already correctly handled today; changing both project and pipeline resolution in one
+      slice doubles the test surface for no benefit. p0140b can revisit if a coupled resolver
+      makes more sense."
+
+steps:
+  - id: schema
+    action: "Extend config/agentsmith.schema.json with projectResolution + pipelineEntry + zero_match_comment"
+    modify:
+      - "config/agentsmith.schema.json: webhookTrigger gains required project_resolution. tracker gains optional zero_match_comment. project.pipelines becomes array of pipelineEntry. New $defs projectResolution + pipelineEntry."
+
+  - id: domain-records
+    action: "Add ProjectResolutionConfig + ResolutionStrategy enum + IncomingTicketEnvelope + WebhookTriggerConfig.ProjectResolution + PipelineDefinition.AgentName"
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/ProjectResolutionConfig.cs: sealed record { ResolutionStrategy Strategy, string Value }."
+      - "src/AgentSmith.Contracts/Models/Configuration/ResolutionStrategy.cs: enum { Tag, AreaPath, Repo, ToAddress }."
+      - "src/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs: sealed record { IReadOnlyList<string> Labels, string? AreaPath, string? SourceRepoUrl, string? ToAddress, string? TicketId, string? TicketUrl, string? Platform }."
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs: new ProjectResolution: ProjectResolutionConfig? property."
+      - "src/AgentSmith.Contracts/Models/Configuration/PipelineDefinition.cs: add string? AgentName; remove AgentConfig? Agent field once consumers move to AgentName."
+
+  - id: ticket-provider-capability
+    action: "Add SupportsComments to ITicketProvider"
+    modify:
+      - "src/AgentSmith.Contracts/Providers/ITicketProvider.cs: add bool SupportsComments => true default. No implementation change in the four existing providers — they inherit the true default."
+
+  - id: pipelines-list-parsing
+    action: "RawProjectEntry + ConfigCatalogResolver parse pipelines: sequence with string|object items; AgentName catalog-lookup"
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/Configuration/RawProjectEntry.cs: Pipelines becomes List<RawPipelineEntry> (or parsed via custom deserialiser that accepts string or object)."
+      - "src/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigCatalogResolver.cs: when building ResolvedProject.Pipelines, look up AgentName in agents catalog and write the resolved AgentConfig into PipelineDefinition.Agent. Unresolved → aggregated error."
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/Configuration/RawPipelineEntry.cs: tiny record { string Name, string? Agent, string? SkillsPath } — what YAML binds to."
+
+  - id: resolver
+    action: "ProjectResolver service with all 4 strategies + area-path normalisation"
+    new:
+      - "src/AgentSmith.Application/Services/Triggers/ProjectResolver.cs: stateless. ResolveAsync(AgentSmithConfig config, IncomingTicketEnvelope envelope) → IReadOnlyList<(string ProjectName, string PipelineName)>. For each project: iterate its 4 trigger fields (github/gitlab/azuredevops/jira) — for each non-null trigger, check its project_resolution against the envelope. If match: pipeline-name from PipelineResolver.Resolve(trigger, envelope.Labels, config.PipelineTriggers, logger) or trigger.DefaultPipeline. Multiple matches → list with multiple entries."
+      - "src/AgentSmith.Application/Services/Triggers/AreaPathNormalizer.cs: static helper. Normalize(string?): replace / with \\, collapse trailing separators. IsPrefix(parent, child): both normalised; child must equal parent OR start with parent + '\\\\'."
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register ProjectResolver as a transient (it's stateless, no DI dependencies)."
+
+  - id: validator-extensions
+    action: "AgentSmithConfigValidator gains 3 new check methods"
+    modify:
+      - "src/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs: add ValidateProjectResolutionPresence (every declared trigger has project_resolution); add ValidateRepoStrategySingleRepo (when strategy=Repo, project.Repos.Count == 1); add ValidatePipelineOverrides (each PipelineDefinition.AgentName resolves in agents catalog; each PipelineDefinition.Name in PipelinePresets.Names)."
+
+  - id: dogfood-and-example-yaml
+    action: "Update config/agentsmith.yml + config/agentsmith.example.yml to include project_resolution on every trigger so config loads cleanly"
+    modify:
+      - "config/agentsmith.yml: every project's github_trigger/gitlab_trigger/azuredevops_trigger/jira_trigger block gets a project_resolution. agent-smith project: strategy=repo, value=agent-smith URL. ADO/Jira projects: strategy=tag with a project-distinguishing tag (or strategy=area-path where natural)."
+      - "config/agentsmith.example.yml: add three worked examples — one per strategy (tag, area-path, repo). to_address example deferred to p0141 (email)."
+
+  - id: tests
+    action: "ProjectResolver tests + validator tests + pipeline-definition catalog-lookup test"
+    new:
+      - "tests/AgentSmith.Tests/Triggers/ProjectResolverTests.cs: 7 tests. TagStrategy_MatchesTicketWithTag, TagStrategy_TicketHasNoMatchingTag_ReturnsEmpty, TagStrategy_TicketMatchesTwoProjects_ReturnsBoth, AreaPathStrategy_MatchesExactPath, AreaPathStrategy_MatchesSubtreeBelowConfiguredRoot, AreaPathStrategy_DoesNotMatchSiblingPath, RepoStrategy_MatchesByRepoUrl."
+      - "tests/AgentSmith.Tests/Triggers/AreaPathNormalizerTests.cs: 3 tests. ForwardSlashAndBackslash_ResolveIdentically, IsPrefix_ExactMatch_ReturnsTrue, IsPrefix_SiblingPath_ReturnsFalse."
+    modify:
+      - "tests/AgentSmith.Tests/Configuration/AgentSmithConfigValidatorTests.cs: 3 new tests. TriggerMissingProjectResolution_ReturnsError, RepoStrategyWithMultipleRepos_ReturnsError, PipelineOverrideAgentDoesNotExist_ReturnsError."
+      - "tests/AgentSmith.Tests/Configuration/ConfigCatalogResolverTests.cs: 1 new test. PipelineEntryWithAgentName_ResolvesAgentFromCatalog (or add to existing file if catalog-resolver tests live there)."
+
+tests:
+  - "ProjectResolver_TagStrategy_MatchesTicketWithTag"
+  - "ProjectResolver_TagStrategy_TicketHasNoMatchingTag_ReturnsEmpty"
+  - "ProjectResolver_TagStrategy_TicketMatchesTwoProjects_ReturnsBoth"
+  - "ProjectResolver_AreaPathStrategy_MatchesExactPath"
+  - "ProjectResolver_AreaPathStrategy_MatchesSubtreeBelowConfiguredRoot"
+  - "ProjectResolver_AreaPathStrategy_DoesNotMatchSiblingPath"
+  - "ProjectResolver_RepoStrategy_MatchesByRepoUrl"
+  - "AreaPathNormalizer_ForwardSlashAndBackslash_ResolveIdentically"
+  - "AreaPathNormalizer_IsPrefix_ExactMatch_ReturnsTrue"
+  - "AreaPathNormalizer_IsPrefix_SiblingPath_ReturnsFalse"
+  - "ConfigValidator_RepoStrategyWithMultipleRepos_ReturnsError"
+  - "ConfigValidator_PipelineOverrideAgentDoesNotExist_ReturnsError"
+  - "ConfigValidator_TriggerMissingProjectResolution_ReturnsError"
+  - "ConfigCatalogResolver_PipelineEntryWithAgentName_ResolvesAgentFromCatalog"
+
+done:
+  - "agentsmith.schema.json declares projectResolution + pipelineEntry + zero_match_comment; webhookTrigger marks project_resolution required"
+  - "ProjectResolutionConfig + ResolutionStrategy enum + IncomingTicketEnvelope exist in Contracts.Models"
+  - "ITicketProvider has SupportsComments with default true; existing 4 providers inherit the default unchanged"
+  - "ProjectResolver service exists, is DI-registered, has all 4 strategies implemented and tested"
+  - "AreaPathNormalizer handles both / and \\ separators identically; prefix-matching only counts a real path-segment boundary"
+  - "Validator emits structured errors for: missing project_resolution; strategy=repo with multiple repos; unknown pipeline-override agent; unknown pipeline-override name"
+  - "RawProjectEntry + ConfigCatalogResolver parse pipelines: array as either string or object; AgentName is resolved via the agents catalog at load-time"
+  - "config/agentsmith.yml and config/agentsmith.example.yml include project_resolution on every trigger; today's tests still pass against the updated fixtures"
+  - "14 new/adapted tests green; baseline test count (1666 main + 62 sandbox per p0139 commit) does not regress"
+  - "No production caller goes through ProjectResolver yet — that's p0140b. No multi-repo fan-out yet. No metrics yet. No .Repo shim removal yet."

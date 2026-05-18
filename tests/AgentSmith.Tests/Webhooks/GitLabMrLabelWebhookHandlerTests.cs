@@ -25,9 +25,9 @@ public sealed class GitLabMrLabelWebhookHandlerTests
     private static AgentSmithConfig BuildConfig(string repoUrl = "https://gitlab.com/org/my-api") =>
         new()
         {
-            Projects = new Dictionary<string, ProjectConfig>
+            Projects = new Dictionary<string, ResolvedProject>
             {
-                ["my-api"] = new() { Source = new SourceConfig { Url = repoUrl } }
+                ["my-api"] = new() { Repos = new[] { new RepoConnection { Url = repoUrl } } }
             }
         };
 

@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class AnalyzeCodeContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new AnalyzeCodeContext(repo, pipeline);
@@ -18,7 +18,7 @@ public sealed class AnalyzeCodeContextBuilder : IContextBuilder
 
 public sealed class GeneratePlanContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
         var projectMap = pipeline.Get<ProjectMap>(ContextKeys.ProjectMap);
@@ -29,9 +29,15 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
     }
 }
 
+public sealed class EmptyPlanCheckContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+        => new EmptyPlanCheckContext(pipeline);
+}
+
 public sealed class ApprovalContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         return new ApprovalContext(plan, pipeline);
@@ -40,7 +46,7 @@ public sealed class ApprovalContextBuilder : IContextBuilder
 
 public sealed class AgenticExecuteContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
@@ -53,7 +59,7 @@ public sealed class AgenticExecuteContextBuilder : IContextBuilder
 
 public sealed class TestContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
@@ -63,7 +69,7 @@ public sealed class TestContextBuilder : IContextBuilder
 
 public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         // p0130c-followup: Plan and Ticket are optional. Init-project routes
         // through this handler (per p0130c) but has neither. Changes defaults
@@ -80,27 +86,29 @@ public sealed class WriteRunResultContextBuilder : IContextBuilder
 
 public sealed class CommitAndPRContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new CommitAndPRContext(repo, changes, ticket, project.Source, project.Tickets, pipeline);
+        return new CommitAndPRContext(repo, changes, ticket, currentRepo, project.Tracker, pipeline);
     }
 }
 
 public sealed class InitCommitContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        return new InitCommitContext(repo, project.Source, project.Tickets, pipeline);
+        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        return new InitCommitContext(repo, currentRepo, project.Tracker, pipeline);
     }
 }
 
 public sealed class GenerateTestsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
@@ -113,7 +121,7 @@ public sealed class GenerateTestsContextBuilder : IContextBuilder
 
 public sealed class GenerateDocsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);

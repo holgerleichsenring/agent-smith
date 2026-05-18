@@ -1,0 +1,283 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0140c
+goal: "Restructure pollers from per-project to per-tracker. Today each of the four pollers (GitHubIssuePoller / GitLabIssuePoller / AzureDevOpsWorkItemPoller / JiraIssuePoller) is instantiated by PollerFactory once per project that has polling enabled, and they receive an already-resolved ResolvedProject in their constructor. Post-p0140c each poller is instantiated once per tracker connection with polling enabled, pulls all open tickets from that tracker, and routes each pulled ticket through p0140b's IEnvelopeProjectResolver and ISpawnPipelineRunsUseCase. Result: when N projects share one tracker, polling load drops from N pulls to 1 pull per interval. Per-project trigger_statuses is no longer used by the poller (it pulls broadly) — instead it becomes a SECOND filter applied per-match by the spawner path so a project only fires when the ticket's status is in its trigger_statuses list."
+
+requires: ["p0140b"]
+
+scope:
+  in: |
+    (1) Poller-ctor surface change. All four pollers in src/AgentSmith.Application/Services/Polling/
+        change their constructor signature: drop `string projectName` + `ResolvedProject projectConfig`,
+        add `TrackerConnection tracker`. Each poller now knows ONLY about its tracker connection
+        (auth, organization, URL, type) — it has no notion of "which project owns this ticket"
+        because that decision moves entirely to IEnvelopeProjectResolver.
+
+    (2) Per-tracker construction in PollerFactory. src/AgentSmith.Application/Services/Polling/PollerFactory.cs
+        (today's per-project Build) is rewritten: instead of `foreach (var (name, project) in
+        config.Projects) where project.Polling.Enabled` instantiate per-project poller, do
+        `foreach (var (name, tracker) in config.Trackers) where tracker.Polling.Enabled`
+        instantiate per-tracker poller. The PollerHostedService consumes IEnumerable<IEventPoller>
+        unchanged. (Pollers are NOT registered as DI services today — PollerFactory.Build is
+        invoked from PollerLeaderHostedService's per-cycle scope; this stays.)
+
+    (3) Per-tracker polling config. Polling.Enabled / IntervalSeconds / JitterPercent live today on
+        ResolvedProject.Polling (per-project). For per-tracker pollers we need the polling
+        settings on the tracker. Add `polling: { enabled, interval_seconds, jitter_percent }` block
+        to the tracker schema (config/agentsmith.schema.json) and TrackerConnection record (using
+        the existing PollingConfig class). Existing ResolvedProject.Polling stays for backwards-compat
+        but is IGNORED by the new per-tracker pollers (existing field is logged as a deprecation
+        warning at config-load if Enabled=true). Operators migrate by moving the polling block from
+        project to tracker.
+
+    (4) Polling-loop body migration. Each poller's loop today:
+          a. provider.ListByLifecycleStatusAsync(Pending) + DiscoverNewAsync(provider, trigger)
+          b. for each ticket: pipeline = PipelineResolver.Resolve(trigger, t.Labels) ?? "fix-bug"
+          c. yield ClaimRequest per ticket (consumed by PollerHostedService which calls TicketClaimService.ClaimAsync)
+        Post-p0140c each poller's loop:
+          a. provider.ListByLifecycleStatusAsync(Pending) + DiscoverNewAsync (NEW: discovery
+             can no longer rely on a project trigger — instead poll all open tickets via a
+             new ITicketProvider.ListOpenTicketsAsync(ct) call; if that doesn't exist today,
+             keep DiscoverNewAsync but adapt it to take only the tracker config — see step
+             "provider-list-open" below)
+          b. for each ticket:
+             i.   envelope = WebhookEnvelopeBuilders.BuildFor{Platform}FromTicketSnapshot(ticket, tracker)
+                  — see step "envelope-from-snapshot" below for the new builder method that
+                  takes a Ticket DTO (not a JsonElement payload) and produces the envelope
+             ii.  matches = envelopeResolver.Resolve(config, envelope)
+             iii. for each match: project = config.Projects[match.ProjectName]; trigger =
+                  SelectTriggerFor(project, _tracker.Type); if trigger.TriggerStatuses.Count == 0
+                  OR trigger.TriggerStatuses.Contains(ticket.Status, StringComparer.OrdinalIgnoreCase)
+                  → spawnPipelineRunsUseCase.ExecuteAsync(project, match.PipelineName, envelope, trigger, ct)
+                  ELSE → structured log entry "polling-status-filter: ticket {Id} status '{Status}'
+                  not in trigger_statuses [{List}] for project '{P}' — skip"
+             iv.  zero-match handling: structured log (as in p0140b), no comment from the
+                  polling path even when tracker.ZeroMatchComment is true — commenting on every
+                  unmatched polled ticket would be noisy (most open tickets in a multi-tenant
+                  tracker are not agent-smith work). The comment-on-zero-match contract stays
+                  webhook-only.
+        Pollers no longer yield ClaimRequests (the old model). They call SpawnPipelineRunsUseCase
+        directly per ticket, and report a per-tracker poll summary (e.g., "polled 12 tickets, 3
+        matched, 2 spawned, 1 status-filtered") to PollerHostedService.
+
+    (5) PollerHostedService adaptation. Today PollerHostedService loops pollers, collects
+        ClaimRequests from each, and calls claimService.ClaimAsync(request) per ClaimRequest.
+        After p0140c the pollers do their own spawn — so PollerHostedService just calls
+        `await poller.PollAsync(ct)` per cycle. The IEventPoller.PollAsync return type changes
+        from `IReadOnlyList<ClaimRequest>` to `PollResult` (a small DTO with counts: Polled,
+        Matched, Spawned, StatusFiltered, ZeroMatched). PollerHostedService logs the per-cycle
+        per-tracker summary using PollResult.
+
+    (6) Already-seen / dedupe handling. Today's dedupe lives in:
+          - LifecyclePollFilter (label-based; excludes Enqueued/InProgress/Done/Failed)
+          - TicketClaimService.ReadCurrentAsync (lifecycle-status read before transition)
+          - IRedisClaimLock with key `agentsmith:claim-lock:{platform}:{ticket-id}`
+        Post-p0140c the claim path is now SpawnPipelineRunsUseCase → ClaimSpawnAsync (from p0140b).
+        ClaimSpawnAsync re-uses the same `agentsmith:claim-lock:{platform}:{ticket-id}` key.
+        Polling now operates across N projects sharing one tracker; the lock key is still
+        per-(platform, ticket-id) because a ticket-id is unique within a tracker. Polling +
+        webhooks now race for the same lock — the first wins, the second sees AlreadyClaimed,
+        no double-spawn. LifecyclePollFilter and DiscoverNewAsync per-poller dedupe stays.
+
+    (7) StartupSummaryLogger update. src/AgentSmith.Server/Services/StartupSummaryLogger.cs
+        adapts the polling display to be per-tracker: "Polling tracker '{tracker.Name}'
+        ({tracker.Type}) every {Interval}s for projects [a, b, c]" where the projects-list
+        is derived from `config.Projects.Values.Where(p => p.Tracker.Name == tracker.Name).Select(p => p.Name)`.
+        If a project declared project-level Polling.Enabled=true (deprecated), append
+        "[deprecated project-level polling on {project} ignored]". (Note: p0140d also touches
+        this file — the polling section is c's, the per-repo enumeration is d's. No conflict.)
+
+    (8) ITicketProvider.ListOpenTicketsAsync (new, optional). For per-tracker polling each
+        poller needs to enumerate ALL open tickets in the tracker — not just those with a
+        specific label/trigger. Today's ITicketProvider has `ListByLifecycleStatusAsync` (filters
+        by Pending lifecycle label) which is fine for tickets already labelled by agent-smith.
+        For the broader pull (find tickets agent-smith hasn't yet seen), today's DiscoverNewAsync
+        relies on the WebhookTriggerConfig (label list) — which the per-tracker poller no
+        longer has. Add `Task<IReadOnlyList<Ticket>> ListOpenTicketsAsync(CancellationToken ct);`
+        to ITicketProvider with a default that returns the current implementation's union
+        (Pending-lifecycle + label-discovery using tracker.OpenStates). Each tracker provider
+        overrides as needed.
+
+    (9) Envelope-from-snapshot builders. WebhookEnvelopeBuilders (introduced in p0140b) takes
+        JsonElement payloads. Polling has Ticket DTOs, not raw JsonElements. Add a sibling
+        method per platform: BuildFor{Platform}FromTicketSnapshot(Ticket ticket, TrackerConnection
+        tracker) → IncomingTicketEnvelope. Extracts Labels, AreaPath, SourceRepoUrl, TicketId,
+        TicketUrl, Platform from the Ticket DTO (the same fields the webhook payload-parsing
+        extracts, just from a different shape).
+
+    (10) Test pack. (a) Each poller's test file in tests/AgentSmith.Tests/Services/Polling/
+         adapts to the new ctor — substitute the TrackerConnection-only constructor + add a
+         stubbed IEnvelopeProjectResolver + stubbed ISpawnPipelineRunsUseCase. The existing
+         behavior tests (label-matching, polling-interval, jitter) stay green with adapted
+         setup. (b) New tests per platform: PollingViaResolver_TwoProjectsShareTracker_TicketWithAlphaTag_SpawnsOnlyAlpha;
+         PollingViaResolver_TicketStatusNotInProjectTriggerStatuses_SkipsProject;
+         PollingViaResolver_ZeroMatch_LogsStructuredEventNoComment;
+         PollingViaResolver_TwoProjectsMatchSameTicket_BothSpawn. (c) Per-tracker polling-config
+         binding tests: TrackerConnection_PollingBlockBinds_FromYaml; ConfigLoad_ProjectLevelPolling_EmitsDeprecationWarning.
+
+  out: |
+    Removal of ResolvedProject.Polling. The field stays as a deprecated-but-tolerated input for
+    one release; the cleanup is its own follow-up phase once operator configs are migrated.
+
+    Webhook handler changes. p0140b already migrated all 8 ticket-event handlers. p0140c only
+    touches polling.
+
+    .Repo shim removal. The pollers don't use .Repo today; the per-tracker pollers don't either
+    (they operate on tracker + envelope + matched-project lookup). Shim removal is p0140d's job.
+
+    Metrics counters. p0140e.
+
+    Renaming Pollers from "{Platform}IssuePoller" to "{Platform}TrackerPoller" to reflect the
+    new per-tracker semantics. Tempting but invasive — file-rename across the test pack +
+    decision-doc references. Stick with the existing names; the per-tracker behavior is
+    documented in the class XML doc-comment.
+
+    Consumer-side multi-repo execution. p0140c, like p0140b, only touches the enqueue side.
+    Multi-repo execution at the consumer side is unlocked by p0140d.
+
+decisions:
+  - key: "Pollers go per-tracker, not per-(tracker, project) pair. Reason: the only thing a
+      poller needs to know about a tracker is how to authenticate and which endpoints to pull.
+      Pulling per-(tracker, project) pair would duplicate the pull when N projects share a tracker
+      — the exact symptom this slice exists to solve. Per-tracker keeps the pull minimal; the
+      per-project filtering happens at the IEnvelopeProjectResolver match step + the trigger_statuses
+      secondary filter."
+  - key: "PollerFactory.Build is rewritten per-tracker; pollers are still not DI services.
+      Reason: today PollerFactory.Build is called once per cycle inside
+      PollerLeaderHostedService.RunPollerAsync (in a service scope), enumerates config.Projects,
+      and constructs concrete pollers. Switching to per-tracker enumeration is the minimal change;
+      keeping the construction pattern (factory, not DI) avoids broader DI churn and lets
+      the per-cycle config reload continue to work."
+  - key: "Polling block moves from ResolvedProject.Polling to TrackerConnection.Polling.
+      Per-tracker pollers need per-tracker polling cadence — different trackers can pull at
+      different intervals. Keeping a per-project polling block as the input shape would mean a
+      tracker with N projects has N conflicting polling configs; that ambiguity isn't worth
+      preserving. Deprecate the project-level block (warn at load, ignore for polling) and
+      remove in a follow-up."
+  - key: "Trigger-statuses filtering moves from poller to spawner-path. Today pollers pre-filter
+      tickets by trigger.TriggerStatuses before yielding the ClaimRequest. Post-p0140c the
+      per-tracker poller pulls all open tickets (because it doesn't know which project's
+      trigger_statuses to consult), and the per-match spawn step checks the trigger_statuses
+      of the matched project's trigger block. Tickets that match the resolver but fall outside
+      trigger_statuses are dropped with a structured log. Slightly broader pull, more accurate
+      routing."
+  - key: "Zero-match polling-path is log-only (never comments) even when tracker.ZeroMatchComment
+      is true. Reason: in a multi-tenant tracker the open-tickets pool is overwhelmingly NOT
+      agent-smith work. Commenting on every unmatched polled ticket would generate operator
+      noise that defeats the dashboard. The comment-on-zero-match flag remains webhook-only —
+      a webhook event is an explicit signal that the operator wired SOMETHING to fire, so a
+      zero-match comment there is forensically valuable. Polling is a discovery sweep, and
+      most discoveries are negatives."
+  - key: "Claim-lock key stays `agentsmith:claim-lock:{platform}:{ticket-id}`. Reason: a
+      ticket-id is unique within a tracker (and effectively within a platform since each platform
+      enforces its own namespacing). Adding tracker-name to the key would split webhook-driven
+      and poller-driven claims into separate lock buckets — and they SHOULD race for the same
+      lock so a webhook-arrived ticket isn't double-spawned by a subsequent poll cycle. Today's
+      key shape works correctly for both paths."
+  - key: "Pollers stop yielding ClaimRequests and instead call SpawnPipelineRunsUseCase
+      directly. Reason: the polling path now mirrors the webhook path — resolver + per-match
+      spawn. Yielding ClaimRequests would force PollerHostedService to know about resolver +
+      spawn semantics; concentrating that logic in the poller keeps PollerHostedService a thin
+      orchestration loop. IEventPoller.PollAsync returns PollResult (a count summary) for
+      observability."
+  - key: "ITicketProvider.ListOpenTicketsAsync is opt-in with a default. Reason: a hard-required
+      new interface method would force all four trackers + Sandbox + tests to implement it
+      immediately even when their existing ListByLifecycleStatusAsync + label-discovery union
+      is already correct. Default implementation in the interface uses today's union; trackers
+      that need a more efficient native list-open call override."
+
+steps:
+  - id: tracker-polling-config
+    action: "Add polling block to TrackerConnection + schema; deprecate project-level Polling"
+    modify:
+      - "config/agentsmith.schema.json: tracker $def gains optional `polling: { enabled: bool, interval_seconds: int, jitter_percent: int }` block. Validator does not require it (tracker without polling = no polling for that tracker)."
+      - "src/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs: new property `PollingConfig Polling { get; init; } = new();` using the existing PollingConfig class."
+      - "src/AgentSmith.Infrastructure.Core/Services/Configuration/TrackerCatalogBuilder.cs: bind the new polling block from RawTrackerEntry. (Verify the binder path at execution time — likely needs a new RawTrackerEntry property + projection in TryBuild.)"
+    new:
+      - "src/AgentSmith.Application/Services/Configuration/PollingConfigDeprecationWarner.cs: ~40 lines. Service called after config load; emits a structured warning log for every project that has Polling.Enabled = true. Message: 'Project {X} declares project-level polling — p0140c moved polling to trackers. Move the polling: block to tracker {Y}.'"
+      - "Register PollingConfigDeprecationWarner in ServerExtensions (or wherever AgentSmithConfigValidator is run from); invoke it from the same Server startup gate."
+
+  - id: poller-ctor-surface
+    action: "Change all four pollers' ctors from per-project to per-tracker; switch return type"
+    modify:
+      - "src/AgentSmith.Contracts/Services/IEventPoller.cs: PollAsync return type changes from `Task<IReadOnlyList<ClaimRequest>>` to `Task<PollResult>` (the new DTO). Add an XML doc-comment noting the per-tracker semantics post-p0140c."
+      - "src/AgentSmith.Application/Services/Polling/GitHubIssuePoller.cs: ctor drops `string projectName, ResolvedProject projectConfig`; adds `TrackerConnection tracker, AgentSmithConfig config, IEnvelopeProjectResolver envelopeResolver, ISpawnPipelineRunsUseCase spawnUseCase, IConfigurationLoader configLoader`. Polling-interval read switches from projectConfig.Polling to _tracker.Polling. _config field used for resolver call + project lookup."
+      - "src/AgentSmith.Application/Services/Polling/GitLabIssuePoller.cs: same."
+      - "src/AgentSmith.Application/Services/Polling/AzureDevOpsWorkItemPoller.cs: same."
+      - "src/AgentSmith.Application/Services/Polling/JiraIssuePoller.cs: same."
+    new:
+      - "src/AgentSmith.Contracts/Models/PollResult.cs: `public sealed record PollResult(int Polled, int Matched, int Spawned, int StatusFiltered, int ZeroMatched);`. Used by PollerHostedService for per-cycle summaries."
+
+  - id: provider-list-open
+    action: "ITicketProvider gains ListOpenTicketsAsync default; pollers use it"
+    modify:
+      - "src/AgentSmith.Contracts/Providers/ITicketProvider.cs: add `Task<IReadOnlyList<Ticket>> ListOpenTicketsAsync(CancellationToken ct) => /* default: union of ListByLifecycleStatusAsync(Pending) + (provider-specific discovery using OpenStates from TrackerConnection if accessible — fall back to ListByLifecycleStatusAsync only) */;`. Confirm the default-method default implementation actually works at the interface level (C# 8+ default-interface-method); if not, provide a base/abstract implementation."
+
+  - id: envelope-from-snapshot
+    action: "WebhookEnvelopeBuilders gains FromTicketSnapshot methods for polling"
+    modify:
+      - "src/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs: add static methods BuildForGitHubFromTicketSnapshot(Ticket, TrackerConnection), BuildForGitLabFromTicketSnapshot, BuildForAzureDevOpsFromTicketSnapshot, BuildForJiraFromTicketSnapshot. Each extracts Labels, AreaPath (ADO only), SourceRepoUrl (GitHub/GitLab via ticket.RepoUrl if available; otherwise null), TicketId = ticket.Id.Value, TicketUrl = ticket.Url, Platform = tracker.Type.ToString() lowercased."
+
+  - id: poller-loop-body
+    action: "Migrate poll loop from yield-ClaimRequest to envelope + IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase + PollResult"
+    modify:
+      - "Per poller: replace the body of PollAsync. Before: `var requests = merged.Select(t => new ClaimRequest(...)).ToList(); return requests;`. After: enumerate merged tickets, for each ticket build the envelope, call envelopeResolver.Resolve(_config, envelope), for each match look up project + select trigger via TriggerSelectionHelper.SelectTriggerFor(project, _tracker.Type), apply the trigger_statuses filter, call _spawn.ExecuteAsync(project, match.PipelineName, envelope, trigger, ct) when admitted, otherwise log the structured skip. Tally PollResult counts and return."
+    new:
+      - "src/AgentSmith.Application/Services/Polling/TriggerSelectionHelper.cs: ~30 lines. Static helper `SelectTriggerFor(ResolvedProject project, TrackerType type)` returns the right WebhookTriggerConfig (project.GithubTrigger / GitlabTrigger / AzuredevopsTrigger / JiraTrigger) or null when the project has no trigger for that tracker type. Reused by all four pollers; pure mapping (acceptable static helper per coding-principles)."
+
+  - id: poller-host-adapt
+    action: "PollerHostedService stops collecting ClaimRequests; consumes PollResult"
+    modify:
+      - "src/AgentSmith.Application/Services/Polling/PollerHostedService.cs: rewrite CycleAsync to call `await poller.PollAsync(ct)` per registered poller, log the returned PollResult per (tracker, cycle), and accumulate counts for the cycle-end summary. The IConfigurationLoader + configPath + ITicketClaimService injections become unused — remove from ctor. The class shrinks; verify under 120 lines."
+
+  - id: poller-factory-rewrite
+    action: "PollerFactory.Build enumerates trackers, not projects"
+    modify:
+      - "src/AgentSmith.Application/Services/Polling/PollerFactory.cs: rewrite Build(IServiceProvider services, AgentSmithConfig config) to `foreach (var (name, tracker) in config.Trackers) where tracker.Polling.Enabled` produce one poller per tracker (switch on tracker.Type for the right concrete class). Old per-project iteration removed."
+
+  - id: startup-summary
+    action: "StartupSummaryLogger shows per-tracker polling with the projects-sharing-tracker list"
+    modify:
+      - "src/AgentSmith.Server/Services/StartupSummaryLogger.cs: rewrite the polling section. Compute `pollingCount = config.Trackers.Values.Count(t => t.Polling.Enabled)` (was per-project). For each tracker with Polling.Enabled, emit `Polling tracker '{tracker.Name}' ({tracker.Type}) every {interval}s — serving projects: {list}` where list is the comma-joined project names that reference this tracker. If a project declared Polling.Enabled (deprecated), include `[deprecated project-level polling on {project} ignored]` in the log line."
+
+  - id: tests
+    action: "Adapt existing per-poller tests, add per-tracker behavior tests, schema tests"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Polling/GitHubIssuePollerTests.cs: ctor adapts to TrackerConnection + AgentSmithConfig + IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase. Existing tests (label-matching, jitter, interval honored) stay semantically equivalent."
+      - "tests/AgentSmith.Tests/Services/Polling/GitLabIssuePollerTests.cs: same."
+      - "tests/AgentSmith.Tests/Services/Polling/AzureDevOpsWorkItemPollerTests.cs: same."
+      - "tests/AgentSmith.Tests/Services/Polling/JiraIssuePollerTests.cs: same."
+    new:
+      - "tests/AgentSmith.Tests/Services/Polling/PerTrackerPollerRoutingTests.cs: ~6 tests. PollingViaResolver_TwoProjectsShareTracker_TicketWithAlphaTag_SpawnsOnlyAlpha; PollingViaResolver_TicketStatusNotInProjectTriggerStatuses_SkipsProject; PollingViaResolver_ZeroMatch_LogsStructuredEventNoComment; PollingViaResolver_TwoProjectsMatchSameTicket_BothSpawn; PollingViaResolver_DedupesProcessedTickets_ViaClaimLock; PollingViaResolver_TrackerWithNoMatchingProjects_NoSpawns."
+      - "tests/AgentSmith.Tests/Configuration/TrackerPollingConfigBindingTests.cs: ~3 tests. TrackerConnection_PollingBlockBinds_FromYaml; TrackerConnection_PollingBlockOmitted_DefaultsToDisabled; ConfigLoad_ProjectLevelPolling_EmitsDeprecationWarning."
+
+tests:
+  - "GitHubIssuePoller_CtorTakesTrackerConnection_NotProject"
+  - "GitLabIssuePoller_CtorTakesTrackerConnection_NotProject"
+  - "AzureDevOpsWorkItemPoller_CtorTakesTrackerConnection_NotProject"
+  - "JiraIssuePoller_CtorTakesTrackerConnection_NotProject"
+  - "PollingViaResolver_TwoProjectsShareTracker_TicketWithAlphaTag_SpawnsOnlyAlpha"
+  - "PollingViaResolver_TicketStatusNotInProjectTriggerStatuses_SkipsProject"
+  - "PollingViaResolver_ZeroMatch_LogsStructuredEventNoComment"
+  - "PollingViaResolver_TwoProjectsMatchSameTicket_BothSpawn"
+  - "PollingViaResolver_DedupesProcessedTickets_ViaClaimLock"
+  - "PollingViaResolver_TrackerWithNoMatchingProjects_NoSpawns"
+  - "TrackerConnection_PollingBlockBinds_FromYaml"
+  - "TrackerConnection_PollingBlockOmitted_DefaultsToDisabled"
+  - "ConfigLoad_ProjectLevelPolling_EmitsDeprecationWarning"
+  - "StartupSummaryLogger_PerTrackerPolling_ListsServingProjects"
+  - "PollerFactory_BuildsOnePollerPerPollingEnabledTracker"
+
+done:
+  - "All four pollers take TrackerConnection + AgentSmithConfig + IEnvelopeProjectResolver + ISpawnPipelineRunsUseCase in their constructor; no poller references ResolvedProject"
+  - "PollerFactory.Build enumerates config.Trackers (not config.Projects); one poller per polling-enabled tracker"
+  - "TrackerConnection has a Polling block; schema accepts polling: under tracker"
+  - "ResolvedProject.Polling.Enabled=true at load is logged as deprecated (warning only, not error)"
+  - "Each poller's loop builds IncomingTicketEnvelope, calls IEnvelopeProjectResolver, calls ISpawnPipelineRunsUseCase per match"
+  - "Per-match trigger_statuses filter applied; tickets falling outside it are dropped with a structured log entry"
+  - "Polling zero-match path logs only — does NOT comment even when tracker.ZeroMatchComment is true"
+  - "IEventPoller.PollAsync return type is PollResult; PollerHostedService consumes summaries (no longer collects ClaimRequests)"
+  - "StartupSummaryLogger groups polling display per tracker with the projects-served list; deprecated per-project polling shown inline"
+  - "Existing per-poller behavior tests adapt to the new ctor; ~10 new tests cover per-tracker routing behavior"
+  - "Dogfood agentsmith.yml updates: move existing project-level polling block on todo-list-azuredevops to its tracker (todo-list-ado); validator no longer warns"
+  - "Claim-lock key unchanged (`agentsmith:claim-lock:{platform}:{ticket-id}`) so polling + webhook races resolve correctly via AlreadyClaimed"
+  - "All existing tests green, no regression in baseline"

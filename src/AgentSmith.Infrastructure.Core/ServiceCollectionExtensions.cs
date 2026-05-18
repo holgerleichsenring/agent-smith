@@ -17,16 +17,20 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<SecretsProvider>();
         services.AddSingleton<ProjectConfigNormalizer>();
+        services.AddSingleton<RepoCatalogBuilder>();
+        services.AddSingleton<TrackerCatalogBuilder>();
+        services.AddSingleton<ResolvedProjectBuilder>();
+        services.AddSingleton<ConfigCatalogResolver>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
         services.AddSingleton<SkillIndexBuilder>();
         services.AddSingleton<ISkillBodyResolver, SkillBodyResolver>();
-        // p0111d: provider-override plumbing. Default registration uses a fresh
+        // p0111d: provider-override plumbing. Default registration uses an empty
         // AgentSmithConfig (PrimaryProvider=null → no overrides). Composition roots
         // that want to honor an operator-set PrimaryProvider register a populated
         // AgentSmithConfig before this call to win the last-binding race.
-        services.AddSingleton<AgentSmithConfig>(_ => new AgentSmithConfig());
+        services.AddSingleton<AgentSmithConfig>(_ => AgentSmithConfig.Empty());
         services.AddSingleton<IActiveProviderResolver, ActiveProviderResolver>();
         services.AddSingleton<IProviderOverrideResolver, ProviderOverrideResolver>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();

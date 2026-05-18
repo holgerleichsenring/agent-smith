@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Models;
 /// Context for acquiring a document from a local folder source.
 /// </summary>
 public sealed record AcquireSourceContext(
-    SourceConfig Config,
+    RepoConnection Config,
     PipelineContext Pipeline) : ICommandContext;
 
 /// <summary>
@@ -25,7 +25,7 @@ public sealed record BootstrapDocumentContext(
 /// When OutputFormat is set, delegates to the matching IOutputStrategy.
 /// </summary>
 public sealed record DeliverOutputContext(
-    SourceConfig Config,
+    RepoConnection Config,
     Repository Repository,
     PipelineContext Pipeline,
     string? OutputFormat = null) : ICommandContext;

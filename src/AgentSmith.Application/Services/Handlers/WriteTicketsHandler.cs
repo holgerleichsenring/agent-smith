@@ -44,7 +44,7 @@ public sealed class WriteTicketsHandler(
                 $"All {findings.Count} finding(s) below minimum confidence {context.MinConfidence}");
         }
 
-        var provider = ticketFactory.Create(context.TicketConfig);
+        var provider = ticketFactory.Create(context.TrackerConnection);
         var writtenUrls = new List<string>();
 
         foreach (var finding in eligible)

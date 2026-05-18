@@ -12,7 +12,7 @@ public interface IPipelineExecutor
 {
     Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames,
-        ProjectConfig projectConfig,
+        ResolvedProject projectConfig,
         PipelineContext context,
         CancellationToken cancellationToken);
 }

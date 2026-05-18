@@ -10,12 +10,12 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface IPipelineConfigResolver
 {
-    ResolvedPipelineConfig Resolve(ProjectConfig project, string pipelineName);
+    ResolvedPipelineConfig Resolve(ResolvedProject project, string pipelineName);
 
     /// <summary>
     /// Resolves the pipeline name to use when no explicit name is supplied.
     /// Chain: <c>project.DefaultPipeline</c> → single-element shortcut when
     /// only one pipeline is declared → throws when ambiguous.
     /// </summary>
-    string ResolveDefaultPipelineName(ProjectConfig project);
+    string ResolveDefaultPipelineName(ResolvedProject project);
 }

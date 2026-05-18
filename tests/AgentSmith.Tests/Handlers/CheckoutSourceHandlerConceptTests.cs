@@ -35,11 +35,11 @@ public sealed class CheckoutSourceHandlerConceptTests
         providerMock.SetupGet(p => p.ProviderType).Returns("Local");
         providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Repository(new BranchName("main"), "/tmp/repo"));
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>())).Returns(providerMock.Object);
+        _factoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(providerMock.Object);
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new SourceConfig { Type = "local", Path = "/tmp" }, new BranchName("main"), pipeline);
+            new RepoConnection { Type = RepoType.Local, Path = "/tmp" }, new BranchName("main"), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 
@@ -54,12 +54,12 @@ public sealed class CheckoutSourceHandlerConceptTests
         providerMock.SetupGet(p => p.ProviderType).Returns("github");
         providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Repository(new BranchName("main"), "https://example.com/x.git"));
-        _factoryMock.Setup(f => f.Create(It.IsAny<SourceConfig>())).Returns(providerMock.Object);
+        _factoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(providerMock.Object);
 
         var pipeline = new PipelineContext();
         // No sandbox set => Fail path; URL non-empty so we hit the sandbox guard.
         var context = new CheckoutSourceContext(
-            new SourceConfig { Type = "github", Url = "https://example.com/x.git" },
+            new RepoConnection { Type = RepoType.GitHub, Url = "https://example.com/x.git" },
             new BranchName("main"), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
@@ -77,7 +77,7 @@ public sealed class CheckoutSourceHandlerConceptTests
         {
             var pipeline = new PipelineContext();
             var context = new TryCheckoutSourceContext(
-                new SourceConfig { Type = "local", Path = temp }, null, pipeline);
+                new RepoConnection { Type = RepoType.Local, Path = temp }, null, pipeline);
 
             var result = await TryCheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 
@@ -94,7 +94,7 @@ public sealed class CheckoutSourceHandlerConceptTests
     public async Task ExecuteAsync_TryCheckoutFailsSoft_PublishesSourceAvailableFalse()
     {
         var pipeline = new PipelineContext();
-        var context = new TryCheckoutSourceContext(new SourceConfig(), null, pipeline);
+        var context = new TryCheckoutSourceContext(new RepoConnection(), null, pipeline);
 
         var result = await TryCheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 

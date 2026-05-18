@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
@@ -14,6 +15,7 @@ using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Application.Services.Triage;
@@ -44,6 +46,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandExecutor, CommandExecutor>();
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
         services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
+        services.AddSingleton<AgentSmithConfigValidator>();
+        services.AddSingleton<Services.Configuration.PollingConfigDeprecationWarner>();
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
@@ -93,6 +97,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
+        services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<TrxResultParser>();
@@ -236,6 +241,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
+        AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
         AddBuilder<TestContextBuilder>(services, CommandNames.Test);
@@ -326,6 +332,15 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
+        // p0140a: ProjectResolver is stateless. p0140b: exposed as IEnvelopeProjectResolver
+        // for webhook handlers + SpawnPipelineRunsUseCase.
+        services.AddSingleton<Services.Triggers.ProjectResolver>();
+        services.AddSingleton<Contracts.Services.IEnvelopeProjectResolver>(
+            sp => sp.GetRequiredService<Services.Triggers.ProjectResolver>());
+        // p0140b: SpawnPipelineRunsUseCase is the only place that builds ClaimRequests from
+        // a webhook envelope. Depends on ITicketClaimService (Server-only) so this service
+        // resolves only inside the Server composition; CLI graph doesn't use it.
+        services.AddTransient<Contracts.Services.ISpawnPipelineRunsUseCase, Services.Spawning.SpawnPipelineRunsUseCase>();
         services.AddTransient<ExecutePipelineUseCase>();
         // ITicketClaimService moved to Server.AddCoreDispatcherServices in p0109a — it
         // depends on IRedisJobQueue + IRedisClaimLock + IJobHeartbeatService, none of
@@ -334,5 +349,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<Services.Prompts.AgentPromptBuilder>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
+        RegisterToolHosts(services);
+    }
+
+    // p0145: ToolKit + the default policy. IToolHost instances are NOT
+    // DI-registered — each host carries per-pipeline-run state (sandbox,
+    // decision logger, repo path, dialogue transport, job id) that lives in
+    // PipelineContext, not DI. Callers construct hosts and pass them to
+    // IToolKit.GetToolsFor at call time. ToolKit is stateless (only the
+    // policy), so singleton is fine.
+    private static void RegisterToolHosts(IServiceCollection services)
+    {
+        services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
+        services.AddSingleton<IToolKit, ToolKit>();
     }
 }
