@@ -23,6 +23,7 @@ public static class PipelinePresets
         CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
+        CommandNames.EmptyPlanCheck, // p0140e: skip Apply/Verify/Commit if Plan has zero steps
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.RunVerifyPhase, // p0129a
@@ -38,6 +39,7 @@ public static class PipelinePresets
         CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
         CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
+        CommandNames.EmptyPlanCheck, // p0140e
         CommandNames.Approval, CommandNames.AgenticExecute,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
@@ -70,7 +72,9 @@ public static class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
         CommandNames.AnalyzeCode, CommandNames.Triage,
-        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions, CommandNames.Approval,
+        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
+        CommandNames.EmptyPlanCheck, // p0140e
+        CommandNames.Approval,
         CommandNames.AgenticExecute, CommandNames.GenerateTests,
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.RunVerifyPhase, // p0129a

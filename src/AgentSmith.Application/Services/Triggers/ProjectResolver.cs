@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -46,7 +47,17 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
                 matches.Add(new ProjectMatch(projectName, pipeline, kind));
             }
         }
+        EmitAmbiguousMetric(matches);
         return matches;
+    }
+
+    private static void EmitAmbiguousMetric(IReadOnlyList<ProjectMatch> matches)
+    {
+        if (matches.Count <= 1) return;
+        foreach (var m in matches)
+            AgentSmithMeter.AmbiguousResolution.Add(1,
+                new KeyValuePair<string, object?>("project", m.ProjectName),
+                new KeyValuePair<string, object?>("pipeline", m.PipelineName));
     }
 
     private static IEnumerable<(string Kind, WebhookTriggerConfig Trigger)> EnumerateTriggers(ResolvedProject project)

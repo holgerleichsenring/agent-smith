@@ -96,6 +96,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
+        services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<TrxResultParser>();
@@ -239,6 +240,7 @@ public static class ServiceCollectionExtensions
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
+        AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
         AddBuilder<TestContextBuilder>(services, CommandNames.Test);

@@ -112,8 +112,65 @@ For language-detection misclassification specifically (e.g. a TypeScript monorep
 
 Each agent run produces a `result.md` under `.agentsmith/runs/<run-id>/`. The init run's result.md surfaces the bootstrap-skill output, cost breakdown, and any warnings. Failed runs leave the same artifact path with the failure details — useful when the PR doesn't appear.
 
+## Bootstrapping a multi-repo project
+
+A multi-repo project (one project entry referencing N entries in `repos:`) needs `agent-smith:init` to run **once per repo** — each repo needs its own `.agentsmith/context.yaml` and `.agentsmith/coding-principles.md`. There is no project-wide init.
+
+The init runs are independent. You can do them sequentially or label all repos at once; ordering does not matter. The only constraint is that every repo must be bootstrapped before ticket-triggered runs against the project will succeed end-to-end (the `BootstrapGate` aborts code-touching pipelines on any repo that's missing the two files).
+
+### Example: a 3-repo project
+
+```yaml
+repos:
+  acme-backend:
+    type: GitHub
+    url: https://github.com/acme/backend
+    auth: github_token
+  acme-frontend:
+    type: GitHub
+    url: https://github.com/acme/frontend
+    auth: github_token
+  acme-sdk:
+    type: GitHub
+    url: https://github.com/acme/sdk
+    auth: github_token
+
+projects:
+  acme-product:
+    agent: claude-default
+    tracker: acme-jira
+    repos:
+      - acme-backend
+      - acme-frontend
+      - acme-sdk
+    pipeline: fix-bug
+    jira_trigger:
+      assignee_name: "Agent Smith"
+      project_resolution: { strategy: tag, value: acme-product }
+      pipeline_from_label:
+        agent-smith:init: init-project
+        bug: fix-bug
+      default_pipeline: fix-bug
+```
+
+### Operator workflow
+
+1. On `acme-backend`, file an issue (any title), apply the `agent-smith:init` label. Wait for the bootstrap PR (typically 1-3 minutes), review the generated `.agentsmith/context.yaml` and `coding-principles.md`, merge.
+2. Repeat on `acme-frontend`.
+3. Repeat on `acme-sdk`.
+
+The three runs do not coordinate — each one detects its own repo's stack, writes its own files, and opens its own PR. You can run all three in parallel by labelling all three repos at once if you prefer; the queue will serialise them according to `agent.queue.max_parallel_jobs`.
+
+Once every repo has the `.agentsmith/` directory merged on its default branch, subsequent ticket triggers against the project (e.g. a `bug`-labelled Jira issue) fan out to all three repos and execute the `fix-bug` pipeline end-to-end against each.
+
+> **Pitfall**: a ticket on a partially-bootstrapped multi-repo project still spawns N pipeline runs. The runs against bootstrapped repos succeed; the runs against not-yet-bootstrapped repos abort fast with "Run init-project first" and produce a failed-run artefact under `.agentsmith/runs/<run-id>/`. This is noisy. Bootstrap every repo in the project before relying on ticket-triggered runs.
+
+See [Multi-Repo Projects](../configuration/multi-repo.md) for the fan-out model, ambiguous-tag handling, and the metrics that quantify cost-of-ambiguity in multi-repo setups.
+
 ## See also
 
 - [Label-Based Triggers](label-triggers.md) — full reference for `pipeline_from_label` config and matching rules.
 - [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — how Agent Smith claims tickets and transitions their state.
 - [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — complete config schema.
+- [Multi-Repo Projects](../configuration/multi-repo.md) — fan-out behaviour and the parallel-isolation model.
+- [Project Resolution Strategies](../configuration/project-resolution.md) — `tag`, `area-path`, `repo`, `to_address`.
