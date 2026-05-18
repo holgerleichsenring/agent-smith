@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -7,21 +6,22 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles GitHub Issues labeled events. Triggers a pipeline based on
-/// config-driven label matching and issue status gating.
-/// Falls back to "agent-smith" label for backward compatibility.
+/// Handles GitHub Issues labeled events. p0140b: builds an IncomingTicketEnvelope, asks
+/// IEnvelopeProjectResolver for matches, and hands each match to WebhookSpawnDispatcher.
+/// The dispatcher applies the per-match status-filter and spawns N pipeline runs (one per
+/// repo in the matched project) via SpawnPipelineRunsUseCase.
 /// </summary>
 public sealed class GitHubIssueWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    IEnvelopeProjectResolver envelopeResolver,
+    WebhookSpawnDispatcher dispatcher,
     ILogger<GitHubIssueWebhookHandler> logger) : IWebhookHandler
 {
-    private const string DefaultTriggerLabel = "agent-smith";
-
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && eventType == "issues";
 
-    public Task<WebhookResult> HandleAsync(
+    public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
@@ -31,89 +31,31 @@ public sealed class GitHubIssueWebhookHandler(
             var root = doc.RootElement;
 
             if (root.GetProperty("action").GetString() != "labeled")
-                return Task.FromResult(new WebhookResult(false, null, null));
+                return WebhookResult.NotHandled();
 
-            var label = root.GetProperty("label").GetProperty("name").GetString() ?? "";
             var issueEl = root.GetProperty("issue");
             var issueState = issueEl.TryGetProperty("state", out var stateEl)
                 ? stateEl.GetString() ?? "open" : "open";
-            var issue = issueEl.GetProperty("number").GetInt32();
+            var issueNumber = issueEl.GetProperty("number").GetInt32();
             var repoUrl = root.GetProperty("repository").GetProperty("html_url").GetString() ?? "";
+            var ticketUrl = issueEl.TryGetProperty("html_url", out var urlEl) ? urlEl.GetString() : null;
+
+            var envelope = WebhookEnvelopeBuilders.BuildForGitHubIssue(
+                issueEl, issueNumber.ToString(), repoUrl, ticketUrl);
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
-            var (projectName, triggerConfig) = FindProject(config, repoUrl);
+            var matches = envelopeResolver.Resolve(config, envelope);
 
-            string? pipeline;
-            if (triggerConfig is not null)
-            {
-                if (!IsStatusAllowed(triggerConfig, issueState))
-                {
-                    logger.LogDebug("GitHub issue #{Issue} state '{State}' not in trigger_statuses", issue, issueState);
-                    return Task.FromResult(new WebhookResult(false, null, null));
-                }
+            logger.LogInformation(
+                "GitHub issue #{Issue} → resolved matches={Count}", issueNumber, matches.Count);
 
-                pipeline = ResolvePipeline(triggerConfig, label);
-                if (pipeline is null)
-                {
-                    logger.LogDebug("Label '{Label}' not in github_trigger config", label);
-                    return Task.FromResult(new WebhookResult(false, null, null));
-                }
-            }
-            else
-            {
-                // Backward compat: trigger on "agent-smith" label without config
-                if (!DefaultTriggerLabel.Equals(label, StringComparison.OrdinalIgnoreCase))
-                    return Task.FromResult(new WebhookResult(false, null, null));
-                pipeline = null;
-            }
-
-            logger.LogInformation("GitHub issue #{Issue} labeled '{Label}', project '{Project}', pipeline '{Pipeline}'",
-                issue, label, projectName, pipeline ?? "(default)");
-
-            var initialContext = triggerConfig is not null
-                ? new Dictionary<string, object> { [ContextKeys.DoneStatus] = triggerConfig.DoneStatus }
-                : null;
-
-            return Task.FromResult(new WebhookResult(
-                true, null, pipeline,
-                InitialContext: initialContext,
-                ProjectName: projectName,
-                TicketId: issue.ToString(),
-                Platform: "GitHub"));
+            await dispatcher.DispatchAsync(config, matches, envelope, issueState, null, cancellationToken);
+            return WebhookResult.HandledNoRoute();
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitHub issues webhook");
-            return Task.FromResult(new WebhookResult(false, null, null));
+            return WebhookResult.NotHandled();
         }
-    }
-
-    internal static (string? ProjectName, WebhookTriggerConfig? Config) FindProject(
-        AgentSmithConfig config, string repoUrl)
-    {
-        foreach (var (name, project) in config.Projects)
-        {
-            if (repoUrl.Equals(project.Repo.Url, StringComparison.OrdinalIgnoreCase))
-                return (name, project.GithubTrigger);
-        }
-
-        return (null, null);
-    }
-
-    internal static bool IsStatusAllowed(WebhookTriggerConfig trigger, string status) =>
-        trigger.TriggerStatuses.Count == 0
-        || trigger.TriggerStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
-
-    internal static string? ResolvePipeline(WebhookTriggerConfig trigger, string label)
-    {
-        foreach (var (configLabel, pipeline) in trigger.PipelineFromLabel ?? new())
-        {
-            if (configLabel.Equals(label, StringComparison.OrdinalIgnoreCase))
-                return pipeline;
-        }
-
-        // If no pipeline_from_label entries match, check if this is ANY configured label
-        // If pipeline_from_label is empty, accept any label and use default pipeline
-        return (trigger.PipelineFromLabel?.Count ?? 0) == 0 ? trigger.DefaultPipeline : null;
     }
 }

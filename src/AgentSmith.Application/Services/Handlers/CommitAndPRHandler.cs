@@ -61,7 +61,7 @@ public sealed class CommitAndPRHandler(
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
 
         var summary = $"""
-            ## Agent Smith - Completed
+            ## Agent Smith - Completed in {context.RepoConnection.Name}
 
             **PR:** {prUrl}
 

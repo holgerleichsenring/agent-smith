@@ -1,6 +1,9 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Commands;
+using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
@@ -10,11 +13,10 @@ using Moq;
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
-/// p0133: confirms that the literal pipeline name "init-project" routes cleanly
-/// from a label-bearing webhook payload to a WebhookResult on each of the four
-/// supported platforms. Catches any regression that silently drops or rewrites
-/// the init-project routing string anywhere between webhook ingress and the
-/// resulting JobRequest.
+/// p0140b: confirms the literal pipeline name "init-project" routes cleanly from a
+/// label-bearing webhook payload through real ProjectResolver and real
+/// WebhookSpawnDispatcher down to a verified ISpawnPipelineRunsUseCase.ExecuteAsync
+/// invocation for each of the four supported platforms.
 /// </summary>
 public sealed class InitProjectLabelTriggerSmokeTests
 {
@@ -32,8 +34,26 @@ public sealed class InitProjectLabelTriggerSmokeTests
         return loader;
     }
 
+    private static (WebhookSpawnDispatcher dispatcher, Mock<ISpawnPipelineRunsUseCase> spawn)
+        BuildDispatcher()
+    {
+        var spawn = new Mock<ISpawnPipelineRunsUseCase>();
+        spawn.Setup(s => s.ExecuteAsync(
+                It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+                It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()))
+            .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
+        var dispatcher = new WebhookSpawnDispatcher(
+            spawn.Object,
+            new Mock<ITicketProviderFactory>().Object,
+            NullLogger<WebhookSpawnDispatcher>.Instance);
+        return (dispatcher, spawn);
+    }
+
+    private static ProjectResolver Resolver() => new(NullLogger<ProjectResolver>.Instance);
+
     [Fact]
-    public async Task GitHubIssueWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline()
+    public async Task GitHubIssueWebhookHandler_InitLabelInPayload_SpawnsInitProject()
     {
         var config = new AgentSmithConfig
         {
@@ -41,9 +61,14 @@ public sealed class InitProjectLabelTriggerSmokeTests
             {
                 ["my-repo"] = new()
                 {
-                    Repo = new RepoConnection { Url = "https://github.com/org/my-repo" },
+                    Name = "my-repo",
+                    Repo = new RepoConnection { Name = "my-repo", Url = "https://github.com/org/my-repo" },
                     GithubTrigger = new WebhookTriggerConfig
                     {
+                        ProjectResolution = new ProjectResolutionConfig
+                        {
+                            Strategy = ResolutionStrategy.Repo, Value = ""
+                        },
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
@@ -54,16 +79,21 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 }
             }
         };
-
+        var (dispatcher, spawn) = BuildDispatcher();
         var sut = new GitHubIssueWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
+            Resolver(), dispatcher,
             NullLogger<GitHubIssueWebhookHandler>.Instance);
 
         var payload = $$"""
         {
             "action": "labeled",
             "label": { "name": "{{InitLabel}}" },
-            "issue": { "number": 7, "state": "open" },
+            "issue": {
+                "number": 7,
+                "state": "open",
+                "labels": [{ "name": "{{InitLabel}}" }]
+            },
             "repository": { "name": "my-repo", "html_url": "https://github.com/org/my-repo" }
         }
         """;
@@ -71,15 +101,18 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be(InitPipeline);
-        result.ProjectName.Should().Be("my-repo");
-        result.TicketId.Should().Be("7");
-        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus)
-            .WhoseValue.Should().Be("closed");
+        spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-repo"),
+            InitPipeline,
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "7" && e.Platform == "github"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task GitLabIssueWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline()
+    public async Task GitLabIssueWebhookHandler_InitLabelInPayload_SpawnsInitProject()
     {
         var config = new AgentSmithConfig
         {
@@ -87,9 +120,14 @@ public sealed class InitProjectLabelTriggerSmokeTests
             {
                 ["my-repo"] = new()
                 {
-                    Repo = new RepoConnection { Url = "https://gitlab.com/org/my-repo" },
+                    Name = "my-repo",
+                    Repo = new RepoConnection { Name = "my-repo", Url = "https://gitlab.com/org/my-repo" },
                     GitlabTrigger = new WebhookTriggerConfig
                     {
+                        ProjectResolution = new ProjectResolutionConfig
+                        {
+                            Strategy = ResolutionStrategy.Tag, Value = InitLabel
+                        },
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
@@ -100,9 +138,10 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 }
             }
         };
-
+        var (dispatcher, spawn) = BuildDispatcher();
         var sut = new GitLabIssueWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
+            Resolver(), dispatcher,
             NullLogger<GitLabIssueWebhookHandler>.Instance);
 
         var payload = $$"""
@@ -116,15 +155,18 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be(InitPipeline);
-        result.ProjectName.Should().Be("my-repo");
-        result.TicketId.Should().Be("11");
-        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus)
-            .WhoseValue.Should().Be("closed");
+        spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-repo"),
+            InitPipeline,
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "11" && e.Platform == "gitlab"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task AzureDevOpsWorkItemWebhookHandler_InitTagInPayload_ReturnsWebhookResultWithInitProjectPipeline()
+    public async Task AzureDevOpsWorkItemWebhookHandler_InitTagInPayload_SpawnsInitProject()
     {
         var config = new AgentSmithConfig
         {
@@ -132,9 +174,15 @@ public sealed class InitProjectLabelTriggerSmokeTests
             {
                 ["my-repo"] = new()
                 {
+                    Name = "my-repo",
                     Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
+                    Repo = new RepoConnection { Name = "my-repo" },
                     AzuredevopsTrigger = new WebhookTriggerConfig
                     {
+                        ProjectResolution = new ProjectResolutionConfig
+                        {
+                            Strategy = ResolutionStrategy.Tag, Value = InitLabel
+                        },
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
@@ -145,9 +193,10 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 }
             }
         };
-
+        var (dispatcher, spawn) = BuildDispatcher();
         var sut = new AzureDevOpsWorkItemWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
+            Resolver(), dispatcher,
             NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
 
         var payload = $$"""
@@ -165,15 +214,18 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be(InitPipeline);
-        result.ProjectName.Should().Be("my-repo");
-        result.TicketId.Should().Be("42");
-        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus)
-            .WhoseValue.Should().Be("Resolved");
+        spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-repo"),
+            InitPipeline,
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "42" && e.Platform == "azuredevops"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task JiraAssigneeWebhookHandler_InitLabelInPayload_ReturnsWebhookResultWithInitProjectPipeline()
+    public async Task JiraAssigneeWebhookHandler_InitLabelInPayload_SpawnsInitProject()
     {
         var config = new AgentSmithConfig
         {
@@ -181,10 +233,16 @@ public sealed class InitProjectLabelTriggerSmokeTests
             {
                 ["my-repo"] = new()
                 {
+                    Name = "my-repo",
+                    Repo = new RepoConnection { Name = "my-repo" },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         AssigneeName = "Agent Smith",
-                        TriggerStatuses = ["Open"],
+                        TriggerStatuses = new List<string> { "Open" },
+                        ProjectResolution = new ProjectResolutionConfig
+                        {
+                            Strategy = ResolutionStrategy.Tag, Value = InitLabel
+                        },
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
@@ -195,9 +253,10 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 }
             }
         };
-
+        var (dispatcher, spawn) = BuildDispatcher();
         var sut = new JiraAssigneeWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
+            Resolver(), dispatcher,
             NullLogger<JiraAssigneeWebhookHandler>.Instance);
 
         var labelsJson = JsonSerializer.Serialize(new[] { InitLabel });
@@ -228,10 +287,13 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be(InitPipeline);
-        result.ProjectName.Should().Be("my-repo");
-        result.TicketId.Should().Be("PROJ-99");
-        result.InitialContext.Should().ContainKey(ContextKeys.DoneStatus)
-            .WhoseValue.Should().Be("Done");
+        spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-repo"),
+            InitPipeline,
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "PROJ-99" && e.Platform == "jira"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 }

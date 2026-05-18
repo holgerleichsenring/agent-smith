@@ -65,7 +65,10 @@ internal static class ServiceCollectionExtensions
                 sp.GetRequiredService<ITicketStatusTransitionerFactory>(),
                 sp.GetRequiredService<IJobHeartbeatService>(),
                 sp.GetRequiredService<ILogger<TicketAwarePipelineLifecycleCoordinator>>()));
-        services.AddScoped<ITicketClaimService, TicketClaimService>();
+        // p0140b: ITicketClaimService is stateless; its deps (IRedisClaimLock,
+        // ITicketStatusTransitionerFactory, IRedisJobQueue) are all singletons. Singleton
+        // lifetime keeps the singleton WebhookSpawnDispatcher dependency chain valid.
+        services.AddSingleton<ITicketClaimService, TicketClaimService>();
         return services;
     }
 
@@ -87,6 +90,8 @@ internal static class ServiceCollectionExtensions
 
     internal static IServiceCollection AddWebhookHandlers(this IServiceCollection services)
     {
+        // p0140b: shared per-match spawn loop + zero-match handler used by all 8 ticket-event handlers.
+        services.AddSingleton<WebhookSpawnDispatcher>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

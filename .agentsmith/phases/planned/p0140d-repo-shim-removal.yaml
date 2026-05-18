@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0140d
-goal: "Remove the transitional ResolvedProject.Repo singular accessor (introduced in p0139, slated for removal in the p0140 umbrella). Migrate every consumer to read the run's CurrentRepo from the pipeline context instead — populated at the start of every run from PipelineRequest.RepoName (added by p0140b's SpawnPipelineRunsUseCase). After p0140d the multi-repo invariant is honest at the type level: there is no place left where ResolvedProject is treated as if it had exactly one repo. A multi-repo project's 3 sibling runs each have their own CurrentRepo and can fan out cleanly through the existing PipelineExecutor + context-builder graph without ambiguity about which repo they operate on."
+goal: "Remove the transitional ResolvedProject.Repo singular accessor (introduced in p0139, slated for removal in the p0140 umbrella) AND unlock end-to-end multi-repo execution. Migrate every consumer to read the run's CurrentRepo from the pipeline context instead — populated at the start of every run from PipelineRequest.RepoName (added by p0140b's SpawnPipelineRunsUseCase). After p0140d the multi-repo invariant is honest at the type level: there is no place left where ResolvedProject is treated as if it had exactly one repo. A multi-repo project's 3 sibling runs each have their own CurrentRepo and execute cleanly through the existing PipelineExecutor + context-builder graph. Before p0140d the enqueue side is multi-repo aware (p0140b) but the consumer side throws on project.Repo when Repos.Count > 1; p0140d closes the loop."
 
 requires: ["p0140b"]
 
@@ -9,59 +9,58 @@ scope:
     (1) Introduce ContextKeys.CurrentRepo. At the start of every PipelineExecutor run, look up the
         repo by name from project.Repos using PipelineRequest.RepoName (which p0140b populates on
         every enqueue — including for single-repo projects: the spawner sets RepoName = repos[0].Name).
-        Publish the resolved RepoConnection on the pipeline context under ContextKeys.CurrentRepo
+        Publish the resolved RepoConnection on the PipelineContext under ContextKeys.CurrentRepo
         BEFORE any handler runs. This is the SINGLE place where "which repo is this run for" is
         resolved.
 
-    (2) Migrate the 15 .Repo consumer sites (down from 18 since p0140b removed 3 in webhook
-        handlers). Each consumer that currently reads project.Repo gets switched to read the
-        CurrentRepo from the pipeline context. The 15 sites confirmed in p0140a's codebase
-        exploration:
+    (2) Migrate the 12 .Repo consumer sites that remain after p0140b (was 15 pre-p0140b; the 3
+        webhook-handler URL-match sites — GitHubIssueWebhookHandler.cs:96, GitLabIssueWebhookHandler.cs:85,
+        GitLabMrLabelWebhookHandler.cs:67 — were removed by p0140b when handlers stopped doing
+        per-platform FindProject and started using IEnvelopeProjectResolver). The 12 remaining
+        sites confirmed in audit:
 
-          1.  src/AgentSmith.Application/Services/SourceConfigOverrider.cs:19   `var repo = project.Repo;`
-          2.  src/AgentSmith.Application/Services/PipelineExecutor.cs:205        `sandboxLanguageResolver.ResolveAsync(projectConfig.Repo, ct)`
+          1.  src/AgentSmith.Application/Services/SourceConfigOverrider.cs:19           `var repo = project.Repo;`
+          2.  src/AgentSmith.Application/Services/PipelineExecutor.cs:205                `sandboxLanguageResolver.ResolveAsync(projectConfig.Repo, ct)`
           3.  src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs:12  `new PersistWorkBranchContext(project.Repo, ...)`
-          4.  src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs:88   `new CommitAndPRContext(repo, changes, ticket, project.Repo, ...)`
-          5.  src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs:97   `new InitCommitContext(repo, project.Repo, ...)`
-          6.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:29        `new CheckoutSourceContext(project.Repo, ...)`
-          7.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:37        `string.IsNullOrWhiteSpace(project.Repo.DefaultBranch)`
-          8.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:39        `new BranchName(project.Repo.DefaultBranch)`
-          9.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:41        `new TryCheckoutSourceContext(project.Repo, ...)`
-          10. src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs:13         `new AcquireSourceContext(project.Repo, ...)`
-          11. src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs:32         `new DeliverOutputContext(project.Repo, ...)`
-          12. src/AgentSmith.Server/Services/StartupSummaryLogger.cs:29                       `FormatSource(project.Repo)`
+          4.  src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs:88    `new CommitAndPRContext(repo, changes, ticket, project.Repo, ...)`
+          5.  src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs:97    `new InitCommitContext(repo, project.Repo, ...)`
+          6.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:29           `new CheckoutSourceContext(project.Repo, ...)`
+          7.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:37           `string.IsNullOrWhiteSpace(project.Repo.DefaultBranch)`
+          8.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:39           `new BranchName(project.Repo.DefaultBranch)`
+          9.  src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:41           `new TryCheckoutSourceContext(project.Repo, ...)`
+          10. src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs:13            `new AcquireSourceContext(project.Repo, ...)`
+          11. src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs:32            `new DeliverOutputContext(project.Repo, ...)`
+          12. src/AgentSmith.Server/Services/StartupSummaryLogger.cs:29                          `FormatSource(project.Repo)`  (per-repo enumeration; not part of a run, but reads .Repo)
 
-        Re-grep at execution time (`grep -rn "\.Repo\b\|project\.Repo\|projectConfig\.Repo" src/`)
-        — the count of 15 is the post-p0140b expectation, but verify against actual state. Any
-        site introduced between p0140a and p0140d must also be migrated.
+        Re-grep at execution time (`grep -rn "\.Repo\b" src/`) — the count of 12 is the
+        post-p0140b expectation, but verify against actual state. Any site introduced between
+        p0140b and p0140d must also be migrated.
 
-    (3) StartupSummaryLogger no longer reads project.Repo. Switch to project.Repos and emit one
-        summary line per repo. Multi-repo projects naturally appear as "project foo has 3 repos:
-        a, b, c" — the operator sees the multi-repo shape at startup.
+    (3) StartupSummaryLogger.cs:29 no longer reads project.Repo. Switch to project.Repos and emit
+        one summary line per repo. Multi-repo projects naturally appear as "project foo has 3
+        repos: a, b, c" — the operator sees the multi-repo shape at startup. (Note: p0140c also
+        touches this file — the per-tracker polling section. Disjoint regions; no conflict.)
 
-    (4) PipelineExecutor.RunAsync becomes the CurrentRepo resolver. Add a step at the very top
-        of RunAsync (before any command handler runs):
+    (4) PipelineExecutor.ExecuteAsync becomes the CurrentRepo resolver. Insert a block at line
+        ~92 (after agent resolution, before the command loop — confirmed insertion point from
+        audit):
           var repo = projectConfig.Repos.SingleOrDefault(r =>
               string.Equals(r.Name, request.RepoName, StringComparison.OrdinalIgnoreCase));
           if (repo is null)
               throw new InvalidOperationException(
                   $"PipelineRequest.RepoName '{request.RepoName}' does not match any repo in project '{projectConfig.Name}'. " +
-                  $"Known repos: [{string.Join(", ", projectConfig.Repos.Select(r => r.Name))}].");
-          pipeline.Set(ContextKeys.CurrentRepo, repo);
+                  $"Known repos: [{string.Join(\", \", projectConfig.Repos.Select(r => r.Name))}].");
+          context.Set(ContextKeys.CurrentRepo, repo);
         After this, every read of project.Repo elsewhere in the executor + builders becomes
-        pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo).
+        context.Get<RepoConnection>(ContextKeys.CurrentRepo).
 
-    (5) Builder ctor-or-method refactor. Context builders today receive ResolvedProject (and read
-        .Repo from it). Two implementation choices — pick (b) for consistency with how other
-        per-run state flows today:
-        (a) Add a RepoConnection parameter to every builder method;
-        (b) Builders read CurrentRepo from the pipeline context they already have.
-        Choice (b) is the spec's preferred path — every affected builder already has access to
-        the IPipelineContext (the `pipeline` parameter) and can do `pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo)`.
+    (5) Builder migration — read CurrentRepo from PipelineContext. Per audit: all 5 builder
+        classes already take a `PipelineContext pipeline` parameter via IContextBuilder.Build(...).
+        Drop-in replacement is possible — switch from `project.Repo` to
+        `pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo)`.
 
     (6) Remove the shim. After the migration:
         - Delete the `Repo` property (getter + init) from ResolvedProject.cs
-        - Delete the obsolete `Repos = new[] { value }` init-setter shim
         - The class XML doc-comment loses the "transitional single-repo accessor" sentence
         Add a `[Obsolete]` rollout window? No — by p0140d we've migrated every internal consumer.
         The shim was always documented as transitional from p0139 → p0140. External consumers
@@ -71,17 +70,22 @@ scope:
 
     (7) Test pack. Adapt existing tests that construct ResolvedProject with `Repo = ...` (the
         init-setter that wrapped a single repo into Repos=new[]{...}); they switch to
-        `Repos = new[] { ... }` directly. ConfigCatalogResolverTests line 153-154 in p0140a's
-        post-state needs adapting (LoadConfig_RepoListWithOneEntry_TransitionalSingleRepoAccessorReturnsIt
-        → rename and rewrite to assert Repos.Single() works). Add new tests:
-        PipelineExecutor_RunAsync_PublishesCurrentRepoFromRequestRepoName,
-        PipelineExecutor_RunAsync_RepoNameNotInProjectRepos_Throws,
-        SourceConfigOverrider_ReadsCurrentRepoFromContext_NotProjectRepo,
-        StartupSummaryLogger_MultiRepoProject_LogsEachRepo.
+        `Repos = new[] { ... }` directly. ConfigCatalogResolverTests:153-154 needs adapting
+        (LoadConfig_RepoListWithOneEntry_TransitionalSingleRepoAccessorReturnsIt → rename and
+        rewrite to assert Repos.Single() works). Add new tests:
+        PipelineExecutor_ExecuteAsync_PublishesCurrentRepoFromRequestRepoName,
+        PipelineExecutor_ExecuteAsync_RepoNameMatchesByNameCaseInsensitive,
+        PipelineExecutor_ExecuteAsync_RepoNameNotInProjectRepos_Throws_WithKnownReposList,
+        PipelineExecutor_ExecuteAsync_NullRepoName_Throws,
+        SourceContextBuilder_BuildsWithCurrentRepo_FromContext,
+        PlanExecutionContextBuilder_CommitAndPRContext_UsesCurrentRepo,
+        LegalContextBuilder_AcquireSourceContext_UsesCurrentRepo,
+        StartupSummaryLogger_MultiRepoProject_LogsEachRepo,
+        StartupSummaryLogger_SingleRepoProject_LogsTheRepoUnchanged.
 
   out: |
     Refactoring the PipelineContext API. The CurrentRepo addition uses today's
-    `pipeline.Set(key, value)` + `pipeline.Get<T>(key)` mechanism — same shape as other context
+    `context.Set(key, value)` + `context.Get<T>(key)` mechanism — same shape as other context
     entries (Sandbox, ProjectMap, ResolvedPipeline, etc.). No new abstraction.
 
     Backwards-compat shim for operator-custom handlers. If an external repo subclasses /
@@ -100,7 +104,7 @@ scope:
 decisions:
   - key: "CurrentRepo lives in the pipeline context, not on a typed service. Reason: every
       consumer of .Repo today is already inside the pipeline-context dataflow (PipelineExecutor,
-      context builders that take IPipelineContext, handlers via context-key reads). Adding a
+      context builders that take PipelineContext, handlers via context-key reads). Adding a
       typed IRunRepoAccessor service would mean injecting it into ~12 builders + the executor —
       a structural cost for no ergonomic gain. The context key follows the same pattern as
       Sandbox, ProjectMap, ResolvedPipeline."
@@ -120,41 +124,45 @@ decisions:
       special-casing single-repo would re-introduce the bifurcation the shim removal exists to
       eliminate. Bit-for-bit identical behavior to today's single-repo path is verified by
       regression tests inherited from p0140b."
+  - key: "PipelineContext is a sealed concrete class, not an interface. Audit confirmed
+      AgentSmith.Contracts/Commands/PipelineContext.cs is the type — no IPipelineContext
+      interface exists. Builders + handlers receive PipelineContext directly. No new interface
+      introduction in p0140d; the existing concrete type's Set/Get<T>/TryGet<T> API is sufficient."
 
 steps:
   - id: pipeline-request-reponame
-    action: "Confirm PipelineRequest.RepoName from p0140b is in place; if not, add it"
+    action: "Verify PipelineRequest.RepoName from p0140b is in place"
     modify:
-      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs: verify that p0140b added RepoName: string. If somehow it didn't (read the field list — if absent), add: `public sealed record PipelineRequest(..., string? RepoName = null, ...)` positioned right after ProjectName. Update SpawnPipelineRunsUseCase to populate RepoName per enqueue (RepoName = repo.Name)."
+      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs: verify that p0140b added `string? RepoName`. If somehow it didn't (read the field list — if absent), this is a p0140b regression; surface to the user before continuing. p0140d assumes RepoName is populated."
 
   - id: context-key
     action: "Add ContextKeys.CurrentRepo"
     modify:
-      - "src/AgentSmith.Contracts/Pipeline/ContextKeys.cs (or wherever ContextKeys is defined; grep for `class ContextKeys` to confirm): add `public const string CurrentRepo = \"CurrentRepo\";` (or whatever naming convention sibling keys use — match the established pattern)."
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: add `public const string CurrentRepo = \"CurrentRepo\";` following the existing PascalCase naming convention (matches AgentConfig, TicketId, Sandbox, ResolvedPipeline, etc.)."
 
   - id: executor-resolves-current-repo
-    action: "PipelineExecutor.RunAsync resolves and publishes CurrentRepo at the top of the run"
+    action: "PipelineExecutor.ExecuteAsync resolves and publishes CurrentRepo at the top of the run"
     modify:
-      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: at the top of RunAsync (right after the existing `pipeline.Set(ContextKeys.Project, ...)` / equivalent setup — confirm location), insert the CurrentRepo resolution block from scope item (4). The block throws on missing/mismatched RepoName so misrouted requests fail fast. Line 205's `await sandboxLanguageResolver.ResolveAsync(projectConfig.Repo, ct)` switches to `await sandboxLanguageResolver.ResolveAsync(pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo), ct)`."
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs: at line ~92 (after agent resolution, before the command loop — confirmed insertion point from audit), insert the CurrentRepo resolution block from scope item (4). The block throws on missing/mismatched RepoName so misrouted requests fail fast. Line 205's `await sandboxLanguageResolver.ResolveAsync(projectConfig.Repo, ct)` switches to `await sandboxLanguageResolver.ResolveAsync(context.Get<RepoConnection>(ContextKeys.CurrentRepo), ct)`."
 
   - id: migrate-builders
-    action: "Each of the 11 context builders that reads project.Repo switches to pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo)"
+    action: "Each of the 4 builder files that reads project.Repo switches to context.Get<RepoConnection>(ContextKeys.CurrentRepo)"
     modify:
-      - "src/AgentSmith.Application/Services/SourceConfigOverrider.cs:19 — replace `var repo = project.Repo` with `var repo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo)`. Confirm the Apply method signature already has IPipelineContext; if not, accept the additional parameter at the interface boundary."
+      - "src/AgentSmith.Application/Services/SourceConfigOverrider.cs:19 — replace `var repo = project.Repo` with `var repo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo)`. Audit confirms the Apply method already accepts the pipeline context."
       - "src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs: read CurrentRepo from pipeline."
-      - "src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs: both call sites (lines 88 + 97) switch to CurrentRepo."
+      - "src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs: both call sites (lines 88 + 97 — CommitAndPRContextBuilder + InitCommitContextBuilder) switch to CurrentRepo."
       - "src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs: all 4 sites (29/37/39/41) switch to CurrentRepo."
       - "src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs: both sites (13/32) switch to CurrentRepo."
 
   - id: startup-summary
     action: "StartupSummaryLogger iterates Repos and emits one summary line per repo"
     modify:
-      - "src/AgentSmith.Server/Services/StartupSummaryLogger.cs:29 — replace `FormatSource(project.Repo)` with per-repo enumeration: `foreach (var repo in project.Repos) { _logger.LogInformation(\"  - {RepoName}: {Source}\", repo.Name, FormatSource(repo)); }`. Multi-repo projects now show all their repos at startup."
+      - "src/AgentSmith.Server/Services/StartupSummaryLogger.cs:29 — replace `FormatSource(project.Repo)` with per-repo enumeration. Adjust the LogProject signature/body so multi-repo projects show all their repos at startup. Avoid collision with the p0140c polling-section rewrite — those are separate methods/blocks in the same file."
 
   - id: delete-shim
     action: "Remove ResolvedProject.Repo accessor (getter + init-setter)"
     modify:
-      - "src/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs: delete the Repo property entirely (both the get-throw-when-not-1 branch and the init-setter that built a 1-element array). Update the class XML doc-comment to remove the 'transitional single-repo accessor' sentence."
+      - "src/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs: delete the Repo property entirely (both the throw-when-not-1 getter and the init-setter that built a 1-element array). Update the class XML doc-comment to remove the 'transitional single-repo accessor' sentence."
 
   - id: test-pack
     action: "Adapt tests + add CurrentRepo-flow tests"
@@ -162,31 +170,32 @@ steps:
       - "tests/AgentSmith.Tests/Configuration/ConfigCatalogResolverTests.cs: LoadConfig_RepoListWithOneEntry_TransitionalSingleRepoAccessorReturnsIt → rename to LoadConfig_RepoListWithOneEntry_ProjectExposesItViaReposList; replace `config.Projects[\"demo\"].Repo.Name.Should().Be(\"only\")` with `config.Projects[\"demo\"].Repos.Single().Name.Should().Be(\"only\")`. Same for the Url assertion."
       - "tests/AgentSmith.Tests/**/*.cs: grep for `.Repo = ` (init-setter usage); switch to `Repos = new[] { ... }`. Grep for `.Repo.` (accessor usage); switch to `.Repos.Single().` for tests that don't exercise the multi-repo path."
     new:
-      - "tests/AgentSmith.Tests/Services/PipelineExecutorCurrentRepoTests.cs: ~4 tests. PipelineExecutor_RunAsync_PublishesCurrentRepoFromRequestRepoName; PipelineExecutor_RunAsync_RepoNameMatchesByNameCaseInsensitive; PipelineExecutor_RunAsync_RepoNameNotInProjectRepos_Throws_WithKnownReposList; PipelineExecutor_RunAsync_NullRepoName_Throws."
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorCurrentRepoTests.cs: ~4 tests. PipelineExecutor_ExecuteAsync_PublishesCurrentRepoFromRequestRepoName; PipelineExecutor_ExecuteAsync_RepoNameMatchesByNameCaseInsensitive; PipelineExecutor_ExecuteAsync_RepoNameNotInProjectRepos_Throws_WithKnownReposList; PipelineExecutor_ExecuteAsync_NullRepoName_Throws."
       - "tests/AgentSmith.Tests/Services/Builders/BuildersReadCurrentRepoFromContextTests.cs: ~3 tests. SourceContextBuilder_BuildsWithCurrentRepo_FromContext; PlanExecutionContextBuilder_CommitAndPRContext_UsesCurrentRepo; LegalContextBuilder_AcquireSourceContext_UsesCurrentRepo."
       - "tests/AgentSmith.Tests/Server/StartupSummaryLoggerMultiRepoTests.cs: ~2 tests. MultiRepoProject_LogsEachRepo; SingleRepoProject_LogsTheRepoUnchanged."
+      - "tests/AgentSmith.Tests/EndToEnd/MultiRepoExecutionSmokeTests.cs: ~1 test. ThreeRepos_OneTicket_ProducesThreeRunsWithDistinctCurrentRepos — extends p0140b's enqueue-only smoke into full execution, verifying each of the 3 PipelineRequests resolves to its own CurrentRepo and runs through the builder graph."
 
 tests:
-  - "PipelineExecutor_RunAsync_PublishesCurrentRepoFromRequestRepoName"
-  - "PipelineExecutor_RunAsync_RepoNameMatchesByNameCaseInsensitive"
-  - "PipelineExecutor_RunAsync_RepoNameNotInProjectRepos_Throws_WithKnownReposList"
-  - "PipelineExecutor_RunAsync_NullRepoName_Throws"
+  - "PipelineExecutor_ExecuteAsync_PublishesCurrentRepoFromRequestRepoName"
+  - "PipelineExecutor_ExecuteAsync_RepoNameMatchesByNameCaseInsensitive"
+  - "PipelineExecutor_ExecuteAsync_RepoNameNotInProjectRepos_Throws_WithKnownReposList"
+  - "PipelineExecutor_ExecuteAsync_NullRepoName_Throws"
   - "SourceContextBuilder_BuildsWithCurrentRepo_FromContext"
   - "PlanExecutionContextBuilder_CommitAndPRContext_UsesCurrentRepo"
   - "LegalContextBuilder_AcquireSourceContext_UsesCurrentRepo"
   - "StartupSummaryLogger_MultiRepoProject_LogsEachRepo"
   - "StartupSummaryLogger_SingleRepoProject_LogsTheRepoUnchanged"
   - "LoadConfig_RepoListWithOneEntry_ProjectExposesItViaReposList"
-  - "ResolvedProject_Repo_AccessorIsRemoved_CompileGuard"  # Trivial compile-time test that asserts the property doesn't exist via reflection; future grep-guard.
+  - "ThreeRepos_OneTicket_ProducesThreeRunsWithDistinctCurrentRepos"
 
 done:
   - "ResolvedProject.Repo accessor (getter + init-setter) deleted from ResolvedProject.cs"
-  - "ContextKeys.CurrentRepo added; PipelineExecutor.RunAsync resolves and publishes it at the top of every run"
-  - "All 15 internal consumer sites of project.Repo migrated to pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo) — grep `\\.Repo\\b` across src/ returns zero hits in production code (only Repos. plural and test-fixture usages remain)"
-  - "StartupSummaryLogger logs one line per repo on multi-repo projects"
+  - "ContextKeys.CurrentRepo added; PipelineExecutor.ExecuteAsync resolves and publishes it at the top of every run"
+  - "All 12 internal consumer sites of project.Repo migrated to pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo) — grep `\\.Repo\\b` across src/ returns zero hits in production code (only .Repos. plural and test-fixture usages remain)"
+  - "StartupSummaryLogger logs one line per repo on multi-repo projects (and keeps the p0140c per-tracker polling section)"
   - "PipelineExecutor throws with a clear error when RepoName is null/missing/unknown"
   - "Test fixtures using the old `Repo = ...` init-setter migrated to `Repos = new[] { ... }`"
-  - "~10 new tests cover the CurrentRepo resolution + per-builder reads + multi-repo summary"
+  - "~10 new tests cover the CurrentRepo resolution + per-builder reads + multi-repo summary + end-to-end multi-repo execution"
   - "Smoke run against agent-smith itself (single-repo) produces bit-for-bit identical PipelineRequest enqueue + run output as pre-p0140d"
   - "Smoke run against a deliberately-constructed 3-repo test config produces 3 parallel runs with distinct CurrentRepo entries — verifies the multi-repo invariant is now honest end-to-end"
   - "All existing tests green, no regression in baseline"
