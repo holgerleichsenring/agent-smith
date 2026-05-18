@@ -139,6 +139,17 @@ public sealed class PipelineExecutor(
                     return CommandResult.Ok("Pipeline parked: awaiting_user_input");
                 }
 
+                // p0140e: EmptyPlanCheckHandler sets EmptyPlanSkipped when the Plan produced
+                // zero steps (no actionable work). Cleanly skip the remaining handlers — the
+                // counter has already been emitted by the gate handler.
+                if (context.TryGet<bool>(ContextKeys.EmptyPlanSkipped, out var emptyPlanSkipped)
+                    && emptyPlanSkipped)
+                {
+                    logger.LogInformation(
+                        "Pipeline skipped: Plan produced zero steps (empty_plan)");
+                    return CommandResult.Ok("Pipeline skipped: empty_plan");
+                }
+
                 current = advanceTo ?? batch[^1].Next;
             }
 

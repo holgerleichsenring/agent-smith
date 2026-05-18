@@ -29,6 +29,12 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
     }
 }
 
+public sealed class EmptyPlanCheckContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+        => new EmptyPlanCheckContext(pipeline);
+}
+
 public sealed class ApprovalContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
