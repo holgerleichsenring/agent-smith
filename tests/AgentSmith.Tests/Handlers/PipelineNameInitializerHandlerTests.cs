@@ -41,15 +41,44 @@ public sealed class PipelineNameInitializerHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_AutonomousPipeline_PublishesPipelineNameAutonomous()
+    {
+        // p0144 unfencing: 'autonomous' is now in the shipped pipeline_name enum
+        // (agent-smith-skills v2.2.0 vocab bump), so PipelineNameInitializer
+        // succeeds. Pre-p0144 this test asserted ArgumentException — the
+        // preset was crash-fenced because the enum didn't contain the value.
+        var pipeline = PipelineFor("autonomous");
+        var context = new PipelineNameInitializerContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var concepts = RunStateConceptsTestFactory.Default(pipeline);
+        concepts.GetEnum("pipeline_name").Should().Be("autonomous");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SkillManagerPipeline_PublishesPipelineNameSkillManager()
+    {
+        // p0144 unfencing: 'skill-manager' is now in the shipped pipeline_name enum
+        // (agent-smith-skills v2.2.0). Pre-p0144 the SkillManager preset crashed
+        // at this handler because the enum didn't contain the value.
+        var pipeline = PipelineFor("skill-manager");
+        var context = new PipelineNameInitializerContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var concepts = RunStateConceptsTestFactory.Default(pipeline);
+        concepts.GetEnum("pipeline_name").Should().Be("skill-manager");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum()
     {
-        // p0125c-followup: vocabulary in tests is now the real shipped vocab.
-        // Pre-fix this test used "init-project" as the un-enumerated example,
-        // but init-project landed in the enum in p0130c. autonomous +
-        // skill-manager remain pipeline_name-fenced (their preset has Triage
-        // but the catalog has no skills with `pipeline_name = "autonomous"`),
-        // so they're the right shape to assert against.
-        var pipeline = PipelineFor("autonomous");
+        // Defensive: typo / unknown preset still fails loud at the concept
+        // writer instead of silently mis-routing downstream triage.
+        var pipeline = PipelineFor("not-a-real-pipeline");
         var context = new PipelineNameInitializerContext(pipeline);
 
         var act = async () => await _sut.ExecuteAsync(context, CancellationToken.None);

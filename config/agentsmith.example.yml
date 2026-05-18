@@ -278,7 +278,7 @@ tool_runner:
 # Skill catalog source. See docs/skills/source-modes.md.
 skills:
   source: default
-  version: v2.1.0
+  version: v2.1.2
   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
   # cache_dir: /var/lib/agentsmith/skills
 
