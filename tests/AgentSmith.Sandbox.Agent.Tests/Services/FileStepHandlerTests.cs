@@ -72,6 +72,22 @@ public class FileStepHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadFile_Utf8BomFile_ReturnsContentWithoutBomMarker()
+    {
+        var path = Path.Combine(_tempDir, "with-bom.cs");
+        await File.WriteAllBytesAsync(path,
+            new byte[] { 0xEF, 0xBB, 0xBF }
+                .Concat(Encoding.UTF8.GetBytes("using MediatR;"))
+                .ToArray());
+        var step = MakeStep(StepKind.ReadFile, path);
+
+        var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        result.OutputContent.Should().Be("using MediatR;");
+    }
+
+    [Fact]
     public async Task WriteFile_CreatesFileWithUtf8Content()
     {
         var path = Path.Combine(_tempDir, "write.txt");
@@ -96,6 +112,51 @@ public class FileStepHandlerTests : IDisposable
 
         File.ReadAllText(path).Should().Be("new");
         Directory.GetFiles(_tempDir, "*.tmp.*").Should().BeEmpty("temp file must be moved, not left behind");
+    }
+
+    [Fact]
+    public async Task WriteFile_OverExistingBomFile_PreservesUtf8Bom()
+    {
+        var path = Path.Combine(_tempDir, "bom-target.cs");
+        await File.WriteAllBytesAsync(path,
+            new byte[] { 0xEF, 0xBB, 0xBF }
+                .Concat(Encoding.UTF8.GetBytes("old"))
+                .ToArray());
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
+            Path: path, Content: "using MediatR;");
+
+        await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        var bytes = await File.ReadAllBytesAsync(path);
+        bytes.Take(3).Should().Equal(new byte[] { 0xEF, 0xBB, 0xBF });
+        Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3).Should().Be("using MediatR;");
+    }
+
+    [Fact]
+    public async Task WriteFile_OverExistingNoBomFile_StaysWithoutBom()
+    {
+        var path = Path.Combine(_tempDir, "no-bom-target.txt");
+        await File.WriteAllBytesAsync(path, Encoding.UTF8.GetBytes("old"));
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
+            Path: path, Content: "new");
+
+        await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        var bytes = await File.ReadAllBytesAsync(path);
+        bytes.Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF });
+    }
+
+    [Fact]
+    public async Task WriteFile_NewFile_WritesWithoutBom()
+    {
+        var path = Path.Combine(_tempDir, "fresh.txt");
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
+            Path: path, Content: "hello");
+
+        await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        var bytes = await File.ReadAllBytesAsync(path);
+        bytes.Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF });
     }
 
     [Fact]
