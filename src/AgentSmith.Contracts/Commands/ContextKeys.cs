@@ -148,6 +148,11 @@ public static class ContextKeys
     public const string OpenQuestionsAwaitingAnswer = "OpenQuestionsAwaitingAnswer";
     public const string PlanAnswers = "PlanAnswers";
 
+    /// <summary>p0140e: empty-plan gate flag. Set by EmptyPlanCheckHandler when the Plan has zero
+    /// actionable steps (and no open questions). PipelineExecutor short-circuits the same way as
+    /// OpenQuestionsAwaitingAnswer — run completes Ok without running downstream handlers.</summary>
+    public const string EmptyPlanSkipped = "EmptyPlanSkipped";
+
     // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
     // this before each step and clears it after; the gated context wrapper reads it
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.

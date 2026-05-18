@@ -114,6 +114,8 @@ nav:
     - Concept Vocabulary: configuration/concept-vocabulary.md
     - Tool Configuration: configuration/tools.md
     - Webhooks: configuration/webhooks.md
+    - Multi-Repo Projects: configuration/multi-repo.md
+    - Project Resolution: configuration/project-resolution.md
     - Security Scan Config: configuration/security-scan.md
     - Custom Security Patterns: security/custom-patterns.md
   - Skill Catalog:
@@ -141,6 +143,7 @@ nav:
     - Docker + K8s Troubleshooting: docker-k8s-troubleshooting.md
   - Operations:
     - Server Resilience: operations/server-resilience.md
+    - Metrics: operations/metrics.md
   - Setup Guides:
     - setup/README.md
     - Slack: setup/slack.md
