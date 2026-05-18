@@ -1,116 +1,402 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0141
-goal: "Add Email as a tracker type. One email becomes one pipeline run. A minimal example pipeline (schedule-appointment) reads the mail, makes one tool-call to an external API, drafts a reply mail to a reviewer address. Sandbox spawn behavior is UNCHANGED from today (one pod per run) — explicit deferral of the worker-pool optimization to a later phase. The conceptual goal is: prove that a non-code pipeline (no repo checkout, no PR) fits cleanly into the existing pipeline machinery."
+goal: "Add Email as a tracker type. One email becomes one pipeline run. A minimal example pipeline (schedule-appointment) reads the mail, makes one tool-call to an external API, drafts a reply mail to a reviewer address. Sandbox spawn behavior is UNCHANGED from today (one pod per run) — explicit deferral of the worker-pool optimization to a later phase. The conceptual goal is: prove that a non-code pipeline (no repo checkout, no PR) fits cleanly into the existing pipeline machinery. p0141 is also the first production consumer of SkillCallRuntime (p0142 nice-to-have but not blocking) and ships the run-scoped IRunBlobStorage with concept-pointer convention that future multi-skill message pipelines need for large payloads (mail bodies, attachments, PDFs)."
 
-requires: ["p0139", "p0140"]
+requires: ["p0139", "p0140", "p0145"]
 
 scope:
-  in: "New tracker type: Email. New TrackerConnection fields specific to Email: imap_server, imap_folder, smtp_server, from_address, poll_interval_seconds. New EmailTrigger trigger-block parallel to AzureDevOpsTrigger/etc — supports project_resolution with strategy `to_address` (from p0140's schema). New EmailTicketProvider (implements the existing ITicketProvider interface — emails are tickets in the abstraction): poll IMAP folder, return new messages as ticket envelopes with id=Message-ID, body=mail text, labels=mail flags-or-headers, source=from-address. New EmailOutputAction: instead of opening a PR, send a draft email via SMTP to a configured review address. Existing sandbox-per-run model preserved — email pipelines spawn the same Pipeline sandbox-pod that fix-bug uses. New PipelineExecutionMode discriminator on PipelinePresets: code (has checkout + PR) vs message (skips checkout, output is mail draft) — chosen by the pipeline definition itself, not by config. One example pipeline `schedule-appointment` ships: single skill that reads the mail body, calls one external API, drafts a reply."
-  out: "Worker-pool architecture for many-small-jobs (long-lived workers consuming from a Redis queue) — explicitly deferred. The acknowledged trade-off: at 500 mails/day the per-run sandbox spawn (~10-30s) is wasteful but tolerable; at 5000+/day it becomes a real bottleneck. The phase that introduces a light-worker pool is gated on actual telemetry showing the volume is high enough to matter — likely p0148+. Sandbox skipping (running message pipelines in-process in the server pod) — also deferred; same telemetry gate. Multi-action email pipelines (one mail → multiple API calls + multiple drafts) — accepted as natural future extension of the message-mode pipeline, no separate phase needed because the LLM-driven design already supports it. JMAP support — IMAP only for now. Mail attachments — text body only in v1, attachments deferred. PGP/S-MIME — out. Direct send to end-user (skipping reviewer) — out; v1 always sends to reviewer for human-in-the-loop. Per-message-pipeline learning/feedback loop — that's the separate 'lernen aus vorherigen läufen' discussion, deferred to its own phase."
+  in: |
+    (1) New tracker type: Email. New TrackerConnection fields specific to Email: imap_server, imap_folder,
+        smtp_server, from_address, poll_interval_seconds. New EmailTrigger trigger-block parallel to
+        AzureDevOpsTrigger/etc — supports project_resolution with strategy `to_address` (from p0140's schema).
+        New EmailTicketProvider (implements the existing ITicketProvider interface — emails are tickets in the
+        abstraction): poll IMAP folder, return new messages as ticket envelopes with id=Message-ID,
+        body=mail text, labels=mail flags-or-headers, source=from-address.
+
+    (2) New PipelineExecutionMode discriminator on PipelinePresets: Code (has checkout + PR) vs Message (skips
+        checkout, output happens via Tools called from within the skill). Chosen by the pipeline definition
+        itself, not by config. Existing sandbox-per-run model preserved — message pipelines spawn the same
+        Pipeline sandbox-pod that fix-bug uses.
+
+    (3) New SkillExecutionPhase values for Message-Family pipelines: `Read`, `Process`, `Write`. Read-phase
+        skills consume the incoming-trigger envelope (mail body, attachments, sender) and publish concepts
+        describing what they extracted. Process-phase skills make decisions (call APIs, look up records,
+        score). Write-phase skills produce the outgoing-action (draft email, write blob to outbound storage,
+        post to webhook). Cross-repo: agent-smith-skills concept-vocabulary.yaml extends phase enum with the
+        three new values. Each value behaves like existing phases in ToolKit per-phase tool-set selection
+        (p0145 has decomposed the hosts already, so per-pipeline tool-allowlists naturally extend per-phase).
+
+    (4) IRunBlobStorage — run-scoped, content-addressed (SHA-256) blob storage under
+        .agentsmith/runs/<run-id>/blobs/. Interface: WriteAsync(runId, logicalName, Stream, contentType) →
+        BlobRef; ReadAsync(runId, BlobRef) → Stream; ExistsAsync; ListAsync. Sidecar <id>.meta.json per blob
+        with LogicalName + ContentType + SizeBytes + CreatedAt. Idempotent: same content twice = one file.
+        Skills/Tools that produce large payloads write them here; small structured data continues to flow via
+        IRunStateConcepts. Concept-Pointer-Convention: agent-smith-skills concept-vocabulary.yaml gains a 4th
+        Concept-Type `blob_ref` alongside bool/enum/int — Concepts of this type carry a BlobRef.Id string.
+        IRunStateConcepts gains SetBlobRef/TryGetBlobRef typed API. WriteRunResultHandler renders a Blobs
+        section in result.md when ListAsync returns entries.
+
+    (5) The schedule-appointment example pipeline ships as ONE skill (`triage-and-schedule`) that internally
+        calls multiple tools (read_email_body, call_external_api, send_email_draft, log_decision). All Tools
+        execute their side-effects directly inside the M.E.AI FunctionInvokingChatClient loop — there is NO
+        Output-Action queue, NO deferred Action-Records produced by skills. The audit trail comes from the
+        existing IDecisionLogger which every tool already touches; the pipeline-end has no special
+        EmailOutputAction step.
+
+    (6) Two new tools: SendEmailDraftTool (Email-specific, ships with p0141) and CallExternalApiTool (generic,
+        any preset can opt in via PipelinePreset.AllowedExternalHosts allowlist). Both registered through
+        p0145's IToolHost decomposition — SendEmailDraftTool is its own EmailToolHost; CallExternalApiTool is
+        its own ExternalApiToolHost. IPipelineToolPolicy (from p0145) declares which hosts are active per
+        pipeline-name; schedule-appointment's policy entry activates {FilesystemToolHost (read-only subset),
+        LogDecisionToolHost, EmailToolHost, ExternalApiToolHost}, deactivates HumanToolHost (no operator
+        prompts in email pipelines).
+
+    (7) First SkillCallRuntime production consumer. schedule-appointment's triage-and-schedule skill is
+        dispatched through ISkillCallRuntime.ExecuteAsync (per the runtime built in p0126). PerSkillBreakdown
+        lights up for message-mode runs; LimitEnforcer enforces caps; Loop-Trace captures tool-call sequence.
+        Acceptance: this means agent-smith's first real-world SkillCallRuntime path is a Message-Family
+        pipeline, not a Code-Family one — p0142 (the SkillRoundHandlerBase migration) is the cleaner future
+        path but does NOT block p0141. If runtime bugs surface here that p0142 would also catch, they get
+        fixed inline in p0141 or kicked back to p0142.
+
+  out: |
+    Worker-pool architecture for many-small-jobs (long-lived workers consuming from a Redis queue) —
+    explicitly deferred. The acknowledged trade-off: at 500 mails/day the per-run sandbox spawn (~10-30s) is
+    wasteful but tolerable; at 5000+/day it becomes a real bottleneck. The phase that introduces a light-
+    worker pool is gated on actual telemetry showing the volume is high enough to matter.
+
+    Long-running message pipelines (waiting for an external reply over hours/days, multi-step conversations
+    with the same external party, append-state-and-resume patterns). EXPLICITLY OUT for the first phase.
+    schedule-appointment is one-mail-in / one-draft-out. Async-await-resume patterns (mail comes in, agent
+    drafts a question, reviewer forwards to external party, party answers, agent picks up the thread) require
+    persistent run state + correlation across runs + reply-thread handling — separate phase, gated on real
+    operator demand. p0141 keeps runs synchronous-within-one-poll.
+
+    Output-Actions as Records. NO Action-Queue, NO deferred Action-Records produced by skills, NO pipeline-
+    final-step that drains a queue. Tools called from within skills execute their side-effects directly.
+    Considered (during the May 2026 design discussion) and explicitly rejected — a queued-actions model
+    would conflict with M.E.AI's FunctionInvokingChatClient tool-loop (tools execute when the LLM calls
+    them, not later) and the audit trail is already covered by IDecisionLogger.
+
+    EmailOutputAction as a pipeline-end step. Replaced by: skill calls SendEmailDraftTool as a tool during
+    its tool-loop. There is no special pipeline-final "send the draft" step. The schedule-appointment
+    preset's command list ends with WriteRunResult, same as a code-family preset (minus CommitAndPR).
+
+    MessagePipelineHandler / second preset hierarchy. Considered (during the May 2026 design discussion) and
+    rejected in favour of extending the existing PipelinePresets with a Mode discriminator. Reason: a second
+    hierarchy would mean two execution paths, two test surfaces, two ways to express the same fundamental
+    "this is a pipeline, run these handlers". Mode-discriminator keeps one execution path with one
+    conditional (Checkout in/out) and one tool-policy hook per preset.
+
+    Worker-pool / sandbox-skip (running message pipelines in-process in the server pod) — deferred to a
+    follow-up gated on volume telemetry.
+
+    Multi-action email pipelines (one mail → multiple API calls + multiple drafts) — accepted as natural
+    future extension of the message-mode pipeline, no separate phase needed because the LLM-driven design
+    already supports it.
+
+    JMAP support — IMAP only for now. Mail attachments — body + named attachments via IRunBlobStorage in
+    v1 (attachments become blobs with logicalName='attachment-N'); PGP/S-MIME — out. Direct send to end-user
+    (skipping reviewer) — out; v1 always sends to reviewer for human-in-the-loop. Per-message-pipeline
+    learning/feedback loop — separate phase.
+
+    Cloud-backed IRunBlobStorage (S3, Azure Blob). File-system-backed in p0141; IRunBlobStorage is the
+    abstraction that later cloud implementations plug into.
 
 decisions:
-  - key: "Email is a tracker, not a new abstraction. The ITicketProvider interface designed for Jira/ADO/GitHub/GitLab fits emails when we accept that 'ticket id' = Message-ID, 'ticket body' = mail body, 'ticket labels' = mail flags / specific headers, 'ticket assignee' = to-address. Reason: building a parallel IMessageProvider hierarchy would double the trigger/polling/resolution surface with no semantic benefit. A mail IS a unit of work the agent reads and acts on; that's what a ticket is."
-  - key: "Pipelines declare their ExecutionMode (code vs message) at the preset level, not at the project level. Reason: a pipeline's mode is intrinsic — fix-bug fundamentally needs a checkout, schedule-appointment fundamentally doesn't. Putting it in the project config would invite a misconfiguration where fix-bug gets configured as message-mode and fails confusingly. The pipeline itself knows."
-  - key: "Code-mode and message-mode share the same Pipeline executor and the same sandbox. Difference: code-mode includes the Checkout step + ends with CommitAndPR or InitCommit; message-mode skips Checkout + ends with EmailDraftSend (or whatever output action is appropriate — schedule-appointment's specifically is 'draft email to review address'). The middle (Plan, Skills loop, Verify) is identical. Reason: forcing a shared backbone means message-mode automatically gets Verify, cost-tracking, decision-log, observation-pipeline — all the infrastructure for free. Email-specific code is limited to two new handlers (start: read mail vs checkout repo; end: send draft vs open PR)."
-  - key: "Sandbox spawn behavior is UNCHANGED. A message-mode pipeline spawns the same sandbox pod that a code-mode pipeline spawns. The pod runs without a code checkout (no git, no build, no test) but everything else is identical — LLM call infrastructure, tool execution, file storage for intermediate artifacts. Reason: the alternative (skip sandbox, run in-process) saves 10-30s per run but breaks isolation, breaks cost-tracking attribution, and breaks the K8s-resource accounting model. Sandbox cost is a known trade-off; the optimization is a separate phase gated on volume telemetry."
-  - key: "Email polling, not push. IMAP IDLE / push notifications are out of scope; poll every poll_interval_seconds (default 60). Reason: polling is simpler, has no firewall/inbound-port requirements, and the latency penalty (≤60s from mail arrival to pipeline start) is acceptable for the documented use case (appointment scheduling, not real-time chat)."
-  - key: "EmailOutputAction sends to a configured reviewer address, NEVER directly to the original sender, in v1. Reason: an LLM that drafts replies to external parties without human review is a class of failure mode we explicitly do not want to ship. The reviewer reviews and forwards. The eventual auto-send mode is gated on operational confidence and is a separate decision."
-  - key: "Project_resolution.strategy=to_address is the only resolution strategy for Email in v1. The to-address on the incoming mail identifies which project owns it. Multi-project to-addresses (one mail with multiple addresses, mailing-list scenarios) → resolution returns multiple projects, exactly like the multi-tag-on-ticket case in p0140; each matched project spawns its own pipeline. From-address is captured in the ticket envelope but does not participate in resolution."
-  - key: "The example pipeline `schedule-appointment` ships with exactly ONE skill (`triage-and-schedule`). Reason: the email use case explicitly does NOT want a 40-skill pipeline — the LLM reads the mail, calls one external API, drafts one reply, done. The skill itself is allowed to call multiple tools internally (read_email_body, call_external_api, draft_email, log_decision) — that's not a skills loop, that's normal tool use inside one skill. Demonstrates the minimal viable shape for message-mode pipelines."
-  - key: "`call_external_api` is added as a new generic tool, not a scheduling-specific one. It takes (url, method, body, auth_ref) and is broadly useful beyond this example. Auth via auth_ref pointing into the secrets block (same pattern as repo auth). Reason: as soon as we ship one email pipeline that needs HTTP, every other email pipeline will too. Keeping it generic from day one avoids a refactor."
-  - key: "`send_email_draft` is the email-specific output tool. Takes (to, subject, body, in_reply_to_message_id). Used by EmailOutputAction at pipeline end; also callable from within a skill if a pipeline wants to send a draft mid-flow (uncommon but supported). Reason: separating draft-send from API-call keeps each tool single-purpose; the LLM gets clearer affordances."
-  - key: "EmailTicketProvider stores already-seen Message-IDs in Redis (existing infrastructure) to avoid re-processing on poll. TTL: 30 days. Reason: prevents the classic IMAP-poll bug of replaying every mail in the folder on every poll. 30 days covers any realistic mail-retention window for the polling folder."
-  - key: "No reply-thread handling in v1. If a reviewer replies to a drafted email, the reply does NOT come back into the agent. Reason: that's a different abstraction (conversation loop, multi-turn dialogue with the same external party) and pulls in trust/auth/threading complexity that's outside the scope of 'one mail → one run → one draft'. Future phase if there's demand."
-  - key: "Email bypasses `pipeline_triggers`. Other tracker types resolve pipeline from a ticket label, falling back to the global `pipeline_triggers` map (p0139). Email has no native label concept — a mail has a subject, headers, body, sender, recipients, none of which map cleanly to 'label'. The email trigger block therefore exposes only `default_pipeline`, deliberately not `pipeline_from_label`. Subject-pattern routing (`pipeline_from_subject: { '^Cancel:': cancel-appointment }`) is the natural future extension if multiple pipelines per email-tracker become a real need; that's a follow-up phase, not blocking v1."
-  - key: "External-host allowlist lives on the PipelinePreset, not on the skill or in YAML. Three options were considered: (a) skill-frontmatter allowlist, (b) per-pipeline-preset allowlist in code, (c) per-project allowlist in agentsmith.yml. Rejected (a) because skills are meant to be reusable across pipelines and the same skill might legitimately need different hosts in different contexts. Rejected (c) because operator-editable allowlists invite 'just add this host to fix it' reactions that bypass code review; external-egress decisions belong with the developers who wrote the pipeline. (b) keeps the trust boundary at the level where someone is already reasoning about what the pipeline does end-to-end. Auth-ref protects credentials; the allowlist protects destinations — both are required."
+  - key: |
+      Email is a tracker, not a new abstraction. The ITicketProvider interface designed for Jira/ADO/GitHub/
+      GitLab fits emails when we accept that 'ticket id' = Message-ID, 'ticket body' = mail body, 'ticket
+      labels' = mail flags / specific headers, 'ticket assignee' = to-address. Reason: building a parallel
+      IMessageProvider hierarchy would double the trigger/polling/resolution surface with no semantic
+      benefit. A mail IS a unit of work the agent reads and acts on; that's what a ticket is.
+  - key: |
+      Pipelines declare their ExecutionMode (Code vs Message) at the preset level, not at the project level.
+      Reason: a pipeline's mode is intrinsic — fix-bug fundamentally needs a checkout, schedule-appointment
+      fundamentally doesn't. Putting it in the project config would invite a misconfiguration where fix-bug
+      gets configured as message-mode and fails confusingly. The pipeline itself knows.
+  - key: |
+      Output-Actions as Records: rejected. Tools execute their side-effects directly inside the M.E.AI
+      FunctionInvokingChatClient loop. Reason: a queued-actions model would conflict with how
+      FunctionInvokingChatClient drives the tool-loop (tools execute when the LLM calls them) and the audit
+      trail is already covered by the existing IDecisionLogger every tool already touches. No second audit
+      surface; no pipeline-final action-drain step; no deferred Action-Records on SkillCallResult. The
+      pipeline-end for message-mode is WriteRunResult, identical shape to code-mode minus CommitAndPR.
+      -- alternatives: queued Action-Records produced by skills, drained at pipeline end (rejected: parallel
+      audit surface to IDecisionLogger; ambiguous whether the action ran inside the skill loop or after);
+      Output-Actions as a typed return value of SkillCallResult (rejected: SkillCallResult is generic across
+      Code+Message families; Action-Records would force the runtime to know about output shapes).
+  - key: |
+      Skill-to-skill data transfer: IRunStateConcepts for small structured data (bools, enums, ints), plus
+      IRunBlobStorage with Concept-Pointer convention for large payloads (mail body, attachments, PDF
+      contents, scanned images). Concepts of type blob_ref carry a BlobRef.Id; consumer skills/tools look up
+      the pointer concept and fetch the bytes. Reason: IRunStateConcepts is an in-memory dictionary,
+      Vocabulary-validated, with short string/enum/bool values — large binary payloads don't belong there.
+      A separate run-scoped blob store with content-addressed Ids gives Tools a place to put bytes and
+      Concepts a stable pointer-shape that fits the existing vocabulary mechanism (new 4th type blob_ref).
+      -- alternatives: serialize blobs as base64-strings in concepts (rejected: in-memory pressure +
+      audit-log noise + concept-vocabulary type pollution); cross-skill direct messaging API (rejected:
+      parallel data-backbone to concepts, doubled mental model).
+  - key: |
+      Pipeline-Definition: extended Preset-Form via PipelineExecutionMode discriminator on the existing
+      PipelinePresets, NOT a second MessagePipelineHandler / second preset hierarchy. Reason: a second
+      hierarchy would mean two execution paths to maintain (PipelineExecutor vs MessagePipelineExecutor),
+      two test surfaces, two ways to express the same fundamental "this is a pipeline, run these handlers".
+      Mode-discriminator keeps one execution path with one conditional (Checkout in/out) and one tool-policy
+      hook per preset (via p0145's IPipelineToolPolicy). Honest cost: ExecutePipelineUseCase grows a
+      branch + each preset declares Mode explicitly. -- alternatives: MessagePipelineHandler as a separate
+      command-name dispatched from PipelinePresets (rejected: pipeline-name → handler-type indirection is
+      what the executor already does; second handler-type doubles the test surface); second preset registry
+      IMessagePipelineRegistry (rejected: parallel knowledge that drifts).
+  - key: |
+      New SkillExecutionPhase values Read/Process/Write for Message-Family — three pseudo-phases mirroring
+      Plan/Implementation/Verify for Code-Family. Reason: ToolKit per-phase filtering (built in p0126,
+      decomposed in p0145) needs phase-values that semantically match Message-Family stages. Mapping
+      schedule-appointment to existing Code-phase values (e.g. "use Implementation for the API-call skill")
+      would conflate two different domains in the same enum. The three new values + per-phase tool-set
+      logic in each IToolHost (FilesystemToolHost: Read = read-only, Write = none; EmailToolHost: Write =
+      [SendEmailDraft], Read+Process = empty; ExternalApiToolHost: Process = [CallExternalApi], else empty)
+      keep the matrix declarative + per-host. -- alternatives: one Message phase only (rejected: collapses
+      tool-set distinction that lets us deny SendEmailDraft to Read-phase skills); reuse Code phases with
+      InvestigatorMode strings (rejected: InvestigatorMode is for verifier-mode distinction, not domain-
+      family distinction); per-pipeline phase-name freedom (rejected: enum is the type-safety anchor).
+  - key: |
+      Cross-repo Vocab-Migration packs three changes into one minor bump of agent-smith-skills: (a) phase
+      enum extension with Read/Process/Write; (b) Concept-Type extension with blob_ref as 4th value; (c)
+      new vocabulary entries for the message-family concepts (incoming_email_to_address, etc.). Reason:
+      operator-side coordination cost is per cross-repo PR pair; bundling additive changes that all land
+      together amortises the bump. Each piece is additive — no existing skills break. -- alternatives:
+      per-concern release (rejected: 3 cross-repo PR pairs for synchronised additive work).
+  - key: |
+      schedule-appointment ships with ONE skill (triage-and-schedule), not four. Reason: the email use case
+      explicitly does NOT want a 40-skill pipeline — the LLM reads the mail, calls one external API, drafts
+      one reply. The skill is allowed to call multiple tools internally (Read_email_body, call_external_api,
+      send_email_draft, log_decision) — that's tool use inside one skill, not a skill loop. Demonstrates
+      the minimal viable shape for message-mode. Multi-skill message pipelines (e.g. invoice-processor with
+      separate extract / validate / route skills) are natural extensions when the demand exists; the
+      Read/Process/Write phase trio is sized for them, but p0141 ships only the one-skill version.
+      -- alternatives: 4-skill version mirroring Code-Family (rejected: over-fitting for a simple use
+      case); zero-skill version (pure tool pipeline) (rejected: skills + their decision-log are the audit
+      surface).
+  - key: |
+      First production consumer of SkillCallRuntime. schedule-appointment's triage-and-schedule dispatches
+      through ISkillCallRuntime.ExecuteAsync. p0142 (the SkillRoundHandlerBase consumer-migration of
+      code-family handlers) is the cleaner long-term path but does NOT block p0141. Accepted risk: runtime
+      bugs that p0142 would catch get caught here first. Reason: blocking p0141 on p0142's full migration
+      would gate Message-Family work on a multi-handler refactor that touches 478-line
+      SkillRoundHandlerBase + 244-line FilterRoundHandler + 240-line VerifyRoundHandler — a separate
+      multi-PR motion. Shipping schedule-appointment as the first runtime consumer also gives a clean
+      one-skill smoke surface for the runtime (no Discussion + Structured + Gate path complexity to debug
+      simultaneously). -- alternatives: ship p0142 first (rejected: gates a focused use-case on a
+      cross-handler refactor); ship p0141 on the pre-runtime IChatClient path (rejected: parallel chat
+      surface that p0142 will rip out, throwaway work).
+  - key: |
+      Long-running message pipelines (await external reply over hours/days, multi-turn conversations with
+      external parties) are EXPLICITLY OUT for the first phase. schedule-appointment is synchronous within
+      one poll: mail in → API call → draft out → run ends. Reason: async-await-resume requires persistent
+      run state (run pauses, resumes later in a different pod), correlation across runs (which incoming
+      reply belongs to which paused run), reply-thread handling (Message-ID, In-Reply-To, References
+      headers). That's its own subsystem; gating Message-Family-V1 on it would block working synchronous
+      use cases. -- alternatives: design for async resume up-front (rejected: speculative complexity for
+      capability nobody asked for yet); persistence-of-run as opt-in flag (rejected: half-feature that
+      breaks the sync model in ways tests miss).
+  - key: |
+      Sandbox spawn behavior is UNCHANGED. A message-mode pipeline spawns the same sandbox pod that a
+      code-mode pipeline spawns. The pod runs without a code checkout but everything else is identical —
+      LLM-call infrastructure, tool execution, blob storage for intermediate artifacts. Reason: the
+      alternative (skip sandbox, run in-process) saves 10-30s per run but breaks isolation, breaks
+      cost-tracking attribution, and breaks the K8s-resource accounting model. Sandbox cost is a known
+      trade-off; the optimization is a separate phase gated on volume telemetry.
+  - key: |
+      Email polling, not push. IMAP IDLE / push notifications are out of scope; poll every
+      poll_interval_seconds (default 60). Reason: polling is simpler, has no firewall/inbound-port
+      requirements, and the latency penalty (≤60s from mail arrival to pipeline start) is acceptable for
+      the documented use case.
+  - key: |
+      EmailOutputAction sends to a configured reviewer address, NEVER directly to the original sender, in
+      v1. Reason: an LLM that drafts replies to external parties without human review is a class of failure
+      mode we explicitly do not want to ship. The reviewer reviews and forwards.
+  - key: |
+      Project_resolution.strategy=to_address is the only resolution strategy for Email in v1. The to-address
+      on the incoming mail identifies which project owns it. Multi-project to-addresses → resolution returns
+      multiple projects, exactly like the multi-tag-on-ticket case in p0140; each matched project spawns its
+      own pipeline. From-address is captured in the ticket envelope but does not participate in resolution.
+  - key: |
+      EmailTicketProvider stores already-seen Message-IDs in Redis (existing infrastructure) to avoid
+      re-processing on poll. TTL: 30 days. Reason: prevents the classic IMAP-poll bug of replaying every
+      mail in the folder on every poll.
+  - key: |
+      External-host allowlist lives on the PipelinePreset, not on the skill or in YAML. Reason: skills are
+      meant to be reusable across pipelines and the same skill might legitimately need different hosts in
+      different contexts. Operator-editable allowlists invite 'just add this host to fix it' reactions that
+      bypass code review; external-egress decisions belong with the developers who wrote the pipeline.
+      Auth-ref protects credentials; the allowlist protects destinations — both are required.
+  - key: |
+      Email bypasses `pipeline_triggers`. Other tracker types resolve pipeline from a ticket label, falling
+      back to the global `pipeline_triggers` map (p0139). Email has no native label concept — a mail has a
+      subject, headers, body, sender, recipients, none of which map cleanly to 'label'. The email trigger
+      block therefore exposes only `default_pipeline`. Subject-pattern routing is a follow-up if multiple
+      pipelines per email-tracker become a real need.
 
 steps:
   - id: schema
     action: "Add Email to the tracker schema and add email_trigger to the project trigger blocks"
     modify:
-      - "config/agentsmith.schema.json: TrackerConnection.Type gains `Email`; Email tracker fields: imap_server, imap_port, imap_folder (default 'INBOX'), imap_auth (auth-ref), smtp_server, smtp_port, smtp_auth, from_address, poll_interval_seconds (default 60). New project trigger block `email_trigger: {project_resolution, default_pipeline}` — no labels/statuses/assignees concepts (those don't map to mail)."
-      - "docs/configuration/agentsmith-yml-schema.md: section for Email tracker + email_trigger."
+      - "config/agentsmith.schema.json: TrackerConnection.Type gains `Email`; Email tracker fields: imap_server, imap_port, imap_folder (default 'INBOX'), imap_auth (auth-ref), smtp_server, smtp_port, smtp_auth, from_address, poll_interval_seconds (default 60). New project trigger block `email_trigger: {project_resolution, default_pipeline}`. Also: top-level optional `runs: {retention_days: int?}` block (config-surface for future cleanup-sweep; null = unbounded)."
+      - "docs/configuration/agentsmith-yml-schema.md: section for Email tracker + email_trigger + runs block."
       - "config/agentsmith.example.yml: add a worked example `field-ops-scheduling` project with email tracker."
+
+  - id: blob-storage
+    action: "Add IRunBlobStorage + BlobRef + FileBackedRunBlobStorage + concept-pointer-convention (blob_ref Concept-Type)"
+    new:
+      - "src/AgentSmith.Contracts/Models/BlobRef.cs: sealed record. Properties: Id (string, 64-char SHA-256 hex), LogicalName (string), ContentType (string?), SizeBytes (long), CreatedAt (DateTimeOffset). Validation: Id 64 hex; LogicalName non-empty + path-safe."
+      - "src/AgentSmith.Contracts/Services/IRunBlobStorage.cs: WriteAsync(runId, logicalName, Stream, contentType?, ct) → BlobRef; ReadAsync(runId, BlobRef, ct) → Stream; ExistsAsync(runId, BlobRef, ct) → bool; ListAsync(runId, ct) → IAsyncEnumerable<BlobRef>."
+      - "src/AgentSmith.Infrastructure/Services/Storage/FileBackedRunBlobStorage.cs: ~150 Zeilen. Ctor: IAgentSmithPaths + ILogger. WriteAsync: temp-file unter <runDir>/blobs/.tmp-<guid>; SHA-256-Hashing während Stream-Pipe; atomic File.Move auf <runDir>/blobs/<id>; Sidecar <id>.meta.json. CAS-Idempotenz bei Duplicate."
+    modify:
+      - "src/AgentSmith.Contracts/Services/IAgentSmithPaths.cs: neue Methode `string RunDir(string runId)`."
+      - "src/AgentSmith.Infrastructure.Core/Services/AgentSmithPaths.cs: RunDir-Implementierung."
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs: bestehende Pfad-Konstruktion auf IAgentSmithPaths.RunDir umstellen; neue Blobs-Sektion in result.md wenn ListAsync nicht leer (Markdown-Table mit relativen ./blobs/<id>-Links)."
+      - "agent-smith-skills/concept-vocabulary.yaml: type-Enum erweitern um `blob_ref` (4. Wert neben bool/enum/int)."
+      - "src/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs: blob_ref-Type akzeptieren; Validator akzeptiert blob_ref ohne enum-Werte."
+      - "src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs: blob_ref-Concepts validieren (Name alphanumerisch+_; kein enum-Wertebereich)."
+      - "src/AgentSmith.Contracts/Activation/IRunStateConcepts.cs: SetBlobRef/TryGetBlobRef typisierte API hinzufügen."
+      - "src/AgentSmith.Infrastructure/Services/Activation/PipelineContextRunStateConcepts.cs: SetBlobRef ruft SetString mit blobRef.Id; TryGetBlobRef holt String-Wert + IRunBlobStorage-Lookup."
+      - "src/AgentSmith.Contracts/Models/Configuration/RunsConfig.cs + AgentSmithConfig.cs: `Runs: RunsConfig?` Property mit RetentionDays (Sweep deferred)."
+
+  - id: skill-execution-phase-extension
+    action: "SkillExecutionPhase enum gewinnt Read/Process/Write; ToolKit-Filter + Vocab-Bump"
+    modify:
+      - "src/AgentSmith.Application/Models/SkillExecutionPhase.cs: enum erweitert um Read, Process, Write. Bestehende Werte unverändert."
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs (oder dem analog für Message-Mode): MapPhase-Helper erweitern für die drei neuen Werte (Read → fester Mapping über PipelinePreset-Mode-Wissen; Process; Write)."
+      - "agent-smith-skills/concept-vocabulary.yaml: phase concept-enum (falls existierend; sonst neuer Concept) gewinnt 'read', 'process', 'write' als Werte."
+      - ".agentsmith/skills.version: pin auf die neue agent-smith-skills minor."
 
   - id: provider
     action: "Add the Email ticket provider"
     new:
-      - "src/AgentSmith.Infrastructure/Providers/Email/EmailTicketProvider.cs: implements ITicketProvider. PollAsync(): connect IMAP, fetch unseen mails in folder, filter against Redis seen-set, return as TicketEnvelope[]. GetTicketAsync(id): fetch by Message-ID. AddCommentAsync: not supported for email — throws NotSupportedException with a clear message (mail tracker doesn't have an in-band comment concept; the 'no project matched' tracker-comment from p0140 instead becomes a log-only event for email)."
-      - "src/AgentSmith.Infrastructure/Providers/Email/ImapClient.cs: thin wrapper around MailKit (proven .NET IMAP/SMTP library). Connect, list folder, fetch by UID, mark-as-seen, disconnect. No state."
-      - "src/AgentSmith.Infrastructure/Providers/Email/SmtpClient.cs: thin wrapper around MailKit SMTP. Send-message-as-draft (to+subject+body+headers). Auth via secrets block."
-      - "src/AgentSmith.Infrastructure/Providers/Email/SeenMessageStore.cs: Redis-backed Set per tracker. AddAsync(messageId, TTL=30d), ContainsAsync(messageId)."
-      - "src/AgentSmith.Application/Services/Triggers/EmailTriggerHandler.cs: poll-driven (no webhook for email in v1). On each poll: EmailTicketProvider.PollAsync → for each new envelope, ProjectResolver.Resolve → for each matched project, SpawnPipelineRunsUseCase (p0140's primitive)."
+      - "src/AgentSmith.Infrastructure/Providers/Email/EmailTicketProvider.cs: implements ITicketProvider. PollAsync(): connect IMAP, fetch unseen mails in folder, filter against Redis seen-set, return as TicketEnvelope[]. AddCommentAsync: not supported (throws NotSupportedException; p0140's SupportsComments returns false)."
+      - "src/AgentSmith.Infrastructure/Providers/Email/ImapClient.cs: thin wrapper around MailKit."
+      - "src/AgentSmith.Infrastructure/Providers/Email/SmtpClient.cs: thin wrapper around MailKit SMTP."
+      - "src/AgentSmith.Infrastructure/Providers/Email/SeenMessageStore.cs: Redis-backed Set per tracker. TTL 30d."
+      - "src/AgentSmith.Application/Services/Triggers/EmailTriggerHandler.cs: poll-driven. EmailTicketProvider.PollAsync → for each new envelope, ProjectResolver.Resolve → for each matched project, SpawnPipelineRunsUseCase (p0140). Mail-Body landet als Blob über IRunBlobStorage; Concept incoming_email_body (Typ blob_ref) zeigt darauf. Attachments analog (logicalName='attachment-N')."
 
   - id: pipeline-mode
-    action: "Add ExecutionMode to PipelinePresets and wire conditional checkout/output"
+    action: "PipelineExecutionMode discriminator + conditional checkout (KEIN Output-Action-Step)"
     new:
       - "src/AgentSmith.Domain/Pipelines/PipelineExecutionMode.cs: enum { Code, Message }."
     modify:
-      - "src/AgentSmith.Application/Pipelines/PipelinePresets.cs: each preset declares ExecutionMode. fix-bug, add-feature, security-scan, api-security-scan, mad-discussion, init-project → Code. schedule-appointment → Message. Verify all existing presets get an explicit Code declaration (no implicit default)."
-      - "src/AgentSmith.Application/UseCases/ExecutePipelineUseCase.cs: at start, if Mode==Code → existing Checkout step; if Mode==Message → no checkout, set up message-context (ticket envelope = mail). At end, the Commit/PR step is replaced by EmailOutputAction for message-mode pipelines."
+      - "src/AgentSmith.Application/Pipelines/PipelinePresets.cs: jedes Preset deklariert ExecutionMode. Code für fix-bug, add-feature, security-scan, api-security-scan, mad-discussion, init-project. Message für schedule-appointment. Kein impliziter Default."
+      - "src/AgentSmith.Application/UseCases/ExecutePipelineUseCase.cs: bei Start, Mode==Code → existing Checkout-Step; Mode==Message → kein Checkout, message-context aus TriggerEnvelope (Mail-Blob-Refs via Concepts). Bei Ende: Mode==Code → existing CommitAndPR/InitCommit; Mode==Message → KEIN spezieller Output-Step, läuft direkt in WriteRunResult. Das Senden des Drafts ist im Skill via SendEmailDraftTool passiert, nicht hier."
 
-  - id: tools
-    action: "Add the two new tools needed by message-mode pipelines"
+  - id: tools-via-toolhost-decomposition
+    action: "Zwei neue Tool-Hosts (EmailToolHost, ExternalApiToolHost) im p0145-IToolHost-Stil; IPipelineToolPolicy konfiguriert schedule-appointment"
     new:
-      - "src/AgentSmith.Application/Services/Tools/CallExternalApiTool.cs: AIFunction with parameters (url, method, body, auth_ref). Method ∈ {GET, POST, PUT, DELETE}. auth_ref resolves into the secrets block. Returns response body + status code. Logged in DecisionLog. Standard tool, available to any preset that declares an allowlist (see below) — not email-specific."
-      - "src/AgentSmith.Application/Services/Tools/SendEmailDraftTool.cs: AIFunction (to, subject, body, in_reply_to_message_id?). Delegates to the resolved tracker's SmtpClient. Logs in DecisionLog. Email-specific."
-      - "CallExternalApiTool URL-host gating: `PipelinePreset` gains `IReadOnlyList<string>? AllowedExternalHosts`. `null` means the preset does not allow external API calls — `CallExternalApiTool` is not registered for that preset. An empty list means the preset registered the tool but explicitly allows zero hosts (effectively the same as null; reserved for future per-pipeline runtime override). A populated list means the tool is registered and the listed hosts are reachable. At invocation, `CallExternalApiTool` parses the requested URL, extracts the host, checks membership against `AllowedExternalHosts`. On miss: tool returns a tool-error with message `external API call to '{host}' rejected: not in preset's AllowedExternalHosts (allowed: {list})`. The LLM sees the error like any other tool failure and cannot retry around it (the list is fixed for the run)."
+      - "src/AgentSmith.Application/Services/Tools/EmailToolHost.cs: implementiert IToolHost (aus p0145). Ctor: ITicketProviderFactory (für SMTP-Lookup) + IDecisionLogger. Tool: SendEmailDraftTool (to, subject, body, in_reply_to_message_id?). GetTools(phase, mode): Write-Phase → [SendEmailDraft], andere Phasen → leer."
+      - "src/AgentSmith.Application/Services/Tools/ExternalApiToolHost.cs: implementiert IToolHost. Ctor: IHttpClientFactory + ISecretsResolver + IDecisionLogger + AllowlistAccessor. Tool: CallExternalApiTool (url, method, body, auth_ref). GetTools(phase, mode): Process-Phase + Implementation-Phase → [CallExternalApi] wenn Preset AllowedExternalHosts non-empty; sonst leer."
     modify:
-      - "src/AgentSmith.Application/Services/Tools/SandboxToolHost.cs: register `SendEmailDraftTool` for any email-mode preset; register `CallExternalApiTool` only when `preset.AllowedExternalHosts` is non-null and non-empty."
-      - "src/AgentSmith.Domain/Pipelines/PipelinePreset.cs: add `IReadOnlyList<string>? AllowedExternalHosts { get; }`. All existing presets declare `null` (status quo: no external HTTP). `ScheduleAppointmentPreset` declares `[\"api.field-ops.contoso.example\"]` as the worked example."
+      - "src/AgentSmith.Domain/Pipelines/PipelinePreset.cs: `IReadOnlyList<string>? AllowedExternalHosts { get; }`. Alle bestehenden Presets deklarieren null. ScheduleAppointmentPreset deklariert ['api.field-ops.contoso.example']."
+      - "src/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs (aus p0145): per-pipeline-Map ergänzt. schedule-appointment → { FilesystemToolHost (read-only), LogDecisionToolHost, EmailToolHost, ExternalApiToolHost }, kein HumanToolHost. Code-Family-Pipelines unverändert (alle p0145-Hosts aktiv, EmailToolHost + ExternalApiToolHost aus, außer der Preset deklariert AllowedExternalHosts)."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: EmailToolHost + ExternalApiToolHost als IToolHost AddScoped registrieren."
 
   - id: example-pipeline
-    action: "Ship one message-mode pipeline as the canonical example"
+    action: "schedule-appointment als kanonisches Message-Mode-Beispiel + erste SkillCallRuntime-Production-Consumer-Route"
     new:
-      - "src/AgentSmith.Application/Pipelines/Presets/ScheduleAppointmentPreset.cs: Mode=Message. Single skill: triage-and-schedule. `AllowedExternalHosts = [\"api.field-ops.contoso.example\"]` (operator deploying against a different appointment API edits the preset source, not config — see decision). End: EmailOutputAction to reviewer-address (resolved from project config)."
-      - "skills/scheduling/triage-and-schedule.md: skill definition. Goal: read the mail, extract the appointment request (dates, location, contact), call the appointment-availability API (URL injected via tool params), draft a reply mail listing offered slots. SKILL.md format same as existing skills."
-      - "config/agentsmith.example.yml: example project `field-ops-scheduling` showing all wiring (email tracker, email_trigger, agent=haiku-light, pipelines: [schedule-appointment]). Uses a placeholder API URL with comment 'replace with real availability endpoint'."
+      - "src/AgentSmith.Application/Pipelines/Presets/ScheduleAppointmentPreset.cs: Mode=Message. Command-Liste: [PipelineNameInitializer, FetchMailTicket, LoadSkills, LoadContext, Triage, SkillRound, WriteRunResult]. Single skill: triage-and-schedule. AllowedExternalHosts = ['api.field-ops.contoso.example']."
+      - "skills/scheduling/triage-and-schedule.md: SKILL.md. role=producer; activates_when=`pipeline_name='schedule-appointment'`; output_schema: minimal (timestamp + decision-rationale). Body instruiert LLM: incoming_email_body via TryGetBlobRef holen + Read; CallExternalApi mit der Availability-URL; SendEmailDraft an reviewer-address mit den 3 Slots im Body."
+      - "config/agentsmith.example.yml: example project `field-ops-scheduling` (Email-Tracker, agent=haiku-light, pipelines: [schedule-appointment]). Placeholder API-URL mit Hinweis 'replace with real availability endpoint'."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandler.cs (oder Message-Mode-spezifischer Subclass falls nötig): triage-and-schedule wird via ISkillCallRuntime.ExecuteAsync dispatched. SkillCallRequest mit PipelineName='schedule-appointment' + Phase=Process. SkillCallResult.Outcome → CommandResult-Translation analog p0142-Pattern (Ok+Incomplete→Success, Failed*→Fail)."
 
   - id: docs
     action: "Document the email pipeline pattern as the template for non-code use cases"
     new:
-      - "docs/use-cases/email-pipeline.md: when to use, how it differs from code pipelines, the reviewer-in-the-loop model, the per-run sandbox cost trade-off + when to consider the future worker-pool option, the schedule-appointment example walked end-to-end."
+      - "docs/use-cases/email-pipeline.md: when to use, reviewer-in-the-loop model, per-run sandbox cost trade-off + future worker-pool option, schedule-appointment example end-to-end. Erklärt explizit: keine Output-Action-Queue, Tools direct-execute, Skill-zu-Skill-Daten via Concepts + IRunBlobStorage."
       - "docs/configuration/email-tracker.md: IMAP/SMTP setup, secrets configuration, Redis seen-store TTL, polling interval guidance."
+      - "docs/architecture/message-family.md: PipelineExecutionMode, Read/Process/Write phase mapping, IPipelineToolPolicy-pattern für Message-Pipelines, Long-running explicitly out of scope für V1."
     modify:
-      - "docs/configuration/README.md: link both new files."
-      - "docs/setup/onboarding.md: note that email-mode projects don't use agent-smith:init since there's no repo to bootstrap; their project entry in agentsmith.yml is hand-crafted."
+      - "docs/configuration/README.md: link neue Files."
+      - "docs/setup/onboarding.md: email-mode projects nutzen kein agent-smith:init."
 
   - id: tests
-    action: "Provider, mode-switch, end-to-end mail-to-draft"
+    action: "Provider, Blob-Storage, Phase-Extension, Mode-Switch, Tool-Hosts, end-to-end mail-to-draft"
     new:
-      - "tests/Providers/EmailTicketProviderTests: PollAsync returns only unseen mails; seen-store correctly tracks Message-IDs; AddCommentAsync throws NotSupportedException; second poll skips already-processed mails."
-      - "tests/Pipelines/ExecutionModeTests: code-mode pipeline goes through Checkout; message-mode skips it; message-mode ends in EmailOutputAction instead of CommitAndPR; mode is read from the preset, never overridden by config."
-      - "tests/Tools/CallExternalApiToolTests: GET/POST/PUT/DELETE wiring with host in preset's AllowedExternalHosts; auth_ref resolution; decision log entry written; host-not-in-allowlist returns tool-error and does not perform the network call; preset with `AllowedExternalHosts == null` does not register the tool at all."
-      - "tests/Pipelines/ScheduleAppointmentPresetTests: `AllowedExternalHosts` contains exactly the expected production host (regression-guard against accidental allowlist widening)."
-      - "tests/Tools/SendEmailDraftToolTests: SMTP wiring; in-reply-to header populated when supplied."
-      - "tests/EndToEnd/ScheduleAppointmentSmokeTests: simulated incoming mail → ProjectResolver matches field-ops-scheduling → spawner enqueues run → pipeline runs schedule-appointment → mocked external API returns 3 slots → draft mail sent to reviewer address with the 3 slots in body."
+      - "tests/Providers/EmailTicketProviderTests: PollAsync returns only unseen mails; seen-store tracks Message-IDs; AddCommentAsync throws; second poll skips processed mails; mail-body landet als Blob; incoming_email_body Concept zeigt auf BlobRef."
+      - "tests/Storage/FileBackedRunBlobStorageTests: WriteAsync_NewBlob_WritesBytesAndSidecar; WriteAsync_SameContentTwice_Idempotent; ReadAsync_ExistingBlob_ReturnsStream; ListAsync_ThreeBlobs_ReturnsAllThree; WriteAsync_ConcurrentWritesSameContent_NoCorruption; ExistsAsync_ExistingBlob_ReturnsTrue."
+      - "tests/Activation/RunStateConceptsBlobRefTests: SetBlobRef_ValidVocabType_StoresId; SetBlobRef_NonBlobRefVocabType_Throws; TryGetBlobRef_PresentBlob_ReturnsBlobRef; TryGetBlobRef_BlobMissing_ReturnsFalse."
+      - "tests/Vocab/ConceptVocabularyBlobRefTypeTests: Load_VocabWithBlobRefConcept_ParsesType; Validate_BlobRefConceptNoEnumValues_Ok; ValidateConceptsCommand_BlobRefConcept_PassesChecks."
+      - "tests/Pipelines/ExecutionModeTests: Code-mode goes through Checkout; Message-mode skips it; Message-mode ends in WriteRunResult (NICHT EmailOutputAction); Mode read from preset never overridden by config."
+      - "tests/Phases/SkillExecutionPhaseExtensionTests: Read/Process/Write enum values exist; ToolKit.GetToolsFor(schedule-appointment, Read, null) → [ReadFile, Grep, ListFiles, LogDecision]; (Process, null) → [CallExternalApi, LogDecision]; (Write, null) → [SendEmailDraft, LogDecision]."
+      - "tests/Tools/EmailToolHostTests: GetTools_WritePhase_ReturnsSendEmailDraft; GetTools_ReadPhase_ReturnsEmpty; SendEmailDraft_DelegatesToSmtpClient; SendEmailDraft_InReplyToHeader_Populated."
+      - "tests/Tools/ExternalApiToolHostTests: GetTools_ProcessPhasePresetWithAllowlist_ReturnsCallExternalApi; GetTools_ProcessPhasePresetNoAllowlist_ReturnsEmpty; CallExternalApi_HostInAllowlist_ExecutesSuccessfully; CallExternalApi_HostNotInAllowlist_ReturnsToolErrorWithoutMakingRequest; CallExternalApi_GetWithAuthRef_ResolvesSecretAndCallsUrl."
+      - "tests/Pipelines/ScheduleAppointmentPresetTests: AllowedExternalHosts contains exactly expected production host; Mode==Message; command list ends in WriteRunResult."
+      - "tests/Handlers/WriteRunResultBlobsSectionTests: NoBlobs_NoSection; OneBlob_TableWithSingleRow; MultipleBlobs_TableWithAllRows; BlobLinkFormat_RelativeToBlobsSubdir."
+      - "tests/Loop/SkillCallRuntimeFirstProductionConsumerTests: schedule-appointment runs through ISkillCallRuntime.ExecuteAsync; PerSkillBreakdown populated; LimitEnforcer enforces; LoopTrace captures tool sequence (read_email_body, call_external_api, send_email_draft, log_decision)."
+      - "tests/EndToEnd/ScheduleAppointmentSmokeTests: simulated incoming mail → ProjectResolver matches field-ops-scheduling → spawner enqueues run → pipeline runs through Read+Process+Write phases → mocked external API returns 3 slots → draft mail sent to reviewer with the 3 slots in body. Assert: PerSkillBreakdown non-empty; result.md contains Blobs section with the incoming mail body."
 
 tests:
   - "EmailTicketProvider_PollAsync_FirstCall_ReturnsAllUnseenMails"
   - "EmailTicketProvider_PollAsync_SecondCall_ReturnsOnlyNewMailsSinceFirst"
   - "EmailTicketProvider_AddCommentAsync_Throws_NotSupportedException"
+  - "EmailTicketProvider_PollAsync_LargeMailBody_StoredAsBlob_ConceptPointerSet"
   - "EmailTriggerHandler_PollerLoop_NewMail_TriggersSpawnPipelineRunsUseCase"
   - "ProjectResolver_ToAddressStrategy_MatchesProjectByToAddress"
+  - "FileBackedRunBlobStorage_WriteAsync_NewBlob_WritesBytesAndSidecar"
+  - "FileBackedRunBlobStorage_WriteAsync_SameContentTwice_Idempotent"
+  - "FileBackedRunBlobStorage_ReadAsync_ExistingBlob_ReturnsStream"
+  - "FileBackedRunBlobStorage_ListAsync_ThreeBlobs_ReturnsAllThree"
+  - "FileBackedRunBlobStorage_WriteAsync_ConcurrentWritesSameContent_NoCorruption"
+  - "FileBackedRunBlobStorage_ExistsAsync_ExistingBlob_ReturnsTrue"
+  - "RunStateConcepts_SetBlobRef_ValidVocabType_StoresId"
+  - "RunStateConcepts_SetBlobRef_NonBlobRefVocabType_Throws"
+  - "RunStateConcepts_TryGetBlobRef_PresentBlob_ReturnsBlobRef"
+  - "RunStateConcepts_TryGetBlobRef_BlobMissing_ReturnsFalse"
+  - "ConceptVocabulary_Load_VocabWithBlobRefConcept_ParsesType"
+  - "ConceptVocabulary_Validate_BlobRefConceptNoEnumValues_Ok"
+  - "ValidateConceptsCommand_BlobRefConcept_PassesChecks"
+  - "SkillExecutionPhase_ReadProcessWrite_EnumValuesExist"
+  - "ToolKit_GetToolsFor_ScheduleAppointmentReadPhase_ReturnsReadOnlyFilesystemPlusLog"
+  - "ToolKit_GetToolsFor_ScheduleAppointmentProcessPhase_ReturnsCallExternalApiPlusLog"
+  - "ToolKit_GetToolsFor_ScheduleAppointmentWritePhase_ReturnsSendEmailDraftPlusLog"
+  - "EmailToolHost_GetTools_WritePhase_ReturnsSendEmailDraft"
+  - "EmailToolHost_GetTools_ReadPhase_ReturnsEmpty"
+  - "EmailToolHost_SendEmailDraft_DelegatesToSmtpClient"
+  - "EmailToolHost_SendEmailDraft_InReplyToHeader_Populated"
+  - "ExternalApiToolHost_GetTools_ProcessPhasePresetWithAllowlist_ReturnsCallExternalApi"
+  - "ExternalApiToolHost_GetTools_ProcessPhasePresetNoAllowlist_ReturnsEmpty"
+  - "ExternalApiToolHost_CallExternalApi_HostInAllowlist_ExecutesSuccessfully"
+  - "ExternalApiToolHost_CallExternalApi_HostNotInAllowlist_ReturnsToolErrorWithoutMakingRequest"
+  - "ExternalApiToolHost_CallExternalApi_GetWithAuthRef_ResolvesSecretAndCallsUrl"
   - "ExecutePipelineUseCase_CodeMode_RunsCheckoutStep"
   - "ExecutePipelineUseCase_MessageMode_SkipsCheckoutStep"
-  - "ExecutePipelineUseCase_MessageMode_EndsInEmailOutputActionNotCommitAndPR"
-  - "CallExternalApiTool_HostInAllowlist_ExecutesSuccessfully"
-  - "CallExternalApiTool_HostNotInAllowlist_ReturnsToolErrorWithoutMakingRequest"
-  - "CallExternalApiTool_PresetWithoutAllowlist_ToolNotRegistered"
-  - "CallExternalApiTool_GetWithAuthRef_ResolvesSecretAndCallsUrl"
+  - "ExecutePipelineUseCase_MessageMode_EndsInWriteRunResultNotEmailOutputAction"
   - "ScheduleAppointmentPreset_AllowlistDeclared_ContainsExpectedHost"
-  - "SendEmailDraftTool_SendsViaSmtpWithCorrectHeaders"
+  - "ScheduleAppointmentPreset_Mode_IsMessage"
+  - "ScheduleAppointmentPreset_CommandList_EndsInWriteRunResult"
+  - "WriteRunResultHandler_RenderResult_NoBlobs_NoBlobsSection"
+  - "WriteRunResultHandler_RenderResult_OneBlob_TableWithSingleRow"
+  - "WriteRunResultHandler_RenderResult_MultipleBlobs_TableWithAllRows"
+  - "WriteRunResultHandler_RenderResult_BlobLinkFormat_RelativeToBlobsSubdir"
+  - "SkillCallRuntime_ScheduleAppointment_FirstProductionConsumer_DispatchesViaExecuteAsync"
+  - "SkillCallRuntime_ScheduleAppointment_PerSkillBreakdownPopulated"
+  - "SkillCallRuntime_ScheduleAppointment_LimitEnforcerActive"
+  - "SkillCallRuntime_ScheduleAppointment_LoopTraceCapturesToolSequence"
   - "ScheduleAppointmentSmoke_IncomingMail_ProducesDraftReplyToReviewerWithMockedSlots"
+  - "ScheduleAppointmentSmoke_ResultMd_ContainsBlobsSectionWithIncomingMail"
   - "MessageModePipeline_SpawnsSandboxPodWithNoCodeCheckout_RegressionVsCodeModeIsolation"
 
 done:
-  - "Email is a tracker type; EmailTicketProvider polls IMAP, dedupes via Redis seen-store, returns mails as TicketEnvelopes"
+  - "Email is a tracker type; EmailTicketProvider polls IMAP, dedupes via Redis seen-store, returns mails as TicketEnvelopes; mail body + attachments persisted as Blobs via IRunBlobStorage with concept-pointer (incoming_email_body Concept of type blob_ref)"
   - "Project trigger block `email_trigger` works with project_resolution.strategy=to_address"
-  - "Pipelines declare ExecutionMode (Code | Message); message-mode skips Checkout and ends in EmailOutputAction"
-  - "Sandbox spawn is unchanged from code-mode — one pod per run, no in-process shortcut (deferred)"
-  - "schedule-appointment example pipeline ships with one skill (triage-and-schedule), proving the minimal message-mode shape"
-  - "Two new tools: CallExternalApiTool (generic), SendEmailDraftTool (email-specific)"
-  - "CallExternalApiTool is gated by PipelinePreset.AllowedExternalHosts; rejection produces a tool-error visible to the LLM, never a silent network call; the schedule-appointment preset declares its concrete host"
-  - "Docs cover email-pipeline use case, email tracker setup, and the deferred worker-pool decision"
-  - "End-to-end smoke test: simulated mail → draft to reviewer with mocked external API"
+  - "PipelineExecutionMode (Code | Message) discriminator on PipelinePresets; Message-mode skips Checkout and ends in WriteRunResult — NO EmailOutputAction step, NO Action-Queue (Tools execute side-effects directly)"
+  - "SkillExecutionPhase enum extended with Read/Process/Write; ToolKit per-phase filtering respects them; agent-smith-skills concept-vocabulary.yaml bumped minor with phase values + blob_ref Concept-Type"
+  - "IRunBlobStorage + BlobRef + FileBackedRunBlobStorage shipped; content-addressed (SHA-256) Idempotenz; sidecar metadata; WriteRunResultHandler renders Blobs section in result.md"
+  - "IRunStateConcepts.SetBlobRef/TryGetBlobRef typisierte API; Concept-Vocabulary-Mismatch fail-loud; ValidateConceptsCommand accepts blob_ref type"
+  - "agentsmith.yml runs:retention_days config-surface (Sweep deferred)"
+  - "schedule-appointment Beispiel-Pipeline mit einem Skill (triage-and-schedule) shipped; Mode=Message; AllowedExternalHosts=[api.field-ops.contoso.example]; command list endet in WriteRunResult"
+  - "Zwei neue Tool-Hosts: EmailToolHost (SendEmailDraftTool, Write-Phase) + ExternalApiToolHost (CallExternalApiTool, Process-Phase, Allowlist-gated). Beide via p0145's IToolHost-Decomposition; IPipelineToolPolicy konfiguriert schedule-appointment-Aktivität"
+  - "First production consumer of SkillCallRuntime: schedule-appointment's triage-and-schedule dispatcht via ISkillCallRuntime.ExecuteAsync; PerSkillBreakdown populated; LimitEnforcer aktiv; LoopTrace captures tool sequence"
+  - "Sandbox spawn unchanged from code-mode — one pod per run, no in-process shortcut (deferred)"
+  - "End-to-end smoke: simulated mail → ProjectResolver match → spawn → Read+Process+Write phases → mocked API → draft to reviewer with slots; result.md contains Blobs section"
+  - "Docs cover email-pipeline use case, email-tracker setup, message-family architecture, deferred worker-pool decision, long-running explicit out-of-scope"
   - "All tests pass; existing suite green"
+  - "Out of scope: worker-pool, sandbox-skip, long-running async-await-resume pipelines, multi-action variants beyond the one-skill demo, Output-Action queues, MessagePipelineHandler/second preset hierarchy, JMAP, PGP/S-MIME, direct-send-to-sender, reply-thread handling, per-message-pipeline learning loop, cloud-backed blob storage"
