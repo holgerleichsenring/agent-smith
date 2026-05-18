@@ -8,8 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services;
 
 /// <summary>
-/// Builds platform-specific IEventPoller instances from AgentSmithConfig.
-/// Extracted from ServerCommand to keep that class under the 120-line limit (p0101).
+/// p0140c: builds per-tracker pollers from AgentSmithConfig. Replaces the pre-p0140c
+/// per-project enumeration — N projects sharing one polling-enabled tracker now spawn
+/// one poller, not N. Pollers are constructed with a config snapshot; operator config
+/// edits take effect on the next leader-acquisition cycle (matches today's reload model).
 /// </summary>
 internal static class PollerFactory
 {
@@ -17,71 +19,24 @@ internal static class PollerFactory
         IServiceProvider provider, AgentSmithConfig config)
     {
         var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
-        var transitionerFactory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
-        var resolver = provider.GetRequiredService<IPipelineConfigResolver>();
+        var envelopeResolver = provider.GetRequiredService<IEnvelopeProjectResolver>();
+        var spawnUseCase = provider.GetRequiredService<ISpawnPipelineRunsUseCase>();
         var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger("AgentSmith.Server.PollerFactory");
 
+        var enabled = config.Trackers.Values.Where(t => t.Polling.Enabled).ToList();
         logger.LogInformation(
-            "PollerFactory.Build: scanning {ProjectCount} projects for polling=enabled",
-            config.Projects.Count);
+            "PollerFactory.Build: {Count} polling-enabled tracker(s) of {Total}",
+            enabled.Count, config.Trackers.Count);
 
-        foreach (var (name, project) in config.Projects)
+        foreach (var tracker in enabled)
         {
-            if (!project.Polling.Enabled)
-            {
-                logger.LogDebug("  skip {Project}: polling disabled", name);
-                continue;
-            }
-
-            IEventPoller? poller;
-            try
-            {
-                poller = BuildOne(name, project, ticketFactory, transitionerFactory, resolver, loggerFactory);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Polling enabled for project {Project} but poller could not be built (Tickets.Type={Type}): {Message}",
-                    name, project.Tracker.Type, ex.Message);
-                continue;
-            }
-
-            if (poller is null)
-            {
-                logger.LogWarning(
-                    "Polling enabled for project {Project} but ticket type '{Type}' has no poller — skipping",
-                    name, project.Tracker.Type);
-                continue;
-            }
-            logger.LogInformation("  built poller for {Project} (Tickets.Type={Type})", name, project.Tracker.Type);
-            yield return poller;
+            logger.LogInformation(
+                "  built poller for tracker '{Tracker}' ({Type}) every {Interval}s",
+                tracker.Name, tracker.Type, tracker.Polling.IntervalSeconds);
+            yield return new TrackerPoller(
+                tracker, config, ticketFactory, envelopeResolver, spawnUseCase,
+                loggerFactory.CreateLogger<TrackerPoller>());
         }
-    }
-
-    private static IEventPoller? BuildOne(
-        string name, ResolvedProject project,
-        ITicketProviderFactory ticketFactory,
-        ITicketStatusTransitionerFactory transitionerFactory,
-        IPipelineConfigResolver resolver,
-        ILoggerFactory loggerFactory)
-    {
-        var transitioner = transitionerFactory.Create(project.Tracker);
-        return project.Tracker.Type switch
-        {
-            TrackerType.GitHub => new GitHubIssuePoller(
-                name, project, ticketFactory, transitioner,
-                loggerFactory.CreateLogger<GitHubIssuePoller>()),
-            TrackerType.AzureDevOps => new AzureDevOpsWorkItemPoller(
-                name, project, ticketFactory, transitioner, resolver,
-                loggerFactory.CreateLogger<AzureDevOpsWorkItemPoller>()),
-            TrackerType.GitLab => new GitLabIssuePoller(
-                name, project, ticketFactory, transitioner,
-                loggerFactory.CreateLogger<GitLabIssuePoller>()),
-            TrackerType.Jira => new JiraIssuePoller(
-                name, project, ticketFactory, transitioner,
-                loggerFactory.CreateLogger<JiraIssuePoller>()),
-            _ => null
-        };
     }
 }
