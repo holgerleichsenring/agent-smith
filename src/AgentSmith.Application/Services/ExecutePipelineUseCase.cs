@@ -67,6 +67,7 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
+        pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
 

@@ -15,6 +15,7 @@ using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Application.Services.Triage;
@@ -348,5 +349,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<Services.Prompts.AgentPromptBuilder>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
+        RegisterToolHosts(services);
+    }
+
+    // p0145: ToolKit + the default policy. IToolHost instances are NOT
+    // DI-registered — each host carries per-pipeline-run state (sandbox,
+    // decision logger, repo path, dialogue transport, job id) that lives in
+    // PipelineContext, not DI. Callers construct hosts and pass them to
+    // IToolKit.GetToolsFor at call time. ToolKit is stateless (only the
+    // policy), so singleton is fine.
+    private static void RegisterToolHosts(IServiceCollection services)
+    {
+        services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
+        services.AddSingleton<IToolKit, ToolKit>();
     }
 }

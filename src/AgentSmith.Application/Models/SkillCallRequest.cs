@@ -22,6 +22,15 @@ public sealed record SkillCallRequest
     public required TaskType TaskType { get; init; }
 
     /// <summary>
+    /// p0145: pipeline preset name (e.g. "fix-bug", "schedule-appointment").
+    /// Carried for the future <c>SkillCallRuntime</c> → <c>IToolKit</c>
+    /// integration in p0142, which will use it to compose <c>ToolSet</c>
+    /// internally. Null on legacy callers; consumed via the
+    /// <see cref="Services.Tools.IToolKit.WildcardPipelineName"/> sentinel.
+    /// </summary>
+    public string? PipelineName { get; init; }
+
+    /// <summary>
     /// Declared output schema (observation/plan/diff/bootstrap) from RoleSkillDefinition.
     /// Null on legacy paths that have not migrated to the new SKILL.md format yet —
     /// SkillOutputValidatorFactory falls back to NoOpSkillOutputValidator in that case.
