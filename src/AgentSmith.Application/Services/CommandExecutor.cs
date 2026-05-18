@@ -27,7 +27,10 @@ public sealed class CommandExecutor(
         where TContext : ICommandContext
     {
         var contextName = typeof(TContext).Name;
-        logger.LogInformation("Executing {Command}...", contextName);
+        // Debug only — PipelineExecutor already emits a richer "[N/M] Executing X..."
+        // line for the top-level dispatch path. Nested CommandExecutor calls (a
+        // handler that dispatches a sub-command) surface here under verbose tracing.
+        logger.LogDebug("Executing {Command}...", contextName);
 
         var handler = serviceProvider.GetService<ICommandHandler<TContext>>();
         if (handler is null)
@@ -69,8 +72,11 @@ public sealed class CommandExecutor(
 
     private void LogResult(string contextName, CommandResult result)
     {
+        // Success goes to Debug — PipelineExecutor already emits the same
+        // "[N/M] X completed: msg" line at Info for top-level dispatches.
+        // Failures stay at Warning so they remain visible in production logs.
         if (result.IsSuccess)
-            logger.LogInformation("{Command} completed: {Message}", contextName, result.Message);
+            logger.LogDebug("{Command} completed: {Message}", contextName, result.Message);
         else
             logger.LogWarning("{Command} failed: {Message}", contextName, result.Message);
     }
