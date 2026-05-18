@@ -51,7 +51,8 @@ internal static class RunStateConceptsTestFactory
         ["pipeline_name"] = new(
             "pipeline_name", "test", ConceptType.Enum,
             new[] { "api-security-scan", "security-scan", "fix-bug", "feature-implementation",
-                    "mad-discussion", "legal-analysis", "init-project" },
+                    "mad-discussion", "legal-analysis", "init-project",
+                    "autonomous", "skill-manager" },
             null, []),
         ["source_available"] = new("source_available", "test", ConceptType.Bool, null, null, []),
         ["context_yaml_present"] = new("context_yaml_present", "test", ConceptType.Bool, null, null, []),
