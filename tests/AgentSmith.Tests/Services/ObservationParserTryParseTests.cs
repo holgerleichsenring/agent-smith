@@ -63,7 +63,7 @@ public sealed class ObservationParserTryParseTests
         // Every element has a bad enum — none survive element-wise parsing.
         const string response = """
             [
-              {"concern":"security","description":"row","severity":"critical","confidence":80,"blocking":false},
+              {"concern":"security","description":"row","severity":"blocker","confidence":80,"blocking":false},
               {"concern":"security","description":"row","severity":"warning","confidence":70,"blocking":false}
             ]
             """;
@@ -80,7 +80,7 @@ public sealed class ObservationParserTryParseTests
         const string response = """
             [
               {"concern":"security","description":"valid","severity":"high","confidence":80,"blocking":false},
-              {"concern":"security","description":"bad","severity":"critical","confidence":80,"blocking":false}
+              {"concern":"security","description":"bad","severity":"blocker","confidence":80,"blocking":false}
             ]
             """;
 
