@@ -155,17 +155,30 @@ public static class PipelinePresets
         CommandNames.DeliverFindings,
     ];
 
+    // p0144: standard Discussion-pipeline shape — Triage picks the skill-manager-*
+    // skills (planner, investigator, judge, filter) deterministically (p0143), the
+    // proposed SKILL.md goes through GeneratePlan/Approve before AgenticExecute
+    // writes it via WriteFile gated by Bootstrap-phase ToolKit (writes restricted
+    // to the .agentsmith/ subtree). Pre-p0144's bespoke DiscoverSkills/Evaluate/
+    // Approve/Install chain retired — see RetiredCommands for migration hints.
     public static readonly IReadOnlyList<string> SkillManager =
     [
         CommandNames.PipelineNameInitializer,
-        CommandNames.DiscoverSkills,
-        CommandNames.EvaluateSkills,
-        CommandNames.DraftSkillFiles,
-        CommandNames.ApproveSkills,
-        CommandNames.InstallSkills,
+        CommandNames.LoadSkills,
+        CommandNames.LoadContext,
+        CommandNames.Triage,
+        CommandNames.SkillRound,
+        CommandNames.ConvergenceCheck,
+        CommandNames.CompileDiscussion,
+        CommandNames.GeneratePlan,
+        CommandNames.Approval,
+        CommandNames.AgenticExecute,
         CommandNames.WriteRunResult,
     ];
 
+    // p0144: standard Discussion-pipeline shape with autonomous-* skills (planner,
+    // investigator, judge, filter). Adds SkillRound between Triage and Convergence
+    // (pre-p0144 the preset had Triage but no SkillRound — crashed since p0131c).
     public static readonly IReadOnlyList<string> Autonomous =
     [
         CommandNames.PipelineNameInitializer,
@@ -173,8 +186,9 @@ public static class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,
         CommandNames.LoadRuns,
-        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
+        CommandNames.LoadSkills,
         CommandNames.Triage,
+        CommandNames.SkillRound,
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
         CommandNames.WriteTickets,
