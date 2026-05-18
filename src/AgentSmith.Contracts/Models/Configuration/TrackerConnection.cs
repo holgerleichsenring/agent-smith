@@ -17,4 +17,13 @@ public sealed record TrackerConnection
     public string? DoneStatus { get; init; }
     public string? CloseTransitionName { get; init; }
     public IReadOnlyList<string> ExtraFields { get; init; } = [];
+
+    /// <summary>
+    /// p0140a: when true (and the provider supports comments), zero-match webhook routing posts a
+    /// 'no agent-smith project matched this ticket' comment to the ticket. Default false because
+    /// multi-tenant trackers (most realistic deployments) would generate noise. Single-tenant
+    /// operators can opt in for forensic visibility. The runtime guard lives in p0140b's
+    /// webhook handlers.
+    /// </summary>
+    public bool ZeroMatchComment { get; init; } = false;
 }

@@ -47,7 +47,7 @@ public class ProjectConfigNormalizerTests
         var project = new RawProjectEntry
         {
             Pipeline = "fix-bug",
-            Pipelines = [new PipelineDefinition { Name = "security-scan" }],
+            Pipelines = [new RawPipelineEntry { Name = "security-scan" }],
         };
 
         _sut.Normalize("p", project);
@@ -64,7 +64,7 @@ public class ProjectConfigNormalizerTests
         var project = new RawProjectEntry
         {
             Pipeline = "fix-bug",
-            Pipelines = [new PipelineDefinition { Name = "fix-bug", SkillsPath = "skills/custom" }],
+            Pipelines = [new RawPipelineEntry { Name = "fix-bug", SkillsPath = "skills/custom" }],
         };
 
         _sut.Normalize("p", project);
@@ -79,7 +79,7 @@ public class ProjectConfigNormalizerTests
         var project = new RawProjectEntry
         {
             DefaultPipeline = "missing",
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
         };
 
         Action act = () => _sut.Normalize("proj", project);
@@ -93,7 +93,7 @@ public class ProjectConfigNormalizerTests
     {
         var project = new RawProjectEntry
         {
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
             GithubTrigger = new WebhookTriggerConfig
             {
                 PipelineFromLabel = new Dictionary<string, string> { ["security-review"] = "security-scan" }
@@ -112,8 +112,8 @@ public class ProjectConfigNormalizerTests
         {
             Pipelines =
             [
-                new PipelineDefinition { Name = "a" },
-                new PipelineDefinition { Name = "b" },
+                new RawPipelineEntry { Name = "a" },
+                new RawPipelineEntry { Name = "b" },
             ],
         };
 
