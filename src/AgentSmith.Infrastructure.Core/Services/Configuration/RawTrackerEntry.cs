@@ -15,4 +15,20 @@ public sealed class RawTrackerEntry
     public string? DoneStatus { get; set; }
     public string? CloseTransitionName { get; set; }
     public List<string> ExtraFields { get; set; } = [];
+
+    /// <summary>p0140a: optional opt-in for zero-match comment on this tracker.</summary>
+    public bool ZeroMatchComment { get; set; } = false;
+
+    /// <summary>p0140c: per-tracker polling block { enabled, interval_seconds, jitter_percent }.</summary>
+    public RawPollingEntry? Polling { get; set; }
+}
+
+/// <summary>
+/// Raw YAML shape for the `polling:` block under a tracker. Mirrors PollingConfig.
+/// </summary>
+public sealed class RawPollingEntry
+{
+    public bool Enabled { get; set; } = false;
+    public int IntervalSeconds { get; set; } = 60;
+    public int JitterPercent { get; set; } = 10;
 }

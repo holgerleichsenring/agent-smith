@@ -1,20 +1,18 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Polling;
 
 /// <summary>
-/// Fan-out all configured IEventPollers in parallel with per-poller 20s timeout,
-/// then serialise ClaimAsync calls per cycle. Jitter is per-project to avoid
-/// alignment across projects. Called as the work callback of a LeaderElectedHostedService.
+/// p0140c: drives per-tracker pollers. Each poll cycle invokes every IEventPoller in
+/// parallel with a per-poller 20s timeout, then sleeps until the next cycle. Pollers now
+/// own their spawn path (they call ISpawnPipelineRunsUseCase directly during PollAsync),
+/// so this service only orchestrates the loop + logs PollResult summaries — it no longer
+/// collects ClaimRequests or invokes ITicketClaimService.
 /// </summary>
 public sealed class PollerHostedService(
     IEnumerable<IEventPoller> pollers,
-    ITicketClaimService claimService,
-    IConfigurationLoader configLoader,
-    string configPath,
     ILogger<PollerHostedService> logger)
 {
     private static readonly TimeSpan PerPollerTimeout = TimeSpan.FromSeconds(20);
@@ -31,7 +29,7 @@ public sealed class PollerHostedService(
         }
 
         logger.LogInformation(
-            "PollerHostedService started with {Count} pollers", configured.Count);
+            "PollerHostedService started with {Count} per-tracker poller(s)", configured.Count);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -41,63 +39,36 @@ public sealed class PollerHostedService(
     }
 
     private async Task CycleAsync(IReadOnlyList<IEventPoller> pollers, CancellationToken ct)
-    {
-        var results = await Task.WhenAll(pollers.Select(p => PollSafeAsync(p, ct)));
-        var config = configLoader.LoadConfig(configPath);
-        foreach (var requests in results)
-            foreach (var request in requests)
-                await ProcessClaimAsync(request, config, ct);
-    }
+        => await Task.WhenAll(pollers.Select(p => PollSafeAsync(p, ct)));
 
-    private async Task<IReadOnlyList<ClaimRequest>> PollSafeAsync(
-        IEventPoller poller, CancellationToken ct)
+    private async Task PollSafeAsync(IEventPoller poller, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(PerPollerTimeout);
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        logger.LogInformation("Polling {Platform}/{Project}…", poller.PlatformName, poller.ProjectName);
+        logger.LogInformation("Polling {Platform} tracker '{Tracker}'…", poller.PlatformName, poller.TrackerName);
         try
         {
             var result = await poller.PollAsync(cts.Token);
-            logger.LogInformation(
-                "Polled {Platform}/{Project}: {Count} candidate(s) in {Ms}ms",
-                poller.PlatformName, poller.ProjectName, result.Count, sw.ElapsedMilliseconds);
-            return result;
+            LogResult(poller, result, sw.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning(
-                "Poller {Platform}/{Project} timed out after {Ms}ms",
-                poller.PlatformName, poller.ProjectName, sw.ElapsedMilliseconds);
-            return [];
+            logger.LogWarning("Poller {Platform}/{Tracker} timed out after {Ms}ms",
+                poller.PlatformName, poller.TrackerName, sw.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex,
-                "Poller {Platform}/{Project} failed after {Ms}ms",
-                poller.PlatformName, poller.ProjectName, sw.ElapsedMilliseconds);
-            return [];
+            logger.LogError(ex, "Poller {Platform}/{Tracker} failed after {Ms}ms",
+                poller.PlatformName, poller.TrackerName, sw.ElapsedMilliseconds);
         }
     }
 
-    private async Task ProcessClaimAsync(
-        ClaimRequest request, AgentSmithConfig config, CancellationToken ct)
-    {
-        logger.LogInformation(
-            "Processing claim: {Platform}/{Project}/#{Ticket} → pipeline={Pipeline}",
-            request.Platform, request.ProjectName, request.TicketId.Value, request.PipelineName);
-        try
-        {
-            var result = await claimService.ClaimAsync(request, config, ct);
-            logger.LogInformation("Claim outcome: {Outcome} for {Platform}/{Project}/#{Ticket}",
-                result.Outcome, request.Platform, request.ProjectName, request.TicketId.Value);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "ClaimAsync failed for polled candidate {Project}/#{Ticket}",
-                request.ProjectName, request.TicketId.Value);
-        }
-    }
+    private void LogResult(IEventPoller poller, PollResult result, long elapsedMs)
+        => logger.LogInformation(
+            "Polled {Platform}/{Tracker}: {Polled} polled, {Matched} matched, {Spawned} spawned in {Ms}ms",
+            poller.PlatformName, poller.TrackerName,
+            result.PolledTickets, result.MatchedProjects, result.Spawned, elapsedMs);
 
     private async Task SleepAsync(IReadOnlyList<IEventPoller> pollers, CancellationToken ct)
     {
