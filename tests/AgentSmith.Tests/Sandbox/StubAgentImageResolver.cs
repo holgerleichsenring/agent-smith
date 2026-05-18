@@ -8,5 +8,5 @@ namespace AgentSmith.Tests.Sandbox;
 /// </summary>
 internal sealed class StubAgentImageResolver(string image = "agent-smith-sandbox-agent:test") : IAgentImageResolver
 {
-    public string Resolve(ProjectConfig projectConfig) => image;
+    public string Resolve(ResolvedProject projectConfig) => image;
 }

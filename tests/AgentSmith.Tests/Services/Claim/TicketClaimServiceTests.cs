@@ -139,7 +139,7 @@ public sealed class TicketClaimServiceTests
     {
         Projects = new()
         {
-            ["my-project"] = new ProjectConfig
+            ["my-project"] = new ResolvedProject
             {
                 GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" }
             }
@@ -155,7 +155,7 @@ public sealed class TicketClaimServiceTests
 
         public Harness()
         {
-            Factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(Transitioner.Object);
+            Factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Transitioner.Object);
             ClaimLock.Setup(l => l.ReleaseAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);

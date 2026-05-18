@@ -15,5 +15,5 @@ public interface IHostSourceCloner
     /// path. Returns null on any failure (network, missing git binary, auth, …)
     /// so callers can fall back to passive mode without unwrapping exceptions.
     /// </summary>
-    Task<string?> TryCloneAsync(SourceConfig source, CancellationToken cancellationToken);
+    Task<string?> TryCloneAsync(RepoConnection source, CancellationToken cancellationToken);
 }

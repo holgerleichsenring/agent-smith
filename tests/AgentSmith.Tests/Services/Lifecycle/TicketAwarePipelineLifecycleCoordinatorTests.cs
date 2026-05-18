@@ -18,7 +18,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var (factory, transitioner, heartbeat) = MockServerSide();
         var sut = Sut(factory, heartbeat);
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), new PipelineContext(), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         await scope.DisposeAsync();
         transitioner.VerifyNoOtherCalls();
@@ -31,7 +31,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var (factory, transitioner, heartbeat) = MockServerSide();
         var sut = Sut(factory, heartbeat);
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), TicketContext("PROJ-1"), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
 
         transitioner.Verify(t => t.TransitionAsync(
             It.Is<TicketId>(id => id.Value == "PROJ-1"),
@@ -47,7 +47,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var (factory, transitioner, heartbeat) = MockServerSide();
         var sut = Sut(factory, heartbeat);
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), TicketContext("PROJ-1"), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
         await scope.DisposeAsync();
 
         transitioner.Verify(t => t.TransitionAsync(
@@ -62,7 +62,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var (factory, transitioner, heartbeat) = MockServerSide();
         var sut = Sut(factory, heartbeat);
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), TicketContext("PROJ-1"), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
         scope.MarkFailed();
         await scope.DisposeAsync();
 
@@ -76,12 +76,12 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
     public async Task BeginAsync_TransitionerThrows_FallsBackToNoopScope()
     {
         var factory = new Mock<ITicketStatusTransitionerFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Throws(new InvalidOperationException("transient"));
         var heartbeat = new Mock<IJobHeartbeatService>();
         var sut = Sut(factory, heartbeat);
 
-        var scope = await sut.BeginAsync(new ProjectConfig(), TicketContext("PROJ-1"), CancellationToken.None);
+        var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
 
         var act = async () => await scope.DisposeAsync();
         await act.Should().NotThrowAsync();
@@ -97,7 +97,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
                 It.IsAny<TicketLifecycleStatus>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TransitionResult.Succeeded());
         var factory = new Mock<ITicketStatusTransitionerFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TicketConfig>())).Returns(transitioner.Object);
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         var heartbeat = new Mock<IJobHeartbeatService>();
         heartbeat.Setup(h => h.Start(It.IsAny<TicketId>())).Returns(Mock.Of<IAsyncDisposable>());
         return (factory, transitioner, heartbeat);

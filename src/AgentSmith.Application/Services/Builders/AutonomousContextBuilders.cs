@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Builders;
 
 public sealed class LoadRunsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var lookback = pipeline.TryGet<int>("AutonomousLookbackRuns", out var lb) ? lb : 10;
@@ -19,10 +19,10 @@ public sealed class LoadRunsContextBuilder : IContextBuilder
 
 public sealed class WriteTicketsContextBuilder : IContextBuilder
 {
-    public ICommandContext Build(PipelineCommand command, ProjectConfig project, PipelineContext pipeline)
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var maxTickets = pipeline.TryGet<int>("AutonomousMaxTickets", out var mt) ? mt : 3;
         var minConfidence = pipeline.TryGet<int>("AutonomousMinConfidence", out var mc) ? mc : 7;
-        return new WriteTicketsContext(project.Tickets, maxTickets, minConfidence, pipeline);
+        return new WriteTicketsContext(project.Tracker, maxTickets, minConfidence, pipeline);
     }
 }

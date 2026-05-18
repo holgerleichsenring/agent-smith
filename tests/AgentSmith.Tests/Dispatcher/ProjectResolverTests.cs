@@ -29,9 +29,9 @@ public sealed class ProjectResolverTests
     [Fact]
     public async Task ResolveAsync_SingleProject_ReturnsProjectResolved()
     {
-        SetupConfig(new Dictionary<string, ProjectConfig>
+        SetupConfig(new Dictionary<string, ResolvedProject>
         {
-            ["backend"] = new() { Tickets = new TicketConfig { Type = "github" } }
+            ["backend"] = new() { Tracker = new TrackerConnection { Type = TrackerType.GitHub } }
         });
         SetupTicketProviderExists();
 
@@ -44,14 +44,14 @@ public sealed class ProjectResolverTests
     [Fact]
     public async Task ResolveAsync_NoProjects_ReturnsProjectNotFound()
     {
-        SetupConfig(new Dictionary<string, ProjectConfig>());
+        SetupConfig(new Dictionary<string, ResolvedProject>());
 
         var result = await _resolver.ResolveAsync("42", CancellationToken.None);
 
         result.Should().BeOfType<ProjectNotFound>();
     }
 
-    private void SetupConfig(Dictionary<string, ProjectConfig> projects)
+    private void SetupConfig(Dictionary<string, ResolvedProject> projects)
     {
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>()))
             .Returns(new AgentSmithConfig { Projects = projects });
@@ -63,7 +63,7 @@ public sealed class ProjectResolverTests
         var providerMock = new Mock<ITicketProvider>();
         providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ticket);
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TicketConfig>()))
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(providerMock.Object);
     }
 }

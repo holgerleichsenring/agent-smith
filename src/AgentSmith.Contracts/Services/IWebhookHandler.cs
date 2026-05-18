@@ -15,8 +15,9 @@ public interface IWebhookHandler
 
 /// <summary>
 /// Result of processing a webhook event.
-/// When ProjectName is set, the processor builds a PipelineRequest directly
-/// instead of parsing TriggerInput through RegexIntentParser.
+/// Post-p0140b: ticket-event handlers spawn their own pipelines via SpawnPipelineRunsUseCase
+/// and return HandledNoRoute() (Handled=true with no routing fields). DialogueAnswer and
+/// TriggerInput paths remain for PR-dialogue and legacy free-form trigger inputs.
 /// </summary>
 public sealed record WebhookResult(
     bool Handled,
@@ -27,7 +28,11 @@ public sealed record WebhookResult(
     string? ProjectName = null,
     string? TicketId = null,
     string? Platform = null,
-    Dictionary<string, string>? PlanAnswers = null);
+    Dictionary<string, string>? PlanAnswers = null)
+{
+    public static WebhookResult NotHandled() => new(false, null, null);
+    public static WebhookResult HandledNoRoute() => new(true, null, null);
+}
 
 /// <summary>
 /// Carries dialogue answer data extracted from a PR comment (/approve or /reject).

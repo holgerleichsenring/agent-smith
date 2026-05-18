@@ -12,6 +12,6 @@ public interface ICommandContextFactory
 {
     ICommandContext Create(
         PipelineCommand command,
-        ProjectConfig project,
+        ResolvedProject project,
         PipelineContext pipeline);
 }

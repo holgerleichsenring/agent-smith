@@ -22,7 +22,7 @@ public sealed class PipelineBatchRunner(
 {
     public async Task<BatchOutcome> ExecuteAsync(
         IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-        ProjectConfig projectConfig,
+        ResolvedProject projectConfig,
         PipelineContext context,
         int firstStepIndex,
         int totalSteps,
@@ -55,7 +55,7 @@ public sealed class PipelineBatchRunner(
     }
 
     private async Task RunSlotAsync(
-        LinkedListNode<PipelineCommand> node, ProjectConfig projectConfig, PipelineContext context,
+        LinkedListNode<PipelineCommand> node, ResolvedProject projectConfig, PipelineContext context,
         int stepIndex, int totalSteps, SemaphoreSlim throttle, CancellationTokenSource linkedCts,
         BatchSlot[] slots, int slot)
     {
@@ -73,7 +73,7 @@ public sealed class PipelineBatchRunner(
     }
 
     private async Task<BatchSlot> ExecuteOneAsync(
-        PipelineCommand cmd, ProjectConfig projectConfig, PipelineContext context,
+        PipelineCommand cmd, ResolvedProject projectConfig, PipelineContext context,
         int stepIndex, int totalSteps, CancellationToken ct)
     {
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
@@ -88,7 +88,7 @@ public sealed class PipelineBatchRunner(
     }
 
     private async Task<CommandResult> SafeExecuteAsync(
-        PipelineCommand cmd, ProjectConfig projectConfig, PipelineContext context,
+        PipelineCommand cmd, ResolvedProject projectConfig, PipelineContext context,
         CancellationToken ct)
     {
         try

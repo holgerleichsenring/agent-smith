@@ -120,7 +120,7 @@ public sealed class CheckoutSourceHandler(
     private static Task<StepResult> RunStepAsync(ISandbox sandbox, Step step, CancellationToken ct) =>
         sandbox.RunStepAsync(step, progress: null, ct);
 
-    private static Step BuildCloneStep(SourceConfig config)
+    private static Step BuildCloneStep(RepoConnection config)
     {
         const string credHelper = "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
