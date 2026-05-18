@@ -94,7 +94,8 @@ internal static class RunResultSectionWriter
 
     /// <summary>
     /// p0128a: surfaces PerSkillBreakdown from PipelineCostTracker into result.md.
-    /// One line per call sorted by start time. Empty input writes nothing.
+    /// p0142: appends a "(limit: tokens|wall-clock|tool-calls|llm-calls)" suffix
+    /// when a LimitEnforcer cap fired during the call. Empty input writes nothing.
     /// </summary>
     internal static void AppendPerSkillBreakdown(StringBuilder sb, IReadOnlyList<CallCostRecord>? breakdown)
     {
@@ -107,10 +108,11 @@ internal static class RunResultSectionWriter
         var ordered = breakdown.OrderBy(b => b.StartedAt).ToList();
         foreach (var record in ordered)
         {
+            var limitSuffix = record.HitLimit is null ? "" : $" (limit: {record.HitLimit})";
             sb.AppendLine(
                 $"- {record.SkillName} ({record.Role}, {record.Phase}): " +
                 $"{record.InputTokens} in / {record.OutputTokens} out / " +
-                $"{record.ToolCallCount} tools / {record.DurationMs}ms");
+                $"{record.ToolCallCount} tools / {record.DurationMs}ms{limitSuffix}");
         }
     }
 

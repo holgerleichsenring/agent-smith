@@ -88,13 +88,24 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
         bodyResolver
             .Setup(b => b.ResolveBody(It.IsAny<RoleSkillDefinition>(), It.IsAny<SkillRole>()))
             .Returns<RoleSkillDefinition, SkillRole>((s, _) => $"Body for {s.Name}");
+        var limits = new LoopLimitsConfig();
+        var noOp = new AgentSmith.Application.Services.Loop.NoOpSkillOutputValidator();
+        var validatorFactory = new AgentSmith.Application.Services.Validation.SkillOutputValidatorFactory(noOp, noOp);
+        var runtime = new AgentSmith.Application.Services.Loop.SkillCallRuntime(
+            stubFactory,
+            new AgentSmith.Application.Services.Loop.PipelineConcurrencyGate(limits),
+            limits,
+            new AgentSmith.Application.Services.Loop.OutcomeClassifier(),
+            new AgentSmith.Application.Services.Loop.RetryCoordinator(),
+            validatorFactory,
+            NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
         return new VerifyRoundHandler(
-            stubFactory, filter, bodyResolver.Object,
+            filter, bodyResolver.Object,
             RunStateConceptsTestFactory.Default,
             Mock.Of<AgentSmith.Contracts.Decisions.IDecisionLogger>(),
             new AgentSmith.Application.Services.Tools.ToolKit(
                 new AgentSmith.Application.Services.Tools.AllHostsActivePolicy()),
-            new LoopLimitsConfig(),
+            runtime,
             NullLogger<VerifyRoundHandler>.Instance);
     }
 
