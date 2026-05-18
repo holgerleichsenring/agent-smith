@@ -1,10 +1,12 @@
 using System.Reflection;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -58,6 +60,7 @@ public sealed class SkillRoundHandlerBootstrapTests
         Mock.Of<IGateRetryCoordinator>(),
         Mock.Of<IUpstreamContextBuilder>(),
         new StructuredOutputInstructionBuilder(Mock.Of<IPromptCatalog>()),
+        new StubSkillCallRuntime(),
         NullLogger<SkillRoundHandler>.Instance);
 
     private static string InvokeBuildDomainSection(SkillRoundHandler handler, PipelineContext pipeline)
