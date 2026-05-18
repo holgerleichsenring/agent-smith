@@ -68,9 +68,36 @@ public class YamlConfigurationLoaderTests
         repo.Url.Should().Be("https://github.com/test/repo");
         project.Tracker.Type.Should().Be(TrackerType.AzureDevOps);
         project.Tracker.Organization.Should().Be("testorg");
-        project.Agent.Type.Should().Be("Claude");
+        project.Agent.Type.Should().Be("claude");
         project.Agent.Model.Should().Be("sonnet-4");
         project.Pipeline.Should().Be("fix-bug");
     }
 
+    // Loads the bundled operator-facing example end-to-end. Regression guard for
+    // the p0140a area-path bug: a `strategy: area-path` value in the example
+    // never matched ResolutionStrategy.AreaPath because YamlDotNet's underscored
+    // property convention does not apply to enum values, and no end-to-end load
+    // covered the canonical example. This test exercises the full deserializer
+    // wiring (snake_case enums) against the live example file.
+    [Fact]
+    public void LoadConfig_BundledExample_LoadsAndBindsEnumsAcrossAllCanonicalForms()
+    {
+        var config = _loader.LoadConfig(TestDataPath("agentsmith.example.yml"));
+
+        config.Should().NotBeNull();
+        config.Repos.Values.Select(r => r.Type).Should().Contain(
+            new[] { RepoType.GitHub, RepoType.GitLab, RepoType.AzureDevOps, RepoType.Local });
+        config.Trackers.Values.Select(t => t.Type).Should().Contain(
+            new[] { TrackerType.GitHub, TrackerType.AzureDevOps, TrackerType.Jira });
+
+        var strategies = config.Projects.Values
+            .SelectMany(p => new[] { p.GithubTrigger, p.GitlabTrigger, p.AzuredevopsTrigger, p.JiraTrigger })
+            .Where(t => t?.ProjectResolution is not null)
+            .Select(t => t!.ProjectResolution!.Strategy)
+            .ToList();
+        strategies.Should().Contain(ResolutionStrategy.AreaPath,
+            "the example exercises ADO area_path resolution — this is the assertion that fails when YamlDotNet's enum naming convention isn't wired up");
+        strategies.Should().Contain(ResolutionStrategy.Tag);
+        strategies.Should().Contain(ResolutionStrategy.Repo);
+    }
 }

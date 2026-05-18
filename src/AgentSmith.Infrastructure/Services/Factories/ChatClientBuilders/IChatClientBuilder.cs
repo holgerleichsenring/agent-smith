@@ -10,7 +10,7 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 public interface IChatClientBuilder
 {
     /// <summary>
-    /// AgentConfig.Type values this builder handles (e.g. "claude", "openai", "azure-openai").
+    /// AgentConfig.Type values this builder handles (e.g. "claude", "openai", "azure_openai").
     /// </summary>
     IReadOnlyList<string> SupportedTypes { get; }
 
