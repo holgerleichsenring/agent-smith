@@ -44,7 +44,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ResolvedProject { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -72,7 +76,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ResolvedProject { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -100,7 +108,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["todo-list"] = new ResolvedProject { Pipeline = "fix-bug" } }
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
         };
 
         _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
@@ -140,7 +152,11 @@ public class ExecutePipelineUseCaseTests
     {
         var config = new AgentSmithConfig
         {
-            Projects = { ["myproject"] = new ResolvedProject { Pipeline = "nonexistent" } }
+            Projects = { ["myproject"] = new ResolvedProject
+            {
+                Pipeline = "nonexistent",
+                Repos = new[] { new RepoConnection { Name = "myproject" } }
+            } }
         };
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(config);
         _intentMock.Setup(i => i.ParseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

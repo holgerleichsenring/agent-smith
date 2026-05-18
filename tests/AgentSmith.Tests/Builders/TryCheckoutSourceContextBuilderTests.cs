@@ -14,13 +14,13 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_SourceConfigDefaultBranchSet_PassesAsBranchName()
     {
-        var project = new ResolvedProject
-        {
-            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = "develop" }
-        };
+        var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = "develop" };
+        var project = new ResolvedProject { Repos = new[] { repo } };
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.CurrentRepo, repo);
 
         var context = (TryCheckoutSourceContext)_builder.Build(
-            new PipelineCommand(CommandNames.TryCheckoutSource), project, new PipelineContext());
+            new PipelineCommand(CommandNames.TryCheckoutSource), project, pipeline);
 
         context.Branch.Should().Be(new BranchName("develop"));
     }
@@ -28,13 +28,13 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_SourceConfigDefaultBranchUnset_PassesNullBranch()
     {
-        var project = new ResolvedProject
-        {
-            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null }
-        };
+        var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null };
+        var project = new ResolvedProject { Repos = new[] { repo } };
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.CurrentRepo, repo);
 
         var context = (TryCheckoutSourceContext)_builder.Build(
-            new PipelineCommand(CommandNames.TryCheckoutSource), project, new PipelineContext());
+            new PipelineCommand(CommandNames.TryCheckoutSource), project, pipeline);
 
         context.Branch.Should().BeNull();
     }
@@ -42,11 +42,10 @@ public sealed class TryCheckoutSourceContextBuilderTests
     [Fact]
     public void Build_IgnoresContextKeysCheckoutBranchAndTicketId()
     {
-        var project = new ResolvedProject
-        {
-            Repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null }
-        };
+        var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null };
+        var project = new ResolvedProject { Repos = new[] { repo } };
         var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.CurrentRepo, repo);
         pipeline.Set(ContextKeys.CheckoutBranch, "feature/from-webhook");
         pipeline.Set(ContextKeys.TicketId, new TicketId("BUG-123"));
 

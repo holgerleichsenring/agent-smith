@@ -50,7 +50,7 @@ public sealed class AzureDevOpsWorkItemWebhookHandlerTests
             {
                 Name = "my-project",
                 Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
-                Repo = new RepoConnection { Name = "my-project" },
+                Repos = new[] { new RepoConnection { Name = "my-project" } },
                 AzuredevopsTrigger = new WebhookTriggerConfig
                 {
                     ProjectResolution = new ProjectResolutionConfig
