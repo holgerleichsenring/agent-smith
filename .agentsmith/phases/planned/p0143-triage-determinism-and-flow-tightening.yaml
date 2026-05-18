@@ -1,0 +1,243 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0143
+goal: "Two long-deferred post-D7 cleanups bundled because both depend on activates_when being mature enough across the skill catalog (post-p0127c + post-p0142 evidence). (a) TriageOutputProducer's LLM call retires: with every skill now carrying an activates_when expression dense enough to typically narrow to one candidate per role per phase, ActivationSkillFilter + a specificity tie-break produce a deterministic role assignment. The LLM-driven triage step (still present after p0127b's deterministic pre-filter) was a transition compromise; p0143 takes the final step. (b) PermissivePhaseDataFlow's wildcard producer ('*' source-pattern in DataFlowReadGate) retires per-edge: each preset's actual data-flow graph is declared explicitly; the wildcard allowance that p0128c shipped as a transition shim drops to a per-edge whitelist. Both cleanups remove transitional softness that was acceptable while the new model was bedding in but now masks miswiring."
+
+requires: ["p0127c", "p0131", "p0142"]
+
+scope:
+  in: |
+    (1) TriageOutputProducer LLM step removed. ProduceAsync today: (i) loads available skills, (ii) runs
+        ActivationSkillFilter against published concepts to narrow candidates, (iii) builds prompt with the narrowed
+        candidate set + role-slot constraints, (iv) calls chat client, (v) validates output against vocabulary +
+        role-slot rules. Post-p0143 the LLM call (iv) deletes; the deterministic selector picks among the narrowed
+        candidates using a specificity score (more concept references in activates_when = higher specificity = wins
+        tie). When the filter narrows to exactly N candidates for a phase's N role-slots, deterministic selection is
+        trivial; when over-count (more candidates than slots), specificity tie-break runs; when under-count (fewer
+        candidates than slots), the under-filled slots stay empty and Triage emits a structured warning in the run
+        log (downstream handlers tolerate empty slots already per p0131c-pre's collapser logic).
+    (2) DeterministicTriageSelector — new class in Application/Services/Triage. Pure function:
+        (narrowedSkills, requiredRoleSlots) → TriageOutput. Inputs: ActivationSkillFilter's output (already
+        narrowed); the role-slot requirements per phase from the resolved PipelinePreset (e.g. Plan needs 1 Lead +
+        2 Analysts, Review needs 1 Lead + 1 Reviewer); the ConceptVocabulary (for specificity scoring — counting
+        concept references in each candidate's activates_when expression). Output: TriageOutput record with Phases
+        dict (same shape TriageOutputProducer emits today; consumers downstream unchanged).
+    (3) TriageOutputProducer becomes a thin DeterministicTriageSelector wrapper. ProduceAsync collapses to:
+        load skills → filter → select → assemble TriageOutput → return. No chat client dependency, no validator
+        (vocabulary validation moves to load-time only — ValidateConceptsCommand already covers it). The
+        ITriageOutputProducer interface stays; its only implementation now contains zero LLM-coupling.
+    (4) StructuredTriageStrategy.cs simplification: callsites that today catch FailedParse/FailedValidation
+        outcomes from the LLM-driven triage collapse — deterministic selection cannot parse-fail. Error paths reduce
+        to "no skills match the phase requirements" which becomes a structured CommandResult.Fail with an
+        actionable hint ("no skills with activates_when matching pipeline=X and required_role=Y; check catalog
+        coverage or add an activates_when expression").
+    (5) PermissivePhaseDataFlow wildcard removal. DataFlowReadGate today (lines 59, 70 in
+        Services/Pipeline/DataFlowReadGate.cs) accepts ContextKeys.Contains("*") or ToPhaseStep == "*" as a
+        wildcard allowance — every edge whose source declares "*" matches any consumer. This was p0128c's
+        deliberate transition shim (operator-evidence first, tighten later). Post-p0143 the wildcard literal "*"
+        is rejected at PhaseDataFlowConfig load time with a clear error message naming the offending edge; every
+        edge must list explicit ContextKeys + ToPhaseStep.
+    (6) Per-preset edge tightening. The four code-path presets (fix-bug, add-feature, fix-no-test, security-scan,
+        api-security-scan, mad-discussion, legal-analysis, init-project) get their PhaseDataFlowConfig blocks
+        rewritten in config/agentsmith.example.yml + the bundled per-preset overrides to use explicit ContextKeys
+        + ToPhaseStep instead of the "*" shortcuts. Operator configs that still carry "*" fail-loud on load with
+        the migration message; the conf-load error message includes a concrete suggestion for each known-preset
+        case (e.g. "fix-bug typically declares [SourcePath, ProjectContext, DomainRules, CodeMap] from
+        CheckoutSource → Triage").
+
+  out: |
+    Removal of ITriageStrategy interface entirely (single-implementation simplification). Kept per p0131c's
+    decision — future routing variants (provider-specific, replay-from-trace) plug in via this seam. Same call
+    holds.
+
+    Removal of TriageOutputProducer interface (ITriageOutputProducer). Kept — the post-determinism implementation
+    is still a meaningful surface for testing (substitute a fixed TriageOutput in handler tests instead of running
+    the selector).
+
+    autonomous + skill-manager preset unfencing — that's p0144. Both are still pipeline_name-fenced when p0143
+    lands; this phase doesn't change their status.
+
+    Validation surface changes in ValidateConceptsCommand. Existing checks (vocabulary integrity, activates_when
+    parses, category enum closed) stay as they are. The migration message about "*" in PhaseDataFlowConfig fires
+    at config-load time, not at validate-concepts time — different concern (operator config vs catalog content).
+
+    Specificity-score formula tuning. The first version uses a simple "count of distinct concept references in
+    activates_when" — proven adequate for p0127b's narrowed-by-many-tied case according to p0127b decisions.
+    More-sophisticated weighting (recency, frequency, operator-tunable) is out of scope; a follow-up phase can
+    refine if operator-evidence shows the simple count misbehaves.
+
+    SkillCallRuntime second-order changes. p0142 wired the runtime as the chat surface for SkillRound/Filter/Verify;
+    Triage was already off the runtime per p0142's scope ("Triage is deterministic narrowing + LLM, not a skill
+    call"). With Triage's LLM step removed in p0143, there's no chat call in Triage at all — the runtime stays
+    uninvolved, which is correct (Triage is pipeline-control logic, not skill execution).
+
+decisions:
+  - key: |
+      Bundle Triage-determinism + PermissivePhaseDataFlow tightening in ONE phase. Reason: both are post-D7
+      cleanups of transition shims; both depend on the same maturity signal (the skill catalog and per-preset
+      data-flow configs have enough explicit declarations that the wildcard fallbacks are no longer load-bearing);
+      both produce structured fail-loud errors when their tightening uncovers misconfiguration. Splitting them
+      would create two phases with the same "operator-evidence-driven cleanup" narrative; bundling means one
+      operator-visible change window. -- alternatives: split into p0143a (Triage) + p0143b (DataFlow) (rejected:
+      neither half is risky enough independently to warrant the merge-window cost); merge into p0142 (rejected:
+      p0142 is already a large refactor of the runtime path; mixing in cleanup of triage + data-flow obscures
+      the runtime-migration diff).
+  - key: |
+      Specificity score = count of distinct concept references in activates_when expression. Reason: simple,
+      provably-monotonic, easy to test. A skill declaring `pipeline_name = "fix-bug" AND project_language = "csharp"
+      AND has_failing_test = true` (3 concepts) wins specificity over one declaring `pipeline_name = "fix-bug"`
+      (1 concept). The intuition: a more-specific expression matches fewer pipeline-states, so when it does match,
+      it's a stronger statement about applicability. -- alternatives: weighted by operator-config priority (rejected:
+      premature — operators don't have specificity priorities defined today); LLM-rated specificity (rejected:
+      defeats the purpose of going deterministic); first-match-wins by file-alphabetical order (rejected: hides
+      intent in lexicographic accident).
+  - key: |
+      Under-count handling: under-filled slots stay empty, Triage emits a structured warning, downstream handlers
+      tolerate. Reason: p0131c-pre's SinglePhaseCollapser already handles missing slots gracefully (Lead-fallback
+      chain, first-non-null-wins for Filter); SkillRoundHandlerBase's executor checks for null role and skips with
+      a "no skill assigned" log line. Fail-loud on under-count would block pipelines where the catalog genuinely
+      doesn't have a planner-skill for a niche project_language; warning + skip lets the pipeline produce partial
+      output the operator can inspect. -- alternatives: fail-loud on any unfilled slot (rejected: too strict for
+      sparse-catalog cases); pad with a generic-fallback skill (rejected: introduces a synthetic skill that may
+      not match the phase's expected output shape).
+  - key: |
+      Specificity tie-break: when N candidates have equal specificity scores, alphabetical-by-name resolves the
+      tie deterministically. Reason: needs to be deterministic for replay/debug; needs to be operator-controllable
+      (operator can rename a skill to win the tie if they care). Alphabetical-by-name is the simplest deterministic
+      ordering. -- alternatives: random with logged seed (rejected: non-deterministic in a debug-hostile way);
+      shortest-name wins (rejected: same accident-of-lexical-form problem as first-match-wins).
+  - key: |
+      DataFlowReadGate's wildcard rejection is at config-load time, not at run time. Reason: fail-fast at
+      composition root catches the issue in CI / dev-loop before any pipeline runs. Catching it at run-time would
+      defer the error to the first time a pipeline tries to consume the offending edge — operator surprise. Same
+      pattern p0125c uses for the concept-vocabulary fence. -- alternatives: warn at load + fail at first run
+      (rejected: split discovery surface); silent at load + fail at first cross-edge consumption (rejected:
+      transition-shim-by-accident).
+  - key: |
+      Per-preset edge migration in the bundled example config + per-preset overrides, NOT a migration script for
+      operator-side configs. Reason: agent-smith maintains the bundled examples (config/agentsmith.example.yml,
+      per-preset YAML); operator-side configs live in operator repos and the fail-loud message at load time
+      includes a per-preset suggestion. Writing a migration script for operator configs would require knowing
+      operator preset shapes; the structured error message is sufficient for operators to manually update.
+      -- alternatives: ship a `migrate-data-flow` CLI verb (rejected: speculative — most operators don't have
+      custom data-flow configs); patch operator configs automatically on next run (rejected: agent-smith doesn't
+      own operator-repo state).
+  - key: |
+      TriageOutputProducer keeps its interface ITriageOutputProducer despite collapsing to a single deterministic
+      implementation. Reason: handler tests substitute ITriageOutputProducer mocks to inject fixed TriageOutput
+      values for downstream-handler test setup. Removing the interface would force every such test to either
+      construct a full DeterministicTriageSelector with a stub vocabulary + stub skill list, or reach for
+      reflection. The interface costs one file and removes friction from ~10 test files. -- alternatives: delete
+      interface + add a TestTriageOutputBuilder helper (rejected: same surface, different name); keep both as
+      parallel test seams (rejected: drift over time).
+
+steps:
+  - id: deterministic-triage-selector
+    action: "Introduce DeterministicTriageSelector — pure-function selector that picks role assignments from the narrowed candidate set"
+    new:
+      - "src/AgentSmith.Application/Services/Triage/DeterministicTriageSelector.cs: ~150 lines. Method `TriageOutput Select(IReadOnlyList<RoleSkillDefinition> narrowedSkills, IReadOnlyDictionary<PipelinePhase, IReadOnlyList<RoleSlot>> requiredSlots, ConceptVocabulary vocabulary)`. Per phase: per role-slot: filter narrowedSkills to those matching the slot's required role; if 1 match → assign; if N matches → specificity-score tiebreak (count distinct concept refs in activates_when via ActivationExpressionParser-AST walk) then alphabetical-by-name; if 0 matches → leave slot empty + record under-count warning. Returns TriageOutput with Phases dict in the same shape today's LLM-driven path emits."
+      - "src/AgentSmith.Application/Services/Triage/RoleSlot.cs: sealed record. Properties: Role (SkillRole), Required (bool — false for optional slots like Filter)."
+      - "src/AgentSmith.Application/Services/Triage/SpecificityScorer.cs: sealed class. Method `int Score(string activatesWhen, ConceptVocabulary vocab)` — parses the expression via ActivationExpressionParser, walks the AST counting distinct identifier nodes that resolve to vocabulary entries. Result is the score (higher = more specific)."
+
+  - id: triage-output-producer-rewrite
+    action: "Replace TriageOutputProducer's LLM-driven flow with DeterministicTriageSelector invocation"
+    modify:
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs: ctor drops IChatClientFactory + ITriageOutputValidator dependencies; gains DeterministicTriageSelector. ProduceAsync collapses to: load available roles → ActivationSkillFilter narrows → resolve required slots from PipelinePreset → DeterministicTriageSelector.Select → return TriageOutput. Method body drops from ~120 lines to ~40. Warning log line for under-count slots written here (the selector returns the structured warning list; producer logs each one)."
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputValidator.cs: DELETE — no longer needed (validation was about the LLM's output adherence to vocabulary + role-slot rules; deterministic selection guarantees both by construction)."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: remove ITriageOutputValidator registration; add DeterministicTriageSelector + SpecificityScorer registrations."
+
+  - id: required-slots-from-preset
+    action: "Resolve per-phase required role slots from the resolved PipelinePreset"
+    new:
+      - "src/AgentSmith.Application/Services/Triage/PresetRoleSlotResolver.cs: ~60 lines. Method `IReadOnlyDictionary<PipelinePhase, IReadOnlyList<RoleSlot>> Resolve(ResolvedPipelineConfig preset)`. Per-preset hardcoded mapping (the per-phase role-slot counts have been static since p0127b's specificity-bound work). Fix-bug Plan: [Lead, Analyst, Analyst]; Review: [Lead, Reviewer]; Final: [Reviewer + optional Filter]. Similar mappings for the other six code-path presets. Mad-discussion + legal-analysis (single-phase, post-p0131c-pre): single-phase role list."
+      - "src/AgentSmith.Application/Services/Triage/RoleSlotCatalog.cs: static dictionary holding the per-preset role-slot mappings. One source of truth (parallel to PipelinePresets.cs which holds the per-preset command sequences). When a new preset lands, both files extend in lockstep."
+
+  - id: structured-triage-error-simplification
+    action: "Simplify StructuredTriageStrategy's error paths — deterministic selection can't parse-fail"
+    modify:
+      - "src/AgentSmith.Application/Services/Triage/StructuredTriageStrategy.cs: TriageAsync's catch blocks for ParseException / ValidationException delete (no LLM call → neither can fire). The remaining failure path: 'no skills with activates_when matching the pipeline_name and required role' becomes a CommandResult.Fail with structured hint message naming the affected role-slot + a concrete suggestion ('add a skill with activates_when including pipeline_name = X AND role = Y'). The HasLoadedSkills check at the head stays (defensive — empty catalog is still a config error)."
+
+  - id: dataflow-wildcard-rejection
+    action: "DataFlowReadGate fail-loud on '*' producer or '*' consumer at config-load time"
+    modify:
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs: lines 59 + 70 wildcard checks DELETE. The conditions `edge.ContextKeys.Contains(\"*\", StringComparer.Ordinal)` + `edge.ToPhaseStep == \"*\"` both stop matching anything; downstream consumers' explicit ContextKeys/ToPhaseStep declarations are the only match path."
+      - "src/AgentSmith.Application/Services/Pipeline/PhaseDataFlowConfigValidator.cs: new class. Method `ValidationResult Validate(PhaseDataFlowConfig config)` — walks edges, rejects any with ContextKeys containing '*' or ToPhaseStep == '*'. Error message names the offending edge (source → destination + the wildcard field) + a per-preset suggestion when the source step is known. Called from PhaseDataFlowConfig deserialization-completion path in YAML loader."
+      - "src/AgentSmith.Infrastructure.Core/Services/YamlConfigurationLoader.cs: post-deserialize step invokes PhaseDataFlowConfigValidator; throws ConfigLoadException with the structured message when validation fails. Existing config-load tests adapt."
+
+  - id: bundled-preset-data-flow-rewrite
+    action: "Rewrite the bundled config's PhaseDataFlowConfig blocks to use explicit ContextKeys + ToPhaseStep"
+    modify:
+      - "config/agentsmith.example.yml: per-preset PhaseDataFlowConfig blocks rewritten. fix-bug: CheckoutSource → Triage [SourcePath, ProjectContext, DomainRules, CodeMap]; Triage → GeneratePlan [Roles, ConceptValues]; GeneratePlan → AgenticExecute [Plan, ApprovedFiles]; AgenticExecute → Test [SourcePath]; etc. Similar explicit edge lists for the other 7 presets. The wildcard usages in the example file (current count: ~12 occurrences across the 8 presets) all replace with concrete lists."
+      - "config/agentsmith.yml (operator-facing top-level): same per-preset edge tightening — agent-smith's own config (used by its self-running smoke tests) updates."
+
+  - id: tests
+    action: "Test pack covers deterministic selector behaviour, simplified TriageOutputProducer, wildcard rejection, bundled-preset migration"
+    new:
+      - "tests/AgentSmith.Tests/Triage/DeterministicTriageSelectorTests.cs: 18 tests. Select_SingleCandidatePerSlot_AssignsDirectly; Select_NCandidatesPerSlot_HighestSpecificityWins; Select_TiedSpecificity_AlphabeticalByNameWins; Select_ZeroCandidatesPerSlot_LeavesSlotEmpty; Select_ZeroCandidatesPerSlot_RecordsWarningInResult; Select_OptionalSlotUnfilled_NoWarning; Select_FixBugPreset_PlanPhase_AssignsLeadAndTwoAnalysts; Select_FixBugPreset_ReviewPhase_AssignsLeadAndReviewer; Select_SecurityScanPreset_PerPhaseSlotsRespected; Select_MadDiscussionPreset_SinglePhaseCollapsed; Select_LegalAnalysisPreset_SinglePhaseCollapsed; Select_NoSkillsAvailable_AllSlotsEmpty_WarningsForAll; Select_ActivatesWhenNullOnLegacySkill_SkillSkipped (defensive — legacy skills filtered at LoadSkills stage by p0131a, defensive check here); Select_ConceptVocabularyMissing_SpecificityScoreZero; Select_ActivatesWhenWith3Concepts_SpecificityScoreThree; Select_ActivatesWhenWith1Concept_SpecificityScoreOne; Select_TiedSpecificity_AlphabeticalByName_ReturnsDeterministicOrder; Select_TwoIndependentRunsSameInput_ReturnsIdenticalOutput."
+      - "tests/AgentSmith.Tests/Triage/SpecificityScorerTests.cs: 6 tests. Score_EmptyExpression_ReturnsZero; Score_SingleConceptReference_ReturnsOne; Score_TwoConceptReferences_ReturnsTwo; Score_RepeatedConceptReference_CountsOnce; Score_UnknownConceptReference_NotCountedAgainstVocabulary; Score_ComplexBooleanExpression_CountsDistinctIdentifiers."
+      - "tests/AgentSmith.Tests/Triage/PresetRoleSlotResolverTests.cs: 8 tests (one per code-path preset + cross-cutting consistency test asserting all presets have a mapping entry)."
+      - "tests/AgentSmith.Tests/Pipeline/PhaseDataFlowConfigValidatorTests.cs: 5 tests. Validate_NoWildcards_ReturnsOk; Validate_ContextKeysWildcard_ReturnsErrorWithEdgeName; Validate_ToPhaseStepWildcard_ReturnsErrorWithEdgeName; Validate_BothWildcards_ReturnsErrorListingBoth; Validate_KnownPresetSuggestion_IncludedInErrorMessage."
+      - "tests/AgentSmith.Tests/Configuration/BundledConfigMigrationTests.cs: 2 tests. config_agentsmith_example_yml_HasNoWildcardEdges; config_agentsmith_yml_HasNoWildcardEdges (assertions over the loaded PhaseDataFlowConfig objects)."
+    modify:
+      - "tests/AgentSmith.Tests/Triage/TriageOutputProducerTests.cs: existing tests rewrite. The Mock<IChatClient> + Mock<ITriageOutputValidator> setup deletes; tests now stub DeterministicTriageSelector directly. ~12 tests adapt; assertions on output structure stay identical."
+      - "tests/AgentSmith.Tests/Triage/StructuredTriageStrategyTests.cs: ~6 tests adapt — error-path tests for ParseException + ValidationException DELETE (paths gone); replacement test added: TriageAsync_NoActivatesWhenMatchesPreset_ReturnsFailWithStructuredHint."
+      - "tests/AgentSmith.Tests/Configuration/YamlConfigurationLoaderTests.cs: existing tests stay; new test added: Load_PhaseDataFlowConfigWithWildcardEdge_ThrowsConfigLoadException."
+
+tests:
+  - "DeterministicTriageSelector_Select_SingleCandidatePerSlot_AssignsDirectly"
+  - "DeterministicTriageSelector_Select_NCandidatesPerSlot_HighestSpecificityWins"
+  - "DeterministicTriageSelector_Select_TiedSpecificity_AlphabeticalByNameWins"
+  - "DeterministicTriageSelector_Select_ZeroCandidatesPerSlot_LeavesSlotEmpty"
+  - "DeterministicTriageSelector_Select_ZeroCandidatesPerSlot_RecordsWarningInResult"
+  - "DeterministicTriageSelector_Select_OptionalSlotUnfilled_NoWarning"
+  - "DeterministicTriageSelector_Select_FixBugPreset_PlanPhase_AssignsLeadAndTwoAnalysts"
+  - "DeterministicTriageSelector_Select_FixBugPreset_ReviewPhase_AssignsLeadAndReviewer"
+  - "DeterministicTriageSelector_Select_SecurityScanPreset_PerPhaseSlotsRespected"
+  - "DeterministicTriageSelector_Select_MadDiscussionPreset_SinglePhaseCollapsed"
+  - "DeterministicTriageSelector_Select_LegalAnalysisPreset_SinglePhaseCollapsed"
+  - "DeterministicTriageSelector_Select_NoSkillsAvailable_AllSlotsEmpty_WarningsForAll"
+  - "DeterministicTriageSelector_Select_ActivatesWhenNullOnLegacySkill_SkillSkipped"
+  - "DeterministicTriageSelector_Select_ConceptVocabularyMissing_SpecificityScoreZero"
+  - "DeterministicTriageSelector_Select_ActivatesWhenWith3Concepts_SpecificityScoreThree"
+  - "DeterministicTriageSelector_Select_ActivatesWhenWith1Concept_SpecificityScoreOne"
+  - "DeterministicTriageSelector_Select_TiedSpecificity_AlphabeticalByName_ReturnsDeterministicOrder"
+  - "DeterministicTriageSelector_Select_TwoIndependentRunsSameInput_ReturnsIdenticalOutput"
+  - "SpecificityScorer_Score_EmptyExpression_ReturnsZero"
+  - "SpecificityScorer_Score_SingleConceptReference_ReturnsOne"
+  - "SpecificityScorer_Score_TwoConceptReferences_ReturnsTwo"
+  - "SpecificityScorer_Score_RepeatedConceptReference_CountsOnce"
+  - "SpecificityScorer_Score_UnknownConceptReference_NotCountedAgainstVocabulary"
+  - "SpecificityScorer_Score_ComplexBooleanExpression_CountsDistinctIdentifiers"
+  - "PresetRoleSlotResolver_Resolve_FixBug_ReturnsExpectedSlots"
+  - "PresetRoleSlotResolver_Resolve_AddFeature_ReturnsExpectedSlots"
+  - "PresetRoleSlotResolver_Resolve_FixNoTest_ReturnsExpectedSlots"
+  - "PresetRoleSlotResolver_Resolve_SecurityScan_ReturnsExpectedSlots"
+  - "PresetRoleSlotResolver_Resolve_ApiSecurityScan_ReturnsExpectedSlots"
+  - "PresetRoleSlotResolver_Resolve_MadDiscussion_ReturnsSinglePhaseSlots"
+  - "PresetRoleSlotResolver_Resolve_LegalAnalysis_ReturnsSinglePhaseSlots"
+  - "PresetRoleSlotResolver_Resolve_AllPresetsHaveMappingEntry_NoneMissing"
+  - "PhaseDataFlowConfigValidator_Validate_NoWildcards_ReturnsOk"
+  - "PhaseDataFlowConfigValidator_Validate_ContextKeysWildcard_ReturnsErrorWithEdgeName"
+  - "PhaseDataFlowConfigValidator_Validate_ToPhaseStepWildcard_ReturnsErrorWithEdgeName"
+  - "PhaseDataFlowConfigValidator_Validate_BothWildcards_ReturnsErrorListingBoth"
+  - "PhaseDataFlowConfigValidator_Validate_KnownPresetSuggestion_IncludedInErrorMessage"
+  - "config_agentsmith_example_yml_HasNoWildcardEdges"
+  - "config_agentsmith_yml_HasNoWildcardEdges"
+  - "YamlConfigurationLoader_Load_PhaseDataFlowConfigWithWildcardEdge_ThrowsConfigLoadException"
+  - "TriageOutputProducer_ProduceAsync_NoChatCallInvoked"
+  - "TriageOutputProducer_ProduceAsync_DelegatesToDeterministicTriageSelector"
+  - "TriageOutputProducer_ProduceAsync_UnderCountWarning_LoggedAtWarningLevel"
+  - "StructuredTriageStrategy_TriageAsync_NoActivatesWhenMatchesPreset_ReturnsFailWithStructuredHint"
+
+done:
+  - "DeterministicTriageSelector + SpecificityScorer + PresetRoleSlotResolver + RoleSlot + RoleSlotCatalog all exist in Application.Services.Triage"
+  - "TriageOutputProducer has no IChatClientFactory dependency and no ITriageOutputValidator dependency; ProduceAsync is ~40 lines and delegates to DeterministicTriageSelector"
+  - "TriageOutputValidator class deleted — vocabulary + role-slot validation is by construction"
+  - "StructuredTriageStrategy.TriageAsync has no Parse/Validation catch blocks; the only remaining failure path is structured 'no activates_when match for required slots' with per-slot hint"
+  - "DataFlowReadGate has no wildcard branches (lines 59 + 70 deleted); PhaseDataFlowConfigValidator rejects '*' in ContextKeys or ToPhaseStep at config-load with structured error message"
+  - "Bundled config (config/agentsmith.example.yml + config/agentsmith.yml) PhaseDataFlowConfig blocks use explicit ContextKeys + ToPhaseStep — zero wildcard occurrences across all 8 presets"
+  - "Operator-side configs that still carry '*' in PhaseDataFlowConfig fail-loud at YamlConfigurationLoader load with structured error message including per-preset suggestion"
+  - "Triage is fully deterministic — identical inputs (skills + concepts + preset) produce identical TriageOutput across runs"
+  - "TriageHandler snapshot log captures the deterministic selection result; replay/debug is straightforward (no LLM seed concerns)"
+  - "Smoke run against agent-smith (fix-bug + add-feature + security-scan + api-security-scan + mad-discussion + legal-analysis + init-project) produces identical TriageOutput on repeated runs given identical inputs; no chat call in Triage phase"
+  - "All new tests pass (~50 new); existing TriageOutputProducer + StructuredTriageStrategy + YamlConfigurationLoader tests adapted (~20 tests)"
+  - "agent-smith-skills version pin unchanged (no skills-repo changes in p0143)"
