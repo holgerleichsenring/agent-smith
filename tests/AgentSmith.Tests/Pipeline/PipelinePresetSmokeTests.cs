@@ -66,27 +66,12 @@ public sealed class PipelinePresetSmokeTests
             $"pipeline_name='{pipelineName}' is declared in the real vocabulary's pipeline_name enum");
     }
 
-    [Theory]
-    [InlineData("autonomous")]
-    [InlineData("skill-manager")]
-    public async Task PipelineNameInitializer_RejectsFencedPresets(string fencedName)
-    {
-        // Fenced-by-design presets (no skills with `pipeline_name = "X"` in the
-        // catalog) MUST throw at SetEnum so operators get a clear failure
-        // instead of silent no-op. The fence stays load-bearing until those
-        // catalog gaps are filled.
-        if (!TestSkillsRoot.IsAvailable()) return;
-
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ResolvedPipeline,
-            new ResolvedPipelineConfig(fencedName, new AgentConfig(), "skills/coding", null));
-
-        var act = async () =>
-            await _handler.ExecuteAsync(new PipelineNameInitializerContext(pipeline), CancellationToken.None);
-
-        await act.Should().ThrowAsync<ArgumentException>(
-            $"'{fencedName}' is intentionally absent from pipeline_name's enum_values");
-    }
+    // p0144: 'autonomous' + 'skill-manager' were fenced-by-design pre-p0144
+    // (no skills with matching pipeline_name in the catalog → preset crashed
+    // at this handler). agent-smith-skills v2.2.0 ships the vocab bump + 8
+    // SKILL.md files that unfence them; the rejection assertion that lived
+    // here is now covered by PipelineNameInitializerHandlerTests's positive
+    // path assertions for both values.
 
     [Fact]
     public void RealVocabulary_ContainsEveryConceptPreSkillHandlersPublish()
