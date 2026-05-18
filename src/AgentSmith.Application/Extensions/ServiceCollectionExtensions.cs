@@ -119,8 +119,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<FilterRoundContext>, FilterRoundHandler>();
 
         // p0111c phase-based triage machinery
-        services.AddTransient<TriageRationaleParser>();
-        services.AddTransient<TriageOutputValidator>();
+        // p0143: TriageRationaleParser + TriageOutputValidator retired (selector is by-construction valid).
+        services.AddTransient<DeterministicTriageSelector>();
         services.AddTransient<TriageLabelOverrideApplier>();
         services.AddTransient<ProjectMapExcerptBuilder>();
         services.AddTransient<PhaseCommandExpander>();
