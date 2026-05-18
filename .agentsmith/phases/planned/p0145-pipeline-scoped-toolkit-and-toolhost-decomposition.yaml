@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0145
+goal: "Vorarbeit für die Message-Pipeline-Family. Zwei strukturelle Refactors die heute beide am gleichen Engpass hängen — alles geht durch SandboxToolHost und ToolKit scoped nur per Phase, nicht per Pipeline. (1) ToolKit erweitert von Phase-basiertem Scoping auf Pipeline-PLUS-Phase-Scoping. Pipeline-spezifische Tool-Allowlists werden möglich, ohne dass per-Pipeline-Skill-Phase-Logik kollabiert. (2) SandboxToolHost dekomponiert in drei domänenspezifische Hosts (FilesystemToolHost, LogDecisionToolHost, HumanToolHost), die unabhängig komponierbar werden — Voraussetzung dafür, dass zukünftige Domain-Tool-Hosts (EmailToolHost, SharePointToolHost, BlobStorageToolHost) im gleichen Stil hinzukommen können. Nach p0145 ist ToolKit eine Komposition aus mehreren Hosts, nicht ein Wrapper um einen Mega-Host."
+
+requires: ["p0126", "p0131"]
+
+scope:
+  in: |
+    (1) ToolKit per-Pipeline-Scoping. IToolKit.GetToolsFor heute: (SkillExecutionPhase phase, string? investigatorMode) → IList<AITool>. Post-p0145: (string pipelineName, SkillExecutionPhase phase, string? investigatorMode) → IList<AITool>. Die per-Pipeline-Tool-Allowlist wird über eine neue IPipelineToolPolicy aufgelöst: pro Pipeline-Name ist deklariert, welche Tool-Hosts überhaupt aktiv sind. Für die bestehenden Code-Family-Pipelines (fix-bug, add-feature, ...) ist die Policy "alle drei zerlegten Hosts aktiv" — keine Verhaltensänderung. Für zukünftige Message-Family-Pipelines kann die Policy z.B. "FilesystemToolHost aus, EmailToolHost rein" lauten — diese Tool-Hosts existieren in p0145 noch nicht, aber die Infrastruktur trägt sie.
+
+    (2) SandboxToolHost-Dekomposition. Heute eine Klasse mit 7 Tools (ReadFile/WriteFile/ListFiles/Grep/RunCommand/LogDecision/AskHuman). Post-p0145 drei Klassen:
+        - FilesystemToolHost: ReadFile/WriteFile/ListFiles/Grep/RunCommand. Konstruktor nimmt ISandbox + PathReadGuard? + PathWriteGuard? (genau wie heute). ~120 Zeilen.
+        - LogDecisionToolHost: LogDecision (delegiert an IDecisionLogger). ~30 Zeilen.
+        - HumanToolHost: AskHuman (delegiert an IHumanQueryService — existiert bereits intern in SandboxToolHost). ~30 Zeilen.
+        Jeder Host implementiert eine neue IToolHost-Schnittstelle mit Methode `IEnumerable<AIFunction> GetTools()`. Per-Host-Erzeugung über `AIFunctionFactory.Create` bleibt M.E.AI-konform.
+
+    (3) IToolHost-Schnittstelle + IToolKit-Komposition. IToolKit.GetToolsFor implementiert post-p0145: per IPipelineToolPolicy.GetAllowedHosts(pipelineName) → Set<Type> aktive IToolHost-Typen; für jeden aktiven Host: GetTools() filtert per Phase (per-Host-interne Per-Phase-Logik). Das heutige Per-Phase-Mapping (Plan/Review/Discuss/Filter/Synthesize → read-only set; Investigate/Verify → +RunCommand; etc.) bleibt erhalten — wird pro Host umgesetzt. FilesystemToolHost.GetTools(phase) gibt z.B. für Plan-Phase nur [ReadFile, Grep, ListFiles] zurück, für Implementation alle 5; LogDecisionToolHost.GetTools(phase) gibt für alle Phasen [LogDecision] zurück.
+
+    (4) Backwards-compatible DI-Wiring. SandboxToolHost als public class bleibt erhalten — als dünne Facade, die intern die drei zerlegten Hosts komponiert. Bestehende Caller (AgenticExecuteHandler, BootstrapRoundHandler, GeneratePlanHandler, GenerateDocsHandler, GenerateTestsHandler, VerifyRoundHandler — alle haben IDecisionLogger im ctor und konstruieren SandboxToolHost direkt oder indirekt) ändern sich nicht. Die Facade ist als [Obsolete] markiert mit Hinweis auf die neue IToolKit-Composition.
+
+    (5) Default IPipelineToolPolicy. AllHostsActivePolicy als Default-Implementierung — für jeden bekannten Pipeline-Namen aus PipelinePresets gibt sie alle drei IToolHost-Typen frei. Future Message-Family-Pipelines registrieren sich mit einer eigenen Policy-Entry (Pipeline-Name → Set<IToolHost-Typ>). Die Policy ist eine pro-Pipeline-Map; Default-Fallback "alle Hosts" wird über AllHostsActivePolicy.GetAllowedHosts mit unbekanntem Namen gerendert.
+
+  out: |
+    Neue Domain-Tool-Hosts (EmailToolHost, SharePointToolHost, BlobStorageToolHost, ...). Out — gehören zur Message-Family-Use-Case-Phase (p0148 oder later), nicht in die Vorarbeit. Die IToolHost-Schnittstelle ist das was diese Hosts dann implementieren werden.
+
+    PathReadGuard/PathWriteGuard Generalisierung auf nicht-Filesystem-Boundaries (Mailbox-Allowlist, SharePoint-Site-Allowlist). Out — die Guards heute sind filesystem-spezifisch und bleiben das. Wenn EmailToolHost (zukünftig) Mailbox-Boundary braucht, definiert er sein eigenes Guard-Konzept. Eine generische IResourceGuard<T>-Hierarchie ist out of scope — premature abstraction für eine einzige Konsumentenklasse.
+
+    Removal of the SandboxToolHost facade. Bleibt mit [Obsolete] über zwei Releases stehen, damit Operator-Code (custom handlers, custom skills) Zeit zur Migration hat. Geplant für die Phase die "Message-Family ist produktiv und alle internen Handler nutzen IToolKit direkt" abschließt — eigene spätere Phase.
+
+    SkillCallRuntime-Integration. SkillCallRuntime ruft heute (post-p0142) ToolKit.GetToolsFor(phase, mode) auf. Post-p0145 erweitert sich der Call um pipelineName. p0145 selbst liefert den neuen IToolKit-Vertrag + Default-Policy + Tests; die SkillCallRuntime-Signaturerweiterung läuft als kleiner additiver Schritt mit (Pipeline-Name aus SkillCallRequest neu).
+
+    LogDecisionToolHost / HumanToolHost Erweiterung um zusätzliche Tools (z.B. AskOperator, EscalateToHuman). Out — drei Hosts, drei klare Verantwortungen; jede Erweiterung gehört in den entsprechenden Host, kommt aber per Bedarf, nicht spekulativ.
+
+decisions:
+  - key: |
+      Drei Hosts, nicht sieben (einer pro Tool). Reason: Dekomposition nach Verantwortung, nicht nach Granularität. FilesystemToolHost bündelt alles was am Sandbox-FS arbeitet (gemeinsame Guards, gemeinsame Sandbox-Dependency). LogDecisionToolHost ist ein einzelnes Tool aber semantisch separat (logischer Audit-Sink, keine Sandbox-Abhängigkeit). HumanToolHost ebenfalls semantisch separat (User-Interaktion). Sieben Hosts würden Konstruktor-Injection inflationieren ohne semantischen Gewinn. -- alternatives: ein-Host-pro-Tool (rejected: Boilerplate-Explosion); zwei Hosts (Sandbox + non-Sandbox) (rejected: LogDecision und AskHuman haben verschiedene Lebenszyklen — Logging ist always-on, AskHuman ist optional-und-conditional).
+  - key: |
+      IToolHost.GetTools(SkillExecutionPhase) — Phase ist Argument am Host, nicht am Toolkit. Reason: pro Host kann der Phase-Filter unterschiedlich sein (FilesystemToolHost: WriteFile nur in Implementation/Bootstrap; LogDecisionToolHost: alle Phasen). Die Per-Phase-Logik in einem zentralen Toolkit zu zentralisieren würde bedeuten, dass jedes neue Host-Phase-Verhalten am Toolkit nachgepflegt wird — Host-Internal-Knowledge leakt nach außen. Per-Host-Filter hält die Verantwortung lokal. -- alternatives: zentrale Phase-Tool-Matrix im ToolKit (rejected: Host-Internal-Knowledge leakt; jeder neue Host muss zwei Stellen anpassen); kein Phase-Argument am Host (rejected: dann muss ToolKit den Phase-Filter selbst kennen, gleiches Problem).
+  - key: |
+      SandboxToolHost als [Obsolete] Facade behalten, nicht löschen. Reason: bestehende Handler-Ctors haben SandboxToolHost als Dependency. Sofortige Löschung würde ~6 Handler + ihre Test-Setups touchen, deren Migration auf IToolKit nicht trivial ist (Handler wissen pro Call welche Phase aktiv ist; IToolKit braucht zusätzlich Pipeline-Name aus dem Kontext). Die Facade delegiert ohne Verhaltensänderung; [Obsolete] gibt Sichtbarkeit auf den Migrationspfad ohne Compile-Break. -- alternatives: Facade weglassen + alle Caller in p0145 migrieren (rejected: scope creep, ungerechtfertigte Test-Pack-Adaption); Facade ohne [Obsolete] (rejected: stille Dead-Code-Ansammlung).
+  - key: |
+      IPipelineToolPolicy mit Pipeline-Name als Key, nicht Pipeline-Type. Reason: PipelineType (Discussion/Structured/...) ist zu grob — fix-bug und add-feature sind beide Structured, brauchen aber heute identische Tool-Sets, das könnte aber für Message-Family-Pipelines divergieren ("invoice-processor" und "calendar-scheduler" sind beide Message aber haben andere Tool-Sets). Per-Name-Key matcht die deklarative Pipeline-Definition direkt. -- alternatives: Per-PipelineType-Map (rejected: zu grob); Skill-deklarierte Tool-Anforderungen (rejected: skill-side Knowledge leakt in Tool-Side; Pipeline-Definition ist der natürliche Ort).
+  - key: |
+      AllHostsActivePolicy ist der Default für unbekannte Pipeline-Namen, nicht "leerer Tool-Set". Reason: Tests, Custom-Operator-Presets, und der Übergangszeitraum brauchen einen Fallback. "Alle Hosts aktiv" für Unbekannte erhält das heutige Verhalten 1:1 für Code-Family und macht den Fallback ungefährlich (Tool-Phase-Filter sind die zweite Verteidigungslinie). Leerer Tool-Set würde unbekannte Pipelines silent broken machen. -- alternatives: throw on unknown pipeline (rejected: bricht Tests die mit Custom-Namen arbeiten); explizite Policy-Eintrag pro Pipeline-Name pflichtend (rejected: Boilerplate für alle bestehenden Presets).
+  - key: |
+      Tool-Method-Bodies bleiben unverändert. Reason: Die Dekomposition ist strukturell — die Methoden ReadFile/WriteFile/etc. ziehen 1:1 in FilesystemToolHost um, ihre Logik (Guards, Sandbox-Call, Error-Handling) bleibt identisch. Verhaltensänderung würde die Test-Pack-Adaption von "Konstruktor-Change" auf "Logik-Change" eskalieren und Regression-Risiko bringen. -- alternatives: Body-Cleanups gleichzeitig (rejected: scope creep); neuere Tool-Implementierungen einführen (rejected: gehört zu spezifischen Use-Case-Phasen, nicht zur strukturellen Vorarbeit).
+
+steps:
+  - id: itoolhost-interface
+    action: "IToolHost-Schnittstelle + Default-Hosts-Komposition definieren"
+    new:
+      - "src/AgentSmith.Application/Services/Tools/IToolHost.cs: Schnittstelle. Methode `IEnumerable<AIFunction> GetTools(SkillExecutionPhase phase, string? investigatorMode)`. Property `Type HostType => GetType()` (für Policy-Matching). Lebt in Application/Services/Tools neben dem bestehenden SandboxToolHost."
+  - id: decompose-sandbox-toolhost
+    action: "SandboxToolHost in drei Hosts zerlegen, Facade behalten"
+    new:
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs: ~140 Zeilen. Implementiert IToolHost. Ctor: ISandbox + IDecisionLogger (für LogDecision-Calls aus existierenden Patterns wo Filesystem-Tools mit Log-Side-Effects kombiniert sind — minimal, könnte später raus) + IPathReadGuard? + IPathWriteGuard?. Tools: ReadFile/WriteFile/ListFiles/Grep/RunCommand mit identischen Bodies wie heute in SandboxToolHost.cs Zeilen 44-101. GetTools(phase, mode) Filter: Plan/Review/Discuss/Filter/Synthesize → [ReadFile, Grep, ListFiles]; Investigate/Verify → +RunCommand; Implementation → +WriteFile, +RunCommand; Bootstrap → [ReadFile, Grep, ListFiles, WriteFile] (Bootstrap-Files-Restriction über PathWriteGuard wie heute)."
+      - "src/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs: ~30 Zeilen. Implementiert IToolHost. Ctor: IDecisionLogger. Tool: LogDecision (delegiert an _decisionLogger.LogAsync). GetTools(phase, mode) gibt für jede Phase [LogDecision] zurück (immer aktiv)."
+      - "src/AgentSmith.Application/Services/Tools/HumanToolHost.cs: ~40 Zeilen. Implementiert IToolHost. Ctor: IHumanQueryService (existing interface aus SandboxToolHost-Internals; extrahieren falls heute privat). Tool: AskHuman. GetTools(phase, mode) gibt für jede Phase [AskHuman] zurück (immer aktiv — die Frage 'darf der LLM fragen?' ist eine operator-policy-Entscheidung, nicht eine phase-Entscheidung)."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHost.cs: wird Facade. Konstruktor unverändert (ISandbox, IDecisionLogger, optional Guards). Interner Body: instanziiert die drei neuen Hosts und delegiert GetAllTools() / GetScoutTools() Methoden über IToolKit-Komposition. [Obsolete(\"Use IToolKit + IPipelineToolPolicy. Will be removed after Message-Pipeline-Family is in production.\")] markiert. Bestehende Caller funktionieren unverändert."
+  - id: pipeline-tool-policy
+    action: "IPipelineToolPolicy + Default-Implementierung registrieren"
+    new:
+      - "src/AgentSmith.Contracts/Services/IPipelineToolPolicy.cs: Schnittstelle in Contracts (Cross-Layer-Sichtbarkeit nötig für DI + zukünftige Test-Substitution). Methode `IReadOnlySet<Type> GetAllowedHosts(string pipelineName)`. Returns die Set der IToolHost-Implementations-Typen die für diese Pipeline aktiv sein dürfen."
+      - "src/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs: ~25 Zeilen. Default-Implementierung. GetAllowedHosts(name) gibt für alle bekannten Code-Family-Pipeline-Namen (fix-bug, add-feature, fix-no-test, security-scan, api-security-scan, mad-discussion, legal-analysis, init-project) und für unbekannte Namen Set<Type> { FilesystemToolHost, LogDecisionToolHost, HumanToolHost } zurück. Per-Name-Map für zukünftige Pipeline-spezifische Restrictions, heute alle gleich."
+  - id: toolkit-rewrite
+    action: "IToolKit.GetToolsFor erweitert um pipelineName; Komposition aus aktiven Hosts"
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/IToolKit.cs: Methodensignatur `IList<AITool> GetToolsFor(SkillExecutionPhase? phase, string? investigatorMode)` ändert zu `IList<AITool> GetToolsFor(string pipelineName, SkillExecutionPhase? phase, string? investigatorMode)`. pipelineName ist erforderlich; Tests die heute null passieren bekommen einen sentinel '*' der gegen AllHostsActivePolicy matched."
+      - "src/AgentSmith.Application/Services/Tools/ToolKit.cs: Ctor ändert von SandboxToolHost-Injection zu IEnumerable<IToolHost> + IPipelineToolPolicy. GetToolsFor-Body: var allowedTypes = _policy.GetAllowedHosts(pipelineName); return _hosts.Where(h => allowedTypes.Contains(h.GetType())).SelectMany(h => h.GetTools(phase, investigatorMode)).ToList(); Bestehender SkillExecutionPhase-Matching-Logik wandert in die jeweiligen Host.GetTools-Implementierungen, ist also nicht mehr im ToolKit (siehe FilesystemToolHost step)."
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHostExtensions.cs: bleibt für Backwards-compat (GetAllTools / GetScoutTools); intern delegieren an ToolKit mit pipelineName='*'."
+  - id: di-wiring
+    action: "DI für IToolHost-Set + IPipelineToolPolicy + ToolKit registrieren"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: services.AddScoped<IToolHost, FilesystemToolHost>(); services.AddScoped<IToolHost, LogDecisionToolHost>(); services.AddScoped<IToolHost, HumanToolHost>(); services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>(); services.AddScoped<IToolKit, ToolKit>() bleibt — Ctor zieht jetzt IEnumerable<IToolHost> + IPipelineToolPolicy."
+  - id: skill-call-runtime-pipeline-arg
+    action: "SkillCallRuntime gibt pipelineName aus SkillCallRequest in ToolKit.GetToolsFor weiter"
+    modify:
+      - "src/AgentSmith.Application/Models/SkillCallRequest.cs: optionales Feld `PipelineName: string?` hinzufügen. Null bedeutet '*' für AllHostsActivePolicy-Match."
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs: an der Stelle wo heute ToolKit.GetToolsFor aufgerufen wird (oder wo Tools für die ChatOptions zusammengestellt werden), pipelineName aus SkillCallRequest weitergeben. Null-Handling: '*' als Sentinel an Policy."
+  - id: tests
+    action: "Test-Pack: per-Host-Tests + Policy-Tests + ToolKit-Komposition-Tests + Bestandstests adaptieren"
+    new:
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostTests.cs: 9 Tests. GetTools_PlanPhase_ReturnsReadOnlySet; GetTools_ImplementationPhase_ReturnsAllFiveTools; GetTools_VerifyPhase_IncludesRunCommandExcludesWriteFile; GetTools_BootstrapPhase_IncludesWriteFileExcludesRunCommand; ReadFile_PathGuardRejects_ReturnsStructuredError; WriteFile_PathGuardRejects_ReturnsStructuredError; RunCommand_DelegatesToSandbox; ListFiles_DelegatesToSandbox; Grep_DelegatesToSandbox."
+      - "tests/AgentSmith.Tests/Tools/LogDecisionToolHostTests.cs: 3 Tests. GetTools_AnyPhase_ReturnsLogDecisionTool; LogDecision_DelegatesToDecisionLogger; LogDecision_DecisionLoggerThrows_ReturnsStructuredError."
+      - "tests/AgentSmith.Tests/Tools/HumanToolHostTests.cs: 3 Tests. GetTools_AnyPhase_ReturnsAskHumanTool; AskHuman_DelegatesToQueryService; AskHuman_QueryServiceThrows_ReturnsStructuredError."
+      - "tests/AgentSmith.Tests/Tools/AllHostsActivePolicyTests.cs: 4 Tests. GetAllowedHosts_FixBug_ReturnsAllThreeHosts; GetAllowedHosts_UnknownPipeline_ReturnsAllThreeHosts; GetAllowedHosts_WildcardSentinel_ReturnsAllThreeHosts; GetAllowedHosts_NullPipelineName_ThrowsArgumentException."
+      - "tests/AgentSmith.Tests/Tools/ToolKitCompositionTests.cs: 6 Tests. GetToolsFor_FixBugPlanPhase_ComposesAllHostsAndFilters; GetToolsFor_FixBugImplementationPhase_AllSevenToolsAvailable; GetToolsFor_PipelineWithRestrictivePolicy_OnlyAllowedHostsContribute; GetToolsFor_NullPipelineName_TreatsAsWildcard; GetToolsFor_UnknownPipeline_FallsBackToAllHosts; GetToolsFor_PassesPhaseAndModeToEachHost (Mock<IToolHost> Verify-Setup)."
+    modify:
+      - "tests/AgentSmith.Tests/Loop/ToolKitTests.cs: Bestand. Setup adaptiert: ToolKit-Ctor nimmt jetzt IEnumerable<IToolHost> + IPipelineToolPolicy. Bestehende Per-Phase-Assertions bleiben semantisch identisch, weil das Verhalten 1:1 in FilesystemToolHost migriert ist. ~6 Tests passen Ctor-Wiring an."
+      - "tests/AgentSmith.Tests/Tools/SandboxToolHostTests.cs: Bestand. Tests laufen weiter gegen die Facade, jetzt mit [Obsolete]-Warnung-Suppression im Test-Setup. Assertions unverändert weil die Facade per-Delegation identisches Verhalten zeigt."
+
+tests:
+  - "FilesystemToolHost_GetTools_PlanPhase_ReturnsReadOnlySet"
+  - "FilesystemToolHost_GetTools_ImplementationPhase_ReturnsAllFiveTools"
+  - "FilesystemToolHost_GetTools_VerifyPhase_IncludesRunCommandExcludesWriteFile"
+  - "FilesystemToolHost_GetTools_BootstrapPhase_IncludesWriteFileExcludesRunCommand"
+  - "FilesystemToolHost_ReadFile_PathGuardRejects_ReturnsStructuredError"
+  - "FilesystemToolHost_WriteFile_PathGuardRejects_ReturnsStructuredError"
+  - "FilesystemToolHost_RunCommand_DelegatesToSandbox"
+  - "FilesystemToolHost_ListFiles_DelegatesToSandbox"
+  - "FilesystemToolHost_Grep_DelegatesToSandbox"
+  - "LogDecisionToolHost_GetTools_AnyPhase_ReturnsLogDecisionTool"
+  - "LogDecisionToolHost_LogDecision_DelegatesToDecisionLogger"
+  - "LogDecisionToolHost_LogDecision_DecisionLoggerThrows_ReturnsStructuredError"
+  - "HumanToolHost_GetTools_AnyPhase_ReturnsAskHumanTool"
+  - "HumanToolHost_AskHuman_DelegatesToQueryService"
+  - "HumanToolHost_AskHuman_QueryServiceThrows_ReturnsStructuredError"
+  - "AllHostsActivePolicy_GetAllowedHosts_FixBug_ReturnsAllThreeHosts"
+  - "AllHostsActivePolicy_GetAllowedHosts_UnknownPipeline_ReturnsAllThreeHosts"
+  - "AllHostsActivePolicy_GetAllowedHosts_WildcardSentinel_ReturnsAllThreeHosts"
+  - "AllHostsActivePolicy_GetAllowedHosts_NullPipelineName_ThrowsArgumentException"
+  - "ToolKit_GetToolsFor_FixBugPlanPhase_ComposesAllHostsAndFilters"
+  - "ToolKit_GetToolsFor_FixBugImplementationPhase_AllSevenToolsAvailable"
+  - "ToolKit_GetToolsFor_PipelineWithRestrictivePolicy_OnlyAllowedHostsContribute"
+  - "ToolKit_GetToolsFor_NullPipelineName_TreatsAsWildcard"
+  - "ToolKit_GetToolsFor_UnknownPipeline_FallsBackToAllHosts"
+  - "ToolKit_GetToolsFor_PassesPhaseAndModeToEachHost"
+  - "SkillCallRuntime_ExecuteAsync_PipelineNameFromRequest_PassedToToolKit"
+
+done:
+  - "IToolHost-Schnittstelle existiert in Application/Services/Tools mit GetTools(phase, mode) + HostType-Property"
+  - "FilesystemToolHost + LogDecisionToolHost + HumanToolHost implementieren IToolHost; jede Klasse ≤ 140 Zeilen; Tool-Method-Bodies sind 1:1-Migration aus SandboxToolHost (kein Verhaltens-Drift)"
+  - "SandboxToolHost ist [Obsolete]-Facade; delegiert intern an ToolKit + die drei zerlegten Hosts; bestehende Caller funktionieren unverändert"
+  - "IPipelineToolPolicy + AllHostsActivePolicy registriert; Default-Verhalten 'alle drei Hosts aktiv' für jede bekannte und unbekannte Pipeline"
+  - "IToolKit.GetToolsFor erweitert um pipelineName-Parameter (erforderlich, '*' als Sentinel für Wildcard-Match); Komposition über IPipelineToolPolicy + die IEnumerable<IToolHost>-Instanzen"
+  - "SkillCallRuntime gibt pipelineName aus SkillCallRequest in ToolKit.GetToolsFor weiter; SkillCallRequest gewinnt optionales PipelineName-Feld"
+  - "Bestehende Verhaltens-Tests grün — die Phase-zu-Tool-Set-Matrix für Code-Family-Pipelines ist unverändert (Plan/Review/Discuss/Filter/Synthesize → 5 read-only; Investigate/Verify → 6; Implementation → 7; Bootstrap → 6)"
+  - "26 neue Tests in Application.Tests/Tools (per-Host + Policy + ToolKit-Composition); Bestand-Tests in ToolKitTests + SandboxToolHostTests adaptiert"
+  - "Smoke run gegen agent-smith zeigt: fix-bug + add-feature + security-scan + api-security-scan + mad-discussion alle laufen ohne Verhaltens-Änderung"
+  - "Out of scope: neue Domain-Tool-Hosts (Email/SharePoint/Blob) — kommen mit der ersten Message-Family-Use-Case-Phase; PathReadGuard/PathWriteGuard Generalisierung; SandboxToolHost Facade-Removal (folge-Phase nach Message-Family produktiv)"
