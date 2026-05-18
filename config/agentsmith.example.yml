@@ -8,10 +8,10 @@
 # where every project carried inline source/tickets/agent blocks (see
 # docs/configuration/migration-from-pre-p0139.md if you're migrating).
 #
-# Supported providers:
-#   - AI agents: Claude (Anthropic), OpenAI, Azure OpenAI, Gemini (Google), Ollama
-#   - Repos:     GitHub | GitLab | AzureDevOps | Local
-#   - Trackers:  GitHub | GitLab | AzureDevOps | Jira
+# Supported providers (canonical YAML values are snake_case):
+#   - AI agents: claude | openai | azure_openai | gemini | ollama
+#   - Repos:     github | gitlab | azure_devops | local
+#   - Trackers:  github | gitlab | azure_devops | jira
 
 # --- Sandbox carrier image (REQUIRED for K8s/Docker spawners) ---
 sandbox:
@@ -30,7 +30,7 @@ orchestrator:
 # Same agent reused across projects → defined once, edited once.
 agents:
   claude-default:
-    type: Claude
+    type: claude
     model: claude-sonnet-4-20250514
     retry:
       max_retries: 5
@@ -72,7 +72,7 @@ agents:
 
   # Required for api-security-scan to hit Anthropic's 5-min prompt-cache TTL.
   claude-parallel:
-    type: Claude
+    type: claude
     model: claude-sonnet-4-20250514
     cache:
       is_enabled: true
@@ -94,7 +94,7 @@ agents:
       max_concurrent_skill_rounds: 4
 
   # azure-openai-default:
-  #   type: azure-openai
+  #   type: azure_openai
   #   endpoint: https://your-instance.openai.azure.com
   #   api_version: 2025-01-01-preview
   #   models:
@@ -120,31 +120,31 @@ agents:
 # ────────────────────────────────────────────────────────────────────────
 repos:
   acme-app:
-    type: GitHub
+    type: github
     url: https://github.com/owner/acme-app
     auth: github_token
     # default_branch: main
 
   acme-platform:
-    type: AzureDevOps
+    type: azure_devops
     url: https://dev.azure.com/acme/platform/_git/platform-core
     organization: acme
     project: platform
     auth: azure_devops_token
 
   acme-rules-shared:
-    type: GitLab
+    type: gitlab
     url: https://gitlab.com/acme/rules-shared
     auth: gitlab_token
 
   acme-rules-billing:
-    type: GitLab
+    type: gitlab
     url: https://gitlab.com/acme/rules-billing
     auth: gitlab_token
 
   # Local repo for dev / api-security passive mode.
   api-source-local:
-    type: Local
+    type: local
     path: ./repo
     auth: none
 
@@ -156,12 +156,12 @@ repos:
 # stays on the project's trigger block.
 trackers:
   acme-github:
-    type: GitHub
+    type: github
     url: https://github.com/owner/acme-app
     auth: github_token
 
   acme-ado:
-    type: AzureDevOps
+    type: azure_devops
     url: https://dev.azure.com/acme
     organization: acme
     project: platform
@@ -170,7 +170,7 @@ trackers:
     done_status: "Resolved"
 
   acme-jira:
-    type: Jira
+    type: jira
     url: https://acme.atlassian.net/
     auth: jira_token
     open_states: ["To Do", "In Progress"]
@@ -225,11 +225,11 @@ projects:
       jitter_percent: 10
     azuredevops_trigger:
       project_resolution:
-        # p0140a: ADO area-path dispatch — hierarchical prefix match. The configured
+        # p0140a: ADO area_path dispatch — hierarchical prefix match. The configured
         # value AcmeMain/Platform also matches AcmeMain/Platform/Provisioning and any
         # deeper subtree. Backslash form (AcmeMain\\Platform with YAML-escaping) is
         # equivalent; the loader normalises.
-        strategy: area-path
+        strategy: area_path
         value: AcmeMain/Platform
       trigger_statuses: ["New", "Active"]
       done_status: "Resolved"
