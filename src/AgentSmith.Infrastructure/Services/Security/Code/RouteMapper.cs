@@ -29,6 +29,10 @@ public sealed class RouteMapper(ILogger<RouteMapper> logger) : IRouteMapper
             try { text = File.ReadAllText(file); }
             catch { continue; }
 
+            if (file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                foreach (var r in DotNetRouteExtractor.Extract(file, text))
+                    results.Add(new RouteDeclaration(r.Verb, r.Path, r.File, r.Line, "dotnet"));
+
             foreach (var pat in FrameworkRoutePatterns.All)
                 if (pat.AppliesTo(file))
                     AccumulateMatches(file, text, pat, results);
