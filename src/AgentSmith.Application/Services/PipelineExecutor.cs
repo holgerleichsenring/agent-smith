@@ -202,7 +202,8 @@ public sealed class PipelineExecutor(
             return (inMemory.PrimaryLanguage, AgentSmith.Application.Services.Sandbox.SandboxToolchainResolutionLayer.InMemoryProjectMap);
         }
 
-        var result = await sandboxLanguageResolver.ResolveAsync(projectConfig.Repo, cancellationToken);
+        var currentRepo = context.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var result = await sandboxLanguageResolver.ResolveAsync(currentRepo, cancellationToken);
         return (result.Language, result.Layer);
     }
 

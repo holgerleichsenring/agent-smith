@@ -174,7 +174,7 @@ public sealed class SingleRepoRegressionTests
         var project = configureTriggers(new ResolvedProject
         {
             Name = "my-repo",
-            Repo = new RepoConnection { Name = "my-repo", Url = repoUrl }
+            Repos = new[] { new RepoConnection { Name = "my-repo", Url = repoUrl } }
         });
         return new AgentSmithConfig
         {

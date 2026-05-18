@@ -52,7 +52,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         config.Projects.Should().ContainKey("demo");
         config.Projects["demo"].Agent.Type.Should().Be("Claude");
         config.Projects["demo"].Tracker.Type.Should().Be(TrackerType.GitHub);
-        config.Projects["demo"].Repo.Type.Should().Be(RepoType.GitHub);
+        config.Projects["demo"].Repos.Single().Type.Should().Be(RepoType.GitHub);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
     }
 
     [Fact]
-    public void LoadConfig_RepoListWithOneEntry_TransitionalSingleRepoAccessorReturnsIt()
+    public void LoadConfig_RepoListWithOneEntry_ExposesItViaReposList()
     {
         Write("""
             agents:
@@ -150,8 +150,8 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         var config = Load();
 
         config.Projects["demo"].Repos.Should().HaveCount(1);
-        config.Projects["demo"].Repo.Name.Should().Be("only");
-        config.Projects["demo"].Repo.Url.Should().Be("https://example.com");
+        config.Projects["demo"].Repos.Single().Name.Should().Be("only");
+        config.Projects["demo"].Repos.Single().Url.Should().Be("https://example.com");
     }
 
     // p0140a tests

@@ -9,6 +9,10 @@ public static class ContextKeys
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";
+    /// <summary>p0140d: the RepoConnection for THIS run. Resolved at the top of ExecutePipelineUseCase
+    /// from PipelineRequest.RepoName + project.Repos. Single source of truth for "which repo is
+    /// this run for" — every consumer that previously read project.Repo now reads CurrentRepo.</summary>
+    public const string CurrentRepo = "CurrentRepo";
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
     public const string ProjectMap = "ProjectMap";

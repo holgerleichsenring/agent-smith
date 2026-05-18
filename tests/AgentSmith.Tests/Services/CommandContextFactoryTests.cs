@@ -65,6 +65,7 @@ public class CommandContextFactoryTests
         var project = CreateProjectConfig();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("456"));
+        pipeline.Set(ContextKeys.CurrentRepo, project.Repos.Single());
 
         var result = _sut.Create(PipelineCommand.Simple(CommandNames.CheckoutSource), project, pipeline);
 
@@ -111,7 +112,7 @@ public class CommandContextFactoryTests
     {
         return new ResolvedProject
         {
-            Repo = new RepoConnection { Type = RepoType.Local, Path = "/tmp" },
+            Repos = new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } },
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/test/repo" },
             Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
             Pipeline = "fix-bug",

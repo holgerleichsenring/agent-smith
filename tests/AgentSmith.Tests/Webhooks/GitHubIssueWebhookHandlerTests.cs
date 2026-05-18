@@ -55,7 +55,7 @@ public sealed class GitHubIssueWebhookHandlerTests
             ["my-api"] = new()
             {
                 Name = "my-api",
-                Repo = new RepoConnection { Name = "my-api", Url = "https://github.com/org/my-api" },
+                Repos = new[] { new RepoConnection { Name = "my-api", Url = "https://github.com/org/my-api" } },
                 GithubTrigger = new WebhookTriggerConfig
                 {
                     ProjectResolution = new ProjectResolutionConfig

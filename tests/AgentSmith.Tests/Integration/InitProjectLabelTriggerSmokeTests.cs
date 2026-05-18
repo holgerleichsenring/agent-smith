@@ -62,7 +62,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 ["my-repo"] = new()
                 {
                     Name = "my-repo",
-                    Repo = new RepoConnection { Name = "my-repo", Url = "https://github.com/org/my-repo" },
+                    Repos = new[] { new RepoConnection { Name = "my-repo", Url = "https://github.com/org/my-repo" } },
                     GithubTrigger = new WebhookTriggerConfig
                     {
                         ProjectResolution = new ProjectResolutionConfig
@@ -121,7 +121,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 ["my-repo"] = new()
                 {
                     Name = "my-repo",
-                    Repo = new RepoConnection { Name = "my-repo", Url = "https://gitlab.com/org/my-repo" },
+                    Repos = new[] { new RepoConnection { Name = "my-repo", Url = "https://gitlab.com/org/my-repo" } },
                     GitlabTrigger = new WebhookTriggerConfig
                     {
                         ProjectResolution = new ProjectResolutionConfig
@@ -176,7 +176,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 {
                     Name = "my-repo",
                     Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
-                    Repo = new RepoConnection { Name = "my-repo" },
+                    Repos = new[] { new RepoConnection { Name = "my-repo" } },
                     AzuredevopsTrigger = new WebhookTriggerConfig
                     {
                         ProjectResolution = new ProjectResolutionConfig
@@ -234,7 +234,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                 ["my-repo"] = new()
                 {
                     Name = "my-repo",
-                    Repo = new RepoConnection { Name = "my-repo" },
+                    Repos = new[] { new RepoConnection { Name = "my-repo" } },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         AssigneeName = "Agent Smith",
