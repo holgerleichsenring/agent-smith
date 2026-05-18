@@ -63,8 +63,9 @@ public class YamlConfigurationLoaderTests
         var config = _loader.LoadConfig(TestDataPath("valid-config.yml"));
         var project = config.Projects["testproject"];
 
-        project.Repo.Type.Should().Be(RepoType.GitHub);
-        project.Repo.Url.Should().Be("https://github.com/test/repo");
+        var repo = project.Repos.Single();
+        repo.Type.Should().Be(RepoType.GitHub);
+        repo.Url.Should().Be("https://github.com/test/repo");
         project.Tracker.Type.Should().Be(TrackerType.AzureDevOps);
         project.Tracker.Organization.Should().Be("testorg");
         project.Agent.Type.Should().Be("Claude");

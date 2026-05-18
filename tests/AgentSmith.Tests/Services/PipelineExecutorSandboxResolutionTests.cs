@@ -96,9 +96,12 @@ public sealed class PipelineExecutorSandboxResolutionTests
             NullLogger<PipelineExecutor>.Instance);
 
         var commands = new[] { CommandNames.CheckoutSource };
-        var project = new ResolvedProject { Repo = new RepoConnection() };
+        var repoConnection = new RepoConnection();
+        var project = new ResolvedProject { Repos = new[] { repoConnection } };
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.CurrentRepo, repoConnection);
         var act = async () => await sut.ExecuteAsync(
-            commands, project, new PipelineContext(), CancellationToken.None);
+            commands, project, pipeline, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         captured.Should().NotBeNull("spec should be captured before the throw");

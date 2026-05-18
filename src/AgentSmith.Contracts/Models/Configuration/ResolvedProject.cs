@@ -4,9 +4,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// Project entry with catalog references already materialized to records.
 /// Produced by ConfigCatalogResolver after the loader parses raw YAML.
 ///
-/// Repos is the source of truth; Repo is a transitional single-repo accessor
-/// (asserts Repos.Count == 1) introduced in p0139 to keep call-site migration
-/// minimal — removed in p0140 when consumers iterate Repos directly.
+/// Repos is the multi-repo source of truth. The transitional single-repo `Repo`
+/// accessor was removed in p0140d; consumers read CurrentRepo from PipelineContext
+/// (set by ExecutePipelineUseCase from PipelineRequest.RepoName) or iterate Repos.
 /// </summary>
 public sealed record ResolvedProject
 {
@@ -14,16 +14,6 @@ public sealed record ResolvedProject
     public AgentConfig Agent { get; init; } = new();
     public TrackerConnection Tracker { get; init; } = new();
     public IReadOnlyList<RepoConnection> Repos { get; init; } = [];
-
-    public RepoConnection Repo
-    {
-        get => Repos.Count == 1
-            ? Repos[0]
-            : throw new InvalidOperationException(
-                $"Project '{Name}' has {Repos.Count} repos; use Repos directly. " +
-                "Single-repo accessor is transitional (p0139→p0140).");
-        init => Repos = new[] { value };
-    }
 
     public string Pipeline { get; init; } = string.Empty;
     public string? CodingPrinciplesPath { get; init; }

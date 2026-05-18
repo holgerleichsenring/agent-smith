@@ -63,7 +63,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
                 ["my-project"] = new()
                 {
                     Name = "my-project",
-                    Repo = new RepoConnection { Name = "my-project" },
+                    Repos = new[] { new RepoConnection { Name = "my-project" } },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         AssigneeName = assigneeName,
