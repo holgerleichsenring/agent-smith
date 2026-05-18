@@ -82,4 +82,75 @@ public sealed class RouteMapperTests : IDisposable
         var routes = _mapper.MapRoutes([Endpoint("GET", "/api/users/{id}")], _temp);
         routes.Should().BeEmpty();
     }
+
+    // ASP.NET style: class-level [Route("api/masterdata")] + method-level [HttpGet("user")].
+    // Pre-DotNetRouteExtractor this was unmatched because the regex saw only "user" while
+    // swagger reported "/api/Masterdata/user" — the gap behind Drop 2 from the AuthPort run.
+    [Fact]
+    public void DotNet_CombinesClassRouteWithMethodRoute()
+    {
+        File.WriteAllText(Path.Combine(_temp, "MasterdataController.cs"), """
+            [Route("api/masterdata")]
+            [ApiController]
+            public class MasterdataController : ControllerBase
+            {
+                [HttpGet("user")]
+                public IActionResult Filter() => Ok();
+            }
+            """);
+        var routes = _mapper.MapRoutes([Endpoint("GET", "/api/masterdata/user")], _temp);
+        routes.Should().HaveCount(1);
+        routes[0].Framework.Should().Be("dotnet");
+        routes[0].Confidence.Should().Be(1.0);
+    }
+
+    // [Route("api/[controller]")] token replacement — the [controller] placeholder
+    // must resolve to the controller name minus the "Controller" suffix to match
+    // ASP.NET's conventional binding behavior.
+    [Fact]
+    public void DotNet_ResolvesControllerToken()
+    {
+        File.WriteAllText(Path.Combine(_temp, "TrafficTypeController.cs"), """
+            [Route("api/[controller]")]
+            public class TrafficTypeController : ControllerBase
+            {
+                [HttpGet("{id}")]
+                public IActionResult Get(int id) => Ok();
+            }
+            """);
+        var routes = _mapper.MapRoutes([Endpoint("GET", "/api/TrafficType/{id}")], _temp);
+        routes.Should().HaveCount(1);
+        routes[0].Framework.Should().Be("dotnet");
+        routes[0].Confidence.Should().Be(1.0);
+    }
+
+    // Method-level [Route("subpath")] paired with a verb-attribute that has no inline
+    // path. Both forms are real ASP.NET — the extractor pairs them by proximity.
+    [Fact]
+    public void DotNet_PairsMethodRouteWithVerbAttribute()
+    {
+        File.WriteAllText(Path.Combine(_temp, "UserAssignmentController.cs"), """
+            [Route("api/userassignment")]
+            public class UserAssignmentController : ControllerBase
+            {
+                [HttpGet]
+                [Route("user/{userId}")]
+                public IActionResult ByUser(string userId) => Ok();
+            }
+            """);
+        var routes = _mapper.MapRoutes([Endpoint("GET", "/api/userassignment/user/{userId}")], _temp);
+        routes.Should().HaveCount(1);
+        routes[0].Confidence.Should().Be(1.0);
+    }
+
+    // Minimal-API style still works alongside the controller-based extractor.
+    [Fact]
+    public void DotNet_MinimalApiMapStillWorks()
+    {
+        File.WriteAllText(Path.Combine(_temp, "Program.cs"),
+            "app.MapGet(\"/api/health\", () => \"ok\");");
+        var routes = _mapper.MapRoutes([Endpoint("GET", "/api/health")], _temp);
+        routes.Should().HaveCount(1);
+        routes[0].Framework.Should().Be("dotnet");
+    }
 }

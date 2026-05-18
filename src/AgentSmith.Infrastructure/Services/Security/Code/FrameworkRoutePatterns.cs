@@ -14,13 +14,12 @@ internal static class FrameworkRoutePatterns
     private static readonly string[] PythonExt = [".py"];
     private static readonly string[] JavaKotlinExt = [".java", ".kt"];
 
+    // .NET controller routes (class-level [Route] + method-level [HttpVerb])
+    // are handled by DotNetRouteExtractor, which can combine prefix + path and
+    // resolve the [controller] token. The single-regex form below is kept only
+    // for minimal-API `app.MapGet(...)` declarations.
     public static readonly IReadOnlyList<FrameworkRoutePattern> All =
     [
-        new("dotnet", new Regex(
-            @"\[Http(Get|Post|Put|Delete|Patch)\s*\(\s*""(?<path>[^""]*)""",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled),
-            DotNetExt),
-
         new("dotnet", new Regex(
             @"app\.Map(Get|Post|Put|Delete|Patch)\s*\(\s*""(?<path>[^""]+)""",
             RegexOptions.IgnoreCase | RegexOptions.Compiled),
