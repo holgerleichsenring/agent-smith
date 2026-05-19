@@ -12,85 +12,100 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <see cref="ITolerantJsonParser"/>; per-element rule application (confidence
 /// migration, field truncation, category-drift) flows through
 /// <see cref="IObservationNormalizer"/>; total-failure fallbacks live in
-/// <see cref="ObservationRecoveryHelper"/>. This class only sequences them.
+/// <see cref="ObservationRecoveryHelper"/>; the source-anchoring rule (p0151b)
+/// flows through <see cref="ISourceAnchorValidator"/>. This class only
+/// sequences them.
 /// </summary>
 public sealed class ObservationParser(
     ITolerantJsonParser tolerantParser,
-    IObservationNormalizer normalizer)
+    IObservationNormalizer normalizer,
+    ISourceAnchorValidator sourceAnchorValidator)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) }
     };
 
-    public List<SkillObservation> ParseWithoutIds(string response, string role, ILogger? logger = null)
+    public List<SkillObservation> ParseWithoutIds(
+        string response, string role, ILogger? logger = null,
+        IReadOnlyCollection<string>? readPaths = null)
     {
-        var parsed = Parse(response, role, 0, logger);
+        var parsed = Parse(response, role, 0, logger, readPaths);
         for (var i = 0; i < parsed.Count; i++) parsed[i] = parsed[i] with { Id = 0 };
         return parsed;
     }
 
-    public List<SkillObservation>? TryParseWithoutIds(string response, string role, ILogger? logger = null)
+    public List<SkillObservation>? TryParseWithoutIds(
+        string response, string role, ILogger? logger = null,
+        IReadOnlyCollection<string>? readPaths = null)
     {
         var arr = tolerantParser.ParseArray(response);
         if (arr.Document is not null && arr.Document.RootElement.ValueKind == JsonValueKind.Array)
         {
             using (arr.Document)
             {
-                var elementWise = BuildFromArray(arr.Document.RootElement, role, 0, logger);
+                var elementWise = BuildFromArray(arr.Document.RootElement, role, 0, logger, readPaths);
                 if (elementWise.Count > 0) return elementWise;
             }
         }
         return ObservationRecoveryHelper.TryResilientFallback(
-            tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l), logger);
+            tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l, readPaths), logger);
     }
 
-    public List<SkillObservation> Parse(string response, string role, int startId, ILogger? logger = null)
+    public List<SkillObservation> Parse(
+        string response, string role, int startId, ILogger? logger = null,
+        IReadOnlyCollection<string>? readPaths = null)
     {
         var arr = tolerantParser.ParseArray(response);
         if (arr.Document is null || arr.Document.RootElement.ValueKind != JsonValueKind.Array)
-            return ResilientOrFallback(response, role, startId, logger);
+            return ResilientOrFallback(response, role, startId, logger, readPaths);
         using (arr.Document)
         {
-            var result = BuildFromArray(arr.Document.RootElement, role, startId, logger);
-            return result.Count == 0 ? ResilientOrFallback(response, role, startId, logger) : result;
+            var result = BuildFromArray(arr.Document.RootElement, role, startId, logger, readPaths);
+            return result.Count == 0 ? ResilientOrFallback(response, role, startId, logger, readPaths) : result;
         }
     }
 
-    private List<SkillObservation> ResilientOrFallback(string response, string role, int startId, ILogger? logger) =>
+    private List<SkillObservation> ResilientOrFallback(
+        string response, string role, int startId, ILogger? logger,
+        IReadOnlyCollection<string>? readPaths) =>
         ObservationRecoveryHelper.TryResilientFallback(
-            tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l), logger)
+            tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l, readPaths), logger)
         ?? ObservationRecoveryHelper.FallbackSingle(response, role, startId, logger);
 
-    private List<SkillObservation> BuildFromArray(JsonElement array, string role, int startId, ILogger? logger)
+    private List<SkillObservation> BuildFromArray(
+        JsonElement array, string role, int startId, ILogger? logger,
+        IReadOnlyCollection<string>? readPaths)
     {
         var result = new List<SkillObservation>();
         var perRunWarn = new HashSet<string>();
         int id = startId, index = 0, skipped = 0;
         foreach (var element in array.EnumerateArray())
         {
-            var obs = TryBuild(element, role, id, index, perRunWarn, logger);
+            var obs = TryBuild(element, role, id, index, perRunWarn, logger, readPaths);
             if (obs is null) { skipped++; index++; continue; }
             result.Add(obs); id++; index++;
         }
         if (skipped > 0 && result.Count > 0)
             logger?.LogWarning(
-                "Parsed {Valid}/{Total} observations from {Role} — {Skipped} skipped due to invalid JSON shape",
+                "Parsed {Valid}/{Total} observations from {Role} — {Skipped} skipped due to invalid JSON shape or source-anchor mismatch",
                 result.Count, index, role, skipped);
         return result;
     }
 
     private SkillObservation? TryBuild(
         JsonElement element, string role, int id, int index,
-        HashSet<string> perRunWarn, ILogger? logger)
+        HashSet<string> perRunWarn, ILogger? logger,
+        IReadOnlyCollection<string>? readPaths = null)
     {
         try
         {
             var entry = element.Deserialize<RawObservation>(JsonOptions);
             if (entry is null || string.IsNullOrWhiteSpace(entry.Description)) return null;
-            return normalizer.Normalize(entry.ToFields(), role, id, perRunWarn, logger);
+            var observation = normalizer.Normalize(entry.ToFields(), role, id, perRunWarn, logger);
+            return sourceAnchorValidator.IsAnchored(observation, readPaths, role, logger) ? observation : null;
         }
         catch (JsonException ex)
         {

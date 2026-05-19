@@ -12,9 +12,11 @@ namespace AgentSmith.Application.Services.SkillRounds;
 /// </summary>
 public sealed class SkillResponseParser(ObservationParser observationParser) : ISkillResponseParser
 {
-    public List<SkillObservation> ParseAndDowngrade(string responseText, string skillName, ILogger logger)
+    public List<SkillObservation> ParseAndDowngrade(
+        string responseText, string skillName, ILogger logger,
+        IReadOnlyCollection<string>? readPaths = null)
     {
-        var raw = observationParser.ParseWithoutIds(responseText, skillName, logger);
+        var raw = observationParser.ParseWithoutIds(responseText, skillName, logger, readPaths);
         var result = new List<SkillObservation>(raw.Count);
         foreach (var obs in raw)
         {
