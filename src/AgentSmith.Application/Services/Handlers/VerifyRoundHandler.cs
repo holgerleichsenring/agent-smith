@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
@@ -32,6 +33,7 @@ public sealed class VerifyRoundHandler(
     IDecisionLogger decisionLogger,
     IToolKit toolKit,
     ISkillCallRuntime skillCallRuntime,
+    ISkillResponseParser responseParser,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -186,26 +188,7 @@ public sealed class VerifyRoundHandler(
                 "Verifier {Name} returned Incomplete (limit: {Limit}) — using partial observations",
                 verifier.Name, result.Cost.HitLimit ?? "unknown");
         var responseText = result.Output ?? string.Empty;
-        var parsed = ObservationParser.ParseWithoutIds(responseText, verifier.Name, logger);
-        return ApplyConfidenceThreshold(parsed, verifier.Name);
-    }
-
-    private List<SkillObservation> ApplyConfidenceThreshold(
-        List<SkillObservation> parsed, string verifierName)
-    {
-        var result = new List<SkillObservation>(parsed.Count);
-        foreach (var obs in parsed)
-        {
-            if (obs.Blocking && obs.Confidence < 70)
-            {
-                logger.LogInformation(
-                    "Verify {Verifier}: blocking observation '{Concern}' downgraded (confidence {Confidence} < 70)",
-                    verifierName, obs.Concern, obs.Confidence);
-                result.Add(obs with { Blocking = false });
-            }
-            else result.Add(obs);
-        }
-        return result;
+        return responseParser.ParseAndDowngrade(responseText, verifier.Name, logger);
     }
 
     private static void AppendObservations(PipelineContext pipeline, IReadOnlyList<SkillObservation> observations)
