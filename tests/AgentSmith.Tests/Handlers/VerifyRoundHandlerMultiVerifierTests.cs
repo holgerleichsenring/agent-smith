@@ -98,6 +98,7 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
             new AgentSmith.Application.Services.Loop.OutcomeClassifier(),
             new AgentSmith.Application.Services.Loop.RetryCoordinator(),
             validatorFactory,
+            new AgentSmith.Application.Services.Loop.RuntimeObservationFactory(),
             NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
         return new VerifyRoundHandler(
             filter, bodyResolver.Object,

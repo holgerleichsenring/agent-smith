@@ -14,6 +14,12 @@ using Moq;
 
 namespace AgentSmith.Tests.Services;
 
+/// <summary>
+/// Parametrised across the new composed executor (PipelineExecutor) and the
+/// pre-p0147e monolith (PipelineExecutorLegacy). Both must produce identical
+/// observable outcomes; the parametrisation is the test-pack guarantee that
+/// the migration is behaviour-preserving.
+/// </summary>
 public class PipelineExecutorTests
 {
     private readonly Mock<ICommandExecutor> _executorMock = new();
@@ -47,38 +53,29 @@ public class PipelineExecutorTests
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineExecutor>.Instance);
     }
+    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
-    [Fact]
-    public async Task ExecuteAsync_AllCommandsSucceed_ReturnsOk()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_AllCommandsSucceed_ReturnsOk(PipelineExecutorTestHarness.Shape shape)
     {
-        var commands = new[] { "Cmd1", "Cmd2" };
+        var h = new PipelineExecutorTestHarness(shape);
+        var emptyCommands = Array.Empty<string>();
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
-        var mockContext1 = new Mock<ICommandContext>().Object;
-        var mockContext2 = new Mock<ICommandContext>().Object;
-
-        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("Cmd1"), project, pipeline)).Returns(mockContext1);
-        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("Cmd2"), project, pipeline)).Returns(mockContext2);
-
-        // PipelineExecutor uses pattern matching, so we need real context types.
-        // Use a simpler approach: mock the factory to return a known context type.
-        // For this test, we'll verify the factory is called correctly.
-        // Since ExecuteCommandAsync requires specific types, let's use an integration-style approach.
-        // Actually, the pattern match will throw for Mock<ICommandContext>.
-        // Let's test with empty pipeline instead.
-
-        var emptyCommands = Array.Empty<string>();
-        var result = await _sut.ExecuteAsync(emptyCommands, project, pipeline, CancellationToken.None);
+        var result = await h.Sut.ExecuteAsync(emptyCommands, project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Pipeline completed");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_EmptyPipeline_ReturnsOk()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_EmptyPipeline_ReturnsOk(PipelineExecutorTestHarness.Shape shape)
     {
-        var result = await _sut.ExecuteAsync(
+        var h = new PipelineExecutorTestHarness(shape);
+        var result = await h.Sut.ExecuteAsync(
             Array.Empty<string>(),
             new ResolvedProject(),
             new PipelineContext(), CancellationToken.None);
@@ -86,17 +83,19 @@ public class PipelineExecutorTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ExecuteAsync_PostsWorkingStatusToTicket()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_PostsWorkingStatusToTicket(PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         var ticketProviderMock = new Mock<ITicketProvider>();
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+        h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
-        await _sut.ExecuteAsync(Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
+        await h.Sut.ExecuteAsync(Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
 
         ticketProviderMock.Verify(t => t.UpdateStatusAsync(
             It.Is<TicketId>(id => id.Value == "42"),
@@ -104,61 +103,70 @@ public class PipelineExecutorTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline(PipelineExecutorTestHarness.Shape shape)
     {
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+        var h = new PipelineExecutorTestHarness(shape);
+        h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Throws(new Exception("Ticket provider unavailable"));
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
-        var result = await _sut.ExecuteAsync(
+        var result = await h.Sut.ExecuteAsync(
             Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash(PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         var commands = new[] { "BadCommand" };
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
-        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
             .Throws(new Exception("Unknown command: 'BadCommand'"));
 
-        var result = await _sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
+        var result = await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("BadCommand");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_OperationCanceled_PropagatesException()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_OperationCanceled_PropagatesException(PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         var commands = new[] { "CancelledCommand" };
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
 
-        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
             .Throws(new OperationCanceledException());
 
-        var act = async () => await _sut.ExecuteAsync(
+        var act = async () => await h.Sut.ExecuteAsync(
             commands, project, pipeline, CancellationToken.None);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Fact]
-    public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment(
+        PipelineExecutorTestHarness.Shape shape)
     {
         // Regression: failure comments were posted as raw markdown (## Agent Smith - Failed),
         // which AzDO's System.History rendered as plain text. HTML is the lingua franca:
         // AzDO interprets it directly and GitHub/GitLab markdown comments accept inline HTML.
+        var h = new PipelineExecutorTestHarness(shape);
         var ticketProviderMock = new Mock<ITicketProvider>();
-        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+        h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);
 
         var commands = new[] { "BadCommand" };
@@ -166,10 +174,10 @@ public class PipelineExecutorTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
 
-        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
             .Throws(new Exception("Gate veto (Tester): coverage incomplete"));
 
-        await _sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
+        await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
         ticketProviderMock.Verify(t => t.UpdateStatusAsync(
             It.Is<TicketId>(id => id.Value == "42"),

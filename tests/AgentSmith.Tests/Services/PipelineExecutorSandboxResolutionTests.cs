@@ -1,73 +1,64 @@
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
-using AgentSmith.Tests.Sandbox;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0135: PipelineExecutor.TryCreateSandboxAsync drives SandboxLanguageResolver
+/// p0135: the executor's sandbox lazy-boot drives SandboxLanguageResolver
 /// for sandbox-requiring pipelines and feeds the result into SandboxSpecBuilder.
 /// These tests verify the end-to-end wiring: resolver-returned language →
 /// matching toolchain image in the SandboxSpec the factory ultimately sees.
+///
+/// p0147e: lazy-boot lives in PipelineSandboxCoordinator now. Parametrised
+/// across both executor shapes; same observable behaviour either way.
 /// </summary>
 public sealed class PipelineExecutorSandboxResolutionTests
 {
-    private readonly Mock<ICommandExecutor> _executorMock = new();
-    private readonly Mock<ICommandContextFactory> _factoryMock = new();
-    private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
-    private readonly Mock<IPipelineLifecycleCoordinator> _coordinatorMock = new();
-    private readonly Mock<IAsyncPipelineLifecycle> _lifecycleMock = new();
-    private readonly Mock<ISandboxFactory> _sandboxFactoryMock = new();
-    private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
-    private readonly Mock<IProgressReporter> _progressReporterMock = new();
+    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
-    public PipelineExecutorSandboxResolutionTests()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task TryCreateSandbox_ResolverReturnsCsharpFromHostCache_BuildsSpecWithDotnetImage(
+        PipelineExecutorTestHarness.Shape shape)
     {
-        _coordinatorMock
-            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(_lifecycleMock.Object);
-    }
-
-    [Fact]
-    public async Task TryCreateSandbox_ResolverReturnsCsharpFromHostCache_BuildsSpecWithDotnetImage()
-    {
-        var spec = await CaptureSpecForResolverResult(
+        var spec = await CaptureSpecForResolverResult(shape,
             new ToolchainResolutionResult("csharp", SandboxToolchainResolutionLayer.HostCache));
 
         spec.ToolchainImage.Should().Be("mcr.microsoft.com/dotnet/sdk:8.0");
     }
 
-    [Fact]
-    public async Task TryCreateSandbox_ResolverReturnsTypeScriptFromRemoteContextYaml_BuildsSpecWithNodeImage()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task TryCreateSandbox_ResolverReturnsTypeScriptFromRemoteContextYaml_BuildsSpecWithNodeImage(
+        PipelineExecutorTestHarness.Shape shape)
     {
-        var spec = await CaptureSpecForResolverResult(
+        var spec = await CaptureSpecForResolverResult(shape,
             new ToolchainResolutionResult("TypeScript", SandboxToolchainResolutionLayer.RemoteContextYaml));
 
         spec.ToolchainImage.Should().Be("node:20-bookworm-slim");
     }
 
-    [Fact]
-    public async Task TryCreateSandbox_ResolverReturnsNullFromGenericFallback_BuildsSpecWithGenericImage()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task TryCreateSandbox_ResolverReturnsNullFromGenericFallback_BuildsSpecWithGenericImage(
+        PipelineExecutorTestHarness.Shape shape)
     {
-        var spec = await CaptureSpecForResolverResult(
+        var spec = await CaptureSpecForResolverResult(shape,
             new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
 
         spec.ToolchainImage.Should().Be("buildpack-deps:bookworm-scm");
     }
 
-    private async Task<SandboxSpec> CaptureSpecForResolverResult(ToolchainResolutionResult resolverResult)
+    private static async Task<SandboxSpec> CaptureSpecForResolverResult(
+        PipelineExecutorTestHarness.Shape shape, ToolchainResolutionResult resolverResult)
     {
-        _resolverMock
+        var h = new PipelineExecutorTestHarness(shape);
+        h.SandboxLanguageResolverMock
             .Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolverResult);
 
@@ -76,7 +67,7 @@ public sealed class PipelineExecutorSandboxResolutionTests
         // a real ICommandContext for CheckoutSource (the alternative was wiring up the
         // full factory/executor mock chain, which buys nothing for this assertion).
         SandboxSpec? captured = null;
-        _sandboxFactoryMock
+        h.SandboxFactoryMock
             .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
             .Callback<SandboxSpec, CancellationToken>((s, _) => captured = s)
             .ThrowsAsync(new InvalidOperationException("test-only — short-circuit after spec capture"));
@@ -101,7 +92,7 @@ public sealed class PipelineExecutorSandboxResolutionTests
         var project = new ResolvedProject { Repos = new[] { repoConnection } };
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.CurrentRepo, repoConnection);
-        var act = async () => await sut.ExecuteAsync(
+        var act = async () => await h.Sut.ExecuteAsync(
             commands, project, pipeline, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
