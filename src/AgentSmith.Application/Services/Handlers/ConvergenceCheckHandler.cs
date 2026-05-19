@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -12,9 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Evaluates whether all roles have reached consensus on the plan.
-/// When SkillObservations are present, produces a ConvergenceResult via structured LLM analysis.
-/// Falls back to legacy OBJECTION/AGREE pattern matching on DiscussionLog.
+/// Evaluates whether all roles have reached consensus on the plan via
+/// structured LLM analysis over the SkillObservations published during the
+/// discussion. Missing observations fail loud — every discussion-pipeline
+/// skill is required to emit observations (p0123).
 /// </summary>
 public sealed class ConvergenceCheckHandler(
     PlanConsolidator planConsolidator,
@@ -23,14 +23,6 @@ public sealed class ConvergenceCheckHandler(
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
 {
-    private static readonly Regex ObjectionPattern = new(
-        @"OBJECTION",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex AgreePattern = new(
-        @"AGREE|SUGGESTION",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     public async Task<CommandResult> ExecuteAsync(
         ConvergenceCheckContext context, CancellationToken cancellationToken)
     {
@@ -45,17 +37,18 @@ public sealed class ConvergenceCheckHandler(
         if (context.Pipeline.Has(ContextKeys.ConvergenceResult))
             return CommandResult.Ok("Already converged (no-op)");
 
-        // New path: structured observations
-        if (context.Pipeline.TryGet<List<SkillObservation>>(
+        if (!context.Pipeline.TryGet<List<SkillObservation>>(
                 ContextKeys.SkillObservations, out var observations)
-            && observations is not null && observations.Count > 0)
+            || observations is null || observations.Count == 0)
         {
-            return await ExecuteStructuredConvergenceAsync(
-                context, observations, cancellationToken);
+            return CommandResult.Fail(
+                "Convergence check has no SkillObservations to converge over. "
+                + "Every discussion-pipeline skill must emit observations (p0123); "
+                + "check that the active skills produced parseable output.");
         }
 
-        // Legacy path: free-text discussion log
-        return await ExecuteLegacyConvergenceAsync(context, cancellationToken);
+        return await ExecuteStructuredConvergenceAsync(
+            context, observations, cancellationToken);
     }
 
     private async Task<CommandResult> ExecuteStructuredConvergenceAsync(
@@ -140,74 +133,6 @@ public sealed class ConvergenceCheckHandler(
 
         // Also consolidate for backward compat
         await ConsolidateFromObservations(context, observations, escalated: false, cancellationToken);
-
-        return CommandResult.Ok($"Consensus reached after {currentMaxRound} round(s)");
-    }
-
-    private async Task<CommandResult> ExecuteLegacyConvergenceAsync(
-        ConvergenceCheckContext context, CancellationToken cancellationToken)
-    {
-        if (!context.Pipeline.TryGet<List<DiscussionEntry>>(
-                ContextKeys.DiscussionLog, out var discussionLog) || discussionLog is null)
-        {
-            return CommandResult.Ok("No discussion log, nothing to check");
-        }
-
-        if (context.Pipeline.Has(ContextKeys.ConsolidatedPlan))
-            return CommandResult.Ok("Already converged (no-op)");
-
-        var lastEntryPerRole = discussionLog
-            .GroupBy(e => e.RoleName)
-            .ToDictionary(g => g.Key, g => g.Last());
-
-        var hasUnresolvedObjections = lastEntryPerRole.Values
-            .Any(e => ObjectionPattern.IsMatch(e.Content) && !AgreePattern.IsMatch(e.Content));
-
-        var maxRounds = GetMaxRounds(context.Pipeline);
-        var currentMaxRound = discussionLog.Max(e => e.Round);
-
-        if (hasUnresolvedObjections && currentMaxRound < maxRounds)
-        {
-            logger.LogInformation(
-                "Unresolved objections after round {Round}/{MaxRounds}, continuing discussion",
-                currentMaxRound, maxRounds);
-
-            var objectors = lastEntryPerRole
-                .Where(kv => ObjectionPattern.IsMatch(kv.Value.Content))
-                .Select(kv => kv.Key)
-                .ToList();
-
-            var commandsToInsert = new List<PipelineCommand>();
-            var nextRound = currentMaxRound + 1;
-            context.Pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var skillRoundCmd);
-            var cmdName = skillRoundCmd ?? CommandNames.SkillRound;
-
-            foreach (var objector in objectors)
-            {
-                commandsToInsert.Add(PipelineCommand.SkillRound(cmdName, objector, nextRound));
-            }
-
-            commandsToInsert.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
-
-            return CommandResult.OkAndContinueWith(
-                $"Unresolved objections from: {string.Join(", ", objectors)}. Round {nextRound}.",
-                commandsToInsert.ToArray());
-        }
-
-        if (hasUnresolvedObjections)
-        {
-            logger.LogWarning(
-                "No consensus after {MaxRounds} rounds, escalating to human approval",
-                maxRounds);
-
-            await planConsolidator.ConsolidateAsync(context, discussionLog, escalated: true, cancellationToken);
-
-            return CommandResult.Ok(
-                $"No consensus after {maxRounds} rounds. Escalating to human approval.");
-        }
-
-        logger.LogInformation("Consensus reached after {Rounds} rounds", currentMaxRound);
-        await planConsolidator.ConsolidateAsync(context, discussionLog, escalated: false, cancellationToken);
 
         return CommandResult.Ok($"Consensus reached after {currentMaxRound} round(s)");
     }

@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146c
+goal: "ConvergenceCheckHandler today branches: structured-observation path when
+  SkillObservations are present (good), legacy OBJECTION/AGREE regex on the
+  free-text discussion log when they aren't (bad). Since p0123 every skill
+  emits SkillObservations, so the legacy fallback is dead code that nobody
+  notices is dead. Same story for SkillRoundHandlerBase.ObjectionPattern.
+  Delete both regex paths; lock in the structured contract."
+
+requires: ["p0146"]
+
+scope:
+  in: |
+    (1) ConvergenceCheckHandler.cs: delete the ExecuteLegacyConvergenceAsync
+        branch, ObjectionPattern, AgreePattern. The structured-observations
+        path becomes the only path; if SkillObservations is missing or empty
+        the handler fails loud with a clear "no observations to converge over"
+        message instead of silently regex-fishing prose.
+
+    (2) SkillRoundHandlerBase.cs: delete ObjectionPattern + its only call
+        site. Any downstream consumer that relied on OBJECTION[target] tags
+        in skill output should switch to the structured observation field
+        (objection_target or similar — audit if a field exists; add to the
+        observation schema if not).
+
+    (3) Audit MadDiscussion preset (the only PipelineType.Discussion consumer
+        that ever produced free-text). Confirm its skills emit observations
+        post-p0123. If any still emit prose-only, this phase either updates
+        them (cross-repo to agent-smith-skills) or punts and keeps a narrow
+        fallback — TBD during audit.
+
+  out: |
+    Changing the structured convergence prompt or schema. Out of scope.
+
+    Other regex-extraction-from-prose offences (ObservationParser's file:line
+    fishing, CommentIntentParser's tail) — those are p0146d / p0146e.
+
+decisions:
+  - key: |
+      Fail-loud over silent regex fallback when observations are missing.
+      Reason: today's fallback hides a contract violation (skill emitted
+      prose where the framework expected observations) behind a regex pass
+      that probably mis-judges anyway. Better to break the run with a clear
+      "skill X did not emit observations" message so the broken skill is
+      visible. -- alternatives: keep the regex fallback (rejected: hides
+      bugs); silently treat empty-observations as 'agreed' (rejected: false
+      positives).
+  - key: |
+      Skill-level objection target — add as a structured field on
+      SkillObservation if not already there. Reason: OBJECTION[target] in
+      prose was the legacy way to attribute disagreement to a specific
+      sibling skill; structured equivalent is a column on the observation.
+
+steps:
+  - id: audit-discussion-pipeline
+    action: "Verify every skill in PipelineType.Discussion presets (today: mad-discussion) emits SkillObservations after p0123. Run a smoke against agent-smith own MadDiscussion config; log the legacy-fallback path with a deprecation warning for one release if needed."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceCheckHandler.cs: TEMPORARILY add a logger.LogWarning before falling into ExecuteLegacyConvergenceAsync to surface any production caller that still relies on it."
+
+  - id: extend-observation-schema-if-needed
+    action: "If 'objection target' attribution is needed by any consumer, add a structured field. Otherwise skip — most cases probably fit Suggestion/Severity/Category already."
+
+  - id: delete-prose-regex
+    action: "Drop ExecuteLegacyConvergenceAsync, ObjectionPattern, AgreePattern from ConvergenceCheckHandler. Drop ObjectionPattern + its call site from SkillRoundHandlerBase."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceCheckHandler.cs: delete legacy branch + regex constants; structured path becomes the only path; missing observations → CommandResult.Fail."
+      - "src/AgentSmith.Application/Services/Handlers/SkillRoundHandlerBase.cs: delete ObjectionPattern + its consumer call (line ~35); if a structured replacement is needed, read the new observation field directly."
+
+tests:
+  - "ConvergenceCheckHandler with SkillObservations present: structured path produces the same ConvergenceResult as today."
+  - "ConvergenceCheckHandler with no observations: fails with a clear message (was: silently regex'd over discussion log)."
+  - "MadDiscussion smoke run against agent-smith repo completes with structured convergence."
+
+done:
+  - "ConvergenceCheckHandler has zero Regex usage."
+  - "SkillRoundHandlerBase has zero Regex usage."
+  - "Legacy `ExecuteLegacyConvergenceAsync` method removed."
+  - "Full test suite green; MadDiscussion smoke green."
