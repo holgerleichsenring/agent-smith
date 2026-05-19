@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Prompts;
+using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -53,7 +54,18 @@ public static class ServiceCollectionExtensions
         RegisterContextBuilders(services);
         RegisterPipeline(services);
         RegisterLoopServices(services);
+        AddWebhookCommentIntent(services);
         return services;
+    }
+
+    // p0146e: CommentIntentParser is stateless — slash regexes + an IIntentParser
+    // delegate. Singleton so the singleton PR-comment webhook handlers can take
+    // it as a constructor dependency without a scope mismatch. The transient
+    // IIntentParser is captured once at construction; LlmIntentParser holds no
+    // mutable state (only DI-resolved factories + logger), so capture is safe.
+    private static void AddWebhookCommentIntent(IServiceCollection services)
+    {
+        services.AddSingleton<CommentIntentParser>();
     }
 
     // p0126b: skill-call collaborator services. PipelineConcurrencyGate is scoped
