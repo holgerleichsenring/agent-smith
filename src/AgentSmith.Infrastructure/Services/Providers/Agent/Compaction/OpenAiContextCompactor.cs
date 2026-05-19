@@ -56,9 +56,31 @@ public sealed class OpenAiContextCompactor(
         return await DoCompactAsync(messages, tailStart, estimatedAccumulatedTokens, cancellationToken);
     }
 
+    // p0147c: primary trigger is token-pressure (estimatedTokens >= ratio × MaxContextTokens);
+    // iteration cap stays as a defensive upper bound for cases where the token estimator
+    // undershoots or a pathological prompt keeps iteration count low. Either path fires
+    // compaction. Setting MaxContextTokensTriggerRatio <= 0 disables the token trigger and
+    // falls back to iteration-cap-only behaviour.
     private bool ShouldFire(int iterations, int estimatedTokens) =>
-        (iterations >= config.ThresholdIterations) ||
-        (estimatedTokens >= config.MaxContextTokens);
+        ShouldCompact(iterations, estimatedTokens, config);
+
+    /// <summary>
+    /// p0147c trigger predicate. Pure / static so tests can exercise the threshold logic
+    /// without spinning up the summarizer client. Mirror of
+    /// <see cref="ClaudeContextCompactor.ShouldCompact"/>.
+    /// </summary>
+    public static bool ShouldCompact(
+        int currentIterations,
+        int estimatedAccumulatedTokens,
+        CompactionConfig config)
+    {
+        if (!config.IsEnabled) return false;
+        if (currentIterations >= config.ThresholdIterations) return true;
+        if (config.MaxContextTokensTriggerRatio <= 0) return false;
+
+        var tokenTrigger = (int)(config.MaxContextTokens * config.MaxContextTokensTriggerRatio);
+        return estimatedAccumulatedTokens >= tokenTrigger;
+    }
 
     private async Task<OpenAiCompactionResult> DoCompactAsync(
         IReadOnlyList<ChatMessage> messages, int tailStart,
