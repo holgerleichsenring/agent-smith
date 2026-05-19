@@ -303,7 +303,7 @@ public static class ServiceCollectionExtensions
             new AgentConfig { Type = "claude" },
             sp.GetRequiredService<ILogger<LlmIntentParser>>()));
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
-        services.AddTransient<IPipelineExecutor, PipelineExecutor>();
+        AddPipelineExecutor(services);
 
         // p0128c: data-flow gating. Each preset's IPhaseDataFlow is registered as a
         // singleton so the resolver builds an O(1) name→declaration index at startup.
@@ -355,5 +355,43 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
         services.AddSingleton<IToolKit, ToolKit>();
+    }
+
+    // p0147e: PipelineExecutor decomposed into IPipelineStepRunner +
+    // IPipelineErrorHandler + IPipelineSandboxCoordinator. The legacy
+    // monolith is kept behind PIPELINE_EXECUTOR_USE_LEGACY env flag for
+    // one release cycle so the test pack can run both shapes in parallel
+    // and assert identical outcomes.
+    //
+    // Lifetime notes:
+    //   - PipelineExecutor (orchestrator): transient — composes per-call
+    //   - PipelineStepRunner: transient — uses ICommandExecutor which is itself transient
+    //   - PipelineErrorHandler: transient — same scoping argument
+    //   - PipelineSandboxCoordinator: transient — owns mutable per-run state
+    //     (the cached ISandbox); singleton would share across overlapping runs.
+    private static void AddPipelineExecutor(IServiceCollection services)
+    {
+        services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
+        services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
+        services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
+        services.AddTransient<PipelineExecutor>();
+        services.AddTransient<PipelineExecutorLegacy>();
+
+        services.AddTransient<IPipelineExecutor>(sp =>
+            UseLegacyExecutor()
+                ? sp.GetRequiredService<PipelineExecutorLegacy>()
+                : sp.GetRequiredService<PipelineExecutor>());
+    }
+
+    /// <summary>
+    /// Feature flag for the p0147e parallel-class migration. Set
+    /// <c>PIPELINE_EXECUTOR_USE_LEGACY=1</c> to fall back to the monolithic
+    /// pre-p0147e shape; absence (or anything else) selects the decomposed
+    /// executor. Slated for removal after one release cycle.
+    /// </summary>
+    private static bool UseLegacyExecutor()
+    {
+        var raw = Environment.GetEnvironmentVariable("PIPELINE_EXECUTOR_USE_LEGACY");
+        return raw is "1" or "true" or "TRUE";
     }
 }
