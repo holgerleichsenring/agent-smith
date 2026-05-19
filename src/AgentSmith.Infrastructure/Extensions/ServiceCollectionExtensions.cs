@@ -109,15 +109,9 @@ public static class ServiceCollectionExtensions
         // API security probing (p79)
         services.AddSingleton<ISessionProvider, SessionProvider>();
 
-        // Code-aware API analysis (p0102)
-        services.AddSingleton<IRouteMapper, Services.Security.Code.RouteMapper>();
-        services.AddSingleton<IAuthBootstrapExtractor, Services.Security.Code.AuthBootstrapExtractor>();
-        services.AddSingleton<IUploadHandlerExtractor, Services.Security.Code.UploadHandlerExtractor>();
-
         // Project-meta resolution under target SourcePath (p0104)
         services.AddSingleton<IProjectMetaResolver, Services.ProjectMetaResolver>();
         services.AddSingleton<IProjectBriefBuilder, Services.ProjectBriefBuilder>();
-        services.AddSingleton<IFindingHandlerCorrelator, Services.Security.FindingHandlerCorrelator>();
         services.AddSingleton<IBaselineLoader, Services.BaselineLoader>();
 
         // p0125b: PipelineContextRunStateConcepts is bound to a per-pipeline PipelineContext

@@ -58,9 +58,7 @@ public static class CommandNames
     public const string LoadRuns = "LoadRunsCommand";
     public const string WriteTickets = "WriteTicketsCommand";
     public const string SessionSetup = "SessionSetupCommand";
-    public const string ApiCodeContext = "ApiCodeContextCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
-    public const string CorrelateFindings = "CorrelateFindingsCommand";
 
     // p0111c: phase-based triage
     public const string FilterRound = "FilterRoundCommand";
@@ -156,9 +154,7 @@ public static class CommandNames
         [LoadRuns] = "Loading run history",
         [WriteTickets] = "Writing tickets",
         [SessionSetup] = "Authenticating API personas",
-        [ApiCodeContext] = "Mapping API routes to source",
         [TryCheckoutSource] = "Resolving source",
-        [CorrelateFindings] = "Correlating findings to handlers",
         [FilterRound] = "Filter round",
         [RunReviewPhase] = "Running review phase",
         [RunFinalPhase] = "Running final phase",
