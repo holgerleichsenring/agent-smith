@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0150b
+goal: "Three classes outside the round-handler family still violate the 120-line
+  limit: ObservationParser (330 lines), ProjectAnalyzer (192 lines),
+  ConvergenceCheckHandler (286). Decompose by responsibility — composition,
+  not extracted helpers."
+
+requires: ["p0147a"]
+
+scope:
+  in: |
+    (1) ObservationParser → ≤ 80 lines. Today it owns: JSON parsing
+        (post-p0147a routes through ITolerantJsonParser), confidence-
+        threshold application, observation normalization, ResilientJson
+        recovery for truncated arrays (already extracted). New service:
+        IObservationNormalizer (instance) — owns the empty-string,
+        whitespace, default-fields, downgrade-on-low-confidence rules.
+        ObservationParser becomes an orchestrator that calls
+        ITolerantJsonParser + IObservationNormalizer.
+
+    (2) ProjectAnalyzer → ≤ 80 lines. Today it owns: language detection
+        (file extensions + manifest patterns), framework detection (pom,
+        package.json patterns), file-inventory aggregation. New services:
+        ILanguageDetector + IFrameworkDetector. ProjectAnalyzer becomes
+        a thin orchestrator that asks each detector.
+
+    (3) ConvergenceCheckHandler → ≤ 80 lines. Post-p0146c the legacy
+        OBJECTION/AGREE fallback is gone. What's left is the structured-
+        LLM-call + result interpretation. New service:
+        IConvergenceEvaluator — runs the LLM call, parses the
+        ConvergenceResult JSON, returns a typed verdict.
+
+    (4) Phase-history comments stripped from the three touched files +
+        the new services.
+
+  out: |
+    Round-handler family decomposition (Filter / Verify / GeneratePlan /
+    Bootstrap / ApiSkill). That's p0147g — runs in parallel with this
+    phase, disjoint file sets.
+
+    Behavioural changes. Pure refactor — same outputs pre/post.
+
+decisions:
+  - key: |
+      One service per responsibility per parent class. Reason: each
+      extracted service has a single clear job (normalize, detect-language,
+      detect-framework, evaluate-convergence). No "and"-named services.
+  - key: |
+      Detectors as separate services rather than a polymorphic
+      IProjectInspector. Reason: language detection and framework
+      detection use different signals and run independently; merging
+      them via polymorphism re-creates the god-class problem at the
+      interface level.
+  - key: |
+      IConvergenceEvaluator runs the LLM call directly rather than
+      taking pre-parsed JSON. Reason: the handler shouldn't know which
+      LLM-shaped service handles the convergence prompt — that's the
+      evaluator's job. Composition with the chat-client factory stays
+      inside the evaluator.
+
+steps:
+  - id: observation-decomp
+    action: "Extract IObservationNormalizer + service; ObservationParser shrinks."
+    new:
+      - "src/AgentSmith.Contracts/Services/IObservationNormalizer.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs (target ≤ 80 lines)"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParserExtensions.cs (or relevant feature-set DI registration — add the normalizer)"
+
+  - id: project-analyzer-split
+    action: "Extract ILanguageDetector + IFrameworkDetector; ProjectAnalyzer becomes an orchestrator."
+    new:
+      - "src/AgentSmith.Contracts/Services/ILanguageDetector.cs"
+      - "src/AgentSmith.Contracts/Services/IFrameworkDetector.cs"
+      - "src/AgentSmith.Application/Services/LanguageDetector.cs"
+      - "src/AgentSmith.Application/Services/FrameworkDetector.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/ProjectAnalyzer.cs (target ≤ 60 lines)"
+      - "(relevant feature-set DI — register the two detectors)"
+
+  - id: convergence-evaluator
+    action: "Extract IConvergenceEvaluator; ConvergenceCheckHandler shrinks."
+    new:
+      - "src/AgentSmith.Contracts/Services/IConvergenceEvaluator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceEvaluator.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceCheckHandler.cs (target ≤ 80 lines)"
+      - "(relevant feature-set DI — register the evaluator)"
+
+tests:
+  - "Per new service: focused unit-test pack (5-10 cases each)."
+  - "Existing ObservationParser tests pass through the new pipeline bit-for-bit."
+  - "Existing ProjectAnalyzer tests pass against the new orchestrator-shape."
+  - "Existing ConvergenceCheckHandler tests pass against the evaluator-composed shape."
+  - "Smoke: /smoke fast green."
+
+done:
+  - "ObservationParser ≤ 80 lines."
+  - "ProjectAnalyzer ≤ 60 lines."
+  - "ConvergenceCheckHandler ≤ 80 lines."
+  - "Three new services + their interfaces exist and are tested."
+  - "Full test suite green; /smoke fast green."

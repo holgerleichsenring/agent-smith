@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0150a
+goal: "Finish the PipelineExecutor cut from p0147e. Today PipelineExecutor.cs
+  is 156 lines + PipelineExecutorLegacy.cs is 350+, behind a
+  PIPELINE_EXECUTOR_USE_LEGACY env flag with a doubled Theory-test pack.
+  The parallel-class window has been load-bearing for the new shape with
+  no operator reports of divergence — delete the legacy class, the flag,
+  and the harness. Polish the live PipelineExecutor to ≤ 80 lines."
+
+requires: ["p0147e", "p0149"]
+
+scope:
+  in: |
+    (1) Delete PipelineExecutorLegacy.cs entirely.
+    (2) Delete the PIPELINE_EXECUTOR_USE_LEGACY env-flag plumbing — the
+        feature flag check + the conditional DI registration in the
+        feature-set extension that holds PipelineExecutor (post-p0149
+        this is `PipelineExecutionExtensions.cs` under Application/Services/Pipeline/).
+    (3) Delete PipelineExecutorTestHarness.cs — it exists because tests
+        parametrise across both executor shapes. Tests now instantiate
+        PipelineExecutor directly via DI.
+    (4) Convert all [Theory]/[MemberData] tests across both executor
+        shapes to plain [Fact] tests against the live PipelineExecutor.
+        Touched test files:
+        - tests/AgentSmith.Tests/Services/PipelineExecutorTests.cs
+        - tests/AgentSmith.Tests/Services/PipelineExecutorLifecycleFailureTests.cs
+        - tests/AgentSmith.Tests/Services/PipelineExecutorPersistGuardTests.cs
+        - tests/AgentSmith.Tests/Services/PipelineExecutorSandboxResolutionTests.cs
+    (5) Polish PipelineExecutor.cs to ≤ 80 lines. Today's structure is
+        already composed (StepRunner / ErrorHandler / SandboxCoordinator);
+        any leftover orchestration can move into the existing three
+        services or, if it's truly executor-only, stays.
+    (6) Strip phase-history comments (`// p0147e:`, etc.) from the
+        executor + the three composed services.
+
+  out: |
+    Behavioural changes. Same pipeline behaviour pre/post. The legacy
+    class delete is a pure removal of code that's been redundant.
+
+    Composed-service decomposition (StepRunner / ErrorHandler /
+    SandboxCoordinator). Those were the p0147e work and stay.
+
+    The other class-size restorations (Round-Handler family, ObservationParser,
+    ProjectAnalyzer, ConvergenceCheck) — those land in p0147g + p0150b.
+
+decisions:
+  - key: |
+      Delete PipelineExecutorLegacy entirely now. Reason: one release
+      cycle of stability on the new shape is the bar; we've had that.
+      Parallel-class windows that linger become operator pitfalls — the
+      flag drifts, the doubled tests rot, the cognitive load of "which
+      one runs in prod" persists. Defensive preservation has a cost too.
+  - key: |
+      Tests collapse from [Theory] to [Fact]. Reason: the parametrisation
+      existed only to assert parity between shapes. With one shape, the
+      Theory machinery is dead weight. Each test asserts the same
+      behaviour against the live executor.
+  - key: |
+      Phase-history comments stripped from touched files only — not a
+      repo-wide sweep this phase. Reason: drive-by comment removal in
+      unrelated files makes the diff harder to review. The repo-wide
+      sweep is its own pass when reviewers want it.
+
+steps:
+  - id: delete-legacy
+    action: "Remove PipelineExecutorLegacy.cs + the test harness + the env-flag DI plumbing."
+    delete:
+      - "src/AgentSmith.Application/Services/PipelineExecutorLegacy.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorTestHarness.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs (drop legacy registration + the UseLegacyExecutor() helper)"
+
+  - id: detheory-tests
+    action: "Each PipelineExecutor*Tests file: convert [Theory] tests to [Fact] against the live executor; drop the Shape enumeration; use DI to resolve PipelineExecutor."
+    modify:
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorLifecycleFailureTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorPersistGuardTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineExecutorSandboxResolutionTests.cs"
+
+  - id: polish-executor
+    action: "PipelineExecutor.cs → ≤ 80 lines. Strip phase-history comments."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs"
+      - "src/AgentSmith.Application/Services/PipelineStepRunner.cs (strip phase comments)"
+      - "src/AgentSmith.Application/Services/PipelineErrorHandler.cs (strip phase comments)"
+      - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs (strip phase comments)"
+
+tests:
+  - "Existing PipelineExecutor*Tests pass against the live executor; same coverage."
+  - "Smoke: /smoke fast green. CLI binary boots, dry-runs work, docker compose validates."
+  - "grep -rn 'PipelineExecutorLegacy' src/ tests/ returns 0 results."
+  - "grep -rn 'PIPELINE_EXECUTOR_USE_LEGACY' src/ tests/ returns 0 results."
+
+done:
+  - "PipelineExecutorLegacy + the feature flag + the test harness are gone."
+  - "PipelineExecutor.cs ≤ 80 lines."
+  - "All four PipelineExecutor*Tests files refactored to [Fact] against the live executor."
+  - "Full test suite green; /smoke fast green."
