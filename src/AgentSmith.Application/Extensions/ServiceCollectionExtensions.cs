@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Activation;
@@ -6,22 +7,21 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Activation;
-using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Loop;
-using AgentSmith.Application.PipelineDataFlows;
+using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Pipeline;
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tools;
-using AgentSmith.Contracts.Persistence;
-using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Persistence;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,8 +32,12 @@ namespace AgentSmith.Application;
 
 /// <summary>
 /// Registers all application services (commands, handlers, pipeline, use cases) with the DI container.
+/// Helpers are split into partial files by subdomain (SkillRuntime, PipelineHandlers,
+/// TriageServices, SecurityHandlers, BootstrapHandlers, ContextBuilders, PipelineRuntime)
+/// so each file stays under the 120-line limit. The public entry point and the shared
+/// AddBuilder helper live here.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAgentSmithCommands(this IServiceCollection services)
     {
@@ -49,12 +53,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
         services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
         services.AddSingleton<AgentSmithConfigValidator>();
-        services.AddSingleton<Services.Configuration.PollingConfigDeprecationWarner>();
+        services.AddSingleton<PollingConfigDeprecationWarner>();
+        AddPipelineHandlers(services);
+        AddTriageServices(services);
+        AddSecurityHandlers(services);
+        AddBootstrapHandlers(services);
+        AddSkillRuntime(services);
+        AddContextBuilders(services);
+        AddPipelineRuntime(services);
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
         RegisterLoopServices(services);
-        AddWebhookCommentIntent(services);
         return services;
     }
 
@@ -99,6 +109,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
     }
 
+        
     private static void RegisterHandlers(IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
