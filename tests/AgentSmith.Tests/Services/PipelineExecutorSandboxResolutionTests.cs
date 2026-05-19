@@ -9,55 +9,44 @@ using Moq;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0135: the executor's sandbox lazy-boot drives SandboxLanguageResolver
-/// for sandbox-requiring pipelines and feeds the result into SandboxSpecBuilder.
+/// The executor's sandbox lazy-boot drives SandboxLanguageResolver for
+/// sandbox-requiring pipelines and feeds the result into SandboxSpecBuilder.
 /// These tests verify the end-to-end wiring: resolver-returned language →
 /// matching toolchain image in the SandboxSpec the factory ultimately sees.
-///
-/// p0147e: lazy-boot lives in PipelineSandboxCoordinator now. Parametrised
-/// across both executor shapes; same observable behaviour either way.
+/// Lazy-boot lives in PipelineSandboxCoordinator.
 /// </summary>
 public sealed class PipelineExecutorSandboxResolutionTests
 {
-    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
-
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task TryCreateSandbox_ResolverReturnsCsharpFromHostCache_BuildsSpecWithDotnetImage(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task TryCreateSandbox_ResolverReturnsCsharpFromHostCache_BuildsSpecWithDotnetImage()
     {
-        var spec = await CaptureSpecForResolverResult(shape,
+        var spec = await CaptureSpecForResolverResult(
             new ToolchainResolutionResult("csharp", SandboxToolchainResolutionLayer.HostCache));
 
         spec.ToolchainImage.Should().Be("mcr.microsoft.com/dotnet/sdk:8.0");
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task TryCreateSandbox_ResolverReturnsTypeScriptFromRemoteContextYaml_BuildsSpecWithNodeImage(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task TryCreateSandbox_ResolverReturnsTypeScriptFromRemoteContextYaml_BuildsSpecWithNodeImage()
     {
-        var spec = await CaptureSpecForResolverResult(shape,
+        var spec = await CaptureSpecForResolverResult(
             new ToolchainResolutionResult("TypeScript", SandboxToolchainResolutionLayer.RemoteContextYaml));
 
         spec.ToolchainImage.Should().Be("node:20-bookworm-slim");
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task TryCreateSandbox_ResolverReturnsNullFromGenericFallback_BuildsSpecWithGenericImage(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task TryCreateSandbox_ResolverReturnsNullFromGenericFallback_BuildsSpecWithGenericImage()
     {
-        var spec = await CaptureSpecForResolverResult(shape,
+        var spec = await CaptureSpecForResolverResult(
             new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
 
         spec.ToolchainImage.Should().Be("buildpack-deps:bookworm-scm");
     }
 
-    private static async Task<SandboxSpec> CaptureSpecForResolverResult(
-        PipelineExecutorTestHarness.Shape shape, ToolchainResolutionResult resolverResult)
+    private static async Task<SandboxSpec> CaptureSpecForResolverResult(ToolchainResolutionResult resolverResult)
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         h.SandboxLanguageResolverMock
             .Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolverResult);
