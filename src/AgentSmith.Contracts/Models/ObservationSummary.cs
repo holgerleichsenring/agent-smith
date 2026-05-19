@@ -5,11 +5,12 @@ namespace AgentSmith.Contracts.Models;
 /// Replaces FindingSummary (p0123).
 /// </summary>
 public sealed record ObservationSummary(
-    int Total, int High, int Medium, int Low, int Info,
+    int Total, int Critical, int High, int Medium, int Low, int Info,
     int Confirmed, int NotReviewed)
 {
     public static ObservationSummary From(IReadOnlyList<SkillObservation> observations) => new(
         observations.Count,
+        observations.Count(o => o.Severity == ObservationSeverity.Critical),
         observations.Count(o => o.Severity == ObservationSeverity.High),
         observations.Count(o => o.Severity == ObservationSeverity.Medium),
         observations.Count(o => o.Severity == ObservationSeverity.Low),

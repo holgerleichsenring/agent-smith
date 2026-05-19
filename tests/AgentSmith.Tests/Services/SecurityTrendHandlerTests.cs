@@ -48,9 +48,8 @@ public sealed class SecurityTrendHandlerTests
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
         trend.Should().NotBeNull();
-        // p0123: Critical maps to High in ObservationSeverity (no Critical value)
-        trend!.Current.FindingsCritical.Should().Be(0);
-        trend.Current.FindingsHigh.Should().Be(2);
+        trend!.Current.FindingsCritical.Should().Be(1);
+        trend.Current.FindingsHigh.Should().Be(1);
         trend.Current.FindingsMedium.Should().Be(1);
         trend.Current.FindingsRetained.Should().Be(3);
     }
@@ -96,10 +95,9 @@ public sealed class SecurityTrendHandlerTests
 
         pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var trend).Should().BeTrue();
         trend!.Previous.Should().NotBeNull();
-        // p0123: Previous YAML still carries critical from old runs; current is observation-shaped (no Critical).
         trend.Previous!.FindingsCritical.Should().Be(3);
-        trend.CriticalDelta.Should().Be(-3);  // current critical = 0
-        trend.HighDelta.Should().Be(-3);      // 1 critical-mapped-to-high + 1 high - 5 previous high
+        trend.CriticalDelta.Should().Be(-2);  // current critical = 1, previous = 3
+        trend.HighDelta.Should().Be(-4);      // current high = 1, previous = 5
         trend.TotalScans.Should().Be(2);
     }
 
@@ -165,7 +163,6 @@ public sealed class SecurityTrendHandlerTests
         var pipeline = new PipelineContext();
         var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
 
-        // p0123: Critical maps to High (no Critical in framework severity enum)
         var observations = new List<SkillObservation>
         {
             ObservationFactory.Make("CRITICAL", "a.cs", 1, "A critical", "desc", 90),
@@ -178,8 +175,8 @@ public sealed class SecurityTrendHandlerTests
 
         var snapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(pipeline, repo);
 
-        snapshot.FindingsCritical.Should().Be(0);
-        snapshot.FindingsHigh.Should().Be(3);
+        snapshot.FindingsCritical.Should().Be(2);
+        snapshot.FindingsHigh.Should().Be(1);
         snapshot.FindingsMedium.Should().Be(1);
         snapshot.FindingsRetained.Should().Be(5);
         snapshot.Branch.Should().Be("feature/test");

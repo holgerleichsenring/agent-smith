@@ -49,13 +49,14 @@ public sealed class MarkdownOutputStrategy(
 
         var s = ObservationSummary.From(observations);
 
-        sb.AppendLine($"Found **{s.Total}** issues ({s.High} high, {s.Medium} medium, {s.Low} low, {s.Info} info)");
+        sb.AppendLine($"Found **{s.Total}** issues ({s.Critical} critical, {s.High} high, {s.Medium} medium, {s.Low} low, {s.Info} info)");
         sb.AppendLine();
 
         foreach (var o in observations)
         {
             var icon = o.Severity switch
             {
+                ObservationSeverity.Critical => "\ud83d\udd34",
                 ObservationSeverity.High => "\ud83d\udfe0",
                 ObservationSeverity.Medium => "\ud83d\udfe1",
                 ObservationSeverity.Low => "\ud83d\udfe2",

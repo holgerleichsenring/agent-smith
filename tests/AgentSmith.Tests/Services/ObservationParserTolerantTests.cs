@@ -13,7 +13,7 @@ public sealed class ObservationParserTolerantTests
         const string response = """
             [
               {"concern":"security","description":"valid 1","severity":"high","confidence":80,"blocking":false},
-              {"concern":"security","description":"bad row","severity":"critical","confidence":80,"blocking":false},
+              {"concern":"security","description":"bad row","severity":"warning","confidence":80,"blocking":false},
               {"concern":"security","description":"valid 2","severity":"medium","confidence":70,"blocking":false}
             ]
             """;
@@ -32,7 +32,7 @@ public sealed class ObservationParserTolerantTests
     {
         const string response = """
             [
-              {"concern":"security","description":"row 1","severity":"critical","confidence":80,"blocking":false},
+              {"concern":"security","description":"row 1","severity":"warning","confidence":80,"blocking":false},
               {"concern":"security","description":"row 2","severity":"warning","confidence":70,"blocking":false}
             ]
             """;
@@ -49,7 +49,7 @@ public sealed class ObservationParserTolerantTests
     {
         const string response = """
             [
-              {"concern":"security","description":"bad","severity":"critical","confidence":80,"blocking":false}
+              {"concern":"security","description":"bad","severity":"warning","confidence":80,"blocking":false}
             ]
             """;
 

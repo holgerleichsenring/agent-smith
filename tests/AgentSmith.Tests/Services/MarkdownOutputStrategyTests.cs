@@ -29,7 +29,7 @@ public sealed class MarkdownOutputStrategyTests
         var result = MarkdownOutputStrategy.BuildMarkdown(observations);
 
         result.Should().Contain("## Agent Smith Security Review");
-        result.Should().Contain("Found **3** issues (1 high, 1 medium, 1 low, 0 info)");
+        result.Should().Contain("Found **3** issues (0 critical, 1 high, 1 medium, 1 low, 0 info)");
         result.Should().Contain("### 🟠 HIGH: SQL injection");
         result.Should().Contain("**Location:** `src/Api/UserController.cs:47`");
         result.Should().Contain("Desc");
