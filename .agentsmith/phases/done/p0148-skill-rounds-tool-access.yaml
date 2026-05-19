@@ -138,5 +138,5 @@ done:
   - "ISkillRoundToolPolicy + the three concrete policies exist + are tested in isolation."
   - "grep -rn 'ToolSet = Array.Empty<AITool>()' src/ returns 0 results."
   - "Skill / Security / Api / Filter dispatch paths route through the policy."
-  - "Smoke: an api-security-scan run against SampleA shows Read/Grep tool calls in the skill traces (operator-visible via tool_set_size concept in the summary)."
+  - "Smoke: an api-security-scan run against Sample shows Read/Grep tool calls in the skill traces (operator-visible via tool_set_size concept in the summary)."
   - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

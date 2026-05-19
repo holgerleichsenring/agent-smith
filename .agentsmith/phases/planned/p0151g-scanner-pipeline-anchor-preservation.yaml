@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151g
+goal: "Stop destroying scanner anchors before any LLM sees them. The current
+  CompressApiScanFindingsHandler reduces 1357 Nuclei + ZAP + Spectral
+  findings to a 1103-char prose summary + four category slices. By the
+  time the api-vuln-analyst-planner reads its prompt, the template_id,
+  matched_at endpoint, and severity per finding have collapsed into
+  paragraph-level claims. The chain-analyst Filter then trims 23
+  derived observations to 3 — the three generic OWASP-flavoured texts
+  the Sample baseline produced. No raw scanner anchor survives.
+
+  This sub-phase preserves a structured top-N (≈20) of each scanner's
+  highest-confidence findings — full template_id, matched_at, severity,
+  raw matched response excerpt — alongside the existing summary. A
+  new scanner-correlation-judge specialist (in the p0151f catalog)
+  reads the structured top-N, attempts to locate the relevant code
+  for each, and emits source-anchored observations citing both the
+  template_id and a file:line. Findings that cannot be code-correlated
+  pass through as Confirmed (with template_id) so the operator still
+  sees them; they just lack a code anchor."
+
+requires: ["p0151b"]
+
+scope:
+  in: |
+    (1) Structured scanner findings DTO. New record ScannerTopFindings
+        on the pipeline context, separate from the existing prose
+        summary. Carries per-scanner arrays: NucleiFindings (up to
+        20), ZapFindings (all — usually ≤ 10), SpectralCritical (errors
+        only, up to 30). Each entry preserves template_id / rule_id /
+        code, matched_at endpoint, severity, raw extract (capped at
+        500 chars).
+
+    (2) Selection policy. Nuclei: sort by severity (critical > high >
+        medium > low > info), then by uniqueness of matched_at, take
+        top 20. ZAP: take all (the runs in the Sample baseline emit
+        4-10). Spectral: only errors (768 in baseline; take top 30 by
+        severity + rule frequency). The policy is deterministic — the
+        same input produces the same selection — so test fixtures stay
+        stable.
+
+    (3) CompressApiScanFindingsHandler emits both: the existing prose
+        summary (consumed by the recon skills as orientation) AND the
+        structured ScannerTopFindings (consumed by scanner-correlation-
+        judge — defined as a skill in p0151f's catalog, but the
+        plumbing it needs lives here).
+
+    (4) Pipeline-context concept 'scanner_top_findings' so triage can
+        gate the scanner-correlation-judge on its presence.
+
+  out: |
+    Changing which scanners run. Nuclei + ZAP + Spectral configurations
+    stay as-is; their output is what changes.
+
+    Per-finding reachability analysis. Whether a Nuclei-flagged endpoint
+    is actually reachable in production deployment is out of scope —
+    the scanner already ran against the live target, so reachability
+    is implied. Real-vs-stub differentiation can be a future phase.
+
+    Scanner finding deduplication across scanners. If Nuclei and ZAP
+    both flag the same endpoint, both pass through; the scanner-
+    correlation-judge handles the dedupe semantically. Pre-dedupe at
+    the structured layer would couple the scanners' taxonomy.
+
+decisions:
+  - key: |
+      Keep the prose summary AND emit structured top-N. — The prose
+      summary is useful for recon-skills that need quick orientation
+      ('there are 1158 spectral warnings, mostly missing-response-code').
+      The structured top-N is what scanner-correlation-judge consumes.
+      Different consumers, different shapes. alternatives: replace
+      summary with structured (rejected: recon skills' prompts would
+      grow); replace structured with summary (rejected: this is the
+      bug we are fixing).
+
+  - key: |
+      Deterministic selection policy, not LLM-curated. — A reproducible
+      scan must select the same top-N every run for the same input.
+      An LLM-curated selection introduces nondeterminism into the
+      input pipeline. alternatives: LLM-pre-selector skill (rejected:
+      cost + nondeterminism); operator-tunable thresholds
+      (rejected: configuration surface without observable use).
+
+  - key: |
+      Per-scanner top-N rather than a global top-N. — A single global
+      cap of 50 would let Spectral (1158 findings) crowd out ZAP (4).
+      Per-scanner reserves slots for each evidence source. alternatives:
+      global with weighted sampling (rejected: complex; same result
+      as fixed per-scanner).
+
+steps:
+  - id: dto
+    action: "ScannerTopFindings DTO with per-scanner arrays. Lives in Contracts."
+    new:
+      - "src/AgentSmith.Contracts/Models/ScannerTopFindings.cs"
+      - "src/AgentSmith.Contracts/Models/ScannerFinding.cs"
+
+  - id: selection
+    action: "Selection policies per scanner — deterministic sort + take. Pure functions for testability."
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/NucleiTopSelector.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ZapTopSelector.cs"
+      - "src/AgentSmith.Application/Services/Handlers/SpectralTopSelector.cs"
+
+  - id: compressor-modify
+    action: "CompressApiScanFindingsHandler builds both outputs and stores them in pipeline context under ContextKeys.ApiScanCompressedSummary (existing) + ContextKeys.ScannerTopFindings (new)."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CompressApiScanFindingsHandler.cs"
+      - "src/AgentSmith.Application/Models/ContextKeys.cs (add ScannerTopFindings)"
+
+  - id: concept
+    action: "Concept vocabulary entry 'scanner_top_findings' so triage can require it as activates_when input for scanner-correlation-judge."
+    modify:
+      - "(cross-repo agent-smith-skills) skills/concept-vocabulary.yaml — add scanner_top_findings concept (list)"
+
+  - id: prompt-projection
+    action: "ApiSkillPromptStrategy (or the prompt strategy used by scanner-correlation-judge) projects ScannerTopFindings to a compact JSON section in the skill prompt."
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/ApiSkillPromptStrategy.cs"
+
+  - id: tests
+    action: "Selector determinism, compressor produces both outputs, prompt projection includes scanner anchors."
+    new:
+      - "tests/AgentSmith.Tests/Handlers/NucleiTopSelectorTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/ZapTopSelectorTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/SpectralTopSelectorTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/CompressApiScanFindingsAnchorsTests.cs"
+
+tests:
+  - "NucleiTopSelector_SameInput_ReturnsSameSelection"
+  - "NucleiTopSelector_OverTwentyHighSeverity_TakesTopTwenty"
+  - "NucleiTopSelector_PreservesTemplateIdAndMatchedAt"
+  - "ZapTopSelector_AllFindingsUnderCap_TakesAll"
+  - "SpectralTopSelector_ErrorsOnly_FiltersWarnings"
+  - "SpectralTopSelector_OverCap_TakesByFrequency"
+  - "CompressApiScanFindings_EmitsBothPrasoSummaryAndStructured"
+  - "CompressApiScanFindings_RawExcerptCappedAt500Chars"
+  - "ApiSkillPromptStrategy_ScannerCorrelationJudge_IncludesStructuredTopN"
+
+done:
+  - "ScannerTopFindings DTO lives in pipeline context after CompressApiScanFindings runs."
+  - "Smoke against Sample api-security-scan: scanner-correlation-judge prompt includes a JSON array of top-N findings with template_id + matched_at preserved."
+  - "Final output from a baseline rerun (informational; full validation lives in p0151h): at least one observation in the final report cites a Nuclei template_id."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

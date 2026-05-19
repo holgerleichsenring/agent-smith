@@ -90,4 +90,4 @@ done:
   - "Five sub-phase specs landed in .agentsmith/phases/planned/"
   - "All five sub-phases implemented and merged"
   - "grep -rn 'Regex\\|RegularExpressions' src/ shows only the legitimate-keep set documented in scope.out"
-  - "Operator smoke against SampleA (api-security-scan) succeeds with handler-mapped findings"
+  - "Operator smoke against Sample (api-security-scan) succeeds with handler-mapped findings"

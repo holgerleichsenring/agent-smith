@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Tools;
-using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -11,17 +10,17 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Drives an <see cref="IChatClient"/> through the SandboxToolHost scout tool
-/// subset and parses the model's terminal JSON into a <see cref="ProjectMap"/>.
-/// One retry on JSON-parse failure with the parse error appended to the user
-/// prompt; failure after the retry surfaces to the handler as an exception.
-/// JSON decoding is delegated to <see cref="IProjectMapJsonReader"/>.
+/// Drives an <see cref="IChatClient"/> through the read-only scout tool
+/// subset (ReadFile + Grep + ListFiles) and parses the model's terminal JSON
+/// into a <see cref="ProjectMap"/>. One retry on JSON-parse failure with the
+/// parse error appended to the user prompt; failure after the retry surfaces
+/// to the handler as an exception. JSON decoding is delegated to
+/// <see cref="IProjectMapJsonReader"/>.
 /// </summary>
 public sealed class ProjectAnalyzer(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     IProjectMapJsonReader mapJsonReader,
-    IDecisionLogger decisionLogger,
     ILogger<ProjectAnalyzer> logger) : IProjectAnalyzer
 {
     public async Task<ProjectMap> AnalyzeAsync(
@@ -29,7 +28,8 @@ public sealed class ProjectAnalyzer(
     {
         var systemPrompt = prompts.Get("project-analyzer-system");
         var userPrompt = $"Repository to analyze: {repositoryPath}\n\nStart by listing the root directory.";
-        var tools = new SandboxToolHost(sandbox, decisionLogger, repoPath: repositoryPath).GetScoutTools();
+        var fs = new FilesystemToolHost(sandbox, repositoryPath);
+        var tools = AgenticToolSurface.Scout(fs);
         var chat = chatClientFactory.Create(agent, TaskType.Primary);
         var options = new ChatOptions
         {

@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services;
 public sealed class SwaggerSpecCompressor(ILogger<SwaggerSpecCompressor> logger) : ISwaggerSpecCompressor
 {
     /// <summary>100k chars — picked so typical 10–50k specs are pass-through but
-    /// near-truncation cases (SampleA's 291k) get compressed. See phase p0147c.</summary>
+    /// near-truncation cases (Sample's 291k) get compressed. See phase p0147c.</summary>
     public const int DefaultSizeThresholdChars = 100_000;
 
     /// <summary>Descriptions over 240 chars get truncated. LLMs use descriptions to

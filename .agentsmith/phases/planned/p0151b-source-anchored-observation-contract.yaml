@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151b
+goal: "Tighten the SkillObservation output contract so a claim of source
+  analysis is mechanically verifiable, and unblock the three source-
+  reviewer judge skills that today fail to load.
+
+  Three concrete gaps the Sample baseline exposed:
+  (1) The api-vuln-analyst-planner SKILL.md instructs the LLM to emit
+      evidence_mode: 'analyzed_from_source' (snake_case). The
+      ObservationParser configures JsonStringEnumConverter with
+      JsonNamingPolicy.CamelCase, which expects 'analyzedFromSource'.
+      The tolerant fallback silently downgrades to Potential and logs a
+      warning — but the observation now lies about its provenance.
+  (2) An AnalyzedFromSource observation can cite any file:line; nothing
+      checks that the file was actually read by this skill call. The
+      Sample run emitted three such claims with zero read tool
+      invocations.
+  (3) The three source-reviewer skills (auth-config-reviewer,
+      controller-implementation-reviewer, upload-validator-reviewer)
+      have role=judge + output_schema=observation; the
+      NewFormatSkillValidator rejects them because block_condition is
+      missing. block_condition is meaningful for gating decisions, but
+      a judge that emits observations is functionally equivalent to a
+      verify_hint investigator — observations carry severity and the
+      consumer decides on action. Forcing block_condition on
+      observation-emitting judges is wrong gating."
+
+requires: ["p0151a"]
+
+scope:
+  in: |
+    (1) EvidenceMode JSON convention unified on snake_case end-to-end.
+        ObservationParser, ConvergenceResultParser, GateObservationParser,
+        and any other JSON converter for enum-shaped observation fields
+        flip from JsonNamingPolicy.CamelCase to JsonNamingPolicy.
+        SnakeCaseLower. This also fixes ObservationConcern, ObservationSeverity,
+        ObservationEffort, and ObservationRelationship if they have the
+        same misalignment. ObservationNormalizer's tolerant fallback
+        stays in place as a belt-and-braces safety net, but the warn
+        rate should drop to near zero for compliant skills.
+
+    (2) Source-anchored validator. New rule in ObservationNormalizer
+        (or an IObservationValidator collaborator if normalizer would
+        breach the class-size limit): if Normalize is given fields with
+        EvidenceMode == AnalyzedFromSource AND a non-empty File, the
+        normalizer asks the active LoopTraceCollector.ReadSet whether
+        File is in the set. If not, the observation is dropped and a
+        warning logged. Skill round handler buffers null instead of the
+        rejected observation. Other evidence_modes (Potential, Confirmed)
+        are unaffected — scanner findings without source anchors stay
+        legitimate.
+
+    (3) NewFormatSkillValidator block_condition rule relaxed: required
+        only when role=judge AND output_schema in {plan, gate}
+        (i.e. block_condition is meaningful for gating outputs).
+        For role=judge + output_schema=observation, block_condition is
+        optional. The three currently failing skills load.
+
+  out: |
+    Reading the file synchronously inside the validator to confirm
+    file:line exists. The ReadSet check is sufficient evidence the LLM
+    saw the file; whether the cited start_line points at the relevant
+    construct is a quality question, not a contract question.
+
+    Rewriting any SKILL.md prompts. The skills will continue saying
+    'evidence_mode: analyzed_from_source' (snake_case is now the wire
+    convention; that matches what they already say). p0151e covers the
+    SKILL.md format upgrade.
+
+    Adding new EvidenceMode values. Three is enough; PotentialFromScanner
+    is not a distinct mode, it is Potential with category=scanner.
+
+decisions:
+  - key: |
+      ReadSet-based validation, not file-exists. — A hallucinated path
+      can pass File.Exists (e.g. /etc/passwd, or a real-but-irrelevant
+      file). ReadSet membership proves the skill actually pulled the
+      file in this call. The trace collector from p0151a has this
+      information for free. alternatives: file-exists check (rejected:
+      hallucination-permeable); LLM-self-attestation (rejected: no LLM
+      should be its own validator).
+
+  - key: |
+      Per-observation drop rather than per-skill abort. — One bad
+      observation should not throw away a skill's other valid output.
+      The normalizer already returns null for unparseable observations
+      (Parser.cs:74). Same path. alternatives: abort skill on bad
+      observation (rejected: noisy, throws away signal); soft-warn only
+      (rejected: prompt instructions get ignored; mechanical gate is
+      the lesson from p0151).
+
+  - key: |
+      block_condition required only for plan/gate output schemas. — A
+      judge that produces observations is a category-judge, not a
+      go/no-go gate; the consumer's policy decides. The original rule
+      was probably written when block_condition was the only judge
+      output mode. alternatives: add block_condition to the three
+      blocked SKILL.md files (rejected: pollutes the wire format with
+      a value nobody reads); split judge into two roles
+      (rejected: more taxonomy without value).
+
+  - key: |
+      Snake-case enum convention chosen over flipping skills to
+      camelCase. — Every other JSON property is snake_case across the
+      observation contract. The mismatch is in the enum converter, not
+      the skill prompts. alternatives: flip skills to camelCase
+      (rejected: many SKILL.md files would need editing, and snake_case
+      is the established repo convention).
+
+steps:
+  - id: enum-snake-case
+    action: "Flip the JsonStringEnumConverter from CamelCase to SnakeCaseLower in every observation-shape parser. Audit other enum-shaped fields (Concern, Severity, Effort) — the LLM may already be emitting snake_case for them too."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ConvergenceResultParser.cs"
+      - "src/AgentSmith.Application/Services/Handlers/GateObservationParser.cs"
+
+  - id: source-anchored-validator
+    action: "Add the ReadSet membership check for AnalyzedFromSource observations. Live in ObservationNormalizer if under the 120-line cap; otherwise split into IObservationSourceValidator."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs (thread LoopTraceCollector through)"
+
+  - id: validator-relaxation
+    action: "block_condition required only when role=judge AND output_schema in {plan, gate}. Update ValidateBlockCondition + matching unit test."
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs"
+      - "src/AgentSmith.Cli/Commands/ValidateConceptsCommand.cs (mirror the same rule for the offline validator)"
+
+  - id: tests
+    action: "Cover snake_case, ReadSet validation, and validator relaxation."
+    new:
+      - "tests/AgentSmith.Tests/Handlers/EvidenceModeSnakeCaseParseTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/SourceAnchoredObservationValidatorTests.cs"
+      - "tests/AgentSmith.Tests/Validation/JudgeWithObservationSchemaLoadsTests.cs"
+
+tests:
+  - "ObservationParser_SnakeCaseEvidenceMode_DeserializesAnalyzedFromSource"
+  - "ObservationParser_SnakeCaseSeverity_DeserializesAllValues"
+  - "ObservationNormalizer_AnalyzedFromSource_FileInReadSet_PreservesObservation"
+  - "ObservationNormalizer_AnalyzedFromSource_FileNotInReadSet_DropsAndWarns"
+  - "ObservationNormalizer_AnalyzedFromSource_EmptyFile_DropsAndWarns"
+  - "ObservationNormalizer_PotentialEvidence_NoReadSetCheck_Preserved"
+  - "ObservationNormalizer_ConfirmedEvidence_NoReadSetCheck_Preserved"
+  - "NewFormatSkillValidator_JudgeWithObservationSchema_NoBlockCondition_Accepts"
+  - "NewFormatSkillValidator_JudgeWithPlanSchema_NoBlockCondition_Rejects"
+  - "NewFormatSkillValidator_JudgeWithGateSchema_NoBlockCondition_Rejects"
+
+done:
+  - "Smoke against Sample api-security-scan: zero 'unknown evidence_mode' warnings logged."
+  - "The three source-reviewer skills (auth-config-reviewer, controller-implementation-reviewer, upload-validator-reviewer) load successfully — no 'Skill format violation' for missing block_condition."
+  - "A hand-crafted skill response that cites an AnalyzedFromSource observation for an unread file produces a dropped-observation warning and the observation is not present in the final output."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."
