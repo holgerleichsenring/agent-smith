@@ -6,11 +6,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Extensions;
 
-internal static partial class ServiceCollectionExtensions
+/// <summary>
+/// Slack + Teams chat adapters. Each builds a typed HttpClient with a 30s timeout
+/// matching the platform's regional routing, wires the per-platform message / card
+/// builders + progress formatter, and registers the adapter as a Singleton —
+/// exposed through IPlatformAdapter so the dispatcher resolves all adapters
+/// uniformly. Teams additionally registers Bot Framework token + JWT validator
+/// + interaction handler.
+/// </summary>
+internal static class ChatAdaptersExtensions
 {
-    // Teams adapter: Bot Framework token provider + Teams API client (typed HttpClients
-    // via IHttpClientFactory, 30 s timeout aligns with Bot Framework regional routing).
-    // Service-URL is resolved per conversation in TeamsApiClient — no BaseAddress is set.
     internal static IServiceCollection AddTeamsAdapter(this IServiceCollection services)
     {
         var options = new TeamsAdapterOptions
@@ -33,8 +38,6 @@ internal static partial class ServiceCollectionExtensions
         return services;
     }
 
-    // Slack adapter: typed HttpClient with 30 s timeout for slack.com/api/* calls,
-    // block builders + progress formatter, and the IPlatformAdapter wire-up.
     internal static IServiceCollection AddSlackAdapter(this IServiceCollection services)
     {
         services.AddSingleton(new SlackAdapterOptions
