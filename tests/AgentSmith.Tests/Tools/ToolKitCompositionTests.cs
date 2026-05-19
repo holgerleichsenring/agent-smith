@@ -28,18 +28,20 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        // p0151a: Plan phase gains RunCommand for recon directory inventory.
-        tools.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles", "RunCommand", "LogDecision", "AskHuman");
+        // Plan phase = read-side filesystem surface + log_decision + ask_human. No write_file / edit.
+        tools.Should().BeEquivalentTo(
+            "read_file", "grep", "glob", "list_files", "run_command", "http_request", "log_decision", "ask_human");
     }
 
     [Fact]
-    public void GetToolsFor_FixBugImplementationPhase_AllSevenToolsAvailable()
+    public void GetToolsFor_FixBugImplementationPhase_AllToolsAvailable()
     {
         var kit = new ToolKit(new AllHostsActivePolicy());
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
-        tools.Should().HaveCount(7);
+        // 8 filesystem-host tools + log_decision + ask_human.
+        tools.Should().HaveCount(10);
     }
 
     [Fact]
@@ -52,7 +54,7 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("message-only", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
-        tools.Should().BeEquivalentTo("LogDecision");
+        tools.Should().BeEquivalentTo("log_decision");
     }
 
     [Fact]
@@ -63,7 +65,7 @@ public sealed class ToolKitCompositionTests
         var tools = NamesOf(kit.GetToolsFor(
             IToolKit.WildcardPipelineName, SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        tools.Should().Contain("ReadFile").And.Contain("LogDecision").And.Contain("AskHuman");
+        tools.Should().Contain("read_file").And.Contain("log_decision").And.Contain("ask_human");
     }
 
     [Fact]
@@ -74,7 +76,7 @@ public sealed class ToolKitCompositionTests
         var tools = NamesOf(kit.GetToolsFor(
             "never-heard-of-this-pipeline", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        tools.Should().Contain("ReadFile").And.Contain("LogDecision").And.Contain("AskHuman");
+        tools.Should().Contain("read_file").And.Contain("log_decision").And.Contain("ask_human");
     }
 
     [Fact]

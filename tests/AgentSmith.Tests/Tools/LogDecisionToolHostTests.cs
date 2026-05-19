@@ -16,7 +16,7 @@ public sealed class LogDecisionToolHostTests
         foreach (var phase in Enum.GetValues<SkillExecutionPhase>())
         {
             var names = host.GetTools(phase, null).Select(f => f.Name).ToList();
-            names.Should().BeEquivalentTo(new[] { "LogDecision" }, $"phase {phase} should expose only LogDecision");
+            names.Should().BeEquivalentTo(new[] { "log_decision" }, $"phase {phase} should expose only log_decision");
         }
     }
 

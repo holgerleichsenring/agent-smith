@@ -51,6 +51,22 @@ public sealed class TracingAIFunctionTests
         trace.ReadSet.Should().Contain("src/Program.cs");
     }
 
+    [Theory]
+    [InlineData("ReadFile")]          // C# method-name default (production via AIFunctionFactory.Create(ReadFile))
+    [InlineData("read_file")]         // explicit snake_case
+    [InlineData("readFile")]          // camelCase
+    [InlineData("read-file")]         // kebab-case
+    public async Task InvokeAsync_ReadFile_PopulatesReadSet_RegardlessOfNamingConvention(string toolName)
+    {
+        var trace = new LoopTraceCollector();
+        var inner = AIFunctionFactory.Create((string path) => "ok", name: toolName);
+        var wrapped = new TracingAIFunction(inner, trace);
+
+        await wrapped.InvokeAsync(new AIFunctionArguments { ["path"] = "src/Program.cs" });
+
+        trace.ReadSet.Should().Contain("src/Program.cs");
+    }
+
     [Fact]
     public async Task InvokeAsync_NonReadTool_DoesNotPopulateReadSet()
     {

@@ -29,19 +29,19 @@ public sealed class FilesystemToolHostTests
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Plan, null));
 
-        // p0151a: Plan now matches the Investigator set so recon skills can
-        // run ls/find for directory inventory.
-        names.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles", "RunCommand");
+        // Plan / Verify / Investigate / Review / Discuss / Filter / Synthesize all share
+        // the read+shell set so recon skills can run ls/find/curl freely at every stage.
+        names.Should().BeEquivalentTo("read_file", "grep", "glob", "list_files", "run_command", "http_request");
     }
 
     [Fact]
-    public void GetTools_ImplementationPhase_ReturnsAllFiveTools()
+    public void GetTools_ImplementationPhase_ReturnsAllTools()
     {
         var host = Build();
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Implementation, null));
 
-        names.Should().BeEquivalentTo("ReadFile", "WriteFile", "ListFiles", "Grep", "RunCommand");
+        names.Should().BeEquivalentTo("read_file", "write_file", "edit", "list_files", "grep", "glob", "run_command", "http_request");
     }
 
     [Fact]
@@ -51,17 +51,46 @@ public sealed class FilesystemToolHostTests
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Verify, null));
 
-        names.Should().Contain("RunCommand").And.NotContain("WriteFile");
+        names.Should().Contain("run_command").And.NotContain("write_file");
     }
 
     [Fact]
-    public void GetTools_BootstrapPhase_IncludesWriteFileExcludesRunCommand()
+    public void GetTools_BootstrapPhase_IncludesWriteCapableSet()
     {
         var host = Build();
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Bootstrap, null));
 
-        names.Should().Contain("WriteFile").And.NotContain("RunCommand");
+        // Bootstrap and Implementation are the write-capable sets; both expose
+        // edit (targeted string-replace) and write_file (full overwrite).
+        names.Should().BeEquivalentTo("read_file", "grep", "glob", "list_files", "write_file", "edit", "run_command", "http_request");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(SkillExecutionPhase.Review)]
+    [InlineData(SkillExecutionPhase.Discuss)]
+    [InlineData(SkillExecutionPhase.Filter)]
+    [InlineData(SkillExecutionPhase.Synthesize)]
+    public void GetTools_EveryReadPhase_ExposesRunCommand(SkillExecutionPhase? phase)
+    {
+        var host = Build();
+
+        var names = NamesOf(host.GetTools(phase, null));
+
+        names.Should().Contain("run_command");
+    }
+
+    [Fact]
+    public async Task RunCommand_BlocksDestructiveCommand_ReturnsErrorWithoutInvokingSandbox()
+    {
+        var sandbox = new Mock<ISandbox>(MockBehavior.Strict);
+        var host = Build(sandbox.Object);
+
+        var result = await host.RunCommand("rm -rf /");
+
+        result.Should().Contain("blocked").And.Contain("destructive");
+        sandbox.Verify(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -41,9 +41,9 @@ public sealed class ToolKitTests
 
         // p0151a: Plan-phase recon skills need ls/find via run_command for
         // directory inventory. WriteFile still excluded — Plan is read-side only.
-        tools.Should().Contain("ReadFile").And.Contain("Grep").And.Contain("ListFiles")
-             .And.Contain("RunCommand").And.Contain("LogDecision").And.Contain("AskHuman");
-        tools.Should().NotContain("WriteFile");
+        tools.Should().Contain("read_file").And.Contain("grep").And.Contain("list_files")
+             .And.Contain("run_command").And.Contain("log_decision").And.Contain("ask_human");
+        tools.Should().NotContain("write_file");
     }
 
     [Fact]
@@ -53,9 +53,10 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, hosts));
 
-        tools.Should().HaveCount(7);
+        // 8 filesystem-host tools (read, write, edit, list, grep, glob, run, http) + log_decision + ask_human
+        tools.Should().HaveCount(10);
         tools.Should().Contain(new[]
-            { "ReadFile", "WriteFile", "ListFiles", "Grep", "RunCommand", "LogDecision", "AskHuman" });
+            { "read_file", "write_file", "edit", "list_files", "grep", "glob", "run_command", "http_request", "log_decision", "ask_human" });
     }
 
     [Fact]
@@ -65,19 +66,20 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Verify, null, hosts));
 
-        tools.Should().Contain("RunCommand");
-        tools.Should().NotContain("WriteFile");
+        tools.Should().Contain("run_command");
+        tools.Should().NotContain("write_file");
     }
 
     [Fact]
-    public void GetToolsFor_BootstrapPhase_IncludesWriteFileExcludesRunCommand()
+    public void GetToolsFor_BootstrapPhase_IncludesWriteFileAndRunCommand()
     {
         var (kit, hosts) = Build();
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Bootstrap, null, hosts));
 
-        tools.Should().Contain("WriteFile");
-        tools.Should().NotContain("RunCommand");
+        // Bootstrap is write-capable; raw shell access (run_command) is universally available.
+        tools.Should().Contain("write_file");
+        tools.Should().Contain("run_command");
     }
 
     [Fact]
@@ -87,7 +89,8 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", null, null, hosts));
 
-        tools.Should().HaveCount(7);
+        // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
+        tools.Should().HaveCount(10);
     }
 
     [Fact]
@@ -97,6 +100,6 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Investigate, null, hosts));
 
-        tools.Should().Contain("RunCommand");
+        tools.Should().Contain("run_command");
     }
 }
