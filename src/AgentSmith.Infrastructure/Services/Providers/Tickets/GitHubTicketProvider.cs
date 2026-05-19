@@ -54,17 +54,10 @@ public sealed class GitHubTicketProvider : ITicketProvider
     }
 
     public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
-        TicketId ticketId, CancellationToken cancellationToken)
-    {
-        var refs = await GetAttachmentRefsAsync(ticketId, cancellationToken);
-        var results = new List<TicketImageAttachment>(refs.Count);
-        foreach (var r in refs)
-        {
-            var content = await _attachmentLoader.DownloadAsync(r, cancellationToken);
-            if (content is not null) results.Add(new TicketImageAttachment(r, content));
-        }
-        return results;
-    }
+        TicketId ticketId, CancellationToken cancellationToken) =>
+        await TicketImageAttachmentDownloader.DownloadAllAsync(
+            await GetAttachmentRefsAsync(ticketId, cancellationToken),
+            _attachmentLoader.DownloadAsync, cancellationToken);
 
     public async Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
