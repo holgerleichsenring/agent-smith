@@ -1,5 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Webhooks;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
@@ -7,10 +9,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles GitLab Note Hook events on Merge Requests.
-/// Parses agent commands and triggers the appropriate pipeline.
+/// Handles GitLab Note Hook events on Merge Requests. p0146e: pipeline + ticket
+/// resolution is delegated to <see cref="CommentIntentParser"/> + IIntentParser.
 /// </summary>
 public sealed class GitLabMrCommentWebhookHandler(
+    CommentIntentParser commentIntentParser,
+    ServerContext serverContext,
     ILogger<GitLabMrCommentWebhookHandler> logger) : IWebhookHandler
 {
     private static readonly HashSet<string> AllowedPipelines = new(StringComparer.OrdinalIgnoreCase)
@@ -23,7 +27,7 @@ public sealed class GitLabMrCommentWebhookHandler(
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "note hook";
 
-    public Task<WebhookResult> HandleAsync(
+    public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
@@ -37,7 +41,7 @@ public sealed class GitLabMrCommentWebhookHandler(
             // Only handle notes on merge requests
             var noteableType = attrs.GetProperty("noteable_type").GetString() ?? "";
             if (!noteableType.Equals("MergeRequest", StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult(new WebhookResult(false, null, null));
+                return WebhookResult.NotHandled();
 
             var commentBody = attrs.GetProperty("note").GetString() ?? "";
             var commentId = attrs.GetProperty("id").GetInt64().ToString();
@@ -48,63 +52,62 @@ public sealed class GitLabMrCommentWebhookHandler(
             var mrIid = root.GetProperty("merge_request")
                 .GetProperty("iid").GetInt32();
 
-            var intentType = CommentIntentParser.Parse(commentBody, out var pipeline, out var arguments, out _);
+            var parsed = await commentIntentParser.ParseAsync(
+                commentBody, serverContext.ConfigPath, cancellationToken);
 
-            switch (intentType)
+            switch (parsed.Type)
             {
                 case CommentIntentType.NewJob:
-                    if (pipeline is not null && !AllowedPipelines.Contains(pipeline))
+                    var pipeline = parsed.Request!.PipelineName;
+                    if (!AllowedPipelines.Contains(pipeline))
                     {
                         logger.LogInformation(
                             "Ignoring MR comment from {Author} on {Repo}!{Mr}: pipeline={Pipeline} is not allowed",
                             authorLogin, repoFullName, mrIid, pipeline);
-                        return Task.FromResult(new WebhookResult(false, null, null));
+                        return WebhookResult.NotHandled();
                     }
 
-                    var triggerInput = BuildTriggerInput(pipeline!, arguments, repoFullName, mrIid);
+                    var triggerInput = BuildTriggerInput(parsed.Request, repoFullName, mrIid);
                     logger.LogInformation(
                         "MR comment command from {Author} on {Repo}!{Mr}: pipeline={Pipeline}",
                         authorLogin, repoFullName, mrIid, pipeline);
-                    return Task.FromResult(new WebhookResult(true, triggerInput, pipeline));
+                    return new WebhookResult(true, triggerInput, pipeline);
 
                 case CommentIntentType.Help:
                     logger.LogInformation(
                         "MR comment help request from {Author} on {Repo}!{Mr}",
                         authorLogin, repoFullName, mrIid);
-                    return Task.FromResult(new WebhookResult(false, null, null));
+                    return WebhookResult.NotHandled();
 
                 case CommentIntentType.DialogueApprove:
                 case CommentIntentType.DialogueReject:
-                    var answer = intentType == CommentIntentType.DialogueApprove ? "yes" : "no";
-                    CommentIntentParser.Parse(commentBody, out _, out _, out var parsedComment);
+                    var answer = parsed.Type == CommentIntentType.DialogueApprove ? "yes" : "no";
                     var dialogueData = new DialogueAnswerData(
                         Platform: "gitlab",
                         RepoFullName: repoFullName,
                         PrIdentifier: mrIid.ToString(),
                         Answer: answer,
-                        Comment: parsedComment,
+                        Comment: parsed.DialogueComment,
                         AuthorLogin: authorLogin);
                     logger.LogInformation(
                         "MR comment dialogue {Intent} from {Author} on {Repo}!{Mr}",
-                        intentType, authorLogin, repoFullName, mrIid);
-                    return Task.FromResult(new WebhookResult(true, null, null, dialogueData));
+                        parsed.Type, authorLogin, repoFullName, mrIid);
+                    return new WebhookResult(true, null, null, dialogueData);
 
                 default:
-                    return Task.FromResult(new WebhookResult(false, null, null));
+                    return WebhookResult.NotHandled();
             }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitLab MR comment webhook");
-            return Task.FromResult(new WebhookResult(false, null, null));
+            return WebhookResult.NotHandled();
         }
     }
 
-    private static string BuildTriggerInput(string pipeline, string? arguments, string repoFullName, int mrIid)
+    private static string BuildTriggerInput(PipelineRequest request, string repoFullName, int mrIid)
     {
-        if (!string.IsNullOrEmpty(arguments))
-            return $"{pipeline} {arguments}";
-
-        return $"{pipeline} mr:{repoFullName}!{mrIid}";
+        var ticketSegment = request.TicketId is not null ? $" #{request.TicketId.Value}" : "";
+        return $"{request.PipelineName}{ticketSegment} mr:{repoFullName}!{mrIid}";
     }
 }
