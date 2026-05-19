@@ -6,12 +6,14 @@ using AgentSmith.Contracts.Providers;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Compresses a SwaggerSpec into a concise text representation
-/// for LLM prompt injection. Extracts schemas, endpoints, security schemes.
+/// Renders a <see cref="SwaggerSpec"/> as a concise text view for LLM prompt
+/// injection. Extracts schemas, endpoints, security schemes. p0147c renamed this
+/// class from <c>SwaggerSpecCompressor</c> to free the name for the new spec-
+/// shrinker (which returns a <see cref="SwaggerSpec"/>, not a string).
 /// </summary>
-internal sealed class SwaggerSpecCompressor
+internal sealed class SwaggerSpecTextRenderer
 {
-    internal string Compress(SwaggerSpec spec)
+    internal string Render(SwaggerSpec spec)
     {
         var sb = new StringBuilder();
 
