@@ -46,6 +46,8 @@ deploy/docker-compose.override.yml
 ## Claude Code
 .claude/
 !.claude/prompt.md
+!.claude/commands/
+!.claude/commands/**
 
 ## Generated output
 site/
