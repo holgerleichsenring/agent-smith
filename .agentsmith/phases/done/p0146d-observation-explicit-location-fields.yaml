@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146d
+goal: "ObservationParser regex-fishes `file:line` substrings and HttpEndpoint
+  patterns out of the LLM-emitted `description` text. Skills already have
+  structured `file` / `start_line` / `api_path` fields on the SkillObservation
+  record (audit) — the regex post-pass is patching for skills that didn't
+  populate them. Lift the contract: skills must emit those fields directly,
+  drop the regex post-extraction."
+
+requires: ["p0146"]
+
+scope:
+  in: |
+    (1) Audit SkillObservation record fields and the structured-output JSON
+        schema. Confirm `file`, `start_line`, `end_line`, `api_path`,
+        `schema_name` are all on the record (they are, per the SkillObservation
+        definition in Contracts).
+
+    (2) ObservationParser.cs: drop FileLineRegex + HttpEndpointRegex + their
+        post-parse usage. JSON is parsed once; if the LLM didn't populate
+        file/line/api_path the values stay null. No regex-fishing on description.
+
+    (3) Cross-repo (agent-smith-skills): SKILL.md prompts that currently embed
+        `file:line` in description text (audit by grep) get instructions to
+        populate the structured fields directly. Schema doc already names the
+        fields; just enforce the contract.
+
+    (4) Output strategies (Markdown / SARIF / Summary): confirm they read from
+        the structured fields, not from description. Update any that fall back
+        to description-parsing.
+
+  out: |
+    Adding new fields to SkillObservation. Existing fields suffice.
+
+    Other regex-extraction sites (Convergence / Comment / Intent — p0146c,
+    p0146e, p0146b).
+
+decisions:
+  - key: |
+      Drop the regex fallback even if some skills currently don't populate the
+      structured fields. Reason: skills are framework code, easy to fix at the
+      prompt level. The C# fallback hides under-specified prompts behind a
+      best-effort regex that may extract wrong tuples (file path with a colon
+      in it, multi-line descriptions, etc.). -- alternatives: keep fallback
+      (rejected: same bug class).
+
+steps:
+  - id: audit-skill-prompts
+    action: "Grep agent-smith-skills SKILL.md files for description templates that embed `file:line` or URLs. List skills that need their prompts updated to emit structured fields."
+    modify:
+      - "(populate after audit) — likely candidates: api-vuln-analyst-investigator, dast-analyst, response-analyst, false-positive-filter, anonymous-attacker, low-privilege-attacker."
+
+  - id: lift-contract-in-skills
+    action: "Update each identified SKILL.md output section: 'set file / start_line / api_path / schema_name as separate JSON fields; description is the human-readable headline only, no embedded location.'"
+
+  - id: drop-regex-in-parser
+    action: "ObservationParser.cs: delete FileLineRegex + HttpEndpointRegex + their post-parse usage."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: lines ~24-26 + their callers — delete."
+
+  - id: verify-output-strategies
+    action: "Confirm Console / Markdown / SARIF / Summary output strategies read from structured fields. Update any reads of description that should use file / api_path."
+
+tests:
+  - "ObservationParser test pack: skill emits JSON with structured file/line/api_path → record has them. JSON with empty structured fields → record has nulls (no regex fallback)."
+  - "SARIF output strategy renders artifactLocation from observation.File, not from a description regex."
+  - "Skill prompt smoke (agent-smith-skills): per-skill round emits JSON with structured fields populated where applicable."
+
+done:
+  - "ObservationParser has zero Regex usage."
+  - "All skills audited; prompts populate structured fields directly."
+  - "Output strategies confirmed reading structured fields."
+  - "Full test suite green."
