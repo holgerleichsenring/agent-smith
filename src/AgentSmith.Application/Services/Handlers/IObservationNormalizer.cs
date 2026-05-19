@@ -31,20 +31,20 @@ public interface IObservationNormalizer
 /// for <see cref="IObservationNormalizer"/>.
 /// </summary>
 public sealed record RawObservationFields(
-    ObservationConcern Concern,
+    string? Concern,
     string Description,
     string? Suggestion,
     bool Blocking,
-    ObservationSeverity Severity,
+    string? Severity,
     int Confidence,
     string? Rationale,
-    ObservationEffort? Effort,
+    string? Effort,
     string? File,
     int StartLine,
     int? EndLine,
     string? ApiPath,
     string? SchemaName,
-    EvidenceMode? EvidenceMode,
+    string? EvidenceMode,
     string? ReviewStatus,
     string? Category,
     string? Details);
