@@ -66,6 +66,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<NoOpSkillOutputValidator>();
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
         services.AddSingleton<RetryCoordinator>();
+        // p0147b: stateless factory that maps Incomplete/FailedRuntime outcomes
+        // into typed execution-limit / execution-error SkillObservations so
+        // silent skill drops become pipeline-visible.
+        services.AddSingleton<RuntimeObservationFactory>();
         // p0126c: SkillCallRuntime is scoped (one per pipeline run); composes the
         // five collaborator services into the public ExecuteAsync flow.
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();

@@ -22,13 +22,16 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     private readonly OutcomeClassifier _classifier;
     private readonly RetryCoordinator _retry;
     private readonly SkillOutputValidatorFactory _validatorFactory;
+    private readonly RuntimeObservationFactory _runtimeObservationFactory;
     private readonly ILogger<SkillCallRuntime> _logger;
 
     public SkillCallRuntime(
         IChatClientFactory chatFactory,
         PipelineConcurrencyGate gate, LoopLimitsConfig limits,
         OutcomeClassifier classifier, RetryCoordinator retry,
-        SkillOutputValidatorFactory validatorFactory, ILogger<SkillCallRuntime> logger)
+        SkillOutputValidatorFactory validatorFactory,
+        RuntimeObservationFactory runtimeObservationFactory,
+        ILogger<SkillCallRuntime> logger)
     {
         _chatFactory = chatFactory;
         _gate = gate;
@@ -36,6 +39,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         _classifier = classifier;
         _retry = retry;
         _validatorFactory = validatorFactory;
+        _runtimeObservationFactory = runtimeObservationFactory;
         _logger = logger;
     }
 
@@ -53,7 +57,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         scope.Finalize(enforcer);
 
         var outcome = ClassifyAndLog(request, retryOutcome, exception, enforcer, trace);
-        return BuildResult(scope, retryOutcome, outcome, exception, trace, enforcer);
+        return BuildResult(request, scope, retryOutcome, outcome, exception, trace, enforcer);
     }
 
     private async Task<(RetryOutcome? Outcome, Exception? Exception)> TryInvokeAsync(
@@ -104,15 +108,24 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         };
     }
 
-    private static SkillCallResult BuildResult(
-        SkillCallScope scope, RetryOutcome? retryOutcome, SkillCallOutcome outcome,
-        Exception? exception, LoopTraceCollector trace, LimitEnforcer enforcer)
-        => new()
+    private SkillCallResult BuildResult(
+        SkillCallRequest request, SkillCallScope scope, RetryOutcome? retryOutcome,
+        SkillCallOutcome outcome, Exception? exception, LoopTraceCollector trace,
+        LimitEnforcer enforcer)
+    {
+        var failureReason = retryOutcome?.FailureReason ?? exception?.Message;
+        var runtimeObs = _runtimeObservationFactory.Build(
+            outcome, request.SkillName, enforcer.HitLimit, exception, failureReason);
+        return new SkillCallResult
         {
             Outcome = outcome,
             Output = retryOutcome?.FinalOutput,
             Cost = scope.BuildRecord(enforcer),
             Trace = trace.Build(),
-            FailureReason = retryOutcome?.FailureReason ?? exception?.Message
+            FailureReason = failureReason,
+            RuntimeObservations = runtimeObs is null
+                ? []
+                : new[] { runtimeObs }
         };
+    }
 }

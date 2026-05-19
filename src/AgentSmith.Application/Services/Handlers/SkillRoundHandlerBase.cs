@@ -112,6 +112,10 @@ public abstract class SkillRoundHandlerBase(
         };
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
         var runtimeResult = await _skillCallRuntime.ExecuteAsync(runtimeRequest, costTracker, cancellationToken);
+        // p0147b: runtime observations (execution-limit / execution-error)
+        // flow into the pipeline even when the round otherwise short-circuits,
+        // so silent skill drops surface in the final summary.
+        BufferRuntimeObservations(pipeline, skillName, round, runtimeResult);
         if (TranslateDiscussionOutcome(runtimeResult, skillName, role) is { } earlyFail)
             return earlyFail;
         var responseText = runtimeResult.Output ?? string.Empty;
@@ -259,6 +263,22 @@ public abstract class SkillRoundHandlerBase(
         pipeline.Set(ContextKeys.SwitchSkillLastSummoner, summoners);
     }
 
+    /// <summary>
+    /// p0147b: routes the runtime-emitted execution-limit / execution-error
+    /// observations (if any) into the shared pipeline observation list, the
+    /// same way regular LLM observations flow. Round handlers call this once
+    /// per <see cref="ISkillCallRuntime.ExecuteAsync"/> dispatch so silent
+    /// skill drops surface in the final summary.
+    /// </summary>
+    internal static void BufferRuntimeObservations(
+        PipelineContext pipeline, string skillName, int round, SkillCallResult result)
+    {
+        if (result.RuntimeObservations.Count == 0) return;
+        var buffer = new SkillRoundBuffer(
+            skillName, round, result.RuntimeObservations.ToList(), null, null);
+        DispatchBuffer(pipeline, buffer);
+    }
+
     private static void DispatchBuffer(PipelineContext pipeline, SkillRoundBuffer buffer)
     {
         if (pipeline.TryGet<List<SkillRoundBuffer>>(
@@ -383,6 +403,9 @@ public abstract class SkillRoundHandlerBase(
         };
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
         var runtimeResult = await _skillCallRuntime.ExecuteAsync(runtimeRequest, costTracker, cancellationToken);
+        // p0147b: runtime observations (execution-limit / execution-error)
+        // surface even when the structured round short-circuits on a Failed*.
+        BufferRuntimeObservations(pipeline, skillName, round: 0, runtimeResult);
         if (TranslateStructuredOutcome(runtimeResult, skillName, role) is { } earlyFail)
             return earlyFail;
         var responseText = runtimeResult.Output ?? string.Empty;
