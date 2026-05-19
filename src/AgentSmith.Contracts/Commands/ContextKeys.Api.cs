@@ -21,6 +21,7 @@ public static partial class ContextKeys
     public const string ApiTarget = "ApiTarget";
     public const string ApiScanFindingsSummary = "ApiScanFindingsSummary";
     public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
+    public const string ScannerTopFindings = "ScannerTopFindings";
 
     public const string HttpProbeResults = "HttpProbeResults";
 }
