@@ -14,9 +14,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Fail-soft source resolver for api-scan. Honors the --source-path CLI
 /// override, then resolves the configured source: block (Local path or
 /// remote clone via IHostSourceCloner). The clone lands on the host filesystem
-/// because api-scan analyzers (RouteMapper / extractors) read host paths via
-/// System.IO. Any failure leaves SourcePath unset and lets the pipeline
-/// continue in passive schema-only mode.
+/// so skills can read project sources via their Read/Grep tools. Any failure
+/// leaves SourcePath unset and lets the pipeline continue in passive schema-
+/// only mode.
 /// </summary>
 public sealed class TryCheckoutSourceHandler(
     IHostSourceCloner cloner,
