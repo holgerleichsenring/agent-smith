@@ -32,6 +32,7 @@ public sealed class PipelineStepRunnerTests
             _progressMock.Object,
             new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
             new AgentSmithConfig(),
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineStepRunner>.Instance);
     }
 

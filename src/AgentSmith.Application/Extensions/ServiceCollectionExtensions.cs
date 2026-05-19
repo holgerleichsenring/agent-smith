@@ -56,13 +56,11 @@ public static partial class ServiceCollectionExtensions
         services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
         services.AddSingleton<AgentSmithConfigValidator>();
         services.AddSingleton<PollingConfigDeprecationWarner>();
-        AddPipelineHandlers(services);
-        AddTriageServices(services);
-        AddSecurityHandlers(services);
-        AddBootstrapHandlers(services);
-        AddSkillRuntime(services);
-        AddContextBuilders(services);
-        AddPipelineRuntime(services);
+        // The p0147h split (per-subdomain partials) is incomplete after the
+        // parallel-merge debacle — the partials cover ~80% of registrations
+        // and call sites collide on duplicates (AddBuilder dictionary
+        // insertion, IPhaseDataFlow resolver dictionary). Fall back to the
+        // legacy Register* path until the split is redone end-to-end.
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
@@ -88,7 +86,6 @@ public static partial class ServiceCollectionExtensions
         services.AddTransient<SecuritySkillPromptStrategy>();
         services.AddTransient<ApiSkillPromptStrategy>();
         AddWebhookCommentIntent(services);
-        return services;
     }
 
     // p0146e: CommentIntentParser is stateless — slash regexes + an IIntentParser

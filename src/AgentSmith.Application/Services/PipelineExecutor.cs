@@ -27,13 +27,6 @@ public sealed class PipelineExecutor(
     IPipelineStepRunner stepRunner,
     IPipelineErrorHandler errorHandler,
     IPipelineLifecycleCoordinator lifecycleCoordinator,
-    ISandboxFactory sandboxFactory,
-    SandboxSpecBuilder sandboxSpecBuilder,
-    AgentSmith.Application.Services.Sandbox.ISandboxLanguageResolver sandboxLanguageResolver,
-    IProgressReporter progressReporter,
-    IPhaseDataFlowResolver dataFlowResolver,
-    AgentSmithConfig agentSmithConfig,
-    AgentSmith.Application.Services.SkillRounds.ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -84,23 +77,6 @@ public sealed class PipelineExecutor(
         {
             var batch = stepRunner.PeelBatch(current, maxConcurrent);
 
-        InsertFollowUps(current, commands, result);
-        await PostSkillDetailAsync(cmd, result, cancellationToken);
-        logger.LogInformation("[{Step}/{Total}] {Command} completed: {Message}",
-            executionCount, commands.Count, cmd.DisplayName, result.Message);
-        return (result, null);
-    }
-
-    private async Task<(CommandResult Result, LinkedListNode<PipelineCommand>? AdvanceTo)>
-        ExecuteBatchStepAsync(
-            IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-            LinkedList<PipelineCommand> commands,
-            ResolvedProject projectConfig, PipelineContext context,
-            int firstStepIndex, CancellationToken cancellationToken)
-    {
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
-        var outcome = await runner.ExecuteAsync(
-            batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
             // Lazy sandbox creation: build it only when the first sandbox-requiring
             // command in the batch comes up.
             if (batch.Any(n => sandbox.IsSandboxRequiring(n.Value.Name)))

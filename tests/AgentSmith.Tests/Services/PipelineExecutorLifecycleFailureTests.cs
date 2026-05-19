@@ -18,32 +18,6 @@ public sealed class PipelineExecutorLifecycleFailureTests
 {
     public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
-    public PipelineExecutorLifecycleFailureTests()
-    {
-        _coordinatorMock
-            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(_lifecycleMock.Object);
-        var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
-        _sut = new PipelineExecutor(
-            _executorMock.Object,
-            _factoryMock.Object,
-            _ticketFactoryMock.Object,
-            _coordinatorMock.Object,
-            _sandboxFactoryMock.Object,
-            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
-            resolverMock.Object,
-            _progressReporterMock.Object,
-            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
-                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
-            new AgentSmithConfig(),
-            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-            NullLogger<PipelineExecutor>.Instance);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_SandboxFactoryThrows_MarksLifecycleFailed()
     [Theory]
     [MemberData(nameof(ExecutorShapes))]
     public async Task ExecuteAsync_SandboxFactoryThrows_MarksLifecycleFailed(

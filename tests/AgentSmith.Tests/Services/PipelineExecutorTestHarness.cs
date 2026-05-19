@@ -73,6 +73,7 @@ public sealed class PipelineExecutorTestHarness
         ProgressReporterMock.Object,
         DataFlowResolver,
         AgentSmithConfig,
+        new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
         NullLogger<PipelineExecutorLegacy>.Instance);
 
     private PipelineExecutor BuildNew()
@@ -83,6 +84,7 @@ public sealed class PipelineExecutorTestHarness
             ProgressReporterMock.Object,
             DataFlowResolver,
             AgentSmithConfig,
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineStepRunner>.Instance);
 
         var errorHandler = new PipelineErrorHandler(

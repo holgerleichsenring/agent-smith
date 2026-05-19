@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -26,6 +27,7 @@ public sealed class FilterRoundHandler(
     IChatClientFactory chatClientFactory,
     ISkillPromptBuilder promptBuilder,
     ISkillCallRuntime skillCallRuntime,
+    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<FilterRoundHandler> logger) : ICommandHandler<FilterRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -128,7 +130,7 @@ public sealed class FilterRoundHandler(
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
         // p0147b: surface execution-limit / execution-error observations even
         // when the batch otherwise short-circuits with FailedParse / FailedRuntime.
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, role.Name, round: 0, result);
+        BufferRuntimeObservations(pipeline, role.Name, round: 0, result);
         if (result.Outcome == SkillCallOutcome.Incomplete)
             logger.LogWarning(
                 "Filter batch {Index}/{Total} returned Incomplete (limit: {Limit}) — using partial output",
@@ -181,7 +183,7 @@ public sealed class FilterRoundHandler(
         };
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
         // p0147b: runtime observations flow even when the artifact path fails outright.
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, skillName, round: 0, result);
+        BufferRuntimeObservations(pipeline, skillName, round: 0, result);
         if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
             return CommandResult.Fail(
                 $"{skillName} (Filter, artifact): {result.Outcome} — {result.FailureReason ?? "no reason"}");
@@ -273,5 +275,18 @@ public sealed class FilterRoundHandler(
         if (observations.Count == 0) return "(no observations)";
         return string.Join("\n\n", observations.Select(o =>
             $"#{o.Id} [{o.Role}] {o.Concern} ({o.Severity}, confidence {o.Confidence}): {o.Description}"));
+    }
+
+    // Re-introduced post-p0147d merge: surface execution-limit / execution-error
+    // observations from SkillCallRuntime so silent skill drops still reach the
+    // pipeline summary. The old static helper on SkillRoundHandlerBase moved into
+    // ISkillRoundBufferDispatcher; this thin wrapper preserves the call shape.
+    private void BufferRuntimeObservations(
+        PipelineContext pipeline, string skillName, int round, SkillCallResult result)
+    {
+        if (result.RuntimeObservations.Count == 0) return;
+        var buffer = new SkillRoundBuffer(
+            skillName, round, result.RuntimeObservations.ToList(), null, null);
+        bufferDispatcher.Dispatch(pipeline, buffer);
     }
 }
