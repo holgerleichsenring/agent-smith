@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.SkillRounds;
@@ -23,7 +24,11 @@ public sealed class StructuredRoundToolPolicyTests
                 typeof(LogDecisionToolHost)
             });
         var toolKit = new ToolKit(pipelinePolicy.Object);
-        return new StructuredRoundToolPolicy(toolKit, new Mock<IDecisionLogger>().Object);
+        return new StructuredRoundToolPolicy(
+            toolKit,
+            new Mock<IDecisionLogger>().Object,
+            NullLogger<StructuredRoundToolPolicy>.Instance,
+            NullLoggerFactory.Instance);
     }
 
     private static PipelineContext PipelineFor(string pipelineName, bool activeMode = false)

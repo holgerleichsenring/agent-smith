@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Tools;
 
@@ -20,15 +21,18 @@ public sealed class FilesystemToolHost : IToolHost
     private readonly SandboxStepRunner _runner;
     private readonly string _repoPath;
     private readonly ToolGuardInvoker _guards;
+    private readonly ILogger? _logger;
     private readonly List<CodeChange> _changes = new();
 
     public FilesystemToolHost(
         ISandbox sandbox, string repoPath = "/work",
-        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null)
+        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
+        ILogger? logger = null)
     {
         _runner = new SandboxStepRunner(sandbox);
         _repoPath = repoPath;
         _guards = new ToolGuardInvoker(readGuard, writeGuard);
+        _logger = logger;
     }
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
@@ -50,9 +54,12 @@ public sealed class FilesystemToolHost : IToolHost
     public Task<string> ReadFile(
         [Description("Repository-relative path to read.")] string path,
         CancellationToken ct = default)
-        => _guards.CheckRead(path) is { } error
+    {
+        _logger?.LogInformation("tool_call: ReadFile path={Path}", path);
+        return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
             : _runner.ReadAsync(path, ct);
+    }
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]
     public async Task<string> WriteFile(
@@ -60,6 +67,7 @@ public sealed class FilesystemToolHost : IToolHost
         [Description("Full content to write to the file.")] string content,
         CancellationToken ct = default)
     {
+        _logger?.LogInformation("tool_call: WriteFile path={Path} bytes={Bytes}", path, content.Length);
         if (_guards.CheckWrite(path) is { } error) return error;
         var result = await _runner.WriteAsync(path, content, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
@@ -72,9 +80,12 @@ public sealed class FilesystemToolHost : IToolHost
         [Description("Repository-relative path to list. Use '.' for the repo root.")] string path = ".",
         [Description("Optional max depth to recurse.")] int? maxDepth = null,
         CancellationToken ct = default)
-        => _guards.CheckRead(path) is { } error
+    {
+        _logger?.LogInformation("tool_call: ListFiles path={Path} maxDepth={MaxDepth}", path, maxDepth);
+        return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
             : _runner.ListAsync(path, maxDepth, ct);
+    }
 
     [Description("Searches files for a regular expression pattern under the given path.")]
     public Task<string> Grep(
@@ -83,15 +94,21 @@ public sealed class FilesystemToolHost : IToolHost
         [Description("Optional glob filter (e.g. '*.cs').")] string? glob = null,
         [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
         CancellationToken ct = default)
-        => _guards.CheckRead(path) is { } error
+    {
+        _logger?.LogInformation("tool_call: Grep pattern={Pattern} path={Path} glob={Glob}", pattern, path, glob);
+        return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
             : _runner.GrepAsync(pattern, path, glob, maxMatches, ct);
+    }
 
     [Description("Runs a shell command. Long-running server processes are blocked.")]
     public Task<string> RunCommand(
         [Description("Shell command to execute (passed to /bin/sh -c).")] string command,
         CancellationToken ct = default)
-        => _runner.RunAsync(command, ct);
+    {
+        _logger?.LogInformation("tool_call: RunCommand cmd={Command}", command);
+        return _runner.RunAsync(command, ct);
+    }
 
     private IEnumerable<AIFunction> ReadOnlySet() =>
     [

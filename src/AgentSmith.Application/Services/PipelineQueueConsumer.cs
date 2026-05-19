@@ -55,7 +55,10 @@ public sealed class PipelineQueueConsumer(
     {
         try
         {
-            using var scope = services.CreateScope();
+            // AsyncServiceScope: PipelineSandboxCoordinator is IAsyncDisposable,
+            // so the scope must dispose asynchronously — `using var` falls back
+            // to Dispose() and throws on async-only disposables.
+            await using var scope = services.CreateAsyncScope();
             var useCase = scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>();
             var result = await useCase.ExecuteAsync(request, configPath, ct);
             logger.Log(
