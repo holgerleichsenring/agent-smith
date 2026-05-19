@@ -101,9 +101,6 @@ public static class ContextKeys
     public const string ActiveMode = "ActiveMode";
     public const string HttpProbeResults = "HttpProbeResults";
     public const string DeferredBuffers = "DeferredBuffers";
-    public const string ApiCodeContext = "ApiCodeContext";
-    public const string ApiSourceAvailable = "ApiSourceAvailable";
-    public const string FindingHandlerCorrelations = "FindingHandlerCorrelations";
 
     // p0111c: phase-based triage
     public const string TriageOutput = "TriageOutput";

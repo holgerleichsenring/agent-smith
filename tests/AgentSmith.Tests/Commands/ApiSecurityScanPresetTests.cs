@@ -21,15 +21,13 @@ public sealed class ApiSecurityScanPresetTests
     }
 
     [Fact]
-    public void ApiSecurityScan_CorrelateFindingsBetweenCompressAndLoadSkills()
+    public void ApiSecurityScan_LoadSkillsImmediatelyAfterCompress()
     {
         var preset = PipelinePresets.ApiSecurityScan.ToList();
         var compressIdx = preset.IndexOf(CommandNames.CompressApiScanFindings);
-        var correlateIdx = preset.IndexOf(CommandNames.CorrelateFindings);
         var loadSkillsIdx = preset.IndexOf(CommandNames.LoadSkills);
 
         compressIdx.Should().BeGreaterThanOrEqualTo(0);
-        correlateIdx.Should().Be(compressIdx + 1);
-        loadSkillsIdx.Should().Be(correlateIdx + 1);
+        loadSkillsIdx.Should().Be(compressIdx + 1);
     }
 }

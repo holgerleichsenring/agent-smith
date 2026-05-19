@@ -146,14 +146,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
-        services.AddTransient<ICommandHandler<ApiCodeContextCommandContext>, ApiCodeContextHandler>();
         // p0125d: TryCheckoutSourceHandler dual-registered as IConceptWriter (see CheckoutSourceHandler note above).
         services.AddTransient<TryCheckoutSourceHandler>();
         services.AddTransient<ICommandHandler<TryCheckoutSourceContext>>(sp =>
             sp.GetRequiredService<TryCheckoutSourceHandler>());
         services.AddSingleton<IConceptWriter>(sp =>
             sp.GetRequiredService<TryCheckoutSourceHandler>());
-        services.AddTransient<ICommandHandler<CorrelateFindingsContext>, CorrelateFindingsHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
@@ -262,8 +260,6 @@ public static class ServiceCollectionExtensions
         AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
         AddBuilder<SessionSetupContextBuilder>(services, CommandNames.SessionSetup);
         AddBuilder<LoadSwaggerContextBuilder>(services, CommandNames.LoadSwagger);
-        AddBuilder<ApiCodeContextContextBuilder>(services, CommandNames.ApiCodeContext);
-        AddBuilder<CorrelateFindingsContextBuilder>(services, CommandNames.CorrelateFindings);
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
