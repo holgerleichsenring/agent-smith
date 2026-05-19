@@ -47,12 +47,15 @@ public sealed class SecurityScanPresetTests
     }
 
     [Fact]
-    public void SecuritySkillRoundHandler_OverridesBuildDomainSectionParts()
+    public void SecuritySkillPromptStrategy_ImplementsBuildDomainSectionParts()
     {
-        var method = typeof(SecuritySkillRoundHandler).GetMethod(
-            "BuildDomainSectionParts",
-            BindingFlags.Instance | BindingFlags.NonPublic);
+        // p0147d: BuildDomainSectionParts moved from SecuritySkillRoundHandler to
+        // SecuritySkillPromptStrategy — the strategy is the responsibility holder
+        // injected into the (now thin) handler base.
+        var method = typeof(AgentSmith.Application.Services.SkillRounds.Strategies.SecuritySkillPromptStrategy)
+            .GetMethod("BuildDomainSectionParts", BindingFlags.Instance | BindingFlags.Public);
         method.Should().NotBeNull();
-        method!.DeclaringType.Should().Be(typeof(SecuritySkillRoundHandler));
+        method!.DeclaringType.Should().Be(
+            typeof(AgentSmith.Application.Services.SkillRounds.Strategies.SecuritySkillPromptStrategy));
     }
 }

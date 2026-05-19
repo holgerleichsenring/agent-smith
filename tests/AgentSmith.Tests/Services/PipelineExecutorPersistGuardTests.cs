@@ -53,6 +53,7 @@ public sealed class PipelineExecutorPersistGuardTests
             new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
                 Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
             new AgentSmithConfig(),
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineExecutor>.Instance
         );
     }

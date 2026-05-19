@@ -34,6 +34,7 @@ public sealed class PipelineExecutor(
     IProgressReporter progressReporter,
     IPhaseDataFlowResolver dataFlowResolver,
     AgentSmithConfig agentSmithConfig,
+    AgentSmith.Application.Services.SkillRounds.ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -359,7 +360,7 @@ public sealed class PipelineExecutor(
             ResolvedProject projectConfig, PipelineContext context,
             int firstStepIndex, CancellationToken cancellationToken)
     {
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
+        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
 

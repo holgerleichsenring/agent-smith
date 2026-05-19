@@ -132,7 +132,7 @@ public static class ContextKeys
     public const string Sandbox = "Sandbox";
 
     /// <summary>Dictionary&lt;string, string&gt; mapping summoned-skill → summoner-skill recorded
-    /// every time SkillRoundHandlerBase.DetectBlockingFollowUp inserts a SwitchSkill follow-up.
+    /// every time BlockingFollowUpDetector (p0147d) inserts a SwitchSkill follow-up.
     /// Used to break immediate A→B→A ping-pong cycles in O(1) without an explicit cap.</summary>
     public const string SwitchSkillLastSummoner = "SwitchSkillLastSummoner";
 
