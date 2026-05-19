@@ -48,7 +48,7 @@ Over-cap fields are truncated, not rejected — the observation always survives,
 
 When you have multi-paragraph context, put the headline in `description` and the body in `details`. Skipping `details` is fine — Markdown then just renders `description`.
 
-**Location fields:** prefer the typed fields (`file` + `start_line` for source code, `api_path` for HTTP endpoints, `schema_name` for OpenAPI schemas). Legacy `location` string is still accepted and parsed into the typed fields when the typed fields are absent.
+**Location fields:** use the typed fields directly — `file` + `start_line` (+ `end_line`) for source code, `api_path` for HTTP endpoints, `schema_name` for OpenAPI schemas. Do NOT embed `file:line` or method+path inside `description` — the framework no longer extracts it from prose (p0146d). If a finding has no clean location, leave the typed fields null.
 
 **`category` vs `concern`:** `concern` is a coarse structural axis (security/correctness/etc.) that drives skill orchestration. `category` is a fine-grained domain tag for SARIF rule grouping. Don't duplicate (`concern: security` + `category: "security"` is redundant — pick a finer category like `"secrets"` or `"injection"`).
 
@@ -118,7 +118,7 @@ A routine HIGH-severity finding — NOT blocking, just report it:
     "severity": "high",
     "confidence": 95,
     "rationale": "OWASP A2:2021 — passwords in URLs are a well-documented vulnerability.",
-    "location": "POST /api/auth/login",
+    "api_path": "POST /api/auth/login",
     "effort": "small"
   }
 ]
@@ -134,8 +134,7 @@ A genuinely blocking case — analysis cannot proceed without peer input:
     "suggestion": "Load baselines/api-headers.yaml from the skill catalog or supply a project override.",
     "blocking": true,
     "severity": "info",
-    "confidence": 100,
-    "location": "baseline:api-headers"
+    "confidence": 100
   }
 ]
 ```
