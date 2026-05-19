@@ -15,6 +15,8 @@ using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Pipeline;
+using AgentSmith.Application.Services.SkillRounds;
+using AgentSmith.Application.Services.SkillRounds.Strategies;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Triage;
@@ -65,6 +67,27 @@ public static partial class ServiceCollectionExtensions
         RegisterContextBuilders(services);
         RegisterPipeline(services);
         RegisterLoopServices(services);
+        AddSkillRounds(services);
+        return services;
+    }
+
+    // p0147d: SkillRoundHandlerBase decomposition. Composes the round
+    // pipeline (prompt → dispatch → parse → buffer → blocking-detect) as
+    // injected services; per-round-type strategies provide the domain section
+    // each derived handler supplies.
+    private static void AddSkillRounds(IServiceCollection services)
+    {
+        services.AddTransient<IPromptComposer, PromptComposer>();
+        services.AddTransient<ISkillRoundDispatcher, SkillRoundDispatcher>();
+        services.AddTransient<ISkillResponseParser, SkillResponseParser>();
+        services.AddSingleton<ISkillRoundBufferDispatcher, SkillRoundBufferDispatcher>();
+        services.AddSingleton<IBlockingFollowUpDetector, BlockingFollowUpDetector>();
+        services.AddTransient<IDiscussionRoundExecutor, DiscussionRoundExecutor>();
+        services.AddTransient<IStructuredRoundExecutor, StructuredRoundExecutor>();
+        services.AddTransient<DefaultSkillPromptStrategy>();
+        services.AddTransient<SecuritySkillPromptStrategy>();
+        services.AddTransient<ApiSkillPromptStrategy>();
+        AddWebhookCommentIntent(services);
         return services;
     }
 

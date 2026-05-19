@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -18,6 +18,7 @@ public sealed class PipelineBatchRunner(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     IProgressReporter progressReporter,
+    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger logger)
 {
     public async Task<BatchOutcome> ExecuteAsync(
@@ -52,6 +53,23 @@ public sealed class PipelineBatchRunner(
         MergeBuffersInGraphOrder(batch, deferred, context);
 
         return new BatchOutcome(slots, batch, firstStepIndex);
+    }
+
+    private void MergeBuffersInGraphOrder(
+        IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
+        IReadOnlyList<SkillRoundBuffer> deferred,
+        PipelineContext context)
+    {
+        var bySkill = deferred
+            .GroupBy(b => b.SkillName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        foreach (var node in batch)
+        {
+            if (node.Value.SkillName is null) continue;
+            if (!bySkill.TryGetValue(node.Value.SkillName, out var buffers)) continue;
+            foreach (var buffer in buffers)
+                bufferDispatcher.ApplyBufferToContext(context, buffer);
+        }
     }
 
     private async Task RunSlotAsync(
@@ -104,22 +122,4 @@ public sealed class PipelineBatchRunner(
         }
     }
 
-    private static void MergeBuffersInGraphOrder(
-        IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-        IReadOnlyList<SkillRoundBuffer> deferred,
-        PipelineContext context)
-    {
-        var bySkill = deferred
-            .GroupBy(b => b.SkillName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-
-        foreach (var node in batch)
-        {
-            if (node.Value.SkillName is null) continue;
-            if (!bySkill.TryGetValue(node.Value.SkillName, out var buffers)) continue;
-
-            foreach (var buffer in buffers)
-                SkillRoundHandlerBase.ApplyBufferToContext(context, buffer);
-        }
-    }
 }
