@@ -80,6 +80,7 @@ internal static class RuntimeBuilder
             factory, gate, resolvedLimits,
             new OutcomeClassifier(), new RetryCoordinator(),
             validatorFactory,
+            new RuntimeObservationFactory(),
             NullLogger<SkillCallRuntime>.Instance);
         return (runtime, tracker, factory);
     }

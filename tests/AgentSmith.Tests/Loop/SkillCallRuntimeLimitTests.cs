@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 
@@ -87,5 +88,56 @@ public sealed class SkillCallRuntimeLimitTests
         var result = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
 
         result.Outcome.Should().Be(SkillCallOutcome.Incomplete);
+    }
+
+    // p0147b: Incomplete + FailedRuntime outcomes carry a typed
+    // SkillObservation in RuntimeObservations so the round handler can
+    // surface the silent skill drop in the final pipeline summary.
+
+    [Fact]
+    public async Task ExecuteAsync_TimeLimitReached_EmitsWallClockObservation()
+    {
+        var chat = new ScriptedRuntimeChatClient(() =>
+        {
+            Thread.Sleep(50);
+            return ScriptedRuntimeChatClient.Make("{}");
+        });
+        var (runtime, tracker, _) = RuntimeBuilder.Build(chat,
+            new LoopLimitsConfig { MaxSecondsPerSkillCall = 0 });
+
+        var result = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
+
+        result.RuntimeObservations.Should().ContainSingle();
+        var obs = result.RuntimeObservations[0];
+        obs.Category.Should().Be(ExecutionLimitCategories.ExecutionLimitWallClock);
+        obs.Severity.Should().Be(ObservationSeverity.Info);
+        obs.Blocking.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OkOutcome_EmitsNoRuntimeObservation()
+    {
+        var chat = new ScriptedRuntimeChatClient(() => ScriptedRuntimeChatClient.Make("{}"));
+        var (runtime, tracker, _) = RuntimeBuilder.Build(chat);
+
+        var result = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
+
+        result.Outcome.Should().Be(SkillCallOutcome.Ok);
+        result.RuntimeObservations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UncaughtException_EmitsExecutionErrorObservation()
+    {
+        var chat = new ScriptedRuntimeChatClient(() =>
+            throw new InvalidOperationException("boom"));
+        var (runtime, tracker, _) = RuntimeBuilder.Build(chat);
+
+        var result = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
+
+        result.Outcome.Should().Be(SkillCallOutcome.FailedRuntime);
+        result.RuntimeObservations.Should().ContainSingle();
+        result.RuntimeObservations[0].Category.Should().Be(ExecutionLimitCategories.ExecutionError);
+        result.RuntimeObservations[0].Description.Should().Contain("boom");
     }
 }
