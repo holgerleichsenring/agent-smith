@@ -69,6 +69,7 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
+        pipeline.Set("PipelineCostCap", config.PipelineCostCap.ResolveFor(request.PipelineName));
 
         // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
         // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every
