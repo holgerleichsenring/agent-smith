@@ -25,6 +25,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application;
 
@@ -300,7 +301,11 @@ public static class ServiceCollectionExtensions
 
     private static void RegisterPipeline(IServiceCollection services)
     {
-        services.AddTransient<IIntentParser, RegexIntentParser>();
+        services.AddTransient<IIntentParser>(sp => new LlmIntentParser(
+            sp.GetRequiredService<IChatClientFactory>(),
+            sp.GetRequiredService<IConfigurationLoader>(),
+            new AgentConfig { Type = "claude" },
+            sp.GetRequiredService<ILogger<LlmIntentParser>>()));
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineExecutor, PipelineExecutor>();
 
