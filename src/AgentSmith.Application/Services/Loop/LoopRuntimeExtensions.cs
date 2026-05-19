@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Persistence;
@@ -6,26 +5,29 @@ using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace AgentSmith.Application;
+namespace AgentSmith.Application.Services.Loop;
 
-public static partial class ServiceCollectionExtensions
+/// <summary>
+/// Skill-call loop runtime: PipelineConcurrencyGate (scoped — one per pipeline-run
+/// DI scope), OutcomeClassifier / RetryCoordinator / NoOpSkillOutputValidator
+/// (stateless singletons), RuntimeObservationFactory (p0147b — stateless factory
+/// that maps Incomplete/FailedRuntime outcomes into typed observations so silent
+/// skill drops become pipeline-visible), the scoped SkillCallRuntime that composes
+/// the collaborators, the schema validators + factory (JsonSchemaLoader caches the
+/// four hand-written schemas at boot for the process lifetime — singleton), and the
+/// in-memory run-artifact-store fallback (Cli/Server replace with RedisRunArtifactStore
+/// when a ConnectionMultiplexer is available).
+/// </summary>
+public static class LoopRuntimeExtensions
 {
-    // p0126b: skill-call collaborator services. PipelineConcurrencyGate is scoped
-    // (one per pipeline-run DI scope); OutcomeClassifier, RetryCoordinator and the
-    // default NoOpSkillOutputValidator are stateless singletons.
-    // p0126c: SkillCallRuntime is scoped (one per pipeline run); composes the five
-    // collaborator services into the public ExecuteAsync flow.
-    // p0128a: schema validators + factory. JsonSchemaLoader caches all four
-    // hand-written schemas at boot for the process lifetime. In-memory artifact store
-    // is the safe default; AgentSmith.Cli/Server's Redis-gated registration replaces
-    // it with RedisRunArtifactStore when a ConnectionMultiplexer is available.
-    private static void AddSkillRuntime(IServiceCollection services)
+    public static IServiceCollection AddLoopRuntime(this IServiceCollection services)
     {
         services.AddScoped<PipelineConcurrencyGate>();
         services.AddSingleton<OutcomeClassifier>();
         services.AddSingleton<NoOpSkillOutputValidator>();
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
         services.AddSingleton<RetryCoordinator>();
+        services.AddSingleton<RuntimeObservationFactory>();
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
         services.AddSingleton<JsonSchemaLoader>();
         services.AddSingleton<PlanOutputValidator>();
@@ -34,5 +36,6 @@ public static partial class ServiceCollectionExtensions
         services.AddSingleton<ObservationOutputValidator>();
         services.AddSingleton<SkillOutputValidatorFactory>();
         services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
+        return services;
     }
 }

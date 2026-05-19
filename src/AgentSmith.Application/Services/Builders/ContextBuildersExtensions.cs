@@ -1,16 +1,18 @@
-using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AgentSmith.Application;
+namespace AgentSmith.Application.Services.Builders;
 
-public static partial class ServiceCollectionExtensions
+/// <summary>
+/// Keyed context-builder registrations — one per pipeline command name. The
+/// KeyedContextBuilder wrapper lets CommandContextFactory resolve a builder by
+/// CommandNames.X without an open-generic factory. p0144: skill-manager
+/// context-builders retired alongside the handlers.
+/// </summary>
+public static class ContextBuildersExtensions
 {
-    // Keyed context-builder registrations — one per pipeline command name. The
-    // KeyedContextBuilder wrapper lets CommandContextFactory resolve a builder by
-    // CommandNames.X without an open-generic factory. p0144: skill-manager
-    // context-builders retired alongside the handlers.
-    private static void AddContextBuilders(IServiceCollection services)
+    public static IServiceCollection AddContextBuilders(this IServiceCollection services)
     {
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
@@ -71,5 +73,10 @@ public static partial class ServiceCollectionExtensions
         AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);
         AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
         AddBuilder<BootstrapRoundContextBuilder>(services, CommandNames.BootstrapRound);
+        return services;
     }
+
+    private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
+        where TBuilder : IContextBuilder, new()
+        => services.AddSingleton(new KeyedContextBuilder(commandName, new TBuilder()));
 }
