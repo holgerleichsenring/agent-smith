@@ -126,6 +126,9 @@ public sealed class FilterRoundHandler(
             PipelineName = ResolvePipelineName(pipeline)
         };
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        // p0147b: surface execution-limit / execution-error observations even
+        // when the batch otherwise short-circuits with FailedParse / FailedRuntime.
+        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, role.Name, round: 0, result);
         if (result.Outcome == SkillCallOutcome.Incomplete)
             logger.LogWarning(
                 "Filter batch {Index}/{Total} returned Incomplete (limit: {Limit}) — using partial output",
@@ -177,6 +180,8 @@ public sealed class FilterRoundHandler(
             PipelineName = ResolvePipelineName(pipeline)
         };
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        // p0147b: runtime observations flow even when the artifact path fails outright.
+        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, skillName, round: 0, result);
         if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
             return CommandResult.Fail(
                 $"{skillName} (Filter, artifact): {result.Outcome} — {result.FailureReason ?? "no reason"}");
