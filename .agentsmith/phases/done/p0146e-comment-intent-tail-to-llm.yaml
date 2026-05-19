@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146e
+goal: "CommentIntentParser today: regex slash-dispatch (`/agent-smith`, `/as`,
+  `/approve`, `/reject`) plus a hardcoded PipelineAliases table
+  (fix→fix-bug, security→security-scan, ...) plus free-form args after the
+  command. Keep the slash-discriminator regex — that's a deterministic UI
+  contract operators rely on — but route the alias resolution + free-form
+  args through the existing IIntentParser (LlmIntentParser after p0146b).
+  Operators who type `/agent-smith fixe den Bug von gestern` get the same
+  outcome as `/agent-smith fix-bug yesterday's bug` — no German/English
+  trap, no alias drift."
+
+requires: ["p0146", "p0146b"]
+
+scope:
+  in: |
+    (1) CommentIntentParser.cs: keep CommandRegex / ApproveRegex / RejectRegex
+        (slash-prefix discrimination — structural UI). Drop PipelineAliases
+        table and the manual `cmd` / `args` split.
+
+    (2) Caller of CommentIntentParser (the webhook comment handler) gets the
+        post-slash body forwarded to IIntentParser.ParseAsync. The parser
+        returns {pipeline, args, ticket?}; the comment handler enqueues a
+        PipelineRequest accordingly.
+
+    (3) Help command (`/agent-smith help`) stays a pure-structural branch —
+        no LLM call needed.
+
+  out: |
+    `/approve` and `/reject` paths. Those carry a comment string that's pure
+    text (passed through to the lifecycle as a note); no intent extraction
+    needed.
+
+    Slack / chat intent parsing — that's a separate path
+    (ChatIntentParser.cs), not in scope here. The pattern from p0146b
+    applies similarly there; that's a follow-up phase or a small piggyback.
+
+decisions:
+  - key: |
+      Keep the slash-prefix regex (`/agent-smith`, `/as`, `/approve`,
+      `/reject`). Reason: operators want a deterministic mechanism that
+      says "this is a command, not chatter." Removing the slash means every
+      webhook comment hits the LLM, which is expensive and noisy. The slash
+      is structural; what comes after is intent. -- alternatives: send every
+      comment to the LLM (rejected: cost + noise).
+  - key: |
+      Drop PipelineAliases hardcoded table. Reason: the table is exactly the
+      anti-pattern this umbrella eliminates — "I know better than the LLM
+      that 'security' means 'security-scan'." The LLM knows from the config
+      what pipelines exist (or can be told) and resolves the user's text.
+
+steps:
+  - id: rewire-parser
+    action: "Refactor CommentIntentParser to: (a) detect slash-prefix via existing regex; (b) emit the post-slash body as IntentRequest; (c) call IIntentParser.ParseAsync on the body."
+    modify:
+      - "src/AgentSmith.Application/Webhooks/CommentIntentParser.cs: keep slash regexes; delete PipelineAliases; the public Parse method becomes async and takes IIntentParser as a parameter (or moves into a thin handler that does the parser composition)."
+
+  - id: caller-update
+    action: "Update the webhook comment handler that invokes CommentIntentParser to await the parse and forward the typed result."
+    modify:
+      - "(populate during implementation — likely WebhookRequestProcessor or one of the github/gitlab comment endpoints)"
+
+tests:
+  - "Slash dispatch tests stay green (the slash regexes are unchanged)."
+  - "New test: `/agent-smith fixe einen Bug` produces a PipelineRequest for fix-bug via LlmIntentParser (German free text)."
+  - "New test: `/agent-smith security review` resolves to security-scan via LlmIntentParser (replacing the deleted alias table)."
+  - "`/approve LGTM` and `/reject typo` unchanged behaviour."
+
+done:
+  - "CommentIntentParser.PipelineAliases deleted."
+  - "Post-slash body routed through IIntentParser (LlmIntentParser)."
+  - "Slash discrimination kept intact; help / approve / reject paths unchanged."
+  - "Full test suite green."

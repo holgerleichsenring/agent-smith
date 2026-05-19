@@ -12,9 +12,12 @@ public interface IOpenAiContextCompactor
 {
     /// <summary>
     /// Evaluates the trigger and either summarizes the prefix or returns the input unchanged.
-    /// Trigger is boolean OR: <c>currentIterations &gt;= ThresholdIterations || estimatedTokens &gt;= MaxContextTokens</c>.
-    /// On summarizer failure, returns input messages unchanged with a <see cref="CompactionEvent"/>
-    /// where Failed=true — never throws into the agentic loop.
+    /// p0147c: trigger is boolean OR — fires when either iteration-cap or token-pressure
+    /// crosses, i.e. <c>currentIterations &gt;= ThresholdIterations</c> (defensive upper bound)
+    /// OR <c>estimatedTokens &gt;= MaxContextTokensTriggerRatio × MaxContextTokens</c> (primary
+    /// dynamic trigger; default ratio 0.7). On summarizer failure, returns input messages
+    /// unchanged with a <see cref="CompactionEvent"/> where Failed=true — never throws into
+    /// the agentic loop.
     /// </summary>
     Task<OpenAiCompactionResult> CompactIfNeededAsync(
         IReadOnlyList<ChatMessage> messages,

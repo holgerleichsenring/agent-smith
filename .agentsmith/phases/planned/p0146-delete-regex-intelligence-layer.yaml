@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146
+goal: "Umbrella for retiring every regex-based 'understand-by-pattern' layer that
+  duplicates what the LLM already does natively. Five independent sub-phases that
+  can be tackled in parallel — each closes one regression where regex crept back
+  in after a previous LLM migration."
+
+requires: []
+
+scope:
+  in: |
+    (1) p0146a: delete ApiCodeContextHandler + RouteMapper + AuthBootstrapExtractor
+        + UploadHandlerExtractor + FindingHandlerCorrelator + their interfaces,
+        records, and pipeline wiring. Skill prompts in agent-smith-skills take
+        over (search the source with Read/Grep, language from project_language).
+
+    (2) p0146b: retire RegexIntentParser. LlmIntentParser already exists and was
+        the original design; the regex implementation crept back into DI at some
+        point. CLI `run` dry-run + legacy ExecutePipelineUseCase string overload
+        either route through Llm parser or get deleted (latter preferred — every
+        real entry-point already builds PipelineRequest directly).
+
+    (3) p0146c: delete ConvergenceCheckHandler's legacy OBJECTION/AGREE prose-
+        regex fallback. The structured-observations path already exists (since
+        p0123); the regex fallback only fires for skills that don't emit
+        observations, and after p0123 every skill does. Same for
+        SkillRoundHandlerBase.ObjectionPattern.
+
+    (4) p0146d: ObservationParser regex-fishes `file:line` and HttpEndpoint
+        substrings out of the LLM-emitted `description`. Skill output schema
+        gets explicit `file`, `start_line`, `api_path` fields (some exist
+        already — audit and unify). Drop the regex post-parse.
+
+    (5) p0146e: CommentIntentParser keeps the slash-prefix discriminator
+        (`/approve`, `/reject`, `/agent-smith ...` — structural UI contract)
+        but the PipelineAliases table and the free-text tail after the command
+        go to a Haiku LLM call. Same `IIntentParser` shape as p0146b.
+
+  out: |
+    Per-framework code parsers that aren't regex (Roslyn syntax trees for .NET,
+    AST walkers for other langs). Same anti-pattern, different tool — out of
+    scope. Every sub-phase trusts the LLM via tools.
+
+    Replacing pure-structural regex (markdown image URL extraction, slug-ify
+    routines, error-string-to-friendly mapping, secret-pattern compiler,
+    sandbox grep step, SKILL.md frontmatter parser, branch-name sanitisation).
+    Those don't carry per-framework semantic knowledge and stay.
+
+decisions:
+  - key: |
+      Umbrella + letter sub-phases (a..e) rather than one mega-PR or five
+      unrelated phases. Reason: same underlying principle, same review lens
+      ("does this regex encode framework semantics?"), but each sub-phase
+      touches a different subsystem and can land independently. Letter
+      suffixes match the p0140 multi-slice precedent. -- alternatives: single
+      PR (rejected: blast-radius too large to review); five unrelated phases
+      (rejected: loses the shared principle).
+  - key: |
+      Trust the LLM with the language alone, not framework cheat-sheets. Skill
+      prompts say "find the API implementation in {project_language}" — no
+      list of ASP.NET / Spring / Express / FastAPI conventions. Reason: any
+      list goes stale, can't cover the long tail (Kotlin/Ktor, Rust/Actix,
+      Ada/AdaWebServer, etc.), and condescends to the LLM. Operator (Holger)
+      explicitly called this out as the same anti-pattern as the parsers.
+  - key: |
+      `project_language` stays a closed enum for THIS umbrella (csharp / node /
+      python / generic). A free-form string would be cleaner but touches
+      ProjectAnalyzer + concept vocabulary + every bootstrap-skill activation
+      — out of scope for the regex-elimination cut. Track as a follow-up.
+  - key: |
+      Sub-phases are independent and parallelizable. The only file shared
+      between two cuts is SkillRoundHandlerBase.cs (p0146a removes a code-
+      context prompt section; p0146c removes the ObjectionPattern). Different
+      methods, near-zero merge risk.
+
+steps:
+  - id: write-sub-phases
+    action: "Author the five sub-phase specs (a..e). Each is self-contained — file list, decisions, tests, done criteria."
+    new:
+      - ".agentsmith/phases/planned/p0146a-delete-api-code-context-and-extractors.yaml"
+      - ".agentsmith/phases/planned/p0146b-retire-regex-intent-parser.yaml"
+      - ".agentsmith/phases/planned/p0146c-drop-convergence-objection-prose-regex.yaml"
+      - ".agentsmith/phases/planned/p0146d-observation-explicit-location-fields.yaml"
+      - ".agentsmith/phases/planned/p0146e-comment-intent-tail-to-llm.yaml"
+
+tests:
+  - "(umbrella has no tests of its own; each sub-phase tests its slice)"
+
+done:
+  - "Five sub-phase specs landed in .agentsmith/phases/planned/"
+  - "All five sub-phases implemented and merged"
+  - "grep -rn 'Regex\\|RegularExpressions' src/ shows only the legitimate-keep set documented in scope.out"
+  - "Operator smoke against SampleA (api-security-scan) succeeds with handler-mapped findings"
