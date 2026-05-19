@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146a
+goal: "Delete ApiCodeContextHandler and the three regex-based extractors
+  (RouteMapper, AuthBootstrapExtractor, UploadHandlerExtractor) plus the
+  deterministic FindingHandlerCorrelator. Skills that need handler/auth/upload
+  locations now use Read+Grep tools with the project_language hint from
+  context.yaml. A recent AuthPort run mapped 4/82 routes (5%) because the
+  RouteMapper regex only catches inline paths on HTTP attributes, missing the
+  class-level [Route] prefix used by every real ASP.NET controller — the
+  immediate trigger for this cut."
+
+requires: ["p0146"]
+
+scope:
+  in: |
+    (1) Delete (agent-smith):
+        - src/AgentSmith.Infrastructure/Services/Security/Code/{RouteMapper,
+          FrameworkRoutePatterns, AuthBootstrapExtractor, UploadHandlerExtractor,
+          SourceSnippetReader}.cs
+        - src/AgentSmith.Infrastructure/Services/Security/FindingHandlerCorrelator.cs
+        - src/AgentSmith.Application/Services/Handlers/{ApiCodeContextHandler,
+          CorrelateFindingsHandler}.cs
+        - src/AgentSmith.Contracts/Models/{ApiCodeContext, RouteHandlerLocation,
+          SourceFileExcerpt}.cs (if unreferenced after deletions)
+        - src/AgentSmith.Contracts/Services/{IRouteMapper, IAuthBootstrapExtractor,
+          IUploadHandlerExtractor, IFindingHandlerCorrelator}.cs
+        - tests/AgentSmith.Tests/Services/RouteMapperTests.cs (+ any sibling tests)
+
+    (2) Edit (agent-smith):
+        - ContextKeys.cs: drop ApiCodeContext, ApiSourceAvailable.
+        - CommandNames.cs: drop ApiCodeContext, CorrelateFindings constants +
+          progress labels.
+        - PipelinePresets.cs: drop ApiCodeContextCommand + CorrelateFindingsCommand
+          from ApiSecurityScan.
+        - ApiSecurityContexts.cs: drop ApiCodeContextCommandContext.
+        - ApiSecurityContextBuilders.cs: drop ApiCodeContextContextBuilder.
+        - ApiSkillRoundHandler.cs: drop BuildCodeContextSection +
+          BuildPerSkillCodeSection. Replace with a single line in the prompt
+          prefix: "Project language: {project_language}." Skills handle the rest.
+        - ServiceCollectionExtensions.cs (Application + Infrastructure): drop DI
+          registrations for the deleted services/builders/handler.
+
+    (3) Cross-repo (agent-smith-skills): four skill prompts updated to take over
+        the code-context lookup. NO framework cheat-sheets in the prompt — only
+        the goal + project_language. Files:
+        - skills/api-security/controller-implementation-reviewer/SKILL.md
+        - skills/api-security/auth-config-reviewer/SKILL.md
+        - skills/api-security/upload-validator-reviewer/SKILL.md
+        - skills/api-security/ownership-checker/SKILL.md
+        Plus concept-vocabulary.yaml: drop code_context_available and
+        upload_handlers_present (pre-LLM gate concepts that no longer have a
+        writer).
+
+  out: |
+    Scanner-finding-to-handler correlation (FindingHandlerCorrelator's output).
+    The deterministic regex correlation simply goes away. Skills that judge
+    scanner findings (api-vuln-analyst-investigator, dast-analyst) read the
+    URL from the finding and locate the handler via Read+Grep on demand if
+    they need source context. No replacement deterministic correlator.
+
+    Replacing the per-skill prompt sections that previously injected handler
+    excerpts via lookup table (BuildPerSkillCodeSection map). Skills get a
+    leaner prompt and do their own targeted searches.
+
+decisions:
+  - key: |
+      Drop FindingHandlerCorrelator entirely rather than re-implement via LLM.
+      Reason: the deterministic correlation today returns a row per Nuclei/ZAP
+      finding (~200 rows for AuthPort), and skills consume these to attach
+      handlers. With Observations as the universal output shape, skills that
+      actually USE handler context can find it themselves at observation-
+      production time — far fewer lookups than 200, and only where the LLM has
+      decided the finding is worth investigating. -- alternatives: one
+      LlmFindingHandlerCorrelator that does the same shape with an LLM call
+      (rejected: pre-computes work that may never be consumed).
+  - key: |
+      Skill prompts use {project_language} only, no framework list. The LLM
+      knows ASP.NET / Spring / Express / FastAPI / NestJS / Kotlin Ktor /
+      Rust Actix / etc. from training. A hardcoded list in the prompt drifts,
+      excludes the long tail, and is the same anti-pattern as the deleted
+      parsers in prose form.
+  - key: |
+      No source-tree pre-indexing for the skills' sake. Each skill that needs
+      to find a handler does it via Read+Grep — the LLM already does this in
+      a few tool calls and the result is more accurate than any regex pre-
+      pass would be.
+
+steps:
+  - id: code-deletion
+    action: "Delete the seven service/handler/correlator files + four interfaces + three model records."
+    delete:
+      - "src/AgentSmith.Infrastructure/Services/Security/Code/RouteMapper.cs"
+      - "src/AgentSmith.Infrastructure/Services/Security/Code/FrameworkRoutePatterns.cs"
+      - "src/AgentSmith.Infrastructure/Services/Security/Code/AuthBootstrapExtractor.cs"
+      - "src/AgentSmith.Infrastructure/Services/Security/Code/UploadHandlerExtractor.cs"
+      - "src/AgentSmith.Infrastructure/Services/Security/Code/SourceSnippetReader.cs"
+      - "src/AgentSmith.Infrastructure/Services/Security/FindingHandlerCorrelator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ApiCodeContextHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/CorrelateFindingsHandler.cs"
+      - "src/AgentSmith.Contracts/Services/IRouteMapper.cs"
+      - "src/AgentSmith.Contracts/Services/IAuthBootstrapExtractor.cs"
+      - "src/AgentSmith.Contracts/Services/IUploadHandlerExtractor.cs"
+      - "src/AgentSmith.Contracts/Services/IFindingHandlerCorrelator.cs"
+      - "src/AgentSmith.Contracts/Models/ApiCodeContext.cs"
+      - "src/AgentSmith.Contracts/Models/RouteHandlerLocation.cs"
+      - "tests/AgentSmith.Tests/Services/RouteMapperTests.cs"
+
+  - id: code-wiring
+    action: "Update pipeline preset + context keys + command names + DI to reflect deletions."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs: drop ApiCodeContext + ApiSourceAvailable constants."
+      - "src/AgentSmith.Contracts/Commands/CommandNames.cs: drop ApiCodeContext + CorrelateFindings constants + progress labels."
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs: ApiSecurityScan preset loses ApiCodeContext and CorrelateFindings steps."
+      - "src/AgentSmith.Application/Models/ApiSecurityContexts.cs: drop ApiCodeContextCommandContext."
+      - "src/AgentSmith.Application/Services/Builders/ApiSecurityContextBuilders.cs: drop ApiCodeContextContextBuilder."
+      - "src/AgentSmith.Application/Services/Handlers/ApiSkillRoundHandler.cs: drop BuildCodeContextSection + BuildPerSkillCodeSection; prompt-prefix gains 'Project language: {project_language}.' line."
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: drop ApiCodeContextHandler + CorrelateFindingsHandler + ApiCodeContextContextBuilder + (Infra) IRouteMapper/IAuth/IUpload/IFindingHandlerCorrelator service registrations."
+
+  - id: cross-repo-skills
+    action: "Update four skill prompts in agent-smith-skills + drop two dead concepts."
+    modify:
+      - "agent-smith-skills/skills/api-security/controller-implementation-reviewer/SKILL.md: replace the 'handler snippets from RoutesToHandlers' bullet with 'use Read+Grep to locate POST/PUT/DELETE handlers; project language is {project_language}'."
+      - "agent-smith-skills/skills/api-security/auth-config-reviewer/SKILL.md: same pattern for auth bootstrap blocks."
+      - "agent-smith-skills/skills/api-security/upload-validator-reviewer/SKILL.md: same for upload handlers."
+      - "agent-smith-skills/skills/api-security/ownership-checker/SKILL.md: same for state-changing handler discovery."
+      - "agent-smith-skills/skills/concept-vocabulary.yaml: drop code_context_available + upload_handlers_present concepts."
+
+tests:
+  - "All existing api-security-scan integration tests pass (skills produce findings without the pre-computed ApiCodeContext)."
+  - "DI test (ServerDiLifetimeTests / equivalent) builds the container without the deleted services."
+  - "Operator smoke: agent-smith api-scan --project authport-api-security-azure-openai --source-type local --source-path <AuthPort> emits findings with file:line attribution (no Nuclei-correlator regex involved)."
+
+done:
+  - "All seven .cs files in the delete list are gone."
+  - "ContextKeys / CommandNames / PipelinePresets / DI / ApiSkillRoundHandler clean of any ApiCodeContext / CorrelateFindings reference."
+  - "Four skill prompts updated; two concepts removed from vocabulary."
+  - "Full test suite green."
+  - "AuthPort api-security-scan smoke completes; LLM-found handlers attached to findings."
