@@ -10,14 +10,16 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Extensions;
 
-internal static partial class ServiceCollectionExtensions
+/// <summary>
+/// Conversational intent engine + per-intent handlers. AddIntentEngine wires the
+/// ILlmIntentParser to the Claude IChatClient and exposes ProjectResolver for the
+/// Slack/Teams modal flows; AddIntentHandlers registers FixTicket / ListTickets /
+/// CreateTicket / InitProject / Help intents plus the Slack-specific dispatch /
+/// interaction / modal-submission handlers.
+/// </summary>
+internal static class IntentExtensions
 {
-    // Conversational intent engine + per-intent handlers. AddIntentEngine wires the
-    // ILlmIntentParser to the Claude IChatClient and exposes ProjectResolver for the
-    // Slack/Teams modal flows; AddIntentHandlers registers the FixTicket/ListTickets/
-    // CreateTicket/InitProject/Help intents plus the Slack-specific dispatch / interaction
-    // / modal-submission handlers.
-    private static IServiceCollection AddIntentEngine(this IServiceCollection services)
+    internal static IServiceCollection AddIntentEngine(this IServiceCollection services)
     {
         services.AddSingleton<ILlmIntentParser>(sp =>
         {
