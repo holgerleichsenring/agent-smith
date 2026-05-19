@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.56.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.55.0...v0.56.0) (2026-05-19)
+
+
+### Features
+
+* **tools:** give skills bash + edit + glob + http_request + fix ReadSet capture ([#170](https://github.com/holgerleichsenring/agent-smith/issues/170)) ([7401e94](https://github.com/holgerleichsenring/agent-smith/commit/7401e94b6e4b65b35fbf8546c30bfa03ff869d08))
+
+
+### Bug Fixes
+
+* snake_case enum parsing end-to-end ([#159](https://github.com/holgerleichsenring/agent-smith/issues/159)) ([d69da48](https://github.com/holgerleichsenring/agent-smith/commit/d69da4835f39d47e5ed0327afe79049bbbbcb247))
+
 ## [0.55.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.54.0...v0.55.0) (2026-05-19)
 
 
