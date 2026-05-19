@@ -77,6 +77,7 @@ public sealed class PipelineSandboxCoordinator(
             layer, language ?? "<none>", spec.ToolchainImage);
         _sandbox = await sandboxFactory.CreateAsync(spec, cancellationToken);
         context.Set(ContextKeys.Sandbox, _sandbox);
+        logger.LogInformation("Sandbox published to pipeline context (image={Image})", spec.ToolchainImage);
         return _sandbox;
     }
 
