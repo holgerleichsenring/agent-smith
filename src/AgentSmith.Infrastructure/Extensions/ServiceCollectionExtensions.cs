@@ -1,34 +1,21 @@
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Tickets;
-using AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 using AgentSmith.Infrastructure.Core;
 using AgentSmith.Infrastructure.Services.Activation;
-using AgentSmith.Infrastructure.Services.Containers;
-using AgentSmith.Infrastructure.Services.Dialogue;
-using AgentSmith.Infrastructure.Services.Factories;
-using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
-using AgentSmith.Infrastructure.Services.Nuclei;
-using AgentSmith.Infrastructure.Services.Security;
-using AgentSmith.Infrastructure.Services.Spectral;
-using AgentSmith.Infrastructure.Services.Zap;
-using AgentSmith.Infrastructure.Services.Output;
-using AgentSmith.Infrastructure.Services.Providers;
-using AgentSmith.Infrastructure.Services.Queue;
-using AgentSmith.Infrastructure.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace AgentSmith.Infrastructure;
 
-public static class ServiceCollectionExtensions
+/// <summary>
+/// Registers all infrastructure services with the DI container. Helpers are split
+/// into partial files by subdomain (TicketProviders, SourceProviders, ChatClients,
+/// OutputStrategies, SecurityScanners, Dialogue, ConfigLoading) so each file stays
+/// under the 120-line limit. The public entry point lives here.
+/// </summary>
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAgentSmithInfrastructure(this IServiceCollection services)
     {
@@ -36,105 +23,21 @@ public static class ServiceCollectionExtensions
         // p0137b: AddHttpClient() is called once at the composition root (Server's
         // Program.cs / CLI's ServiceProviderFactory). Per-feature extensions use
         // AddHttpClient<T>() typed clients instead of the bare factory registration.
-        services.AddSingleton<ITicketProviderFactory, TicketProviderFactory>();
-        services.AddSingleton<TicketStatusTransitionerFactory>();
-        services.AddSingleton<ITicketStatusTransitionerFactory>(sp =>
-            sp.GetRequiredService<TicketStatusTransitionerFactory>());
-        services.AddSingleton<Services.Providers.Tickets.JiraWorkflowCatalog>();
-        services.AddSingleton<Services.Providers.Source.IGitHubClientFactory, Services.Providers.Source.DefaultGitHubClientFactory>();
-        services.AddSingleton<Services.Providers.Source.IAzDoClientFactory, Services.Providers.Source.DefaultAzDoClientFactory>();
-        services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
-        services.AddSingleton<IHostSourceCloner, Services.Providers.Source.HostSourceCloner>();
-        // p0119a: legacy IAgentProviderFactory / ILlmClientFactory / IAgenticAnalyzerFactory
-        // and the entire AgentPromptBuilder / RepositoryToolDispatcher stack were deleted.
-        // The Microsoft.Extensions.AI replacements (IChatClientFactory + 4 builders) are
-        // registered below.
-
-        // p0119a: Microsoft.Extensions.AI factory + per-provider IChatClient builders.
-        // IChatClientFactory takes AgentConfig per-call (not via DI singleton); the
-        // factory itself + builders are all DI singletons.
-        services.AddSingleton<IChatClientBuilder, ClaudeChatClientBuilder>();
-        services.AddSingleton<IChatClientBuilder, OpenAiChatClientBuilder>();
-        services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
-        services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
-        services.AddSingleton<IChatClientFactory, ChatClientFactory>();
-
-        // p0126a: per-skill loop limits. Defaults match Phase B of the runtime design.
-        // Composition roots that load AgentSmithConfig may replace this registration with
-        // the YAML-bound instance to honor operator-set limits.
-        services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
-
-        // Redis-backed services are registered by AgentSmith.Cli/ServiceProviderFactory.RegisterRedis,
-        // gated on REDIS_URL availability so the CLI `server` command stays up when Redis is missing
-        // (p0101).
-
-        // Output strategies (keyed by ProviderType for IOutputStrategy resolution)
-        services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
-        services.AddKeyedSingleton<IOutputStrategy, SummaryOutputStrategy>("summary");
-        services.AddKeyedSingleton<IOutputStrategy, SarifOutputStrategy>("sarif");
-        services.AddKeyedSingleton<IOutputStrategy, MarkdownOutputStrategy>("markdown");
-
-        services.AddSingleton<ISwaggerProvider, SwaggerProvider>();
-
-        // Legacy IContainerRunner (still used by Dispatcher via DockerJobSpawner)
-        services.AddSingleton<IContainerRunner, DockerContainerRunner>();
-
-        // Tool runner (Nuclei, Spectral) — selected by config or auto-detected
-        var toolRunnerConfig = ToolRunnerSetup.LoadToolRunnerConfig();
-        services.AddSingleton(toolRunnerConfig);
-        services.AddSingleton<IToolRunner>(sp => ToolRunnerSetup.CreateToolRunner(toolRunnerConfig, sp));
-
-        services.AddSingleton(_ => LoadNucleiConfig());
-        services.AddSingleton<INucleiScanner, NucleiSpawner>();
-        services.AddSingleton<ISpectralScanner, SpectralSpawner>();
-
-        services.AddSingleton(_ => LoadZapConfig());
-        services.AddSingleton<IZapScanner, ZapSpawner>();
-
-        // Dialogue (p58) — RedisDialogueTransport is registered by AgentSmith.Cli/ServiceProviderFactory
-        // alongside the other Redis-dependent services (p0101). The CLI overrides with
-        // ConsoleDialogueTransport for interactive modes.
-        services.AddScoped<IDialogueTrail, InMemoryDialogueTrail>();
-
-        // Security scanners (p54)
-        services.AddSingleton<PatternDefinitionLoader>();
-        services.AddSingleton<PatternsDirectoryResolver>();
-        services.AddSingleton<PatternCompiler>();
-        services.AddTransient<PatternFileMatcher>();
-        services.AddTransient<GitDiffSecretMatcher>();
-        services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
-        services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
-        services.AddSingleton<IDependencyAuditor, DependencyAuditor>();
-
-        // API security probing (p79)
-        services.AddSingleton<ISessionProvider, SessionProvider>();
-
+        AddTicketProviders(services);
+        AddSourceProviders(services);
+        AddChatClients(services);
+        AddOutputStrategies(services);
+        AddSecurityScanners(services);
+        AddDialogue(services);
         // Project-meta resolution under target SourcePath (p0104)
         services.AddSingleton<IProjectMetaResolver, Services.ProjectMetaResolver>();
         services.AddSingleton<IProjectBriefBuilder, Services.ProjectBriefBuilder>();
         services.AddSingleton<IBaselineLoader, Services.BaselineLoader>();
-
         // p0125b: PipelineContextRunStateConcepts is bound to a per-pipeline PipelineContext
-        // (not a DI singleton). Register a factory so future handlers (p0125c) can inject the
+        // (not a DI singleton). Register a factory so handlers (p0125c) can inject the
         // creation surface; the factory pulls vocabulary from the context's ConceptVocabulary
         // slot, falling back to Empty when no skills are loaded yet (test fixtures).
         services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
-
-        // PR comment reply and conversation lookup (p59, p59b, p59c)
-        services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
-        services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
-        services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
-        services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
-
-        // p0128b: per-platform Plan open-questions comment templates. Keyed by platform
-        // name; PlanOpenQuestionsPoster (Application) resolves the matching template.
-        services.AddKeyedSingleton<ITicketCommentTemplate, GitHubOpenQuestionsCommentTemplate>("github");
-        services.AddKeyedSingleton<ITicketCommentTemplate, GitLabOpenQuestionsCommentTemplate>("gitlab");
-        services.AddKeyedSingleton<ITicketCommentTemplate, AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
-        services.AddKeyedSingleton<ITicketCommentTemplate, JiraOpenQuestionsCommentTemplate>("jira");
-        // IConversationLookup → RedisConversationLookup is registered by AgentSmith.Cli/ServiceProviderFactory
-        // when REDIS_URL is available (p0101). WebhookDialogueRouter handles the null case.
-
         return services;
     }
 
@@ -145,44 +48,5 @@ public static class ServiceCollectionExtensions
                 ? loaded
                 : ConceptVocabulary.Empty;
         return new PipelineContextRunStateConcepts(context, vocabulary);
-    }
-
-    private static NucleiConfig LoadNucleiConfig() =>
-        LoadYamlConfig<NucleiConfig>("nuclei.yaml");
-
-    private static ZapConfig LoadZapConfig() =>
-        LoadYamlConfig<ZapConfig>("zap.yaml");
-
-    private static T LoadYamlConfig<T>(string fileName) where T : new()
-    {
-        var path = FindConfigFile(fileName);
-        if (path is null) return new T();
-
-        var yaml = File.ReadAllText(path);
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        return deserializer.Deserialize<T>(yaml) ?? new T();
-    }
-
-    internal static string? FindConfigFile(string fileName)
-    {
-        var candidates = new List<string>
-        {
-            Path.Combine("config", fileName),
-            fileName,
-            Path.Combine(AppContext.BaseDirectory, "config", fileName),
-        };
-
-        var configDir = Environment.GetEnvironmentVariable("AGENTSMITH_CONFIG_DIR");
-        if (!string.IsNullOrEmpty(configDir))
-        {
-            candidates.Insert(0, Path.Combine(configDir, fileName));
-            candidates.Insert(1, Path.Combine(configDir, "config", fileName));
-        }
-
-        return candidates.FirstOrDefault(File.Exists);
     }
 }

@@ -1,125 +1,39 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// Well-known keys for the PipelineContext dictionary.
+/// Well-known keys for the PipelineContext dictionary. Split into per-subdomain
+/// partial files (Pipeline, Security, Api, Bootstrap) for readability; every
+/// caller references ContextKeys.X regardless of which partial defines the constant.
+/// This file holds the top-level "core" keys touched by every pipeline run.
 /// </summary>
-public static class ContextKeys
+public static partial class ContextKeys
 {
     public const string AgentConfig = "AgentConfig";
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";
+
     /// <summary>p0140d: the RepoConnection for THIS run. Resolved at the top of ExecutePipelineUseCase
     /// from PipelineRequest.RepoName + project.Repos. Single source of truth for "which repo is
     /// this run for" — every consumer that previously read project.Repo now reads CurrentRepo.</summary>
     public const string CurrentRepo = "CurrentRepo";
-    public const string Plan = "Plan";
-    public const string CodeChanges = "CodeChanges";
+
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;
-    public const string ActiveSkill = "ActiveSkill";
-    public const string AvailableRoles = "AvailableRoles";
-    public const string ProjectSkills = "ProjectSkills";
-    public const string ExecutionTrail = "ExecutionTrail";
-    public const string DiscussionLog = "DiscussionLog";
-    public const string ConsolidatedPlan = "ConsolidatedPlan";
-    public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
-    public const string Approved = "Approved";
-    public const string TestResults = "TestResults";
-    public const string PullRequestUrl = "PullRequestUrl";
-    public const string Headless = "Headless";
     public const string CodeMap = "CodeMap";
     public const string ProjectContext = "ProjectContext";
-    public const string RunNumber = "RunNumber";
-    public const string RunCostSummary = "RunCostSummary";
-    public const string RunDurationSeconds = "RunDurationSeconds";
+    public const string Headless = "Headless";
+    public const string ConfigDir = "ConfigDir";
 
-    /// <summary>
-    /// <see cref="DateTimeOffset"/> stamped at pipeline start. WriteRunResultHandler
-    /// reads this to compute the run's wall-clock duration when no handler
-    /// explicitly wrote <see cref="RunDurationSeconds"/> (e.g. init-project, which
-    /// has no AgenticExecute step).
-    /// </summary>
-    public const string RunStartedAt = "RunStartedAt";
-    public const string InitMode = "InitMode";
-    public const string SourceFilePath = "SourceFilePath";
-    public const string DocumentMarkdown = "DocumentMarkdown";
-    public const string ContractType = "ContractType";
-    public const string Attachments = "Attachments";
-    public const string Decisions = "Decisions";
     public const string SourceType = "SourceType";
     public const string SourcePath = "SourcePath";
     public const string SourceUrl = "SourceUrl";
     public const string SourceAuth = "SourceAuth";
 
-    public const string ScanPrIdentifier = "ScanPrIdentifier";
-    public const string ScanBranch = "ScanBranch";
-    public const string OutputFormat = "OutputFormat";
-    public const string OutputDir = "OutputDir";
-    public const string SwaggerSpec = "SwaggerSpec";
-
-    /// <summary>p0147c: original (uncompressed) swagger spec. LoadSwaggerHandler runs the
-    /// fetched spec through ISwaggerSpecCompressor: the (possibly shrunk) result lands in
-    /// <see cref="SwaggerSpec"/>, the verbatim original lands here. Skills that need full
-    /// schema detail (response-analyst, payload-fuzz scanners) read from this key;
-    /// every other consumer reads the default <see cref="SwaggerSpec"/>.</summary>
     public const string SwaggerSpecFull = "SwaggerSpecFull";
-    public const string NucleiResult = "NucleiResult";
-    public const string ZapResult = "ZapResult";
-    public const string SpectralResult = "SpectralResult";
-    public const string ApiTarget = "ApiTarget";
-    public const string ZapFailed = "ZapFailed";
-    public const string ApiScanFindingsSummary = "ApiScanFindingsSummary";
-    public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
-    public const string SwaggerPath = "SwaggerPath";
     public const string CheckoutBranch = "CheckoutBranch";
     public const string ResolvedPipeline = "ResolvedPipeline";
-    public const string StaticScanResult = "StaticScanResult";
-    public const string GitHistoryScanResult = "GitHistoryScanResult";
-    public const string DependencyAuditResult = "DependencyAuditResult";
-    public const string SecurityFindingsSummary = "SecurityFindingsSummary";
-    public const string SecurityFindingsByCategory = "SecurityFindingsByCategory";
-    public const string SecurityTrend = "SecurityTrend";
-    public const string DialogueAnswer = "DialogueAnswer";
-    public const string DialogueQuestion = "DialogueQuestion";
-    public const string SecurityFixRequests = "SecurityFixRequests";
-    public const string SkillCandidates = "SkillCandidates";
-    public const string SkillEvaluations = "SkillEvaluations";
-    public const string SkillInstallPath = "SkillInstallPath";
-    public const string ApprovedSkills = "ApprovedSkills";
-    public const string WikiUpdates = "WikiUpdates";
-    public const string QueryAnswer = "QueryAnswer";
-    public const string RunHistory = "RunHistory";
-    public const string AutonomousFindings = "AutonomousFindings";
-    public const string WrittenTickets = "WrittenTickets";
-    public const string PipelineTypeName = "PipelineType";
-    /// <summary>p0145: pipeline preset name (e.g. "fix-bug", "security-scan"). Set by
-    /// ExecutePipelineUseCase alongside PipelineTypeName. Distinct from the
-    /// "pipeline_name" concept (Activation-system enum) — this key is the
-    /// ToolKit pipeline-allow-list lookup key.</summary>
-    public const string PipelineName = "PipelineName";
-    public const string SkillOutputs = "SkillOutputs";
-    public const string ConfigDir = "ConfigDir";
-    public const string DoneStatus = "DoneStatus";
-    public const string SkillObservations = "SkillObservations";
-    public const string ConvergenceResult = "ConvergenceResult";
-    public const string Personas = "Personas";
-    public const string ActiveMode = "ActiveMode";
-    public const string HttpProbeResults = "HttpProbeResults";
-    public const string DeferredBuffers = "DeferredBuffers";
-
-    // p0111c: phase-based triage
-    public const string TriageOutput = "TriageOutput";
-    public const string CurrentPhase = "CurrentPhase";
-    public const string PlanArtifact = "PlanArtifact";
-    public const string ConceptVocabulary = "ConceptVocabulary";
-
-    /// <summary>
-    /// Storage slot for the typed concept values published during a pipeline run
-    /// (Dictionary&lt;string, object&gt;). Managed by IRunStateConcepts; do not write directly.
-    /// </summary>
-    public const string ConceptValues = "ConceptValues";
 
     /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
     /// log scope so concurrent runs are filterable in shared log streams.</summary>
@@ -175,4 +89,9 @@ public static class ContextKeys
     public const string VerifyRoundCount = "VerifyRoundCount";
     public const string VerifyNotes = "VerifyNotes";
     public const string VerifyObservations = "VerifyObservations";
+    public const string Decisions = "Decisions";
+    public const string Attachments = "Attachments";
+    public const string SourceFilePath = "SourceFilePath";
+    public const string DocumentMarkdown = "DocumentMarkdown";
+    public const string ContractType = "ContractType";
 }
