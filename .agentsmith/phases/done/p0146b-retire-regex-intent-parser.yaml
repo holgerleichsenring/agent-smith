@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0146b
+goal: "Delete RegexIntentParser. The codebase already has LlmIntentParser as the
+  designed implementation, but DI got switched back to the regex version at
+  some point. Audit the legacy free-text entry-points (CLI `run` + the string
+  overload of ExecutePipelineUseCase.ExecuteAsync) — if anything still routes
+  free-text input, it routes through LlmIntentParser; ideally the legacy
+  overload disappears entirely because every real entry-point already builds
+  PipelineRequest directly."
+
+requires: ["p0146"]
+
+scope:
+  in: |
+    (1) Delete RegexIntentParser.cs and its tests. Swap DI registration to
+        LlmIntentParser (already implemented).
+
+    (2) Audit callers of the legacy string overload
+        `ExecutePipelineUseCase.ExecuteAsync(string userInput, ...)`. Today
+        confirmed:
+        - RunCommand.cs --dry-run path calls intentParser.ParseAsync to print
+          the would-be intent. Keep via LlmIntentParser (one extra Haiku call
+          for the dev's `--dry-run` is fine).
+        - The string overload itself contains two regex shapes ("init in X" /
+          "security-scan|legal-analysis|api-scan in X"). Delete those shapes;
+          the overload either delegates to LlmIntentParser cleanly or gets
+          deleted if no real caller is left.
+        Verify no Slack / webhook / poller / CLI command other than `run`
+        reaches that overload — they all build PipelineRequest directly today.
+
+    (3) Drop the regex shapes from ExecutePipelineUseCase.cs (lines 176-198 at
+        time of writing: BuildRequestFromLegacyInput). If the entire string
+        overload becomes unreachable, delete it.
+
+  out: |
+    `agent-smith run "free text"` CLI argument itself. The CLI command stays;
+    it just routes through LlmIntentParser instead of regex. Whether free-text
+    `run` should even exist long-term is a separate UX question — Slack /
+    webhooks / typed CLI commands (`api-scan`, `security-scan`, ...) are the
+    real entry-points and they're all structured already.
+
+    LlmIntentParser implementation changes. It already exists; this phase
+    just stops bypassing it.
+
+decisions:
+  - key: |
+      Delete RegexIntentParser rather than mark obsolete. Reason: there is
+      exactly one implementation of IIntentParser besides it (LlmIntentParser),
+      and the regex one is a regression that should never have re-entered DI.
+      An [Obsolete] window would invite "quick fix" re-use. -- alternatives:
+      keep + obsolete (rejected: invites drift).
+  - key: |
+      Don't delete the `agent-smith run "free text"` CLI entry-point in this
+      phase even though it's the only consumer of the string overload. UX
+      review is a separate cut. Reason: small change, easy to revisit; this
+      phase is about the regex elimination, not CLI surface trimming.
+
+steps:
+  - id: delete-and-rewire-di
+    action: "Delete RegexIntentParser + tests; swap DI to LlmIntentParser."
+    delete:
+      - "src/AgentSmith.Application/Services/RegexIntentParser.cs"
+      - "tests/AgentSmith.Tests/Services/RegexIntentParserTests.cs (if it exists)"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: change services.AddTransient<IIntentParser, RegexIntentParser>() to LlmIntentParser."
+
+  - id: audit-and-prune-legacy-overload
+    action: "Verify no consumer besides RunCommand --dry-run hits the string overload of ExecutePipelineUseCase.ExecuteAsync. Drop the two regex shapes in BuildRequestFromLegacyInput; collapse the overload to a pure LlmIntentParser delegation or delete it outright if no caller remains."
+    modify:
+      - "src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs: drop the init/security-scan/legal-analysis/api-scan regex shapes (today lines 176-198); rewire the overload."
+
+  - id: verify-callers
+    action: "Confirm every other entry-point (Slack, GitHub/GitLab/ADO webhooks, Jira poller, every CLI command except `run`) builds PipelineRequest directly. No regression coverage needed if confirmed; if any reach the string overload, this phase rewrites that caller to use the direct shape instead."
+
+tests:
+  - "RegexIntentParserTests removed if they exist."
+  - "LlmIntentParser is the only IIntentParser registered — verifiable via DI test (ServerDiLifetimeTests / RunCommand dry-run check)."
+  - "RunCommand --dry-run with a free-text input still works (now via LlmIntentParser)."
+
+done:
+  - "RegexIntentParser.cs deleted."
+  - "DI registers LlmIntentParser exclusively."
+  - "ExecutePipelineUseCase contains no Regex.Match calls."
+  - "Full test suite green."
