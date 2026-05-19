@@ -33,7 +33,7 @@ public sealed class DiscussionRoundExecutor(
             skillName, role, system, userPrefix, userSuffix, toolPolicy, pipeline, cancellationToken);
         if (SkillCallOutcomeTranslator.TranslateDiscussion(result, skillName, role, logger) is { } earlyFail)
             return earlyFail;
-        var parsed = responseParser.ParseAndDowngrade(result.Output ?? string.Empty, skillName, logger);
+        var parsed = responseParser.ParseAndDowngrade(result.Output ?? string.Empty, skillName, logger, result.ReadPaths);
         StorePlanArtifactIfPlanLead(skillName, pipeline, parsed);
         var entry = new DiscussionEntry(
             skillName, role.DisplayName, role.Emoji, round, responseParser.RenderObservationsAsText(parsed));

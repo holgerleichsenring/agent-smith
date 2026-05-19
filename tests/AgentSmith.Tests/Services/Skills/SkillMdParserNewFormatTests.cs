@@ -263,14 +263,34 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
     }
 
     [Fact]
-    public void ParseNewFormat_BlockConditionMissingOnJudge_Rejected()
+    public void ParseNewFormat_BlockConditionMissingOnObservationJudge_Accepted()
     {
-        WriteSkill("no-block", """
+        // p0151b: observation-emitting judges defer the action decision to the
+        // consumer's policy — block_condition is meaningless for them.
+        WriteSkill("observation-judge", """
             ---
-            name: no-block
+            name: observation-judge
             description: "test"
             role: judge
             output_schema: observation
+            activates_when: "true"
+            ---
+            Body.
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void ParseNewFormat_BlockConditionMissingOnPlanJudge_Rejected()
+    {
+        // Plan / gate output schemas still require block_condition.
+        WriteSkill("plan-judge", """
+            ---
+            name: plan-judge
+            description: "test"
+            role: judge
+            output_schema: plan
             activates_when: "true"
             ---
             Body.

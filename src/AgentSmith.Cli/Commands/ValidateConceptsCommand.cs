@@ -106,9 +106,14 @@ public sealed class ValidateConceptsCommand(
         if (skill.InvestigatorMode == "verify_hint" && string.IsNullOrWhiteSpace(skill.Category))
             errors.Add(new ConceptValidationError(skill.Name, "category",
                 "category is required when investigator_mode=verify_hint"));
-        if (skill.Role == "judge" && string.IsNullOrWhiteSpace(skill.BlockCondition))
+        // p0151b: block_condition required only for judges with gating schemas
+        // (plan / gate). Observation-emitting judges defer the action decision
+        // to the consumer; block_condition is meaningless for them.
+        if (skill.Role == "judge"
+            && skill.OutputSchema is not null and not "observation"
+            && string.IsNullOrWhiteSpace(skill.BlockCondition))
             errors.Add(new ConceptValidationError(skill.Name, "block_condition",
-                "block_condition is required when role=judge"));
+                "block_condition is required when role=judge and output_schema in {plan, gate}"));
         if (skill.OutputSchema == "bootstrap" && skill.Role != "producer")
             errors.Add(new ConceptValidationError(skill.Name, "output_schema",
                 $"output_schema=bootstrap requires role=producer; got role='{skill.Role}'"));

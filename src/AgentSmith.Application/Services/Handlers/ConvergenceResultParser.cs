@@ -17,7 +17,7 @@ public sealed class ConvergenceResultParser(ITolerantJsonParser tolerantParser)
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) }
     };
 
     public ConvergenceResult? Parse(

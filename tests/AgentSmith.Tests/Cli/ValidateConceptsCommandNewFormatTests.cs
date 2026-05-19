@@ -54,11 +54,12 @@ public sealed class ValidateConceptsCommandNewFormatTests : IDisposable
     }
 
     [Fact]
-    public void Validate_NewFormatSkillJudgeWithoutBlockCondition_ExitOneAndPrintsRule()
+    public void Validate_NewFormatObservationJudgeWithoutBlockCondition_ExitZero()
     {
+        // p0151b: observation-emitting judges no longer require block_condition.
         SetupSkills(new RoleSkillDefinition
         {
-            Name = "judge-skill",
+            Name = "observation-judge",
             Role = "judge",
             ActivatesWhen = "source_available",
             OutputSchema = "observation",
@@ -66,8 +67,25 @@ public sealed class ValidateConceptsCommandNewFormatTests : IDisposable
 
         var result = SutWith().Validate(_tempDir);
 
+        result.ExitCode.Should().Be(0);
+        result.Errors.Should().NotContain(e => e.Subject == "observation-judge" && e.Concept == "block_condition");
+    }
+
+    [Fact]
+    public void Validate_NewFormatPlanJudgeWithoutBlockCondition_ExitOneAndPrintsRule()
+    {
+        SetupSkills(new RoleSkillDefinition
+        {
+            Name = "plan-judge",
+            Role = "judge",
+            ActivatesWhen = "source_available",
+            OutputSchema = "plan",
+        });
+
+        var result = SutWith().Validate(_tempDir);
+
         result.ExitCode.Should().Be(1);
-        result.Errors.Should().Contain(e => e.Subject == "judge-skill" && e.Concept == "block_condition");
+        result.Errors.Should().Contain(e => e.Subject == "plan-judge" && e.Concept == "block_condition");
     }
 
     [Fact]
