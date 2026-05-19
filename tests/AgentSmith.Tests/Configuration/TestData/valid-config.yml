@@ -1,17 +1,17 @@
 agents:
   claude-default:
-    type: Claude
+    type: claude
     model: sonnet-4
 
 repos:
   test-repo:
-    type: GitHub
+    type: github
     url: https://github.com/test/repo
     auth: token
 
 trackers:
   test-ado:
-    type: AzureDevOps
+    type: azure_devops
     organization: testorg
     project: TestProject
     auth: token

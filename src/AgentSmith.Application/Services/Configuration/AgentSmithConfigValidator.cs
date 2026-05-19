@@ -35,7 +35,7 @@ public sealed class AgentSmithConfigValidator
                 errors.Add(
                     $"Project '{name}': {kind} is missing required 'project_resolution' " +
                     "(p0140 — declares how the webhook handler picks this project for an " +
-                    "incoming ticket; one of tag/area-path/repo/to_address).");
+                    "incoming ticket; one of tag/area_path/repo/to_address).");
             }
         }
     }
@@ -53,7 +53,7 @@ public sealed class AgentSmithConfigValidator
                 errors.Add(
                     $"Project '{name}': {kind} project_resolution.strategy=repo requires " +
                     $"exactly one entry in repos (has {project.Repos.Count}). Use strategy=tag " +
-                    "or area-path for multi-repo projects, since the webhook payload's repo URL " +
+                    "or area_path for multi-repo projects, since the webhook payload's repo URL " +
                     "alone cannot disambiguate which repo of the project the ticket belongs to.");
             }
         }
