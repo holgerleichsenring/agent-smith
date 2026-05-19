@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -27,7 +28,7 @@ public sealed class FilterRoundHandlerBatchedTests
             }
         };
 
-        var rendered = FilterRoundHandler.RenderForFilter(observations);
+        var rendered = FilterRoundCaller.RenderForFilter(observations);
 
         rendered.Should().NotContain("long-form body");
         rendered.Should().Contain("headline finding");
@@ -121,11 +122,13 @@ public sealed class FilterRoundHandlerBatchedTests
         // so the cost path runs end-to-end. The runtime uses factory to
         // resolve IChatClient — same stub the test queues into.
         var runtime = BuildRuntime(factory);
-        return new FilterRoundHandler(factory, promptBuilder.Object, runtime,
-            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-            new AgentSmith.Application.Services.SkillRounds.FilterRoundToolPolicy(),
-            TolerantJsonParserFactory.CreateObservation(),
-            NullLogger<FilterRoundHandler>.Instance);
+        var bufferDispatcher = new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher();
+        var toolPolicy = new AgentSmith.Application.Services.SkillRounds.FilterRoundToolPolicy();
+        var observationParser = TolerantJsonParserFactory.CreateObservation();
+        var caller = new FilterRoundCaller(
+            promptBuilder.Object, runtime, bufferDispatcher, toolPolicy, observationParser);
+        return new FilterRoundHandler(
+            factory, new FilterRoundBatcher(), caller, NullLogger<FilterRoundHandler>.Instance);
     }
 
     private static AgentSmith.Application.Services.Loop.SkillCallRuntime BuildRuntime(

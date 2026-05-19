@@ -1,40 +1,22 @@
 using AgentSmith.Application.Models;
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Activation;
-using AgentSmith.Application.Services.Loop;
-using AgentSmith.Application.Services.SkillRounds;
-using AgentSmith.Application.Services.Tools;
-using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Skills;
-using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0129a: Verify-phase orchestrator. Runs every active VerifyDiff investigator
-/// (role=investigator, investigator_mode=verify_diff, activates_when matches) against
-/// the persisted Plan + Diff and aggregates their observations. First blocking
-/// observation triggers re-implementation via InsertNext = [AgenticExecute, RunVerifyPhase];
-/// the second escalates by returning Fail with combined notes.
+/// Verify-phase orchestrator. Delegates verifier dispatch + observation
+/// aggregation to <see cref="IVerifyRoundCoordinator"/>; retains the two-round
+/// policy: blocking observations in round 1 trigger re-implementation via
+/// InsertNext = [AgenticExecute, RunVerifyPhase]; blocking observations in
+/// round 2 escalate by returning Fail with combined deduped notes.
 /// </summary>
 public sealed class VerifyRoundHandler(
-    ActivationSkillFilter activationFilter,
-    ISkillBodyResolver bodyResolver,
-    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
-    IDecisionLogger decisionLogger,
-    IToolKit toolKit,
-    ISkillCallRuntime skillCallRuntime,
-    ISkillResponseParser responseParser,
-    ISkillRoundBufferDispatcher bufferDispatcher,
+    IVerifyRoundCoordinator coordinator,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -43,32 +25,27 @@ public sealed class VerifyRoundHandler(
         var pipeline = context.Pipeline;
         var roundCount = AdvanceRoundCount(pipeline);
 
-        if (!TryReadInputs(pipeline, out var planJson, out var diffJson, out var roles))
+        if (!TryReadInputs(pipeline, out var planJson, out var diffJson))
             return CommandResult.Ok("Verify phase skipped — no Plan/Diff or AvailableRoles in context");
 
-        var verifiers = ResolveActiveVerifiers(pipeline, roles);
-        if (verifiers.Count == 0)
-        {
-            logger.LogInformation("Verify phase: no active VerifyDiff investigators; skipping");
+        var round = await coordinator.RunRoundAsync(
+            planJson, diffJson, context.AgentConfig, pipeline, cancellationToken);
+        if (round.VerifierCount == 0)
             return CommandResult.Ok("Verify phase: no active verifiers");
-        }
 
-        var observations = await RunVerifiersAsync(
-            verifiers, planJson, diffJson, context.AgentConfig, pipeline, cancellationToken);
-        AppendObservations(pipeline, observations);
-
-        var blocking = observations.Count(o => o.Blocking);
+        AppendObservations(pipeline, round.Observations);
+        var blocking = round.Observations.Count(o => o.Blocking);
         logger.LogInformation(
             "Verify phase round {Round}: {Verifiers} verifier(s), {Total} observation(s), {Blocking} blocking",
-            roundCount, verifiers.Count, observations.Count, blocking);
+            roundCount, round.VerifierCount, round.Observations.Count, blocking);
 
         if (blocking == 0)
-            return CommandResult.Ok($"Verify round {roundCount}: {observations.Count} observations, none blocking");
+            return CommandResult.Ok($"Verify round {roundCount}: {round.Observations.Count} observations, none blocking");
 
-        var notes = VerifyNotesFormatter.Format(roundCount, observations);
+        var notes = VerifyNotesFormatter.Format(roundCount, round.Observations);
         return roundCount >= 2
             ? Escalate(pipeline, notes)
-            : ReLoop(pipeline, notes, observations.Count, blocking);
+            : ReLoop(pipeline, notes, round.Observations.Count, blocking);
     }
 
     private static int AdvanceRoundCount(PipelineContext pipeline)
@@ -79,117 +56,14 @@ public sealed class VerifyRoundHandler(
         return next;
     }
 
-    private static bool TryReadInputs(
-        PipelineContext pipeline,
-        out string planJson, out string diffJson,
-        out IReadOnlyList<RoleSkillDefinition> roles)
+    private static bool TryReadInputs(PipelineContext pipeline, out string planJson, out string diffJson)
     {
         planJson = pipeline.TryGet<string>(ContextKeys.PlanJson, out var p) ? p ?? string.Empty : string.Empty;
         diffJson = pipeline.TryGet<string>(ContextKeys.DiffJson, out var d) ? d ?? string.Empty : string.Empty;
-        roles = pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
-            ContextKeys.AvailableRoles, out var r) && r is not null ? r : [];
-        return roles.Count > 0
+        var hasRoles = pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles, out var r) && r is { Count: > 0 };
+        return hasRoles
             && (!string.IsNullOrWhiteSpace(planJson) || !string.IsNullOrWhiteSpace(diffJson));
-    }
-
-    private IReadOnlyList<RoleSkillDefinition> ResolveActiveVerifiers(
-        PipelineContext pipeline, IReadOnlyList<RoleSkillDefinition> roles)
-    {
-        var concepts = conceptsFactory(pipeline);
-        var verifiers = roles
-            .Where(r => string.Equals(r.Role, "investigator", StringComparison.OrdinalIgnoreCase))
-            .Where(r => string.Equals(r.InvestigatorMode, "verify_diff", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        return activationFilter.Filter(verifiers, concepts);
-    }
-
-    private async Task<List<SkillObservation>> RunVerifiersAsync(
-        IReadOnlyList<RoleSkillDefinition> verifiers,
-        string planJson, string diffJson, AgentConfig agent,
-        PipelineContext pipeline, CancellationToken cancellationToken)
-    {
-        var combined = new List<SkillObservation>();
-        var tools = ResolveVerifyTools(pipeline);
-        foreach (var verifier in verifiers)
-        {
-            var observations = await InvokeVerifierAsync(
-                verifier, planJson, diffJson, agent, tools, pipeline, cancellationToken);
-            combined.AddRange(observations);
-        }
-        return combined;
-    }
-
-    /// <summary>
-    /// p0132c: builds the Verify-phase tool surface for verifiers that want to
-    /// invoke RunCommand (build-verifier, test-verifier). When the pipeline has
-    /// no active sandbox (smoke tests, no-runtime contexts), returns an empty
-    /// tool list so verifiers degrade gracefully to LLM-only static analysis.
-    /// Architecture-verifier + scope-verifier ignore the tools regardless —
-    /// their SKILL.md bodies don't reference RunCommand.
-    /// </summary>
-    private IList<AITool> ResolveVerifyTools(PipelineContext pipeline)
-    {
-        if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return new List<AITool>();
-        var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
-            ? pn
-            : IToolKit.WildcardPipelineName;
-        var hosts = new IToolHost[]
-        {
-            new FilesystemToolHost(sandbox),
-            new LogDecisionToolHost(decisionLogger),
-            new HumanToolHost()
-        };
-        return toolKit.GetToolsFor(
-            pipelineName, SkillExecutionPhase.Verify, investigatorMode: "verify_diff", hosts);
-    }
-
-    private async Task<List<SkillObservation>> InvokeVerifierAsync(
-        RoleSkillDefinition verifier, string planJson, string diffJson,
-        AgentConfig agent, IList<AITool> tools,
-        PipelineContext pipeline, CancellationToken cancellationToken)
-    {
-        var body = bodyResolver.ResolveBody(verifier, SkillRole.Analyst);
-        var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp) ? cp : null;
-        var (system, user) = VerifierPromptBuilder.Build(body, planJson, diffJson, codingPrinciples);
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, system),
-            new(ChatRole.User, user),
-        };
-        // p0142: per-verifier runtime dispatch — LimitEnforcer + cost
-        // attribution per verifier are now load-bearing. ToolSet flows
-        // through unchanged (empty when no sandbox → static-only verify).
-        var request = new SkillCallRequest
-        {
-            SkillName = verifier.Name,
-            Role = verifier.Role ?? "investigator",
-            Phase = SkillExecutionPhase.Verify,
-            InvestigatorMode = "verify_diff",
-            PromptParts = messages,
-            ToolSet = tools.ToList(),
-            AgentConfig = agent,
-            TaskType = TaskType.Primary,
-            PipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null
-        };
-        var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
-        // p0147b: runtime observations (execution-limit / execution-error) surface
-        // even when the verifier fails outright, so silent verifier drops are visible.
-        BufferRuntimeObservations(pipeline, verifier.Name, round: 0, result);
-        if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
-        {
-            logger.LogWarning(
-                "Verifier {Name}: {Outcome} ({Reason}) — no observations from this verifier",
-                verifier.Name, result.Outcome, result.FailureReason ?? "no reason");
-            return [];
-        }
-        if (result.Outcome == SkillCallOutcome.Incomplete)
-            logger.LogWarning(
-                "Verifier {Name} returned Incomplete (limit: {Limit}) — using partial observations",
-                verifier.Name, result.Cost.HitLimit ?? "unknown");
-        var responseText = result.Output ?? string.Empty;
-        return responseParser.ParseAndDowngrade(responseText, verifier.Name, logger);
     }
 
     private static void AppendObservations(PipelineContext pipeline, IReadOnlyList<SkillObservation> observations)
@@ -203,9 +77,7 @@ public sealed class VerifyRoundHandler(
     private CommandResult ReLoop(PipelineContext pipeline, string notes, int total, int blocking)
     {
         pipeline.Set(ContextKeys.VerifyNotes, notes);
-        logger.LogInformation(
-            "Verify round 1: {Blocking}/{Total} blocking — re-running implementation with notes",
-            blocking, total);
+        logger.LogInformation("Verify round 1: {Blocking}/{Total} blocking — re-implementing", blocking, total);
         return CommandResult.OkAndContinueWith(
             $"Verify round 1: {blocking} blocking observation(s), re-implementing",
             PipelineCommand.Simple(CommandNames.AgenticExecute),
@@ -214,16 +86,11 @@ public sealed class VerifyRoundHandler(
 
     private CommandResult Escalate(PipelineContext pipeline, string notes)
     {
-        // p0129c: dedup across rounds. VerifyObservations holds both round-1 and round-2
-        // observations (AppendObservations is cumulative); collapsing duplicates by
-        // (file, concern, description-prefix-100) keeps the writeback focused on
-        // unique unfixed concerns rather than echoing the same finding twice.
-        var combinedNotes = BuildCombinedDedupedNotes(pipeline) ?? notes;
-        pipeline.Set(ContextKeys.VerifyNotes, combinedNotes);
-        logger.LogWarning(
-            "Verify round 2: blocking observations after re-implementation; escalating to ticket");
+        var combined = BuildCombinedDedupedNotes(pipeline) ?? notes;
+        pipeline.Set(ContextKeys.VerifyNotes, combined);
+        logger.LogWarning("Verify round 2: blocking observations after re-implementation; escalating");
         return CommandResult.Fail(
-            $"Verify-phase escalation: second blocking observation; pipeline ends.\n\n{combinedNotes}");
+            $"Verify-phase escalation: second blocking observation; pipeline ends.\n\n{combined}");
     }
 
     private static string? BuildCombinedDedupedNotes(PipelineContext pipeline)
@@ -231,23 +98,7 @@ public sealed class VerifyRoundHandler(
         if (!pipeline.TryGet<List<SkillObservation>>(ContextKeys.VerifyObservations, out var all)
             || all is null || all.Count == 0)
             return null;
-        var deduped = VerifyNotesFormatter.Dedup(all);
-        var blocking = deduped.Where(o => o.Blocking).ToList();
-        return blocking.Count == 0
-            ? null
-            : VerifyNotesFormatter.Format(round: 2, blocking);
-    }
-
-    // Re-introduced post-p0147d merge: surface execution-limit / execution-error
-    // observations from SkillCallRuntime so silent skill drops still reach the
-    // pipeline summary. The old static helper on SkillRoundHandlerBase moved into
-    // ISkillRoundBufferDispatcher; this thin wrapper preserves the call shape.
-    private void BufferRuntimeObservations(
-        PipelineContext pipeline, string skillName, int round, SkillCallResult result)
-    {
-        if (result.RuntimeObservations.Count == 0) return;
-        var buffer = new SkillRoundBuffer(
-            skillName, round, result.RuntimeObservations.ToList(), null, null);
-        bufferDispatcher.Dispatch(pipeline, buffer);
+        var blocking = VerifyNotesFormatter.Dedup(all).Where(o => o.Blocking).ToList();
+        return blocking.Count == 0 ? null : VerifyNotesFormatter.Format(round: 2, blocking);
     }
 }

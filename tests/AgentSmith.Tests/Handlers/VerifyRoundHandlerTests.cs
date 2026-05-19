@@ -209,7 +209,7 @@ public sealed class VerifyRoundHandlerTests
             .Setup(b => b.ResolveBody(It.IsAny<RoleSkillDefinition>(), It.IsAny<SkillRole>()))
             .Returns("Verifier body — flag any out-of-scope file.");
         var runtime = BuildRuntime(stubFactory);
-        return new VerifyRoundHandler(
+        var coordinator = new AgentSmith.Application.Services.VerifyRoundCoordinator(
             filter, bodyResolver.Object,
             RunStateConceptsTestFactory.Default,
             Mock.Of<AgentSmith.Contracts.Decisions.IDecisionLogger>(),
@@ -219,7 +219,8 @@ public sealed class VerifyRoundHandlerTests
             new AgentSmith.Application.Services.SkillRounds.SkillResponseParser(
                 AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateObservation()),
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-            NullLogger<VerifyRoundHandler>.Instance);
+            NullLogger<AgentSmith.Application.Services.VerifyRoundCoordinator>.Instance);
+        return new VerifyRoundHandler(coordinator, NullLogger<VerifyRoundHandler>.Instance);
     }
 
     private static AgentSmith.Application.Services.Loop.SkillCallRuntime BuildRuntime(
