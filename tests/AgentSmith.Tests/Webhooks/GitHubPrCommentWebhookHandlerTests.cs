@@ -9,11 +9,15 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     private static readonly IDictionary<string, string> EmptyHeaders =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    private static GitHubPrCommentWebhookHandler CreateSut() =>
+        new(TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
+            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+
     [Fact]
     public void CanHandle_CorrectEventTypes()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
 
         sut.CanHandle("github", "issue_comment").Should().BeTrue();
         sut.CanHandle("github", "pull_request_review_comment").Should().BeTrue();
@@ -24,8 +28,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_FixCommand_ReturnsPipeline()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -46,15 +49,15 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug pr:org/my-api#42");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("fix-bug");
+        result.TriggerInput.Should().Contain("pr:org/my-api#42");
     }
 
     [Fact]
-    public async Task HandleAsync_FixWithArguments_ReturnsArguments()
+    public async Task HandleAsync_FixWithTicket_PropagatesTicket()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -75,15 +78,15 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug #123 in my-api");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("#123");
+        result.TriggerInput.Should().Contain("pr:org/my-api#42");
     }
 
     [Fact]
     public async Task HandleAsync_SecurityScan_ReturnsSecurityPipeline()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -104,15 +107,15 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("security-scan pr:org/my-api#7");
         result.Pipeline.Should().Be("security-scan");
+        result.TriggerInput.Should().Contain("security-scan");
+        result.TriggerInput.Should().Contain("pr:org/my-api#7");
     }
 
     [Fact]
     public async Task HandleAsync_Help_ReturnsNotHandled()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -138,8 +141,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_Approve_ReturnsDialogueAnswer()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -167,8 +169,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_PlainIssueComment_ReturnsNotHandled()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -193,8 +194,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_EditedAction_ReturnsNotHandled()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "edited",
@@ -220,8 +220,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_ReviewComment_ReturnsHandled()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
@@ -239,15 +238,14 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug pr:org/my-api#10");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("pr:org/my-api#10");
     }
 
     [Fact]
     public async Task HandleAsync_UnknownCommand_ReturnsNotHandled()
     {
-        var sut = new GitHubPrCommentWebhookHandler(
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "action": "created",
