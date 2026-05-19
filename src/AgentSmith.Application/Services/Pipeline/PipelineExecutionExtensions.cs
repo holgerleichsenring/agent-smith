@@ -18,11 +18,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Pipeline;
 
 /// <summary>
-/// Pipeline-execution feature-set: executor (and the legacy fallback behind
-/// PIPELINE_EXECUTOR_USE_LEGACY), step/error/sandbox collaborators, data-flow
-/// resolver + per-preset declarations, sandbox + image resolvers, lifecycle
-/// coordinator default, prompt builder, sandbox file-reader factory,
-/// project resolver + spawn use-case, and the IntentParser binding.
+/// Pipeline-execution feature-set: executor + its step/error/sandbox
+/// collaborators, data-flow resolver + per-preset declarations, sandbox +
+/// image resolvers, lifecycle coordinator default, prompt builder, sandbox
+/// file-reader factory, project resolver + spawn use-case, and the
+/// IntentParser binding.
 /// </summary>
 public static class PipelineExecutionExtensions
 {
@@ -38,11 +38,7 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
         services.AddTransient<PipelineExecutor>();
-        services.AddTransient<PipelineExecutorLegacy>();
-        services.AddTransient<IPipelineExecutor>(sp =>
-            UseLegacyExecutor()
-                ? sp.GetRequiredService<PipelineExecutorLegacy>()
-                : sp.GetRequiredService<PipelineExecutor>());
+        services.AddTransient<IPipelineExecutor>(sp => sp.GetRequiredService<PipelineExecutor>());
         services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
         services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
         services.AddSingleton<IPhaseDataFlow, AddFeatureDataFlow>();
@@ -72,11 +68,5 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
         services.AddSingleton<IToolKit, ToolKit>();
         return services;
-    }
-
-    private static bool UseLegacyExecutor()
-    {
-        var raw = Environment.GetEnvironmentVariable("PIPELINE_EXECUTOR_USE_LEGACY");
-        return raw is "1" or "true" or "TRUE";
     }
 }

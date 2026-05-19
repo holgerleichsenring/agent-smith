@@ -17,7 +17,7 @@ public class PipelineExecutorBatchingTests
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "beta", 1),
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "gamma", 1));
 
-        var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 1);
+        var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 1);
 
         batch.Should().HaveCount(1);
         batch[0].Value.SkillName.Should().Be("alpha");
@@ -31,7 +31,7 @@ public class PipelineExecutorBatchingTests
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "beta", 1),
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "gamma", 1));
 
-        var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 4);
+        var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 4);
 
         batch.Should().HaveCount(3);
         batch.Select(n => n.Value.SkillName).Should().Equal("alpha", "beta", "gamma");
@@ -45,7 +45,7 @@ public class PipelineExecutorBatchingTests
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "beta", 1),
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "gate", 2));
 
-        var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 4);
+        var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 4);
 
         batch.Should().HaveCount(2);
         batch.Select(n => n.Value.SkillName).Should().Equal("alpha", "beta");
@@ -58,7 +58,7 @@ public class PipelineExecutorBatchingTests
             PipelineCommand.SkillRound(CommandNames.SkillRound, "alpha", 1),
             PipelineCommand.SkillRound(CommandNames.ApiSecuritySkillRound, "beta", 1));
 
-        var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 4);
+        var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 4);
 
         batch.Should().HaveCount(1);
         batch[0].Value.SkillName.Should().Be("alpha");
@@ -71,7 +71,7 @@ public class PipelineExecutorBatchingTests
             PipelineCommand.Simple(CommandNames.ConvergenceCheck),
             PipelineCommand.Simple(CommandNames.ConvergenceCheck));
 
-        var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 4);
+        var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 4);
 
         batch.Should().HaveCount(1);
     }
@@ -89,7 +89,7 @@ public class PipelineExecutorBatchingTests
             var list = LinkedListOf(
                 PipelineCommand.SkillRound(name, "a", 1),
                 PipelineCommand.SkillRound(name, "b", 1));
-            var batch = PipelineExecutor.PeelBatch(list.First!, maxConcurrent: 2);
+            var batch = PipelineStepRunner.PeelBatchInternal(list.First!, maxConcurrent: 2);
             batch.Should().HaveCount(2, $"{name} should be batchable");
         }
     }

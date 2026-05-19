@@ -14,19 +14,13 @@ namespace AgentSmith.Tests.Services;
 /// PersistWorkBranch on failure even when a Repository is in context.
 /// Without the guard, scan-pipeline failures used to attempt to stage scan
 /// artifacts (ZAP reports, findings JSON) into a WIP branch.
-///
-/// Parametrised across the new composed executor and the pre-p0147e monolith.
 /// </summary>
 public sealed class PipelineExecutorPersistGuardTests
 {
-    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
-
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_ScanPipelineFails_DoesNotCallPersistWorkBranchEvenWithRepository(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_ScanPipelineFails_DoesNotCallPersistWorkBranchEvenWithRepository()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var pipeline = NewPipelineWithRepository();
         var commands = new[] { CommandNames.SpawnNuclei, CommandNames.Triage, CommandNames.DeliverFindings };
         ArrangeFirstCommandFailure(h, commands[0]);
@@ -37,12 +31,10 @@ public sealed class PipelineExecutorPersistGuardTests
         AssertPersistWasNotInvoked(h);
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_SourcelessPipelineFails_DoesNotCallPersistWorkBranch(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_SourcelessPipelineFails_DoesNotCallPersistWorkBranch()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var pipeline = new PipelineContext();
         var commands = new[] { CommandNames.AgenticExecute };
         ArrangeFirstCommandFailure(h, commands[0]);
@@ -53,12 +45,10 @@ public sealed class PipelineExecutorPersistGuardTests
         AssertPersistWasNotInvoked(h);
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_CodeModifyingPipelineFails_AttemptsPersistWorkBranch(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_CodeModifyingPipelineFails_AttemptsPersistWorkBranch()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var pipeline = NewPipelineWithRepository();
         var commands = new[] { CommandNames.AgenticExecute, CommandNames.Test };
         ArrangeFirstCommandFailure(h, commands[0]);
@@ -92,7 +82,7 @@ public sealed class PipelineExecutorPersistGuardTests
         return pipeline;
     }
 
-    private static void ArrangeFirstCommandFailure(PipelineExecutorTestHarness h, string commandName)
+    private static void ArrangeFirstCommandFailure(PipelineExecutorTestBuilder h, string commandName)
     {
         h.FactoryMock.Setup(f => f.Create(
             It.Is<PipelineCommand>(c => c.Name == commandName),
@@ -101,7 +91,7 @@ public sealed class PipelineExecutorPersistGuardTests
             .Throws(new Exception($"{commandName} crashed for test"));
     }
 
-    private static void AssertPersistWasNotInvoked(PipelineExecutorTestHarness h)
+    private static void AssertPersistWasNotInvoked(PipelineExecutorTestBuilder h)
     {
         h.FactoryMock.Verify(f => f.Create(
             It.Is<PipelineCommand>(c => c.Name == CommandNames.PersistWorkBranch),
