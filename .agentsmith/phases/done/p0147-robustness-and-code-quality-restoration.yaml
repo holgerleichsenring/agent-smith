@@ -23,7 +23,7 @@ scope:
         SkillCallRuntime hits max_tool_calls / max_tokens / wall-clock, today's
         path silently discards. Operator sees no trace. Emit a typed
         observation (category=execution-limit) so triage + summary surface it.
-    (c) Swagger-spec compressor + dynamic compaction trigger. AuthPort spec
+    (c) Swagger-spec compressor + dynamic compaction trigger. Sample spec
         was 291k chars (near input-cap). Compactor today fires at fixed
         threshold_iterations=8 ignoring actual token use; flip to token-based
         trigger. Add SwaggerSpecCompressor for specs >100k.
@@ -99,4 +99,4 @@ done:
   - "All eight sub-phases implemented and merged"
   - "find src -name '*.cs' | xargs wc -l | awk '$1>120' returns 0 results in non-data files"
   - "grep -rn 'JsonSerializer.Deserialize' src/ shows reads only through the consolidated tolerant parser"
-  - "Operator smoke against AuthPort api-security-scan: no Incomplete skill silent-drops, swagger >100k loads without token-limit, all findings surface to summary"
+  - "Operator smoke against Sample api-security-scan: no Incomplete skill silent-drops, swagger >100k loads without token-limit, all findings surface to summary"

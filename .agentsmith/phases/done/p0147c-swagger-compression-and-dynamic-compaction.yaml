@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0147c
-goal: "Two related input-size robustness issues. (1) AuthPort's swagger spec
+goal: "Two related input-size robustness issues. (1) Sample's swagger spec
   was 291k chars in a recent run — close enough to the input cap to risk
   truncation in any handler that consumes it whole. Add a SwaggerSpecCompressor
   that strips example payloads / verbose descriptions / unused $ref expansions
@@ -48,7 +48,7 @@ decisions:
       payloads that LLMs use for schema understanding. Only kick in when
       the original would risk truncation. -- alternatives: always compress
       (rejected: information loss on small specs); never compress (rejected:
-      the 291k AuthPort case is unsafe).
+      the 291k Sample case is unsafe).
   - key: |
       Keep ContextKeys.SwaggerSpecFull. Skills that need full schema
       detail (response-analyst, recon-analyst) read from the full key;
@@ -83,5 +83,5 @@ tests:
 
 done:
   - "SwaggerSpecCompressor + dynamic compaction trigger merged."
-  - "Smoke against AuthPort spec (291k): compressed swagger flows through skill rounds without truncation warnings."
+  - "Smoke against Sample spec (291k): compressed swagger flows through skill rounds without truncation warnings."
   - "Compaction triggers on token-pressure, not just iteration-count, in a deliberately chatty smoke run."

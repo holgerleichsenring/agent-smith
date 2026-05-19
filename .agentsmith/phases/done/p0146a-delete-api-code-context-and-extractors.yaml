@@ -4,7 +4,7 @@ goal: "Delete ApiCodeContextHandler and the three regex-based extractors
   (RouteMapper, AuthBootstrapExtractor, UploadHandlerExtractor) plus the
   deterministic FindingHandlerCorrelator. Skills that need handler/auth/upload
   locations now use Read+Grep tools with the project_language hint from
-  context.yaml. A recent AuthPort run mapped 4/82 routes (5%) because the
+  context.yaml. A recent Sample run mapped 4/82 routes (5%) because the
   RouteMapper regex only catches inline paths on HTTP attributes, missing the
   class-level [Route] prefix used by every real ASP.NET controller — the
   immediate trigger for this cut."
@@ -66,7 +66,7 @@ decisions:
   - key: |
       Drop FindingHandlerCorrelator entirely rather than re-implement via LLM.
       Reason: the deterministic correlation today returns a row per Nuclei/ZAP
-      finding (~200 rows for AuthPort), and skills consume these to attach
+      finding (~200 rows for Sample), and skills consume these to attach
       handlers. With Observations as the universal output shape, skills that
       actually USE handler context can find it themselves at observation-
       production time — far fewer lookups than 200, and only where the LLM has
@@ -128,11 +128,11 @@ steps:
 tests:
   - "All existing api-security-scan integration tests pass (skills produce findings without the pre-computed ApiCodeContext)."
   - "DI test (ServerDiLifetimeTests / equivalent) builds the container without the deleted services."
-  - "Operator smoke: agent-smith api-scan --project authport-api-security-azure-openai --source-type local --source-path <AuthPort> emits findings with file:line attribution (no Nuclei-correlator regex involved)."
+  - "Operator smoke: agent-smith api-scan --project Sample-api-security-azure-openai --source-type local --source-path <Sample> emits findings with file:line attribution (no Nuclei-correlator regex involved)."
 
 done:
   - "All seven .cs files in the delete list are gone."
   - "ContextKeys / CommandNames / PipelinePresets / DI / ApiSkillRoundHandler clean of any ApiCodeContext / CorrelateFindings reference."
   - "Four skill prompts updated; two concepts removed from vocabulary."
   - "Full test suite green."
-  - "AuthPort api-security-scan smoke completes; LLM-found handlers attached to findings."
+  - "Sample api-security-scan smoke completes; LLM-found handlers attached to findings."

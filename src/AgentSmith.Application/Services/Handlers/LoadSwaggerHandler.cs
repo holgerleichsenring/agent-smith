@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Loads and parses a swagger.json / OpenAPI spec from a path or URL.
 /// p0147c: runs the parsed spec through <see cref="ISwaggerSpecCompressor"/> so
-/// large specs (e.g. AuthPort's 291k-char one) don't crowd out the rest of the
+/// large specs (e.g. Sample's 291k-char one) don't crowd out the rest of the
 /// LLM input window. The compressed shape lands in <see cref="ContextKeys.SwaggerSpec"/>
 /// for the default consumer path; the verbatim original stays available under
 /// <see cref="ContextKeys.SwaggerSpecFull"/> for skills that need full schema detail.
