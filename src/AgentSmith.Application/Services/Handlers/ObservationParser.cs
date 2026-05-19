@@ -7,16 +7,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Parses LLM JSON responses into SkillObservation lists. Element-wise: bad
-/// observations are skipped with a warning, valid ones survive. Skills emit
-/// typed location fields directly per the observation schema contract
-/// (p0146d). Truncation, ```json fences, and prose-around-JSON recovery flow
-/// through <see cref="ITolerantJsonParser"/>. Per-element confidence migration,
-/// field truncation and category-drift suppression live in
-/// <see cref="RawObservationMapper"/>; resilient + auto-wrap fallbacks live
-/// in <see cref="ObservationRecoveryHelper"/>.
+/// Orchestrates LLM-JSON → <see cref="SkillObservation"/> conversion. JSON
+/// recovery (fences, prose, truncated arrays) flows through
+/// <see cref="ITolerantJsonParser"/>; per-element rule application (confidence
+/// migration, field truncation, category-drift) flows through
+/// <see cref="IObservationNormalizer"/>; total-failure fallbacks live in
+/// <see cref="ObservationRecoveryHelper"/>. This class only sequences them.
 /// </summary>
-public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
+public sealed class ObservationParser(
+    ITolerantJsonParser tolerantParser,
+    IObservationNormalizer normalizer)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -25,21 +25,14 @@ public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    public List<SkillObservation> ParseWithoutIds(
-        string response, string role, ILogger? logger = null)
+    public List<SkillObservation> ParseWithoutIds(string response, string role, ILogger? logger = null)
     {
         var parsed = Parse(response, role, 0, logger);
         for (var i = 0; i < parsed.Count; i++) parsed[i] = parsed[i] with { Id = 0 };
         return parsed;
     }
 
-    /// <summary>
-    /// Strict variant: returns null when neither array parse nor resilient
-    /// extraction yields anything. Callers (FilterRoundHandler) use this to
-    /// detect true full-failure and preserve the prior observation list.
-    /// </summary>
-    public List<SkillObservation>? TryParseWithoutIds(
-        string response, string role, ILogger? logger = null)
+    public List<SkillObservation>? TryParseWithoutIds(string response, string role, ILogger? logger = null)
     {
         var arr = tolerantParser.ParseArray(response);
         if (arr.Document is not null && arr.Document.RootElement.ValueKind == JsonValueKind.Array)
@@ -54,13 +47,11 @@ public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
             tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l), logger);
     }
 
-    public List<SkillObservation> Parse(
-        string response, string role, int startId, ILogger? logger = null)
+    public List<SkillObservation> Parse(string response, string role, int startId, ILogger? logger = null)
     {
         var arr = tolerantParser.ParseArray(response);
         if (arr.Document is null || arr.Document.RootElement.ValueKind != JsonValueKind.Array)
             return ResilientOrFallback(response, role, startId, logger);
-
         using (arr.Document)
         {
             var result = BuildFromArray(arr.Document.RootElement, role, startId, logger);
@@ -68,20 +59,16 @@ public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
         }
     }
 
-    private List<SkillObservation> ResilientOrFallback(
-        string response, string role, int startId, ILogger? logger) =>
+    private List<SkillObservation> ResilientOrFallback(string response, string role, int startId, ILogger? logger) =>
         ObservationRecoveryHelper.TryResilientFallback(
             tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l), logger)
         ?? ObservationRecoveryHelper.FallbackSingle(response, role, startId, logger);
 
-    private List<SkillObservation> BuildFromArray(
-        JsonElement array, string role, int startId, ILogger? logger)
+    private List<SkillObservation> BuildFromArray(JsonElement array, string role, int startId, ILogger? logger)
     {
         var result = new List<SkillObservation>();
         var perRunWarn = new HashSet<string>();
-        var id = startId;
-        var index = 0;
-        var skipped = 0;
+        int id = startId, index = 0, skipped = 0;
         foreach (var element in array.EnumerateArray())
         {
             var obs = TryBuild(element, role, id, index, perRunWarn, logger);
@@ -95,7 +82,7 @@ public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
         return result;
     }
 
-    private static SkillObservation? TryBuild(
+    private SkillObservation? TryBuild(
         JsonElement element, string role, int id, int index,
         HashSet<string> perRunWarn, ILogger? logger)
     {
@@ -103,7 +90,7 @@ public sealed class ObservationParser(ITolerantJsonParser tolerantParser)
         {
             var entry = element.Deserialize<RawObservation>(JsonOptions);
             if (entry is null || string.IsNullOrWhiteSpace(entry.Description)) return null;
-            return RawObservationMapper.Build(entry, role, id, perRunWarn, logger);
+            return normalizer.Normalize(entry.ToFields(), role, id, perRunWarn, logger);
         }
         catch (JsonException ex)
         {

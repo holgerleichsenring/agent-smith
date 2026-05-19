@@ -6,8 +6,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// DTO matching the LLM's JSON output for a single skill observation. Skills
 /// emit typed location fields (`file`, `start_line`, `end_line`, `api_path`,
 /// `schema_name`) directly per the observation schema contract; no legacy
-/// `location` string is parsed (p0146d). Snake-case JSON binding is configured
-/// on the deserializer options in <see cref="ObservationParser"/>.
+/// `location` string is parsed. Snake-case JSON binding is configured on the
+/// deserializer options in <see cref="ObservationParser"/>.
 /// </summary>
 internal sealed class RawObservation
 {
@@ -28,4 +28,9 @@ internal sealed class RawObservation
     public string? ReviewStatus { get; set; }
     public string? Category { get; set; }
     public string? Details { get; set; }
+
+    internal RawObservationFields ToFields() => new(
+        Concern, Description, Suggestion, Blocking, Severity, Confidence,
+        Rationale, Effort, File, StartLine, EndLine, ApiPath, SchemaName,
+        EvidenceMode, ReviewStatus, Category, Details);
 }
