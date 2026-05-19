@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Loop;
@@ -31,10 +30,6 @@ public abstract class SkillRoundHandlerBase(
 {
     protected IChatClientFactory ChatClientFactory { get; } = chatClientFactory;
     private readonly ISkillCallRuntime _skillCallRuntime = skillCallRuntime;
-
-    private static readonly Regex ObjectionPattern = new(
-        @"OBJECTION\s*\[?\s*(\S+)\s*\]?",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly StructuredOutputInstructionBuilder _instructionBuilder = instructionBuilder;
 
@@ -136,7 +131,6 @@ public abstract class SkillRoundHandlerBase(
             role.Emoji, role.DisplayName, round, parsed.Count);
 
         return DetectBlockingFollowUp(parsed, skillName, role, roles, round, pipeline)
-            ?? DetectObjection(renderedText, role, roles, round, pipeline)
             ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): {parsed.Count} observations");
     }
 
@@ -476,43 +470,6 @@ public abstract class SkillRoundHandlerBase(
     /// <summary>p0145+p0142: pipeline-name carrier for the future IToolKit pickup; null falls back to '*'.</summary>
     private static string? ResolvePipelineName(PipelineContext pipeline)
         => pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
-
-    private CommandResult? DetectObjection(
-        string responseText, RoleSkillDefinition role,
-        IReadOnlyList<RoleSkillDefinition> roles, int round, PipelineContext pipeline)
-    {
-        var match = ObjectionPattern.Match(responseText);
-        if (!match.Success) return null;
-
-        var targetRole = match.Groups[1].Value.Trim();
-        if (!roles.Any(r => r.Name == targetRole)) return null;
-
-        var maxRounds = ResolveMaxRounds(pipeline);
-        if (round >= maxRounds)
-        {
-            Logger.LogInformation(
-                "{Skill} objected at round {Round} but cap reached (max {Max}). Suppressing follow-up.",
-                role.Name, round, maxRounds);
-            return null;
-        }
-
-        if (IsImmediatePingPong(pipeline, targetRole, role.Name))
-        {
-            Logger.LogInformation(
-                "{Skill} objection would request {Target}, but {Target} just objected to {Skill}. Suppressing immediate ping-pong.",
-                role.Name, targetRole, targetRole, role.Name);
-            return null;
-        }
-
-        RecordSwitchSkillSummoner(pipeline, role.Name, targetRole);
-
-        var nextRound = round + 1;
-        return CommandResult.OkAndContinueWith(
-            $"{role.DisplayName} objects, requesting response from {targetRole}",
-            PipelineCommand.SkillRound(SkillRoundCommandName, targetRole, nextRound),
-            PipelineCommand.SkillRound(SkillRoundCommandName, role.Name, nextRound),
-            PipelineCommand.Simple(CommandNames.ConvergenceCheck));
-    }
 
     private static bool IsStructuredRound(RoleSkillDefinition role, PipelineContext pipeline) =>
         role.Orchestration is not null
