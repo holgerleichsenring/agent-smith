@@ -11,7 +11,7 @@ The work-branch name is derived from the ticket id. It is **stable** — the sam
 | Form | When it applies | Example |
 |------|-----------------|---------|
 | `agent-smith/{ticketId}` | One-repo-per-ticket-system deployments (the AAD-DEV pattern, no project disambiguation needed) | `agent-smith/18693` |
-| `agent-smith/{platform}/{projectSlug}/{ticketId}` | Multi-platform / multi-project deployments where ticket ids may collide across systems | `agent-smith/azurerepos/cloud-development/18693` |
+| `agent-smith/{platform}/{projectSlug}/{ticketId}` | Multi-platform / multi-project deployments where ticket ids may collide across systems | `agent-smith/azurerepos/engineering/18693` |
 
 Slug rules for the hierarchical form:
 
