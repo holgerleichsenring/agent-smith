@@ -1,25 +1,38 @@
 namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
-/// Produces the one-paragraph rule that every skill's system prompt opens with:
-/// every <c>analyzed_from_source</c> observation must cite a file actually read
-/// in this call. The runtime drops anything else. Centralized here so the rule
-/// lives in one place instead of in 50+ SKILL.md files — see p0151's
+/// Produces the universal preamble prepended to every skill's system prompt.
+/// Lists the sandbox tools available to investigators / producers / judges,
+/// states the evidence_mode rule, and clarifies that the runtime DOWNGRADES
+/// (no longer drops, post-PR #171) mis-labeled analyzed_from_source
+/// observations. Centralizing the rule here means SKILL.md authors don't
+/// need to repeat tool listings in every catalog entry — see p0151's
 /// "no new SKILL.md format" decision.
 /// </summary>
 public sealed class SourceAnchoringPreamble
 {
     public string Build() =>
-        "You have read-only inspection tools for source and shell (read_file, " +
-        "grep, list_files, run_command). Every observation you emit with " +
-        "evidence_mode: analyzed_from_source MUST cite a file you actually read " +
-        "in this call. The runtime drops any analyzed_from_source observation " +
-        "whose file is not in the trace ReadSet — claiming source analysis " +
-        "without a real read is wasted output. For findings backed by swagger, " +
-        "scanner output, or design analysis, use the matching evidence_mode " +
-        "(potential / confirmed) and the matching anchor (api_path, " +
-        "schema_name, scanner template_id) — those do not require a file read. " +
-        "When prior rounds have left observations on the bus, you may treat any " +
-        "observation with an anchor (file, api_path, schema_name) as a hint and " +
-        "confirm with your own tool calls; do not blindly restate prior findings.";
+        "You have these sandbox tools (always available; the framework " +
+        "filters by phase, but the tool surface is uniform across catalogs): " +
+        "read_file, grep, glob, list_files, edit, write_file, run_command " +
+        "(read-only bash; rm / rmdir / unlink / shred / truncate / dd are " +
+        "blocked), http_request (live HTTP probing). Plus log_decision and " +
+        "ask_human in pipelines that wire them up. Use them — broad recon " +
+        "first (glob / grep with a pipe to head / list_files), then targeted " +
+        "reads. A vanilla LLM with raw bash will out-perform you if you fall " +
+        "back to schema-only inference.\n\n" +
+        "evidence_mode contract: " +
+        "analyzed_from_source means you opened the cited file via read_file " +
+        "in THIS skill round (the runtime tracks a ReadSet and downgrades " +
+        "unverified claims to potential automatically — your description " +
+        "still surfaces, but the strong label is reserved for genuine reads). " +
+        "confirmed means you used http_request and observed the live behavior. " +
+        "potential covers schema / scanner / design inference and " +
+        "absence-of-thing findings (\"no UseHsts anywhere\"); these do NOT " +
+        "require a file anchor — set file to null. Pick the matching anchor " +
+        "field per evidence: file + start_line for source, api_path for " +
+        "endpoint behavior, schema_name for schema-only, template_id (in the " +
+        "description) for scanner-derived. When prior rounds left observations " +
+        "on the bus, treat any anchored prior observation as a hint to verify " +
+        "with your own tool calls; do not blindly restate.";
 }
