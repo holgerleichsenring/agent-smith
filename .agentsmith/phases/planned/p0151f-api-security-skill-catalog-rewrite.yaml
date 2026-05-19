@@ -1,0 +1,204 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151f
+goal: "Rewrite the api-security-scan skill catalog using the format and the
+  contracts established in p0151a-e. The proving ground for the
+  umbrella's hypothesis: skills with tools + bus + source-anchored
+  validator produce IDE-buddy-quality output.
+
+  New catalog shape: a recon group that builds inventory observations,
+  a specialist group that judges against those observations + the
+  scanner findings, and a single final synthesizer. Every skill is
+  source-anchored; the only one that may emit Potential / Confirmed
+  without file:line is the scanner-correlation-judge from p0151g.
+
+  Sequential execution per the umbrella decision — recon group runs
+  first, specialist group second, final third. Bus visibility from
+  p0151c means specialists see recon observations and skip rediscovery."
+
+requires: ["p0151a", "p0151b", "p0151c", "p0151d", "p0151e"]
+
+scope:
+  in: |
+    Cross-repo work in agent-smith-skills, under skills/api-security/.
+    Catalog version bumps from 2.1.4 to 2.2.0.
+
+    Recon group (five skills, all role=investigator,
+    investigator_mode=survey, output_schema=observation,
+    evidence_mode=analyzed_from_source for each finding):
+    - inventory-controllers
+      Goal: list API controllers + [Authorize] / [AllowAnonymous]
+      attribute status. One observation per controller with
+      file:line citing the [Authorize] or its absence. Maps the
+      authorization-by-convention picture.
+    - inventory-auth-stack
+      Goal: identify the authentication library in use
+      (AddMicrosoftIdentityWebApi, AddJwtBearer with custom
+      TokenValidationParameters, cookie auth, OAuth2). Cites
+      Program.cs:line or Startup.cs:line. Enables the conditional
+      jwt-validation-judge specialist.
+    - inventory-data-access
+      Goal: identify the data access pattern (EF Core, Dapper, raw
+      ADO.NET) and locate any raw SQL hits (FromSqlRaw,
+      ExecuteSqlRaw, SqlCommand). One observation per hit, with
+      severity inherited from the surrounding code's parameter use.
+    - inventory-secrets
+      Goal: find non-placeholder secrets in appsettings*.json,
+      pipelines/, Dockerfile, ci-*.yml. Observation per concrete
+      hit; templates and placeholders are ignored.
+    - inventory-network-surface
+      Goal: locate outbound HttpClient + new Uri() + Path.Combine()
+      + File.Open() call sites that take user input. Observations
+      with file:line; severity per the input flow.
+
+    Specialist group (seven judges, role=judge,
+    output_schema=observation, block_condition omitted per p0151b):
+    - auth-config-judge (= unblocked auth-config-reviewer, rewritten
+      to the new format)
+    - controller-judge (= unblocked controller-implementation-reviewer)
+    - upload-handler-judge (= unblocked upload-validator-reviewer)
+    - idor-prober — consumes inventory-controllers + Nuclei findings;
+      probes resource-id routes that lack ownership checks. Active
+      mode adds confirmation; passive mode emits Potential.
+    - dockerfile-judge — consumes Dockerfile inventory observation;
+      flags root user, missing healthcheck, build-arg secrets,
+      outdated base image major version.
+    - pipeline-secrets-judge — consumes inventory-secrets; promotes
+      hits to Severity.High when in a non-template file.
+    - jwt-validation-judge — DROP IF inventory-auth-stack observations
+      do not contain a custom AddJwtBearer with TokenValidationParameters.
+      For Microsoft.Identity.Web stacks this skill emits zero
+      observations (which directly removes the Sample-baseline
+      hallucinated finding).
+
+    Final group (one synthesizer, role=judge,
+    output_schema=observation):
+    - report-synthesizer — deduplicates by (file, start_line,
+      concern), promotes severity where multiple specialists agree,
+      drops observations without verifiable anchors. Replaces the
+      current chain-analyst Filter round.
+
+    Triage policy updates (in the local agentsmith repo, not the
+    cross-repo skills): the api-security-scan pipeline's triage
+    catalogs the new skill names + their phase assignments (recon
+    = Plan, specialist = Plan-Lead extension, synthesizer = Final).
+
+  out: |
+    Rewriting the security-scan (non-api) skill catalog. That pipeline
+    has its own catalog and benefits from the infrastructure work, but
+    its specialists are different (e.g. SAST-flavoured). A separate
+    phase rewrites it.
+
+    The chain-analyst Filter skill removal across pipelines other than
+    api-security-scan. Other pipelines still use it.
+
+    Adding new scanner integrations. Catalog rewrite is about
+    refactoring existing skills, not expanding the scanner roster.
+
+decisions:
+  - key: |
+      Decentralised verification means each specialist re-reads what
+      it needs from the recon observations — it does not blindly
+      trust recon's claims. — The recon observations carry file:line
+      anchors. A specialist that disagrees can Read the cited file
+      and emit a contradicting observation. The bus is hint, not
+      truth. alternatives: trust-the-recon (rejected: brittle to a
+      bad recon round); duplicate-everything (rejected: token cost
+      explosion).
+
+  - key: |
+      Conditional skills via explicit DROP IF, not via the triage
+      gate. — jwt-validation-judge's relevance depends on what
+      inventory-auth-stack found, which is only known mid-pipeline.
+      Triage cannot decide statically. The DROP IF section makes the
+      skill self-suppress at runtime. alternatives: dispatch the skill
+      from the bus (rejected: only investigators can dispatch; judges
+      that always fire and sometimes return zero are simpler).
+
+  - key: |
+      report-synthesizer is a judge, not a filter round. — Filter
+      rounds today (chain-analyst) shrink an array; synthesis is a
+      richer operation that promotes severity, deduplicates by
+      anchor, and drops orphan observations. Filter semantics don't
+      cover it. alternatives: keep chain-analyst as filter
+      (rejected: it produced the three generic findings on Sample);
+      multi-stage filter pipeline (rejected: cognitive load without
+      benefit).
+
+  - key: |
+      Sequential recon → specialist → final, no parallelism inside
+      a group. — Umbrella decision. Re-evaluate after p0151h
+      validation shows where the latency budget actually goes.
+      alternatives: parallel-within-group (rejected for now per
+      umbrella).
+
+steps:
+  - id: recon-skills
+    action: "Author the five recon SKILL.md files per p0151e format. Each cites tools (Read, Glob, Grep, Bash) and budgets."
+    new:
+      - "(cross-repo agent-smith-skills) skills/api-security/inventory-controllers/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/inventory-auth-stack/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/inventory-data-access/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/inventory-secrets/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/inventory-network-surface/SKILL.md"
+
+  - id: specialist-skills
+    action: "Author the seven specialist SKILL.md files. Three of these are rewrites of the currently-unloaded source-reviewer judges (unblocked by p0151b's validator relaxation)."
+    new:
+      - "(cross-repo agent-smith-skills) skills/api-security/auth-config-judge/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/controller-judge/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/upload-handler-judge/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/idor-prober/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/dockerfile-judge/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/pipeline-secrets-judge/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/jwt-validation-judge/SKILL.md"
+
+  - id: synthesizer
+    action: "Author the report-synthesizer SKILL.md. Replaces chain-analyst for the api-security-scan pipeline."
+    new:
+      - "(cross-repo agent-smith-skills) skills/api-security/report-synthesizer/SKILL.md"
+
+  - id: triage-policy
+    action: "Update triage to recognise the new skill names + their phase assignment. May involve PhaseSpecificityTrimmer tuning so all recon skills land in Plan and all specialists land in the second Plan slice."
+    modify:
+      - "src/AgentSmith.Application/Services/Triage/StructuredTriageStrategy.cs (or where triage planning lives)"
+      - "src/AgentSmith.Application/Services/Triage/PhaseSpecificityTrimmer.cs"
+
+  - id: deprecation
+    action: "Mark the obsolete skill folders (api-vuln-analyst-planner, anonymous-attacker, api-design-auditor, api-vuln-analyst-investigator, auth-tester) as deprecated in the catalog. activates_when expressions evaluate to false for api-security-scan so they no longer run; SKILL.md files remain for a release with a deprecation note."
+    modify:
+      - "(cross-repo agent-smith-skills) skills/api-security/api-vuln-analyst-planner/SKILL.md (activates_when off + deprecation note)"
+      - "(cross-repo agent-smith-skills) skills/api-security/anonymous-attacker/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/api-design-auditor/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/api-vuln-analyst-investigator/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/auth-tester/SKILL.md"
+
+  - id: catalog-bump
+    action: "Bump catalog version. Update local skills.version cache marker."
+    modify:
+      - "(cross-repo agent-smith-skills) catalog version → 2.2.0"
+      - ".agentsmith/skills.version (refresh after pull)"
+
+  - id: tests
+    action: "Triage selection tests for the new catalog; cross-repo smoke."
+    new:
+      - "tests/AgentSmith.Tests/Triage/ApiSecurityCatalogV220TriageTests.cs"
+      - "tests/AgentSmith.Tests/Smoke/ApiSecurityScanCatalogV220SmokeTests.cs (skill loading + triage end-to-end against fixtures)"
+
+tests:
+  - "Triage_ApiSecurityScan_SelectsAllFiveReconSkillsForPlan"
+  - "Triage_ApiSecurityScan_SelectsSpecialistsForPlanSecondSlice"
+  - "Triage_ApiSecurityScan_SelectsReportSynthesizerForFinal"
+  - "Triage_ApiSecurityScan_ObsoleteSkillsNotSelected"
+  - "JwtValidationJudge_NoCustomAuthStack_DropIfTriggers_ZeroObservations"
+  - "JwtValidationJudge_CustomAuthStackPresent_EmitsObservations"
+  - "ReportSynthesizer_DuplicateObservationsAtSameAnchor_DeduplicatesAndPromotesSeverity"
+  - "ReportSynthesizer_ObservationWithoutAnchor_DroppedFromFinal"
+  - "CatalogVersion_LoadedSkills_MatchesV220"
+
+done:
+  - "13 new SKILL.md files exist in agent-smith-skills repo under skills/api-security/"
+  - "5 obsolete SKILL.md files marked deprecated (activates_when off)"
+  - "Catalog version 2.2.0 published; .agentsmith/skills.version refreshes cleanly."
+  - "Smoke against Sample api-security-scan: triage selects the new catalog; trace shows recon-then-specialists-then-final ordering."
+  - "Smoke against fix-bug + security-scan pipelines: no regression (those pipelines use unrelated skill catalogs)."
+  - "Full test suite green."

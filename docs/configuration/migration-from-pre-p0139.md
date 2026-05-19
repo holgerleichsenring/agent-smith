@@ -15,11 +15,11 @@ The full schema reference is in
 
 ---
 
-## Worked example: `authport-api-security-azure-openai`
+## Worked example: `Sample-api-security-azure-openai`
 
 The pre-p0139 form repeated the full `source`, `tickets`, and `agent` blocks
 on every project that shared them with another project. For the Rhenus deployment
-we operate two projects (`authport-api-security-azure-openai` +
+we operate two projects (`Sample-api-security-azure-openai` +
 `rhetrust-api-security-azure-openai`) against the same Azure DevOps install,
 running the same Azure-OpenAI agent. Pre-p0139, that's ~120 lines duplicated
 across two project blocks.
@@ -28,10 +28,10 @@ across two project blocks.
 
 ```yaml
 projects:
-  authport-api-security-azure-openai:
+  Sample-api-security-azure-openai:
     source:
       type: AzureRepos
-      url: https://RhenusITPD@dev.azure.com/RhenusITPD/Cloud%20Development/_git/RHS.AuthPort.Server
+      url: https://RhenusITPD@dev.azure.com/RhenusITPD/Cloud%20Development/_git/RHS.Sample.Server
       auth: token
     tickets:
       type: AzureDevOps
@@ -75,9 +75,9 @@ agents:
       # ...the model/pricing config lives here exactly ONCE
 
 repos:
-  authport:
+  Sample:
     type: AzureDevOps
-    url: https://RhenusITPD@dev.azure.com/RhenusITPD/Cloud%20Development/_git/RHS.AuthPort.Server
+    url: https://RhenusITPD@dev.azure.com/RhenusITPD/Cloud%20Development/_git/RHS.Sample.Server
     auth: azure_devops_token
   rhetrust:
     type: AzureDevOps
@@ -92,10 +92,10 @@ trackers:
     auth: azure_devops_token
 
 projects:
-  authport-api-security-azure-openai:
+  Sample-api-security-azure-openai:
     agent: azure-openai-default
     tracker: rhenus-cloud-dev
-    repos: [authport]
+    repos: [Sample]
     pipeline: api-security-scan
 
   rhetrust-api-security-azure-openai:

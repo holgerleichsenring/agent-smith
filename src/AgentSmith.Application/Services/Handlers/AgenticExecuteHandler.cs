@@ -19,8 +19,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Executes the plan via Microsoft.Extensions.AI: resolves an IChatClient with
 /// FunctionInvokingChatClient (wrapped by IChatClientFactory for tool-bearing tasks),
-/// builds the SandboxToolHost tool surface, runs GetResponseAsync, then collects
-/// changes/decisions from the SandboxToolHost.
+/// composes the FilesystemToolHost/LogDecisionToolHost/HumanToolHost tool surface,
+/// runs GetResponseAsync, then collects changes/decisions from the hosts.
 /// </summary>
 public sealed class AgenticExecuteHandler(
     IChatClientFactory chatClientFactory,
@@ -37,8 +37,9 @@ public sealed class AgenticExecuteHandler(
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var toolHost = new SandboxToolHost(
-            sandbox, decisionLogger, dialogueTransport, jobId: null, context.Repository.LocalPath);
+        var fs = new FilesystemToolHost(sandbox, context.Repository.LocalPath);
+        var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
+        var human = new HumanToolHost(dialogueTransport);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
@@ -57,7 +58,7 @@ public sealed class AgenticExecuteHandler(
         };
         var options = new ChatOptions
         {
-            Tools = toolHost.GetAllTools(),
+            Tools = AgenticToolSurface.ReadWriteWithHuman(fs, log, human),
             MaxOutputTokens = maxTokens,
         };
 
@@ -68,8 +69,8 @@ public sealed class AgenticExecuteHandler(
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         costTracker.Track(response);
 
-        var changes = toolHost.GetChanges();
-        var decisions = toolHost.GetDecisions();
+        var changes = fs.GetChanges();
+        var decisions = log.GetDecisions();
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)sw.Elapsed.TotalSeconds);
