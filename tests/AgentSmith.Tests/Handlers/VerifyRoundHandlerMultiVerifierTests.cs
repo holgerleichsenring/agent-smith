@@ -100,7 +100,7 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
             validatorFactory,
             new AgentSmith.Application.Services.Loop.RuntimeObservationFactory(),
             NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
-        return new VerifyRoundHandler(
+        var coordinator = new AgentSmith.Application.Services.VerifyRoundCoordinator(
             filter, bodyResolver.Object,
             RunStateConceptsTestFactory.Default,
             Mock.Of<AgentSmith.Contracts.Decisions.IDecisionLogger>(),
@@ -110,7 +110,8 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
             new AgentSmith.Application.Services.SkillRounds.SkillResponseParser(
                 AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateObservation()),
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-            NullLogger<VerifyRoundHandler>.Instance);
+            NullLogger<AgentSmith.Application.Services.VerifyRoundCoordinator>.Instance);
+        return new VerifyRoundHandler(coordinator, NullLogger<VerifyRoundHandler>.Instance);
     }
 
     private static PipelineContext PipelineFor(IReadOnlyList<RoleSkillDefinition> roles)

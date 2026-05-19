@@ -29,6 +29,11 @@ public static class SkillRunHandlersExtensions
         services.AddSingleton<PlanAnswerParser>();
         services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
         services.AddTransient<PlanConsolidator>();
+        services.AddTransient<IFilterRoundBatcher, FilterRoundBatcher>();
+        services.AddTransient<FilterRoundCaller>();
+        services.AddTransient<IVerifyRoundCoordinator, VerifyRoundCoordinator>();
+        services.AddTransient<IPlanOpenQuestionExtractor, PlanOpenQuestionExtractor>();
+        services.AddTransient<BootstrapToolHostFactory>();
         return services;
     }
 }

@@ -1,17 +1,20 @@
 using System.Text.Json;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
 
-public sealed class TokenBudgetBatcherTests
+public sealed class FilterRoundBatcherTests
 {
+    private readonly IFilterRoundBatcher _batcher = new FilterRoundBatcher();
+
     [Fact]
     public void Split_EmptyInput_ReturnsEmpty()
     {
-        var result = TokenBudgetBatcher.Split([], 8192);
+        var result = _batcher.Split([], 8192);
 
         result.Should().BeEmpty();
     }
@@ -24,7 +27,7 @@ public sealed class TokenBudgetBatcherTests
             ObservationFactory.Make("HIGH", "src/a.cs", 1, "short title", "", 80)
         };
 
-        var result = TokenBudgetBatcher.Split(observations, 8192);
+        var result = _batcher.Split(observations, 8192);
 
         result.Should().HaveCount(1);
         result[0].Should().HaveCount(1);
@@ -37,7 +40,7 @@ public sealed class TokenBudgetBatcherTests
             .Select(i => ObservationFactory.Make("HIGH", $"src/a{i}.cs", i, $"short {i}", "", 80))
             .ToList();
 
-        var result = TokenBudgetBatcher.Split(observations, 8192);
+        var result = _batcher.Split(observations, 8192);
 
         result.Should().HaveCount(1);
         result[0].Should().HaveCount(5);
@@ -53,7 +56,7 @@ public sealed class TokenBudgetBatcherTests
             .Select(i => ObservationFactory.Make("HIGH", $"src/a{i}.cs", i, bigDescription, "", 80))
             .ToList();
 
-        var result = TokenBudgetBatcher.Split(observations, 8192);
+        var result = _batcher.Split(observations, 8192);
 
         result.Count.Should().BeGreaterThanOrEqualTo(3);
         // Every batch (except possibly the last) is at-or-under budget
@@ -75,8 +78,8 @@ public sealed class TokenBudgetBatcherTests
             .Select(i => ObservationFactory.Make("HIGH", $"src/a{i}.cs", i, $"finding {i}", "", 80))
             .ToList();
 
-        var first = TokenBudgetBatcher.Split(observations, 8192);
-        var second = TokenBudgetBatcher.Split(observations, 8192);
+        var first = _batcher.Split(observations, 8192);
+        var second = _batcher.Split(observations, 8192);
 
         first.Count.Should().Be(second.Count);
         for (var i = 0; i < first.Count; i++)
