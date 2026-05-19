@@ -70,6 +70,7 @@ public sealed class TicketProviderFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         return new JiraTicketProvider(url, email, token, httpClientFactory.CreateClient(),
+            new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
             doneStatus: config.DoneStatus,
             closeTransitionName: config.CloseTransitionName,
