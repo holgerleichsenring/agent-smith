@@ -129,4 +129,4 @@ done:
   - "docs/concepts/context-compaction.md + agentsmith-yml.md updated; gemini/ollama placeholder status explicit"
   - "15 new tests including end-to-end synthetic-load verification + tool-call-pair-boundary correctness + prompt-hash stability"
   - "dotnet build zero warnings, dotnet test green"
-  - "manual on AAD-DEV (optional): ProjectAnalyzer on SampleA lands in <300k tokens with map fidelity matching pre-compaction baseline"
+  - "manual on AAD-DEV (optional): ProjectAnalyzer on Sample lands in <300k tokens with map fidelity matching pre-compaction baseline"

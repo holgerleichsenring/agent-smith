@@ -79,7 +79,7 @@ steps:
       - "FilterRoundHandler_OutputArtifact_ProducesArtifact"
       - "ProjectMapExcerptBuilder_DotnetWithDb_ProducesPersistenceConcept"
       - "ProjectMapExcerptBuilder_FrontendOnly_OmitsPersistence"
-      - "SampleARegression_PreExecuteTesterAsAnalyst_NoSpeculativeVeto"
+      - "SampleRegression_PreExecuteTesterAsAnalyst_NoSpeculativeVeto"
 
   - id: cleanup
     action: "Remove agentsmith.md orchestration metadata path now that SKILL.md frontmatter is authoritative"
@@ -99,7 +99,7 @@ steps:
       - "docs/configuration/skills.md: full rewrite — extended frontmatter reference, lazy body loading, references/, role_assignment with activation keys, no legacy fallback"
 
   - id: verify
-    action: "dotnet build && dotnet test green; manual e2e on SampleA regression ticket and a fresh fix-bug run"
+    action: "dotnet build && dotnet test green; manual e2e on Sample regression ticket and a fresh fix-bug run"
 
 done:
   - "TriageHandler is one LLM call, single-line JSON, validated against schema and skill-key existence"
@@ -115,6 +115,6 @@ done:
   - "ProjectMapExcerptBuilder produces concept list from project-map.json — works for dotnet, F#, Salesforce, embedded projects"
   - "Pipeline presets fix-bug, add-feature, security-scan, api-scan switched to phase-based structure"
   - "agentsmith.md orchestration section no longer read; SkillOrchestrationParser removed"
-  - "SampleA regression: pre-execute tester produces analyst observations (Blocking=false), no 'likely' speculation, pipeline proceeds to AgenticStep"
+  - "Sample regression: pre-execute tester produces analyst observations (Blocking=false), no 'likely' speculation, pipeline proceeds to AgenticStep"
   - "docs/concepts/triage.md, docs/concepts/multi-agent-orchestration.md, docs/configuration/skills.md, docs/configuration/skills/migration.md, docs/configuration/concept-vocabulary.md updated or created"
   - "dotnet build zero warnings, dotnet test green"

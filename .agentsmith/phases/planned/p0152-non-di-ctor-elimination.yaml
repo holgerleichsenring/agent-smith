@@ -1,0 +1,299 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0152
+goal: |
+  Eliminate non-DI constructors from function (service) classes across the
+  codebase. Current state: 38 implementation classes accept non-service
+  parameters in their ctors (22 hybrid DI+value, 16 pure-value), most of
+  them inside Application/Infrastructure service folders. Symptom: these
+  classes carry implicit per-instance state baked in at construction time,
+  which obstructs DI registration, complicates testing, and signals that
+  the class is doing more than one job.
+
+  Rule established by this phase: a class with behaviour must be DI-only.
+  If the caller needs more than one logical instance the variant ships via
+  factory, IServiceProvider, or factory-method — never via constructor
+  parameters carrying state. Anything that currently sneaks state through
+  the ctor must either move into IOptions<T>, become a per-call method
+  argument, or — if it really is data — collapse the class into a record.
+
+requires: []
+
+scope:
+  in: |
+    Conceptual framework + mechanical conversion of every class on the
+    inventory below (38 classes, grouped into 4 conversion patterns):
+
+      Pattern O — Options:
+        Class today takes a static config object or a single primitive
+        config knob. Becomes plain DI; config moves to IOptions<T> or to
+        the already-registered AgentSmithConfig graph. Class itself loses
+        its ctor parameters except for injected services.
+
+        Targets (15):
+          - RedisRunArtifactStore (AgentSmithConfig → IOptions)
+          - ClaudeCostTracker, GeminiCostTracker, OllamaCostTracker,
+            OpenAiCostTracker, CostTrackerBase (PricingConfig → IOptions)
+          - PipelineCostTracker (PricingConfig? → IOptions)
+          - LimitEnforcer (LoopLimitsConfig → IOptions; CTS via factory)
+          - PipelineConcurrencyGate (LoopLimitsConfig → IOptions)
+          - RedisJobBus (bool flag → IOptions)
+          - SandboxRedisChannel (string channel-name → IOptions)
+          - TeamsJwtValidator (string secret → IOptions)
+          - HostGitIgnore (bool flag → IOptions)
+          - GitIgnoreResolver (string+bool → IOptions or stateless+per-call)
+          - InMemoryRunArtifactStore (TimeSpan?, Func<DateTimeOffset>? →
+            inject TimeProvider; TTL via IOptions)
+
+      Pattern F — Factory (already correct; verify + tighten):
+        Per-credential or per-project instances created via existing
+        factories. The factory itself must be DI-registered and the
+        constructed class must take ONLY (services + the credential/URL
+        bundle as a single record). Today several take 3–6 separate
+        primitive strings — these collapse into a per-instance settings
+        record so the ctor reads (services, ProviderConnection) not
+        (services, string, string, string, string, string).
+
+        Targets (8):
+          - GitHubSourceProvider (3 strings → SourceProviderConnection)
+          - GitLabSourceProvider (5 strings → SourceProviderConnection)
+          - JiraTicketProvider (6 strings → TicketProviderConnection)
+          - GitHubTicketProvider, GitLabTicketProvider,
+            AzureDevOpsTicketProvider (collapse string bundle)
+          - GitHubTicketStatusTransitioner (2 strings → connection rec)
+          - TicketProviderHttpClient (Action<HttpRequestMessage> →
+            DelegatingHandler in named-HttpClient pipeline)
+
+      Pattern S — Stateless service (drop the parameter entirely):
+        Class today caches the parameter as a field but the parameter is
+        either trivially derivable from a per-call argument or is plain
+        data the caller could pass into the operation method. Strip the
+        field, move the value to the method signature, register as
+        singleton.
+
+        Targets (10):
+          - DataFlowReadGate (activeStep + enforce both belong to the
+            per-step call, not the gate's identity → method args; OR the
+            whole class disappears into a Decorator-style stateless gate
+            resolved from PipelineStepContext)
+          - PathReadGuard (Func<string> base-path → method arg or scoped
+            HostPathContext)
+          - PathWriteGuard (SkillExecutionPhase → method arg / scoped
+            SkillPhaseContext already resolvable from skill runtime)
+          - FilesystemToolHost, HumanToolHost, LogDecisionToolHost
+            (string identifier baked at ctor → either DI-resolved from
+            scoped pipeline context or passed per-tool-call)
+          - ActivationExpressionTokenizer (input string → method arg)
+          - DeterministicTriageSelector (ActivationSpecificityScorer is
+            already a service → straight DI, no ctor surface change but
+            verify registration)
+          - BootstrapOutputValidator, DiffOutputValidator,
+            PlanOutputValidator, ObservationOutputValidator,
+            SkillOutputValidatorFactory (JsonSchemaLoader → DI; factory
+            shape stays but ctor params become services only)
+
+      Pattern V — Value type (collapse the class):
+        Class has no real behaviour; the ctor parameters ARE the class.
+        Becomes a record / record struct, no DI registration required.
+
+        Targets (5):
+          - SkillCallScope (strings + enum + tracker + timestamp → record)
+          - PipelineContextRunStateConcepts (PipelineContext + vocab →
+            record or extension method on PipelineContext)
+          - OutputBatcher (int + TimeSpan + Func → if state is genuine,
+            keep as class but accept config via IOptions + producer via
+            DI; if not, collapse — judgment at execute time)
+
+  out: |
+    (1) Re-architecting the ticket-provider lifecycle. Per-project
+        factory dispatch stays; this phase just tightens the ctor shape.
+
+    (2) Replacing AgentSmithConfig with a different config surface. The
+        graph stays; we only stop passing it positionally into ctors.
+
+    (3) Pipeline-runtime redesign. PipelineStepRunner today builds
+        DataFlowReadGate by hand at line 179 — this phase replaces the
+        manual construction with a scoped factory but does NOT touch the
+        runner's overall structure.
+
+    (4) Tests. Existing test suite must stay green. No new test patterns
+        are introduced; tests that constructed classes positionally get
+        migrated to use the new DI/factory shape, that's all.
+
+    (5) Anything in Domain/Contracts. Those are pure data and have
+        legitimate value ctors — the rule is scoped to function classes
+        in Application/Infrastructure/Server/Sandbox.
+
+decisions:
+  - key: |
+      Function classes are DI-only — Reason: a ctor parameter on a
+      service is implicit state that is invisible at registration time,
+      makes the class non-substitutable by DI consumers, and forces the
+      caller into a factory role it shouldn't own. The four patterns
+      (O/F/S/V) are the exhaustive set of legal outcomes for a class
+      that currently violates this rule.
+  - key: |
+      Options pattern is the default for static config — Reason: the
+      project already uses AgentSmithConfig + IOptions; widening that
+      surface is zero-friction. Hand-rolled IConfiguration parsing or
+      bespoke config classes are out — IOptions<T> with binding into the
+      existing config graph is the canonical channel.
+  - key: |
+      Multi-string credential ctors collapse to one record — Reason:
+      every ticket/source provider today receives 3–6 individual primitive
+      strings (url, token, project, area, ...). One ProviderConnection
+      record per family eliminates positional-argument errors, makes the
+      factory call site self-documenting, and lets new credential fields
+      (eg. OAuth token rotation) add at a single point. The record itself
+      stays a plain DTO (Pattern V).
+  - key: |
+      Strip ctor state when the value is per-call, don't add a factory —
+      Reason: several classes (DataFlowReadGate, PathWriteGuard,
+      LogDecisionToolHost) cache something at ctor time that is really a
+      property of the call being made. A factory per call is more
+      ceremony than just adding the parameter to the method signature.
+      Use Pattern S in preference to Pattern F when the value's lifetime
+      equals one method call.
+  - key: |
+      Class becomes a record when behaviour is zero — Reason: types like
+      SkillCallScope today are classes-with-ctor-parameters but have no
+      methods beyond property access. A record with the same name + same
+      members is a strict win — value equality, less ceremony, and the
+      type system stops pretending it's a service. Pattern V is the
+      escape hatch for "this was never a function class".
+  - key: |
+      No interim adapter / wrapper shims — Reason: per the project's
+      [[feedback_no_wrapper_shims]] rule, migrate call sites directly
+      onto the new ctor / factory / method signature. Old positional
+      ctors are deleted in the same commit; no two-step deprecation.
+
+steps:
+  - id: inventory-baseline
+    action: |
+      Snapshot the current set of non-DI ctors with a one-shot grep so
+      execute-phase can verify completeness. Output:
+      .agentsmith/notes/p0152-baseline.txt with one line per (file, class,
+      ctor-signature). No code changes here.
+    path: src/
+
+  - id: options-wave
+    action: |
+      Pattern O — convert the 15 listed classes to pure-DI ctors. For
+      each: add or extend the IOptions<T> binding in the appropriate
+      ServiceCollectionExtensions; delete the value parameter; update
+      every call site (none should be `new XService(...)` outside DI or a
+      verified factory). PricingConfig + LoopLimitsConfig + bool flags
+      already live in AgentSmithConfig — extend the binding, don't
+      duplicate the config surface.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Persistence/RedisRunArtifactStore.cs"
+      - "src/AgentSmith.Application/Services/Costs/ClaudeCostTracker.cs"
+      - "src/AgentSmith.Application/Services/Costs/GeminiCostTracker.cs"
+      - "src/AgentSmith.Application/Services/Costs/OllamaCostTracker.cs"
+      - "src/AgentSmith.Application/Services/Costs/OpenAiCostTracker.cs"
+      - "src/AgentSmith.Application/Services/Costs/CostTrackerBase.cs"
+      - "src/AgentSmith.Application/Services/PipelineCostTracker.cs"
+      - "src/AgentSmith.Application/Services/Loop/LimitEnforcer.cs"
+      - "src/AgentSmith.Application/Services/Pipeline/PipelineConcurrencyGate.cs"
+      - "src/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs"
+      - "src/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs"
+      - "src/AgentSmith.Server/Services/Auth/TeamsJwtValidator.cs"
+      - "src/AgentSmith.Application/Services/Tools/HostGitIgnore.cs"
+      - "src/AgentSmith.Application/Services/Tools/GitIgnoreResolver.cs"
+      - "src/AgentSmith.Infrastructure/Services/Persistence/InMemoryRunArtifactStore.cs"
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs (IOptions bindings)"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs (IOptions bindings)"
+
+  - id: factory-wave
+    action: |
+      Pattern F — collapse the per-provider primitive-string ctors into
+      one settings record per provider family. The factory does the
+      construction; the provider takes (services, ConnectionRecord). The
+      record itself is a plain `record` in Contracts.Providers and stays
+      free of behaviour (Pattern V applied at record granularity).
+    new:
+      - "src/AgentSmith.Contracts/Providers/SourceProviderConnection.cs (record)"
+      - "src/AgentSmith.Contracts/Providers/TicketProviderConnection.cs (record)"
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProviderHttpClient.cs"
+      - "src/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs"
+
+  - id: stateless-wave
+    action: |
+      Pattern S — strip per-instance state, move to method arguments or
+      to a scoped context already resolvable from DI. The biggest
+      ergonomic win is DataFlowReadGate: it disappears as a
+      hand-constructed type and becomes a scoped service whose OnRead
+      method receives the active step + enforcement mode from the
+      PipelineStepContext that exists at call time. PathReadGuard /
+      PathWriteGuard / FilesystemToolHost / HumanToolHost /
+      LogDecisionToolHost similarly drop their cached strings.
+    modify:
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs"
+      - "src/AgentSmith.Application/Services/PipelineStepRunner.cs (remove `new DataFlowReadGate(...)` at line 179)"
+      - "src/AgentSmith.Application/Services/Tools/PathReadGuard.cs"
+      - "src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs"
+      - "src/AgentSmith.Application/Services/BootstrapToolHostFactory.cs (remove `new PathWriteGuard(...)` at line 23)"
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+      - "src/AgentSmith.Application/Services/Tools/HumanToolHost.cs"
+      - "src/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs"
+      - "src/AgentSmith.Application/Services/Activation/ActivationExpressionTokenizer.cs"
+      - "src/AgentSmith.Application/Services/Triage/DeterministicTriageSelector.cs"
+      - "src/AgentSmith.Application/Services/Validators/BootstrapOutputValidator.cs"
+      - "src/AgentSmith.Application/Services/Validators/DiffOutputValidator.cs"
+      - "src/AgentSmith.Application/Services/Validators/PlanOutputValidator.cs"
+      - "src/AgentSmith.Application/Services/Validators/ObservationOutputValidator.cs"
+      - "src/AgentSmith.Application/Services/Validators/SkillOutputValidatorFactory.cs"
+
+  - id: value-wave
+    action: |
+      Pattern V — classes with no behaviour collapse to records. Tests +
+      consumers compile against the same name (record keeps the type
+      identity; positional ctors become primary record params).
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallScope.cs (class → record)"
+      - "src/AgentSmith.Application/Services/Pipeline/PipelineContextRunStateConcepts.cs (class → record OR PipelineContext extension)"
+      - "src/AgentSmith.Sandbox.Agent/Services/OutputBatcher.cs (judgment call at execute time — record if state is illusory, IOptions + DI if not)"
+
+  - id: ctor-shape-guard
+    action: |
+      Add a small architectural test (xUnit, in AgentSmith.Architecture.Tests
+      or the existing test guard project, whichever the project uses)
+      that fails the build when any class in Application / Infrastructure /
+      Server / Sandbox declares a public ctor whose parameter list
+      contains a non-interface non-`record` non-`IOptions` parameter.
+      Reflection over the loaded assemblies — fast enough for CI. This
+      is the rule's enforcement teeth.
+    new:
+      - "test/AgentSmith.Architecture.Tests/NonDiCtorRuleTests.cs (or equivalent location)"
+
+  - id: docs
+    action: |
+      Short update to docs/configuration/ or wherever the DI conventions
+      are documented today — one paragraph stating the rule + a pointer
+      to the four patterns. No new doc file unless one fits naturally.
+
+tests:
+  - "NonDiCtorRuleTests_AllServiceClasses_HaveDiOnlyCtors"
+  - "PricingConfig_BoundViaOptions_AllTrackersResolveFromContainer"
+  - "TicketProviderFactory_BuildsProviders_WithConnectionRecord"
+  - "DataFlowReadGate_ResolvedFromScope_NoManualConstruction"
+  - "Existing test suite green (pre + post: same count, same passes)."
+
+done:
+  - "All 38 classes on the inventory either (a) take DI services only,
+    (b) are produced by a DI-registered factory taking a settings record,
+    or (c) have collapsed to a record."
+  - "No `new X(...)` of a service class survives outside a DI factory or
+    a test seam. Grep for `new ` against the inventory returns only
+    factory + test hits."
+  - "NonDiCtorRuleTests architectural test passes; fails when re-introduced."
+  - "Full main test suite green."
+  - "Smoke (api-scan / security-scan / fix-bug) green on the resulting
+    binary — per [[feedback_finish_what_you_start]]."

@@ -29,7 +29,6 @@
           "description": "Repository or solution name",
           "examples": [
             "agent-smith",
-            "acme-pay",
             "order-service"
           ]
         },

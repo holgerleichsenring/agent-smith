@@ -23,7 +23,7 @@ public sealed class ProjectMapPromptRendererTests
     }
 
     [Fact]
-    public void RenderExistingTests_SampleAShape_IncludesPathFrameworkFileCountAndSample()
+    public void RenderExistingTests_SampleShape_IncludesPathFrameworkFileCountAndSample()
     {
         var map = new ProjectMap(
             "C#", [".NET 8"], [], [
