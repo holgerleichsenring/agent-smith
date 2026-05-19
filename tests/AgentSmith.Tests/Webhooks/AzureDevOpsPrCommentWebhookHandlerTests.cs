@@ -9,11 +9,15 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
     private static readonly IDictionary<string, string> EmptyHeaders =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    private static AzureDevOpsPrCommentWebhookHandler CreateSut() =>
+        new(TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
+            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+
     [Fact]
     public void CanHandle_CorrectEventTypes()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
 
         sut.CanHandle("azuredevops", "ms.vss-code.git-pullrequest-comment-event").Should().BeTrue();
         sut.CanHandle("azuredevops", "workitem.updated").Should().BeFalse();
@@ -23,8 +27,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_FixCommand_ReturnsPipeline()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -48,15 +51,14 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug pr:MyProject/my-api#58");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("pr:MyProject/my-api#58");
     }
 
     [Fact]
-    public async Task HandleAsync_FixWithArguments_ReturnsArguments()
+    public async Task HandleAsync_FixWithTicket_PropagatesTicket()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -80,15 +82,15 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug #77 in payments");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("#77");
+        result.TriggerInput.Should().Contain("pr:MyProject/my-api#58");
     }
 
     [Fact]
     public async Task HandleAsync_SecurityScan_ReturnsSecurityPipeline()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -112,15 +114,14 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("security-scan pr:MyProject/my-api#12");
         result.Pipeline.Should().Be("security-scan");
+        result.TriggerInput.Should().Contain("pr:MyProject/my-api#12");
     }
 
     [Fact]
     public async Task HandleAsync_Approve_ReturnsDialogueAnswer()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -153,8 +154,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_Help_ReturnsNotHandled()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -183,8 +183,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_RegularComment_ReturnsNotHandled()
     {
-        var sut = new AzureDevOpsPrCommentWebhookHandler(
-            NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "eventType": "ms.vss-code.git-pullrequest-comment-event",
