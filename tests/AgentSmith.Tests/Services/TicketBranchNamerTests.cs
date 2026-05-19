@@ -18,7 +18,7 @@ public sealed class TicketBranchNamerTests
     public void Compose_HierarchicalForm_LowercasesAndSlugifiesPlatformAndProject()
     {
         var branch = TicketBranchNamer.Compose("AzureRepos", "Engineering", new TicketId("18693"));
-        branch.Value.Should().Be("agent-smith/azurerepos/cloud-development/18693");
+        branch.Value.Should().Be("agent-smith/azurerepos/engineering/18693");
     }
 
     [Fact]
