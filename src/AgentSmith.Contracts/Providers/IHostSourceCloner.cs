@@ -4,9 +4,9 @@ namespace AgentSmith.Contracts.Providers;
 
 /// <summary>
 /// Clones a remote source repository to a host filesystem path. Used by api-scan's
-/// fail-soft source resolution where the analyzers (RouteMapper / extractors) read
-/// from host disk via System.IO. Distinct from the sandbox-routed git clone Step
-/// driven by CheckoutSourceHandler for AgenticExecute / Test pipelines.
+/// fail-soft source resolution so skills can read project sources from host disk via
+/// their Read/Grep tools. Distinct from the sandbox-routed git clone driven by
+/// CheckoutSourceHandler for AgenticExecute / Test pipelines.
 /// </summary>
 public interface IHostSourceCloner
 {
