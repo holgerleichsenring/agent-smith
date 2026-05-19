@@ -30,8 +30,6 @@ public static partial class ContextKeys
     public const string SourcePath = "SourcePath";
     public const string SourceUrl = "SourceUrl";
     public const string SourceAuth = "SourceAuth";
-<<<<<<< fix/p0147h-di-and-data-splits
-=======
 
     public const string ScanPrIdentifier = "ScanPrIdentifier";
     public const string ScanBranch = "ScanBranch";
@@ -53,7 +51,6 @@ public static partial class ContextKeys
     public const string ApiScanFindingsSummary = "ApiScanFindingsSummary";
     public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
     public const string SwaggerPath = "SwaggerPath";
->>>>>>> main
     public const string CheckoutBranch = "CheckoutBranch";
     public const string ResolvedPipeline = "ResolvedPipeline";
 
