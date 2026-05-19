@@ -147,6 +147,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
+        services.AddSwaggerSpecCompression();
         // p0125d: TryCheckoutSourceHandler dual-registered as IConceptWriter (see CheckoutSourceHandler note above).
         services.AddTransient<TryCheckoutSourceHandler>();
         services.AddTransient<ICommandHandler<TryCheckoutSourceContext>>(sp =>
@@ -355,5 +356,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
         services.AddSingleton<IToolKit, ToolKit>();
+    }
+
+    // p0147c: swagger-spec compression service. Stateless / threshold-gated, so
+    // singleton is safe. Pulled into its own AddXxx helper per the spec-first
+    // subdomain-DI convention.
+    public static IServiceCollection AddSwaggerSpecCompression(this IServiceCollection services)
+    {
+        services.AddSingleton<ISwaggerSpecCompressor, SwaggerSpecCompressor>();
+        return services;
     }
 }
