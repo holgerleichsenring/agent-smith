@@ -31,6 +31,7 @@ public sealed class ObservationParserTests
     [Fact]
     public void Parse_ValidJsonObservations_StoresAllFields()
     {
+        // Skills emit typed location fields directly (p0146d) — no regex post-pass.
         var json = """
             [
               {
@@ -41,7 +42,7 @@ public sealed class ObservationParserTests
                 "severity": "high",
                 "confidence": 95,
                 "rationale": "OWASP A2:2021",
-                "location": "POST /api/auth/login",
+                "api_path": "POST /api/auth/login",
                 "effort": "small"
               }
             ]
@@ -62,6 +63,50 @@ public sealed class ObservationParserTests
         obs.Rationale.Should().Be("OWASP A2:2021");
         obs.ApiPath.Should().Be("POST /api/auth/login");
         obs.Effort.Should().Be(ObservationEffort.Small);
+    }
+
+    [Fact]
+    public void Parse_LegacyLocationStringIsIgnored_StructuredFieldsStayNull()
+    {
+        // p0146d: regex post-pass is gone. A legacy "location" field is ignored —
+        // skills must populate the typed fields (file/start_line/api_path/schema_name)
+        // directly. If they don't, the structured fields stay null instead of being
+        // best-effort-guessed from prose.
+        var json = """
+            [
+              { "concern": "security", "description": "Issue", "suggestion": "Fix",
+                "blocking": false, "severity": "low", "confidence": 60,
+                "location": "src/Foo.cs:42" }
+            ]
+            """;
+
+        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+
+        result.Should().HaveCount(1);
+        result[0].File.Should().BeNull();
+        result[0].StartLine.Should().Be(0);
+        result[0].ApiPath.Should().BeNull();
+        result[0].SchemaName.Should().BeNull();
+    }
+
+    [Fact]
+    public void Parse_StructuredFileAndStartLine_StoredDirectly()
+    {
+        var json = """
+            [
+              { "concern": "correctness", "description": "Off-by-one",
+                "suggestion": "Use Length-1", "blocking": false,
+                "severity": "medium", "confidence": 80,
+                "file": "src/Foo.cs", "start_line": 42, "end_line": 48 }
+            ]
+            """;
+
+        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+
+        result.Should().HaveCount(1);
+        result[0].File.Should().Be("src/Foo.cs");
+        result[0].StartLine.Should().Be(42);
+        result[0].EndLine.Should().Be(48);
     }
 
     [Fact]
