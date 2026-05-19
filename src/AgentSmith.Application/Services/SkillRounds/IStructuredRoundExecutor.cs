@@ -18,6 +18,7 @@ public interface IStructuredRoundExecutor
         string skillName,
         RoleSkillDefinition role,
         ISkillPromptStrategy strategy,
+        ISkillRoundToolPolicy toolPolicy,
         PipelineContext pipeline,
         ILogger logger,
         CancellationToken cancellationToken);

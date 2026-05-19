@@ -123,6 +123,7 @@ public sealed class FilterRoundHandlerBatchedTests
         var runtime = BuildRuntime(factory);
         return new FilterRoundHandler(factory, promptBuilder.Object, runtime,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            new AgentSmith.Application.Services.SkillRounds.FilterRoundToolPolicy(),
             NullLogger<FilterRoundHandler>.Instance);
     }
 

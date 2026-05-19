@@ -28,6 +28,7 @@ public sealed class FilterRoundHandler(
     ISkillPromptBuilder promptBuilder,
     ISkillCallRuntime skillCallRuntime,
     ISkillRoundBufferDispatcher bufferDispatcher,
+    FilterRoundToolPolicy toolPolicy,
     ILogger<FilterRoundHandler> logger) : ICommandHandler<FilterRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -122,14 +123,12 @@ public sealed class FilterRoundHandler(
             Role = role.Role ?? "filter",
             Phase = SkillExecutionPhase.Filter,
             PromptParts = messages,
-            ToolSet = Array.Empty<AITool>(),
+            ToolSet = toolPolicy.GetTools(role, pipeline),
             AgentConfig = agentConfig,
             TaskType = TaskType.Primary,
             PipelineName = ResolvePipelineName(pipeline)
         };
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
-        // p0147b: surface execution-limit / execution-error observations even
-        // when the batch otherwise short-circuits with FailedParse / FailedRuntime.
         BufferRuntimeObservations(pipeline, role.Name, round: 0, result);
         if (result.Outcome == SkillCallOutcome.Incomplete)
             logger.LogWarning(
@@ -176,13 +175,12 @@ public sealed class FilterRoundHandler(
             Role = role.Role ?? "filter",
             Phase = SkillExecutionPhase.Synthesize,
             PromptParts = messages,
-            ToolSet = Array.Empty<AITool>(),
+            ToolSet = toolPolicy.GetTools(role, pipeline),
             AgentConfig = agentConfig,
             TaskType = TaskType.Primary,
             PipelineName = ResolvePipelineName(pipeline)
         };
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
-        // p0147b: runtime observations flow even when the artifact path fails outright.
         BufferRuntimeObservations(pipeline, skillName, round: 0, result);
         if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
             return CommandResult.Fail(
