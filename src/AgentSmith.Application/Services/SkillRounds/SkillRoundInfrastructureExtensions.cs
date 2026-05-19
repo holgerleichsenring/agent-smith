@@ -20,6 +20,7 @@ public static class SkillRoundInfrastructureExtensions
     public static IServiceCollection AddSkillRoundInfrastructure(this IServiceCollection services)
     {
         services.AddTransient<SourceAnchoringPreamble>();
+        services.AddTransient<ObservationBusProjector>();
         services.AddTransient<IPromptComposer, PromptComposer>();
         services.AddTransient<SkillRoundDispatcher>();
         services.AddTransient<ISkillRoundDispatcher>(sp => sp.GetRequiredService<SkillRoundDispatcher>());
