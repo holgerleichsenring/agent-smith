@@ -105,7 +105,7 @@ public sealed class ObservationParser(
             var entry = element.Deserialize<RawObservation>(JsonOptions);
             if (entry is null || string.IsNullOrWhiteSpace(entry.Description)) return null;
             var observation = normalizer.Normalize(entry.ToFields(), role, id, perRunWarn, logger);
-            return sourceAnchorValidator.IsAnchored(observation, readPaths, role, logger) ? observation : null;
+            return sourceAnchorValidator.EnforceAnchor(observation, readPaths, role, logger);
         }
         catch (JsonException ex)
         {
