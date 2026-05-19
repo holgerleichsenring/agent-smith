@@ -80,9 +80,11 @@ public sealed class GateObservationParser(ITolerantJsonParser tolerantParser)
 
     private static EvidenceMode ParseEvidenceMode(JsonElement item)
     {
-        if (item.TryGetProperty("evidence_mode", out var e)
-            && Enum.TryParse<EvidenceMode>(e.GetString(), ignoreCase: true, out var parsed))
-            return parsed;
-        return EvidenceMode.Potential;
+        if (!item.TryGetProperty("evidence_mode", out var e)) return EvidenceMode.Potential;
+        var raw = e.GetString();
+        if (string.IsNullOrWhiteSpace(raw)) return EvidenceMode.Potential;
+        var normalized = raw.Replace("_", "");
+        return Enum.TryParse<EvidenceMode>(normalized, ignoreCase: true, out var parsed)
+            ? parsed : EvidenceMode.Potential;
     }
 }

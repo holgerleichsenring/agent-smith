@@ -42,7 +42,7 @@ public sealed class FilterRoundCaller(
                 batchIndex, totalBatches, result.Outcome, result.FailureReason ?? "no reason");
             return null;
         }
-        return observationParser.TryParseWithoutIds(result.Output ?? string.Empty, role.Name, logger);
+        return observationParser.TryParseWithoutIds(result.Output ?? string.Empty, role.Name, logger, result.ReadPaths);
     }
 
     public Task<SkillCallResult> InvokeArtifactAsync(

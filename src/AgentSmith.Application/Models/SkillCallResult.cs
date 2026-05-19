@@ -22,4 +22,12 @@ public sealed record SkillCallResult
     public required IReadOnlyList<LoopTraceEntry> Trace { get; init; }
     public string? FailureReason { get; init; }
     public IReadOnlyList<SkillObservation> RuntimeObservations { get; init; } = [];
+
+    /// <summary>
+    /// p0151b: the set of source-file paths the skill read in this call,
+    /// captured by <see cref="LoopTraceCollector"/>. Consumed by the
+    /// observation parser to drop hallucinated <c>analyzed_from_source</c>
+    /// claims whose cited file was never read.
+    /// </summary>
+    public IReadOnlyCollection<string> ReadPaths { get; init; } = Array.Empty<string>();
 }

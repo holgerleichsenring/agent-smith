@@ -12,7 +12,9 @@ namespace AgentSmith.Application.Services.SkillRounds;
 /// </summary>
 public interface ISkillResponseParser
 {
-    List<SkillObservation> ParseAndDowngrade(string responseText, string skillName, ILogger logger);
+    List<SkillObservation> ParseAndDowngrade(
+        string responseText, string skillName, ILogger logger,
+        IReadOnlyCollection<string>? readPaths = null);
 
     string RenderObservationsAsText(IReadOnlyList<SkillObservation> observations);
 }
