@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0148
+goal: "Skill-, Security- and Api-Skill round handlers + the Filter round all
+  pass `ToolSet = Array.Empty<AITool>()` to SkillCallRuntime today. Only
+  VerifyRoundHandler builds a real tool list. Result: discussion- and
+  api-security-skills are single-shot prompts with no Read / Grep / sandbox
+  access — they can't read code, can't grep, can't probe. p0132c migrated
+  the Verifier path; this phase pulls the four remaining round-paths onto
+  the same IToolKit-based tool acquisition, gated by ISkillRoundToolPolicy
+  so different round types can opt different tool subsets in."
+
+requires: ["p0126c", "p0132c"]
+
+scope:
+  in: |
+    (1) ISkillRoundToolPolicy (Contracts) — given a RoleSkillDefinition +
+        round phase, returns the IToolHost set the call may bind. Three
+        concrete implementations land:
+        - DiscussionRoundToolPolicy: full read+grep tool set when the
+          skill's investigator_mode is "verify_hint" / "survey"; empty
+          when the round is pure-prose discussion (e.g. mad-discussion
+          opinions).
+        - StructuredRoundToolPolicy: read+grep+probe (Active mode) or
+          read+grep only (Passive mode) for api-security skills; empty
+          for security-scan triage skills that consume Nuclei / ZAP
+          findings directly.
+        - FilterRoundToolPolicy: empty by design — filter skills decide
+          inclusion based on provided observations + skill role, not by
+          fetching more code.
+
+    (2) Wire IToolKit + the policy into the four round paths:
+        - SkillRoundHandler (discussion path) — DiscussionRoundToolPolicy
+        - SecuritySkillRoundHandler (security-scan structured) —
+          StructuredRoundToolPolicy with the security profile
+        - ApiSkillRoundHandler (api-security-scan structured) —
+          StructuredRoundToolPolicy with the api-security profile
+        - FilterRoundHandler — FilterRoundToolPolicy (empty)
+        The Verify path stays as-is; it already passes a real tool list.
+
+    (3) SkillRoundDispatcher (the p0147d service) takes the IToolHost set
+        from the policy and forwards it on the SkillCallRequest. The
+        `ToolSet = Array.Empty<AITool>()` lines at
+        SkillRoundDispatcher.cs:39 and FilterRoundHandler.cs:125,179
+        come out.
+
+    (4) Pipeline-context concept "tool_set_size" emitted by the dispatcher
+        so the operator-facing summary surfaces which rounds had tools vs
+        which didn't. Helps catch silent policy misconfiguration.
+
+  out: |
+    New tools / tool host implementations. Existing IToolKit + IToolHost
+    set covers Read / Grep / sandbox / RunCommand / WriteFile from p0126c
+    + p0145.
+
+    Discussion path for MAD pipelines specifically — those are
+    opinion-shaped and should stay tool-less. The DiscussionRoundToolPolicy
+    returns empty for them.
+
+    Cost / token budgeting changes. Tool calls already flow through
+    SkillCallRuntime's LimitEnforcer with max_tool_calls_per_skill = 30.
+
+decisions:
+  - key: |
+      Policy as injected service rather than per-handler if/else. Reason:
+      the discussion path has three distinct opinion-vs-investigator
+      branches; embedding the decision in the handler couples it to skill
+      metadata details that should live next to the SkillMd loader. A
+      policy service is testable in isolation and the handler stays a
+      template-method orchestrator. -- alternatives: pass tools directly
+      from the strategy (rejected: strategies are about prompt shape, not
+      tool gating); use a global tool set (rejected: pure-prose discussion
+      rounds shouldn't get them).
+  - key: |
+      Filter rounds stay tool-less. Reason: the filter skill's job is to
+      apply a single decision to a fixed set of inputs — fetching more
+      code mid-filter changes the contract from "judge what you got" to
+      "investigate further". The tool budget would also be consumed by
+      filter loops which run per batch (post-p0124 batching).
+  - key: |
+      Tool-set-size concept emitted at dispatch time, not skill-loading
+      time. Reason: the policy depends on runtime context (Active vs
+      Passive mode for api-security, investigator_mode for discussion).
+      Emitting at dispatch gives operators per-call visibility instead
+      of a static configuration view.
+
+steps:
+  - id: contracts
+    action: "Define ISkillRoundToolPolicy + the three concrete implementations."
+    new:
+      - "src/AgentSmith.Contracts/Services/ISkillRoundToolPolicy.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/DiscussionRoundToolPolicy.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/StructuredRoundToolPolicy.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/FilterRoundToolPolicy.cs"
+
+  - id: dispatcher-rewire
+    action: "SkillRoundDispatcher takes the policy and the IToolKit; ToolSet built from policy result."
+    modify:
+      - "src/AgentSmith.Application/Services/SkillRounds/SkillRoundDispatcher.cs"
+
+  - id: filter-rewire
+    action: "FilterRoundHandler takes the FilterRoundToolPolicy; both ToolSet inits use it."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs"
+
+  - id: di
+    action: "Register the three policies + wire the dispatcher / filter consumers."
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: concept
+    action: "Add 'tool_set_size' to the concept vocabulary (cross-repo agent-smith-skills) and emit it from the dispatcher."
+    new:
+      - "(agent-smith-skills) skills/concept-vocabulary.yaml — add tool_set_size int concept"
+    modify:
+      - "src/AgentSmith.Application/Services/SkillRounds/SkillRoundDispatcher.cs (emit via IRunStateConcepts)"
+
+  - id: tests
+    action: "Per-policy unit tests; integration smoke that confirms a real tool list reaches the runtime."
+    new:
+      - "tests/AgentSmith.Tests/SkillRounds/DiscussionRoundToolPolicyTests.cs"
+      - "tests/AgentSmith.Tests/SkillRounds/StructuredRoundToolPolicyTests.cs"
+      - "tests/AgentSmith.Tests/SkillRounds/FilterRoundToolPolicyTests.cs"
+      - "tests/AgentSmith.Tests/SkillRounds/SkillRoundDispatcherToolSetFlowTests.cs"
+
+tests:
+  - "DiscussionRoundToolPolicy_VerifyHintMode_ReturnsReadAndGrep"
+  - "DiscussionRoundToolPolicy_SurveyMode_ReturnsFullToolSet"
+  - "DiscussionRoundToolPolicy_PureProseDiscussion_ReturnsEmpty"
+  - "StructuredRoundToolPolicy_ApiSecurityActiveMode_IncludesProbe"
+  - "StructuredRoundToolPolicy_ApiSecurityPassiveMode_NoProbe"
+  - "StructuredRoundToolPolicy_SecurityScanTriage_ReturnsEmpty"
+  - "FilterRoundToolPolicy_AnyInput_ReturnsEmpty"
+  - "SkillRoundDispatcher_PolicyReturnsTools_RuntimeReceivesToolSet"
+  - "SkillRoundDispatcher_PolicyReturnsEmpty_RuntimeReceivesEmptyToolSet"
+  - "SkillRoundDispatcher_DispatchedRound_EmitsToolSetSizeConcept"
+
+done:
+  - "ISkillRoundToolPolicy + the three concrete policies exist + are tested in isolation."
+  - "grep -rn 'ToolSet = Array.Empty<AITool>()' src/ returns 0 results."
+  - "Skill / Security / Api / Filter dispatch paths route through the policy."
+  - "Smoke: an api-security-scan run against AuthPort shows Read/Grep tool calls in the skill traces (operator-visible via tool_set_size concept in the summary)."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."
