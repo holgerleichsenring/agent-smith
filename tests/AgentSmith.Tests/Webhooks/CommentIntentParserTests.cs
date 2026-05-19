@@ -1,170 +1,197 @@
 using AgentSmith.Application.Webhooks;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Moq;
 
 namespace AgentSmith.Tests.Webhooks;
 
 public sealed class CommentIntentParserTests
 {
-    [Fact]
-    public void Fix_ReturnNewJob_WithFixBugPipeline()
-    {
-        var result = CommentIntentParser.Parse("/agent-smith fix", out var pipeline, out var args, out var comment);
+    private const string ConfigPath = "config.yml";
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("fix-bug");
-        args.Should().BeNull();
-        comment.Should().BeNull();
+    private readonly Mock<IIntentParser> _intentParserMock = new();
+    private readonly CommentIntentParser _sut;
+
+    public CommentIntentParserTests()
+    {
+        _sut = new CommentIntentParser(_intentParserMock.Object);
+    }
+
+    private void SetupLlmIntent(
+        string expectedInput, string pipeline, string project = "todo-list", string? ticket = null)
+    {
+        _intentParserMock
+            .Setup(p => p.ParseToPipelineRequestAsync(
+                It.Is<string>(s => s == expectedInput),
+                ConfigPath,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PipelineRequest(
+                project, pipeline,
+                TicketId: ticket is null ? null : new TicketId(ticket),
+                Headless: true));
+    }
+
+    // p0146e: the slash-prefix regex is structural — these tests confirm we still
+    // recognise /agent-smith and /as, and delegate the tail to IIntentParser.
+
+    [Fact]
+    public async Task AgentSmithPrefix_NewJob_DelegatesTailToIntentParser()
+    {
+        SetupLlmIntent("fix #123 in my-api", "fix-bug", "my-api", "123");
+
+        var result = await _sut.ParseAsync(
+            "/agent-smith fix #123 in my-api", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.NewJob);
+        result.Request!.PipelineName.Should().Be("fix-bug");
+        result.Request.TicketId!.Value.Should().Be("123");
     }
 
     [Fact]
-    public void Fix_WithArguments_ReturnNewJob_WithArguments()
+    public async Task AsShortPrefix_NewJob_DelegatesTailToIntentParser()
     {
-        var result = CommentIntentParser.Parse("/agent-smith fix #123 in my-api", out var pipeline, out var args, out var comment);
+        SetupLlmIntent("fix", "fix-bug");
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("fix-bug");
-        args.Should().Be("#123 in my-api");
-        comment.Should().BeNull();
+        var result = await _sut.ParseAsync(
+            "/as fix", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.NewJob);
+        result.Request!.PipelineName.Should().Be("fix-bug");
     }
 
     [Fact]
-    public void ShortForm_Fix_ReturnNewJob()
+    public async Task GermanFreeText_ResolvesViaLlmIntentParser()
     {
-        var result = CommentIntentParser.Parse("/as fix", out var pipeline, out var args, out _);
+        // The post-slash body can be free-form text in any language — the LLM
+        // resolves "fixe einen Bug" → fix-bug. This is the headline win of p0146e
+        // (no more "German/English trap" from the deleted PipelineAliases table).
+        SetupLlmIntent("fixe einen Bug", "fix-bug");
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("fix-bug");
-        args.Should().BeNull();
+        var result = await _sut.ParseAsync(
+            "/agent-smith fixe einen Bug", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.NewJob);
+        result.Request!.PipelineName.Should().Be("fix-bug");
     }
 
     [Fact]
-    public void SecurityScan_ReturnNewJob_WithSecurityScanPipeline()
+    public async Task SecurityReview_ResolvesToSecurityScan_ViaLlmIntentParser()
     {
-        var result = CommentIntentParser.Parse("/agent-smith security-scan", out var pipeline, out _, out _);
+        // Replaces the deleted "security" → "security-scan" alias entry in the old
+        // PipelineAliases table.
+        SetupLlmIntent("security review", "security-scan");
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("security-scan");
+        var result = await _sut.ParseAsync(
+            "/agent-smith security review", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.NewJob);
+        result.Request!.PipelineName.Should().Be("security-scan");
     }
 
     [Fact]
-    public void SecurityAlias_ReturnNewJob_WithSecurityScanPipeline()
+    public async Task Help_ReturnsHelp_WithoutLlmCall()
     {
-        var result = CommentIntentParser.Parse("/agent-smith security", out var pipeline, out _, out _);
+        var result = await _sut.ParseAsync(
+            "/agent-smith help", ConfigPath, CancellationToken.None);
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("security-scan");
+        result.Type.Should().Be(CommentIntentType.Help);
+        result.Request.Should().BeNull();
+        _intentParserMock.Verify(p => p.ParseToPipelineRequestAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public void Review_ReturnNewJob_WithPrReviewPipeline()
+    public async Task MultiLine_CommandOnFirstLine_DelegatesFirstLineTailToIntentParser()
     {
-        var result = CommentIntentParser.Parse("/agent-smith review", out var pipeline, out _, out _);
+        SetupLlmIntent("fix #99 in core", "fix-bug", "core", "99");
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("pr-review");
-    }
-
-    [Fact]
-    public void Help_ReturnHelp()
-    {
-        var result = CommentIntentParser.Parse("/agent-smith help", out var pipeline, out var args, out _);
-
-        result.Should().Be(CommentIntentType.Help);
-        pipeline.Should().BeNull();
-        args.Should().BeNull();
-    }
-
-    [Fact]
-    public void UnknownCommand_ReturnNewJob_WithCommandAsPipeline()
-    {
-        var result = CommentIntentParser.Parse("/agent-smith unknown-cmd", out var pipeline, out _, out _);
-
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("unknown-cmd");
-    }
-
-    [Fact]
-    public void Approve_WithoutComment_ReturnDialogueApprove()
-    {
-        var result = CommentIntentParser.Parse("/approve", out var pipeline, out var args, out var comment);
-
-        result.Should().Be(CommentIntentType.DialogueApprove);
-        pipeline.Should().BeNull();
-        args.Should().BeNull();
-        comment.Should().BeNull();
-    }
-
-    [Fact]
-    public void Approve_WithComment_ReturnDialogueApprove_WithComment()
-    {
-        var result = CommentIntentParser.Parse("/approve Please rename branch", out _, out _, out var comment);
-
-        result.Should().Be(CommentIntentType.DialogueApprove);
-        comment.Should().Be("Please rename branch");
-    }
-
-    [Fact]
-    public void Approve_CaseInsensitive_ReturnDialogueApprove()
-    {
-        var result = CommentIntentParser.Parse("/APPROVE", out _, out _, out _);
-
-        result.Should().Be(CommentIntentType.DialogueApprove);
-    }
-
-    [Fact]
-    public void Reject_WithoutComment_ReturnDialogueReject()
-    {
-        var result = CommentIntentParser.Parse("/reject", out var pipeline, out var args, out var comment);
-
-        result.Should().Be(CommentIntentType.DialogueReject);
-        pipeline.Should().BeNull();
-        args.Should().BeNull();
-        comment.Should().BeNull();
-    }
-
-    [Fact]
-    public void Reject_WithComment_ReturnDialogueReject_WithComment()
-    {
-        var result = CommentIntentParser.Parse("/reject The naming is wrong", out _, out _, out var comment);
-
-        result.Should().Be(CommentIntentType.DialogueReject);
-        comment.Should().Be("The naming is wrong");
-    }
-
-    [Fact]
-    public void RandomText_ReturnUnknown()
-    {
-        var result = CommentIntentParser.Parse("random text", out var pipeline, out var args, out _);
-
-        result.Should().Be(CommentIntentType.Unknown);
-        pipeline.Should().BeNull();
-        args.Should().BeNull();
-    }
-
-    [Fact]
-    public void EmptyString_ReturnUnknown()
-    {
-        var result = CommentIntentParser.Parse("", out var pipeline, out var args, out _);
-
-        result.Should().Be(CommentIntentType.Unknown);
-        pipeline.Should().BeNull();
-        args.Should().BeNull();
-    }
-
-    [Fact]
-    public void MultiLine_CommandOnFirstLine_ShouldMatch()
-    {
         var body = """
             /agent-smith fix #99 in core
             Some additional context here.
             More details on what to fix.
             """;
 
-        var result = CommentIntentParser.Parse(body, out var pipeline, out var args, out _);
+        var result = await _sut.ParseAsync(body, ConfigPath, CancellationToken.None);
 
-        result.Should().Be(CommentIntentType.NewJob);
-        pipeline.Should().Be("fix-bug");
-        args.Should().Be("#99 in core");
+        result.Type.Should().Be(CommentIntentType.NewJob);
+        result.Request!.PipelineName.Should().Be("fix-bug");
+    }
+
+    // /approve and /reject paths stay structural — no LLM call, body text passes
+    // through unchanged as DialogueComment.
+
+    [Fact]
+    public async Task Approve_WithoutComment_ReturnsDialogueApprove_NoLlmCall()
+    {
+        var result = await _sut.ParseAsync("/approve", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.DialogueApprove);
+        result.DialogueComment.Should().BeNull();
+        _intentParserMock.Verify(p => p.ParseToPipelineRequestAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Approve_WithComment_ReturnsDialogueApprove_WithComment()
+    {
+        var result = await _sut.ParseAsync(
+            "/approve LGTM Please rename branch", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.DialogueApprove);
+        result.DialogueComment.Should().Be("LGTM Please rename branch");
+    }
+
+    [Fact]
+    public async Task Approve_CaseInsensitive_ReturnsDialogueApprove()
+    {
+        var result = await _sut.ParseAsync("/APPROVE", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.DialogueApprove);
+    }
+
+    [Fact]
+    public async Task Reject_WithoutComment_ReturnsDialogueReject_NoLlmCall()
+    {
+        var result = await _sut.ParseAsync("/reject", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.DialogueReject);
+        result.DialogueComment.Should().BeNull();
+        _intentParserMock.Verify(p => p.ParseToPipelineRequestAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Reject_WithComment_ReturnsDialogueReject_WithComment()
+    {
+        var result = await _sut.ParseAsync(
+            "/reject typo The naming is wrong", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.DialogueReject);
+        result.DialogueComment.Should().Be("typo The naming is wrong");
+    }
+
+    // Non-slash-prefix bodies are not commands — no LLM call, return Unknown.
+
+    [Fact]
+    public async Task RandomText_ReturnsUnknown_NoLlmCall()
+    {
+        var result = await _sut.ParseAsync("random text", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.Unknown);
+        _intentParserMock.Verify(p => p.ParseToPipelineRequestAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EmptyString_ReturnsUnknown_NoLlmCall()
+    {
+        var result = await _sut.ParseAsync("", ConfigPath, CancellationToken.None);
+
+        result.Type.Should().Be(CommentIntentType.Unknown);
+        _intentParserMock.Verify(p => p.ParseToPipelineRequestAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
