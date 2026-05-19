@@ -8,13 +8,14 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
-/// <summary>p0147d: Template-method router — picks discussion vs structured and delegates to injected executors. Subclasses inject an <see cref="ISkillPromptStrategy"/>.</summary>
+/// <summary>Template-method router — picks discussion vs structured and delegates to injected executors. Subclasses inject an <see cref="ISkillPromptStrategy"/> + an <see cref="ISkillRoundToolPolicy"/>.</summary>
 public abstract class SkillRoundHandlerBase(
     IDiscussionRoundExecutor discussionExecutor,
     IStructuredRoundExecutor structuredExecutor)
 {
     protected abstract ILogger Logger { get; }
     protected abstract ISkillPromptStrategy Strategy { get; }
+    protected abstract ISkillRoundToolPolicy ToolPolicy { get; }
 
     protected async Task<CommandResult> ExecuteRoundAsync(
         string skillName, int round, PipelineContext pipeline, CancellationToken cancellationToken)
@@ -26,8 +27,8 @@ public abstract class SkillRoundHandlerBase(
         if (role is null) return CommandResult.Fail($"Role '{skillName}' not found");
         pipeline.Set(ContextKeys.ActiveSkill, skillName);
         return IsStructuredRound(role, pipeline)
-            ? await structuredExecutor.ExecuteAsync(skillName, role, Strategy, pipeline, Logger, cancellationToken)
-            : await discussionExecutor.ExecuteAsync(skillName, role, roles, round, Strategy, pipeline, Logger, cancellationToken);
+            ? await structuredExecutor.ExecuteAsync(skillName, role, Strategy, ToolPolicy, pipeline, Logger, cancellationToken)
+            : await discussionExecutor.ExecuteAsync(skillName, role, roles, round, Strategy, ToolPolicy, pipeline, Logger, cancellationToken);
     }
 
     private static bool IsStructuredRound(RoleSkillDefinition role, PipelineContext pipeline) =>

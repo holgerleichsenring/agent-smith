@@ -66,7 +66,27 @@ public static partial class ServiceCollectionExtensions
         RegisterPipeline(services);
         RegisterLoopServices(services);
         AddSkillRounds(services);
+        AddSkillRoundToolPolicies(services);
         return services;
+    }
+
+    /// <summary>
+    /// Per-round-handler tool-set acquisition. Discussion / Structured / Filter
+    /// policies pick which IToolHost subset (if any) a given skill round binds.
+    /// Registered as Transient so each handler resolves a fresh instance — the
+    /// policies themselves are stateless but the IToolKit they depend on is
+    /// stateless-singleton, so all three policies could be singletons too; we
+    /// stay transient to honour the project DI default.
+    /// </summary>
+    private static void AddSkillRoundToolPolicies(IServiceCollection services)
+    {
+        services.AddTransient<DiscussionRoundToolPolicy>();
+        services.AddTransient<StructuredRoundToolPolicy>();
+        services.AddTransient<FilterRoundToolPolicy>();
+        // SkillRoundDispatcher publishes the tool_set_size concept; expose
+        // it as IConceptWriter so validate-concepts sees the writer claim.
+        services.AddSingleton<IConceptWriter>(sp =>
+            sp.GetRequiredService<SkillRoundDispatcher>());
     }
 
     // p0147d: SkillRoundHandlerBase decomposition. Composes the round
@@ -76,7 +96,8 @@ public static partial class ServiceCollectionExtensions
     private static void AddSkillRounds(IServiceCollection services)
     {
         services.AddTransient<IPromptComposer, PromptComposer>();
-        services.AddTransient<ISkillRoundDispatcher, SkillRoundDispatcher>();
+        services.AddTransient<SkillRoundDispatcher>();
+        services.AddTransient<ISkillRoundDispatcher>(sp => sp.GetRequiredService<SkillRoundDispatcher>());
         services.AddTransient<ISkillResponseParser, SkillResponseParser>();
         services.AddSingleton<ISkillRoundBufferDispatcher, SkillRoundBufferDispatcher>();
         services.AddSingleton<IBlockingFollowUpDetector, BlockingFollowUpDetector>();

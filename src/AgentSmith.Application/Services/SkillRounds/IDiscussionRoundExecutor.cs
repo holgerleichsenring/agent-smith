@@ -20,6 +20,7 @@ public interface IDiscussionRoundExecutor
         IReadOnlyList<RoleSkillDefinition> roles,
         int round,
         ISkillPromptStrategy strategy,
+        ISkillRoundToolPolicy toolPolicy,
         PipelineContext pipeline,
         ILogger logger,
         CancellationToken cancellationToken);

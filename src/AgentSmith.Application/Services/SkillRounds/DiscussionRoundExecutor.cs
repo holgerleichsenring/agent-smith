@@ -25,12 +25,12 @@ public sealed class DiscussionRoundExecutor(
 {
     public async Task<CommandResult> ExecuteAsync(
         string skillName, RoleSkillDefinition role, IReadOnlyList<RoleSkillDefinition> roles,
-        int round, ISkillPromptStrategy strategy, PipelineContext pipeline,
-        ILogger logger, CancellationToken cancellationToken)
+        int round, ISkillPromptStrategy strategy, ISkillRoundToolPolicy toolPolicy,
+        PipelineContext pipeline, ILogger logger, CancellationToken cancellationToken)
     {
         var (system, userPrefix, userSuffix) = composer.ComposeDiscussion(role, strategy, skillName, round, pipeline);
         var result = await dispatcher.DispatchAsync(
-            skillName, role, system, userPrefix, userSuffix, pipeline, cancellationToken);
+            skillName, role, system, userPrefix, userSuffix, toolPolicy, pipeline, cancellationToken);
         if (SkillCallOutcomeTranslator.TranslateDiscussion(result, skillName, role, logger) is { } earlyFail)
             return earlyFail;
         var parsed = responseParser.ParseAndDowngrade(result.Output ?? string.Empty, skillName, logger);

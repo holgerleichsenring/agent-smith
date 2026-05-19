@@ -17,12 +17,14 @@ public sealed class ApiSkillRoundHandler(
     IDiscussionRoundExecutor discussionExecutor,
     IStructuredRoundExecutor structuredExecutor,
     ApiSkillPromptStrategy strategy,
+    StructuredRoundToolPolicy toolPolicy,
     ILogger<ApiSkillRoundHandler> logger)
     : SkillRoundHandlerBase(discussionExecutor, structuredExecutor),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
     protected override ILogger Logger => logger;
     protected override ISkillPromptStrategy Strategy => strategy;
+    protected override ISkillRoundToolPolicy ToolPolicy => toolPolicy;
 
     public async Task<CommandResult> ExecuteAsync(
         ApiSecuritySkillRoundContext context, CancellationToken cancellationToken)
