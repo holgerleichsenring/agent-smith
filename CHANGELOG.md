@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.54.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.53.0...v0.54.0) (2026-05-19)
+
+
+### Features
+
+* /smoke slash command for CLI + docker-compose smoke verification ([#149](https://github.com/holgerleichsenring/agent-smith/issues/149)) ([671662a](https://github.com/holgerleichsenring/agent-smith/commit/671662ab3bc0dba71f1fe3fa6495d72b3cd272ca))
+* **p0146d:** drop ObservationParser regex-fishing, skills emit typed location fields ([f730009](https://github.com/holgerleichsenring/agent-smith/commit/f73000942c50dfc239679bfc71c9be25e04b5f46))
+* **p0146d:** drop ObservationParser regex-fishing, skills emit typed location fields ([0413c90](https://github.com/holgerleichsenring/agent-smith/commit/0413c90dfaaeed225b626f30b90766af15c02aa8))
+* **p0146e:** route PR-comment post-slash body through IIntentParser ([169a61e](https://github.com/holgerleichsenring/agent-smith/commit/169a61e4a79b78f253e81d84031736966d089e54))
+* **p0146e:** route PR-comment post-slash body through IIntentParser ([ff68f3e](https://github.com/holgerleichsenring/agent-smith/commit/ff68f3ee866d8f7c2b9a07b91eb427406d32b16d))
+* **p0147a:** consolidate LLM-JSON parsing through ITolerantJsonParser ([#153](https://github.com/holgerleichsenring/agent-smith/issues/153)) ([19fbee1](https://github.com/holgerleichsenring/agent-smith/commit/19fbee1258b282cc70bc107167a8643d1eb28aee))
+* **p0147b:** surface skill execution-limit hits as typed observations ([5b17ac5](https://github.com/holgerleichsenring/agent-smith/commit/5b17ac5c4c5e7649a1abd15a2f2d4a275ab0ea01))
+* **p0147b:** surface skill execution-limit hits as typed observations ([55d236b](https://github.com/holgerleichsenring/agent-smith/commit/55d236b21d1cc3e5c3f1cae72e824bc9d53636ec))
+* **p0147c:** swagger compression + dynamic compaction trigger ([7fb6d32](https://github.com/holgerleichsenring/agent-smith/commit/7fb6d321ad484165b1af78aa005bbda31be2d6c3))
+* **p0147c:** swagger spec compression + dynamic compaction trigger ([153198c](https://github.com/holgerleichsenring/agent-smith/commit/153198ca92bc8ab0635a5652342fb4e162a1fa91))
+* **p0147d:** decompose SkillRoundHandlerBase via composition ([4d59d9c](https://github.com/holgerleichsenring/agent-smith/commit/4d59d9cccab677c6a3c85a9d61aedb6195468a1d))
+* **p0147d:** decompose SkillRoundHandlerBase via composition ([f687e84](https://github.com/holgerleichsenring/agent-smith/commit/f687e844f5ab81e3ccb963e4b108764b4bd5cfda))
+* **p0147e:** decompose PipelineExecutor into 3 sub-services ([c6525ec](https://github.com/holgerleichsenring/agent-smith/commit/c6525ecd42d1d092a157509f2e81a3d97e0f2d9e))
+* **p0147f:** add ITicketFieldMapper contract + TicketProviderHttpClient ([7ec04e7](https://github.com/holgerleichsenring/agent-smith/commit/7ec04e741bfcf09b3215ff30333fac397552f9f2))
+* **p0147f:** decompose AzureDevOpsTicketProvider (340 -&gt; 111 lines) ([985096c](https://github.com/holgerleichsenring/agent-smith/commit/985096c18d218e97134dd5d2d38189d99b93d49d))
+* **p0147f:** decompose GitHubTicketProvider (219 -&gt; 114 lines) ([bec6e91](https://github.com/holgerleichsenring/agent-smith/commit/bec6e910f238fd881eefb6f079b16ed33dd05a72))
+* **p0147f:** decompose GitLabTicketProvider (278 -&gt; 115 lines) ([4f4f7be](https://github.com/holgerleichsenring/agent-smith/commit/4f4f7beb7fabab85751be42b5a2cf76da8de076a))
+* **p0147f:** decompose JiraTicketProvider (394 -&gt; 100 lines) ([9d6ba72](https://github.com/holgerleichsenring/agent-smith/commit/9d6ba7225062464ed17a331bd698f80596f3c3b1))
+* **p0147f:** unify ticket provider family (Jira/ADO/GitLab/GitHub) ([dc74dc1](https://github.com/holgerleichsenring/agent-smith/commit/dc74dc18aee977ba61bb3ae779c8bd881f722ebc))
+* **p0147g:** decompose round-handler family via injected business services ([#155](https://github.com/holgerleichsenring/agent-smith/issues/155)) ([cb78a01](https://github.com/holgerleichsenring/agent-smith/commit/cb78a014d7830b1213a0b7a10a99b9932c1340d1))
+* **p0147h:** split 6 oversize files into per-subdomain partials ([48b8a2a](https://github.com/holgerleichsenring/agent-smith/commit/48b8a2adc12ab474d019e70c00602d726ec358ec))
+* **p0147h:** split 6 oversize files into per-subdomain partials ([32d720d](https://github.com/holgerleichsenring/agent-smith/commit/32d720dfd3ba7121a9f868960a1f9af5e683f06b))
+* **p0148:** route skill rounds through ISkillRoundToolPolicy ([#150](https://github.com/holgerleichsenring/agent-smith/issues/150)) ([39fe9c8](https://github.com/holgerleichsenring/agent-smith/commit/39fe9c826ec6ddbc52cfc99401588b808383252f))
+* **p0149:** migrate DI to feature-set extension methods ([#151](https://github.com/holgerleichsenring/agent-smith/issues/151)) ([ea89101](https://github.com/holgerleichsenring/agent-smith/commit/ea891015b52b9f1271cb96876ca32ffbd44c8826))
+* **p0150a:** delete PipelineExecutorLegacy + collapse tests to single-shape ([#152](https://github.com/holgerleichsenring/agent-smith/issues/152)) ([ade3553](https://github.com/holgerleichsenring/agent-smith/commit/ade3553f637ab27a8662dde71eea9b2ecd33167e))
+* **p0150b:** decompose ObservationParser + ProjectAnalyzer + ConvergenceCheckHandler ([#154](https://github.com/holgerleichsenring/agent-smith/issues/154)) ([fa0b93c](https://github.com/holgerleichsenring/agent-smith/commit/fa0b93cecf6ea28fdbfe66fcfbddd978d4032a56))
+
+
+### Bug Fixes
+
+* merge conflicts ([e527766](https://github.com/holgerleichsenring/agent-smith/commit/e527766fd1bb3c48f64e15cc513ac4fdcf901cec))
+* repair main after parallel-merge fallout ([#147](https://github.com/holgerleichsenring/agent-smith/issues/147)) ([6f2c3aa](https://github.com/holgerleichsenring/agent-smith/commit/6f2c3aa90242c216191dceee1e82bee34b421ac4))
+
 ## [0.53.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.52.0...v0.53.0) (2026-05-19)
 
 
