@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0147a
+goal: "Every handler that consumes LLM JSON today reaches for
+  JsonSerializer.Deserialize directly. ObservationParser has a
+  ResilientJsonObjectExtractor that recovers complete object literals from
+  truncated arrays (p0124); GateObservationParser does its own NullIfEmpty
+  defending (p0123-decision-line-402); FilterRoundHandler logs warnings and
+  skips on parse failure; GeneratePlanHandler / VerifyRoundHandler are naive.
+  Different handlers see different LLM failure shapes survived. Consolidate
+  on one ITolerantJsonParser that handles the four known shapes: truncation,
+  ```json markdown wrapping, empty-string-vs-omitted-field traps, and verbose
+  prose around JSON. Every LLM-JSON-consuming handler routes through it."
+
+requires: ["p0146d"]
+
+scope:
+  in: |
+    (1) New ITolerantJsonParser + implementation in AgentSmith.Application.
+        Behaviour:
+        - Strip ```json fences and surrounding prose (LLMs love these).
+        - Try direct parse first; on JsonException, try ResilientJsonObjectExtractor.
+        - Treat empty-string fields as null (the p0123 NullIfEmpty
+          observation, applied universally not per-handler).
+        - Return TolerantParseResult { Document, Diagnostics } so callers
+          see what was recovered vs original.
+
+    (2) Migrate every direct LLM-JSON consumer:
+        - src/AgentSmith.Application/Services/Handlers/ObservationParser.cs
+          (already tolerant — fold ResilientJsonObjectExtractor into the new
+          service, keep current behaviour bit-for-bit).
+        - src/AgentSmith.Application/Services/Handlers/GateObservationParser.cs
+          (drop NullIfEmpty local helper, use parser).
+        - src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs
+          (today skips with warning on JsonException; route through parser
+          so partial recoveries land instead of being dropped entirely).
+        - src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs
+          (naive Deserialize — exposed to all four failure shapes).
+        - src/AgentSmith.Application/Services/Handlers/GeneratePlanHandler.cs
+          (same).
+        - src/AgentSmith.Application/Services/Handlers/GateOutputHandler.cs
+          (audit + migrate if it reads JSON).
+
+    (3) Diagnostics surface. When the parser recovers (truncation, fence
+        stripping, empty-string substitution), it logs a Debug entry naming
+        which shape was hit and emits a counter via a lightweight
+        ITolerantParseTelemetry seam. Lets operators see which LLM is
+        misbehaving most without invasive logging.
+
+  out: |
+    JSON schemas themselves. Output contracts stay; only the parsing layer
+    changes.
+
+    Non-LLM JSON parsing (webhook payloads, ticket-provider responses).
+    Those have stable shapes from APIs, not from probabilistic generators —
+    naive Deserialize is correct.
+
+decisions:
+  - key: |
+      One parser shared across all LLM-JSON consumers, not a base class.
+      Reason: composition over inheritance is the coding-principles default;
+      a base class would force every handler to inherit a parsing trait
+      it shouldn't care about. Service injected via DI is cleaner.
+  - key: |
+      TolerantParseResult.Diagnostics returns a recovery list, not throws.
+      Reason: callers decide whether partial recovery is acceptable for
+      their context. FilterRoundHandler may treat a truncated array as
+      "what we got is what we use"; GeneratePlanHandler may fail the run.
+      The parser doesn't make that call.
+  - key: |
+      Empty-string-vs-omitted unification at parse time, not per-handler.
+      Reason: today GateObservationParser.NullIfEmpty defends post-parse,
+      and that defence has to be replicated wherever LLMs return optional
+      fields. Centralising it removes a copy-paste defence pattern.
+
+steps:
+  - id: define-contract
+    action: "Add ITolerantJsonParser interface in Contracts; record TolerantParseResult."
+    new:
+      - "src/AgentSmith.Contracts/Services/ITolerantJsonParser.cs"
+      - "src/AgentSmith.Contracts/Models/TolerantParseResult.cs"
+
+  - id: implement-service
+    action: "TolerantJsonParser in Application; absorb ResilientJsonObjectExtractor."
+    new:
+      - "src/AgentSmith.Application/Services/TolerantJsonParser.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs: replace ResilientJsonObjectExtractor with parser injection."
+    delete:
+      - "(if standalone) src/AgentSmith.Application/Services/Handlers/ResilientJsonObjectExtractor.cs"
+
+  - id: migrate-consumers
+    action: "Each LLM-JSON-consuming handler takes ITolerantJsonParser via DI; direct JsonSerializer.Deserialize calls are removed."
+    modify:
+      - "GateObservationParser.cs: drop NullIfEmpty local helper."
+      - "FilterRoundHandler.cs"
+      - "VerifyRoundHandler.cs"
+      - "GeneratePlanHandler.cs"
+      - "GateOutputHandler.cs (if applicable)"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs: register parser + telemetry."
+
+tests:
+  - "TolerantJsonParser test pack: (a) plain JSON, (b) ```json-fenced JSON, (c) truncated array, (d) verbose prose wrapper, (e) empty-string field, (f) malformed entry mixed with valid."
+  - "Existing ObservationParser test pack passes through the new parser path bit-for-bit."
+  - "Migrated handlers: smoke test that recovered output reaches the pipeline (FilterRoundHandler in particular)."
+
+done:
+  - "ITolerantJsonParser + TolerantJsonParser exist + tested."
+  - "Zero direct JsonSerializer.Deserialize calls remain in LLM-output paths (grep audit)."
+  - "Existing tests green; new parser tests green."
+  - "Diagnostics counter visible in a smoke run with synthetic LLM-malformed payloads."
