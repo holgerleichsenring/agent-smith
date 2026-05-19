@@ -1,3 +1,5 @@
+using System.Runtime.Serialization;
+
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
@@ -11,11 +13,11 @@ public enum ResolutionStrategy
     Tag,
 
     /// <summary>ADO area path: hierarchical prefix match. Supports both \ and / separators.</summary>
-    AreaPath,
+    [EnumMember(Value = "area_path")] AreaPath,
 
     /// <summary>Source-repo URL match. Requires project.Repos.Count == 1.</summary>
     Repo,
 
     /// <summary>Email tracker: the to-address on the incoming mail equals the configured value. Reserved for p0141.</summary>
-    ToAddress
+    [EnumMember(Value = "to_address")] ToAddress
 }

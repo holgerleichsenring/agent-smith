@@ -31,6 +31,9 @@
     <None Update="Configuration\TestData\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\config\agentsmith.example.yml" Link="Configuration\TestData\agentsmith.example.yml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
