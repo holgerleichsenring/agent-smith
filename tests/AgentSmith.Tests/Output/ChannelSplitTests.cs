@@ -42,7 +42,7 @@ public sealed class ChannelSplitTests
         };
         var pipeline = new PipelineContext();
         var ctx = new OutputContext("test", null, observations, null, "./test-output", pipeline);
-        var sut = new SummaryOutputStrategy(NullLogger<SummaryOutputStrategy>.Instance);
+        var sut = new SummaryOutputStrategy(new AnchoringVerifier(), NullLogger<SummaryOutputStrategy>.Instance);
 
         var output = await CaptureConsoleAsync(() => sut.DeliverAsync(ctx));
 
