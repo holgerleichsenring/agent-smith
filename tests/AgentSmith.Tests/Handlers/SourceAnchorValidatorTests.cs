@@ -18,75 +18,100 @@ public sealed class SourceAnchorValidatorTests
             EvidenceMode: mode, File: file);
 
     [Fact]
-    public void IsAnchored_AnalyzedFromSourceAndFileInReadSet_ReturnsTrue()
+    public void EnforceAnchor_AnalyzedFromSourceAndFileInReadSet_ReturnsUnchanged()
     {
         var observation = Make(file: "src/Program.cs");
         var readPaths = new[] { "src/Program.cs" };
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeTrue();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.AnalyzedFromSource);
+        result.File.Should().Be("src/Program.cs");
     }
 
     [Fact]
-    public void IsAnchored_AnalyzedFromSourceAndFileNotInReadSet_ReturnsFalse()
+    public void EnforceAnchor_AnalyzedFromSourceAndFileNotInReadSet_DowngradesToPotentialAndClearsFile()
     {
         var observation = Make(file: "src/Hallucination.cs");
         var readPaths = new[] { "src/Program.cs" };
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeFalse();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.Potential);
+        result.File.Should().BeNull();
+        result.Description.Should().Be("x");  // signal preserved
     }
 
     [Fact]
-    public void IsAnchored_AnalyzedFromSourceAndNoFile_ReturnsFalse()
+    public void EnforceAnchor_AnalyzedFromSourceAndNoFile_DowngradesToPotential()
     {
         var observation = Make(file: null);
         var readPaths = new[] { "src/Program.cs" };
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeFalse();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.Potential);
+        result.File.Should().BeNull();
+        result.Description.Should().Be("x");  // signal preserved
     }
 
     [Fact]
-    public void IsAnchored_AnalyzedFromSourceAndEmptyFile_ReturnsFalse()
+    public void EnforceAnchor_AnalyzedFromSourceAndEmptyFile_DowngradesToPotential()
     {
         var observation = Make(file: "");
         var readPaths = new[] { "src/Program.cs" };
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeFalse();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.Potential);
+        result.File.Should().BeNull();
     }
 
     [Fact]
-    public void IsAnchored_PotentialEvidence_ReturnsTrueRegardlessOfFile()
+    public void EnforceAnchor_PotentialEvidence_ReturnsUnchangedRegardlessOfFile()
     {
         var observation = Make(EvidenceMode.Potential, file: "src/anywhere.cs");
         var readPaths = Array.Empty<string>();
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeTrue();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.Potential);
+        result.File.Should().Be("src/anywhere.cs");
     }
 
     [Fact]
-    public void IsAnchored_ConfirmedEvidence_ReturnsTrueRegardlessOfFile()
+    public void EnforceAnchor_ConfirmedEvidence_ReturnsUnchangedRegardlessOfFile()
     {
         var observation = Make(EvidenceMode.Confirmed, file: null);
         var readPaths = Array.Empty<string>();
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeTrue();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.Confirmed);
     }
 
     [Fact]
-    public void IsAnchored_NoReadPathsProvided_PassesEvenForAnalyzedFromSource()
+    public void EnforceAnchor_NoReadPathsProvided_PassesEvenForAnalyzedFromSource()
     {
         // When the runtime layer does not provide readPaths (e.g. legacy tests
-        // that bypass the runtime), the validator does not enforce the rule.
+        // that bypass the runtime), the validator does not enforce the rule
+        // and returns the observation unchanged.
         var observation = Make(file: "src/Anything.cs");
 
-        _validator.IsAnchored(observation, readPaths: null, "judge", NullLogger.Instance).Should().BeTrue();
+        var result = _validator.EnforceAnchor(observation, readPaths: null, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.AnalyzedFromSource);
+        result.File.Should().Be("src/Anything.cs");
     }
 
     [Fact]
-    public void IsAnchored_CaseInsensitiveFileMatch()
+    public void EnforceAnchor_CaseInsensitiveFileMatch()
     {
         var observation = Make(file: "SRC/PROGRAM.CS");
         var readPaths = new[] { "src/Program.cs" };
 
-        _validator.IsAnchored(observation, readPaths, "judge", NullLogger.Instance).Should().BeTrue();
+        var result = _validator.EnforceAnchor(observation, readPaths, "judge", NullLogger.Instance);
+
+        result.EvidenceMode.Should().Be(EvidenceMode.AnalyzedFromSource);
     }
 }
