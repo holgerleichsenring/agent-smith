@@ -25,8 +25,7 @@ public sealed class JiraTicketProviderListByLifecycleTests
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
         handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/rest/api/3/search");
 
-        var bodyJson = await handler.LastRequest.Content!.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(bodyJson);
+        using var doc = JsonDocument.Parse(handler.LastRequestBody!);
         var jql = doc.RootElement.GetProperty("jql").GetString();
         jql.Should().Contain("project = \"PROJ\"");
         jql.Should().Contain("labels = \"agent-smith:pending\"");
@@ -43,8 +42,7 @@ public sealed class JiraTicketProviderListByLifecycleTests
 
         await sut.ListByLifecycleStatusAsync(TicketLifecycleStatus.Pending, CancellationToken.None);
 
-        var body = await handler.LastRequest!.Content!.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(body);
+        using var doc = JsonDocument.Parse(handler.LastRequestBody!);
         var jql = doc.RootElement.GetProperty("jql").GetString();
         jql.Should().NotContain("project =");
         jql.Should().Be("labels = \"agent-smith:pending\"");
@@ -129,6 +127,7 @@ public sealed class JiraTicketProviderListByLifecycleTests
             "user@example.com",
             "token",
             httpClient,
+            new JiraFieldMapper(),
             NullLogger<JiraTicketProvider>.Instance,
             projectKey: projectKey);
     }
@@ -141,14 +140,20 @@ public sealed class JiraTicketProviderListByLifecycleTests
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public HttpRequestMessage? LastRequest { get; private set; }
+        public string? LastRequestBody { get; private set; }
         public Func<HttpRequestMessage, HttpResponseMessage> Responder { get; set; }
             = _ => new HttpResponseMessage(HttpStatusCode.OK);
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
-            return Task.FromResult(Responder(request));
+            // p0147f: TicketProviderHttpClient wraps the request in `using`, which
+            // disposes the content after this method returns. Read the body now so
+            // tests can assert on it after the call completes.
+            if (request.Content is not null)
+                LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            return Responder(request);
         }
     }
 }
