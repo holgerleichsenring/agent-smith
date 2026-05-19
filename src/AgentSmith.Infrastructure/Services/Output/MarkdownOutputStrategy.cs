@@ -47,12 +47,20 @@ public sealed class MarkdownOutputStrategy(
             return sb.ToString();
         }
 
-        var s = ObservationSummary.From(observations);
+        // p0147b: execution-limit / execution-error observations render in a
+        // separate section so the Critical/High/Medium/Low/Info tally reflects
+        // operator-facing findings, not runtime limit hits.
+        var findings = observations
+            .Where(o => !ExecutionLimitCategories.IsExecutionLimit(o.Category)).ToList();
+        var limitHits = observations
+            .Where(o => ExecutionLimitCategories.IsExecutionLimit(o.Category)).ToList();
+
+        var s = ObservationSummary.From(findings);
 
         sb.AppendLine($"Found **{s.Total}** issues ({s.Critical} critical, {s.High} high, {s.Medium} medium, {s.Low} low, {s.Info} info)");
         sb.AppendLine();
 
-        foreach (var o in observations)
+        foreach (var o in findings)
         {
             var icon = o.Severity switch
             {
@@ -83,8 +91,40 @@ public sealed class MarkdownOutputStrategy(
             sb.AppendLine();
         }
 
+        if (limitHits.Count > 0)
+            AppendLimitHitsSection(sb, limitHits);
+
         return sb.ToString();
     }
+
+    private static void AppendLimitHitsSection(StringBuilder sb, IReadOnlyList<SkillObservation> limitHits)
+    {
+        sb.AppendLine($"## Execution limits hit: {limitHits.Count}");
+        sb.AppendLine();
+        sb.AppendLine("Skill calls that ended without producing usable output. Not security findings \u2014 operator may need to raise budgets or simplify prompts.");
+        sb.AppendLine();
+        foreach (var o in limitHits)
+        {
+            sb.AppendLine($"### \u26a0\ufe0f {LimitLabel(o.Category)}: {ExtractTitle(o.Description)}");
+            sb.AppendLine();
+            sb.AppendLine(o.Description);
+            if (!string.IsNullOrWhiteSpace(o.Suggestion))
+            {
+                sb.AppendLine();
+                sb.AppendLine($"**Suggestion:** {o.Suggestion}");
+            }
+            sb.AppendLine();
+        }
+    }
+
+    private static string LimitLabel(string? category) => category switch
+    {
+        ExecutionLimitCategories.ExecutionLimitToolCalls => "Tool-call limit",
+        ExecutionLimitCategories.ExecutionLimitTokens => "Token limit",
+        ExecutionLimitCategories.ExecutionLimitWallClock => "Wall-clock limit",
+        ExecutionLimitCategories.ExecutionError => "Runtime error",
+        _ => "Execution limit"
+    };
 
     private static string ExtractTitle(string description)
     {

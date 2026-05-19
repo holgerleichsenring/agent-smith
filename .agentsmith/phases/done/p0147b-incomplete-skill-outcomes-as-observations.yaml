@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0147b
+goal: "When a skill call hits max_tool_calls_per_skill / max_input_tokens_per_skill_call
+  / max_seconds_per_skill_call, SkillCallRuntime today returns Incomplete and
+  the round handler logs a warning. The operator never sees this in the
+  pipeline summary — silent skill drops. Convert each Incomplete outcome
+  into a typed SkillObservation (category='execution-limit') so triage sees
+  it, downstream skills can decide whether to retry, and the operator's
+  final summary surfaces 'N skills hit limits this run'."
+
+requires: []
+
+scope:
+  in: |
+    (1) Extend SkillObservation schema (audit if needed) with category values
+        for execution outcomes: 'execution-limit-tool-calls',
+        'execution-limit-tokens', 'execution-limit-wall-clock',
+        'execution-error' (uncaught exception in the call).
+
+    (2) SkillCallRuntime.ExecuteAsync paths that return Incomplete or
+        FailedRuntime today: instead of returning a bare CommandResult.Ok
+        with empty observations, emit a self-describing SkillObservation
+        record with severity=Info, category=execution-limit-*, and a
+        description naming what the skill was doing when the cap fired.
+
+    (3) Round handlers (Filter / Verify / GeneratePlan / BootstrapRound /
+        ApiSkillRound / SkillRoundHandlerBase derived) pass through these
+        observations the same way they pass through regular ones. No
+        special-casing.
+
+    (4) Output strategies (Console / Markdown / SARIF / Summary):
+        execution-limit observations render with a distinct prefix
+        (e.g. "⚠️ Skill X hit tool-call limit at step Y") so they're
+        obviously not normal findings — but they ARE visible.
+
+  out: |
+    Retry policies. This phase just makes limit-hits visible; whether to
+    retry with a larger budget is a separate cost/policy question.
+
+    Tool-cap defaults. Today's limits live in agentsmith.yml limits block;
+    not changing those values here.
+
+decisions:
+  - key: |
+      Observations, not log lines. Reason: SkillObservation is the universal
+      output shape (since p0123). Logs are operator-only; observations also
+      reach the triage step + downstream skill rounds, so a limit-hit
+      becomes data the next round can reason about ('the previous round
+      didn't finish — try a narrower scope'). -- alternatives: structured
+      logging (rejected: invisible to downstream skills); status field on
+      SkillRound result (rejected: less composable than observations).
+  - key: |
+      Severity = Info, not Warning/Error. Reason: limit-hits are expected
+      operational events, not bugs. They shouldn't poison the
+      Critical/High/Medium/Low signal in the summary. Operators who want
+      to track limit-hit rate read the Info bucket.
+  - key: |
+      Category prefix execution-limit-* not a single execution-limit
+      bucket. Reason: token cap, tool-call cap, and wall-clock cap have
+      different operator responses (raise budget vs narrow scope vs
+      simplify prompt). Splitting at observation creation time avoids
+      string-parsing the description downstream.
+
+steps:
+  - id: schema-audit
+    action: "Confirm SkillObservation.Category is a free-form string (not enum); document the execution-limit-* values in the contract docstring."
+    modify:
+      - "src/AgentSmith.Contracts/Models/SkillObservation.cs (docstring + category constants if appropriate)."
+
+  - id: emit-at-runtime
+    action: "SkillCallRuntime emits the typed observation on each Incomplete/FailedRuntime path."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+      - "src/AgentSmith.Application/Services/Loop/OutcomeClassifier.cs (if it owns the limit-detection)"
+
+  - id: surface-in-output
+    action: "Output strategies render execution-limit observations with a distinct prefix."
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs"
+      - "src/AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs"
+      - "src/AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs"
+      - "src/AgentSmith.Infrastructure/Services/Output/SarifOutputStrategy.cs (suppression class — these aren't security findings)"
+
+tests:
+  - "SkillCallRuntime hitting each cap (tool, token, wall-clock) emits the correct execution-limit-* observation."
+  - "Round handlers pass through limit observations into the pipeline observation list."
+  - "Output strategies render limit observations distinctly; SARIF marks them as informational."
+
+done:
+  - "Three execution-limit-* category values documented and emitted by SkillCallRuntime."
+  - "Round handlers unchanged in behaviour but limit observations flow through."
+  - "Smoke run with a deliberately tight max_tool_calls_per_skill=2 shows limit-hit observations in the final summary."
