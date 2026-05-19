@@ -44,20 +44,21 @@ public sealed class SecuritySnapshotWriter(
         if (context.Pipeline.TryGet<List<SkillObservation>>(
                 ContextKeys.SkillObservations, out var observations) && observations is { Count: > 0 })
         {
+            var critical = observations.Count(o => o.Severity == ObservationSeverity.Critical);
             var high = observations.Count(o => o.Severity == ObservationSeverity.High);
             var medium = observations.Count(o => o.Severity == ObservationSeverity.Medium);
 
             snapshot = snapshot with
             {
-                FindingsCritical = 0,
+                FindingsCritical = critical,
                 FindingsHigh = high,
                 FindingsMedium = medium,
                 FindingsRetained = observations.Count,
             };
 
             logger.LogDebug(
-                "Snapshot updated with observations: {High}H/{Medium}M ({Total} total)",
-                high, medium, observations.Count);
+                "Snapshot updated with observations: {Critical}C/{High}H/{Medium}M ({Total} total)",
+                critical, high, medium, observations.Count);
         }
 
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);

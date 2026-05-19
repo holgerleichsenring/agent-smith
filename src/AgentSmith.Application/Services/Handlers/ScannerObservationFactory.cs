@@ -16,8 +16,8 @@ internal static class ScannerObservationFactory
     private static readonly Dictionary<string, ObservationSeverity> SeverityMap =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["critical"] = ObservationSeverity.High,
-            ["crit"] = ObservationSeverity.High,
+            ["critical"] = ObservationSeverity.Critical,
+            ["crit"] = ObservationSeverity.Critical,
             ["high"] = ObservationSeverity.High,
             ["error"] = ObservationSeverity.High,
             ["medium"] = ObservationSeverity.Medium,
