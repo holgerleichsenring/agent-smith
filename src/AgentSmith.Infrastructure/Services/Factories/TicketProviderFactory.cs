@@ -44,6 +44,7 @@ public sealed class TicketProviderFactory(
             loggerFactory.CreateLogger<AzureDevOpsAttachmentLoader>());
         return new AzureDevOpsTicketProvider(
             orgUrl, config.Project!, token, loader,
+            new AzureDevOpsFieldMapper(),
             loggerFactory.CreateLogger<AzureDevOpsTicketProvider>(),
             openStates: config.OpenStates.Count > 0 ? config.OpenStates : null,
             doneStatus: config.DoneStatus,
