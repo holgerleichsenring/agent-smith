@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Tests.Helpers;
 
@@ -42,6 +43,33 @@ public sealed class StubSkillCallRuntime : ISkillCallRuntime
             Output = output,
             Cost = MakeRecord(hitLimit),
             Trace = Array.Empty<LoopTraceEntry>()
+        });
+
+    /// <summary>
+    /// p0147b helper: returns an Incomplete result carrying a typed
+    /// execution-limit observation in RuntimeObservations, mirroring what
+    /// the real SkillCallRuntime emits via RuntimeObservationFactory.
+    /// </summary>
+    public StubSkillCallRuntime ReturnsIncompleteWithObservation(string output, string category, string hitLimit = "tokens")
+        => Returns(new SkillCallResult
+        {
+            Outcome = SkillCallOutcome.Incomplete,
+            Output = output,
+            Cost = MakeRecord(hitLimit),
+            Trace = Array.Empty<LoopTraceEntry>(),
+            RuntimeObservations = new[]
+            {
+                new SkillObservation(
+                    Id: 0, Role: "runtime",
+                    Concern: ObservationConcern.Risk,
+                    Description: $"Skill hit {category}",
+                    Suggestion: "raise budget",
+                    Blocking: false,
+                    Severity: ObservationSeverity.Info,
+                    Confidence: 100,
+                    EvidenceMode: EvidenceMode.Confirmed,
+                    Category: category)
+            }
         });
 
     public StubSkillCallRuntime ReturnsFailedParse(string reason = "parse failed")

@@ -7,8 +7,26 @@ namespace AgentSmith.Contracts.Models.Configuration;
 public sealed class CompactionConfig
 {
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Defensive upper-bound iteration cap. p0147c flipped the primary trigger from
+    /// iteration-count to token-pressure (see <see cref="MaxContextTokensTriggerRatio"/>);
+    /// this stays as a backstop because token counts are estimates — a pathological
+    /// prompt could keep iteration count low while pushing real tokens over the cap,
+    /// or the token estimator could undershoot. Defence in depth.
+    /// </summary>
     public int ThresholdIterations { get; set; } = 8;
+
     public int MaxContextTokens { get; set; } = 80000;
+
+    /// <summary>
+    /// p0147c primary compaction trigger: fires when accumulated input tokens exceed
+    /// <c>ratio × <see cref="MaxContextTokens"/></c>. Default 0.7 leaves 30% headroom for the next
+    /// response. Set to 0 (or any non-positive value) to disable the token-ratio trigger
+    /// and fall back to iteration-cap-only behaviour.
+    /// </summary>
+    public double MaxContextTokensTriggerRatio { get; set; } = 0.7;
+
     public int KeepRecentIterations { get; set; } = 3;
     public string SummaryModel { get; set; } = "claude-haiku-4-5-20251001";
 

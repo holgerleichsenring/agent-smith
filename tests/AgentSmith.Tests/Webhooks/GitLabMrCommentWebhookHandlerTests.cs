@@ -9,11 +9,15 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     private static readonly IDictionary<string, string> EmptyHeaders =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    private static GitLabMrCommentWebhookHandler CreateSut() =>
+        new(TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
+            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+
     [Fact]
     public void CanHandle_CorrectEventTypes()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
 
         sut.CanHandle("gitlab", "note hook").Should().BeTrue();
         sut.CanHandle("gitlab", "merge_request").Should().BeFalse();
@@ -23,8 +27,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_FixCommand_ReturnsPipeline()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -42,15 +45,14 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug mr:org/my-api!15");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("mr:org/my-api!15");
     }
 
     [Fact]
-    public async Task HandleAsync_FixWithArguments_ReturnsArguments()
+    public async Task HandleAsync_FixWithTicket_PropagatesTicket()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -68,15 +70,15 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("fix-bug #99 in core");
         result.Pipeline.Should().Be("fix-bug");
+        result.TriggerInput.Should().Contain("#99");
+        result.TriggerInput.Should().Contain("mr:org/my-api!15");
     }
 
     [Fact]
     public async Task HandleAsync_SecurityScan_ReturnsSecurityPipeline()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -94,15 +96,14 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.TriggerInput.Should().Be("security-scan mr:org/my-api!3");
         result.Pipeline.Should().Be("security-scan");
+        result.TriggerInput.Should().Contain("mr:org/my-api!3");
     }
 
     [Fact]
     public async Task HandleAsync_Approve_ReturnsDialogueAnswer()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -129,8 +130,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_NoteOnIssue_ReturnsNotHandled()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -152,8 +152,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_Help_ReturnsNotHandled()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",
@@ -176,8 +175,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     [Fact]
     public async Task HandleAsync_RegularComment_ReturnsNotHandled()
     {
-        var sut = new GitLabMrCommentWebhookHandler(
-            NullLogger<GitLabMrCommentWebhookHandler>.Instance);
+        var sut = CreateSut();
         var payload = """
         {
             "object_kind": "note",

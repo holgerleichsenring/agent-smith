@@ -173,6 +173,9 @@ public sealed class VerifyRoundHandler(
         };
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
+        // p0147b: runtime observations (execution-limit / execution-error) surface
+        // even when the verifier fails outright, so silent verifier drops are visible.
+        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, verifier.Name, round: 0, result);
         if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
         {
             logger.LogWarning(
