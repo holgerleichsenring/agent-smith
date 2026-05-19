@@ -28,7 +28,8 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        tools.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles", "LogDecision", "AskHuman");
+        // p0151a: Plan phase gains RunCommand for recon directory inventory.
+        tools.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles", "RunCommand", "LogDecision", "AskHuman");
     }
 
     [Fact]
