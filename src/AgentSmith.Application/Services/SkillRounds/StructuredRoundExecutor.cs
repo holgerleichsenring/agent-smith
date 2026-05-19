@@ -24,22 +24,24 @@ public sealed class StructuredRoundExecutor(
 {
     public async Task<CommandResult> ExecuteAsync(
         string skillName, RoleSkillDefinition role, ISkillPromptStrategy strategy,
+        ISkillRoundToolPolicy toolPolicy,
         PipelineContext pipeline, ILogger logger, CancellationToken cancellationToken)
     {
         var orch = role.Orchestration!;
         var (system, userPrefix, userSuffix) = composer.ComposeStructured(role, strategy, pipeline);
         return orch.Role == OrchestrationRole.Gate
             ? await ExecuteGateAsync(skillName, role, orch, system, userPrefix, userSuffix, pipeline, logger, cancellationToken)
-            : await ExecuteLeadReviewerAsync(skillName, role, orch, system, userPrefix, userSuffix, pipeline, logger, cancellationToken);
+            : await ExecuteLeadReviewerAsync(skillName, role, orch, system, userPrefix, userSuffix, toolPolicy, pipeline, logger, cancellationToken);
     }
 
     private async Task<CommandResult> ExecuteLeadReviewerAsync(
         string skillName, RoleSkillDefinition role, SkillOrchestration orch,
         string system, string userPrefix, string userSuffix,
+        ISkillRoundToolPolicy toolPolicy,
         PipelineContext pipeline, ILogger logger, CancellationToken cancellationToken)
     {
         var result = await dispatcher.DispatchAsync(
-            skillName, role, system, userPrefix, userSuffix, pipeline, cancellationToken);
+            skillName, role, system, userPrefix, userSuffix, toolPolicy, pipeline, cancellationToken);
         if (SkillCallOutcomeTranslator.TranslateStructured(result, skillName, role) is { } earlyFail)
             return earlyFail;
         var responseText = result.Output ?? string.Empty;
