@@ -293,6 +293,22 @@ limits:
   max_seconds_per_skill_call: 300
   max_concurrent_skill_calls: 10
 
+# p0151d: per-pipeline cost cap. When cumulative USD or tokens cross the cap,
+# remaining LLM-driven skill calls short-circuit with a `cost-cap-exhausted`
+# observation and the pipeline proceeds to Compile + Deliver. Defaults shown.
+# See docs/configuration/pipeline-cost-cap.md.
+pipeline_cost_cap:
+  default:
+    usd: 5
+    tokens: 500000
+  # per_pipeline:
+  #   api-security-scan:
+  #     usd: 10
+  #     tokens: 1000000
+  #   fix-bug:
+  #     usd: 2
+  #     tokens: 200000
+
 # In-flight pipeline-storage settings.
 pipeline_storage:
   redis_ttl_hours: 4

@@ -12,6 +12,9 @@ namespace AgentSmith.Application.Services;
 /// Accumulates LLM token usage and cost across all pipeline steps.
 /// Stored in PipelineContext, read by output handlers at the end.
 /// Uses pricing from project config; falls back to hardcoded defaults.
+/// p0151d: when constructed with a <see cref="CostCapValues"/>, exposes
+/// <see cref="IsBudgetExhausted"/> so the runtime can short-circuit
+/// further LLM-driven commands once the per-pipeline cap is reached.
 /// </summary>
 public sealed class PipelineCostTracker
 {
@@ -23,6 +26,7 @@ public sealed class PipelineCostTracker
     private int _callCount;
     private string _lastModel = "unknown";
     private readonly Dictionary<string, ModelPricing> _pricing;
+    private readonly CostCapValues? _costCap;
     private readonly SkillCostScopeManager _scopes = new();
 
     private static readonly Dictionary<string, ModelPricing> DefaultPricing = new(StringComparer.OrdinalIgnoreCase)
@@ -38,13 +42,36 @@ public sealed class PipelineCostTracker
         ["llama-3.3-70b-versatile"] = new() { InputPerMillion = 0.0m, OutputPerMillion = 0.0m },
     };
 
-    public PipelineCostTracker(PricingConfig? config = null)
+    public PipelineCostTracker(PricingConfig? config = null, CostCapValues? costCap = null)
     {
         _pricing = new Dictionary<string, ModelPricing>(DefaultPricing, StringComparer.OrdinalIgnoreCase);
         if (config?.Models is { Count: > 0 })
         {
             foreach (var (model, pricing) in config.Models)
                 _pricing[model] = pricing;
+        }
+        _costCap = costCap;
+    }
+
+    /// <summary>
+    /// p0151d: true once cumulative pipeline cost has crossed either the USD
+    /// or token cap configured for this pipeline. <see cref="SkillCallRuntime"/>
+    /// checks this on entry and short-circuits the LLM call when set, so
+    /// remaining skill rounds are skipped and Compile + Deliver still run.
+    /// Returns false when no cap is configured.
+    /// </summary>
+    public bool IsBudgetExhausted
+    {
+        get
+        {
+            if (_costCap is null) return false;
+            lock (_gate)
+            {
+                var totalTokens = (long)_totalInputTokens + _totalOutputTokens
+                    + _totalCacheCreateTokens + _totalCacheReadTokens;
+                return EstimateCostUsdLocked() > _costCap.Usd
+                    || totalTokens > _costCap.Tokens;
+            }
         }
     }
 
@@ -204,7 +231,8 @@ public sealed class PipelineCostTracker
             return existing;
 
         pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
-        var tracker = new PipelineCostTracker(pricingConfig);
+        pipeline.TryGet<CostCapValues>("PipelineCostCap", out var costCap);
+        var tracker = new PipelineCostTracker(pricingConfig, costCap);
         pipeline.Set(Key, tracker);
         return tracker;
     }
