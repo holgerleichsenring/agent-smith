@@ -124,6 +124,7 @@ public sealed class FilterRoundHandlerBatchedTests
         return new FilterRoundHandler(factory, promptBuilder.Object, runtime,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             new AgentSmith.Application.Services.SkillRounds.FilterRoundToolPolicy(),
+            TolerantJsonParserFactory.CreateObservation(),
             NullLogger<FilterRoundHandler>.Instance);
     }
 

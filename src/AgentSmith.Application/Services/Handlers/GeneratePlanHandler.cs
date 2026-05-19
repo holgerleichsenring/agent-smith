@@ -29,6 +29,7 @@ public sealed class GeneratePlanHandler(
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
     PlanOutputValidator planValidator,
+    PlanParser planParser,
     ILogger<GeneratePlanHandler> logger)
     : ICommandHandler<GeneratePlanContext>
 {
@@ -88,7 +89,7 @@ public sealed class GeneratePlanHandler(
 
     private Plan ParsePlanWithFallback(string model, string rawText)
     {
-        var strict = PlanParser.ParseStrict(rawText, planValidator);
+        var strict = planParser.ParseStrict(rawText, planValidator);
         if (strict.Plan is not null)
         {
             logger.LogInformation(
@@ -100,7 +101,7 @@ public sealed class GeneratePlanHandler(
         logger.LogDebug(
             "Strict plan parse rejected ({Reason}); falling back to legacy parse",
             strict.Validation.ErrorMessage);
-        return PlanParser.Parse(model, rawText);
+        return planParser.Parse(model, rawText);
     }
 
     private static IReadOnlyDictionary<string, string>? ResolvePlanAnswers(PipelineContext pipeline)

@@ -1,16 +1,19 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Parses the 'confirmed' array of a gate response into SkillObservations.
 /// Gate-emitted observations carry ReviewStatus="confirmed" by definition —
-/// the gate has decided they are real findings worth keeping.
+/// the gate has decided they are real findings worth keeping. Empty-string
+/// optional fields are folded to null via the shared
+/// <see cref="ITolerantJsonParser.GetStringOrNull"/> helper.
 /// </summary>
-internal sealed class GateObservationParser
+public sealed class GateObservationParser(ITolerantJsonParser tolerantParser)
 {
-    internal static List<SkillObservation> Parse(JsonElement confirmedArray, string gateRole)
+    public List<SkillObservation> Parse(JsonElement confirmedArray, string gateRole)
     {
         var observations = new List<SkillObservation>();
         var index = 0;
@@ -22,26 +25,22 @@ internal sealed class GateObservationParser
         return observations;
     }
 
-    private static SkillObservation ParseSingle(JsonElement item, string role, int index)
+    private SkillObservation ParseSingle(JsonElement item, string role, int index)
     {
         var description = item.TryGetProperty("description", out var d)
             ? d.GetString() ?? ""
             : item.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
-        var rationale = item.TryGetProperty("rationale", out var r)
-            ? r.GetString()
-            : item.TryGetProperty("reason", out var rs) ? rs.GetString() : null;
+        var rationale = tolerantParser.GetStringOrNull(item, "rationale", "reason");
         var suggestion = item.TryGetProperty("suggestion", out var sg) ? sg.GetString() ?? "" : "";
         var severity = ParseSeverity(item);
         var confidence = item.TryGetProperty("confidence", out var c) ? c.GetInt32() : 80;
         var concern = ParseConcern(item);
-        var category = item.TryGetProperty("category", out var cat) ? NullIfEmpty(cat.GetString()) : null;
-        var file = item.TryGetProperty("file", out var f) ? NullIfEmpty(f.GetString()) : null;
+        var category = tolerantParser.GetStringOrNull(item, "category");
+        var file = tolerantParser.GetStringOrNull(item, "file");
         var startLine = item.TryGetProperty("start_line", out var sl) ? sl.GetInt32()
             : item.TryGetProperty("line", out var l) ? l.GetInt32() : 0;
-        var apiPath = item.TryGetProperty("api_path", out var ap) ? NullIfEmpty(ap.GetString())
-            : item.TryGetProperty("apiPath", out var ap2) ? NullIfEmpty(ap2.GetString()) : null;
-        var schemaName = item.TryGetProperty("schema_name", out var sn) ? NullIfEmpty(sn.GetString())
-            : item.TryGetProperty("schemaName", out var sn2) ? NullIfEmpty(sn2.GetString()) : null;
+        var apiPath = tolerantParser.GetStringOrNull(item, "api_path", "apiPath");
+        var schemaName = tolerantParser.GetStringOrNull(item, "schema_name", "schemaName");
         var evidenceMode = ParseEvidenceMode(item);
 
         return new SkillObservation(
@@ -86,7 +85,4 @@ internal sealed class GateObservationParser
             return parsed;
         return EvidenceMode.Potential;
     }
-
-    private static string? NullIfEmpty(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value;
 }

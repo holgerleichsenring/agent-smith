@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddCommandExecutor();
         services.AddPromptCatalog();
         services.AddConfigurationValidation();
+        services.AddTolerantJsonParser();
         services.AddPipelineHandlers();
         services.AddSkillRunHandlers();
         services.AddSkillRoundInfrastructure();
