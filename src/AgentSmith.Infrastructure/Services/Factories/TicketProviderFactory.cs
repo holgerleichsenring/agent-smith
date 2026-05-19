@@ -58,6 +58,7 @@ public sealed class TicketProviderFactory(
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubAttachmentLoader>());
         return new GitHubTicketProvider(config.Url!, token, loader,
+            new GitHubFieldMapper(),
             loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
 
