@@ -18,5 +18,8 @@ public sealed class SourceAnchoringPreamble
         "without a real read is wasted output. For findings backed by swagger, " +
         "scanner output, or design analysis, use the matching evidence_mode " +
         "(potential / confirmed) and the matching anchor (api_path, " +
-        "schema_name, scanner template_id) — those do not require a file read.";
+        "schema_name, scanner template_id) — those do not require a file read. " +
+        "When prior rounds have left observations on the bus, you may treat any " +
+        "observation with an anchor (file, api_path, schema_name) as a hint and " +
+        "confirm with your own tool calls; do not blindly restate prior findings.";
 }
