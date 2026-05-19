@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151
+goal: "Umbrella for the runtime-level fixes that make every pipeline's skills
+  actually use their tools and ground every claim in verifiable evidence.
+
+  Baseline observation: an api-security-scan against Sample produced 3
+  findings — none with file:line, one factually wrong (claimed weak JWT
+  validation against a Microsoft.Identity.Web stack whose defaults are
+  secure). A side-by-side IDE-buddy run with full tool access produced
+  source-anchored, factually correct analysis on the same target. The
+  delta is not a single bug; it is a stack of pipeline-agnostic gaps:
+  (1) LoopTraceCollector is instantiated but never receives Append* calls,
+  so 'tool_calls=0' is unconditional and no operator can tell whether
+  tools were used; (2) AnalyzedFromSource is a free claim — no validator
+  checks the cited file was actually read; (3) the EvidenceMode JSON
+  convention is camelCase while skills emit snake_case, silently
+  downgrading to Potential; (4) source-reviewer judge skills fail to
+  load because block_condition is hard-required even for observation-
+  emitting judges; (5) no Bash tool — directory inventory needs ls/find;
+  (6) the running observation list is not visible to downstream skills,
+  so each skill rediscovers from scratch or hallucinates; (7) no
+  configurable per-pipeline cost cap; (8) no mechanism for a skill to
+  request follow-up depth within a budget; (9) skill prompts are prose
+  essays, not API specs — they ask for analysis but do not require
+  tool use or source citation; (10) scanner findings are pre-compressed
+  to prose before any LLM sees them, destroying the template_id /
+  matched_at anchors that would let a specialist correlate them to code.
+
+  Every gap above is shared across fix-bug, implement-feature,
+  security-scan, api-security-scan, and any future pipeline that runs
+  skills. The umbrella is therefore framed as runtime infrastructure
+  with api-security-scan as the proving ground — the catalog rewrite
+  lives in one sub-phase, the other seven are infrastructure that any
+  pipeline immediately inherits."
+
+requires: ["p0148"]
+
+scope:
+  in: |
+    Runtime instrumentation and contracts (pipeline-agnostic):
+    (a) LoopTraceCollector wired into the actual LLM + tool call sites so
+        skill_call_trace reflects reality. New Bash tool host (sandbox-
+        bounded, read-only by default) added to the toolkit.
+    (b) Skill output contract tightened: EvidenceMode JSON convention
+        unified on snake_case end-to-end; new validator rule —
+        AnalyzedFromSource observations require their `file` to appear
+        in this skill call's ReadSet (captured by the trace collector
+        from 151a). Observations claiming source without proof are
+        dropped with a warning. Source-reviewer judges (auth-config,
+        controller-implementation, upload-validator) are unblocked by
+        making block_condition optional when output_schema=observation.
+    (c) Observation bus + adaptive dispatch: every skill receives the
+        running observation list (compact JSON, location fields only)
+        as part of its prompt. A skill may emit a needs_followup
+        observation (JSON dispatch request); the orchestrator — not
+        the skill — decides whether to dispatch based on the pipeline
+        cost budget. Pull model, depth cap = 2.
+    (d) Configurable per-pipeline cost cap (default $5 / 500k tokens,
+        overridable in agentsmith.yml). Hard abort with a typed
+        observation when reached; partial output still delivered.
+    (e) SKILL.md frontmatter + body format spec upgraded to spec-style:
+        explicit Input / Goal / Tools / Budget / Output sections, prose
+        narrative discouraged. Validator enforces presence of the
+        sections for new/edited skills.
+
+    Pipeline catalog work (api-security-scan as proving ground):
+    (f) api-security-scan skill catalog rewritten into recon + specialist
+        + final synthesizer roles, all decentralized-verification: every
+        specialist has its own tool access and verifies its claims, no
+        single recon producer that downstream trusts blindly.
+    (g) Scanner-pipeline refactor: stop the destructive prose compression
+        of Nuclei / ZAP / Spectral results. Keep top-N (≈20) with
+        structured anchors (template_id, matched_at, severity). New
+        scanner-correlation-judge specialist maps scanner findings to
+        code locations and emits observations that cite both the
+        template_id and a file:line.
+
+    Validation:
+    (h) Sample re-scan against the IDE-buddy baseline. Acceptance: every
+        finding has at least one verifiable anchor (file:line, api_path,
+        or scanner template_id); the previously hallucinated JWT finding
+        does not recur; the operator sees non-zero tool_calls in the
+        skill trace.
+
+  out: |
+    Wave / parallel skill execution. Premature optimization — keep
+    skills running sequentially first, parallelize only after we can
+    measure the cost / quality trade-off.
+
+    LLM-defined skill catalogs. The skill catalog stays a fixed, curated
+    asset; the LLM does not invent its own skills. Reproducibility of
+    scans matters more than emergent flexibility.
+
+    Rewriting the fix-bug / implement-feature / security-scan catalogs.
+    Those benefit automatically from (a)-(e); their own catalog
+    refinements are out of scope and become separate phases when needed.
+
+    Output / SARIF / Markdown rendering changes beyond what falls out
+    of the EvidenceMode JSON convention fix in (b). Those stay as-is.
+
+    New scanner integrations (e.g. semgrep, trufflehog). The scanner-
+    pipeline refactor in (g) is about preserving anchors of existing
+    scanners, not adding more.
+
+decisions:
+  - key: |
+      Decentralized verification (every skill has tools and verifies) over
+      a single recon-producer feeding the rest. — A central recon at the
+      root of the pipeline creates one hallucination point that
+      contaminates all downstream skills. With decentralized verification
+      every claim is independently grounded; the operator can trace each
+      observation to a specific Read/Grep call. alternatives: central
+      recon (rejected: single point of failure for correctness);
+      mixed (rejected: ambiguity about which claims need re-verification).
+
+  - key: |
+      Observations as the only inter-skill communication channel. — No
+      separate context bus, no narrative hand-offs. Observations already
+      carry file / start_line / api_path; they are themselves the
+      'where to look' map. Compact JSON; the skill that consumes them
+      reads JSON, not prose. alternatives: rich context object
+      (rejected: re-introduces the prose-narrative coupling we are
+      removing); free-form scratchpad (rejected: would explode token
+      cost and dilute the signal).
+
+  - key: |
+      Source-anchored validator enforced mechanically via ReadSet, not
+      heuristically. — An AnalyzedFromSource observation must cite a
+      `file` that was read by this skill call (the LoopTraceCollector
+      knows). The validator drops invalid claims; halluciniations cannot
+      pass the gate. alternatives: prompt-only instruction (rejected:
+      LLMs ignore soft instructions); file-exists check
+      (rejected: LLM can guess an existing path).
+
+  - key: |
+      Pull-based DispatchSkill, not push. — A specialist emits a
+      needs_followup observation; the orchestrator reads it, checks the
+      pipeline cost budget, and dispatches if affordable. Keeps budget
+      hoheit central and prevents fan-out loops. alternatives: direct
+      push from skill (rejected: skill cannot see global budget);
+      no dispatch (rejected: closes the door on adaptive depth that
+      the IDE-buddy benchmark needs).
+
+  - key: |
+      Sequential skill execution first; parallel waves deferred. — User
+      pick. 'Too early optimization is the root of all evil.' Once we
+      have working source-anchored output sequentially, we can measure
+      whether parallelism pays. alternatives: 2-wave parallel
+      (rejected for now: optimisation without proven baseline).
+
+  - key: |
+      Bash tool host included from day one, sandbox-bounded. — Runs in
+      Docker; with skills directing what to invoke the attack surface is
+      ls/find/wc/head and similar read-only commands. Glob-only would
+      force awkward workarounds for directory inventory (the IDE-buddy
+      ran ls/find repeatedly). alternatives: Glob-extension with
+      listing mode (rejected: reinvents Bash badly).
+
+  - key: |
+      $5 / 500k tokens default cost cap, configurable per pipeline. —
+      User says weekly scans at higher cost are fine if quality is
+      great. Configurable means an operator can raise it for deep
+      audits without code change. alternatives: hardcoded cap
+      (rejected: rigid); no cap (rejected: a runaway dispatch loop
+      should not exhaust an org budget).
+
+  - key: |
+      api-security-scan as the proving ground; not a special case. —
+      Catalog rewrite lives in p0151f. The other seven sub-phases are
+      pipeline-agnostic infrastructure. Operator can apply the same
+      pattern to fix-bug / implement-feature later by writing those
+      catalogs against the new SKILL.md format.
+
+steps:
+  - id: write-sub-phases
+    action: "Author the eight sub-phase specs. Each is self-contained with file list, decisions, tests, done criteria. Sub-phases are sequential except where explicitly marked parallel-safe."
+    new:
+      - ".agentsmith/phases/planned/p0151a-trace-wiring-and-bash-tool.yaml"
+      - ".agentsmith/phases/planned/p0151b-source-anchored-observation-contract.yaml"
+      - ".agentsmith/phases/planned/p0151c-observation-bus-and-dispatch-pull.yaml"
+      - ".agentsmith/phases/planned/p0151d-configurable-pipeline-cost-cap.yaml"
+      - ".agentsmith/phases/planned/p0151e-skill-md-format-spec.yaml"
+      - ".agentsmith/phases/planned/p0151f-api-security-skill-catalog-rewrite.yaml"
+      - ".agentsmith/phases/planned/p0151g-scanner-pipeline-anchor-preservation.yaml"
+      - ".agentsmith/phases/planned/p0151h-ide-buddy-baseline-validation.yaml"
+
+tests:
+  - "(umbrella has no tests; each sub-phase tests its slice)"
+
+done:
+  - "Eight sub-phase specs land in .agentsmith/phases/planned/"
+  - "All eight sub-phases implemented and merged"
+  - "Smoke against Sample api-security-scan: tool_calls > 0 in every skill trace, every finding has file:line OR api_path OR scanner template_id"
+  - "Smoke against fix-bug pipeline: existing behavior unchanged (no regressions from infrastructure work)"
+  - "grep -rn 'LoopTraceCollector' src/AgentSmith.Application/Services/Loop/RetryCoordinator.cs returns Append* call sites (not just instantiation)"
+  - "Operator-visible cost-cap config documented in docs/configuration/"

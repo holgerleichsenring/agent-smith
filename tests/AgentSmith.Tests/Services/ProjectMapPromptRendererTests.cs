@@ -23,21 +23,21 @@ public sealed class ProjectMapPromptRendererTests
     }
 
     [Fact]
-    public void RenderExistingTests_SampleAShape_IncludesPathFrameworkFileCountAndSample()
+    public void RenderExistingTests_SampleShape_IncludesPathFrameworkFileCountAndSample()
     {
         var map = new ProjectMap(
             "C#", [".NET 8"], [], [
                 new TestProject(
-                    "RHS.SampleA.Tests.Integration",
+                    "Sample.Tests.Integration",
                     "xUnit",
                     117,
-                    "RHS.SampleA.Tests.Integration/AuthTests.cs")
+                    "Sample.Tests.Integration/AuthTests.cs")
             ], [], new Conventions(null, null, null),
             new CiConfig(false, null, null, null));
 
         var rendered = ProjectMapPromptRenderer.RenderExistingTests(map);
 
-        rendered.Should().Contain("RHS.SampleA.Tests.Integration");
+        rendered.Should().Contain("Sample.Tests.Integration");
         rendered.Should().Contain("xUnit");
         rendered.Should().Contain("117 test file(s)");
         rendered.Should().Contain("AuthTests.cs");

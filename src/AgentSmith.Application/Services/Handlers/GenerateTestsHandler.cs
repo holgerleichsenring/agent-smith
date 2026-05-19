@@ -42,9 +42,9 @@ public sealed class GenerateTestsHandler(
 
         var plan = BuildSyntheticPlan(context.Changes);
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-
-        var toolHost = new SandboxToolHost(
-            sandbox, decisionLogger, dialogueTransport, jobId: null, context.Repository.LocalPath);
+        var fs = new FilesystemToolHost(sandbox, context.Repository.LocalPath);
+        var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
+        var human = new HumanToolHost(dialogueTransport);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
@@ -59,17 +59,18 @@ public sealed class GenerateTestsHandler(
         };
         var options = new ChatOptions
         {
-            Tools = toolHost.GetAllTools(),
+            Tools = AgenticToolSurface.ReadWriteWithHuman(fs, log, human),
             MaxOutputTokens = maxTokens,
         };
 
         var response = await chat.GetResponseAsync(messages, options, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-        MergeCodeChanges(context, toolHost.GetChanges());
+        var changes = fs.GetChanges();
+        MergeCodeChanges(context, changes);
 
-        logger.LogInformation("Test generation completed: {Count} files changed", toolHost.GetChanges().Count);
-        return CommandResult.Ok($"Generated tests: {toolHost.GetChanges().Count} files changed");
+        logger.LogInformation("Test generation completed: {Count} files changed", changes.Count);
+        return CommandResult.Ok($"Generated tests: {changes.Count} files changed");
     }
 
     private static Plan BuildSyntheticPlan(IReadOnlyList<CodeChange> changes)

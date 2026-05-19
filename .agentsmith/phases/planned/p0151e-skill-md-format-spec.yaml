@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151e
+goal: "Upgrade the SKILL.md format from prose-essay to API spec. The current
+  skills (api-vuln-analyst-planner, anonymous-attacker, etc.) read like
+  training material: paragraphs of OWASP context, examples in JSON
+  fences, and a soft 'Output per the framework observation schema.'
+  closer. The LLM responds in kind — long prose reasoning, vague
+  source-claim phrasing, no concrete tool plan. The catalog rewrite
+  in p0151f produces a new family of skills; this sub-phase defines
+  the format they conform to, plus a body validator that warns when a
+  SKILL.md is missing required sections. Existing skills keep working
+  (warn-only); new skills are spec-shaped from day one."
+
+requires: ["p0151c"]
+
+scope:
+  in: |
+    (1) docs/skill-format.md describing the new body structure:
+        - INPUT: which prior observations (filter by role / concern /
+          file pattern) and which raw inputs (swagger, scanner findings)
+          this skill consumes.
+        - GOAL: one sentence, single concern.
+        - TOOLS: explicit list (Read, Glob, Grep, Bash, LogDecision).
+          Says 'YOU MUST use these to ground every observation' rather
+          than 'you may explore'.
+        - BUDGET: max tool iterations per call (informational; the
+          enforcement lives in LoopLimitsConfig).
+        - OUTPUT: observation contract reminder — file:line required
+          when evidence_mode=analyzed_from_source, snake_case enum
+          values.
+        - DROP IF: explicit conditions for self-suppression (e.g.
+          'no custom JWT config in observations_so_far → drop, return
+          empty array'). Counters generic OWASP boilerplate output.
+        - FOLLOWUP: when (if at all) this skill should emit a
+          DispatchRequest, and which target skill to name.
+
+    (2) NewFormatSkillValidator body audit. New rule: when a SKILL.md is
+        version >= 2.2.0 (or carries a 'format: spec' marker — TBD
+        during implementation), the body must contain the section
+        headers above. Missing sections → SkillFormatException with
+        path + missing section names. Older versions skip the check
+        with a once-per-load info log.
+
+    (3) Two reference SKILL.md rewrites under skills/api-security/_format/
+        (in the cross-repo agent-smith-skills) as canonical examples
+        the catalog rewrite (p0151f) consumes as templates. One judge,
+        one investigator.
+
+  out: |
+    The actual rewrite of all current api-security skills. That is
+    p0151f's job. This sub-phase only defines the contract + two
+    references + the validator.
+
+    Tooling for skill authors (linter, schema completion, etc.).
+    Future work; the validator is sufficient feedback for now.
+
+    Cross-repo versioning of agent-smith-skills. The skill catalog
+    version bump from 2.1.4 to 2.2.0 happens as a side-effect of the
+    catalog rewrite in p0151f, not here.
+
+decisions:
+  - key: |
+      Sections enforced by validator, not by a YAML schema. — The body
+      is markdown for a reason: skills carry examples + caveats that
+      do not fit a flat schema. Validator parses section headers and
+      asserts their presence; content inside stays free-form markdown.
+      alternatives: YAML body (rejected: kills examples + free-form
+      reasoning); schemaless (rejected: format drift is the problem we
+      are solving).
+
+  - key: |
+      Warn-only for legacy skills. — A hard fail would break every
+      cached catalog until the cross-repo rewrite lands. Warn-only
+      gives the operator visibility without breakage. alternatives:
+      hard fail (rejected: ships broken default); silent allow
+      (rejected: format drift continues).
+
+  - key: |
+      DROP IF section as a first-class contract. — The baseline's
+      hallucinated JWT finding is precisely a missing drop-if: the
+      skill ran even though Wave 1 produced no custom JWT
+      observations. Making drop-if explicit + grep-able forces the
+      skill author to think about it. alternatives: keep drop-if in
+      prose (rejected: easy to overlook; current skills do not have
+      it).
+
+steps:
+  - id: docs
+    action: "Write the format spec. Anchored examples of each section so a skill author can copy-paste."
+    new:
+      - "docs/skill-format.md"
+
+  - id: validator
+    action: "NewFormatSkillValidator gains a body-section pass. Section names + the version gate are constants in the validator. Old skills bypass with one info log per load."
+    modify:
+      - "src/AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs"
+    new:
+      - "src/AgentSmith.Infrastructure.Core/Services/SkillBodySectionAuditor.cs (if NewFormatSkillValidator would exceed 120 lines)"
+
+  - id: reference-skills
+    action: "Cross-repo: two reference SKILL.md files under skills/api-security/_format/ — one judge (file-line-anchored), one investigator (uses observations_so_far + tools). Operators see what 'good' looks like before p0151f lands."
+    new:
+      - "(cross-repo agent-smith-skills) skills/api-security/_format/reference-judge.md"
+      - "(cross-repo agent-smith-skills) skills/api-security/_format/reference-investigator.md"
+
+  - id: tests
+    action: "Section audit positive + negative cases; legacy passthrough; reference skills validate clean."
+    new:
+      - "tests/AgentSmith.Tests/Skills/SkillBodySectionAuditTests.cs"
+
+tests:
+  - "SkillBodyAuditor_AllSectionsPresent_NoErrors"
+  - "SkillBodyAuditor_MissingInput_ReportsMissingSection"
+  - "SkillBodyAuditor_MissingGoal_ReportsMissingSection"
+  - "SkillBodyAuditor_MissingTools_ReportsMissingSection"
+  - "SkillBodyAuditor_MissingOutput_ReportsMissingSection"
+  - "SkillBodyAuditor_MissingDropIf_ReportsMissingSection"
+  - "SkillBodyAuditor_LegacyVersion_BypassesAuditWithInfoLog"
+  - "SkillBodyAuditor_ReferenceJudge_ValidatesClean"
+  - "SkillBodyAuditor_ReferenceInvestigator_ValidatesClean"
+
+done:
+  - "docs/skill-format.md exists and is linked from the main README under the skills section."
+  - "Two reference SKILL.md files in agent-smith-skills repo validate clean against the new audit."
+  - "A deliberately-malformed test SKILL.md (e.g. missing GOAL) produces a SkillFormatException with the missing section named."
+  - "Existing 2.x.y skills continue to load with a one-line info log noting the format upgrade."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

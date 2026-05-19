@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151a
+goal: "Make skill execution observable and give skills the read-only shell
+  inventory tools they need. Today SkillCallRuntime instantiates a
+  LoopTraceCollector at SkillCallRuntime.cs:54 but no code path calls
+  AppendLlmCall or AppendToolCall — the runtime computes the trace from
+  zero entries and emits 'llm_calls=0 tool_calls=0' unconditionally on
+  every skill, regardless of what actually happened. PipelineCostTracker
+  separately accounts for tokens via OnResponse callbacks, so the
+  operator sees real token costs but cannot tell whether tools were
+  invoked. This sub-phase wires the trace collector into RetryCoordinator
+  (per LLM round-trip) and into the IToolHost call sites (per tool
+  invocation), and adds a sandboxed Bash tool host so skills can run
+  ls / find / wc / head / file — the read-only shell verbs the IDE-buddy
+  baseline used heavily for directory inventory. With this sub-phase
+  landed, every later sub-phase can verify its own effect via the trace."
+
+requires: ["p0148"]
+
+scope:
+  in: |
+    (1) RetryCoordinator + ChatLoop instrumentation. Inject the active
+        LoopTraceCollector via SkillCallRuntime so each LLM call records
+        model + tokens + duration via AppendLlmCall, and each tool
+        invocation records tool name + args summary + duration + success
+        via AppendToolCall. The collector already has the API; it just
+        is not called.
+
+    (2) ReadSet exposure on LoopTraceCollector. Add a public read-only
+        property Files (or ReadPaths) that returns the distinct set of
+        `path` arguments from filesystem-Read tool calls captured during
+        this skill call. Consumed by p0151b's source-anchored validator.
+
+    (3) BashToolHost (new, in AgentSmith.Application/Services/Tools).
+        Wraps the existing ISandbox to run a whitelisted command set:
+        ls, find, wc, head, tail, file, stat, tree, grep (already covered
+        by GrepToolHost — bash variant intentionally omits its own grep).
+        Hard reject on: pipes, redirects, &&/||, ;, $(...), backticks,
+        any non-whitelisted binary. Output capped (e.g. 8 KB) to keep
+        token cost predictable.
+
+    (4) AgenticToolSurface.Plan (and similar phase compositions in
+        AgenticToolSurface.cs) extended to include BashToolHost.
+        StructuredRoundToolPolicy returns 5 tools instead of 4 for the
+        api-security-scan plan phase.
+
+    (5) ToolPolicyDecision log line (already present per the recent
+        f4a431a 'diag: log sandbox publication + tool policy decisions
+        + tool invocations' commit) updated to enumerate the resolved
+        tool names, not just the count — so operators can see at a
+        glance whether bash is in the surface.
+
+  out: |
+    A write-capable bash variant (touch, mkdir, rm, mv, cp). Out of
+    scope for security and out of need — code-writing flows already
+    go through the dedicated WriteFile tool host.
+
+    Trace serialisation format changes. The current 'tool[name:ok,ms]'
+    rendering in LoopTraceCollector.FormatEntry is sufficient.
+
+    Per-tool-call cost attribution. The aggregate cost tracker is
+    already correct; per-call attribution is a separate question.
+
+decisions:
+  - key: |
+      LoopTraceCollector ownership stays in SkillCallRuntime; collaborators
+      receive it via parameter, not via DI. — The collector is per-call
+      state, not a long-lived service. Making it scoped would couple to
+      DI scope semantics (and we burned ourselves on this before per the
+      'async scope teardown' commit 8c3537d). alternatives: scoped DI
+      registration (rejected: state leakage between skills); thread-local
+      (rejected: actively hostile to async).
+
+  - key: |
+      Bash whitelist is a fixed allow-list, not a deny-list. — A deny-list
+      would force us to enumerate every dangerous binary; the allow-list
+      enumerates only the read verbs we actually want. The IDE-buddy
+      session ran ls/find/grep and that is sufficient. alternatives:
+      regex on the command (rejected: shell quoting is a parser problem
+      we should not own); full shell with seccomp (rejected: out of
+      proportion for a docker-bounded process).
+
+  - key: |
+      Output capped at 8 KB. — Long find outputs blow up token cost
+      with little marginal value. Skills that need more should narrow
+      their query, not consume more output. alternatives: no cap
+      (rejected: one bad find ruins the budget); pagination
+      (rejected: protocol complexity skills do not need).
+
+steps:
+  - id: trace-wiring
+    action: "Wire LoopTraceCollector into RetryCoordinator + the tool invocation sites so AppendLlmCall / AppendToolCall actually fire per round-trip and per tool call."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+      - "src/AgentSmith.Application/Services/Loop/RetryCoordinator.cs"
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs (or wherever the AIFunction wrappers live)"
+
+  - id: read-set
+    action: "Expose ReadSet on LoopTraceCollector — distinct path arguments from Read tool calls — for the source-anchored validator in p0151b."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/LoopTraceCollector.cs"
+
+  - id: bash-tool
+    action: "BashToolHost runs whitelisted read-only commands inside the sandbox. Output capped at 8 KB. Hard reject of any shell metacharacter."
+    new:
+      - "src/AgentSmith.Application/Services/Tools/BashToolHost.cs"
+      - "src/AgentSmith.Application/Services/Tools/BashCommandWhitelist.cs"
+
+  - id: surface-wiring
+    action: "AgenticToolSurface includes BashToolHost in Plan / Survey / Verify compositions; StructuredRoundToolPolicy passes 5 tools."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs"
+      - "src/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/StructuredRoundToolPolicy.cs"
+
+  - id: tests
+    action: "Cover both the trace wiring and the bash whitelist."
+    new:
+      - "tests/AgentSmith.Tests/Loop/LoopTraceCollectorAppendTests.cs"
+      - "tests/AgentSmith.Tests/Loop/SkillCallRuntimeTraceFlowTests.cs"
+      - "tests/AgentSmith.Tests/Tools/BashToolHostTests.cs"
+      - "tests/AgentSmith.Tests/Tools/BashCommandWhitelistTests.cs"
+
+tests:
+  - "LoopTraceCollector_AppendLlmCall_AddsLlmEntry"
+  - "LoopTraceCollector_AppendToolCall_AddsToolEntry"
+  - "LoopTraceCollector_ReadSet_ReturnsDistinctReadPaths"
+  - "SkillCallRuntime_SingleLlmRound_TraceShowsOneLlmCall"
+  - "SkillCallRuntime_LlmInvokesReadTool_TraceShowsLlmAndToolCalls"
+  - "BashToolHost_AllowedCommand_ls_ReturnsListing"
+  - "BashToolHost_DisallowedCommand_rm_Rejected"
+  - "BashToolHost_ShellMetacharacter_Pipe_Rejected"
+  - "BashToolHost_ShellMetacharacter_Backtick_Rejected"
+  - "BashToolHost_OutputExceedsCap_Truncated"
+  - "BashCommandWhitelist_KnownVerbs_Allowed"
+  - "BashCommandWhitelist_UnknownVerb_Rejected"
+  - "StructuredRoundToolPolicy_ApiSecurityScan_IncludesBashTool"
+
+done:
+  - "Smoke against Sample api-security-scan: skill_call_trace lines show non-zero llm_calls + tool_calls for every skill that has tools in its policy."
+  - "grep -n 'AppendLlmCall\\|AppendToolCall' src/AgentSmith.Application/Services/ returns hits in RetryCoordinator and the tool host wrappers (not only in LoopTraceCollector itself)."
+  - "BashToolHost exists and is included in StructuredRoundToolPolicy.GetTools for api-security-scan (verifiable via 'tool_policy: → 5 tools' log line)."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

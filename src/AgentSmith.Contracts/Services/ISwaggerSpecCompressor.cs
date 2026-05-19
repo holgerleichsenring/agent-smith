@@ -20,7 +20,7 @@ public interface ISwaggerSpecCompressor
 {
     /// <summary>
     /// Size threshold (raw JSON chars) above which compression kicks in.
-    /// SampleA's real-world spec measured at 291k chars in the run that motivated this work.
+    /// Sample's real-world spec measured at 291k chars in the run that motivated this work.
     /// </summary>
     int SizeThresholdChars { get; }
 
