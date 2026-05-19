@@ -23,28 +23,49 @@ public sealed class SourceAnchoringPreambleTests
     }
 
     [Fact]
-    public void Build_StatesDowngradeNotDropForAnalyzedFromSource()
+    public void Build_PullsTowardToolUseViaIdentityAndConcreteTargets()
     {
-        // Post-PR #171: validator downgrades, does NOT drop. The preamble must
-        // reflect the new contract so the LLM understands its safety net.
+        // Post-PR #173-followup: earlier permissive wording produced 0-tool-call
+        // rounds. The preamble must pull toward investigation via identity +
+        // a concrete recon flow + a numeric target, not via threat.
         var preamble = new SourceAnchoringPreamble();
 
         var text = preamble.Build();
 
-        text.Should().Contain("analyzed_from_source")
-            .And.Contain("downgrades");
-        text.Should().NotContain("drops any analyzed_from_source");
+        text.Should().Contain("investigator");
+        text.Should().Contain("read the files");
+        text.Should().Contain("2-5 files");
+        text.Should().Contain("primary deliverable");
+    }
+
+    [Fact]
+    public void Build_DiscourageZeroToolCallShortcut()
+    {
+        var preamble = new SourceAnchoringPreamble();
+
+        var text = preamble.Build();
+
+        // The wording must NOT lean on "the framework will downgrade automatically"
+        // as the only deterrent — that was the regression.
+        text.Should().NotContain("downgrades unverified claims to potential automatically");
+        // The wording MUST explicitly name the failure mode.
+        text.Should().Contain("zero tool calls");
+        text.Should().Contain("shallow");
     }
 
     [Fact]
     public void Build_AcknowledgesOtherEvidenceModesAreLegitimate()
     {
+        // The preamble names the three evidence_modes; concrete anchor types
+        // (api_path / schema_name / template_id) are catalog-specific and live
+        // in per-skill SKILL.md guidance, not in this universal text.
         var preamble = new SourceAnchoringPreamble();
 
         var text = preamble.Build();
 
-        text.Should().Contain("potential").And.Contain("confirmed");
-        text.Should().Contain("api_path").And.Contain("template_id");
+        text.Should().Contain("potential")
+            .And.Contain("confirmed")
+            .And.Contain("analyzed_from_source");
     }
 
     [Fact]
@@ -57,6 +78,17 @@ public sealed class SourceAnchoringPreambleTests
         var text = preamble.Build();
 
         text.Should().Contain("absence");
-        text.Should().Contain("file to null");
+        text.Should().Contain("file null");
+    }
+
+    [Fact]
+    public void Build_RequiresHttpRequestForConfirmedEvidence()
+    {
+        var preamble = new SourceAnchoringPreamble();
+
+        var text = preamble.Build();
+
+        text.Should().Contain("confirmed");
+        text.Should().Contain("http_request");
     }
 }
