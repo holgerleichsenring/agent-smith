@@ -13,7 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// </summary>
 public sealed class OpenAiChatClientBuilder : IChatClientBuilder
 {
-    public IReadOnlyList<string> SupportedTypes { get; } = new[] { "openai", "azure-openai" };
+    public IReadOnlyList<string> SupportedTypes { get; } = new[] { "openai", "azure_openai" };
 
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
@@ -23,7 +23,7 @@ public sealed class OpenAiChatClientBuilder : IChatClientBuilder
 
         var credential = new ApiKeyCredential(apiKey);
 
-        if (string.Equals(agent.Type, "azure-openai", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(agent.Type, "azure_openai", StringComparison.OrdinalIgnoreCase))
         {
             var endpoint = agent.Endpoint
                 ?? throw new InvalidOperationException("Azure OpenAI requires AgentConfig.Endpoint.");
@@ -47,7 +47,7 @@ public sealed class OpenAiChatClientBuilder : IChatClientBuilder
             if (!string.IsNullOrEmpty(secret)) return secret;
         }
 
-        var fallback = string.Equals(agent.Type, "azure-openai", StringComparison.OrdinalIgnoreCase)
+        var fallback = string.Equals(agent.Type, "azure_openai", StringComparison.OrdinalIgnoreCase)
             ? "AZURE_OPENAI_API_KEY"
             : "OPENAI_API_KEY";
         return Environment.GetEnvironmentVariable(fallback);
