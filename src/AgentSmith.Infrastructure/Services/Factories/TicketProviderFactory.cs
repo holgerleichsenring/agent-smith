@@ -44,6 +44,7 @@ public sealed class TicketProviderFactory(
             loggerFactory.CreateLogger<AzureDevOpsAttachmentLoader>());
         return new AzureDevOpsTicketProvider(
             orgUrl, config.Project!, token, loader,
+            new AzureDevOpsFieldMapper(),
             loggerFactory.CreateLogger<AzureDevOpsTicketProvider>(),
             openStates: config.OpenStates.Count > 0 ? config.OpenStates : null,
             doneStatus: config.DoneStatus,
@@ -58,6 +59,7 @@ public sealed class TicketProviderFactory(
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubAttachmentLoader>());
         return new GitHubTicketProvider(config.Url!, token, loader,
+            new GitHubFieldMapper(),
             loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
 
@@ -68,6 +70,7 @@ public sealed class TicketProviderFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         return new JiraTicketProvider(url, email, token, httpClientFactory.CreateClient(),
+            new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
             doneStatus: config.DoneStatus,
             closeTransitionName: config.CloseTransitionName,
@@ -86,6 +89,7 @@ public sealed class TicketProviderFactory(
             baseUrl, escapedPath, token, httpClient,
             loggerFactory.CreateLogger<GitLabAttachmentLoader>());
         return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader,
+            new GitLabFieldMapper(),
             loggerFactory.CreateLogger<GitLabTicketProvider>());
     }
 }
