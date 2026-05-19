@@ -25,7 +25,7 @@ internal sealed class RawObservation
     public string? Rationale { get; set; }
     public string? Effort { get; set; }
     public string? File { get; set; }
-    public int StartLine { get; set; }
+    public int? StartLine { get; set; }
     public int? EndLine { get; set; }
     public string? ApiPath { get; set; }
     public string? SchemaName { get; set; }
@@ -36,6 +36,6 @@ internal sealed class RawObservation
 
     internal RawObservationFields ToFields() => new(
         Concern, Description, Suggestion, Blocking, Severity, Confidence,
-        Rationale, Effort, File, StartLine, EndLine, ApiPath, SchemaName,
+        Rationale, Effort, File, StartLine ?? 0, EndLine, ApiPath, SchemaName,
         EvidenceMode, ReviewStatus, Category, Details);
 }
