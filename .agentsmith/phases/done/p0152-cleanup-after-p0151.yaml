@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0152
+goal: "Cleanup phase after p0151. Moves the umbrella spec from planned/ to
+  done/ now that every sub-phase (a/b/c/d/f/g/h, with i parked) has
+  shipped, captures the umbrella-wide decisions in a single decision
+  record, and parks p0151i in planned/ as 'gated on smoke evidence'
+  per its own spec.
+
+  No code changes. p0152 is a hygiene commit so the planned/ vs done/
+  layout reflects reality after the 8-PR p0151 campaign."
+
+requires: ["p0151h"]
+
+scope:
+  in: |
+    (1) Move p0151 umbrella spec planned/ → done/. Every sub-phase
+        (a, b, c, d, f, g, h) is merged; the umbrella is logically
+        complete.
+    (2) Leave p0151i (dispatch-protocol-and-followup) in planned/
+        with an updated decision note: implementation is gated on the
+        operator's smoke result against the reference target. If the
+        smoke shows passive observation bus alone (p0151c) hits the
+        IDE-buddy quality bar, p0151i stays parked. If the smoke
+        shows a gap that adaptive dispatch would close, p0151i
+        becomes the next phase.
+    (3) Write the umbrella-wide decision record summarising what the
+        eight PRs delivered, the open question (does passive read
+        alone suffice?), and the dependency chain operators can read
+        when bisecting future regressions.
+
+  out: |
+    Any new code. p0152 is hygiene.
+
+    Deprecation of obsolete api-security skills in agent-smith-skills.
+    The five legacy skills (api-vuln-analyst-planner, anonymous-attacker,
+    api-design-auditor, api-vuln-analyst-investigator, auth-tester)
+    still load cleanly today; the new recon + specialist catalog
+    competes with them via specificity scoring. If the smoke shows
+    the new catalog is consistently selected, a follow-up phase
+    deprecates the legacy ones.
+
+    Pinning agent-smith to a specific agent-smith-skills version. The
+    skills repo's release-please workflow bumps the version on merge
+    of the cross-repo PR; agent-smith's default skills source picks up
+    the latest release automatically. Explicit pinning lives in a
+    separate phase if/when the operator wants version locking.
+
+decisions:
+  - key: |
+      No deprecation of legacy api-security skills in this phase.
+      Reason: the new catalog should be selected by triage's
+      specificity scoring on a real smoke run; pre-emptive deletion
+      forecloses the rollback path. If the smoke shows the new
+      catalog wins selection consistently, a follow-up phase
+      retires the legacy skills.
+
+  - key: |
+      p0151i stays in planned/, not deleted. Reason: the umbrella's
+      own decision was "passive read first, dispatch later if the
+      gap warrants it." Deleting the spec would lose the design.
+      Parking it documents the deferred-pending-evidence state.
+
+steps:
+  - id: move-umbrella
+    action: "Move p0151 umbrella spec planned/ → done/."
+    modify:
+      - ".agentsmith/phases/planned/p0151-evidence-grounded-skill-pipelines.yaml → .agentsmith/phases/done/p0151-evidence-grounded-skill-pipelines.yaml"
+
+  - id: write-umbrella-decision
+    action: "Write a single umbrella-wide decision record summarising the eight PRs and the open question for p0151i."
+    new:
+      - ".agentsmith/decisions/p0151-evidence-grounded-skill-pipelines.md"
+
+  - id: move-self
+    action: "Move this phase spec active/ → done/ after the cleanup commit."
+
+tests: []
+
+done:
+  - "p0151 umbrella spec lives in .agentsmith/phases/done/."
+  - "p0151i lives in .agentsmith/phases/planned/ with the parked status."
+  - "Umbrella-wide decision record exists at .agentsmith/decisions/p0151-evidence-grounded-skill-pipelines.md."
+  - "/smoke green (no code changes in this phase)."
