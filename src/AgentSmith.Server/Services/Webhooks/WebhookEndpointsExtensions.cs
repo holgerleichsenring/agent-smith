@@ -5,11 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Extensions;
 
-internal static partial class ServiceCollectionExtensions
+/// <summary>
+/// Webhook endpoints feature-set: WebhookSpawnDispatcher (the shared per-match
+/// spawn loop + zero-match handler used by all 13 ticket-event handlers) plus
+/// each platform's IWebhookHandler for issue / comment / PR-label / PR-comment
+/// event flavours.
+/// </summary>
+internal static class WebhookEndpointsExtensions
 {
-    // p0140b: shared per-match spawn loop + zero-match handler used by all 8
-    // ticket-event handlers. Each platform (GitHub/GitLab/AzDo/Jira) contributes its
-    // own IWebhookHandler(s) for the issue / comment / PR-label / PR-comment event flavours.
     internal static IServiceCollection AddWebhookHandlers(this IServiceCollection services)
     {
         services.AddSingleton<WebhookSpawnDispatcher>();
