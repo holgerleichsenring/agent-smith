@@ -10,7 +10,6 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Owns single-step + batched-step dispatch through the CommandExecutor.
-/// Pulled out of PipelineExecutor in p0147e — see decisions/p0147e-executor-decomposition.md.
 ///
 /// Concerns kept here:
 ///   - context-factory call + CommandExecutor dispatch
