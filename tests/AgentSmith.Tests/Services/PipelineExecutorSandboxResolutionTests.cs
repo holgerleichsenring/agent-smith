@@ -72,6 +72,21 @@ public sealed class PipelineExecutorSandboxResolutionTests
             .Callback<SandboxSpec, CancellationToken>((s, _) => captured = s)
             .ThrowsAsync(new InvalidOperationException("test-only — short-circuit after spec capture"));
 
+        var sut = new PipelineExecutor(
+            _executorMock.Object,
+            _factoryMock.Object,
+            _ticketFactoryMock.Object,
+            _coordinatorMock.Object,
+            _sandboxFactoryMock.Object,
+            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
+            _resolverMock.Object,
+            _progressReporterMock.Object,
+            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
+                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
+            new AgentSmithConfig(),
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            NullLogger<PipelineExecutor>.Instance);
+
         var commands = new[] { CommandNames.CheckoutSource };
         var repoConnection = new RepoConnection();
         var project = new ResolvedProject { Repos = new[] { repoConnection } };

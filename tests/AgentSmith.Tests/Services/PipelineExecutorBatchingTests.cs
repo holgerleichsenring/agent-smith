@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -108,9 +109,10 @@ public class PipelineExecutorBatchingTests
         var bufferC = new SkillRoundBuffer("C", 1, [],
             new DiscussionEntry("C", "C-disp", "©", 1, "from C"), null);
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, bufferA);
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, bufferB);
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, bufferC);
+        var dispatcher = new SkillRoundBufferDispatcher();
+        dispatcher.ApplyBufferToContext(pipeline, bufferA);
+        dispatcher.ApplyBufferToContext(pipeline, bufferB);
+        dispatcher.ApplyBufferToContext(pipeline, bufferC);
 
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var log);
         log!.Select(e => e.RoleName).Should().Equal("A", "B", "C");
