@@ -31,26 +31,7 @@ public static partial class ContextKeys
     public const string SourceUrl = "SourceUrl";
     public const string SourceAuth = "SourceAuth";
 
-    public const string ScanPrIdentifier = "ScanPrIdentifier";
-    public const string ScanBranch = "ScanBranch";
-    public const string OutputFormat = "OutputFormat";
-    public const string OutputDir = "OutputDir";
-    public const string SwaggerSpec = "SwaggerSpec";
-
-    /// <summary>p0147c: original (uncompressed) swagger spec. LoadSwaggerHandler runs the
-    /// fetched spec through ISwaggerSpecCompressor: the (possibly shrunk) result lands in
-    /// <see cref="SwaggerSpec"/>, the verbatim original lands here. Skills that need full
-    /// schema detail (response-analyst, payload-fuzz scanners) read from this key;
-    /// every other consumer reads the default <see cref="SwaggerSpec"/>.</summary>
     public const string SwaggerSpecFull = "SwaggerSpecFull";
-    public const string NucleiResult = "NucleiResult";
-    public const string ZapResult = "ZapResult";
-    public const string SpectralResult = "SpectralResult";
-    public const string ApiTarget = "ApiTarget";
-    public const string ZapFailed = "ZapFailed";
-    public const string ApiScanFindingsSummary = "ApiScanFindingsSummary";
-    public const string ApiScanFindingsByCategory = "ApiScanFindingsByCategory";
-    public const string SwaggerPath = "SwaggerPath";
     public const string CheckoutBranch = "CheckoutBranch";
     public const string ResolvedPipeline = "ResolvedPipeline";
 
