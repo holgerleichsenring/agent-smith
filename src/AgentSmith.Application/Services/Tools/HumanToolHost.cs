@@ -26,7 +26,7 @@ public sealed class HumanToolHost : IToolHost
     {
         _ = phase;
         _ = investigatorMode;
-        return [AIFunctionFactory.Create(AskHuman)];
+        return [AIFunctionFactory.Create(AskHuman, name: "ask_human")];
     }
 
     [Description("Asks the human operator for guidance via the dialogue transport.")]

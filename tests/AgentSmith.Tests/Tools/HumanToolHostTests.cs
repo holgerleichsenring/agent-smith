@@ -16,7 +16,7 @@ public sealed class HumanToolHostTests
         foreach (var phase in Enum.GetValues<SkillExecutionPhase>())
         {
             var names = host.GetTools(phase, null).Select(f => f.Name).ToList();
-            names.Should().BeEquivalentTo(new[] { "AskHuman" }, $"phase {phase} should expose only AskHuman");
+            names.Should().BeEquivalentTo(new[] { "ask_human" }, $"phase {phase} should expose only ask_human");
         }
     }
 

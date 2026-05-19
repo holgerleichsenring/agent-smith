@@ -28,7 +28,7 @@ public sealed class LogDecisionToolHost : IToolHost
     {
         _ = phase;
         _ = investigatorMode;
-        return [AIFunctionFactory.Create(LogDecision)];
+        return [AIFunctionFactory.Create(LogDecision, name: "log_decision")];
     }
 
     [Description("Logs a key architectural, tooling, implementation, or trade-off decision.")]
