@@ -18,6 +18,7 @@ public sealed class MultiOutputTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<AnchoringVerifier>();
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
         services.AddKeyedSingleton<IOutputStrategy, SummaryOutputStrategy>("summary");
         var sp = services.BuildServiceProvider();

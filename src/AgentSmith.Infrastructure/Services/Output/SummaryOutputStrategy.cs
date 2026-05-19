@@ -10,8 +10,11 @@ namespace AgentSmith.Infrastructure.Services.Output;
 /// <summary>
 /// Clean findings-only summary output. No skill discussion, no round-by-round noise.
 /// Groups retained findings by severity with cost line. Always stdout.
+/// p0151h: appends an anchoring-verification block so source-anchor / orphan
+/// regressions surface in the operator-facing summary.
 /// </summary>
 public sealed partial class SummaryOutputStrategy(
+    AnchoringVerifier anchoringVerifier,
     ILogger<SummaryOutputStrategy> logger) : IOutputStrategy
 {
     public string ProviderType => "summary";
@@ -62,6 +65,8 @@ public sealed partial class SummaryOutputStrategy(
                 sb.AppendLine($"  [{LimitLabel(obs.Category)}] {ExtractTitle(obs.Description)}");
         }
 
+        AppendVerification(sb, operatorObs);
+
         if (context.Pipeline.TryGet<object>("PipelineCostTracker", out var tracker))
             sb.AppendLine($"{tracker}");
 
@@ -73,6 +78,19 @@ public sealed partial class SummaryOutputStrategy(
             "Summary delivered ({Count} findings, {Limits} limit hits)",
             findings.Count, limitObs.Count);
         return Task.CompletedTask;
+    }
+
+    private void AppendVerification(StringBuilder sb, IReadOnlyList<SkillObservation> operatorObservations)
+    {
+        var assertions = anchoringVerifier.Verify(operatorObservations);
+        if (assertions.Count == 0) return;
+        var passed = assertions.Count(a => a.Passed);
+        sb.AppendLine($"Verification: {passed}/{assertions.Count} passed");
+        foreach (var assertion in assertions)
+        {
+            var marker = assertion.Passed ? "PASS" : "FAIL";
+            sb.AppendLine($"  [{marker}] {assertion.Name} — {assertion.Detail}");
+        }
     }
 
     private static (List<SkillObservation> Operator, List<SkillObservation> Limits)

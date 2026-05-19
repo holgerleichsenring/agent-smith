@@ -12,6 +12,7 @@ public static class OutputStrategiesExtensions
 {
     public static IServiceCollection AddOutputStrategies(this IServiceCollection services)
     {
+        services.AddSingleton<AnchoringVerifier>();
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
         services.AddKeyedSingleton<IOutputStrategy, SummaryOutputStrategy>("summary");
         services.AddKeyedSingleton<IOutputStrategy, SarifOutputStrategy>("sarif");
