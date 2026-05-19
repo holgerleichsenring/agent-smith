@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.56.1...v0.57.0) (2026-05-19)
+
+
+### Features
+
+* **prompts:** universal tool surface + evidence_mode contract in SourceAnchoringPreamble ([#173](https://github.com/holgerleichsenring/agent-smith/issues/173)) ([8d885ff](https://github.com/holgerleichsenring/agent-smith/commit/8d885ffb64d5e4372942d79ab777b68037cd8ba6))
+
 ## [0.56.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.56.0...v0.56.1) (2026-05-19)
 
 
