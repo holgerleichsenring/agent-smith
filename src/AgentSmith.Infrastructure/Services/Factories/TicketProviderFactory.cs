@@ -87,6 +87,7 @@ public sealed class TicketProviderFactory(
             baseUrl, escapedPath, token, httpClient,
             loggerFactory.CreateLogger<GitLabAttachmentLoader>());
         return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader,
+            new GitLabFieldMapper(),
             loggerFactory.CreateLogger<GitLabTicketProvider>());
     }
 }
