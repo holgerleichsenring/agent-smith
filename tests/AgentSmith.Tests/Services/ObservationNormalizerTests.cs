@@ -54,7 +54,7 @@ public sealed class ObservationNormalizerTests
     [Fact]
     public void Normalize_CategoryDuplicatingConcern_DroppedToNull()
     {
-        var fields = Make(category: "Security") with { Concern = ObservationConcern.Security };
+        var fields = Make(category: "Security") with { Concern = "security" };
 
         var result = _normalizer.Normalize(fields, "tester", id: 1, new HashSet<string>(), NullLogger.Instance);
 
@@ -64,7 +64,7 @@ public sealed class ObservationNormalizerTests
     [Fact]
     public void Normalize_DistinctCategory_PreservedAsIs()
     {
-        var fields = Make(category: "secrets") with { Concern = ObservationConcern.Security };
+        var fields = Make(category: "secrets") with { Concern = "security" };
 
         var result = _normalizer.Normalize(fields, "tester", id: 1, new HashSet<string>(), NullLogger.Instance);
 
@@ -97,11 +97,11 @@ public sealed class ObservationNormalizerTests
         string description = "finding",
         int confidence = 70,
         string? category = null) => new(
-        Concern: ObservationConcern.Correctness,
+        Concern: "correctness",
         Description: description,
         Suggestion: null,
         Blocking: false,
-        Severity: ObservationSeverity.Medium,
+        Severity: "medium",
         Confidence: confidence,
         Rationale: null,
         Effort: null,
