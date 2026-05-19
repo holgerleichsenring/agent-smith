@@ -53,11 +53,40 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         var enforcer = new LimitEnforcer(_limits, linkedCts);
         var trace = new LoopTraceCollector();
 
+        if (costTracker.IsBudgetExhausted)
+        {
+            scope.Finalize(enforcer);
+            return BuildCostCapExhaustedResult(request, scope, trace, enforcer, costTracker);
+        }
+
         var (retryOutcome, exception) = await TryInvokeAsync(request, costTracker, trace, linkedCts.Token);
         scope.Finalize(enforcer);
 
         var outcome = ClassifyAndLog(request, retryOutcome, exception, enforcer, trace);
         return BuildResult(request, scope, retryOutcome, outcome, exception, trace, enforcer);
+    }
+
+    private SkillCallResult BuildCostCapExhaustedResult(
+        SkillCallRequest request, SkillCallScope scope, LoopTraceCollector trace,
+        LimitEnforcer enforcer, PipelineCostTracker costTracker)
+    {
+        var totalTokens = (long)costTracker.TotalInputTokens + costTracker.TotalOutputTokens
+            + costTracker.TotalCacheCreateTokens + costTracker.TotalCacheReadTokens;
+        var observation = _runtimeObservationFactory.BuildCostCapExhausted(
+            request.SkillName, costTracker.EstimateCostUsd(), totalTokens);
+        _logger.LogWarning(
+            "Skill {Skill} skipped — pipeline cost cap exhausted ({Usd:F4} USD / {Tokens} tokens).",
+            request.SkillName, costTracker.EstimateCostUsd(), totalTokens);
+        return new SkillCallResult
+        {
+            Outcome = SkillCallOutcome.Incomplete,
+            Output = null,
+            Cost = scope.BuildRecord(enforcer),
+            Trace = trace.Build(),
+            FailureReason = "cost cap exhausted",
+            RuntimeObservations = new[] { observation },
+            ReadPaths = Array.Empty<string>(),
+        };
     }
 
     private async Task<(RetryOutcome? Outcome, Exception? Exception)> TryInvokeAsync(

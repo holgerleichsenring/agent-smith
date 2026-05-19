@@ -41,6 +41,15 @@ public static class ExecutionLimitCategories
     public const string ExecutionError = "execution-error";
 
     /// <summary>
+    /// Pipeline-level cost cap (<c>pipeline_cost_cap.default</c> or
+    /// per-pipeline override) was reached and remaining LLM-driven commands
+    /// (skill rounds, triage, dispatch) were skipped. Compile + Deliver
+    /// still ran. Operator response: raise the cap for deep audits, or
+    /// inspect which skills consumed the budget.
+    /// </summary>
+    public const string CostCapExhausted = "cost-cap-exhausted";
+
+    /// <summary>
     /// True when <paramref name="category"/> is any of the runtime-emitted
     /// execution-limit / execution-error markers. Output strategies use this
     /// to render the observation with a distinct prefix.
@@ -49,5 +58,6 @@ public static class ExecutionLimitCategories
         ExecutionLimitToolCalls
         or ExecutionLimitTokens
         or ExecutionLimitWallClock
-        or ExecutionError;
+        or ExecutionError
+        or CostCapExhausted;
 }
