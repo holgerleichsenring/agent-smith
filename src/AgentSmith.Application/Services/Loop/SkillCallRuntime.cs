@@ -128,7 +128,8 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             FailureReason = failureReason,
             RuntimeObservations = runtimeObs is null
                 ? []
-                : new[] { runtimeObs }
+                : new[] { runtimeObs },
+            ReadPaths = trace.ReadSet.ToArray()
         };
     }
 }

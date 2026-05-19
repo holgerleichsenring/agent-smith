@@ -116,6 +116,6 @@ public sealed class VerifyRoundCoordinator(
         if (result.Outcome == SkillCallOutcome.Incomplete)
             logger.LogWarning("Verifier {Name} returned Incomplete (limit: {Limit})",
                 verifier.Name, result.Cost.HitLimit ?? "unknown");
-        return responseParser.ParseAndDowngrade(result.Output ?? string.Empty, verifier.Name, logger);
+        return responseParser.ParseAndDowngrade(result.Output ?? string.Empty, verifier.Name, logger, result.ReadPaths);
     }
 }
