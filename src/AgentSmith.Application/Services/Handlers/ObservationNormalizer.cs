@@ -63,7 +63,11 @@ public sealed class ObservationNormalizer : IObservationNormalizer
         HashSet<string> perRunWarn, ILogger? logger) where T : struct, Enum
     {
         if (string.IsNullOrWhiteSpace(raw)) return fallback;
-        if (Enum.TryParse<T>(raw, ignoreCase: true, out var parsed)) return parsed;
+        // The codebase is snake_case end-to-end (YAML, SKILL.md, JSON properties).
+        // LLM emits enum values the same way: "analyzed_from_source" matches the
+        // PascalCase enum name "AnalyzedFromSource" once underscores are stripped.
+        var normalized = raw.Replace("_", "").Replace("-", "");
+        if (Enum.TryParse<T>(normalized, ignoreCase: true, out var parsed)) return parsed;
         WarnUnknownEnum(raw, role, field, typeof(T), perRunWarn, logger);
         return fallback;
     }
