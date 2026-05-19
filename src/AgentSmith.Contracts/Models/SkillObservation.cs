@@ -9,6 +9,13 @@ namespace AgentSmith.Contracts.Models;
 /// rendered everywhere; Details is optional long-form body rendered only in
 /// Markdown file output and SARIF properties — never in Console or Summary.
 /// Caps are enforced at parse time via truncation-with-marker.
+///
+/// p0147b: <see cref="Category"/> is a free-form string; the runtime emits
+/// execution-limit observations using the constants on
+/// <see cref="ExecutionLimitCategories"/> (<c>execution-limit-tool-calls</c>,
+/// <c>execution-limit-tokens</c>, <c>execution-limit-wall-clock</c>) and
+/// <c>execution-error</c> for uncaught runtime exceptions. Output strategies
+/// render these distinctly so silent skill drops surface to the operator.
 /// </summary>
 public sealed record SkillObservation(
     int Id,
