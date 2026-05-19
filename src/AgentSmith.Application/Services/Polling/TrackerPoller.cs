@@ -72,7 +72,7 @@ public sealed class TrackerPoller(
         if (matches.Count == 0)
         {
             counts.ZeroMatched++;
-            logger.LogInformation(
+            logger.LogDebug(
                 "polling-zero-match: tracker={Tracker} ticket={Ticket} labels=[{Labels}]",
                 tracker.Name, ticket.Id.Value, string.Join(",", ticket.Labels));
             return;
