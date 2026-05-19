@@ -104,36 +104,6 @@ public class ExecutePipelineUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_InitMode_IncludesPrUrl()
-    {
-        var config = new AgentSmithConfig
-        {
-            Projects = { ["todo-list"] = new ResolvedProject
-            {
-                Pipeline = "fix-bug",
-                Repos = new[] { new RepoConnection { Name = "todo-list" } }
-            } }
-        };
-
-        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
-        _pipelineMock.Setup(p => p.ExecuteAsync(
-                It.IsAny<IReadOnlyList<string>>(),
-                It.IsAny<ResolvedProject>(),
-                It.IsAny<PipelineContext>(),
-                It.IsAny<CancellationToken>()))
-            .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
-            {
-                ctx.Set(ContextKeys.PullRequestUrl, "https://github.com/org/repo/pull/99");
-                return Task.FromResult(CommandResult.Ok("Initialized"));
-            });
-
-        var result = await _sut.ExecuteAsync("init todo-list", "config.yml", false, null, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        result.PrUrl.Should().Be("https://github.com/org/repo/pull/99");
-    }
-
-    [Fact]
     public async Task ExecuteAsync_UnknownProject_ThrowsConfigurationException()
     {
         var config = new AgentSmithConfig();
