@@ -1,58 +1,84 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0151h
 goal: "Validation gate. Re-run the api-security-scan against the Sample
-  target and compare the output to the IDE-buddy baseline session that
-  produced source-anchored, factually correct analysis. The umbrella
-  ships when this validation passes.
+  target and compare the output to the IDE-buddy reference snapshot
+  that produced source-anchored, factually correct analysis on the
+  same target. The umbrella ships when this validation passes.
 
-  Acceptance is not 'does it produce findings' (the baseline did, three
-  of them, one wrong) — acceptance is 'are findings grounded in
-  verifiable anchors and are obvious hallucinations gone'. The baseline
-  comparison is a checklist applied to the new run's output, not a
-  text-diff against the IDE-buddy transcript."
+  Acceptance is not 'does it produce findings' (the baseline did,
+  three of them, one wrong) — acceptance is 'are findings grounded
+  in the anchor type appropriate to their evidence_mode, and are the
+  obvious hallucinations gone'. AnalyzedFromSource is gated by
+  ReadSet (p0151b); other evidence modes are gated by their natural
+  anchors (api_path, schema_name, scanner template_id) OR by a clear
+  description for design-level findings. The comparison is a
+  checklist applied to the new run's output, not a text-diff against
+  any transcript."
 
-requires: ["p0151a", "p0151b", "p0151c", "p0151d", "p0151e", "p0151f", "p0151g"]
+requires: ["p0151a", "p0151b", "p0151c", "p0151d", "p0151f", "p0151g"]
 
 scope:
   in: |
-    (1) docs/baselines/Sample-ide-buddy.md — captures the IDE-buddy
-        session findings as a reference list with verifiable anchors:
-        - UserPermissionCache: AddScoped (no cross-request leak)
-        - JWT validation: AddMicrosoftIdentityWebApi defaults secure
-        - Raw SQL: two hits in DatabaseValidator.cs, both
-          parameterless (parameterless SQL, not vulnerable)
-        - Dockerfile: review for non-root user, healthcheck
+    (1) docs/baselines/api-security-ide-buddy.md — captures the
+        IDE-buddy reference snapshot for the Sample target as a list
+        of structural anchors:
+        - permission cache service: scoped DI lifetime (correctly
+          bounded to request)
+        - JWT validation: identity-library defaults (no custom
+          TokenValidationParameters, so 'JWT expiry too long' /
+          'no issuer check' findings are factually wrong on this
+          stack)
+        - raw SQL: limited hits in a migration utility,
+          parameterless (not user-input-driven)
+        - Dockerfile: review for non-root user + healthcheck
         - appsettings*: review for non-placeholder secrets
-        - Controllers: all 22 have [Authorize] or stricter
-        Each entry has a stable anchor (file:line or controller:attr)
-        so the new run's output can be compared mechanically.
+        - Controllers: comprehensive [Authorize] coverage
+        Each entry has a stable anchor (file path under a generic
+        controller-name pattern, attribute presence, or library
+        name) so the new run's output can be compared mechanically
+        regardless of target-side refactors.
 
-    (2) Sample smoke harness extension. The /smoke target already
-        runs api-scan against Sample; extend it to assert:
-        - No observation emits 'evidence_mode: analyzed_from_source'
-          without a file in its trace ReadSet (covered by p0151b's
-          validator; smoke verifies it kicks in on a real run).
-        - The trace has tool_calls > 0 for every Plan-phase skill.
-        - The final report contains at least one observation citing a
-          file:line under RHS.Sample.API/ or RHS.Sample.Application/.
-        - No observation mentions 'JWT expiry too long' or 'no
-          issuer/audience checks' (the specific halluciniation from
-          the baseline).
-        - At least one observation cites a Nuclei template_id (from
-          p0151g) OR explicitly notes 'no scanner findings of
-          interest' as a Confirmed observation.
+    (2) AuthPort smoke harness extension. /smoke already runs api-scan
+        against the Sample target; extend it to assert:
+        - No observation has evidence_mode=analyzed_from_source with
+          its `file` outside the trace ReadSet (the validator from
+          p0151b enforces this; the smoke verifies it kicks in on a
+          real run).
+        - tool_calls > 0 for every skill round whose tool-policy
+          returned a non-empty ToolSet. Rounds with empty tool-policy
+          (e.g. filter rounds per p0148) are excluded.
+        - The final report does NOT contain the specific
+          hallucination from the pre-fix baseline: an observation
+          claiming weak JWT issuer / audience / lifetime validation
+          on an identity-library stack.
+        - The final report contains AT LEAST one of:
+          (a) an AnalyzedFromSource observation citing a file:line
+              under the api project, OR
+          (b) a Confirmed observation citing a scanner template_id +
+              api_path, OR
+          (c) a Potential observation citing an api_path or
+              schema_name from swagger
+          — i.e. at least one anchor type is present, not 'every
+          finding has a file:line'.
 
-    (3) Operator-facing summary in the run output: a 'verification'
+    (3) Pipeline-agnostic stichprobe. /smoke runs a minimal fix-bug
+        and a minimal security-scan against fixture inputs and
+        confirms the same source-anchoring rule fires on
+        backend-developer-judge / security-reviewer-judge
+        observations. If those pipelines do not show the discipline,
+        the umbrella's pipeline-agnostic thesis is wrong and the work
+        needs reframing.
+
+    (4) Operator-facing summary in the run output: a 'verification'
         section that prints which of the above assertions passed and
         which failed. Helps operators triage when an underlying
         sub-phase regresses.
 
   out: |
-    Cross-pipeline validation (fix-bug, implement-feature). Those
-    pipelines have their own success criteria; this sub-phase is
-    api-security-scan-specific because that is the pipeline whose
-    baseline we measured against. Each sub-phase from p0151a-g
-    independently asserts /smoke green for the other pipelines.
+    Cross-pipeline rewrite (fix-bug, implement-feature). Those
+    pipelines have their own success criteria; this sub-phase
+    samples them for the source-anchoring discipline only, not for
+    full re-run quality assessment.
 
     Quantitative quality metrics (recall, precision against a hand-
     labelled vulnerability list). Future work — requires curated
@@ -67,64 +93,92 @@ decisions:
       Checklist-style assertions rather than transcript-diff. — The
       IDE-buddy session is one possible high-quality output; ours
       will differ in wording, ordering, and which specific anchors
-      it cites. Asserting on structural properties (every finding
-      anchored, no specific halluciniation) is robust; asserting on
-      text equivalence would lock us into IDE-buddy's specific
-      output. alternatives: text similarity threshold (rejected:
-      noise + brittle).
+      it cites. Asserting on structural properties (anchor types
+      present, specific hallucination absent) is robust; asserting
+      on text equivalence would lock us into a specific output.
+      alternatives: text similarity threshold (rejected: noise +
+      brittle).
 
   - key: |
-      Run the validation as a /smoke extension, not a unit test. —
-      The validation needs a live Sample + the full pipeline + a
-      real LLM call. Unit tests cannot reach this; integration tests
-      could but would slow the regular suite. /smoke is the right
-      home — operator-invoked, network-required. alternatives: CI
-      stage with mocked LLM (rejected: cannot verify factual
-      correctness without a real LLM); manual operator check
-      (rejected: too easy to skip after a refactor).
+      Anchor-type-by-evidence-mode, not 'every finding has file:line'.
+      — A swagger-only design finding ('this API has no global
+      security scheme') needs no file. A Nuclei-confirmed bypass
+      needs a template_id + api_path, not a code anchor. Forcing
+      file:line on every observation excludes legitimate scanner-
+      derived and swagger-derived findings — the bug the umbrella
+      is trying to enable, not block. alternatives: file:line for
+      every (rejected: excludes legitimate evidence sources); no
+      anchor requirement (rejected: re-opens hallucination path).
 
   - key: |
-      Baseline doc is committed to the repo. — Future contributors
-      need a stable target to develop against. Anchors in the
-      baseline file are stable (paths + attributes), so the doc
-      stays accurate across Sample refactors longer than a
-      transcript would. alternatives: external doc (rejected: drift);
-      no baseline (rejected: claim of quality is unverifiable).
+      Run as /smoke extension, not unit test. — The validation
+      needs the full pipeline + a real LLM call. Unit tests cannot
+      reach this; integration tests could but would slow the
+      regular suite. /smoke is the right home — operator-invoked,
+      network-required. alternatives: CI stage with mocked LLM
+      (rejected: cannot verify factual correctness without a real
+      LLM); manual operator check (rejected: too easy to skip
+      after a refactor).
+
+  - key: |
+      Pipeline-agnostic stichprobe (fix-bug, security-scan) lives
+      in 151h, not in each individual sub-phase. — The umbrella's
+      thesis is that the infrastructure helps all pipelines. The
+      proof lives where the thesis is being tested. alternatives:
+      sample inspection in every sub-phase done (rejected:
+      duplicates work, and the cumulative effect is what matters,
+      not the per-sub-phase effect).
+
+  - key: |
+      Baseline doc anchors are structural patterns, not absolute
+      paths. — Internal codebases refactor; absolute paths drift.
+      A pattern like '<api-project>/Middleware/Auth*.cs' stays
+      accurate longer than a literal path. alternatives: literal
+      paths (rejected: brittle); no anchors at all (rejected:
+      can't verify mechanically).
 
 steps:
   - id: baseline-doc
-    action: "Write docs/baselines/Sample-ide-buddy.md. Each entry: what the IDE-buddy found, where in source, what would constitute hallucination, what would constitute a missed finding."
+    action: "Write docs/baselines/api-security-ide-buddy.md. Each entry: what the IDE-buddy found in structural terms, what would constitute hallucination on this target, what would constitute a missed finding."
     new:
-      - "docs/baselines/Sample-ide-buddy.md"
+      - "docs/baselines/api-security-ide-buddy.md"
 
   - id: smoke-extension
-    action: "Extend the smoke harness with an api-security-scan-Sample verification block. Output passes/fails per assertion in the final summary."
+    action: "Extend the smoke harness with an api-security-scan + fix-bug + security-scan verification block. Output passes/fails per assertion in the final summary."
     modify:
       - "src/AgentSmith.Cli/Commands/SmokeCommand.cs (or wherever /smoke entry lives)"
     new:
-      - "src/AgentSmith.Cli/Smoke/ApiSecurityScanSampleVerifier.cs"
+      - "src/AgentSmith.Cli/Smoke/ApiSecurityScanVerifier.cs"
+      - "src/AgentSmith.Cli/Smoke/PipelineAgnosticAnchoringVerifier.cs"
 
   - id: run-output-verification-section
-    action: "DeliverFindings (or SummaryOutputStrategy) gains a verification section when the Sample target is detected; prints pass/fail per assertion. Operator sees this in the run output, not buried in CI logs."
+    action: "DeliverFindings (or SummaryOutputStrategy) gains a verification section when the Sample target is detected; prints pass/fail per assertion in the run output."
     modify:
       - "src/AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs"
 
   - id: tests
-    action: "Verifier unit tests with synthetic inputs (happy path; hallucination injected; missing tool_calls; missing anchor)."
+    action: "Verifier unit tests with synthetic inputs (happy path; hallucinated AnalyzedFromSource injected; tool_calls=0 with non-empty policy; missing all anchor types)."
     new:
-      - "tests/AgentSmith.Tests/Smoke/ApiSecurityScanSampleVerifierTests.cs"
+      - "tests/AgentSmith.Tests/Smoke/ApiSecurityScanVerifierTests.cs"
+      - "tests/AgentSmith.Tests/Smoke/PipelineAgnosticAnchoringVerifierTests.cs"
 
 tests:
-  - "Verifier_AllFindingsAnchored_AsserionsPass"
-  - "Verifier_FindingWithoutAnchor_AssertionFails"
-  - "Verifier_TraceHasZeroToolCalls_AssertionFails"
+  - "Verifier_AllAnalyzedFromSourceHasReadSetAnchor_AssertionPasses"
+  - "Verifier_AnalyzedFromSourceWithoutReadSetAnchor_AssertionFails"
+  - "Verifier_RoundWithToolPolicyButZeroToolCalls_AssertionFails"
+  - "Verifier_RoundWithEmptyToolPolicy_NoAssertion"
   - "Verifier_JwtHallucinationInFindings_AssertionFails"
-  - "Verifier_ScannerTemplateIdCited_AssertionPasses"
-  - "Verifier_NoScannerOfInterestNote_AssertionPasses"
+  - "Verifier_FindingWithApiPathOnly_AssertionPasses"
+  - "Verifier_FindingWithScannerTemplateIdOnly_AssertionPasses"
+  - "Verifier_FindingWithSchemaNameOnly_AssertionPasses"
+  - "Verifier_NoAnchorOfAnyType_AssertionFails"
+  - "PipelineAgnosticAnchoringVerifier_FixBugRun_BackendDeveloperJudgeShowsDiscipline"
+  - "PipelineAgnosticAnchoringVerifier_SecurityScanRun_SecurityReviewerJudgeShowsDiscipline"
 
 done:
-  - "docs/baselines/Sample-ide-buddy.md exists and is referenced from the api-security-scan section of the main README."
+  - "docs/baselines/api-security-ide-buddy.md exists and is referenced from the api-security-scan section of the main README."
   - "/smoke against Sample api-security-scan prints a verification section; all assertions pass."
-  - "Running with deliberately-injected hallucination (e.g. a stub skill emitting 'JWT expiry too long') causes the smoke to fail with the specific assertion named."
-  - "Operator-visible: the final summary footer includes 'verification: 6/6 passed' (or the specific failing items if not)."
+  - "/smoke pipeline-agnostic stichprobe: fix-bug + security-scan AnalyzedFromSource observations show source-anchored discipline."
+  - "Running with a deliberately-injected hallucination (e.g. a stub skill emitting 'JWT expiry too long' AnalyzedFromSource without ReadSet) causes the smoke to fail with the specific assertion named."
+  - "Operator-visible: the final summary footer includes a 'verification' line summarising assertion results."
   - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

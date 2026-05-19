@@ -53,7 +53,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         var enforcer = new LimitEnforcer(_limits, linkedCts);
         var trace = new LoopTraceCollector();
 
-        var (retryOutcome, exception) = await TryInvokeAsync(request, costTracker, linkedCts.Token);
+        var (retryOutcome, exception) = await TryInvokeAsync(request, costTracker, trace, linkedCts.Token);
         scope.Finalize(enforcer);
 
         var outcome = ClassifyAndLog(request, retryOutcome, exception, enforcer, trace);
@@ -61,13 +61,13 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     }
 
     private async Task<(RetryOutcome? Outcome, Exception? Exception)> TryInvokeAsync(
-        SkillCallRequest request, PipelineCostTracker costTracker, CancellationToken ct)
+        SkillCallRequest request, PipelineCostTracker costTracker, LoopTraceCollector trace, CancellationToken ct)
     {
         try
         {
             var cap = _limits.ResolveToolCallCap(request.InvestigatorMode);
-            var chat = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
-            var options = new ChatOptions { Tools = request.ToolSet.ToList() };
+            var chat = new TracingChatClient(_chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap), trace);
+            var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);
             var outcome = await _retry.InvokeAsync(chat, messages, options, validator, ct, costTracker.Track);
@@ -78,6 +78,9 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             return (null, ex);
         }
     }
+
+    private static IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
+        tools.Select(t => t is AIFunction f ? (AITool)new TracingAIFunction(f, trace) : t).ToList();
 
     private SkillCallOutcome ClassifyAndLog(
         SkillCallRequest request, RetryOutcome? retryOutcome, Exception? exception,
