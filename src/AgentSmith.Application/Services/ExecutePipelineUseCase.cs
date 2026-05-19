@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
@@ -173,37 +172,13 @@ public sealed class ExecutePipelineUseCase(
         string? pipelineOverride, Dictionary<string, object>? initialContext,
         CancellationToken cancellationToken)
     {
-        var initMatch = Regex.Match(userInput, @"^init\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase);
-        if (initMatch.Success)
-        {
-            return new PipelineRequest(
-                initMatch.Groups[1].Value,
-                pipelineOverride ?? "init-project",
-                IsInit: true,
-                Headless: headless,
-                Context: initialContext);
-        }
-
-        var ticketlessMatch = Regex.Match(userInput,
-            @"^(?:security-scan|legal-analysis|api-scan)\s+(?:in\s+)?(\S+)$", RegexOptions.IgnoreCase);
-        if (ticketlessMatch.Success)
-        {
-            var config = configLoader.LoadConfig(configPath);
-            var projectName = ticketlessMatch.Groups[1].Value.ToLowerInvariant();
-            var pipeline = ResolvePipelineName(pipelineOverride, config, projectName, fallback: "security-scan");
-
-            return new PipelineRequest(
-                projectName, pipeline,
-                Headless: headless, Context: initialContext);
-        }
-
         var intent = await intentParser.ParseAsync(userInput, cancellationToken);
-        var config2 = configLoader.LoadConfig(configPath);
-        var projName = intent.ProjectName.Value;
-        var pipelineName = ResolvePipelineName(pipelineOverride, config2, projName, fallback: "fix-bug");
+        var config = configLoader.LoadConfig(configPath);
+        var projectName = intent.ProjectName.Value;
+        var pipelineName = ResolvePipelineName(pipelineOverride, config, projectName, fallback: "fix-bug");
 
         return new PipelineRequest(
-            projName, pipelineName,
+            projectName, pipelineName,
             TicketId: intent.TicketId,
             Headless: headless, Context: initialContext);
     }
