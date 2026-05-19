@@ -1,0 +1,175 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0149
+goal: "Today every DI registration lives in three god-class ServiceCollectionExtensions
+  files (Application 442 lines, Infrastructure 194 lines, Server 242 lines). Adding a
+  service touches the same call list every other agent touches. Migrate to the
+  Sample.Common pattern: each feature-set owns its own `AddXxx()` extension method, in
+  the project that holds the services it registers. Composition root has a flat list
+  of calls; removing one call removes one feature-set but the program still runs.
+  Concrete reference shape: `Sample.Common.Commands/Extensions/ServiceCollectionExtensions.cs`
+  — one tight extension per featureset, lives next to the services it registers."
+
+requires: ["p0148"]
+
+scope:
+  in: |
+    (1) Each feature-set group inside `src/AgentSmith.Application/` and
+        `src/AgentSmith.Infrastructure/` and `src/AgentSmith.Server/` gets its
+        own `Extensions/ServiceCollectionExtensions.cs` (or
+        `Extensions/SubdomainServiceCollectionExtensions.cs`) with ONE
+        public extension method registering ONLY that feature-set's services.
+        Each file ≤ 60 lines.
+
+    (2) Concrete feature-set breakdown (Application):
+        - PipelineHandlers (FetchTicket, CheckoutSource, BootstrapCheck/Gate,
+          LoadContext, LoadCodingPrinciples, AnalyzeCode, Triage, Approval,
+          AgenticExecute, PhaseAdvance, Test, WriteRunResult, CommitAndPR,
+          InitCommit, SwitchSkill, EmptyPlanCheck, ApiCodeContext successors,
+          DeliverOutput, Compaction, GenerateDocs/Tests, BootstrapDocument,
+          AcquireSource, SessionSetup, LoadSwagger, plus the SpawnX security
+          handlers).
+        - SkillRunHandlers (SkillRound, SecuritySkillRound, ApiSkillRound,
+          FilterRound, VerifyRound, BootstrapRound, ConvergenceCheck,
+          RunReviewPhase, RunFinalPhase, RunVerifyPhase, GeneratePlan,
+          PlanOpenQuestions).
+        - SkillRoundInfrastructure (IPromptComposer, ISkillRoundDispatcher,
+          ISkillResponseParser, ISkillRoundBufferDispatcher,
+          ISkillRoundToolPolicy + three concrete policies, IBlockingFollowUpDetector,
+          IDiscussionRoundExecutor, IStructuredRoundExecutor, the three prompt
+          strategies — these all live under Services/SkillRounds/).
+        - PipelineExecution (PipelineExecutor + Legacy, IPipelineStepRunner,
+          IPipelineErrorHandler, IPipelineSandboxCoordinator, PipelineBatchRunner,
+          PhaseDataFlow registrations, ProjectResolver, IPipelineConfigResolver,
+          IPipelineLifecycleCoordinator, SandboxLanguageResolver, SourceConfigOverrider,
+          AgentPromptBuilder, SandboxFileReaderFactory, ExecutePipelineUseCase).
+        - ContextBuilders (the 50+ AddBuilder<...> calls).
+        - LoopRuntime (SkillCallRuntime + collaborators: PipelineConcurrencyGate,
+          OutcomeClassifier, RetryCoordinator, LimitEnforcer-ish, LoopTraceCollector,
+          RuntimeObservationFactory).
+        - SwaggerCompression (ISwaggerSpecCompressor + compressor + renderer).
+        - WebhookCommentIntent (CommentIntentParser).
+        - Validators + Output strategies if they live in Application.
+
+    (3) Infrastructure breakdown:
+        - SandboxFactories (DockerSandboxFactory, InProcessSandbox, etc.)
+        - TicketProviders (per-platform field mappers + transitioners +
+          TicketProviderHttpClient).
+        - SourceProviders.
+        - OutputStrategies (Console, Markdown, Summary, SARIF).
+        - AgentCompactors (Claude, OpenAI compactors).
+        - ContainerRunners, MessageBus, DialogueTransport, AttachmentLoaders, etc.
+
+    (4) Server breakdown: webhooks, pollers, dispatcher, K8s spawner, Slack
+        adapter, intent dispatch.
+
+    (5) The composition root (`AddAgentSmithCommands` / `AddAgentSmithServer`)
+        becomes a flat list of `.AddPipelineHandlers().AddSkillRunHandlers()…`
+        calls, ≤ 30 lines each.
+
+    (6) Delete the dormant `ServiceCollectionExtensions.*.cs` partials from
+        the abandoned p0147h attempt — they're misleading dead code.
+
+  out: |
+    Changing service shapes / lifetimes. This phase is pure DI-shape
+    refactor: every service still registered with the same lifetime,
+    same dependencies, same behaviour.
+
+    Container / scope semantics. Same root + scope policy as before.
+
+    Class-size restoration of the SERVICES themselves (that's p0150). This
+    phase only restructures the registration code.
+
+decisions:
+  - key: |
+      Each feature-set's extension method lives in the project that owns
+      the services. Reason: matches the Sample.Common pattern; removing one
+      feature-set means removing one folder + one Add call, the program
+      still compiles. The current "all DI in Application/Extensions/" makes
+      that test fail because services in Infrastructure register from
+      Application's monolith. -- alternatives: Installer pattern with
+      IInstaller (rejected: loop boilerplate, no compile-time visibility
+      of what registers what); keep one monolith with helper methods
+      (rejected: that's p0147h's failed attempt).
+  - key: |
+      One public extension method per file. Reason: when an agent edits
+      a feature-set's registrations in parallel with another agent on a
+      different feature-set, no file conflict. The current 442-line
+      Application/ServiceCollectionExtensions.cs is the merge hot-spot
+      of every concurrent phase.
+  - key: |
+      Default Transient unless the class genuinely caches across calls
+      (the cost-tracker doesn't, but the SkillsCatalogResolver might).
+      Reason: today ~30% of registrations are Singleton because "stateless".
+      Singleton is a lifetime claim that's almost never actually correct
+      for handlers / mappers / parsers — and when scope mismatches surface,
+      Transient avoids the trap. Each Singleton in the new shape requires
+      a one-line justification in the decision log.
+
+steps:
+  - id: application-extensions
+    action: "Carve Application DI into per-featureset extension files, one method each."
+    new:
+      - "src/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs (AddPipelineExecution)"
+      - "src/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs (AddPipelineHandlers)"
+      - "src/AgentSmith.Application/Services/Handlers/SkillRunHandlersExtensions.cs (AddSkillRunHandlers)"
+      - "src/AgentSmith.Application/Services/SkillRounds/SkillRoundInfrastructureExtensions.cs (AddSkillRoundInfrastructure)"
+      - "src/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs (AddContextBuilders)"
+      - "src/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs (AddLoopRuntime)"
+      - "src/AgentSmith.Application/Services/SwaggerCompressionExtensions.cs (AddSwaggerCompression)"
+      - "src/AgentSmith.Application/Webhooks/CommentIntentExtensions.cs (AddWebhookCommentIntent)"
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs (shrinks to a flat list of AddXxx() calls, ≤ 30 lines)"
+
+  - id: infrastructure-extensions
+    action: "Same shape for Infrastructure."
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Sandbox/SandboxFactoriesExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProvidersExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/SourceProvidersExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Output/OutputStrategiesExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/AgentProviderExtensions.cs (includes compactors)"
+      - "src/AgentSmith.Infrastructure/Services/Bus/MessageBusExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Containers/ContainerRunnersExtensions.cs"
+      - "src/AgentSmith.Infrastructure/Services/Dialogue/DialogueTransportExtensions.cs"
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs (shrinks)"
+
+  - id: server-extensions
+    action: "Same shape for Server (webhooks, pollers, dispatcher, K8s, Slack)."
+    new:
+      - "src/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs"
+      - "src/AgentSmith.Server/Services/Polling/PollingExtensions.cs"
+      - "src/AgentSmith.Server/Services/Dispatcher/DispatcherExtensions.cs"
+      - "src/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs (includes K8s)"
+      - "src/AgentSmith.Server/Services/Adapters/ChatAdaptersExtensions.cs (Slack, Teams)"
+    modify:
+      - "src/AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs (shrinks)"
+
+  - id: drop-dormant-partials
+    action: "Delete the p0147h-attempt partial files that are no longer wired in."
+    delete:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.BootstrapHandlers.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.ContextBuilders.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.PipelineHandlers.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.PipelineRuntime.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.SecurityHandlers.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.SkillRuntime.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.TriageServices.cs"
+
+  - id: lifetime-audit
+    action: "Each Singleton registration gets a one-line decision-log justification. Anything that doesn't have a real shared-state reason flips to Transient."
+    modify:
+      - "Every new extension method file (audit while writing)."
+
+tests:
+  - "Container build under ValidateOnBuild + ValidateScopes (CliShapedDiTests + ServerDiLifetimeTests) passes — every CLI- and Server-resolved service still resolves."
+  - "Smoke: /smoke fast green. /smoke api-scan + /smoke security-scan + /smoke fix-bug green."
+  - "Full unit test suite green."
+  - "grep -rn 'ServiceCollectionExtensions.[A-Z]' src/ | wc -l shows the new files exist and the dormant ones are gone."
+
+done:
+  - "All three monolithic ServiceCollectionExtensions files are ≤ 30 lines (composition-root only — flat list of AddXxx() calls)."
+  - "Every feature-set has its own Extensions file in the right project + folder."
+  - "All p0147h dormant partials deleted."
+  - "Singleton-to-Transient audit complete; each remaining Singleton justified."
+  - "/smoke all green."

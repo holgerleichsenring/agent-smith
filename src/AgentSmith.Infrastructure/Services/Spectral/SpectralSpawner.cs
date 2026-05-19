@@ -110,7 +110,7 @@ public sealed class SpectralSpawner(
 
     internal static string GetRulesetPath()
     {
-        var path = ServiceCollectionExtensions.FindConfigFile("spectral.yaml");
+        var path = Services.Security.SecurityScannersExtensions.FindConfigFile("spectral.yaml");
         if (path is not null)
             return path;
 

@@ -12,12 +12,14 @@ using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
 
-internal static partial class ServiceCollectionExtensions
+/// <summary>
+/// Redis composition: connects the multiplexer once and registers the queue,
+/// claim-lock, leader-lease, heartbeat, conversation-lookup, dialogue-transport,
+/// and run-artifact-store services. Server adds these onto the CLI-safe baseline
+/// Application + Infrastructure registered.
+/// </summary>
+internal static class RedisExtensions
 {
-    // Redis composition: connects the multiplexer once and registers the queue,
-    // claim-lock, leader-lease, heartbeat, conversation-lookup, dialogue-transport,
-    // and run-artifact-store services. Server adds these onto the
-    // CLI-safe baseline Application+Infrastructure registered.
     internal static IServiceCollection AddRedis(this IServiceCollection services)
     {
         var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
