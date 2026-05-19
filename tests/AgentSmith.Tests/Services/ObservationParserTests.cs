@@ -1,10 +1,13 @@
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
 
 public class ObservationParserTests
 {
+    private readonly AgentSmith.Application.Services.Handlers.ObservationParser _parser =
+        TolerantJsonParserFactory.CreateObservation();
+
     [Fact]
     public void ParseWithoutIds_ValidJson_ReturnsObservationsWithIdZero()
     {
@@ -15,7 +18,7 @@ public class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.ParseWithoutIds(json, "tester");
+        var result = _parser.ParseWithoutIds(json, "tester");
 
         result.Should().HaveCount(2);
         result.Should().AllSatisfy(o => o.Id.Should().Be(0));
@@ -24,7 +27,7 @@ public class ObservationParserTests
     [Fact]
     public void ParseWithoutIds_FallbackPath_AlsoUsesIdZero()
     {
-        var result = ObservationParser.ParseWithoutIds("not json", "tester");
+        var result = _parser.ParseWithoutIds("not json", "tester");
 
         result.Should().HaveCount(1);
         result[0].Id.Should().Be(0);

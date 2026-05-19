@@ -107,7 +107,8 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
             new AgentSmith.Application.Services.Tools.ToolKit(
                 new AgentSmith.Application.Services.Tools.AllHostsActivePolicy()),
             runtime,
-            new AgentSmith.Application.Services.SkillRounds.SkillResponseParser(),
+            new AgentSmith.Application.Services.SkillRounds.SkillResponseParser(
+                AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateObservation()),
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<VerifyRoundHandler>.Instance);
     }

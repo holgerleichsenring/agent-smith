@@ -10,13 +10,13 @@ namespace AgentSmith.Application.Services.Validation;
 /// symmetry with Plan/Diff/Bootstrap. Returns Ok when the parser yields at least one
 /// observation, Failure otherwise.
 /// </summary>
-public sealed class ObservationOutputValidator : ISkillOutputValidator
+public sealed class ObservationOutputValidator(ObservationParser observationParser) : ISkillOutputValidator
 {
     private const string PlaceholderRole = "validator";
 
     public ValidationResult Validate(string output)
     {
-        var parsed = ObservationParser.TryParseWithoutIds(output, PlaceholderRole);
+        var parsed = observationParser.TryParseWithoutIds(output, PlaceholderRole);
         return parsed is { Count: > 0 }
             ? ValidationResult.Valid()
             : ValidationResult.Invalid("observation output produced zero parseable observations");

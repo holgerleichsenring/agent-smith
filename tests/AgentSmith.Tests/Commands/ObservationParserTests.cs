@@ -1,5 +1,5 @@
-using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -8,6 +8,8 @@ namespace AgentSmith.Tests.Commands;
 public sealed class ObservationParserTests
 {
     private static readonly NullLogger Logger = NullLogger.Instance;
+    private readonly AgentSmith.Application.Services.Handlers.ObservationParser _parser =
+        TolerantJsonParserFactory.CreateObservation();
 
     [Fact]
     public void SkillObservation_IdAssignedByFramework_NotByLlm()
@@ -20,7 +22,7 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "architect", 1, Logger);
+        var result = _parser.Parse(json, "architect", 1, Logger);
 
         result.Should().HaveCount(2);
         result[0].Id.Should().Be(1);
@@ -48,7 +50,7 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "security-reviewer", 10, Logger);
+        var result = _parser.Parse(json, "security-reviewer", 10, Logger);
 
         result.Should().HaveCount(1);
         var obs = result[0];
@@ -68,10 +70,6 @@ public sealed class ObservationParserTests
     [Fact]
     public void Parse_LegacyLocationStringIsIgnored_StructuredFieldsStayNull()
     {
-        // p0146d: regex post-pass is gone. A legacy "location" field is ignored —
-        // skills must populate the typed fields (file/start_line/api_path/schema_name)
-        // directly. If they don't, the structured fields stay null instead of being
-        // best-effort-guessed from prose.
         var json = """
             [
               { "concern": "security", "description": "Issue", "suggestion": "Fix",
@@ -80,7 +78,7 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+        var result = _parser.Parse(json, "reviewer", 1, Logger);
 
         result.Should().HaveCount(1);
         result[0].File.Should().BeNull();
@@ -101,7 +99,7 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+        var result = _parser.Parse(json, "reviewer", 1, Logger);
 
         result.Should().HaveCount(1);
         result[0].File.Should().Be("src/Foo.cs");
@@ -114,7 +112,7 @@ public sealed class ObservationParserTests
     {
         var freeText = "This is not JSON, just my thoughts on the architecture.";
 
-        var result = ObservationParser.Parse(freeText, "architect", 1, Logger);
+        var result = _parser.Parse(freeText, "architect", 1, Logger);
 
         result.Should().HaveCount(1);
         result[0].Id.Should().Be(1);
@@ -129,7 +127,6 @@ public sealed class ObservationParserTests
     [Fact]
     public void Parse_PartialValidJson_TakesValidSkipsBroken()
     {
-        // Array with 3 items: first valid, second has empty description (invalid), third valid
         var json = """
             [
               { "concern": "security", "description": "SQL injection", "suggestion": "Fix it", "blocking": true, "severity": "high", "confidence": 90 },
@@ -138,12 +135,11 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+        var result = _parser.Parse(json, "reviewer", 1, Logger);
 
         result.Should().HaveCount(2);
         result[0].Concern.Should().Be(ObservationConcern.Security);
         result[1].Concern.Should().Be(ObservationConcern.Performance);
-        // IDs should be sequential, skipping the invalid one
         result[0].Id.Should().Be(1);
         result[1].Id.Should().Be(2);
     }
@@ -159,7 +155,7 @@ public sealed class ObservationParserTests
             ```
             """;
 
-        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+        var result = _parser.Parse(json, "reviewer", 1, Logger);
 
         result.Should().HaveCount(1);
         result[0].Description.Should().Contain("Missing null check");
@@ -174,7 +170,7 @@ public sealed class ObservationParserTests
             ]
             """;
 
-        var result = ObservationParser.Parse(json, "reviewer", 1, Logger);
+        var result = _parser.Parse(json, "reviewer", 1, Logger);
 
         result[0].Confidence.Should().Be(100);
     }

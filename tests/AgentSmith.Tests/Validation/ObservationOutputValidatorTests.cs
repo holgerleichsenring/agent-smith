@@ -1,11 +1,13 @@
 using AgentSmith.Application.Services.Validation;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Validation;
 
 public sealed class ObservationOutputValidatorTests
 {
-    private static ObservationOutputValidator NewValidator() => new();
+    private static ObservationOutputValidator NewValidator() =>
+        new(TolerantJsonParserFactory.CreateObservation());
 
     [Fact]
     public void Validate_ParsableObservationList_ReturnsOk()
