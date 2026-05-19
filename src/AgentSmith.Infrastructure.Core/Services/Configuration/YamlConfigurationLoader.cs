@@ -55,6 +55,7 @@ public sealed class YamlConfigurationLoader(
         {
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention(UnderscoredNamingConvention.Instance)
+                .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
                 .IgnoreUnmatchedProperties()
                 .Build();
 
@@ -63,7 +64,8 @@ public sealed class YamlConfigurationLoader(
         }
         catch (Exception ex) when (ex is not ConfigurationException)
         {
-            throw new ConfigurationException($"Invalid YAML in {configPath}: {ex.Message}");
+            var detail = ex.InnerException is not null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            throw new ConfigurationException($"Invalid YAML in {configPath}: {detail}");
         }
     }
 

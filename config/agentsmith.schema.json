@@ -52,7 +52,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["Claude", "OpenAI", "azure-openai", "Gemini", "Ollama"]
+          "enum": ["claude", "openai", "azure_openai", "gemini", "ollama"]
         },
         "model": { "type": "string" },
         "endpoint": { "type": "string" },
@@ -69,12 +69,12 @@
     },
     "repo": {
       "type": "object",
-      "description": "Source repository connection. Type=Local uses path; remote types use url.",
+      "description": "Source repository connection. type=local uses path; remote types use url.",
       "required": ["type", "auth"],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["GitHub", "GitLab", "AzureDevOps", "Local"]
+          "enum": ["github", "gitlab", "azure_devops", "local"]
         },
         "url": { "type": "string" },
         "path": { "type": "string" },
@@ -91,7 +91,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["GitHub", "GitLab", "AzureDevOps", "Jira"]
+          "enum": ["github", "gitlab", "azure_devops", "jira"]
         },
         "url": { "type": "string" },
         "organization": { "type": "string" },
@@ -220,17 +220,17 @@
     },
     "projectResolution": {
       "type": "object",
-      "description": "Tells the webhook handler which agent-smith project owns an incoming ticket. With multi-tenant trackers (one ADO project hosting many sub-projects, one Jira install used by many teams) this declaration is mandatory — without it the handler has no way to route. Strategies: tag (label match on ticket), area-path (ADO AreaPath prefix match — supports both \\ and /), repo (GitHub/GitLab source-repo URL match — requires project.repos to have exactly one entry), to_address (Email tracker only, see p0141).",
+      "description": "Tells the webhook handler which agent-smith project owns an incoming ticket. With multi-tenant trackers (one ADO project hosting many sub-projects, one Jira install used by many teams) this declaration is mandatory — without it the handler has no way to route. Strategies: tag (label match on ticket), area_path (ADO AreaPath prefix match — supports both \\ and /), repo (GitHub/GitLab source-repo URL match — requires project.repos to have exactly one entry), to_address (Email tracker only, see p0141).",
       "required": ["strategy", "value"],
       "additionalProperties": false,
       "properties": {
         "strategy": {
           "type": "string",
-          "enum": ["tag", "area-path", "repo", "to_address"]
+          "enum": ["tag", "area_path", "repo", "to_address"]
         },
         "value": {
           "type": "string",
-          "description": "Strategy-specific match value. tag: label string. area-path: hierarchical path (e.g. ContosoMain/Billing or ContosoMain\\Billing); matching is prefix-based on the normalized backslash form, so ContosoMain\\Billing matches both itself and ContosoMain\\Billing\\Invoicing. repo: repo URL or short name matched against the project's single repo's RepoConnection.Url. to_address: full email address."
+          "description": "Strategy-specific match value. tag: label string. area_path: hierarchical path (e.g. ContosoMain/Billing or ContosoMain\\Billing); matching is prefix-based on the normalized backslash form, so ContosoMain\\Billing matches both itself and ContosoMain\\Billing\\Invoicing. repo: repo URL or short name matched against the project's single repo's RepoConnection.Url. to_address: full email address."
         }
       }
     }
