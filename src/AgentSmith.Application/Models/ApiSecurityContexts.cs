@@ -26,6 +26,3 @@ public sealed record ApiSecuritySkillRoundContext(
     int Round,
     AgentConfig AgentConfig,
     PipelineContext Pipeline) : ICommandContext;
-
-public sealed record ApiCodeContextCommandContext(
-    PipelineContext Pipeline) : ICommandContext;
