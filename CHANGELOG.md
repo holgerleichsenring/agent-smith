@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.55.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.54.0...v0.55.0) (2026-05-19)
+
+
+### Features
+
+* **p0151a:** wire LoopTraceCollector via decorators + enable RunCommand in Plan ([#160](https://github.com/holgerleichsenring/agent-smith/issues/160)) ([a47941c](https://github.com/holgerleichsenring/agent-smith/commit/a47941c957fc2073e68f093a8a0fa3726216f7a7))
+* **p0151b:** snake_case EvidenceMode JSON, ReadSet-anchored validator, block_condition relaxation ([#161](https://github.com/holgerleichsenring/agent-smith/issues/161)) ([d81395c](https://github.com/holgerleichsenring/agent-smith/commit/d81395c4b8f105499455f57bb05ea4def84c1bfa))
+* **p0151c:** passive observation bus visible to downstream skills ([#162](https://github.com/holgerleichsenring/agent-smith/issues/162)) ([6c96567](https://github.com/holgerleichsenring/agent-smith/commit/6c96567756607a424d1f0b70f6710a1c3a16f620))
+* **p0151d:** per-pipeline cost cap hung on PerSkillBreakdown ([#163](https://github.com/holgerleichsenring/agent-smith/issues/163)) ([12cd6a4](https://github.com/holgerleichsenring/agent-smith/commit/12cd6a498084d3f7a241b53e4890514d0c1d7666))
+* **p0151g:** preserve scanner anchors in structured top-N alongside summary ([#164](https://github.com/holgerleichsenring/agent-smith/issues/164)) ([20431d0](https://github.com/holgerleichsenring/agent-smith/commit/20431d00305c4030032fbf3c1c2de17d5d2b39d4))
+* **p0151h:** IDE-buddy baseline validation via AnchoringVerifier ([#166](https://github.com/holgerleichsenring/agent-smith/issues/166)) ([ef7f47f](https://github.com/holgerleichsenring/agent-smith/commit/ef7f47f987dd06db22af04efc26096753b0b064d))
+
+
+### Bug Fixes
+
+* async scope teardown + nullable start_line + sandbox/tool-policy diag logging ([#168](https://github.com/holgerleichsenring/agent-smith/issues/168)) ([766a40f](https://github.com/holgerleichsenring/agent-smith/commit/766a40fd11c729828ff3f1fa22ad2f54f5ecfa2e))
+* tolerant enum parsing for LLM observation fields + quieter polling ([#156](https://github.com/holgerleichsenring/agent-smith/issues/156)) ([53d9cc4](https://github.com/holgerleichsenring/agent-smith/commit/53d9cc49b88eb2fecca6120365ce44eb5f8ebe01))
+
 ## [0.54.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.53.0...v0.54.0) (2026-05-19)
 
 
