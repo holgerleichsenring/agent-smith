@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Webhooks;
+using AgentSmith.Tests.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -45,6 +46,8 @@ public sealed class DialogueAnswerRoutingTests
     public async Task GitHubPrComment_Approve_ReturnsDialogueAnswerData()
     {
         var sut = new GitHubPrCommentWebhookHandler(
+            TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
         var payload = """
         {
@@ -80,6 +83,8 @@ public sealed class DialogueAnswerRoutingTests
     public async Task GitHubPrComment_Reject_ReturnsDialogueAnswerWithNo()
     {
         var sut = new GitHubPrCommentWebhookHandler(
+            TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
         var payload = """
         {
@@ -113,6 +118,8 @@ public sealed class DialogueAnswerRoutingTests
     public async Task GitHubPrComment_ApproveWithoutComment_HasNullComment()
     {
         var sut = new GitHubPrCommentWebhookHandler(
+            TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
         var payload = """
         {
@@ -161,6 +168,8 @@ public sealed class DialogueAnswerRoutingTests
     public async Task GitHubPrComment_FixCommand_TriggerInputContainsPrContext()
     {
         var sut = new GitHubPrCommentWebhookHandler(
+            TestCommentIntentParserFactory.Create(),
+            TestCommentIntentParserFactory.Context,
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
         var payload = """
         {
