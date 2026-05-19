@@ -105,9 +105,14 @@ internal sealed class NewFormatSkillValidator
     private static void ValidateBlockCondition(SkillMdFrontmatter meta, string path)
     {
         if (meta.Role != "judge") return;
+        // p0151b: block_condition is meaningful only for judges that gate
+        // downstream action (plan / gate output schemas). Judges that emit
+        // observations defer the action decision to the consumer's policy —
+        // forcing block_condition on them is wrong gating.
+        if (meta.OutputSchema is null or "observation") return;
         if (string.IsNullOrWhiteSpace(meta.BlockCondition))
             throw new SkillFormatException(
-                path, "block_condition is required and must be non-empty when role=judge");
+                path, "block_condition is required and must be non-empty when role=judge and output_schema in {plan, gate}");
     }
 
     private static void ValidateBootstrapRequiresProducer(SkillMdFrontmatter meta, string path)
