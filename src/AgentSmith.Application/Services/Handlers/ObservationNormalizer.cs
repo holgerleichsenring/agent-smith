@@ -5,9 +5,11 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Default <see cref="IObservationNormalizer"/>: applies confidence migration
-/// (1-10 → 0-100), per-field truncation against <c>ObservationCaps</c>, and
-/// drops a Category that duplicates the Concern. Each rule logs at most once
-/// per (role, field) via the shared <c>perRunWarn</c> set.
+/// (1-10 → 0-100), per-field truncation against <c>ObservationCaps</c>, drops
+/// a Category that duplicates the Concern, and tolerantly parses the four
+/// enum-shaped string fields the LLM emits (concern, severity, effort,
+/// evidence_mode). Unknown values default to a documented fallback and log
+/// once per (role, field) via the shared <c>perRunWarn</c> set.
 /// </summary>
 public sealed class ObservationNormalizer : IObservationNormalizer
 {
@@ -18,21 +20,63 @@ public sealed class ObservationNormalizer : IObservationNormalizer
         HashSet<string> perRunWarn,
         ILogger? logger)
     {
+        var concern = ParseConcern(fields.Concern, role, perRunWarn, logger);
+        var severity = ParseSeverity(fields.Severity, role, perRunWarn, logger);
+        var effort = ParseEffort(fields.Effort, role, perRunWarn, logger);
+        var evidenceMode = ParseEvidenceMode(fields.EvidenceMode, role, perRunWarn, logger);
         var confidence = MigrateConfidence(fields.Confidence, role, perRunWarn, logger);
-        var category = DropDuplicateCategory(fields.Category, fields.Concern, role, perRunWarn, logger);
+        var category = DropDuplicateCategory(fields.Category, concern, role, perRunWarn, logger);
         return new SkillObservation(
-            Id: id, Role: role, Concern: fields.Concern,
+            Id: id, Role: role, Concern: concern,
             Description: Truncate(fields.Description, ObservationCaps.DescriptionMaxChars, role, "description", perRunWarn, logger) ?? "",
             Suggestion: Truncate(fields.Suggestion, ObservationCaps.SuggestionMaxChars, role, "suggestion", perRunWarn, logger) ?? "",
-            Blocking: fields.Blocking, Severity: fields.Severity, Confidence: confidence,
+            Blocking: fields.Blocking, Severity: severity, Confidence: confidence,
             Rationale: Truncate(fields.Rationale, ObservationCaps.RationaleMaxChars, role, "rationale", perRunWarn, logger),
-            Effort: fields.Effort,
+            Effort: effort,
             File: fields.File, StartLine: fields.StartLine, EndLine: fields.EndLine,
             ApiPath: fields.ApiPath, SchemaName: fields.SchemaName,
-            EvidenceMode: fields.EvidenceMode ?? Contracts.Models.EvidenceMode.Potential,
+            EvidenceMode: evidenceMode,
             ReviewStatus: fields.ReviewStatus ?? "not_reviewed",
             Category: category,
             Details: Truncate(fields.Details, ObservationCaps.DetailsMaxChars, role, "details", perRunWarn, logger));
+    }
+
+    private static ObservationConcern ParseConcern(string? raw, string role, HashSet<string> perRunWarn, ILogger? logger) =>
+        TryParseEnum(raw, ObservationConcern.Correctness, role, "concern", perRunWarn, logger);
+
+    private static ObservationSeverity ParseSeverity(string? raw, string role, HashSet<string> perRunWarn, ILogger? logger) =>
+        TryParseEnum(raw, ObservationSeverity.Info, role, "severity", perRunWarn, logger);
+
+    private static ObservationEffort? ParseEffort(string? raw, string role, HashSet<string> perRunWarn, ILogger? logger)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (Enum.TryParse<ObservationEffort>(raw, ignoreCase: true, out var parsed)) return parsed;
+        WarnUnknownEnum(raw, role, "effort", typeof(ObservationEffort), perRunWarn, logger);
+        return null;
+    }
+
+    private static EvidenceMode ParseEvidenceMode(string? raw, string role, HashSet<string> perRunWarn, ILogger? logger) =>
+        TryParseEnum(raw, EvidenceMode.Potential, role, "evidence_mode", perRunWarn, logger);
+
+    private static T TryParseEnum<T>(
+        string? raw, T fallback, string role, string field,
+        HashSet<string> perRunWarn, ILogger? logger) where T : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return fallback;
+        if (Enum.TryParse<T>(raw, ignoreCase: true, out var parsed)) return parsed;
+        WarnUnknownEnum(raw, role, field, typeof(T), perRunWarn, logger);
+        return fallback;
+    }
+
+    private static void WarnUnknownEnum(
+        string raw, string role, string field, Type enumType,
+        HashSet<string> perRunWarn, ILogger? logger)
+    {
+        if (!perRunWarn.Add($"unknown-enum:{role}:{field}:{raw}")) return;
+        var allowed = string.Join(", ", Enum.GetNames(enumType));
+        logger?.LogWarning(
+            "Skill {Role}: unknown {Field} value '{Raw}' — defaulted. Allowed: [{Allowed}].",
+            role, field, raw, allowed);
     }
 
     private static int MigrateConfidence(int raw, string role, HashSet<string> perRunWarn, ILogger? logger)

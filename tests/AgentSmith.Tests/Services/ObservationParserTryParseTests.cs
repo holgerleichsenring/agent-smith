@@ -61,10 +61,13 @@ public sealed class ObservationParserTryParseTests
     [Fact]
     public void TryParseWithoutIds_AllElementsInvalid_ReturnsNull()
     {
+        // Structural invalidity = empty description (the one field
+        // ObservationParser still requires). Unknown enum values are tolerated,
+        // not dropped.
         const string response = """
             [
-              {"concern":"security","description":"row","severity":"blocker","confidence":80,"blocking":false},
-              {"concern":"security","description":"row","severity":"warning","confidence":70,"blocking":false}
+              {"concern":"security","description":"","severity":"high","confidence":80,"blocking":false},
+              {"concern":"security","description":"","severity":"medium","confidence":70,"blocking":false}
             ]
             """;
 
@@ -79,7 +82,7 @@ public sealed class ObservationParserTryParseTests
         const string response = """
             [
               {"concern":"security","description":"valid","severity":"high","confidence":80,"blocking":false},
-              {"concern":"security","description":"bad","severity":"blocker","confidence":80,"blocking":false}
+              {"concern":"security","description":"","severity":"medium","confidence":80,"blocking":false}
             ]
             """;
 

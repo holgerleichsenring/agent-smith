@@ -13,10 +13,13 @@ public sealed class ObservationParserTolerantTests
     [Fact]
     public void Parse_MixedValidAndInvalidElements_ReturnsValidOnly()
     {
+        // Structurally-invalid rows (empty description) are dropped; rows with
+        // unknown enum values are kept and defaulted (covered by the normalizer
+        // tests).
         const string response = """
             [
               {"concern":"security","description":"valid 1","severity":"high","confidence":80,"blocking":false},
-              {"concern":"security","description":"bad row","severity":"warning","confidence":80,"blocking":false},
+              {"concern":"security","description":"","severity":"high","confidence":80,"blocking":false},
               {"concern":"security","description":"valid 2","severity":"medium","confidence":70,"blocking":false}
             ]
             """;
@@ -35,8 +38,8 @@ public sealed class ObservationParserTolerantTests
     {
         const string response = """
             [
-              {"concern":"security","description":"row 1","severity":"warning","confidence":80,"blocking":false},
-              {"concern":"security","description":"row 2","severity":"warning","confidence":70,"blocking":false}
+              {"concern":"security","description":"","severity":"high","confidence":80,"blocking":false},
+              {"concern":"security","description":"","severity":"medium","confidence":70,"blocking":false}
             ]
             """;
 
@@ -48,16 +51,21 @@ public sealed class ObservationParserTolerantTests
     }
 
     [Fact]
-    public void Parse_SingleInvalidElement_DoesNotThrow()
+    public void Parse_UnknownEnumValues_KeptWithDefaults()
     {
+        // Tolerant normalization: severity="warning" is outside the closed set
+        // but the row survives — severity falls back to Info, a warning is
+        // logged once per (role, field, value).
         const string response = """
             [
-              {"concern":"security","description":"bad","severity":"warning","confidence":80,"blocking":false}
+              {"concern":"security","description":"row","severity":"warning","confidence":80,"blocking":false}
             ]
             """;
 
-        var act = () => _parser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
-        act.Should().NotThrow();
+        result.Should().HaveCount(1);
+        result[0].Description.Should().Be("row");
+        result[0].Severity.Should().Be(ObservationSeverity.Info);
     }
 }
