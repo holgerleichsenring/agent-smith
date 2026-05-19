@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -6,6 +6,9 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class ObservationParserTryParseTests
 {
+    private readonly AgentSmith.Application.Services.Handlers.ObservationParser _parser =
+        TolerantJsonParserFactory.CreateObservation();
+
     [Fact]
     public void TryParseWithoutIds_ValidArray_ReturnsObservations()
     {
@@ -16,7 +19,7 @@ public sealed class ObservationParserTryParseTests
             ]
             """;
 
-        var result = ObservationParser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         result.Should().NotBeNull();
         result!.Should().HaveCount(2);
@@ -25,7 +28,7 @@ public sealed class ObservationParserTryParseTests
     [Fact]
     public void TryParseWithoutIds_NotJson_ReturnsNull()
     {
-        var result = ObservationParser.TryParseWithoutIds(
+        var result = _parser.TryParseWithoutIds(
             "this is not JSON at all, just prose", "test-skill", NullLogger.Instance);
 
         result.Should().BeNull();
@@ -35,12 +38,12 @@ public sealed class ObservationParserTryParseTests
     public void TryParseWithoutIds_TruncatedJson_RecoversCompleteObjects()
     {
         // Simulates an LLM hitting max_tokens mid-response — opening bracket but no close.
-        // p0124: ResilientJsonObjectExtractor recovers complete object literals from
-        // the truncated array via brace-counting. The first object is complete and
-        // should be recovered; the trailing partial object is dropped.
+        // Tolerant parser recovers complete object literals from the truncated array via
+        // brace-counting. The first object is complete and should be recovered; the
+        // trailing partial object is dropped.
         const string truncated = """[{"concern":"security","description":"valid 1","severity":"high","confidence":80,"blocking":false},{"concern":"security",""";
 
-        var result = ObservationParser.TryParseWithoutIds(truncated, "test-skill", NullLogger.Instance);
+        var result = _parser.TryParseWithoutIds(truncated, "test-skill", NullLogger.Instance);
 
         result.Should().NotBeNull();
         result!.Should().HaveCount(1);
@@ -50,9 +53,7 @@ public sealed class ObservationParserTryParseTests
     [Fact]
     public void TryParseWithoutIds_EmptyArray_ReturnsNull()
     {
-        // Empty array means parser succeeded but found nothing — caller should treat as
-        // "no usable observations" same as parse failure for filter purposes.
-        var result = ObservationParser.TryParseWithoutIds("[]", "test-skill", NullLogger.Instance);
+        var result = _parser.TryParseWithoutIds("[]", "test-skill", NullLogger.Instance);
 
         result.Should().BeNull();
     }
@@ -60,7 +61,6 @@ public sealed class ObservationParserTryParseTests
     [Fact]
     public void TryParseWithoutIds_AllElementsInvalid_ReturnsNull()
     {
-        // Every element has a bad enum — none survive element-wise parsing.
         const string response = """
             [
               {"concern":"security","description":"row","severity":"blocker","confidence":80,"blocking":false},
@@ -68,7 +68,7 @@ public sealed class ObservationParserTryParseTests
             ]
             """;
 
-        var result = ObservationParser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         result.Should().BeNull();
     }
@@ -76,7 +76,6 @@ public sealed class ObservationParserTryParseTests
     [Fact]
     public void TryParseWithoutIds_MixedValidInvalid_ReturnsValidOnly()
     {
-        // Same tolerance as Parse — bad elements skip, good ones survive.
         const string response = """
             [
               {"concern":"security","description":"valid","severity":"high","confidence":80,"blocking":false},
@@ -84,7 +83,7 @@ public sealed class ObservationParserTryParseTests
             ]
             """;
 
-        var result = ObservationParser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.TryParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         result.Should().NotBeNull();
         result!.Should().HaveCount(1);

@@ -1,22 +1,16 @@
-namespace AgentSmith.Application.Services.Handlers;
+namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Extracts complete top-level JSON object literals from a possibly-truncated
-/// JSON-array response. Brace-counting state machine with string-literal awareness.
-/// Doesn't validate object content (caller does that via JsonSerializer.Deserialize);
-/// just finds boundaries.
-///
-/// Use case: filter LLM hits max_output_tokens mid-array → response ends in a
-/// half-finished object. Strict JsonDocument.Parse throws; this extractor salvages
-/// the complete objects before the truncation point.
+/// Brace-counting state-machine that yields complete top-level `{...}` object
+/// literals from a possibly-truncated JSON-array response. String-literal
+/// aware (unescaped `}` inside a string does not close the object). Half-
+/// finished trailing objects after truncation are dropped silently — callers
+/// decide how to handle the zero-result yield.
+/// Used by <see cref="TolerantJsonParser"/> as the resilient fallback when
+/// strict JsonDocument.Parse throws.
 /// </summary>
-internal static class ResilientJsonObjectExtractor
+internal static class TolerantJsonObjectScanner
 {
-    /// <summary>
-    /// Walks the response, yields each complete `{...}` object literal found at
-    /// outer-array depth. Half-finished trailing objects are silently skipped —
-    /// the caller decides how to handle a zero-result yield.
-    /// </summary>
     internal static IEnumerable<string> ExtractObjects(string responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText)) yield break;

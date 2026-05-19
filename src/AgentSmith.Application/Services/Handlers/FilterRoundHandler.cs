@@ -29,6 +29,7 @@ public sealed class FilterRoundHandler(
     ISkillCallRuntime skillCallRuntime,
     ISkillRoundBufferDispatcher bufferDispatcher,
     FilterRoundToolPolicy toolPolicy,
+    ObservationParser observationParser,
     ILogger<FilterRoundHandler> logger) : ICommandHandler<FilterRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -143,7 +144,7 @@ public sealed class FilterRoundHandler(
         }
         var responseText = result.Output ?? string.Empty;
 
-        var reduced = ObservationParser.TryParseWithoutIds(responseText, role.Name, logger);
+        var reduced = observationParser.TryParseWithoutIds(responseText, role.Name, logger);
 
         logger.LogInformation(
             "Filter batch {Index}/{Total}: input={InputCount} obs (~{InputChars} chars), "

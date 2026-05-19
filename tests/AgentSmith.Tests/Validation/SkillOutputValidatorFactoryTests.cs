@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Validation;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Validation;
@@ -13,7 +14,7 @@ public sealed class SkillOutputValidatorFactoryTests
             new PlanOutputValidator(loader),
             new DiffOutputValidator(loader),
             new BootstrapOutputValidator(loader),
-            new ObservationOutputValidator(),
+            new ObservationOutputValidator(TolerantJsonParserFactory.CreateObservation()),
             new NoOpSkillOutputValidator());
     }
 

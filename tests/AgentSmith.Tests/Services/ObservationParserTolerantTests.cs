@@ -1,5 +1,5 @@
-using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -7,6 +7,9 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class ObservationParserTolerantTests
 {
+    private readonly AgentSmith.Application.Services.Handlers.ObservationParser _parser =
+        TolerantJsonParserFactory.CreateObservation();
+
     [Fact]
     public void Parse_MixedValidAndInvalidElements_ReturnsValidOnly()
     {
@@ -18,7 +21,7 @@ public sealed class ObservationParserTolerantTests
             ]
             """;
 
-        var result = ObservationParser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         result.Should().HaveCount(2);
         result[0].Description.Should().Be("valid 1");
@@ -37,7 +40,7 @@ public sealed class ObservationParserTolerantTests
             ]
             """;
 
-        var result = ObservationParser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var result = _parser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         result.Should().HaveCount(1);
         result[0].Severity.Should().Be(ObservationSeverity.Info);
@@ -53,7 +56,7 @@ public sealed class ObservationParserTolerantTests
             ]
             """;
 
-        var act = () => ObservationParser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
+        var act = () => _parser.ParseWithoutIds(response, "test-skill", NullLogger.Instance);
 
         act.Should().NotThrow();
     }

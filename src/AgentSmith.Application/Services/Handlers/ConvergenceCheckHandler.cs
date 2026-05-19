@@ -20,6 +20,7 @@ public sealed class ConvergenceCheckHandler(
     PlanConsolidator planConsolidator,
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
+    ConvergenceResultParser resultParser,
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
 {
@@ -88,7 +89,7 @@ public sealed class ConvergenceCheckHandler(
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
         var responseText = response.Text ?? string.Empty;
 
-        var result = ConvergenceResultParser.Parse(responseText, observations, logger);
+        var result = resultParser.Parse(responseText, observations, logger);
         if (result is null)
         {
             logger.LogWarning("Failed to parse convergence result, treating as no consensus");

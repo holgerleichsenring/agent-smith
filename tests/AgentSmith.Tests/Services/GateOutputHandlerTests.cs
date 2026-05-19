@@ -12,7 +12,10 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class GateOutputHandlerTests
 {
-    private readonly GateOutputHandler _handler = new(NullLogger<GateOutputHandler>.Instance);
+    private readonly GateOutputHandler _handler = new(
+        TolerantJsonParserFactory.CreateTolerant(),
+        TolerantJsonParserFactory.CreateGate(),
+        NullLogger<GateOutputHandler>.Instance);
 
     private static RoleSkillDefinition CreateRole(string name = "test-gate") => new()
     {

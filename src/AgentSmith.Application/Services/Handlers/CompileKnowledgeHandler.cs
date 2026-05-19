@@ -18,6 +18,7 @@ public sealed class CompileKnowledgeHandler(
     IChatClientFactory chatClientFactory,
     KnowledgePromptBuilder promptBuilder,
     ISandboxFileReaderFactory readerFactory,
+    WikiUpdateParser wikiUpdateParser,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
 {
@@ -78,7 +79,7 @@ public sealed class CompileKnowledgeHandler(
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 
-        var wikiUpdates = WikiUpdateParser.Parse(response.Text ?? string.Empty, logger);
+        var wikiUpdates = wikiUpdateParser.Parse(response.Text ?? string.Empty, logger);
         if (wikiUpdates.Count == 0)
         {
             logger.LogWarning("LLM returned no wiki updates");

@@ -1,14 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Parses the LLM's convergence analysis response into a ConvergenceResult.
+/// Fence stripping and prose extraction flow through
+/// <see cref="ITolerantJsonParser"/>; mapping to the typed DTO uses the
+/// element-level Deserialize once the document is in hand.
 /// </summary>
-internal static class ConvergenceResultParser
+public sealed class ConvergenceResultParser(ITolerantJsonParser tolerantParser)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -16,70 +20,49 @@ internal static class ConvergenceResultParser
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    internal static ConvergenceResult? Parse(
+    public ConvergenceResult? Parse(
         string response,
         IReadOnlyList<SkillObservation> allObservations,
         ILogger? logger = null)
     {
-        try
+        var parsed = tolerantParser.ParseObject(response);
+        if (parsed.Document is null)
         {
-            var json = ExtractJson(response);
-            if (json is null) return null;
-
-            var raw = JsonSerializer.Deserialize<RawConvergenceResponse>(json, JsonOptions);
-            if (raw is null) return null;
-
-            var links = (raw.Links ?? [])
-                .Where(l => l.ObservationId > 0 && l.RelatedObservationId > 0)
-                .Select(l => new ObservationLink(l.ObservationId, l.RelatedObservationId, l.Relationship))
-                .ToList();
-
-            var additionalRoles = raw.AdditionalRoles ?? [];
-
-            // Determine consensus based on blocking observations and contradictions
-            var blocking = allObservations.Where(o => o.Blocking).ToList();
-            var nonBlocking = allObservations.Where(o => !o.Blocking).ToList();
-
-            var hasContradictions = links.Any(l => l.Relationship == ObservationRelationship.Contradicts
-                && blocking.Any(b => b.Id == l.ObservationId || b.Id == l.RelatedObservationId));
-            var hasLowConfidenceBlocking = blocking.Any(b => b.Confidence < 70);
-
-            var consensus = raw.Consensus
-                            && !hasContradictions
-                            && !hasLowConfidenceBlocking;
-
-            return new ConvergenceResult(
-                consensus,
-                allObservations,
-                links,
-                additionalRoles,
-                blocking,
-                nonBlocking);
-        }
-        catch (JsonException ex)
-        {
-            logger?.LogWarning(ex, "Failed to parse convergence result JSON");
+            logger?.LogWarning("Convergence response had no parseable JSON object");
             return null;
+        }
+        using (parsed.Document)
+        {
+            try
+            {
+                var raw = parsed.Document.RootElement.Deserialize<RawConvergenceResponse>(JsonOptions);
+                if (raw is null) return null;
+                return Build(raw, allObservations);
+            }
+            catch (JsonException ex)
+            {
+                logger?.LogWarning(ex, "Failed to map convergence result JSON to DTO");
+                return null;
+            }
         }
     }
 
-    private static string? ExtractJson(string response)
+    private static ConvergenceResult Build(
+        RawConvergenceResponse raw, IReadOnlyList<SkillObservation> allObservations)
     {
-        var text = response.Trim();
-        if (text.StartsWith("```"))
-        {
-            var firstNewline = text.IndexOf('\n');
-            if (firstNewline > 0) text = text[(firstNewline + 1)..];
-            if (text.EndsWith("```")) text = text[..^3];
-            text = text.Trim();
-        }
-
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
-        if (start >= 0 && end > start)
-            return text[start..(end + 1)];
-
-        return null;
+        var links = (raw.Links ?? [])
+            .Where(l => l.ObservationId > 0 && l.RelatedObservationId > 0)
+            .Select(l => new ObservationLink(l.ObservationId, l.RelatedObservationId, l.Relationship))
+            .ToList();
+        var additionalRoles = raw.AdditionalRoles ?? [];
+        var blocking = allObservations.Where(o => o.Blocking).ToList();
+        var nonBlocking = allObservations.Where(o => !o.Blocking).ToList();
+        var hasContradictions = links.Any(l => l.Relationship == ObservationRelationship.Contradicts
+            && blocking.Any(b => b.Id == l.ObservationId || b.Id == l.RelatedObservationId));
+        var hasLowConfidenceBlocking = blocking.Any(b => b.Confidence < 70);
+        var consensus = raw.Consensus && !hasContradictions && !hasLowConfidenceBlocking;
+        return new ConvergenceResult(
+            consensus, allObservations, links, additionalRoles, blocking, nonBlocking);
     }
 
     private sealed class RawConvergenceResponse

@@ -17,6 +17,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class PlanConsolidator(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
+    ConsolidationResponseParser responseParser,
     ILogger<PlanConsolidator> logger)
 {
     private const string AssessmentJsonExample =
@@ -64,7 +65,7 @@ public sealed class PlanConsolidator(
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
         var responseText = response.Text ?? string.Empty;
 
-        var parseResult = ConsolidationResponseParser.Parse(responseText, logger);
+        var parseResult = responseParser.Parse(responseText, logger);
 
         var title = request?.Title ?? ticket?.Title ?? "Discussion Findings";
         var discussion = new ConsolidatedDiscussion(

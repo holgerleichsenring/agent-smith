@@ -10,11 +10,11 @@ namespace AgentSmith.Application.Services.SkillRounds;
 /// confidence threshold (blocking + Confidence&lt;70 → non-blocking). Also owns
 /// the discussion-log text rendering shared across rounds.
 /// </summary>
-public sealed class SkillResponseParser : ISkillResponseParser
+public sealed class SkillResponseParser(ObservationParser observationParser) : ISkillResponseParser
 {
     public List<SkillObservation> ParseAndDowngrade(string responseText, string skillName, ILogger logger)
     {
-        var raw = ObservationParser.ParseWithoutIds(responseText, skillName, logger);
+        var raw = observationParser.ParseWithoutIds(responseText, skillName, logger);
         var result = new List<SkillObservation>(raw.Count);
         foreach (var obs in raw)
         {
