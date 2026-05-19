@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.53.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.52.0...v0.53.0) (2026-05-19)
+
+
+### Features
+
+* delete ApiCodeContext + regex extractors (p0146a) ([35d5a7b](https://github.com/holgerleichsenring/agent-smith/commit/35d5a7b5fa321b9dde7eecc26ecd0471cda310cb))
+* delete regex intelligence layer for api-security (p0146a) ([be09651](https://github.com/holgerleichsenring/agent-smith/commit/be096514f7b2714857e3d4034c37795299a00249))
+* drop convergence/objection prose-regex fallback (p0146c) ([6f0bee7](https://github.com/holgerleichsenring/agent-smith/commit/6f0bee739d6de3c227da19db341efb43ae849df0))
+* drop convergence/objection prose-regex fallback (p0146c) ([8ecdbb2](https://github.com/holgerleichsenring/agent-smith/commit/8ecdbb2c5aef698cf1e82df6043a964c0e714338))
+* retire RegexIntentParser (p0146b) ([a5d7e74](https://github.com/holgerleichsenring/agent-smith/commit/a5d7e74c696444788c22580203efb4b7ff20f67a))
+* retire RegexIntentParser (p0146b) ([05a5980](https://github.com/holgerleichsenring/agent-smith/commit/05a5980d169aa277741ae4970d581f1a352f1523))
+
+
+### Bug Fixes
+
+* add Critical to ObservationSeverity (stops chain-analyst silent drops) ([ea38d68](https://github.com/holgerleichsenring/agent-smith/commit/ea38d6863003eaa4abc3b79b2ef5b0dfff18930f))
+* add Critical to ObservationSeverity so chain-analyst output stops dropping ([a19b08b](https://github.com/holgerleichsenring/agent-smith/commit/a19b08b02b2b57d823e524438fe74ad5fe308e04))
+* combine class-level [Route] with method [Http*] in DotNetRouteExtractor ([900a343](https://github.com/holgerleichsenring/agent-smith/commit/900a34340e682af978c08c0686bf36cd59229185))
+* drop CommandExecutor success traces to Debug to remove log noise ([5f0af3b](https://github.com/holgerleichsenring/agent-smith/commit/5f0af3bbc26eeca7eb9c4401b0e6d72444c152a9))
+* preserve UTF-8 BOM convention across read/write in FileStepHandler ([ba20f5f](https://github.com/holgerleichsenring/agent-smith/commit/ba20f5ff7532b4ff22fd6b87fec3dafeaf0e090a))
+* unify YAML config schema on snake_case + close p0140a area_path bug ([4743e34](https://github.com/holgerleichsenring/agent-smith/commit/4743e34f8441d2e6caf6a517cf769b006f169a68))
+* unify YAML config schema on snake_case + close p0140a area_path bug ([d9b250d](https://github.com/holgerleichsenring/agent-smith/commit/d9b250d9a8783de89c200b753eaae51323f80650))
+
 ## [0.52.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.51.0...v0.52.0) (2026-05-18)
 
 
