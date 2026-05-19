@@ -70,7 +70,8 @@ public sealed class ConsoleOutputStrategy(
 
     private static string FormatObservations(OutputContext context)
     {
-        var summary = ObservationSummary.From(context.Observations);
+        var (findings, limitHits) = SplitByCategory(context.Observations);
+        var summary = ObservationSummary.From(findings);
         var reviewInfo = summary.Confirmed > 0 || summary.NotReviewed < summary.Total
             ? $" — {summary.Confirmed} confirmed, {summary.NotReviewed} not reviewed"
             : "";
@@ -80,7 +81,7 @@ public sealed class ConsoleOutputStrategy(
             ""
         };
 
-        foreach (var obs in context.Observations)
+        foreach (var obs in findings)
         {
             var status = obs.ReviewStatus == "confirmed" ? " ✓" : "";
             var badge = EvidenceBadge(obs.EvidenceMode);
@@ -88,8 +89,47 @@ public sealed class ConsoleOutputStrategy(
             lines.Add($"[{obs.Severity.ToString().ToUpperInvariant()}]{badge} {obs.DisplayLocation} — {title}{status}");
         }
 
+        // p0147b: runtime execution-limit / execution-error observations render
+        // in their own section so silent skill drops are visible without
+        // polluting the Critical/High/Medium/Low severity tally above.
+        if (limitHits.Count > 0)
+        {
+            lines.Add("");
+            lines.Add($"Execution limits hit: {limitHits.Count}");
+            foreach (var obs in limitHits)
+                lines.Add($"  [{LimitLabel(obs.Category)}] {ExtractTitle(obs.Description)}");
+        }
+
         return string.Join("\n", lines);
     }
+
+    /// <summary>
+    /// p0147b: splits the observation list into operator-facing findings and
+    /// runtime execution-limit / execution-error markers (rendered separately).
+    /// </summary>
+    private static (List<SkillObservation> Findings, List<SkillObservation> LimitHits)
+        SplitByCategory(IReadOnlyList<SkillObservation> observations)
+    {
+        var findings = new List<SkillObservation>(observations.Count);
+        var limitHits = new List<SkillObservation>();
+        foreach (var obs in observations)
+        {
+            if (ExecutionLimitCategories.IsExecutionLimit(obs.Category))
+                limitHits.Add(obs);
+            else
+                findings.Add(obs);
+        }
+        return (findings, limitHits);
+    }
+
+    private static string LimitLabel(string? category) => category switch
+    {
+        ExecutionLimitCategories.ExecutionLimitToolCalls => "tool-call limit",
+        ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
+        ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
+        ExecutionLimitCategories.ExecutionError => "runtime error",
+        _ => "execution limit"
+    };
 
     private static string ExtractTitle(string description)
     {

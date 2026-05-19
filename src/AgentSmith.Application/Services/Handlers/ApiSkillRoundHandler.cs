@@ -26,7 +26,7 @@ public sealed class ApiSkillRoundHandler(
     : SkillRoundHandlerBase(promptBuilder, gateRetryCoordinator, upstreamContextBuilder, instructionBuilder, chatClientFactory, skillCallRuntime),
       ICommandHandler<ApiSecuritySkillRoundContext>
 {
-    private readonly SwaggerSpecCompressor _compressor = new();
+    private readonly SwaggerSpecTextRenderer _renderer = new();
     private readonly HttpProbeRunner? _probeRunner = httpProbeRunner;
 
     protected override ILogger Logger => logger;
@@ -53,8 +53,8 @@ public sealed class ApiSkillRoundHandler(
             Title: {spec?.Title ?? "Unknown"}
             Version: {spec?.Version ?? "Unknown"}
 
-            ## Swagger Specification (compressed)
-            {(spec is not null ? _compressor.Compress(spec) : "Not available")}
+            ## Swagger Specification (compact text view)
+            {(spec is not null ? _renderer.Render(spec) : "Not available")}
 
             {BuildSummarySection(pipeline)}{BuildProbeResultsSection(pipeline)}{BuildHeadersBaselineSection(activeSkill)}
             """.Trim();

@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0147g
+goal: "Five round-handler-family classes are over the 120-line hard limit:
+  FilterRoundHandler 272, VerifyRoundHandler 253, GeneratePlanHandler 194,
+  BootstrapRoundHandler 175, ApiSkillRoundHandler 183 (or ~150 after
+  p0146a). Each holds prompt-building + response-parse + per-handler
+  business logic. With p0147d providing the composer/dispatcher/parser
+  services, these handlers can thin to ≤80 lines each — keeping only the
+  per-round business logic (Filter's batching, Verify's two-pass,
+  GeneratePlan's question-extraction)."
+
+requires: ["p0147d"]
+
+scope:
+  in: |
+    (1) Each round handler migrates to: ctor takes IPromptComposer +
+        ISkillResponseParser + ISkillRoundDispatcher (the p0147d trio),
+        plus per-handler business services for what's unique. The
+        ExecuteAsync method shrinks to orchestration: build prompt via
+        composer's strategy hook, dispatch, parse, apply business logic,
+        return.
+
+    (2) Filter's batching → extracted to IFilterRoundBatcher (instance).
+        FilterRoundHandler keeps the per-batch loop but the batching
+        algorithm itself becomes a focused service.
+
+    (3) Verify's two-pass logic → extracted to IVerifyRoundCoordinator
+        (instance) that owns the two-pass orchestration. VerifyRoundHandler
+        delegates.
+
+    (4) GeneratePlan's open-questions extraction → IPlanOpenQuestionExtractor.
+        GeneratePlanHandler produces the plan; the extractor produces the
+        questions side-channel.
+
+  out: |
+    Changing the round outputs / observable behaviour. Pure refactor.
+
+    p0147d itself (the composer/dispatcher/parser). Assumed merged before
+    this phase runs.
+
+    SecuritySnapshotWriter, GateOutputHandler, AnalyzeProjectHandler — those
+    are not round handlers; covered in other sub-phases or below the 120
+    line warning bar.
+
+decisions:
+  - key: |
+      One business service per round-handler, not a shared 'round logic
+      service'. Reason: Filter batching, Verify two-pass, Plan question-
+      extraction are unrelated concerns — collapsing them into one
+      service recreates the god-class problem one layer down.
+  - key: |
+      Round handlers stay <80 lines target; the 120 hard limit is for
+      cases where business logic genuinely can't compress further. If a
+      handler hits 110 after refactor, that's a signal another service
+      is hiding inside.
+
+steps:
+  - id: filter-handler
+    action: "Extract IFilterRoundBatcher; FilterRoundHandler shrinks."
+    new:
+      - "src/AgentSmith.Contracts/Services/IFilterRoundBatcher.cs"
+      - "src/AgentSmith.Application/Services/FilterRoundBatcher.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs (target ≤80 lines)"
+
+  - id: verify-handler
+    action: "Extract IVerifyRoundCoordinator."
+    new:
+      - "src/AgentSmith.Contracts/Services/IVerifyRoundCoordinator.cs"
+      - "src/AgentSmith.Application/Services/VerifyRoundCoordinator.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/VerifyRoundHandler.cs (target ≤80 lines)"
+
+  - id: generate-plan
+    action: "Extract IPlanOpenQuestionExtractor."
+    new:
+      - "src/AgentSmith.Contracts/Services/IPlanOpenQuestionExtractor.cs"
+      - "src/AgentSmith.Application/Services/PlanOpenQuestionExtractor.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/GeneratePlanHandler.cs (target ≤80 lines)"
+
+  - id: bootstrap-and-api-skill
+    action: "BootstrapRoundHandler + ApiSkillRoundHandler are simpler — mostly inherit shape from p0147d. Confirm each lands ≤80 lines."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs (target ≤80 lines)"
+      - "src/AgentSmith.Application/Services/Handlers/ApiSkillRoundHandler.cs (target ≤80 lines)"
+
+tests:
+  - "Each extracted service has its own focused test pack."
+  - "Round-handler integration tests pass with identical outputs."
+  - "Cross-pipeline smoke: fix-bug + security-scan + api-security-scan + mad-discussion all produce bit-equivalent observation sets pre/post-refactor."
+
+done:
+  - "All five round handlers ≤80 lines."
+  - "Three new services (Batcher / VerifyCoordinator / QuestionExtractor) merged + tested."
+  - "Full suite green; smoke runs equivalent."

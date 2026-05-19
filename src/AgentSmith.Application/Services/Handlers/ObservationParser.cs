@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using Microsoft.Extensions.Logging;
 
@@ -9,24 +8,25 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Parses LLM JSON responses into SkillObservation lists.
 /// Element-wise: bad observations are skipped with a warning, valid ones survive.
-/// Migration helpers: legacy Location string is split into structured fields;
-/// 1-10 confidence values are auto-upgraded to 0-100; Category that duplicates
-/// Concern is dropped with a warning.
+/// Skills are contracted to populate `file` / `start_line` / `api_path` /
+/// `schema_name` directly as structured JSON fields (p0146d): no regex-fishing
+/// over the description text. 1-10 confidence values are auto-upgraded to 0-100;
+/// Category that duplicates Concern is dropped with a warning.
 /// </summary>
 internal static class ObservationParser
 {
+    // Snake-case naming so JSON `start_line` / `api_path` / `schema_name` /
+    // `evidence_mode` / `review_status` bind directly to RawObservation properties
+    // — single-word fields (description, concern, …) still match because case is
+    // insensitive. p0146d: skills are contracted to emit the typed location
+    // fields directly, so there is no fallback path that fishes them out of
+    // `description` prose.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
-
-    private static readonly Regex FileLineRegex =
-        new(@"^(?<file>[^\s].*?):(?<line>\d+)$", RegexOptions.Compiled);
-    private static readonly Regex HttpEndpointRegex =
-        new(@"^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/.+", RegexOptions.Compiled);
-    private static readonly Regex SchemaNameRegex =
-        new(@"^[A-Z][A-Za-z0-9_]*$", RegexOptions.Compiled);
 
     private static readonly HashSet<string> WarnedSeverityValues = new(StringComparer.OrdinalIgnoreCase);
 
@@ -162,7 +162,6 @@ internal static class ObservationParser
             if (entry is null || string.IsNullOrWhiteSpace(entry.Description))
                 return null;
 
-            ApplyLocationMigration(entry);
             var confidence = ApplyConfidenceMigration(entry, role, perRunWarn, logger);
             var category = ApplyCategoryDriftCheck(entry, role, perRunWarn, logger);
 
@@ -190,26 +189,6 @@ internal static class ObservationParser
                 index, role, ex.Message, preview);
             return null;
         }
-    }
-
-    private static void ApplyLocationMigration(RawObservation entry)
-    {
-        if (string.IsNullOrWhiteSpace(entry.Location)) return;
-        if (!string.IsNullOrEmpty(entry.File)
-            || !string.IsNullOrEmpty(entry.ApiPath)
-            || !string.IsNullOrEmpty(entry.SchemaName)) return;
-
-        var loc = entry.Location.Trim();
-        var fileLineMatch = FileLineRegex.Match(loc);
-        if (fileLineMatch.Success && int.TryParse(fileLineMatch.Groups["line"].Value, out var line))
-        {
-            entry.File = fileLineMatch.Groups["file"].Value;
-            entry.StartLine = line;
-            return;
-        }
-        if (HttpEndpointRegex.IsMatch(loc)) { entry.ApiPath = loc; return; }
-        if (SchemaNameRegex.IsMatch(loc)) { entry.SchemaName = loc; return; }
-        entry.File = loc;
     }
 
     private static int ApplyConfidenceMigration(
@@ -302,9 +281,10 @@ internal static class ObservationParser
     }
 
     /// <summary>
-    /// DTO matching the LLM's JSON output. Includes legacy Location for backward
-    /// compatibility and all new typed fields. Mutable so the migration helpers
-    /// can fill File/StartLine/etc. from the legacy Location before construction.
+    /// DTO matching the LLM's JSON output. Skills emit typed location fields
+    /// (`file`, `start_line`, `end_line`, `api_path`, `schema_name`) directly
+    /// per the observation schema contract; no legacy `location` string is
+    /// parsed (p0146d).
     /// </summary>
     private sealed class RawObservation
     {
@@ -315,7 +295,6 @@ internal static class ObservationParser
         public ObservationSeverity Severity { get; set; }
         public int Confidence { get; set; }
         public string? Rationale { get; set; }
-        public string? Location { get; set; }
         public ObservationEffort? Effort { get; set; }
         public string? File { get; set; }
         public int StartLine { get; set; }

@@ -13,6 +13,7 @@ public class CompactionConfigTests
         config.IsEnabled.Should().BeTrue();
         config.ThresholdIterations.Should().Be(8);
         config.MaxContextTokens.Should().Be(80000);
+        config.MaxContextTokensTriggerRatio.Should().Be(0.7);
         config.KeepRecentIterations.Should().Be(3);
         config.SummaryModel.Should().Be("claude-haiku-4-5-20251001");
     }

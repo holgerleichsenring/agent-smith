@@ -96,6 +96,7 @@ public sealed class GitLabTicketProviderListByLifecycleTests
             NullLogger<GitLabAttachmentLoader>.Instance);
         return new GitLabTicketProvider(
             "https://gitlab.com", "group%2Fproj", "token", httpClient, loader,
+            new GitLabFieldMapper(),
             NullLogger<GitLabTicketProvider>.Instance);
     }
 

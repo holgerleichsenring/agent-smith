@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Models;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
@@ -30,6 +31,28 @@ public sealed class ClaudeContextCompactor(
 
         Be concise but complete. The summary will be used as context for continuing the work.
         """;
+
+    /// <summary>
+    /// p0147c trigger predicate. Primary signal is token-pressure: fires when
+    /// <c>estimatedAccumulatedTokens &gt;= config.MaxContextTokensTriggerRatio × config.MaxContextTokens</c>.
+    /// Iteration cap (<c>currentIterations &gt;= config.ThresholdIterations</c>) stays as a defensive
+    /// upper bound — token counts are estimates, so an undershoot or a pathological prompt that
+    /// keeps iteration count low while pushing real tokens over the cap is still caught.
+    /// Set <see cref="CompactionConfig.MaxContextTokensTriggerRatio"/> to 0 to disable the token
+    /// trigger and fall back to iteration-cap-only behaviour.
+    /// </summary>
+    public static bool ShouldCompact(
+        int currentIterations,
+        int estimatedAccumulatedTokens,
+        CompactionConfig config)
+    {
+        if (!config.IsEnabled) return false;
+        if (currentIterations >= config.ThresholdIterations) return true;
+        if (config.MaxContextTokensTriggerRatio <= 0) return false;
+
+        var tokenTrigger = (int)(config.MaxContextTokens * config.MaxContextTokensTriggerRatio);
+        return estimatedAccumulatedTokens >= tokenTrigger;
+    }
 
     public async Task<List<Message>> CompactAsync(
         List<Message> messages,
