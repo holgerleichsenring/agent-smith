@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0147
+goal: "Umbrella for two parallel tracks that need to land before the next
+  operator-facing milestone: (1) robustness against LLM-communication failure
+  modes that today produce silent drops or partial pipelines, and (2) bringing
+  class sizes back inside the coding-principles limits (max 120 lines per
+  class, max 30 for base classes). Today the largest base class is 545 lines
+  — 18x over limit — and several god-classes hide responsibilities a
+  reviewer can't see in one screen. Each sub-phase is independently
+  shippable; user picks order based on what unblocks the next release."
+
+requires: []
+
+scope:
+  in: |
+    Robustness track (LLM communication):
+    (a) Tolerant JSON-parser consolidation — every handler that reads
+        LLM JSON routes through one ITolerantJsonParser. Handles truncation
+        mid-array, ```json markdown wrapping, empty-string-vs-omitted-field
+        traps. Today scattered across ObservationParser, GateObservationParser,
+        FilterRoundHandler, VerifyRoundHandler, GeneratePlanHandler.
+    (b) Incomplete-skill outcomes become typed SkillObservations. When
+        SkillCallRuntime hits max_tool_calls / max_tokens / wall-clock, today's
+        path silently discards. Operator sees no trace. Emit a typed
+        observation (category=execution-limit) so triage + summary surface it.
+    (c) Swagger-spec compressor + dynamic compaction trigger. AuthPort spec
+        was 291k chars (near input-cap). Compactor today fires at fixed
+        threshold_iterations=8 ignoring actual token use; flip to token-based
+        trigger. Add SwaggerSpecCompressor for specs >100k.
+
+    Refactoring track (class size + composition):
+    (d) SkillRoundHandlerBase decomposition. 545 lines, 18x over the 30-line
+        base-class limit. Composition over inheritance: IPromptComposer,
+        ISkillResponseParser, ISkillRoundDispatcher injected; base becomes
+        thin orchestration. Cascades into the four derived round handlers.
+    (e) PipelineExecutor decomposition. 503 lines. Split into IPipelineStepRunner
+        + IPipelineErrorHandler + IPipelineSandboxCoordinator.
+    (f) Ticket-provider family unification. Jira 394, ADO 340, GitLab 278,
+        GitHub 219. Same shape: HTTP + field-mapping + transitions. Extract
+        per-provider IFieldMapper + ITransitioner; providers thin to HTTP
+        orchestrators.
+    (g) Round-handler family cleanup. Filter 272, Verify 253, GeneratePlan
+        194, BootstrapRound 175, ApiSkillRound 183 (post-p0146a). Depends on
+        (d) — the prompt-composer + response-parser services land first;
+        round-handlers become composition consumers.
+    (h) DI extensions + data-file splits. Three ServiceCollectionExtensions
+        (358, 242, 194 lines), plus ContextKeys (174), CommandNames (206),
+        PipelinePresets (291). Mechanical splits per subdomain — low risk,
+        high readability gain.
+
+  out: |
+    LLM call optimizations (caching, batching, model routing) — that's a
+    separate phase (cost track, not robustness track).
+
+    Coding-principles methodology changes themselves. The rules are clear;
+    this phase enforces them on existing code.
+
+    Test-side robustness (the 33 regex usages in production code being
+    addressed in p0146; the test helpers — RunStateConceptsTestFactory's
+    fallback enum etc. — already covered in the p0146 cherry-picks).
+
+decisions:
+  - key: |
+      Single umbrella with mixed-track sub-phases (a-c robustness, d-h
+      refactoring) rather than two umbrellas. Reason: operator picks order
+      from one place; a refactoring sub-phase that's a prerequisite for a
+      round-handler robustness improvement (d → g) is visible alongside
+      its dependent. -- alternatives: two umbrellas (rejected: deps cross
+      the boundary, would force reader to hop between).
+  - key: |
+      Sub-phases are file-list-scoped, not feature-scoped. Reason: this
+      phase is about code shape, not new features. Each sub-phase names
+      the exact files it touches so the operator can see overlap with
+      in-flight phases (p0146a-c are running) and sequence accordingly.
+  - key: |
+      No new features in any sub-phase. Reason: this phase exists because
+      we drifted from the coding principles and accumulated brittle LLM
+      paths. Adding features under the same umbrella would dilute review
+      attention. Features get their own phases.
+
+steps:
+  - id: write-sub-phases
+    action: "Author the eight sub-phase specs. Each is self-contained with file list, dependency notes, decisions, tests, done criteria."
+    new:
+      - ".agentsmith/phases/planned/p0147a-tolerant-json-parser-consolidation.yaml"
+      - ".agentsmith/phases/planned/p0147b-incomplete-skill-outcomes-as-observations.yaml"
+      - ".agentsmith/phases/planned/p0147c-swagger-compression-and-dynamic-compaction.yaml"
+      - ".agentsmith/phases/planned/p0147d-skill-round-handler-base-decomposition.yaml"
+      - ".agentsmith/phases/planned/p0147e-pipeline-executor-decomposition.yaml"
+      - ".agentsmith/phases/planned/p0147f-ticket-provider-family-unification.yaml"
+      - ".agentsmith/phases/planned/p0147g-round-handler-family-cleanup.yaml"
+      - ".agentsmith/phases/planned/p0147h-di-and-data-file-splits.yaml"
+
+tests:
+  - "(umbrella has no tests; each sub-phase tests its slice)"
+
+done:
+  - "Eight sub-phase specs land in .agentsmith/phases/planned/"
+  - "All eight sub-phases implemented and merged"
+  - "find src -name '*.cs' | xargs wc -l | awk '$1>120' returns 0 results in non-data files"
+  - "grep -rn 'JsonSerializer.Deserialize' src/ shows reads only through the consolidated tolerant parser"
+  - "Operator smoke against AuthPort api-security-scan: no Incomplete skill silent-drops, swagger >100k loads without token-limit, all findings surface to summary"

@@ -1,15 +1,8 @@
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Builders;
-using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
-using AgentSmith.Tests.Sandbox;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Services;
@@ -18,17 +11,12 @@ namespace AgentSmith.Tests.Services;
 /// Regression: production runs that threw during sandbox setup were leaving the
 /// ticket transitioned to Done instead of Failed because lifecycle.MarkFailed
 /// only fired on result.IsSuccess=false — exception paths bypassed it.
+///
+/// Parametrised across the new composed executor and the pre-p0147e monolith.
 /// </summary>
 public sealed class PipelineExecutorLifecycleFailureTests
 {
-    private readonly Mock<ICommandExecutor> _executorMock = new();
-    private readonly Mock<ICommandContextFactory> _factoryMock = new();
-    private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
-    private readonly Mock<IPipelineLifecycleCoordinator> _coordinatorMock = new();
-    private readonly Mock<IAsyncPipelineLifecycle> _lifecycleMock = new();
-    private readonly Mock<ISandboxFactory> _sandboxFactoryMock = new();
-    private readonly Mock<IProgressReporter> _progressReporterMock = new();
-    private readonly PipelineExecutor _sut;
+    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
     public PipelineExecutorLifecycleFailureTests()
     {
@@ -56,54 +44,65 @@ public sealed class PipelineExecutorLifecycleFailureTests
 
     [Fact]
     public async Task ExecuteAsync_SandboxFactoryThrows_MarksLifecycleFailed()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_SandboxFactoryThrows_MarksLifecycleFailed(
+        PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         // Arrange — sandbox factory throws (production symptom: K8s Forbidden because
         // the pod's ServiceAccount lacked pods/create RBAC).
-        _sandboxFactoryMock
+        h.SandboxFactoryMock
             .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("K8s pod create denied"));
 
-        // The pipeline must contain a sandbox-requiring command for TryCreateSandboxAsync
+        // The pipeline must contain a sandbox-requiring command for sandbox-coordinator
         // to actually invoke the factory; CheckoutSourceCommand is the canonical example.
         var commands = new[] { CommandNames.CheckoutSource };
-        // p0140d: PipelineExecutor reads CurrentRepo from the pipeline context for
+        // p0140d: executor reads CurrentRepo from the pipeline context for
         // sandbox-language resolution; tests must seed it explicitly.
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.CurrentRepo, new RepoConnection());
 
         // Act
-        var act = async () => await _sut.ExecuteAsync(
+        var act = async () => await h.Sut.ExecuteAsync(
             commands, new ResolvedProject(), pipeline, CancellationToken.None);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>();
-        _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+        h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_AllCommandsSucceed_DoesNotMarkLifecycleFailed()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_AllCommandsSucceed_DoesNotMarkLifecycleFailed(
+        PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         // Regression guard for the happy path.
-        var result = await _sut.ExecuteAsync(
+        var result = await h.Sut.ExecuteAsync(
             Array.Empty<string>(), new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        _lifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
+        h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_CommandReturnsFail_MarksLifecycleFailed()
+    [Theory]
+    [MemberData(nameof(ExecutorShapes))]
+    public async Task ExecuteAsync_CommandReturnsFail_MarksLifecycleFailed(
+        PipelineExecutorTestHarness.Shape shape)
     {
+        var h = new PipelineExecutorTestHarness(shape);
         // Regression guard for the previously-working failure path.
         var commands = new[] { "BadCommand" };
-        _factoryMock
+        h.FactoryMock
             .Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>()))
             .Throws(new Exception("Command-level failure"));
 
-        var result = await _sut.ExecuteAsync(
+        var result = await h.Sut.ExecuteAsync(
             commands, new ResolvedProject(), new PipelineContext(), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+        h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
     }
 }
