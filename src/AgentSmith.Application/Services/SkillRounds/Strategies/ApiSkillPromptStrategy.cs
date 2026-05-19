@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
@@ -28,7 +27,7 @@ public sealed class ApiSkillPromptStrategy(
         pipeline.TryGet<bool>(ContextKeys.ActiveMode, out var activeMode);
         pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var activeSkill);
 
-        var compressor = new SwaggerSpecCompressor();
+        var renderer = new SwaggerSpecTextRenderer();
         var stable = $"""
             {projectBriefBuilder.Build(pipeline)}
 
@@ -39,7 +38,7 @@ public sealed class ApiSkillPromptStrategy(
             Version: {spec?.Version ?? "Unknown"}
 
             ## Swagger Specification (compressed)
-            {(spec is not null ? compressor.Compress(spec) : "Not available")}
+            {(spec is not null ? renderer.Render(spec) : "Not available")}
 
             {BuildSummarySection(pipeline)}{BuildProbeResultsSection(pipeline)}{BuildHeadersBaselineSection(activeSkill)}
             """.Trim();

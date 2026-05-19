@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Pipeline;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -31,6 +32,7 @@ public sealed class PipelineStepRunner(
     IProgressReporter progressReporter,
     IPhaseDataFlowResolver dataFlowResolver,
     AgentSmithConfig agentSmithConfig,
+    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
 {
     public async Task<StepExecutionResult> RunSingleAsync(
@@ -68,7 +70,7 @@ public sealed class PipelineStepRunner(
         int firstStepIndex,
         CancellationToken cancellationToken)
     {
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
+        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
 

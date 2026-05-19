@@ -39,7 +39,7 @@ public static partial class ContextKeys
 
     public const string DialogueAnswer = "DialogueAnswer";
     public const string DialogueQuestion = "DialogueQuestion";
-
+    
     /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
     /// log scope so concurrent runs are filterable in shared log streams.</summary>
     public const string RunId = "RunId";
@@ -61,4 +61,5 @@ public static partial class ContextKeys
     // this before each step and clears it after; the gated context wrapper reads it
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
     public const string ActivePhaseStep = "ActivePhaseStep";
+
 }
