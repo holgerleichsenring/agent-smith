@@ -1,34 +1,19 @@
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Builders;
-using AgentSmith.Application.Services.Sandbox;
-using AgentSmith.Tests.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Services;
 
-/// <summary>
-/// Parametrised across the new composed executor (PipelineExecutor) and the
-/// pre-p0147e monolith (PipelineExecutorLegacy). Both must produce identical
-/// observable outcomes; the parametrisation is the test-pack guarantee that
-/// the migration is behaviour-preserving.
-/// </summary>
 public class PipelineExecutorTests
 {
-    public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
-
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_AllCommandsSucceed_ReturnsOk(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_AllCommandsSucceed_ReturnsOk()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var emptyCommands = Array.Empty<string>();
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
@@ -39,11 +24,10 @@ public class PipelineExecutorTests
         result.Message.Should().Contain("Pipeline completed");
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_EmptyPipeline_ReturnsOk(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_EmptyPipeline_ReturnsOk()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var result = await h.Sut.ExecuteAsync(
             Array.Empty<string>(),
             new ResolvedProject(),
@@ -52,11 +36,10 @@ public class PipelineExecutorTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_PostsWorkingStatusToTicket(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_PostsWorkingStatusToTicket()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var ticketProviderMock = new Mock<ITicketProvider>();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);
@@ -72,11 +55,10 @@ public class PipelineExecutorTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Throws(new Exception("Ticket provider unavailable"));
 
@@ -89,11 +71,10 @@ public class PipelineExecutorTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_FactoryThrows_ReturnsFail_DoesNotCrash()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var commands = new[] { "BadCommand" };
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
@@ -107,11 +88,10 @@ public class PipelineExecutorTests
         result.Message.Should().Contain("BadCommand");
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_OperationCanceled_PropagatesException(PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_OperationCanceled_PropagatesException()
     {
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var commands = new[] { "CancelledCommand" };
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
@@ -125,15 +105,13 @@ public class PipelineExecutorTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Theory]
-    [MemberData(nameof(ExecutorShapes))]
-    public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment(
-        PipelineExecutorTestHarness.Shape shape)
+    [Fact]
+    public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment()
     {
         // Regression: failure comments were posted as raw markdown (## Agent Smith - Failed),
         // which AzDO's System.History rendered as plain text. HTML is the lingua franca:
         // AzDO interprets it directly and GitHub/GitLab markdown comments accept inline HTML.
-        var h = new PipelineExecutorTestHarness(shape);
+        var h = new PipelineExecutorTestBuilder();
         var ticketProviderMock = new Mock<ITicketProvider>();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(ticketProviderMock.Object);

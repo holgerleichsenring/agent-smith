@@ -17,22 +17,12 @@ using Moq;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// Shared builder for PipelineExecutor tests. Parametrised across the new
-/// composed shape (PipelineExecutor + IPipelineStepRunner + IPipelineErrorHandler
-/// + IPipelineSandboxCoordinator) and the pre-p0147e monolith
-/// (PipelineExecutorLegacy). Builds both with the same mock objects so any
-/// observable difference between the two surfaces as a failing assertion.
+/// Composes the live <see cref="PipelineExecutor"/> with mocked collaborators
+/// for the PipelineExecutor*Tests files. Exposes mocks so each test can stage
+/// the specific call it cares about and inspect verifies after the run.
 /// </summary>
-public sealed class PipelineExecutorTestHarness
+internal sealed class PipelineExecutorTestBuilder
 {
-    public enum Shape { New, Legacy }
-
-    public static IEnumerable<object[]> ExecutorShapes()
-    {
-        yield return new object[] { Shape.New };
-        yield return new object[] { Shape.Legacy };
-    }
-
     public Mock<ICommandExecutor> ExecutorMock { get; } = new();
     public Mock<ICommandContextFactory> FactoryMock { get; } = new();
     public Mock<ITicketProviderFactory> TicketFactoryMock { get; } = new();
@@ -42,11 +32,11 @@ public sealed class PipelineExecutorTestHarness
     public Mock<IProgressReporter> ProgressReporterMock { get; } = new();
     public Mock<ISandboxLanguageResolver> SandboxLanguageResolverMock { get; } = new();
     public SandboxSpecBuilder SandboxSpecBuilder { get; }
-    public PhaseDataFlowResolver DataFlowResolver { get; }
+    public PhaseDataFlowResolver DataFlowResolver { get; } = new(Array.Empty<IPhaseDataFlow>());
     public AgentSmithConfig AgentSmithConfig { get; } = new();
     public IPipelineExecutor Sut { get; }
 
-    public PipelineExecutorTestHarness(Shape shape)
+    public PipelineExecutorTestBuilder()
     {
         LifecycleCoordinatorMock
             .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
@@ -55,29 +45,7 @@ public sealed class PipelineExecutorTestHarness
             .Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
         SandboxSpecBuilder = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
-        DataFlowResolver = new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>());
 
-        Sut = shape == Shape.Legacy
-            ? BuildLegacy()
-            : BuildNew();
-    }
-
-    private PipelineExecutorLegacy BuildLegacy() => new(
-        ExecutorMock.Object,
-        FactoryMock.Object,
-        TicketFactoryMock.Object,
-        LifecycleCoordinatorMock.Object,
-        SandboxFactoryMock.Object,
-        SandboxSpecBuilder,
-        SandboxLanguageResolverMock.Object,
-        ProgressReporterMock.Object,
-        DataFlowResolver,
-        AgentSmithConfig,
-        new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-        NullLogger<PipelineExecutorLegacy>.Instance);
-
-    private PipelineExecutor BuildNew()
-    {
         var stepRunner = new PipelineStepRunner(
             ExecutorMock.Object,
             FactoryMock.Object,
@@ -93,9 +61,8 @@ public sealed class PipelineExecutorTestHarness
             TicketFactoryMock.Object,
             NullLogger<PipelineErrorHandler>.Instance);
 
-        // SandboxCoordinator is per-run; the orchestrator pulls one from DI for
-        // every ExecuteAsync. We register transient so each pipeline gets its
-        // own instance and the cached sandbox stays scoped to that run.
+        // SandboxCoordinator owns mutable per-run state; the executor resolves a
+        // fresh transient instance per ExecuteAsync.
         var services = new ServiceCollection();
         services.AddTransient<IPipelineSandboxCoordinator>(_ => new PipelineSandboxCoordinator(
             SandboxFactoryMock.Object,
@@ -104,7 +71,7 @@ public sealed class PipelineExecutorTestHarness
             NullLogger<PipelineSandboxCoordinator>.Instance));
         var provider = services.BuildServiceProvider();
 
-        return new PipelineExecutor(
+        Sut = new PipelineExecutor(
             provider,
             stepRunner,
             errorHandler,
