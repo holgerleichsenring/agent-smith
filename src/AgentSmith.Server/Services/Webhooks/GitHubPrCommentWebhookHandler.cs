@@ -1,5 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Webhooks;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
@@ -8,9 +10,13 @@ namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// Handles GitHub PR comment events (issue_comment on PRs, pull_request_review_comment).
-/// Parses agent commands and triggers the appropriate pipeline.
+/// Parses agent commands and triggers the appropriate pipeline. p0146e: pipeline + ticket
+/// resolution is delegated to <see cref="CommentIntentParser"/> + IIntentParser; this
+/// handler only owns the GitHub-payload-shape + trust gate.
 /// </summary>
 public sealed class GitHubPrCommentWebhookHandler(
+    CommentIntentParser commentIntentParser,
+    ServerContext serverContext,
     ILogger<GitHubPrCommentWebhookHandler> logger) : IWebhookHandler
 {
     private static readonly HashSet<string> SupportedEventTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -37,7 +43,7 @@ public sealed class GitHubPrCommentWebhookHandler(
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && SupportedEventTypes.Contains(eventType);
 
-    public Task<WebhookResult> HandleAsync(
+    public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +53,7 @@ public sealed class GitHubPrCommentWebhookHandler(
             var root = doc.RootElement;
 
             if (root.GetProperty("action").GetString() != "created")
-                return Task.FromResult(new WebhookResult(false, null, null));
+                return WebhookResult.NotHandled();
 
             var comment = root.GetProperty("comment");
             var commentBody = comment.GetProperty("body").GetString() ?? "";
@@ -64,62 +70,63 @@ public sealed class GitHubPrCommentWebhookHandler(
                 logger.LogInformation(
                     "Ignoring PR comment from {Author} on {Repo} — author_association={Association} is not trusted",
                     authorLogin, repoFullName, authorAssociation);
-                return Task.FromResult(new WebhookResult(false, null, null));
+                return WebhookResult.NotHandled();
             }
 
             var prNumber = ExtractPrNumber(root);
             if (prNumber is null)
-                return Task.FromResult(new WebhookResult(false, null, null));
+                return WebhookResult.NotHandled();
 
-            var intentType = CommentIntentParser.Parse(commentBody, out var pipeline, out var arguments, out _);
+            var parsed = await commentIntentParser.ParseAsync(
+                commentBody, serverContext.ConfigPath, cancellationToken);
 
-            switch (intentType)
+            switch (parsed.Type)
             {
                 case CommentIntentType.NewJob:
-                    if (pipeline is not null && !AllowedPipelines.Contains(pipeline))
+                    var pipeline = parsed.Request!.PipelineName;
+                    if (!AllowedPipelines.Contains(pipeline))
                     {
                         logger.LogInformation(
                             "Ignoring PR comment from {Author} on {Repo}#{Pr}: pipeline={Pipeline} is not allowed",
                             authorLogin, repoFullName, prNumber.Value, pipeline);
-                        return Task.FromResult(new WebhookResult(false, null, null));
+                        return WebhookResult.NotHandled();
                     }
 
-                    var triggerInput = BuildTriggerInput(pipeline!, arguments, repoFullName, prNumber.Value);
+                    var triggerInput = BuildTriggerInput(parsed.Request, repoFullName, prNumber.Value);
                     logger.LogInformation(
                         "PR comment command from {Author} on {Repo}#{Pr}: pipeline={Pipeline}",
                         authorLogin, repoFullName, prNumber.Value, pipeline);
-                    return Task.FromResult(new WebhookResult(true, triggerInput, pipeline));
+                    return new WebhookResult(true, triggerInput, pipeline);
 
                 case CommentIntentType.Help:
                     logger.LogInformation(
                         "PR comment help request from {Author} on {Repo}#{Pr}",
                         authorLogin, repoFullName, prNumber.Value);
-                    return Task.FromResult(new WebhookResult(false, null, null));
+                    return WebhookResult.NotHandled();
 
                 case CommentIntentType.DialogueApprove:
                 case CommentIntentType.DialogueReject:
-                    var answer = intentType == CommentIntentType.DialogueApprove ? "yes" : "no";
-                    var dialogueComment = CommentIntentParser.Parse(commentBody, out _, out _, out var parsedComment);
+                    var answer = parsed.Type == CommentIntentType.DialogueApprove ? "yes" : "no";
                     var dialogueData = new DialogueAnswerData(
                         Platform: "github",
                         RepoFullName: repoFullName,
                         PrIdentifier: prNumber.Value.ToString(),
                         Answer: answer,
-                        Comment: parsedComment,
+                        Comment: parsed.DialogueComment,
                         AuthorLogin: authorLogin);
                     logger.LogInformation(
                         "PR comment dialogue {Intent} from {Author} on {Repo}#{Pr}",
-                        intentType, authorLogin, repoFullName, prNumber.Value);
-                    return Task.FromResult(new WebhookResult(true, null, null, dialogueData));
+                        parsed.Type, authorLogin, repoFullName, prNumber.Value);
+                    return new WebhookResult(true, null, null, dialogueData);
 
                 default:
-                    return Task.FromResult(new WebhookResult(false, null, null));
+                    return WebhookResult.NotHandled();
             }
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitHub PR comment webhook");
-            return Task.FromResult(new WebhookResult(false, null, null));
+            return WebhookResult.NotHandled();
         }
     }
 
@@ -141,11 +148,13 @@ public sealed class GitHubPrCommentWebhookHandler(
         return null;
     }
 
-    private static string BuildTriggerInput(string pipeline, string? arguments, string repoFullName, int prNumber)
+    // p0146e: triggerInput now carries the LLM-resolved pipeline plus any ticket
+    // reference + repo/PR coordinates. The downstream legacy path (ExecutePipelineUseCase
+    // string overload) re-parses this with the LLM; that's a known cost we accept until
+    // the legacy path is retired in favour of structured PipelineRequest dispatch.
+    private static string BuildTriggerInput(PipelineRequest request, string repoFullName, int prNumber)
     {
-        if (!string.IsNullOrEmpty(arguments))
-            return $"{pipeline} {arguments}";
-
-        return $"{pipeline} pr:{repoFullName}#{prNumber}";
+        var ticketSegment = request.TicketId is not null ? $" #{request.TicketId.Value}" : "";
+        return $"{request.PipelineName}{ticketSegment} pr:{repoFullName}#{prNumber}";
     }
 }
