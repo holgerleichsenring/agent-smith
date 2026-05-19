@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -12,11 +13,13 @@ namespace AgentSmith.Application.Services.SkillRounds.Strategies;
 /// <summary>
 /// p0147d: API-security domain section. Stable part: project brief + Swagger
 /// summary + probe results + headers baseline. Per-skill part: active/passive
-/// mode marker + the skill's relevant API-scan finding slice.
+/// mode marker + the skill's relevant API-scan finding slice + (p0151c) the
+/// running observation bus.
 /// </summary>
 public sealed class ApiSkillPromptStrategy(
     IProjectBriefBuilder projectBriefBuilder,
     IBaselineLoader baselineLoader,
+    ObservationBusProjector busProjector,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory) : ISkillPromptStrategy
 {
     public string SkillRoundCommandName => "ApiSecuritySkillRoundCommand";
@@ -49,10 +52,18 @@ public sealed class ApiSkillPromptStrategy(
                 ? "Active mode — you may request HTTP probes using {\"probe\": {\"persona\": \"...\", \"method\": \"...\", \"url\": \"...\"}} JSON blocks."
                 : "Passive mode — HTTP probing is not available. Analyze schema only.")}
 
-            {BuildPerSkillFindingsSection(pipeline)}
+            {BuildPerSkillFindingsSection(pipeline)}{BuildObservationsSoFarSection(pipeline)}
             Analyze the findings relevant to your role.
             """.Trim();
         return (stable, perSkill);
+    }
+
+    private string BuildObservationsSoFarSection(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var observations)
+            || observations is null || observations.Count == 0)
+            return "";
+        return $"\n## Observations So Far\n```json\n{busProjector.Project(observations)}\n```\nYou may treat these as hints from prior rounds. Verify with your own tools before extending or contradicting them.\n";
     }
 
     private static string BuildSummarySection(PipelineContext pipeline)
