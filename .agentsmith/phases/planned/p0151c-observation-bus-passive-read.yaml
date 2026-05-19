@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151c
+goal: "Make the running observation list visible to downstream skills.
+  Passive read only — no dispatch protocol in this phase.
+
+  Today each skill runs against the same baseline inputs (swagger,
+  scanner findings, skill-specific context) without seeing what
+  preceding skills already discovered. The result is generic output
+  even when a prior skill has already located the exact code site —
+  the downstream skill cannot leverage that observation and either
+  rediscovers from scratch (token waste) or restates the same finding
+  in less specific terms (signal dilution).
+
+  Decentralised verification per the umbrella decision means every
+  skill has tools and may verify itself. The bus turns each prior
+  observation into a hint with an anchor (file:line, api_path,
+  schema_name, or template_id) the downstream skill can confirm with
+  a single targeted lookup rather than full Grep + Read.
+
+  Dispatch (a skill requesting a follow-up round from the orchestrator)
+  is deferred to p0151i. The umbrella's bet is that passive read
+  alone hits the quality bar — 151h validates that bet; 151i is
+  written only if it does not."
+
+requires: ["p0151b"]
+
+scope:
+  in: |
+    (1) Observation bus projection. New ObservationBusProjector takes
+        the list of SkillObservation records emitted by skills that
+        have already run in this pipeline and produces a compact JSON
+        array projected to the anchor-bearing fields (id, role,
+        concern, severity, file, start_line, api_path, schema_name,
+        description, evidence_mode). Suggestion + rationale + details
+        are omitted to keep tokens down.
+
+    (2) Prompt strategies append the projected array as an
+        'observations_so_far' section. ApiSkillPromptStrategy is the
+        primary consumer; SkillPromptStrategy (discussion-path) and
+        the security-scan equivalent inherit the same projector — bus
+        visibility is uniform across pipelines.
+
+    (3) SourceAnchoringPreamble from p0151a is extended to tell the
+        LLM how to use the bus: 'You may treat any observation with an
+        anchor (file, api_path, schema_name, template_id) as a hint;
+        confirm via your own tools before extending or contradicting
+        it.' One line; no per-skill instruction needed.
+
+  out: |
+    Dispatch protocol — split into p0151i. A skill cannot request a
+    follow-up round in this phase.
+
+    Bus filtering / per-skill projection control. Every skill receives
+    the same projection. Per-skill customisation would cement a
+    coupling the catalog rewrite (p0151e) intentionally avoids.
+
+    Parallel skill execution. Bus is built sequentially after each
+    skill round; concurrent skills would race on bus content.
+    Sequential keeps semantics simple per the umbrella decision.
+
+decisions:
+  - key: |
+      Bus carries observations, not raw scanner output. — Scanner output
+      flows separately via the api-scan compressor (modified in p0151g).
+      The bus is the post-skill stream of judged claims; the scanner
+      stream is the pre-skill stream of unjudged inputs. Mixing them
+      would re-introduce the prose-narrative coupling we are removing.
+      alternatives: bus = everything (rejected: token blow-up and
+      schema mush).
+
+  - key: |
+      Projection omits rationale / suggestion / details. — A downstream
+      skill consumes anchors + concise descriptions; rationale + details
+      are the consumer-facing fields the synthesizer needs at final
+      time, not the inter-skill comms. Keeping the bus terse means a
+      bus of 50 observations is still under 5k tokens.
+      alternatives: full SkillObservation (rejected: token blow-up at
+      pipeline scale); description only (rejected: loses the anchor).
+
+  - key: |
+      No dispatch in 151c. — The dispatch protocol is non-trivial
+      (budget coupling, depth caps, new typed observation field). The
+      passive bus delivers most of the inter-skill leverage. Ship
+      passive first, validate against the IDE-buddy baseline in 151h,
+      decide on 151i based on the gap. alternatives: ship both in one
+      phase (rejected: would have shipped dispatch without seeing
+      whether it was needed); ship dispatch only (rejected: passive is
+      the foundation dispatch reads from).
+
+steps:
+  - id: projector
+    action: "ObservationBusProjector produces the compact JSON array. Pure function, easy to test."
+    new:
+      - "src/AgentSmith.Application/Services/Prompts/ObservationBusProjector.cs"
+
+  - id: prompt-strategies
+    action: "ApiSkillPromptStrategy + SkillPromptStrategy + security-scan strategy compose observations_so_far from the pipeline context's running observation list."
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/ApiSkillPromptStrategy.cs"
+      - "src/AgentSmith.Application/Services/Prompts/SkillPromptStrategy.cs (or whatever the discussion-path strategy is named after p0147d)"
+
+  - id: preamble-extension
+    action: "SourceAnchoringPreamble (from p0151a) gains one sentence about treating bus observations as hints."
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+
+  - id: tests
+    action: "Projector correctness; prompt-strategy integration; preamble extension visible in fixtures."
+    new:
+      - "tests/AgentSmith.Tests/Prompts/ObservationBusProjectorTests.cs"
+      - "tests/AgentSmith.Tests/Prompts/ApiSkillPromptStrategyBusVisibilityTests.cs"
+
+tests:
+  - "ObservationBusProjector_NoObservations_EmitsEmptyArray"
+  - "ObservationBusProjector_ManyObservations_OmitsRationaleAndSuggestion"
+  - "ObservationBusProjector_AnalyzedFromSourceObservation_KeepsFileAndStartLine"
+  - "ObservationBusProjector_PotentialObservationWithApiPath_KeepsApiPath"
+  - "ObservationBusProjector_ConfirmedObservationWithTemplateId_KeepsAnchor"
+  - "ApiSkillPromptStrategy_LaterSkillRound_ReceivesEarlierRoundsObservations"
+  - "ApiSkillPromptStrategy_FirstSkillRound_ReceivesEmptyObservationsArray"
+  - "SourceAnchoringPreamble_MentionsBusObservationsAsHints"
+
+done:
+  - "Smoke against Sample api-security-scan: the second skill round's prompt contains observations_so_far populated from the first round (verifiable by capturing one round's prompt in a smoke fixture)."
+  - "ObservationBusProjector is a pure function — given the same observation list it produces byte-identical JSON."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

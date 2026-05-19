@@ -1,0 +1,165 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151d
+goal: "Make per-pipeline cost a configurable boundary, hung on the
+  PerSkillBreakdown that p0132a/b already produces.
+
+  Today PipelineCostTracker accumulates token costs correctly but
+  never asserts a ceiling. A runaway pipeline — large swagger, model
+  misroute, adaptive dispatch loop once p0151i lands — burns through
+  unbounded budget. The umbrella decision sets $5 / 500k tokens as
+  the default cap (configurable). When reached, the pipeline emits a
+  typed observation 'cost_cap_exhausted' and the current step is
+  allowed to finish, but no new skill rounds dispatch. Final delivery
+  still runs so the operator gets the partial output rather than a
+  hard crash.
+
+  Critically: the cap reads from PerSkillBreakdown.Total (existing per
+  p0132a/b), not a separate IPipelineBudgetExhaustedSignal. Two parallel
+  cost-tracking mechanisms is the same anti-pattern as the pre-p0148
+  ToolSet plumbing where the trace collector existed but was never
+  used."
+
+requires: ["p0151a"]
+
+scope:
+  in: |
+    (1) PipelineCostCapConfig (Contracts/Models/Configuration): record
+        with MaxUsd (decimal) + MaxTokens (long). Default values baked
+        into a Default static. agentsmith.yml schema extension + sample
+        line in agentsmith.example.yml.
+
+    (2) Per-pipeline override. agentsmith.yml accepts global +
+        per-pipeline overrides:
+        cost_cap:
+          default: { usd: 5, tokens: 500000 }
+          per_pipeline:
+            api-security-scan: { usd: 10, tokens: 1000000 }
+            fix-bug:           { usd: 2, tokens: 200000 }
+        Resolution happens in LoopLimitsConfig binding.
+
+    (3) PipelineCostTracker projects the cap against its own
+        PerSkillBreakdown.Total on every BeginCall and every Track
+        callback. When the projection would exceed the cap, an
+        IsBudgetExhausted property on the tracker flips. The
+        PipelineStepRunner consults this property between commands —
+        if set, it skips any remaining SkillRoundCommand /
+        DispatchCommand, but still runs Compile + Deliver steps so the
+        operator gets partial output.
+
+    (4) Typed observation 'cost_cap_exhausted' (concern=execution-limit
+        already exists per p0147b; reuse the same path) emitted into
+        the final findings list with the actual usd + tokens spent.
+
+  out: |
+    A separate IPipelineBudgetExhaustedSignal interface. The cap check
+    lives on the existing PipelineCostTracker — no new abstraction.
+
+    Per-skill cost caps. Already exist as max_tool_calls_per_skill +
+    max_tokens via LoopLimitsConfig (p0148). Per-pipeline cap is a
+    different scope — sum of all skill costs across the pipeline.
+
+    Cost prediction / pre-flight estimates. Adding a 'would this run
+    fit in the budget?' check before the pipeline starts is a future
+    optimization. Today's behaviour is monitor-and-stop.
+
+    Multi-pipeline / org-level caps. The cap is per-pipeline-run.
+    Limiting the total monthly spend across many runs belongs in the
+    deployment layer.
+
+decisions:
+  - key: |
+      Cap check hangs on PerSkillBreakdown, not a parallel mechanism.
+      — p0132a/b made PerSkillBreakdown the single source of cost
+      truth. Adding a sibling signal would duplicate accounting and
+      drift over time. Same lesson as p0148 ToolSet plumbing. The cap
+      is a property check on the existing tracker. alternatives:
+      separate signal interface (rejected: parallel mechanism);
+      external budget service (rejected: scope creep).
+
+  - key: |
+      Hard cap with graceful partial output, not soft warning. — A
+      soft warning is ignored; a hard crash discards the work already
+      done. The middle path emits the cost-exhausted observation,
+      stops new skill rounds, and runs Compile + Deliver so the
+      operator sees what was found. alternatives: kill the process
+      (rejected: loses the partial work); warn-only (rejected: doesn't
+      bound the budget meaningfully).
+
+  - key: |
+      Cap projects on Track callback, not only on BeginCall. — A
+      single skill call can blow the budget mid-flight (large
+      response). Check both entry and update. alternatives: check
+      only at boundaries (rejected: lets one bad call exceed the cap
+      by a wide margin).
+
+  - key: |
+      USD + tokens, not either-or. — Token counts are model-stable;
+      USD reflects the actual contract with the provider. Different
+      operators care about different framings. Both caps apply;
+      either trips the property. alternatives: tokens only (rejected:
+      opaque to non-eng operators); USD only (rejected: breaks when
+      model pricing changes mid-month).
+
+  - key: |
+      Default 5 USD / 500k tokens. — Gives ~10-30 LLM calls room,
+      which a well-behaved pipeline does not approach. Operators
+      raise it intentionally for deep audits. alternatives: lower
+      default 2 USD (rejected: cuts off the api-security-scan reach
+      for typical targets); higher default 20 USD (rejected: bad
+      surprise for someone running a pipeline accidentally).
+
+steps:
+  - id: config-model
+    action: "PipelineCostCapConfig record + default. Bind through the existing config pipeline."
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs (carry the resolved cap)"
+      - "src/AgentSmith.Infrastructure.Core/Configuration/AgentConfigLoader.cs (or wherever yml binding lives)"
+      - "config/agentsmith.example.yml"
+
+  - id: tracker-cap-check
+    action: "PipelineCostTracker checks the cap against PerSkillBreakdown.Total on BeginCall + on every Track callback. IsBudgetExhausted property flips when exceeded."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/PipelineCostTracker.cs"
+
+  - id: step-runner-gate
+    action: "PipelineStepRunner consults tracker.IsBudgetExhausted between commands; skill round + dispatch commands skipped, Compile + Deliver still run."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineStepRunner.cs (or wherever the step loop lives after p0147e)"
+
+  - id: observation
+    action: "Emit 'cost_cap_exhausted' observation when first detected. Concern = execution-limit (existing per p0147b)."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/RuntimeObservationFactory.cs"
+
+  - id: docs
+    action: "Operator-facing docs for the new config knob."
+    new:
+      - "docs/configuration/pipeline-cost-cap.md"
+
+  - id: tests
+    action: "Cap projection, property flipping, step-runner gate, default values, override resolution."
+    new:
+      - "tests/AgentSmith.Tests/Loop/PipelineCostTrackerCapTests.cs"
+      - "tests/AgentSmith.Tests/Configuration/PipelineCostCapConfigBindingTests.cs"
+      - "tests/AgentSmith.Tests/Pipeline/StepRunnerBudgetGateTests.cs"
+
+tests:
+  - "PipelineCostCapConfig_Default_Is5UsdAnd500kTokens"
+  - "PipelineCostCapConfig_PerPipelineOverride_OverridesDefault"
+  - "PipelineCostTracker_CostBelowCap_IsBudgetExhaustedIsFalse"
+  - "PipelineCostTracker_UsdExceedsCap_IsBudgetExhaustedFlips"
+  - "PipelineCostTracker_TokensExceedCap_IsBudgetExhaustedFlips"
+  - "PipelineCostTracker_ProjectsBeforeCall_FlipsWhenWouldExceed"
+  - "PipelineCostTracker_TrackCallback_DuringLargeResponse_FlipsMidFlight"
+  - "PipelineStepRunner_BudgetExhausted_SkipsRemainingSkillRoundCommands"
+  - "PipelineStepRunner_BudgetExhausted_StillRunsCompileAndDeliver"
+  - "PipelineStepRunner_BudgetExhausted_EmitsCostCapExhaustedObservation"
+
+done:
+  - "config/agentsmith.example.yml documents cost_cap with the default values."
+  - "docs/configuration/pipeline-cost-cap.md explains the knob."
+  - "An integration test sets a tiny cap (e.g. $0.01) and runs a minimal pipeline: cost_cap_exhausted observation appears, Compile + Deliver run, no further skill rounds executed."
+  - "Smoke against Sample api-security-scan with default cap: completes under the cap (verifiable via the existing cost summary footer)."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

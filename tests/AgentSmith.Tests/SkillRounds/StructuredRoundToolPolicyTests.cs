@@ -51,7 +51,7 @@ public sealed class StructuredRoundToolPolicyTests
     }
 
     [Fact]
-    public void StructuredRoundToolPolicy_ApiSecurityPassiveMode_NoProbe()
+    public void StructuredRoundToolPolicy_ApiSecurityPassiveMode_KeepsToolsuiteIntact()
     {
         var policy = BuildPolicy();
         var role = new RoleSkillDefinition { Name = "auth-skill", Role = "investigator" };
@@ -59,11 +59,10 @@ public sealed class StructuredRoundToolPolicyTests
 
         var tools = policy.GetTools(role, pipeline);
 
-        // Passive mode: Read/Grep stays available, but the probe JSON-block
-        // contract is suppressed at the prompt-strategy layer — we assert the
-        // tool set itself stays read-only (no RunCommand).
-        ToolNames(tools).Should().Contain(new[] { "ReadFile", "Grep" });
-        ToolNames(tools).Should().NotContain("RunCommand");
+        // Active vs passive is a prompt-layer distinction (the probe JSON
+        // block) — not a tool-layer one. p0151a: Plan-phase tools include
+        // RunCommand for recon regardless of active/passive mode.
+        ToolNames(tools).Should().Contain(new[] { "ReadFile", "Grep", "RunCommand" });
     }
 
     [Fact]
