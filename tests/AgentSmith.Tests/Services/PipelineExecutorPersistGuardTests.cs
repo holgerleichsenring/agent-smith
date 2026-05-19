@@ -21,33 +21,6 @@ public sealed class PipelineExecutorPersistGuardTests
 {
     public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
-    public PipelineExecutorPersistGuardTests()
-    {
-        _lifecycleMock
-            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Mock.Of<IAsyncPipelineLifecycle>());
-        var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
-        _sut = new PipelineExecutor(
-            _executorMock.Object,
-            _factoryMock.Object,
-            _ticketFactoryMock.Object,
-            _lifecycleMock.Object,
-            _sandBoxFactory.Object,
-            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
-            resolverMock.Object,
-            _progressReporterMock.Object,
-            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
-                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
-            new AgentSmithConfig(),
-            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
-            NullLogger<PipelineExecutor>.Instance
-        );
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ScanPipelineFails_DoesNotCallPersistWorkBranchEvenWithRepository()
     [Theory]
     [MemberData(nameof(ExecutorShapes))]
     public async Task ExecuteAsync_ScanPipelineFails_DoesNotCallPersistWorkBranchEvenWithRepository(

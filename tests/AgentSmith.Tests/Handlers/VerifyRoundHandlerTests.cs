@@ -217,6 +217,7 @@ public sealed class VerifyRoundHandlerTests
                 new AgentSmith.Application.Services.Tools.AllHostsActivePolicy()),
             runtime,
             new AgentSmith.Application.Services.SkillRounds.SkillResponseParser(),
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<VerifyRoundHandler>.Instance);
     }
 

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Pipeline;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -38,6 +39,7 @@ public sealed class PipelineExecutorLegacy(
     IProgressReporter progressReporter,
     IPhaseDataFlowResolver dataFlowResolver,
     AgentSmithConfig agentSmithConfig,
+    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<PipelineExecutorLegacy> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -363,7 +365,7 @@ public sealed class PipelineExecutorLegacy(
             ResolvedProject projectConfig, PipelineContext context,
             int firstStepIndex, CancellationToken cancellationToken)
     {
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
+        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
 

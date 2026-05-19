@@ -122,6 +122,7 @@ public sealed class FilterRoundHandlerBatchedTests
         // resolve IChatClient — same stub the test queues into.
         var runtime = BuildRuntime(factory);
         return new FilterRoundHandler(factory, promptBuilder.Object, runtime,
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<FilterRoundHandler>.Instance);
     }
 

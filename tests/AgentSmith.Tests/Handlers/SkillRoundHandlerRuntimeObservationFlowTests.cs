@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
@@ -16,13 +18,23 @@ namespace AgentSmith.Tests.Handlers;
 /// </summary>
 public sealed class SkillRoundHandlerRuntimeObservationFlowTests
 {
+    private static readonly ISkillRoundBufferDispatcher Dispatcher = new SkillRoundBufferDispatcher();
+
+    private static void Buffer(PipelineContext pipeline, string skillName, int round, SkillCallResult result)
+    {
+        if (result.RuntimeObservations.Count == 0) return;
+        var buffer = new SkillRoundBuffer(
+            skillName, round, result.RuntimeObservations.ToList(), null, null);
+        Dispatcher.Dispatch(pipeline, buffer);
+    }
+
     [Fact]
     public void BufferRuntimeObservations_AppendsToPipelineObservationList()
     {
         var pipeline = new PipelineContext();
         var result = MakeResultWithLimit(ExecutionLimitCategories.ExecutionLimitTokens);
 
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, "skill-x", round: 1, result);
+        Buffer(pipeline, "skill-x", round: 1, result);
 
         var observations = pipeline.Get<List<SkillObservation>>(ContextKeys.SkillObservations);
         observations.Should().ContainSingle();
@@ -42,7 +54,7 @@ public sealed class SkillRoundHandlerRuntimeObservationFlowTests
             Trace = Array.Empty<LoopTraceEntry>()
         };
 
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, "skill-x", round: 1, okResult);
+        Buffer(pipeline, "skill-x", round: 1, okResult);
 
         pipeline.TryGet<List<SkillObservation>>(
             ContextKeys.SkillObservations, out var existing).Should().BeFalse();
@@ -53,9 +65,9 @@ public sealed class SkillRoundHandlerRuntimeObservationFlowTests
     {
         var pipeline = new PipelineContext();
 
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, "skill-a", 0,
+        Buffer(pipeline, "skill-a", 0,
             MakeResultWithLimit(ExecutionLimitCategories.ExecutionLimitTokens));
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, "skill-b", 0,
+        Buffer(pipeline, "skill-b", 0,
             MakeResultWithLimit(ExecutionLimitCategories.ExecutionLimitWallClock));
 
         var observations = pipeline.Get<List<SkillObservation>>(ContextKeys.SkillObservations);

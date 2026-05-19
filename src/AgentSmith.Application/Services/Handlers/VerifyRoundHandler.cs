@@ -34,6 +34,7 @@ public sealed class VerifyRoundHandler(
     IToolKit toolKit,
     ISkillCallRuntime skillCallRuntime,
     ISkillResponseParser responseParser,
+    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger<VerifyRoundHandler> logger) : ICommandHandler<RunVerifyPhaseContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -175,7 +176,7 @@ public sealed class VerifyRoundHandler(
         var result = await skillCallRuntime.ExecuteAsync(request, costTracker, cancellationToken);
         // p0147b: runtime observations (execution-limit / execution-error) surface
         // even when the verifier fails outright, so silent verifier drops are visible.
-        SkillRoundHandlerBase.BufferRuntimeObservations(pipeline, verifier.Name, round: 0, result);
+        BufferRuntimeObservations(pipeline, verifier.Name, round: 0, result);
         if (result.Outcome is not SkillCallOutcome.Ok and not SkillCallOutcome.Incomplete)
         {
             logger.LogWarning(
@@ -235,5 +236,18 @@ public sealed class VerifyRoundHandler(
         return blocking.Count == 0
             ? null
             : VerifyNotesFormatter.Format(round: 2, blocking);
+    }
+
+    // Re-introduced post-p0147d merge: surface execution-limit / execution-error
+    // observations from SkillCallRuntime so silent skill drops still reach the
+    // pipeline summary. The old static helper on SkillRoundHandlerBase moved into
+    // ISkillRoundBufferDispatcher; this thin wrapper preserves the call shape.
+    private void BufferRuntimeObservations(
+        PipelineContext pipeline, string skillName, int round, SkillCallResult result)
+    {
+        if (result.RuntimeObservations.Count == 0) return;
+        var buffer = new SkillRoundBuffer(
+            skillName, round, result.RuntimeObservations.ToList(), null, null);
+        bufferDispatcher.Dispatch(pipeline, buffer);
     }
 }
