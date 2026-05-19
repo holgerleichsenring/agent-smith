@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.56.0...v0.56.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **observations:** downgrade mis-labeled analyzed_from_source observations instead of dropping ([#171](https://github.com/holgerleichsenring/agent-smith/issues/171)) ([ebb8ae6](https://github.com/holgerleichsenring/agent-smith/commit/ebb8ae6a40c14767cfeb61c9edc2f43971b6f965))
+
 ## [0.56.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.55.0...v0.56.0) (2026-05-19)
 
 
