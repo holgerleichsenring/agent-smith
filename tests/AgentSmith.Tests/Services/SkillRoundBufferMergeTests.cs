@@ -1,5 +1,5 @@
 using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
@@ -9,13 +9,15 @@ namespace AgentSmith.Tests.Services;
 
 public class SkillRoundBufferMergeTests
 {
+    private readonly SkillRoundBufferDispatcher _sut = new();
+
     [Fact]
     public void ApplyBufferToContext_AssignsSequentialObservationIds_FromOne()
     {
         var pipeline = new PipelineContext();
         var buffer = BufferWith("alpha", round: 1, observationCount: 3);
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, buffer);
+        _sut.ApplyBufferToContext(pipeline, buffer);
 
         pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs);
         obs!.Select(o => o.Id).Should().Equal(1, 2, 3);
@@ -26,8 +28,8 @@ public class SkillRoundBufferMergeTests
     {
         var pipeline = new PipelineContext();
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, BufferWith("alpha", 1, 2));
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, BufferWith("beta", 1, 3));
+        _sut.ApplyBufferToContext(pipeline, BufferWith("alpha", 1, 2));
+        _sut.ApplyBufferToContext(pipeline, BufferWith("beta", 1, 3));
 
         pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs);
         obs!.Select(o => o.Id).Should().Equal(1, 2, 3, 4, 5);
@@ -42,10 +44,8 @@ public class SkillRoundBufferMergeTests
         var entryA = new DiscussionEntry("alpha", "Alpha", "🅰", 1, "first");
         var entryB = new DiscussionEntry("beta", "Beta", "🅱", 1, "second");
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline,
-            new SkillRoundBuffer("alpha", 1, [], entryA, null));
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline,
-            new SkillRoundBuffer("beta", 1, [], entryB, null));
+        _sut.ApplyBufferToContext(pipeline, new SkillRoundBuffer("alpha", 1, [], entryA, null));
+        _sut.ApplyBufferToContext(pipeline, new SkillRoundBuffer("beta", 1, [], entryB, null));
 
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var log);
         log!.Select(e => e.RoleName).Should().Equal("alpha", "beta");
@@ -57,7 +57,7 @@ public class SkillRoundBufferMergeTests
         var pipeline = new PipelineContext();
         var buffer = new SkillRoundBuffer("gate", 0, [], null, "gate-output");
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, buffer);
+        _sut.ApplyBufferToContext(pipeline, buffer);
 
         pipeline.TryGet<Dictionary<string, string>>(ContextKeys.SkillOutputs, out var outputs);
         outputs!["gate"].Should().Be("gate-output");
@@ -74,7 +74,7 @@ public class SkillRoundBufferMergeTests
         };
         pipeline.Set(ContextKeys.SkillObservations, existing);
 
-        SkillRoundHandlerBase.ApplyBufferToContext(pipeline, BufferWith("alpha", 1, 2));
+        _sut.ApplyBufferToContext(pipeline, BufferWith("alpha", 1, 2));
 
         pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs);
         obs!.Select(o => o.Id).Should().Equal(7, 8, 9);

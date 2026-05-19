@@ -1,71 +1,34 @@
-using AgentSmith.Application.Models;
-using AgentSmith.Application.Services;
-using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Skills;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
-/// <summary>
-/// Orchestrates a single skill round — delegates prompt building, LLM calls,
-/// gate handling, and upstream context to injected services. Post-p0142 the
-/// chat call itself goes through <see cref="ISkillCallRuntime"/> so the
-/// LimitEnforcer + RetryCoordinator + LoopTraceCollector + OutcomeClassifier
-/// actually run for every round. Subclasses provide only the domain section.
-/// </summary>
+/// <summary>p0147d: Template-method router — picks discussion vs structured and delegates to injected executors. Subclasses inject an <see cref="ISkillPromptStrategy"/>.</summary>
 public abstract class SkillRoundHandlerBase(
-    ISkillPromptBuilder promptBuilder,
-    IGateRetryCoordinator gateRetryCoordinator,
-    IUpstreamContextBuilder upstreamContextBuilder,
-    StructuredOutputInstructionBuilder instructionBuilder,
-    IChatClientFactory chatClientFactory,
-    ISkillCallRuntime skillCallRuntime)
+    IDiscussionRoundExecutor discussionExecutor,
+    IStructuredRoundExecutor structuredExecutor)
 {
-    protected IChatClientFactory ChatClientFactory { get; } = chatClientFactory;
-    private readonly ISkillCallRuntime _skillCallRuntime = skillCallRuntime;
-
-    private readonly StructuredOutputInstructionBuilder _instructionBuilder = instructionBuilder;
-
     protected abstract ILogger Logger { get; }
-    protected abstract string BuildDomainSection(PipelineContext pipeline);
-
-    /// <summary>
-    /// Splits the domain section into a stable prefix (cached across same-round calls)
-    /// and a per-skill suffix. Default returns the legacy single-section as the prefix
-    /// with an empty suffix — handlers that benefit from prompt caching override this.
-    /// </summary>
-    protected virtual (string Stable, string PerSkill) BuildDomainSectionParts(PipelineContext pipeline)
-        => (BuildDomainSection(pipeline), string.Empty);
-
-    protected virtual string SkillRoundCommandName => "SkillRoundCommand";
+    protected abstract ISkillPromptStrategy Strategy { get; }
 
     protected async Task<CommandResult> ExecuteRoundAsync(
-        string skillName, int round, PipelineContext pipeline,
-        CancellationToken cancellationToken)
+        string skillName, int round, PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var roles) || roles is null)
             return CommandResult.Fail("No available roles in pipeline context");
-
         var role = roles.FirstOrDefault(r => r.Name == skillName);
-        if (role is null)
-            return CommandResult.Fail($"Role '{skillName}' not found");
-
+        if (role is null) return CommandResult.Fail($"Role '{skillName}' not found");
         pipeline.Set(ContextKeys.ActiveSkill, skillName);
 
-        if (IsStructuredRound(role, pipeline))
-            return await ExecuteStructuredRoundAsync(
-                skillName, role, pipeline, cancellationToken);
-
-        return await ExecuteDiscussionRoundAsync(
-            skillName, role, roles, round, pipeline, cancellationToken);
+      return IsStructuredRound(role, pipeline)
+            ? await structuredExecutor.ExecuteAsync(skillName, role, Strategy, pipeline, Logger, cancellationToken)
+            : await discussionExecutor.ExecuteAsync(skillName, role, roles, round, Strategy, pipeline, Logger, cancellationToken);
     }
 
     private async Task<CommandResult> ExecuteDiscussionRoundAsync(
@@ -498,28 +461,4 @@ public abstract class SkillRoundHandlerBase(
         role.Orchestration is not null
         && pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
         && pipelineType is not PipelineType.Discussion;
-
-    private static string? ResolveExistingTests(PipelineContext pipeline) =>
-        pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) && map is not null
-            ? ProjectMapPromptRenderer.RenderExistingTests(map)
-            : null;
-
-    /// <summary>
-    /// p0132a: map the triage <see cref="PipelinePhase"/> from context
-    /// (Plan/Review/Final) into the per-skill <see cref="SkillExecutionPhase"/>
-    /// surface used by the cost-tracker. Falls back to Discuss when no
-    /// phase is set (legacy discussion-mode rounds).
-    /// </summary>
-    private static SkillExecutionPhase MapPhase(PipelineContext pipeline)
-    {
-        if (!pipeline.TryGet<PipelinePhase>(ContextKeys.CurrentPhase, out var phase))
-            return SkillExecutionPhase.Discuss;
-        return phase switch
-        {
-            PipelinePhase.Plan => SkillExecutionPhase.Plan,
-            PipelinePhase.Review => SkillExecutionPhase.Review,
-            PipelinePhase.Final => SkillExecutionPhase.Synthesize,
-            _ => SkillExecutionPhase.Discuss,
-        };
-    }
 }

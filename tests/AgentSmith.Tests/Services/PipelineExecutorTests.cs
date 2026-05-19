@@ -22,6 +22,37 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public class PipelineExecutorTests
 {
+    private readonly Mock<ICommandExecutor> _executorMock = new();
+    private readonly Mock<ICommandContextFactory> _factoryMock = new();
+    private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
+    private readonly Mock<IPipelineLifecycleCoordinator> _lifecycleMock = new();
+    private readonly Mock<ISandboxFactory> _sandboxFactoryMock = new();
+    private readonly Mock<IProgressReporter> _progressReporterMock = new();
+    private readonly PipelineExecutor _sut;
+
+    public PipelineExecutorTests()
+    {
+        _lifecycleMock
+            .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Mock.Of<IAsyncPipelineLifecycle>());
+        var resolverMock = new Mock<ISandboxLanguageResolver>();
+        resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
+        _sut = new PipelineExecutor(
+            _executorMock.Object,
+            _factoryMock.Object,
+            _ticketFactoryMock.Object,
+            _lifecycleMock.Object,
+            _sandboxFactoryMock.Object,
+            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
+            resolverMock.Object,
+            _progressReporterMock.Object,
+            new AgentSmith.Application.Services.Pipeline.PhaseDataFlowResolver(
+                Array.Empty<AgentSmith.Contracts.Pipeline.IPhaseDataFlow>()),
+            new AgentSmithConfig(),
+            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            NullLogger<PipelineExecutor>.Instance);
+    }
     public static IEnumerable<object[]> ExecutorShapes() => PipelineExecutorTestHarness.ExecutorShapes();
 
     [Theory]
