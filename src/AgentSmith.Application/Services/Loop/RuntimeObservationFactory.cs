@@ -16,6 +16,28 @@ namespace AgentSmith.Application.Services.Loop;
 public sealed class RuntimeObservationFactory
 {
     /// <summary>
+    /// p0151d: cost-cap-exhausted observation emitted by SkillCallRuntime when
+    /// the pipeline cost cap is reached and a skill call is short-circuited.
+    /// Carries the actual USD + token totals so the operator sees what the
+    /// pipeline consumed before the cap fired.
+    /// </summary>
+    public SkillObservation BuildCostCapExhausted(string skillName, decimal usd, long tokens) =>
+        new(
+            Id: 0,
+            Role: "runtime",
+            Concern: ObservationConcern.Risk,
+            Description:
+                $"Skill '{skillName}' skipped: pipeline cost cap exhausted " +
+                $"(${usd:F4} spent / {tokens:N0} tokens). Compile + Deliver still ran; " +
+                $"raise pipeline_cost_cap in agentsmith.yml for deep audits.",
+            Suggestion: "Raise pipeline_cost_cap.default (or the per-pipeline override) in agentsmith.yml.",
+            Blocking: false,
+            Severity: ObservationSeverity.Info,
+            Confidence: 100,
+            EvidenceMode: EvidenceMode.Confirmed,
+            Category: ExecutionLimitCategories.CostCapExhausted);
+
+    /// <summary>
     /// Returns a single execution-limit / execution-error observation when the
     /// call ended without usable output, or null for Ok / Failed-Parse /
     /// Failed-Validation (parse + validation failures already produce richer
