@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.0...v0.57.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **prompts:** pull preamble toward tool use via identity + concrete targets ([#175](https://github.com/holgerleichsenring/agent-smith/issues/175)) ([5fb9b83](https://github.com/holgerleichsenring/agent-smith/commit/5fb9b83c62fc7f354807646f1cce21fb82d2fa12))
+
 ## [0.57.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.56.1...v0.57.0) (2026-05-19)
 
 
