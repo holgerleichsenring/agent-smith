@@ -1,21 +1,29 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0151f
-goal: "Rewrite the api-security-scan skill catalog using the format and the
-  contracts established in p0151a-e. The proving ground for the
-  umbrella's hypothesis: skills with tools + bus + source-anchored
-  validator produce IDE-buddy-quality output.
+goal: "Rewrite the api-security-scan skill catalog using the contracts
+  established in p0151a-d. The proving ground for the umbrella's
+  hypothesis: skills with tools + bus + source-anchored validator
+  produce IDE-buddy-quality output.
 
   New catalog shape: a recon group that builds inventory observations,
   a specialist group that judges against those observations + the
-  scanner findings, and a single final synthesizer. Every skill is
-  source-anchored; the only one that may emit Potential / Confirmed
-  without file:line is the scanner-correlation-judge from p0151g.
+  scanner findings, and a single final synthesizer. AnalyzedFromSource
+  observations are gated by p0151b's ReadSet validator; observations
+  with other evidence modes (Potential, Confirmed) keep their natural
+  anchors (api_path, schema_name, scanner template_id) — the
+  scanner-correlation-judge from p0151g is the main producer of
+  Confirmed-with-template_id observations.
 
   Sequential execution per the umbrella decision — recon group runs
   first, specialist group second, final third. Bus visibility from
-  p0151c means specialists see recon observations and skip rediscovery."
+  p0151c means specialists see recon observations and skip rediscovery.
 
-requires: ["p0151a", "p0151b", "p0151c", "p0151d", "p0151e"]
+  Skill bodies stay at the p0127c format. No new SKILL.md sections —
+  the source-anchoring obligation lives in the runtime (p0151a/b),
+  not in per-skill prompt boilerplate. See the umbrella's
+  'no new SKILL.md format' decision."
+
+requires: ["p0151a", "p0151b", "p0151c", "p0151d"]
 
 scope:
   in: |
@@ -133,7 +141,7 @@ decisions:
 
 steps:
   - id: recon-skills
-    action: "Author the five recon SKILL.md files per p0151e format. Each cites tools (Read, Glob, Grep, Bash) and budgets."
+    action: "Author the five recon SKILL.md files per the existing p0127c format (no new sections — runtime contract from p0151a/b enforces source-anchoring). Each follows the established frontmatter convention; tool surface comes from the policy, not from SKILL.md text."
     new:
       - "(cross-repo agent-smith-skills) skills/api-security/inventory-controllers/SKILL.md"
       - "(cross-repo agent-smith-skills) skills/api-security/inventory-auth-stack/SKILL.md"
