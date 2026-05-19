@@ -125,16 +125,29 @@ public sealed class SarifOutputStrategy(
         if (!string.IsNullOrWhiteSpace(obs.Details))
             properties["detailed_message"] = obs.Details;
 
+        var isExecutionLimit = ExecutionLimitCategories.IsExecutionLimit(obs.Category);
+        if (isExecutionLimit)
+            properties["category"] = obs.Category;
+
         var result = new JsonObject
         {
             ["ruleId"] = ruleId,
-            ["level"] = MapSeverity(obs.Severity),
+            // p0147b: execution-limit / execution-error observations always map
+            // to SARIF "note" level (informational) regardless of severity, and
+            // carry a suppression marker so SARIF consumers (GitHub Code
+            // Scanning) don't treat them as security findings.
+            ["level"] = isExecutionLimit ? "note" : MapSeverity(obs.Severity),
             ["message"] = new JsonObject { ["text"] = obs.Description },
             ["locations"] = new JsonArray { location },
             ["properties"] = properties
         };
 
-        if (obs.ReviewStatus == "false_positive")
+        if (isExecutionLimit)
+            result["suppressions"] = new JsonArray
+            {
+                new JsonObject { ["kind"] = "inSource", ["status"] = "accepted" }
+            };
+        else if (obs.ReviewStatus == "false_positive")
             result["suppressions"] = new JsonArray
             {
                 new JsonObject { ["kind"] = "external", ["status"] = "accepted" }
@@ -185,8 +198,16 @@ public sealed class SarifOutputStrategy(
             return;
         }
 
-        var s = ObservationSummary.From(observations);
+        // p0147b: count execution-limit / execution-error observations
+        // separately so they don't inflate the security-findings tally.
+        var findings = observations
+            .Where(o => !ExecutionLimitCategories.IsExecutionLimit(o.Category)).ToList();
+        var limitHitCount = observations.Count - findings.Count;
+
+        var s = ObservationSummary.From(findings);
         logger.LogInformation("Found {Total} issues ({Critical} CRITICAL, {High} HIGH, {Medium} MEDIUM, {Low} LOW, {Info} INFO)",
             s.Total, s.Critical, s.High, s.Medium, s.Low, s.Info);
+        if (limitHitCount > 0)
+            logger.LogInformation("Execution limits hit: {Count}", limitHitCount);
     }
 }
