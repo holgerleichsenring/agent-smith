@@ -1,13 +1,32 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Configuration;
+using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Orchestrator;
+using AgentSmith.Application.Services.Persistence;
+using AgentSmith.Application.Services.Pipeline;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.Tools;
+using AgentSmith.Application.Services.Triage;
+using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Persistence;
+using AgentSmith.Contracts.Pipeline;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application;
 
@@ -42,18 +61,10 @@ public static partial class ServiceCollectionExtensions
         AddSkillRuntime(services);
         AddContextBuilders(services);
         AddPipelineRuntime(services);
-        return services;
-    }
-
-    private static void AddBuilder<TBuilder>(IServiceCollection services, string commandName)
-        where TBuilder : IContextBuilder, new()
-        => services.AddSingleton(new KeyedContextBuilder(commandName, new TBuilder()));
-        services.AddSingleton<Services.Configuration.PollingConfigDeprecationWarner>();
         RegisterHandlers(services);
         RegisterContextBuilders(services);
         RegisterPipeline(services);
         RegisterLoopServices(services);
-        AddWebhookCommentIntent(services);
         return services;
     }
 
@@ -98,6 +109,7 @@ public static partial class ServiceCollectionExtensions
         services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
     }
 
+        
     private static void RegisterHandlers(IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
