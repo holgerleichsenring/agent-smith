@@ -18,8 +18,12 @@ public sealed partial class SummaryOutputStrategy(
 
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var findings = context.Observations.Count > 0
-            ? FromObservations(context.Observations)
+        // p0147b: split runtime execution-limit / execution-error observations
+        // out of the findings list — they render in their own footer section
+        // so silent skill drops are visible without polluting the severity tally.
+        var (operatorObs, limitObs) = SplitByCategory(context.Observations);
+        var findings = operatorObs.Count > 0
+            ? FromObservations(operatorObs)
             : ParseFromMarkdown(context);
 
         var sb = new StringBuilder();
@@ -51,6 +55,13 @@ public sealed partial class SummaryOutputStrategy(
 
         sb.AppendLine($"Total: {findings.Count} findings");
 
+        if (limitObs.Count > 0)
+        {
+            sb.AppendLine($"Execution limits hit: {limitObs.Count}");
+            foreach (var obs in limitObs)
+                sb.AppendLine($"  [{LimitLabel(obs.Category)}] {ExtractTitle(obs.Description)}");
+        }
+
         if (context.Pipeline.TryGet<object>("PipelineCostTracker", out var tracker))
             sb.AppendLine($"{tracker}");
 
@@ -58,9 +69,35 @@ public sealed partial class SummaryOutputStrategy(
 
         Console.Write(sb.ToString());
 
-        logger.LogInformation("Summary delivered ({Count} findings)", findings.Count);
+        logger.LogInformation(
+            "Summary delivered ({Count} findings, {Limits} limit hits)",
+            findings.Count, limitObs.Count);
         return Task.CompletedTask;
     }
+
+    private static (List<SkillObservation> Operator, List<SkillObservation> Limits)
+        SplitByCategory(IReadOnlyList<SkillObservation> observations)
+    {
+        var op = new List<SkillObservation>(observations.Count);
+        var limits = new List<SkillObservation>();
+        foreach (var obs in observations)
+        {
+            if (ExecutionLimitCategories.IsExecutionLimit(obs.Category))
+                limits.Add(obs);
+            else
+                op.Add(obs);
+        }
+        return (op, limits);
+    }
+
+    private static string LimitLabel(string? category) => category switch
+    {
+        ExecutionLimitCategories.ExecutionLimitToolCalls => "tool-call limit",
+        ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
+        ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
+        ExecutionLimitCategories.ExecutionError => "runtime error",
+        _ => "execution limit"
+    };
 
     private static List<SummaryFinding> FromObservations(IReadOnlyList<SkillObservation> observations) =>
         observations.Select(o => new SummaryFinding(
