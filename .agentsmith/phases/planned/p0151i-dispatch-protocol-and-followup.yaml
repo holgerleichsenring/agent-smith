@@ -1,0 +1,148 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151i
+goal: "Adaptive dispatch protocol — deferred. Implement ONLY if p0151h
+  shows the passive observation bus (p0151c) alone fell short of the
+  IDE-buddy quality bar. The umbrella's bet is that passive read is
+  enough; this sub-phase is the fallback if the bet loses.
+
+  The mechanism: a skill emits a needs_followup observation (a
+  DispatchRequest field on SkillObservation) identifying a target
+  skill + focus + reason. The orchestrator — not the emitting skill —
+  inspects the request, consults the pipeline cost budget from
+  p0151d, and dispatches the follow-up skill round if affordable.
+  Pull model: the skill never directly invokes another skill;
+  budget hoheit stays central; fan-out loops are bounded by a
+  depth cap.
+
+  This is a non-trivial protocol: new typed observation field,
+  budget coupling, depth tracking, dispatch enqueue mechanics, new
+  failure modes ('dispatch skipped: budget exhausted'). It deserves
+  its own validation cycle, which is why it is split out of 151c
+  and gated on 151h evidence."
+
+requires: ["p0151c", "p0151d", "p0151h"]
+
+scope:
+  in: |
+    (1) DispatchRequest record on SkillObservation. New optional field
+        `dispatch_request` carrying { skill, focus, reason }. When
+        present, signals the orchestrator that this skill finished
+        but wants a specific follow-up. Lives in the observation, not
+        a side-channel, so it survives the same validator + parser
+        path that p0151b set up.
+
+    (2) DispatchCoordinator inspects the latest round's observations
+        for DispatchRequest entries. For each request it consults
+        PipelineCostTracker (from p0151d) — if the projected cost of
+        one more skill round leaves headroom under the cap, AND the
+        dispatch depth ≤ 2, it enqueues an ApiSecuritySkillRoundCommand
+        (or pipeline-appropriate equivalent) targeting the requested
+        skill with a context-key containing the focus + reason.
+        Otherwise the coordinator emits a typed observation
+        'dispatch_skipped' with the reason (budget_exhausted,
+        depth_cap, unknown_skill).
+
+    (3) Dispatch-depth tracking via a pipeline context concept
+        'dispatch_depth' incremented on each dispatched follow-up,
+        decremented when the follow-up finishes. Cap = 2.
+
+    (4) SourceAnchoringPreamble (from p0151a/c) gains one sentence
+        about when to emit a needs_followup observation: 'If your
+        finding suggests a deeper inspection that another skill is
+        better positioned for, emit a needs_followup observation
+        naming that skill, the focus area, and your reason. The
+        orchestrator will decide whether to dispatch within budget.'
+
+  out: |
+    Skill-to-skill direct push. A skill cannot call another skill
+    directly — only emit a DispatchRequest. Orchestrator is the only
+    component with cost-budget authority.
+
+    Cross-pipeline dispatch (a skill in pipeline X requesting a round
+    in pipeline Y). Out of scope; the use case has not surfaced.
+
+    Loops on dispatch failure. If a dispatch is skipped, the
+    requesting skill does not get re-invoked with a fallback. The
+    observation 'dispatch_skipped' is the contract — operator sees it
+    and may re-run with a higher cap.
+
+decisions:
+  - key: |
+      Pull-based dispatch via observation field, not via a new tool.
+      — A skill cannot trigger work it does not know the budget for.
+      Emitting a request and letting the orchestrator decide keeps
+      the protocol simple and the budget enforceable. alternatives:
+      DispatchSkill tool (rejected: gives the LLM direct fan-out
+      capability, which is the failure mode we are protecting
+      against).
+
+  - key: |
+      Depth cap = 2. — One follow-up is reasonable (specialist
+      confirms a recon hint with deeper read). Two is the rare case
+      where the confirmed finding spawns a related angle. Three is
+      already pathological — at that point the original skill
+      catalog is mis-designed. alternatives: configurable depth
+      (rejected: knob without observable use case); no cap
+      (rejected: see above).
+
+  - key: |
+      Gate this phase on 151h evidence. — The dispatch protocol is
+      non-trivial. If the passive observation bus already produces
+      IDE-buddy-quality output, dispatch is over-engineering. Only
+      implement if 151h proves the gap. alternatives: implement
+      anyway (rejected: code without observable value); never
+      implement (rejected: leaves no escape hatch if passive proves
+      insufficient).
+
+steps:
+  - id: dispatch-request
+    action: "Add DispatchRequest record + field on SkillObservation. ObservationParser maps it through. Bus projection excludes it (consumer-facing concern, not bus-share concern)."
+    new:
+      - "src/AgentSmith.Contracts/Models/SkillDispatchRequest.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Models/SkillObservation.cs"
+      - "src/AgentSmith.Application/Services/Handlers/RawObservation.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs"
+
+  - id: coordinator
+    action: "DispatchCoordinator inspects new observations for DispatchRequest, checks budget + depth, enqueues SkillRoundCommand or pipeline-equivalent."
+    new:
+      - "src/AgentSmith.Application/Services/SkillRounds/DispatchCoordinator.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/IDispatchCoordinator.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/ApiSkillRoundHandler.cs (call coordinator after each round)"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs (DI registration)"
+
+  - id: depth-context
+    action: "Add 'dispatch_depth' to ContextKeys + concept vocabulary. Coordinator increments/decrements."
+    modify:
+      - "src/AgentSmith.Application/Models/ContextKeys.cs"
+      - "(cross-repo agent-smith-skills) skills/concept-vocabulary.yaml — add dispatch_depth int concept"
+
+  - id: preamble-extension
+    action: "SourceAnchoringPreamble gains the needs_followup sentence."
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+
+  - id: tests
+    action: "Coordinator behavior under various budget + depth scenarios; observation parsing of dispatch_request."
+    new:
+      - "tests/AgentSmith.Tests/SkillRounds/DispatchCoordinatorTests.cs"
+      - "tests/AgentSmith.Tests/SkillRounds/DispatchDepthCapTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/SkillObservationDispatchRequestParseTests.cs"
+
+tests:
+  - "DispatchCoordinator_NoDispatchRequest_NoEnqueue"
+  - "DispatchCoordinator_DispatchRequestUnderBudget_EnqueuesRound"
+  - "DispatchCoordinator_DispatchRequestBudgetExhausted_EmitsSkipObservation"
+  - "DispatchCoordinator_DispatchRequestAtDepthCap_EmitsSkipObservation"
+  - "DispatchCoordinator_DispatchRequestUnknownSkill_EmitsSkipObservation"
+  - "DispatchCoordinator_NestedDispatch_RespectsDepthIncrement"
+  - "RawObservation_DispatchRequestField_ParsesCorrectly"
+
+done:
+  - "p0151h evidence shows passive bus alone fell short of the IDE-buddy quality bar (prerequisite — if 151h passes cleanly, this phase stays parked)."
+  - "A planted DispatchRequest in a test response triggers exactly one follow-up round (verifiable via the pipeline command log)."
+  - "A planted DispatchRequest with the pipeline cost budget exhausted produces a 'dispatch_skipped' observation and no enqueue."
+  - "Dispatch depth never exceeds 2 in any test scenario."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."

@@ -6,12 +6,15 @@ namespace AgentSmith.Application.Services.Loop;
 /// <summary>
 /// Captures the per-skill-call trace (LLM rounds + tool calls), truncates large
 /// argument JSON, and emits a structured INFO log on completion. Owns the
-/// 200-char ArgsSummary contract.
+/// 200-char ArgsSummary contract. Also tracks the set of source-file paths the
+/// skill read in this call (the ReadSet) — consumed by p0151b's source-anchored
+/// observation validator.
 /// </summary>
 public sealed class LoopTraceCollector
 {
     private const int MaxArgsSummaryChars = 200;
     private readonly List<LoopTraceEntry> _entries = new();
+    private readonly HashSet<string> _readSet = new(StringComparer.OrdinalIgnoreCase);
 
     public void AppendLlmCall(string model, long inputTokens, long outputTokens, long durationMs)
         => _entries.Add(LoopTraceEntry.LlmCall(model, inputTokens, outputTokens, durationMs));
@@ -19,6 +22,13 @@ public sealed class LoopTraceCollector
     public void AppendToolCall(string toolName, string argsJson, long durationMs, bool success, string? errorMessage)
         => _entries.Add(LoopTraceEntry.ToolCall(
             toolName, TruncateArgs(argsJson), durationMs, success, errorMessage));
+
+    public void AppendReadPath(string path)
+    {
+        if (!string.IsNullOrWhiteSpace(path)) _readSet.Add(path);
+    }
+
+    public IReadOnlyCollection<string> ReadSet => _readSet;
 
     public IReadOnlyList<LoopTraceEntry> Build() => _entries.ToArray();
 

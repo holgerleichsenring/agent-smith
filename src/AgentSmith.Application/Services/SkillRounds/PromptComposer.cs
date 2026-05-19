@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -13,13 +14,16 @@ namespace AgentSmith.Application.Services.SkillRounds;
 /// p0147d: Resolves PipelineContext fields (project context, domain rules,
 /// code map, discussion log, plan artifact, existing tests, assigned role)
 /// and delegates to <see cref="ISkillPromptBuilder"/> for the actual prompt
-/// assembly. Returns the (system, user-prefix, user-suffix) triple so the
-/// caller can attach cache markers + flatten into ChatMessages.
+/// assembly. Prepends the p0151a <see cref="SourceAnchoringPreamble"/> to the
+/// final system prompt so every skill inherits the source-anchoring rule.
+/// Returns the (system, user-prefix, user-suffix) triple so the caller can
+/// attach cache markers + flatten into ChatMessages.
 /// </summary>
 public sealed class PromptComposer(
     ISkillPromptBuilder promptBuilder,
     StructuredOutputInstructionBuilder instructionBuilder,
-    IUpstreamContextBuilder upstreamContextBuilder) : IPromptComposer
+    IUpstreamContextBuilder upstreamContextBuilder,
+    SourceAnchoringPreamble preamble) : IPromptComposer
 {
     public (string SystemPrompt, string UserPrefix, string UserSuffix) ComposeDiscussion(
         RoleSkillDefinition role, ISkillPromptStrategy strategy,
@@ -33,10 +37,11 @@ public sealed class PromptComposer(
         var assignedRole = ResolveAssignedRole(skillName, pipeline);
         var planArtifact = ResolvePlanArtifact(pipeline);
         var (domainStable, domainVariable) = strategy.BuildDomainSectionParts(pipeline);
-        return promptBuilder.BuildDiscussionPromptParts(
+        var parts = promptBuilder.BuildDiscussionPromptParts(
             role, domainStable, domainVariable, projectContext, domainRules, codeMap,
             (IReadOnlyList<DiscussionEntry>)(discussionLog ?? []),
             round, existingTests, assignedRole, planArtifact);
+        return PrependPreamble(parts);
     }
 
     public (string SystemPrompt, string UserPrefix, string UserSuffix) ComposeStructured(
@@ -51,9 +56,14 @@ public sealed class PromptComposer(
         var upstreamContext = upstreamContextBuilder.Build(orch.Role, pipeline, upstreamSnapshot);
         var outputInstruction = instructionBuilder.Build(orch);
         var existingTests = ResolveExistingTests(pipeline);
-        return promptBuilder.BuildStructuredPromptParts(
+        var parts = promptBuilder.BuildStructuredPromptParts(
             role, domainStable, domainVariable, upstreamContext, outputInstruction, existingTests);
+        return PrependPreamble(parts);
     }
+
+    private (string SystemPrompt, string UserPrefix, string UserSuffix) PrependPreamble(
+        (string SystemPrompt, string UserPrefix, string UserSuffix) parts) =>
+        (preamble.Build() + "\n\n" + parts.SystemPrompt, parts.UserPrefix, parts.UserSuffix);
 
     private static SkillRole? ResolveAssignedRole(string skillName, PipelineContext pipeline)
     {

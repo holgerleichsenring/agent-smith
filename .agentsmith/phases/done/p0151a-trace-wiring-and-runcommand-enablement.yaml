@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0151a
+goal: "Make skill execution observable, give all phases the read-only shell
+  verbs they need, and add a one-paragraph system-prompt-prefix that
+  states the source-anchoring obligation.
+
+  Today SkillCallRuntime.cs:54 instantiates a LoopTraceCollector but no
+  code path calls AppendLlmCall or AppendToolCall — the runtime computes
+  the trace from zero entries and emits 'llm_calls=0 tool_calls=0'
+  unconditionally on every skill. PipelineCostTracker separately
+  accounts for tokens, so operators see real token cost but cannot tell
+  whether tools were invoked.
+
+  RunCommand (FilesystemToolHost.cs:90, shipped in p0145) already runs
+  /bin/sh -c inside the sandbox. It is currently exposed only in the
+  Investigator / Verify phase tool surfaces. Plan / Survey phases reach
+  for directory inventory (ls / find / wc) and stitch it together via
+  multiple Glob calls. Enabling the existing RunCommand in those phases
+  is a one-line change in the policy compositions.
+
+  The system-prompt-prefix piece is the single-place-to-say-it counter
+  to the killed-151e idea of per-skill Tools / Budget / Drop-If sections.
+  Once, in the prompt strategy, the LLM is told 'you have these tools;
+  every analyzed_from_source claim must cite a file you actually read
+  in this call — the validator drops anything else.' Same rule that
+  p0151b enforces mechanically; the prefix gives the LLM advance
+  notice."
+
+requires: ["p0148"]
+
+scope:
+  in: |
+    (1) RetryCoordinator + tool-call instrumentation. Inject the active
+        LoopTraceCollector via SkillCallRuntime so each LLM call records
+        model + tokens + duration via AppendLlmCall, and each tool
+        invocation records tool name + args summary + duration + success
+        via AppendToolCall. The collector already has the API; nothing
+        calls it.
+
+    (2) ReadSet exposure on LoopTraceCollector. Add a public read-only
+        property Files (or ReadPaths) that returns the distinct set of
+        `path` arguments from filesystem-Read tool calls captured during
+        this skill call. Consumed by p0151b's source-anchored validator.
+
+    (3) RunCommand enablement in additional phases. AgenticToolSurface
+        compositions for Plan / Survey gain RunCommand alongside the
+        existing Read / Grep / ListFiles. StructuredRoundToolPolicy
+        passes 5 tools for the api-security-scan plan phase instead
+        of 4. No new tool host class — existing FilesystemToolHost
+        already has RunCommand at line 90.
+
+    (4) System-prompt-prefix. Prompt strategies (ApiSkillPromptStrategy,
+        SkillPromptStrategy, and the security-scan equivalent) compose
+        a shared SourceAnchoringPreamble string at the top of every
+        system prompt: 'You have these tools: <names>. Every observation
+        you emit with evidence_mode: analyzed_from_source must cite a
+        file you actually read in this call. Observations claiming
+        source without that read are dropped.' One file, all skills
+        inherit.
+
+    (5) ToolPolicyDecision log line (already present per the recent
+        f4a431a 'diag' commit) updated to enumerate the resolved tool
+        names, not just the count — so operators can see at a glance
+        whether RunCommand is in the surface.
+
+  out: |
+    A new BashToolHost class. p0145 already shipped RunCommand; a new
+    host would be parallel infrastructure that gets deleted in six
+    months. The whitelist question is moot — the sandbox is the
+    boundary, not the command list.
+
+    Per-tool-call cost attribution. Aggregate cost tracking is already
+    correct; per-call attribution is a separate question.
+
+    Trace serialisation format changes. Current 'tool[name:ok,ms]'
+    rendering in LoopTraceCollector.FormatEntry is sufficient.
+
+    Prompt-prefix internationalisation, tone variants, or per-pipeline
+    customisation. One prefix, English, every pipeline.
+
+decisions:
+  - key: |
+      LoopTraceCollector ownership stays in SkillCallRuntime;
+      collaborators receive it via parameter, not via DI. — The
+      collector is per-call state, not a long-lived service. Making
+      it scoped would couple to DI scope semantics (and we burned
+      ourselves on this in the 'async scope teardown' commit 8c3537d).
+      alternatives: scoped DI registration (rejected: state leakage
+      between skills); thread-local (rejected: actively hostile to
+      async).
+
+  - key: |
+      RunCommand stays unrestricted within the sandbox boundary. —
+      The container is the boundary. A command-level whitelist would
+      need to enumerate every safe verb forever; the sandbox already
+      enumerates every safe filesystem. p0145 made this call already;
+      p0151a just extends the phase surface that exposes it.
+      alternatives: command whitelist (rejected: parallel boundary to
+      the sandbox); separate read-only host (rejected: existing
+      FilesystemToolHost.Guards.CheckRead already gates reads — write
+      ops need an explicit write-permitted-host path).
+
+  - key: |
+      Source-anchoring rule in one shared prefix, not per-skill
+      SKILL.md. — The killed 151e wanted Tools / Budget / Drop-If
+      sections; the same lesson the p0127c cutover taught (do not
+      explode the skill format) tells us to put cross-cutting rules
+      in one place. The prefix is composed by the prompt strategy
+      that already runs for every skill. alternatives: per-skill
+      reminder (rejected: duplicates 44+ times); no prefix, validator
+      only (rejected: the LLM does not know the rule until its output
+      is rejected — wastes a round-trip).
+
+steps:
+  - id: trace-wiring
+    action: "Wire LoopTraceCollector into RetryCoordinator + the tool invocation sites so AppendLlmCall / AppendToolCall actually fire per round-trip and per tool call."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+      - "src/AgentSmith.Application/Services/Loop/RetryCoordinator.cs"
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs (or wherever the AIFunction wrappers live)"
+
+  - id: read-set
+    action: "Expose ReadSet on LoopTraceCollector — distinct path arguments from ReadFile tool calls — for the source-anchored validator in p0151b."
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/LoopTraceCollector.cs"
+
+  - id: runcommand-in-plan
+    action: "AgenticToolSurface.Plan / .Survey compositions include RunCommand. StructuredRoundToolPolicy hands 5 tools to api-security-scan plan rounds."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs"
+      - "src/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs"
+      - "src/AgentSmith.Application/Services/SkillRounds/StructuredRoundToolPolicy.cs"
+
+  - id: source-anchoring-preamble
+    action: "Shared SourceAnchoringPreamble string composed at the top of every system prompt by the prompt strategy."
+    new:
+      - "src/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/ApiSkillPromptStrategy.cs"
+      - "src/AgentSmith.Application/Services/Prompts/SkillPromptStrategy.cs (or whatever the discussion-path strategy is named after p0147d)"
+
+  - id: tests
+    action: "Cover trace wiring, ReadSet, tool-surface composition, and preamble inclusion."
+    new:
+      - "tests/AgentSmith.Tests/Loop/LoopTraceCollectorAppendTests.cs"
+      - "tests/AgentSmith.Tests/Loop/SkillCallRuntimeTraceFlowTests.cs"
+      - "tests/AgentSmith.Tests/Tools/StructuredRoundToolPolicyRunCommandTests.cs"
+      - "tests/AgentSmith.Tests/Prompts/SourceAnchoringPreambleTests.cs"
+
+tests:
+  - "LoopTraceCollector_AppendLlmCall_AddsLlmEntry"
+  - "LoopTraceCollector_AppendToolCall_AddsToolEntry"
+  - "LoopTraceCollector_ReadSet_ReturnsDistinctReadPaths"
+  - "SkillCallRuntime_SingleLlmRound_TraceShowsOneLlmCall"
+  - "SkillCallRuntime_LlmInvokesReadTool_TraceShowsLlmAndToolCalls"
+  - "StructuredRoundToolPolicy_ApiSecurityScanPlan_IncludesRunCommand"
+  - "AgenticToolSurface_Plan_IncludesRunCommand"
+  - "AgenticToolSurface_Survey_IncludesRunCommand"
+  - "SourceAnchoringPreamble_AppearsAtTopOfSystemPrompt"
+  - "SourceAnchoringPreamble_NamesTheActiveToolSet"
+
+done:
+  - "Smoke against Sample api-security-scan: skill_call_trace lines show non-zero llm_calls + tool_calls for every skill that has tools in its policy."
+  - "grep -n 'AppendLlmCall\\|AppendToolCall' src/AgentSmith.Application/Services/ returns hits in RetryCoordinator and the tool host wrappers (not only in LoopTraceCollector itself)."
+  - "RunCommand is present in StructuredRoundToolPolicy.GetTools for api-security-scan plan phase (verifiable via 'tool_policy: → 5 tools' log line)."
+  - "Every skill round's system prompt begins with the SourceAnchoringPreamble (verifiable by capturing one round's prompt in a smoke fixture)."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines."
