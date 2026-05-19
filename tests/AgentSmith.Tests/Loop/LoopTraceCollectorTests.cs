@@ -97,4 +97,55 @@ public sealed class LoopTraceCollectorTests
         snapshot1.Should().HaveCount(1);
         snapshot2.Should().HaveCount(2);
     }
+
+    [Fact]
+    public void ReadSet_NoReads_IsEmpty()
+    {
+        var collector = new LoopTraceCollector();
+
+        collector.ReadSet.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AppendReadPath_AddsPathToReadSet()
+    {
+        var collector = new LoopTraceCollector();
+
+        collector.AppendReadPath("src/Program.cs");
+
+        collector.ReadSet.Should().Contain("src/Program.cs");
+    }
+
+    [Fact]
+    public void AppendReadPath_DuplicatePaths_RecordedOnce()
+    {
+        var collector = new LoopTraceCollector();
+
+        collector.AppendReadPath("src/Program.cs");
+        collector.AppendReadPath("src/Program.cs");
+
+        collector.ReadSet.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void AppendReadPath_DifferentCaseSamePath_TreatedAsDuplicate()
+    {
+        var collector = new LoopTraceCollector();
+
+        collector.AppendReadPath("src/Program.cs");
+        collector.AppendReadPath("SRC/PROGRAM.CS");
+
+        collector.ReadSet.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void AppendReadPath_EmptyOrWhitespacePath_Ignored()
+    {
+        var collector = new LoopTraceCollector();
+
+        collector.AppendReadPath("");
+        collector.AppendReadPath("   ");
+
+        collector.ReadSet.Should().BeEmpty();
+    }
 }

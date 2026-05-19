@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.SkillRounds.Strategies;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Services;
@@ -18,6 +19,7 @@ public static class SkillRoundInfrastructureExtensions
 {
     public static IServiceCollection AddSkillRoundInfrastructure(this IServiceCollection services)
     {
+        services.AddTransient<SourceAnchoringPreamble>();
         services.AddTransient<IPromptComposer, PromptComposer>();
         services.AddTransient<SkillRoundDispatcher>();
         services.AddTransient<ISkillRoundDispatcher>(sp => sp.GetRequiredService<SkillRoundDispatcher>());

@@ -23,13 +23,15 @@ public sealed class FilesystemToolHostTests
         => tools.Select(f => f.Name).ToList();
 
     [Fact]
-    public void GetTools_PlanPhase_ReturnsReadOnlySet()
+    public void GetTools_PlanPhase_IncludesRunCommandForRecon()
     {
         var host = Build();
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Plan, null));
 
-        names.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles");
+        // p0151a: Plan now matches the Investigator set so recon skills can
+        // run ls/find for directory inventory.
+        names.Should().BeEquivalentTo("ReadFile", "Grep", "ListFiles", "RunCommand");
     }
 
     [Fact]

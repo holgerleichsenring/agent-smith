@@ -9,10 +9,11 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// Sandbox filesystem tools (ReadFile/WriteFile/ListFiles/Grep/RunCommand).
-/// Per-phase filter mirrors the pre-p0145 ToolKit matrix: read-only set in
-/// Plan/Review/Discuss/Filter/Synthesize; +RunCommand in Investigate/Verify;
-/// all five in Implementation; ReadFile+Grep+ListFiles+WriteFile (no
-/// RunCommand) in Bootstrap; null phase → all five (legacy fallback).
+/// Per-phase filter: read-only set in Review/Discuss/Filter/Synthesize;
+/// +RunCommand in Plan/Investigate/Verify (per p0151a — Plan-phase recon
+/// skills need run_command for directory inventory); all five in
+/// Implementation; ReadFile+Grep+ListFiles+WriteFile (no RunCommand) in
+/// Bootstrap; null phase → all five (legacy fallback).
 /// </summary>
 public sealed class FilesystemToolHost : IToolHost
 {
@@ -40,7 +41,7 @@ public sealed class FilesystemToolHost : IToolHost
             null => All(),
             SkillExecutionPhase.Implementation => All(),
             SkillExecutionPhase.Bootstrap => BootstrapSet(),
-            SkillExecutionPhase.Verify or SkillExecutionPhase.Investigate => InvestigatorSet(),
+            SkillExecutionPhase.Plan or SkillExecutionPhase.Verify or SkillExecutionPhase.Investigate => InvestigatorSet(),
             _ => ReadOnlySet()
         };
     }

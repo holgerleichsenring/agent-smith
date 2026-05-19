@@ -33,15 +33,17 @@ public sealed class ToolKitTests
         => tools.OfType<AIFunction>().Select(f => f.Name).ToList();
 
     [Fact]
-    public void GetToolsFor_PlanPhase_ReturnsReadOnlySet()
+    public void GetToolsFor_PlanPhase_IncludesRunCommandForRecon()
     {
         var (kit, hosts) = Build();
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, hosts));
 
+        // p0151a: Plan-phase recon skills need ls/find via run_command for
+        // directory inventory. WriteFile still excluded — Plan is read-side only.
         tools.Should().Contain("ReadFile").And.Contain("Grep").And.Contain("ListFiles")
-             .And.Contain("LogDecision").And.Contain("AskHuman");
-        tools.Should().NotContain("WriteFile").And.NotContain("RunCommand");
+             .And.Contain("RunCommand").And.Contain("LogDecision").And.Contain("AskHuman");
+        tools.Should().NotContain("WriteFile");
     }
 
     [Fact]
