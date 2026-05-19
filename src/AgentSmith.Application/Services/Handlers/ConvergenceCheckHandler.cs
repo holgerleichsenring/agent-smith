@@ -2,117 +2,45 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Evaluates whether all roles have reached consensus on the plan via
-/// structured LLM analysis over the SkillObservations published during the
-/// discussion. Missing observations fail loud — every discussion-pipeline
-/// skill is required to emit observations (p0123).
+/// Evaluates whether all roles have reached consensus on the plan. The
+/// structured LLM call + result parsing is delegated to
+/// <see cref="IConvergenceEvaluator"/>; this handler owns pipeline-state
+/// gating, round bookkeeping, and the consolidation hand-off.
 /// </summary>
 public sealed class ConvergenceCheckHandler(
     PlanConsolidator planConsolidator,
-    IChatClientFactory chatClientFactory,
-    IPromptCatalog prompts,
-    ConvergenceResultParser resultParser,
+    IConvergenceEvaluator evaluator,
     ILogger<ConvergenceCheckHandler> logger)
     : ICommandHandler<ConvergenceCheckContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         ConvergenceCheckContext context, CancellationToken cancellationToken)
     {
-        // Structured/hierarchical pipelines don't use convergence — single call per skill
-        if (context.Pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
-            && pipelineType is not PipelineType.Discussion)
-        {
-            return CommandResult.Ok("Structured pipeline — no convergence check needed");
-        }
+        var gate = CheckPreconditions(context.Pipeline, out var observations);
+        if (gate is not null) return gate;
 
-        // Already converged
-        if (context.Pipeline.Has(ContextKeys.ConvergenceResult))
-            return CommandResult.Ok("Already converged (no-op)");
-
-        if (!context.Pipeline.TryGet<List<SkillObservation>>(
-                ContextKeys.SkillObservations, out var observations)
-            || observations is null || observations.Count == 0)
-        {
-            return CommandResult.Fail(
-                "Convergence check has no SkillObservations to converge over. "
-                + "Every discussion-pipeline skill must emit observations (p0123); "
-                + "check that the active skills produced parseable output.");
-        }
-
-        return await ExecuteStructuredConvergenceAsync(
-            context, observations, cancellationToken);
-    }
-
-    private async Task<CommandResult> ExecuteStructuredConvergenceAsync(
-        ConvergenceCheckContext context,
-        List<SkillObservation> observations,
-        CancellationToken cancellationToken)
-    {
-        var maxRounds = GetMaxRounds(context.Pipeline);
-        var currentMaxRound = GetCurrentRound(context.Pipeline);
-
-        // Build observations summary for LLM
-        var observationsSummary = string.Join("\n", observations.Select(o =>
-            $"[{o.Id}] {o.Role} | {o.Concern} | {o.Severity} | blocking={o.Blocking} | confidence={o.Confidence}\n" +
-            $"  {o.Description}\n" +
-            (string.IsNullOrWhiteSpace(o.Suggestion) ? "" : $"  → {o.Suggestion}\n")));
-
-        var activeRoles = observations.Select(o => o.Role).Distinct().ToList();
-        var userPrompt = $"""
-            ## Active Roles
-            {string.Join(", ", activeRoles)}
-
-            ## All Observations
-            {observationsSummary}
-
-            Analyze these observations for consensus. Respond with JSON only.
-            """;
-
-        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Reasoning);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Reasoning);
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, prompts.Get("convergence-system")),
-            new(ChatRole.User, userPrompt),
-        };
-        var response = await chat.GetResponseAsync(messages,
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
-        var responseText = response.Text ?? string.Empty;
-
-        var result = resultParser.Parse(responseText, observations, logger);
-        if (result is null)
-        {
-            logger.LogWarning("Failed to parse convergence result, treating as no consensus");
-            result = new ConvergenceResult(
-                false, observations, [], [],
-                observations.Where(o => o.Blocking).ToList(),
-                observations.Where(o => !o.Blocking).ToList());
-        }
-
+        var costSink = PipelineCostTracker.GetOrCreate(context.Pipeline);
+        var result = await evaluator.EvaluateAsync(
+            context.AgentConfig, observations!, costSink.Track, cancellationToken);
         context.Pipeline.Set(ContextKeys.ConvergenceResult, result);
 
-        if (!result.Consensus && currentMaxRound < maxRounds)
+        var maxRounds = GetMaxRounds(context.Pipeline);
+        var currentRound = GetCurrentRound(context.Pipeline);
+        if (!result.Consensus && currentRound < maxRounds)
         {
             logger.LogInformation(
                 "No consensus after round {Round}/{MaxRounds} — {Blocking} blocking, {Contradictions} contradictions",
-                currentMaxRound, maxRounds,
-                result.Blocking.Count,
+                currentRound, maxRounds, result.Blocking.Count,
                 result.Links.Count(l => l.Relationship == ObservationRelationship.Contradicts));
-
-            // Remove the ConvergenceResult so next check can re-evaluate
             context.Pipeline.Set(ContextKeys.ConvergenceResult, (object)null!);
-
-            return InsertAdditionalRounds(context.Pipeline, observations, currentMaxRound);
+            return InsertAdditionalRounds(context.Pipeline, observations!, currentRound);
         }
 
         if (!result.Consensus)
@@ -120,93 +48,70 @@ public sealed class ConvergenceCheckHandler(
             logger.LogWarning(
                 "No consensus after {MaxRounds} rounds, escalating with {Blocking} blocking observations",
                 maxRounds, result.Blocking.Count);
-
-            // Also consolidate for backward compat
-            await ConsolidateFromObservations(context, observations, escalated: true, cancellationToken);
-
-            return CommandResult.Ok(
-                $"No consensus after {maxRounds} rounds. Escalating to human approval.");
+            await ConsolidateFromObservations(context, observations!, escalated: true, cancellationToken);
+            return CommandResult.Ok($"No consensus after {maxRounds} rounds. Escalating to human approval.");
         }
 
         logger.LogInformation(
             "Consensus reached: {Total} observations, {Blocking} blocking, {Links} links",
             result.Observations.Count, result.Blocking.Count, result.Links.Count);
-
-        // Also consolidate for backward compat
-        await ConsolidateFromObservations(context, observations, escalated: false, cancellationToken);
-
-        return CommandResult.Ok($"Consensus reached after {currentMaxRound} round(s)");
+        await ConsolidateFromObservations(context, observations!, escalated: false, cancellationToken);
+        return CommandResult.Ok($"Consensus reached after {currentRound} round(s)");
     }
 
-    private CommandResult InsertAdditionalRounds(
-        PipelineContext pipeline,
-        List<SkillObservation> observations,
-        int currentMaxRound)
+    private static CommandResult? CheckPreconditions(
+        PipelineContext pipeline, out List<SkillObservation>? observations)
     {
-        var blockingRoles = observations
-            .Where(o => o.Blocking)
-            .Select(o => o.Role)
-            .Distinct()
-            .ToList();
+        observations = null;
+        if (pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, out var pipelineType)
+            && pipelineType is not PipelineType.Discussion)
+            return CommandResult.Ok("Structured pipeline — no convergence check needed");
+        if (pipeline.Has(ContextKeys.ConvergenceResult))
+            return CommandResult.Ok("Already converged (no-op)");
+        if (!pipeline.TryGet(ContextKeys.SkillObservations, out observations)
+            || observations is null || observations.Count == 0)
+            return CommandResult.Fail(
+                "Convergence check has no SkillObservations to converge over. "
+                + "Every discussion-pipeline skill must emit observations (p0123); "
+                + "check that the active skills produced parseable output.");
+        return null;
+    }
 
-        var commandsToInsert = new List<PipelineCommand>();
+    private static CommandResult InsertAdditionalRounds(
+        PipelineContext pipeline, List<SkillObservation> observations, int currentMaxRound)
+    {
+        var blockingRoles = observations.Where(o => o.Blocking).Select(o => o.Role).Distinct().ToList();
         var nextRound = currentMaxRound + 1;
         pipeline.TryGet<string>(ContextKeys.ActiveSkill, out var skillRoundCmd);
         var cmdName = skillRoundCmd ?? CommandNames.SkillRound;
-
-        foreach (var role in blockingRoles)
-        {
-            commandsToInsert.Add(PipelineCommand.SkillRound(cmdName, role, nextRound));
-        }
-
-        commandsToInsert.Add(PipelineCommand.Simple(CommandNames.ConvergenceCheck));
-
+        var commands = blockingRoles
+            .Select(role => PipelineCommand.SkillRound(cmdName, role, nextRound))
+            .Append(PipelineCommand.Simple(CommandNames.ConvergenceCheck))
+            .ToArray();
         return CommandResult.OkAndContinueWith(
-            $"Blocking observations from: {string.Join(", ", blockingRoles)}. Round {nextRound}.",
-            commandsToInsert.ToArray());
+            $"Blocking observations from: {string.Join(", ", blockingRoles)}. Round {nextRound}.", commands);
     }
 
     private async Task ConsolidateFromObservations(
-        ConvergenceCheckContext context,
-        List<SkillObservation> observations,
-        bool escalated,
-        CancellationToken cancellationToken)
+        ConvergenceCheckContext context, List<SkillObservation> observations,
+        bool escalated, CancellationToken cancellationToken)
     {
-        // Build a discussion log from observations for PlanConsolidator backward compat
-        if (context.Pipeline.TryGet<List<DiscussionEntry>>(
-                ContextKeys.DiscussionLog, out var discussionLog) && discussionLog is not null)
+        if (!context.Pipeline.TryGet<List<DiscussionEntry>>(
+                ContextKeys.DiscussionLog, out var discussionLog) || discussionLog is null) return;
+        try { await planConsolidator.ConsolidateAsync(context, discussionLog, escalated, cancellationToken); }
+        catch (Exception ex)
         {
-            try
-            {
-                await planConsolidator.ConsolidateAsync(context, discussionLog, escalated, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Consolidation failed — discussion pipeline results may be incomplete");
-                throw;
-            }
+            logger.LogError(ex, "Consolidation failed — discussion pipeline results may be incomplete");
+            throw;
         }
     }
 
-    private static int GetMaxRounds(PipelineContext pipeline)
-    {
-        var maxRounds = 3;
-        if (pipeline.TryGet<SkillConfig>(ContextKeys.ProjectSkills, out var skillConfig)
-            && skillConfig is not null)
-        {
-            maxRounds = skillConfig.Discussion.MaxRounds;
-        }
-        return maxRounds;
-    }
+    private static int GetMaxRounds(PipelineContext pipeline) =>
+        pipeline.TryGet<SkillConfig>(ContextKeys.ProjectSkills, out var skillConfig)
+        && skillConfig is not null ? skillConfig.Discussion.MaxRounds : 3;
 
-    private static int GetCurrentRound(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<List<DiscussionEntry>>(
-                ContextKeys.DiscussionLog, out var discussionLog)
-            && discussionLog is not null && discussionLog.Count > 0)
-        {
-            return discussionLog.Max(e => e.Round);
-        }
-        return 1;
-    }
+    private static int GetCurrentRound(PipelineContext pipeline) =>
+        pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussionLog)
+        && discussionLog is not null && discussionLog.Count > 0
+            ? discussionLog.Max(e => e.Round) : 1;
 }
