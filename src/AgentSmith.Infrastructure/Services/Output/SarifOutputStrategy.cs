@@ -158,6 +158,7 @@ public sealed class SarifOutputStrategy(
 
     internal static string MapSeverity(ObservationSeverity severity) => severity switch
     {
+        ObservationSeverity.Critical => "error",
         ObservationSeverity.High => "error",
         ObservationSeverity.Medium => "warning",
         ObservationSeverity.Low => "note",
@@ -185,7 +186,7 @@ public sealed class SarifOutputStrategy(
         }
 
         var s = ObservationSummary.From(observations);
-        logger.LogInformation("Found {Total} issues ({High} HIGH, {Medium} MEDIUM, {Low} LOW, {Info} INFO)",
-            s.Total, s.High, s.Medium, s.Low, s.Info);
+        logger.LogInformation("Found {Total} issues ({Critical} CRITICAL, {High} HIGH, {Medium} MEDIUM, {Low} LOW, {Info} INFO)",
+            s.Total, s.Critical, s.High, s.Medium, s.Low, s.Info);
     }
 }
