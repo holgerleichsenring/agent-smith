@@ -19,12 +19,14 @@ public sealed class SkillRoundHandler(
     IDiscussionRoundExecutor discussionExecutor,
     IStructuredRoundExecutor structuredExecutor,
     DefaultSkillPromptStrategy strategy,
+    DiscussionRoundToolPolicy toolPolicy,
     ILogger<SkillRoundHandler> logger)
     : SkillRoundHandlerBase(discussionExecutor, structuredExecutor),
       ICommandHandler<SkillRoundContext>
 {
     protected override ILogger Logger => logger;
     protected override ISkillPromptStrategy Strategy => strategy;
+    protected override ISkillRoundToolPolicy ToolPolicy => toolPolicy;
 
     public async Task<CommandResult> ExecuteAsync(
         SkillRoundContext context, CancellationToken cancellationToken)
