@@ -11,8 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Lazy ISandbox lifecycle for one pipeline run. Pulled out of PipelineExecutor
-/// in p0147e — see decisions/p0147e-executor-decomposition.md.
+/// Lazy ISandbox lifecycle for one pipeline run.
 ///
 /// Concerns kept here:
 ///   - SandboxRequiringCommands membership predicate
@@ -33,29 +32,22 @@ public sealed class PipelineSandboxCoordinator(
     ISandboxLanguageResolver sandboxLanguageResolver,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
-    // Post-p0117b every command that touches the project tree goes through the sandbox
-    // (Repository.LocalPath = "/work" const; SandboxFileReader for reads/writes; scanners
-    // and bootstrap services all sandbox-routed). The InProcessSandboxFactory used in CLI
-    // mode just allocates a tempdir, so the cost of creating one is trivial.
+    // Every command that touches the project tree goes through the sandbox.
+    // TryCheckoutSource is intentionally NOT listed — its handler clones host-side
+    // via IHostSourceCloner and never touches ISandbox; listing it would force
+    // upfront sandbox creation before the handler runs, breaking the
+    // InitialSourcePath handoff for the InProcessSandboxFactory.
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
     {
-        // Source + lifecycle.
-        // TryCheckoutSource is intentionally NOT here — its handler clones host-side
-        // via IHostSourceCloner and never touches ISandbox. Listing it would force
-        // upfront sandbox creation before the handler runs, breaking the
-        // InitialSourcePath handoff for the InProcessSandboxFactory.
         CommandNames.CheckoutSource, CommandNames.AcquireSource,
         CommandNames.AgenticExecute, CommandNames.Test,
         CommandNames.GenerateTests, CommandNames.GenerateDocs,
         CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
-        // Project metadata reads/writes
-        CommandNames.BootstrapProject, CommandNames.BootstrapDocument,
-        CommandNames.BootstrapCheck, // p0130a-era: handler reads /work/.agentsmith/* via ISandbox
+        CommandNames.BootstrapProject, CommandNames.BootstrapDocument, CommandNames.BootstrapCheck,
         CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
         CommandNames.LoadRuns, CommandNames.AnalyzeCode,
         CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
         CommandNames.WriteRunResult,
-        // Security scanners + post-processors
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix
     };
@@ -76,27 +68,21 @@ public sealed class PipelineSandboxCoordinator(
 
         var (language, layer) = await ResolveToolchainLanguageAsync(projectConfig, context, cancellationToken);
         var spec = sandboxSpecBuilder.Build(projectConfig, language);
-        // When TryCheckoutSourceHandler (api-security-scan path) cloned the source
-        // host-side, attach the path so InProcessSandboxFactory uses it as workDir
-        // — otherwise handlers reading from /work see an empty dir (BootstrapCheck
-        // would falsely report missing context.yaml / coding-principles.md).
-        if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
-            && !string.IsNullOrEmpty(hostSourcePath))
-        {
+        // When TryCheckoutSourceHandler (api-security-scan path) cloned the source host-side,
+        // attach the path so InProcessSandboxFactory uses it as workDir — otherwise handlers
+        // reading from /work see an empty dir.
+        if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath) && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
-        }
-        logger.LogInformation(
-            "Sandbox toolchain resolved via {Layer}: language={Language}, image={Image}",
+        logger.LogInformation("Sandbox toolchain resolved via {Layer}: language={Language}, image={Image}",
             layer, language ?? "<none>", spec.ToolchainImage);
         _sandbox = await sandboxFactory.CreateAsync(spec, cancellationToken);
         context.Set(ContextKeys.Sandbox, _sandbox);
         return _sandbox;
     }
 
-    // p0135: walk the resolution layers in priority order. Override and
-    // InMemoryProjectMap are checked inline (they don't need the resolver's
-    // disk/network calls); the cache + remote-context-yaml layers go through
-    // SandboxLanguageResolver.
+    // Walk the resolution layers in priority order. Override and InMemoryProjectMap
+    // are checked inline (they don't need the resolver's disk/network calls); the
+    // cache + remote-context-yaml layers go through SandboxLanguageResolver.
     private async Task<(string? Language, SandboxToolchainResolutionLayer Layer)> ResolveToolchainLanguageAsync(
         ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {

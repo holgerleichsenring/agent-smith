@@ -8,10 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Pipeline error policy. Pulled out of PipelineExecutor in p0147e — the
-/// original "per-command exception handling" decision (p0036) lives here now.
-///
-/// Concerns kept here:
+/// Pipeline error policy. Concerns kept here:
 ///   - log + post HTML-formatted failure comment to the ticket
 ///   - best-effort WIP-persist guard (skip for sourceless / read-only pipelines)
 ///   - lifecycle.MarkFailed() — the operator-visible Done-vs-Failed terminal signal
@@ -57,8 +54,8 @@ public sealed class PipelineErrorHandler(
 
     /// <summary>
     /// Best-effort persist of the WIP branch when the pipeline fails after producing
-    /// local changes (p0112). Wrapped in its OWN try/catch so any persist exception
-    /// can NEVER overwrite the original failure cause already in <paramref name="originalFailure"/>.
+    /// local changes. Wrapped in its OWN try/catch so any persist exception can NEVER
+    /// overwrite the original failure cause already in <paramref name="originalFailure"/>.
     /// </summary>
     private async Task TryPersistWorkBranchAsync(
         IReadOnlyList<string> commandNames, ResolvedProject projectConfig, PipelineContext context,
