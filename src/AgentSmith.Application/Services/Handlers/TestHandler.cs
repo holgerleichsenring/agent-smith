@@ -119,12 +119,32 @@ public sealed class TestHandler(
         if (listResult.ExitCode != 0 || string.IsNullOrEmpty(listResult.OutputContent))
             return TrxSummary.Empty;
 
-        var entries = JsonSerializer.Deserialize<string[]>(listResult.OutputContent, WireFormat.Json) ?? Array.Empty<string>();
-        var trxPaths = entries.Where(e => e.EndsWith(".trx", StringComparison.OrdinalIgnoreCase)).ToList();
+        // p0153: ListFiles wire shape is [{path, size_bytes, mtime, is_directory}];
+        // legacy shape was string[]. Accept both — extract paths defensively.
+        var trxPaths = ExtractPathsEndingWith(listResult.OutputContent, ".trx");
         var summary = TrxSummary.Empty;
         foreach (var trxPath in trxPaths)
             summary = summary.Combine(await ParseSingleAsync(sandbox, trxPath, cancellationToken));
         return summary;
+    }
+
+    private static IReadOnlyList<string> ExtractPathsEndingWith(string json, string suffix)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<string>();
+        var paths = new List<string>();
+        foreach (var entry in doc.RootElement.EnumerateArray())
+        {
+            var value = entry.ValueKind switch
+            {
+                JsonValueKind.String => entry.GetString(),
+                JsonValueKind.Object when entry.TryGetProperty("path", out var p) => p.GetString(),
+                _ => null
+            };
+            if (!string.IsNullOrEmpty(value) && value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                paths.Add(value);
+        }
+        return paths;
     }
 
     private async Task<TrxSummary> ParseSingleAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)

@@ -48,7 +48,25 @@ internal sealed class SandboxFileReader(ISandbox sandbox) : ISandboxFileReader
             MakeStep(StepKind.ListFiles, path, maxDepth: maxDepth), null, cancellationToken);
         if (result.ExitCode != 0 || result.OutputContent is null)
             return Array.Empty<string>();
-        return JsonSerializer.Deserialize<string[]>(result.OutputContent) ?? Array.Empty<string>();
+        // p0153 changed the ListFiles wire format from string[] to
+        // [{path, size_bytes, mtime, is_directory}]. Extract the path field;
+        // accept the legacy string[] shape too for forward compatibility if a
+        // mismatched-version sandbox image is in use.
+        using var doc = JsonDocument.Parse(result.OutputContent);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            return Array.Empty<string>();
+        var paths = new List<string>(doc.RootElement.GetArrayLength());
+        foreach (var entry in doc.RootElement.EnumerateArray())
+        {
+            var value = entry.ValueKind switch
+            {
+                JsonValueKind.String => entry.GetString(),
+                JsonValueKind.Object when entry.TryGetProperty("path", out var p) => p.GetString(),
+                _ => null
+            };
+            if (!string.IsNullOrEmpty(value)) paths.Add(value);
+        }
+        return paths;
     }
 
     private static Step MakeStep(StepKind kind, string path, string? content = null, int? maxDepth = null) =>
