@@ -150,7 +150,12 @@ internal sealed class SandboxStepRunner(ISandbox sandbox)
         var stderr = new StringBuilder();
         var stdoutTruncated = false;
         var stderrTruncated = false;
-        var progress = new Progress<StepEvent>(ev =>
+        // Synchronous IProgress: Progress<T> dispatches asynchronously via the
+        // captured SynchronizationContext / ThreadPool, which races the await
+        // sandbox.RunStepAsync below — events can arrive after the sandbox
+        // returns and end up missing from the labeled-section output. The
+        // inline sync collector closes the race.
+        var progress = new SyncProgress<StepEvent>(ev =>
         {
             switch (ev.Kind)
             {
@@ -177,6 +182,11 @@ internal sealed class SandboxStepRunner(ISandbox sandbox)
         sb.Append('\n');
         sb.Append("stderr:\n").Append(stderr.ToString().TrimEnd('\r', '\n'));
         return sb.ToString();
+    }
+
+    private sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
     }
 
     private static void AppendBounded(StringBuilder sb, string line, ref bool truncated)
