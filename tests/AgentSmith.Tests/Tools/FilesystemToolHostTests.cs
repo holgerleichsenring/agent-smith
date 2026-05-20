@@ -22,6 +22,25 @@ public sealed class FilesystemToolHostTests
     private static IReadOnlyList<string> NamesOf(IEnumerable<AIFunction> tools)
         => tools.Select(f => f.Name).ToList();
 
+    // p0152: split the overloaded grep / glob / list_files surface into explicit
+    // primitives — grep_in_file vs grep_in_tree (file-or-directory disambiguated),
+    // find_files (was glob), list_directory (was list_files). Old names remain in
+    // every phase set as deprecated aliases until the agent-smith-skills catalog
+    // migrates its prompts; the assertions below cover both new + deprecated.
+    private static readonly string[] ReadOnlyToolNames =
+    {
+        "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
+        "run_command", "http_request",
+        "grep", "glob", "list_files" // deprecated aliases
+    };
+
+    private static readonly string[] WriteCapableToolNames =
+    {
+        "read_file", "write_file", "edit", "grep_in_file", "grep_in_tree", "find_files",
+        "list_directory", "run_command", "http_request",
+        "grep", "glob", "list_files" // deprecated aliases
+    };
+
     [Fact]
     public void GetTools_PlanPhase_IncludesRunCommandForRecon()
     {
@@ -29,9 +48,7 @@ public sealed class FilesystemToolHostTests
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Plan, null));
 
-        // Plan / Verify / Investigate / Review / Discuss / Filter / Synthesize all share
-        // the read+shell set so recon skills can run ls/find/curl freely at every stage.
-        names.Should().BeEquivalentTo("read_file", "grep", "glob", "list_files", "run_command", "http_request");
+        names.Should().BeEquivalentTo(ReadOnlyToolNames);
     }
 
     [Fact]
@@ -41,7 +58,7 @@ public sealed class FilesystemToolHostTests
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Implementation, null));
 
-        names.Should().BeEquivalentTo("read_file", "write_file", "edit", "list_files", "grep", "glob", "run_command", "http_request");
+        names.Should().BeEquivalentTo(WriteCapableToolNames);
     }
 
     [Fact]
@@ -61,9 +78,7 @@ public sealed class FilesystemToolHostTests
 
         var names = NamesOf(host.GetTools(SkillExecutionPhase.Bootstrap, null));
 
-        // Bootstrap and Implementation are the write-capable sets; both expose
-        // edit (targeted string-replace) and write_file (full overwrite).
-        names.Should().BeEquivalentTo("read_file", "grep", "glob", "list_files", "write_file", "edit", "run_command", "http_request");
+        names.Should().BeEquivalentTo(WriteCapableToolNames);
     }
 
     [Theory]
