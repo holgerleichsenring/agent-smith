@@ -84,6 +84,41 @@ public sealed class GrepStepHandlerTests : IDisposable
         matches.Should().HaveCount(1, "the >1MB binary file is skipped by the managed fallback");
     }
 
+    [Fact]
+    public async Task HandleAsync_PathIsSpecificFile_ScansThatFileOnly()
+    {
+        // Skills routinely call grep with a specific file (cited from an upstream
+        // observation), not a directory. The managed fallback used to throw
+        // DirectoryNotFoundException because Directory.EnumerateFiles requires a
+        // directory; the fix detects File.Exists and scans the file directly.
+        var filePath = Path.Combine(_root, "Controller.cs");
+        File.WriteAllText(filePath, "namespace X;\npublic Result CreateApplication() { return Ok(result); }\n");
+        var handler = BuildHandlerNoRipgrep();
+        var step = new Step(1, Guid.NewGuid(), StepKind.Grep, Path: filePath, Pattern: "CreateApplication|return Ok\\(");
+
+        var result = await handler.HandleAsync(step, _ => Task.CompletedTask, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        var matches = JsonSerializer.Deserialize<List<JsonElement>>(result.OutputContent!)!;
+        matches.Should().HaveCount(1);
+        matches[0].GetProperty("line").GetInt32().Should().Be(2);
+        matches[0].GetProperty("path").GetString().Should().Be("Controller.cs");
+    }
+
+    [Fact]
+    public async Task HandleAsync_PathDoesNotExist_ReturnsEmptyArray_NoException()
+    {
+        var missing = Path.Combine(_root, "does-not-exist", "ghost.cs");
+        var handler = BuildHandlerNoRipgrep();
+        var step = new Step(1, Guid.NewGuid(), StepKind.Grep, Path: missing, Pattern: "anything");
+
+        var result = await handler.HandleAsync(step, _ => Task.CompletedTask, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0, "missing path is a zero-match result, not a fatal error");
+        var matches = JsonSerializer.Deserialize<List<JsonElement>>(result.OutputContent!)!;
+        matches.Should().BeEmpty();
+    }
+
     private static GrepStepHandler BuildHandlerNoRipgrep()
     {
         var runnerMock = new Mock<IProcessRunner>();

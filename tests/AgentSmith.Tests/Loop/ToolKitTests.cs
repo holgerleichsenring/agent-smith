@@ -41,7 +41,10 @@ public sealed class ToolKitTests
 
         // p0151a: Plan-phase recon skills need ls/find via run_command for
         // directory inventory. WriteFile still excluded — Plan is read-side only.
-        tools.Should().Contain("read_file").And.Contain("grep").And.Contain("list_files")
+        // p0152: grep_in_file/grep_in_tree replace the overloaded grep; list_directory
+        // replaces list_files. The old names remain as deprecated aliases.
+        tools.Should().Contain("read_file")
+             .And.Contain("grep_in_tree").And.Contain("list_directory")
              .And.Contain("run_command").And.Contain("log_decision").And.Contain("ask_human");
         tools.Should().NotContain("write_file");
     }
@@ -53,10 +56,18 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, hosts));
 
-        // 8 filesystem-host tools (read, write, edit, list, grep, glob, run, http) + log_decision + ask_human
-        tools.Should().HaveCount(10);
+        // p0152: 9 new filesystem-host primitives (read/write/edit/list_directory/
+        // find_files/grep_in_file/grep_in_tree/run/http) + 3 deprecated aliases
+        // (grep/glob/list_files) + log_decision + ask_human = 14 total.
+        tools.Should().HaveCount(14);
         tools.Should().Contain(new[]
-            { "read_file", "write_file", "edit", "list_files", "grep", "glob", "run_command", "http_request", "log_decision", "ask_human" });
+        {
+            "read_file", "write_file", "edit",
+            "list_directory", "find_files", "grep_in_file", "grep_in_tree",
+            "run_command", "http_request",
+            "log_decision", "ask_human",
+            "grep", "glob", "list_files" // deprecated aliases — backward-compat for v2.5.1 skills
+        });
     }
 
     [Fact]
@@ -90,7 +101,7 @@ public sealed class ToolKitTests
         var tools = NamesOf(kit.GetToolsFor("fix-bug", null, null, hosts));
 
         // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
-        tools.Should().HaveCount(10);
+        tools.Should().HaveCount(14);
     }
 
     [Fact]

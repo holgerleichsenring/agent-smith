@@ -76,28 +76,28 @@ public sealed class FilesystemToolHost : IToolHost
         return result;
     }
 
-    [Description("Lists files and folders under the given path.")]
-    public Task<string> ListFiles(
-        [Description("Repository-relative path to list. Use '.' for the repo root.")] string path = ".",
-        [Description("Optional max depth to recurse.")] int? maxDepth = null,
+    [Description("Lists the immediate contents (files + subdirectories) of a directory. Pass depth>1 for recursive listing. Use this to discover the shape of an unfamiliar directory; use find_files when you already know a name pattern.")]
+    public Task<string> ListDirectory(
+        [Description("Repository-relative directory path. Use '.' for the repo root.")] string path = ".",
+        [Description("Recursion depth (1 = direct children only). Omit for full recursion — use sparingly on large trees.")] int? depth = null,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: ListFiles path={Path} maxDepth={MaxDepth}", path, maxDepth);
+        _logger?.LogInformation("tool_call: ListDirectory path={Path} depth={Depth}", path, depth);
         return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
-            : _runner.ListAsync(path, maxDepth, ct);
+            : _runner.ListAsync(path, depth, ct);
     }
 
-    [Description("Lists files matching a glob pattern. Pattern is matched against file names with -name semantics; pass '**/' prefix to indicate recursion (default is already recursive). Examples: '*.cs', '**/*.json', 'Program.cs'. Returns up to 200 matches.")]
-    public Task<string> Glob(
-        [Description("Glob pattern, e.g. '*.cs' or 'Program.cs'.")] string pattern,
-        [Description("Repository-relative base path to search from (default '.').")] string path = ".",
+    [Description("Finds files whose names match a glob pattern, tree-recursive under the given root. Use when you know the file-name shape ('*.cs', 'Program.cs', '**/Controller.cs'). For directory-shape exploration use list_directory.")]
+    public Task<string> FindFiles(
+        [Description("Glob pattern matched against file names, e.g. '*.cs' or '**/Controller.cs'.")] string pattern,
+        [Description("Repository-relative directory to search under (default '.').")] string root = ".",
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: Glob pattern={Pattern} path={Path}", pattern, path);
-        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        _logger?.LogInformation("tool_call: FindFiles pattern={Pattern} root={Root}", pattern, root);
+        if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
         var namePattern = pattern.StartsWith("**/", StringComparison.Ordinal) ? pattern[3..] : pattern;
-        var cmd = $"find {ShellQuote(path)} -type f -name {ShellQuote(namePattern)} 2>/dev/null | head -200";
+        var cmd = $"find {ShellQuote(root)} -type f -name {ShellQuote(namePattern)} 2>/dev/null | head -200";
         return _runner.RunAsync(cmd, ct);
     }
 
@@ -170,19 +170,62 @@ public sealed class FilesystemToolHost : IToolHost
 
     private static string ShellQuote(string s) => "'" + s.Replace("'", "'\\''") + "'";
 
-    [Description("Searches files for a regular expression pattern under the given path.")]
-    public Task<string> Grep(
+    [Description("Searches a single file for lines matching a regular expression. Use when you already know the file path (e.g. cited in an upstream observation). For searching across a directory tree, use grep_in_tree.")]
+    public Task<string> GrepInFile(
+        [Description("Repository-relative path to a specific file.")] string path,
         [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Repository-relative path to search under.")] string path = ".",
-        [Description("Optional glob filter (e.g. '*.cs').")] string? glob = null,
         [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: Grep pattern={Pattern} path={Path} glob={Glob}", pattern, path, glob);
+        _logger?.LogInformation("tool_call: GrepInFile path={Path} pattern={Pattern}", path, pattern);
+        return _guards.CheckRead(path) is { } error
+            ? Task.FromResult(error)
+            : _runner.GrepAsync(pattern, path, glob: null, maxMatches, ct);
+    }
+
+    [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. For a single known file, use grep_in_file.")]
+    public Task<string> GrepInTree(
+        [Description("Regular expression pattern to search for.")] string pattern,
+        [Description("Repository-relative directory to search under (default '.').")] string root = ".",
+        [Description("Optional glob filter for file names (e.g. '*.cs', '**/*.json').")] string? glob = null,
+        [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
+        CancellationToken ct = default)
+    {
+        _logger?.LogInformation("tool_call: GrepInTree pattern={Pattern} root={Root} glob={Glob}", pattern, root, glob);
+        return _guards.CheckRead(root) is { } error
+            ? Task.FromResult(error)
+            : _runner.GrepAsync(pattern, root, glob, maxMatches, ct);
+    }
+
+    // Deprecated aliases — kept to preserve the contract that v2.5.1 SKILL.md
+    // files reference (`grep`, `glob`, `list_files`). The next agent-smith-skills
+    // release migrates the prompts to the new names; once a release or two has
+    // shipped with the renamed prompts, these aliases come out.
+    [Description("[DEPRECATED — use grep_in_file or grep_in_tree.] Searches files for a regular expression. Forwards to grep_in_tree when path is a directory, grep_in_file when path is a file.")]
+    public Task<string> Grep(
+        [Description("Regular expression pattern to search for.")] string pattern,
+        [Description("Repository-relative path to search under (file or directory).")] string path = ".",
+        [Description("Optional glob filter (e.g. '*.cs') — only meaningful when path is a directory.")] string? glob = null,
+        [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
+        CancellationToken ct = default)
+    {
+        _logger?.LogInformation("tool_call: Grep [deprecated] pattern={Pattern} path={Path} glob={Glob}", pattern, path, glob);
         return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
             : _runner.GrepAsync(pattern, path, glob, maxMatches, ct);
     }
+
+    [Description("[DEPRECATED — use find_files.] Lists files matching a glob pattern. Forwards to find_files.")]
+    public Task<string> Glob(
+        [Description("Glob pattern, e.g. '*.cs' or 'Program.cs'.")] string pattern,
+        [Description("Repository-relative base path to search from (default '.').")] string path = ".",
+        CancellationToken ct = default) => FindFiles(pattern, path, ct);
+
+    [Description("[DEPRECATED — use list_directory.] Lists files and folders under the given path. Forwards to list_directory.")]
+    public Task<string> ListFiles(
+        [Description("Repository-relative path to list. Use '.' for the repo root.")] string path = ".",
+        [Description("Optional max depth to recurse.")] int? maxDepth = null,
+        CancellationToken ct = default) => ListDirectory(path, maxDepth, ct);
 
     [Description("Runs a shell command (passed to /bin/sh -c). Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard on top of the sandbox boundary; use find/grep/head/wc/curl/ls/cat freely.")]
     public Task<string> RunCommand(
@@ -204,11 +247,16 @@ public sealed class FilesystemToolHost : IToolHost
     private IEnumerable<AIFunction> ReadOnlySet() =>
     [
         Tool(ReadFile, "read_file"),
+        Tool(GrepInFile, "grep_in_file"),
+        Tool(GrepInTree, "grep_in_tree"),
+        Tool(FindFiles, "find_files"),
+        Tool(ListDirectory, "list_directory"),
+        Tool(RunCommand, "run_command"),
+        Tool(HttpRequest, "http_request"),
+        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
         Tool(Grep, "grep"),
         Tool(Glob, "glob"),
-        Tool(ListFiles, "list_files"),
-        Tool(RunCommand, "run_command"),
-        Tool(HttpRequest, "http_request")
+        Tool(ListFiles, "list_files")
     ];
 
     private IEnumerable<AIFunction> InvestigatorSet() => ReadOnlySet();
@@ -216,13 +264,18 @@ public sealed class FilesystemToolHost : IToolHost
     private IEnumerable<AIFunction> BootstrapSet() =>
     [
         Tool(ReadFile, "read_file"),
-        Tool(Grep, "grep"),
-        Tool(Glob, "glob"),
-        Tool(ListFiles, "list_files"),
         Tool(WriteFile, "write_file"),
         Tool(Edit, "edit"),
+        Tool(GrepInFile, "grep_in_file"),
+        Tool(GrepInTree, "grep_in_tree"),
+        Tool(FindFiles, "find_files"),
+        Tool(ListDirectory, "list_directory"),
         Tool(RunCommand, "run_command"),
-        Tool(HttpRequest, "http_request")
+        Tool(HttpRequest, "http_request"),
+        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
+        Tool(Grep, "grep"),
+        Tool(Glob, "glob"),
+        Tool(ListFiles, "list_files")
     ];
 
     private IEnumerable<AIFunction> All() =>
@@ -230,10 +283,15 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(ReadFile, "read_file"),
         Tool(WriteFile, "write_file"),
         Tool(Edit, "edit"),
-        Tool(ListFiles, "list_files"),
+        Tool(ListDirectory, "list_directory"),
+        Tool(FindFiles, "find_files"),
+        Tool(GrepInFile, "grep_in_file"),
+        Tool(GrepInTree, "grep_in_tree"),
+        Tool(RunCommand, "run_command"),
+        Tool(HttpRequest, "http_request"),
+        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
         Tool(Grep, "grep"),
         Tool(Glob, "glob"),
-        Tool(RunCommand, "run_command"),
-        Tool(HttpRequest, "http_request")
+        Tool(ListFiles, "list_files")
     ];
 }
