@@ -28,6 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Live-LLM probe fixtures: real .cs files used as input to the LLM, NOT compiled. -->
+    <Compile Remove="Integration\Fixtures\**\*.cs" />
+    <None Include="Integration\Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Configuration\TestData\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
