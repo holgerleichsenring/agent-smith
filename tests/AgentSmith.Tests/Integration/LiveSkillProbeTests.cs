@@ -107,6 +107,70 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
+    public async Task Probe_AuthConfigReviewer_WithDiscussionSuffixKillPhrase()
+    {
+        // The smoking gun from PromptPrefixBuilder.cs:36-40 (BuildDiscussionParts):
+        //   "## Your Task
+        //    Based on the discussion so far, provide your analysis as a JSON array of observations.
+        //    This is round {round}.
+        //
+        //    Respond ONLY with a JSON array. No other text."
+        // Hypothesis: that last sentence kills tool calls because the LLM interprets
+        // tool invocations as "other text".
+        if (!LlmCredentialsAvailable()) return;
+        var killSuffix = """
+
+
+            ## Your Task
+            Based on the discussion so far, provide your analysis as a JSON array of observations.
+            This is round 2.
+
+            Respond ONLY with a JSON array. No other text.
+            """;
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody,
+            userPrompt: ReviewPhaseUserPrompt + killSuffix);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"Plain probe: 2 tool calls.");
+        _out.WriteLine($"This probe:  {report.ToolCallCount} tool calls.");
+        _out.WriteLine($"If tool_calls dropped to 0, 'Respond ONLY ... No other text.' is the trigger.");
+    }
+
+    [Fact]
+    public async Task Probe_AuthConfigReviewer_WithFixedDiscussionSuffix()
+    {
+        // Validates the proposed fix: rephrase the kill-phrase to position JSON as
+        // the FINAL output (after any tool calls), not the IMMEDIATE response.
+        if (!LlmCredentialsAvailable()) return;
+        var fixedSuffix = """
+
+
+            ## Your Task
+            Investigate the discussion above and ground your analysis in the codebase. Use the available tools to read relevant source files when source is available.
+            This is round 2.
+
+            When your investigation is complete, respond with a JSON array of observations. The final response (after any tool calls) must be only the JSON array — no preamble or commentary outside the array.
+            """;
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody,
+            userPrompt: ReviewPhaseUserPrompt + fixedSuffix);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"Kill-phrase probe:  0 tool calls (bug reproduced)");
+        _out.WriteLine($"Fixed-phrase probe: {report.ToolCallCount} tool calls");
+        _out.WriteLine($"If > 0, the fix recovers tool use.");
+    }
+
+    [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionExactWiring()
     {
         if (!LlmCredentialsAvailable()) return;
