@@ -54,3 +54,4 @@ site/
 docs/site/
 agentsmith-output/
 *pentest*
+*.log
