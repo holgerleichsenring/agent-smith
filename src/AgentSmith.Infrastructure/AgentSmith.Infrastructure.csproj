@@ -34,6 +34,11 @@
     <PackageReference Include="Octokit" Version="14.0.0" />
     <PackageReference Include="Polly" Version="8.*" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <!-- Markdown → HTML for Azure DevOps work-item comments. ADO's System.History
+         field renders HTML natively; the dedicated Comments REST API supports
+         a format=markdown query parameter but the bundled SDK (CommentCreate)
+         does not surface it, so we convert client-side before posting. -->
+    <PackageReference Include="Markdig" Version="1.2.0" />
   </ItemGroup>
 
   <PropertyGroup>
