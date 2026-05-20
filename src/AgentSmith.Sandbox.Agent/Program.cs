@@ -73,6 +73,7 @@ internal static class Program
 
     private static ILoggerFactory BuildLoggerFactory(bool verbose) =>
         LoggerFactory.Create(builder => builder
-            .AddConsole()
+            .AddConsole(options => options.FormatterName = CompactConsoleFormatter.FormatterName)
+            .AddConsoleFormatter<CompactConsoleFormatter, Microsoft.Extensions.Logging.Console.ConsoleFormatterOptions>()
             .SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information));
 }
