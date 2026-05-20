@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.58.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.2...v0.58.0) (2026-05-20)
+
+
+### Features
+
+* **tools:** MCP/Claude-Code parity for filesystem + shell surface (p0153) ([#187](https://github.com/holgerleichsenring/agent-smith/issues/187)) ([b950c14](https://github.com/holgerleichsenring/agent-smith/commit/b950c144f20c3c983d867d84e97a035021cfba64))
+* **tools:** split overloaded grep/glob/list_files into explicit primitives ([#186](https://github.com/holgerleichsenring/agent-smith/issues/186)) ([73d1b5f](https://github.com/holgerleichsenring/agent-smith/commit/73d1b5f841bde64a0290578884aede2918818bd0))
+
+
+### Bug Fixes
+
+* **ado:** render markdown comments as HTML before posting to System.History ([#183](https://github.com/holgerleichsenring/agent-smith/issues/183)) ([b42145e](https://github.com/holgerleichsenring/agent-smith/commit/b42145ef2ed0d98b30570e737332a2ab5f6aaa95))
+* **output:** meta-observation for empty skill responses + Code Findin… ([#181](https://github.com/holgerleichsenring/agent-smith/issues/181)) ([322af71](https://github.com/holgerleichsenring/agent-smith/commit/322af711cb697ff7178128f6513af45f2f4e5703))
+* **sandbox:** GrepStepHandler accepts file paths, not just directories ([#185](https://github.com/holgerleichsenring/agent-smith/issues/185)) ([3f1b3db](https://github.com/holgerleichsenring/agent-smith/commit/3f1b3dbd9a46b5a416dc607aa2a24d36e1aee16d))
+* **triggers:** drop DefaultPipeline fallback when pipeline_from_label is set ([#180](https://github.com/holgerleichsenring/agent-smith/issues/180)) ([fe36453](https://github.com/holgerleichsenring/agent-smith/commit/fe364533e49325fa445068beb98e7a554c7db894))
+
 ## [0.57.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.1...v0.57.2) (2026-05-20)
 
 
