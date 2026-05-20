@@ -89,6 +89,85 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
+    public async Task Probe_AuthConfigReviewer_WithProductionExactWiring()
+    {
+        // Mirror SkillCallRuntime + ChatClientFactory EXACTLY:
+        //   1. Tools wrapped with TracingAIFunction (SkillCallRuntime.cs:111)
+        //   2. Chat client = ChatClientBuilder(bare).UseFunctionInvocation(...).Build() (ChatClientFactory.cs)
+        //   3. TracingChatClient wraps everything (SkillCallRuntime.cs:98)
+        // If the bug reproduces here, the regression is in one of these three production layers.
+        var apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")
+                     ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new SkipProbeException("No LLM credentials.");
+
+        var fixtureRoot = ResolveFixtureRoot();
+        var sandbox = new InProcessSandbox(jobId: "probe-prodwiring-" + Guid.NewGuid().ToString("N")[..8],
+            workDir: fixtureRoot, logger: NullLogger.Instance);
+        var fsHost = new FilesystemToolHost(sandbox, repoPath: fixtureRoot,
+            logger: NullLogger<FilesystemToolHost>.Instance);
+        var bareTools = fsHost.GetTools(SkillExecutionPhase.Review, null).Cast<AITool>().ToList();
+
+        var trace = new AgentSmith.Application.Services.Loop.LoopTraceCollector();
+        var wrappedTools = bareTools
+            .Select(t => t is AIFunction f
+                ? (AITool)new AgentSmith.Application.Services.Loop.TracingAIFunction(f, trace)
+                : t)
+            .ToList();
+
+        var baseClient = BuildChatClient();
+        var fiClient = new ChatClientBuilder(baseClient)
+            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = 25)
+            .Build();
+        var chatClient = new AgentSmith.Application.Services.Loop.TracingChatClient(fiClient, trace);
+
+        var preamble = new SourceAnchoringPreamble().Build();
+        var systemPrompt = preamble + "\n\n" + LoadRealSkillBody("api-security", "auth-config-reviewer");
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, ReviewPhaseUserPrompt),
+        };
+        var options = new ChatOptions { Tools = wrappedTools };
+
+        var response = await chatClient.GetResponseAsync(messages, options);
+
+        var toolCallContents = response.Messages
+            .SelectMany(m => m.Contents)
+            .OfType<FunctionCallContent>()
+            .ToList();
+        var textContents = response.Messages
+            .SelectMany(m => m.Contents)
+            .OfType<TextContent>()
+            .Select(t => t.Text)
+            .ToList();
+        var traceEntries = trace.Build();
+
+        _out.WriteLine($"=== Probe: auth-config-reviewer (PRODUCTION-EXACT WIRING) ===");
+        _out.WriteLine($"Tools offered:          {wrappedTools.Count}");
+        _out.WriteLine($"Response FunctionCalls: {toolCallContents.Count}");
+        _out.WriteLine($"Trace entries total:    {traceEntries.Count}");
+        _out.WriteLine($"Trace tool-call entries:{traceEntries.Count(e => e.Kind == LoopTraceEntryKind.ToolCall)}");
+        _out.WriteLine($"Trace LLM entries:      {traceEntries.Count(e => e.Kind == LoopTraceEntryKind.LlmCall)}");
+        _out.WriteLine($"ReadSet count:          {trace.ReadSet.Count}");
+        _out.WriteLine($"Input tokens:           {response.Usage?.InputTokenCount}");
+        _out.WriteLine($"Output tokens:          {response.Usage?.OutputTokenCount}");
+        _out.WriteLine("--- Trace entries ---");
+        foreach (var e in traceEntries)
+            _out.WriteLine($"  [{e.Kind}] {e.ToolName ?? e.ModelName ?? "?"} ({e.DurationMs}ms)" + (e.Success == false ? $" ERROR={e.ErrorMessage}" : ""));
+        _out.WriteLine("--- Response FunctionCallContent ---");
+        if (toolCallContents.Count == 0)
+            _out.WriteLine("  (NONE — bug reproduced!)");
+        foreach (var tc in toolCallContents)
+            _out.WriteLine($"  {tc.Name}({SerializeArgs(tc.Arguments)})");
+        _out.WriteLine("--- Final text content ---");
+        var snippet = string.Join("\n", textContents);
+        if (snippet.Length > 1500) snippet = snippet[..1500] + "\n…(truncated)";
+        _out.WriteLine(snippet);
+    }
+
+    [Fact]
     public async Task Probe_AuthConfigReviewer_WithRealCatalogV25SkillBody()
     {
         // Loads the ACTUAL SKILL.md from the cached v2.5.0 catalog the user's
