@@ -33,7 +33,15 @@ public sealed class DiscussionRoundExecutor(
             skillName, role, system, userPrefix, userSuffix, toolPolicy, pipeline, cancellationToken);
         if (SkillCallOutcomeTranslator.TranslateDiscussion(result, skillName, role, logger) is { } earlyFail)
             return earlyFail;
-        var parsed = responseParser.ParseAndDowngrade(result.Output ?? string.Empty, skillName, logger, result.ReadPaths);
+        // Empty output is treated as zero observations; the parser's prose-wrap
+        // fallback was emitting ghost INFO entries when the runtime skipped the
+        // call (cost cap, exec-limit). The reason is already encoded as a typed
+        // RuntimeObservation below — surface that instead of a placeholder.
+        var parsed = string.IsNullOrWhiteSpace(result.Output)
+            ? new List<SkillObservation>()
+            : responseParser.ParseAndDowngrade(result.Output, skillName, logger, result.ReadPaths);
+        if (result.RuntimeObservations.Count > 0)
+            parsed.AddRange(result.RuntimeObservations);
         StorePlanArtifactIfPlanLead(skillName, pipeline, parsed);
         var entry = new DiscussionEntry(
             skillName, role.DisplayName, role.Emoji, round, responseParser.RenderObservationsAsText(parsed));

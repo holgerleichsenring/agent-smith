@@ -56,6 +56,8 @@ public sealed partial class SummaryOutputStrategy(
             }
         }
 
+        AppendEvidenceBreakdown(sb, operatorObs);
+
         sb.AppendLine($"Total: {findings.Count} findings");
 
         if (limitObs.Count > 0)
@@ -78,6 +80,38 @@ public sealed partial class SummaryOutputStrategy(
             "Summary delivered ({Count} findings, {Limits} limit hits)",
             findings.Count, limitObs.Count);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Surfaces evidence-mode breakdown — how many findings are code-grounded
+    /// (analyzed_from_source) vs HTTP-probe-confirmed vs schema/inferred. Lists
+    /// the source-anchored findings inline with file:line so operators can tell
+    /// at a glance whether the run produced real code analysis or stayed at
+    /// schema-lint level.
+    /// </summary>
+    private static void AppendEvidenceBreakdown(StringBuilder sb, IReadOnlyList<SkillObservation> operatorObservations)
+    {
+        if (operatorObservations.Count == 0) return;
+        var sourceAnchored = operatorObservations
+            .Where(o => o.EvidenceMode == EvidenceMode.AnalyzedFromSource)
+            .ToList();
+        var confirmed = operatorObservations.Count(o => o.EvidenceMode == EvidenceMode.Confirmed);
+        var schema = operatorObservations.Count - sourceAnchored.Count - confirmed;
+
+        if (sourceAnchored.Count == 0)
+        {
+            sb.AppendLine($"Evidence: 0 from source, {confirmed} confirmed, {schema} schema/inferred");
+            sb.AppendLine();
+            return;
+        }
+
+        sb.AppendLine($"Code Findings ({sourceAnchored.Count})");
+        foreach (var obs in sourceAnchored.OrderBy(o => SeverityOrder(o.Severity.ToString())))
+            sb.AppendLine(
+                $"  [{obs.Severity.ToString().ToUpperInvariant()}] {obs.DisplayLocation} — {ExtractTitle(obs.Description)}");
+        sb.AppendLine();
+        sb.AppendLine($"Evidence: {sourceAnchored.Count} from source, {confirmed} confirmed, {schema} schema/inferred");
+        sb.AppendLine();
     }
 
     private void AppendVerification(StringBuilder sb, IReadOnlyList<SkillObservation> operatorObservations)
@@ -114,6 +148,8 @@ public sealed partial class SummaryOutputStrategy(
         ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
         ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
         ExecutionLimitCategories.ExecutionError => "runtime error",
+        ExecutionLimitCategories.CostCapExhausted => "cost cap",
+        ExecutionLimitCategories.ExecutionParseFailure => "parse failure",
         _ => "execution limit"
     };
 

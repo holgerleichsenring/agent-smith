@@ -50,6 +50,14 @@ public static class ExecutionLimitCategories
     public const string CostCapExhausted = "cost-cap-exhausted";
 
     /// <summary>
+    /// Skill returned a response the observation parser could not extract
+    /// any structured observations from (empty / whitespace). Recorded as a
+    /// meta-observation so operators see the silent drop without polluting
+    /// the severity tally with an empty-description placeholder.
+    /// </summary>
+    public const string ExecutionParseFailure = "execution-parse-failure";
+
+    /// <summary>
     /// True when <paramref name="category"/> is any of the runtime-emitted
     /// execution-limit / execution-error markers. Output strategies use this
     /// to render the observation with a distinct prefix.
@@ -59,5 +67,6 @@ public static class ExecutionLimitCategories
         or ExecutionLimitTokens
         or ExecutionLimitWallClock
         or ExecutionError
-        or CostCapExhausted;
+        or CostCapExhausted
+        or ExecutionParseFailure;
 }
