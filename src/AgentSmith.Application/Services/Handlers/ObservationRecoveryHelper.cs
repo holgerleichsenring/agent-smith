@@ -42,6 +42,21 @@ internal static class ObservationRecoveryHelper
     internal static List<SkillObservation> FallbackSingle(
         string response, string role, int startId, ILogger? logger)
     {
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            logger?.LogWarning(
+                "Skill {Role} returned an empty response; no observations to parse", role);
+            return
+            [
+                new SkillObservation(
+                    Id: startId, Role: role, Concern: ObservationConcern.Correctness,
+                    Description: $"Skill '{role}' returned an empty response — no observations could be parsed.",
+                    Suggestion: "", Blocking: false,
+                    Severity: ObservationSeverity.Info, Confidence: 0,
+                    Rationale: "Auto-wrapped: LLM returned no content",
+                    Category: ExecutionLimitCategories.ExecutionParseFailure)
+            ];
+        }
         logger?.LogWarning("Could not parse observations from {Role}, wrapping as single observation", role);
         return
         [

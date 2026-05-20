@@ -128,6 +128,8 @@ public sealed class ConsoleOutputStrategy(
         ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
         ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
         ExecutionLimitCategories.ExecutionError => "runtime error",
+        ExecutionLimitCategories.CostCapExhausted => "cost cap",
+        ExecutionLimitCategories.ExecutionParseFailure => "parse failure",
         _ => "execution limit"
     };
 
