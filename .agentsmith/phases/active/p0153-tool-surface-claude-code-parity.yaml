@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0153
+goal: "Bring FilesystemToolHost + HumanToolHost to MCP filesystem-server /
+  Claude-Code parity. Today: read_file has no offset/limit and no line
+  numbers; grep_in_* have no -A/-B/-C and no output_mode; edit has no
+  replace_all; run_command merges stdout+stderr at a hard 60s cap;
+  find_files caps silently at 200 with basename-only globs;
+  list_directory has no sizes/sort. Surface must be provider-neutral
+  (Anthropic / OpenAI strict / Azure OpenAI / Ollama) — parameters flat,
+  primitive-typed. Deprecated grep / glob / list_files aliases stay
+  registered as forwarders; p0154 removes them with the skills rename."
+
+requires: ["p0151a"]
+
+scope:
+  in: |
+    (1) read_file gains start_line + line_count + with_line_numbers
+        (default true; '   42\tcontent' format). Slice happens on the
+        agent side so unread bytes never cross the wire.
+    (2) grep_in_file + grep_in_tree gain context_before / context_after /
+        context (shorthand), output_mode {content|files_with_matches|count}
+        (default content), head_limit replaces silent MaxMatches=200.
+        Truncation appends '(truncated: N matches)'.
+    (3) edit gains replace_all (default false).
+    (4) New multi_edit(path, edits[{old_string, new_string, replace_all?}],
+        dry_run?). Atomic; dry_run returns unified diff.
+    (5) run_command gains timeout_seconds (default 60, max 600). Returns
+        labeled text: header lines (exit_code, elapsed_ms, truncated)
+        then 'stdout:' + 'stderr:' sections — not a JSON blob.
+    (6) find_files: head_limit (default 1000), truncation marker, glob
+        semantics flip from basename (-name) to path-relative (MCP
+        search_files shape). BREAKING for existing skill callers — p0154
+        owns the skills-side glob audit.
+    (7) list_directory gains with_sizes + sort_by {name|size|mtime}.
+        New directory_tree(root, max_depth?, exclude_globs?) tool.
+    (8) ask_human gains flat choices [{label, description?}] +
+        top-level recommended_index. No per-choice 'recommended' flag.
+    (9) SourceAnchoringPreamble names only the new tool set. Deprecated
+        aliases stay registered but unnamed.
+
+  out: |
+    Removing the deprecated aliases or the agent-smith-skills rename —
+    p0154.
+    web_fetch tool — p0154.
+    search_web / search providers — deferred (no provider account).
+    Hosting an MCP server in the sandbox — separate transport question.
+    Image / PDF read; symbol-aware tools; background run_command —
+    out of scope.
+
+decisions:
+  - key: |
+      Mirror MCP filesystem-server schemas where they exist; Claude-Code
+      grep/run_command shape where MCP is silent. — Cross-provider:
+      MCP is the only published shape that OpenAI Assistants /
+      Anthropic / Ollama tool callers all consume. Where neither
+      upstream covers the need (line-range reads), the parameter names
+      stay descriptive and the [Description] text carries the load.
+
+  - key: |
+      run_command returns labeled text sections, not JSON. — JSON-in-
+      string forces every model to re-parse and small Ollama models
+      fail at that. Labeled sections mirror Claude Code's Bash tool
+      and are how every CLI tool already prints its output, so they
+      land in the training distribution naturally.
+
+  - key: |
+      Every parameter primitive or array-of-object-of-primitives, max
+      one nesting level. — OpenAI strict mode rejects deep nesting;
+      small Ollama models silently misformat it. recommended_index
+      lives on top-level for the same reason.
+
+  - key: |
+      Aliases stay in p0153; removal + skills rename ship together in
+      p0154. — Decouples the C# release from the cross-repo skills
+      bump. Preamble names only the new tools so the LLM is never
+      told to use the deprecated names.
+
+  - key: |
+      find_files flips to path-relative globbing (MCP search_files
+      shape). — Stronger than basename and more intuitive for non-Claude
+      models. Behaviour break for existing callers; p0154's skills
+      sweep audits the patterns.
+
+  - key: |
+      Default head_limit = 1000; drop the silent 200 cap. — 200 was a
+      cap that never surfaced. 1000 is a working ceiling; callers can
+      pass higher; truncation is now visible.
+
+steps:
+  - id: wire
+    action: "Extend Step record + StepKind with new fields and DirectoryTree kind; rename MaxMatches -> HeadLimit; new enums GrepOutputMode + DirectorySortBy; SizeLimits gains GrepDefaultHeadLimit + RunCommandMaxBufferBytes."
+    modify:
+      - "src/AgentSmith.Sandbox.Wire/Step.cs"
+      - "src/AgentSmith.Sandbox.Wire/StepKind.cs"
+      - "src/AgentSmith.Sandbox.Wire/SizeLimits.cs"
+
+  - id: handlers
+    action: "FileStepHandler: line-range read + line numbering + with_sizes/sort_by listing. GrepStepHandler: context_before/after, output_mode (ripgrep flags + managed fallback), head_limit. New DirectoryTreeStepHandler. StepExecutor routes DirectoryTree."
+    modify:
+      - "src/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs"
+      - "src/AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs"
+      - "src/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs"
+    new:
+      - "src/AgentSmith.Sandbox.Agent/Services/DirectoryTreeStepHandler.cs"
+
+  - id: in-process-sandbox-parity
+    action: "InProcessSandbox handles the new Step fields the same way the agent-mode handlers do (CLI smoke and unit tests run through this path)."
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs"
+
+  - id: runner
+    action: "SandboxStepRunner exposes the new fields; RunAsync collects stdout/stderr into separate buffers and emits the labeled-section format."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs"
+
+  - id: tool-host
+    action: "FilesystemToolHost: new read_file params, grep context/modes/head_limit, edit.replace_all, new multi_edit (atomic + dry_run), find_files path-relative + head_limit + truncation, list_directory with_sizes + sort_by, new directory_tree, run_command timeout_seconds + labeled-section output. Deprecated grep/glob/list_files stay registered as forwarders."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+
+  - id: human-tool-host
+    action: "HumanToolHost: choices: List<{label, description?}> + top-level recommended_index. DialogQuestion + IDialogueTransport carry the new shape."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/HumanToolHost.cs"
+      - "src/AgentSmith.Contracts/Dialogue/DialogQuestion.cs"
+      - "src/AgentSmith.Contracts/Dialogue/IDialogueTransport.cs"
+
+  - id: preamble
+    action: "SourceAnchoringPreamble.Build() names the new tool set; deprecated names not mentioned."
+    modify:
+      - "src/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+
+  - id: tests
+    action: "Existing tests updated for renamed wire fields; new tests cover new behaviour + JSON-schema flatness invariant."
+    modify:
+      - "tests/AgentSmith.Sandbox.Agent.Tests/Services/GrepStepHandlerTests.cs"
+    new:
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostReadRangeTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostGrepModesTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostEditReplaceAllTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostMultiEditTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostRunCommandTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostFindFilesTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostListDirectoryTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostDirectoryTreeTests.cs"
+      - "tests/AgentSmith.Tests/Tools/HumanToolHostRichChoicesTests.cs"
+      - "tests/AgentSmith.Tests/Tools/ToolSurfaceSchemaFlatnessTests.cs"
+      - "tests/AgentSmith.Tests/Prompts/SourceAnchoringPreambleParityTests.cs"
+      - "tests/AgentSmith.Sandbox.Agent.Tests/Services/GrepStepHandlerContextTests.cs"
+      - "tests/AgentSmith.Sandbox.Agent.Tests/Services/FileStepHandlerLineRangeTests.cs"
+      - "tests/AgentSmith.Sandbox.Agent.Tests/Services/DirectoryTreeStepHandlerTests.cs"
+
+tests:
+  - "FilesystemToolHost_ReadFile_WithStartLineAndLineCount_ReturnsSlice"
+  - "FilesystemToolHost_ReadFile_DefaultsToLineNumberedOutput"
+  - "FilesystemToolHost_GrepInTree_OutputModeFilesWithMatches_ReturnsPathsOnly"
+  - "FilesystemToolHost_GrepInTree_OutputModeCount_ReturnsPerFileCounts"
+  - "FilesystemToolHost_GrepInTree_WithContext_IncludesAdjacentLines"
+  - "FilesystemToolHost_GrepInTree_OverHeadLimit_AppendsTruncationMarker"
+  - "FilesystemToolHost_Edit_ReplaceAllTrue_ReplacesEveryOccurrence"
+  - "FilesystemToolHost_MultiEdit_AppliesAllEditsAtomically"
+  - "FilesystemToolHost_MultiEdit_OneEditFails_NothingWritten"
+  - "FilesystemToolHost_MultiEdit_DryRun_ReturnsDiffAndDoesNotWrite"
+  - "FilesystemToolHost_RunCommand_ReturnsLabeledSections"
+  - "FilesystemToolHost_RunCommand_TimeoutOverride_HonouredUpToCeiling"
+  - "FilesystemToolHost_FindFiles_PathRelativeMatching"
+  - "FilesystemToolHost_FindFiles_OverHeadLimit_AppendsTruncationMarker"
+  - "FilesystemToolHost_ListDirectory_WithSizes_IncludesSizeColumn"
+  - "FilesystemToolHost_ListDirectory_SortBySize_OrdersDescending"
+  - "FilesystemToolHost_DirectoryTree_ReturnsNestedRepresentation"
+  - "HumanToolHost_AskHuman_RichChoices_CarriedThroughTransport"
+  - "HumanToolHost_AskHuman_RecommendedIndex_OnTopLevel"
+  - "ToolSurfaceSchema_EveryParameter_IsPrimitiveOrArrayOfFlatObject"
+  - "ToolSurfaceSchema_PassesOpenAiStrictModeValidation"
+  - "SourceAnchoringPreamble_NamesNewToolSet_NoDeprecatedAliases"
+  - "GrepStepHandler_RoundTripsContextBeforeAndAfter"
+  - "FileStepHandler_RoundTripsStartLineAndLineCount"
+
+done:
+  - "Tool surface matches the goal-listed schemas; [Description] attributes diff-cleanly against MCP filesystem-server + Claude-Code references."
+  - "Flatness invariant test green; generated schema passes OpenAI strict-mode validation."
+  - "Preamble names new tools, no deprecated aliases."
+  - "Deprecated aliases still registered as forwarders (p0154 removes them)."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug."
+  - "Cross-provider smoke: >= 2 of {Anthropic, OpenAI strict, Azure OpenAI, Ollama} run the same micro-task green using whichever credentials the smoke environment has."
+  - "build-verifier + test-verifier run dotnet build / dotnet test on this repo within the new timeout_seconds — exit code, stdout, stderr come back labeled and parseable."

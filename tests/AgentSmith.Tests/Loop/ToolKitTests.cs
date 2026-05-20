@@ -56,14 +56,14 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, hosts));
 
-        // p0152: 9 new filesystem-host primitives (read/write/edit/list_directory/
-        // find_files/grep_in_file/grep_in_tree/run/http) + 3 deprecated aliases
-        // (grep/glob/list_files) + log_decision + ask_human = 14 total.
-        tools.Should().HaveCount(14);
+        // p0153: 11 filesystem-host primitives (read/write/edit/multi_edit/
+        // list_directory/directory_tree/find_files/grep_in_file/grep_in_tree/
+        // run/http) + 3 deprecated aliases + log_decision + ask_human = 16 total.
+        tools.Should().HaveCount(16);
         tools.Should().Contain(new[]
         {
-            "read_file", "write_file", "edit",
-            "list_directory", "find_files", "grep_in_file", "grep_in_tree",
+            "read_file", "write_file", "edit", "multi_edit",
+            "list_directory", "directory_tree", "find_files", "grep_in_file", "grep_in_tree",
             "run_command", "http_request",
             "log_decision", "ask_human",
             "grep", "glob", "list_files" // deprecated aliases — backward-compat for v2.5.1 skills
@@ -101,7 +101,7 @@ public sealed class ToolKitTests
         var tools = NamesOf(kit.GetToolsFor("fix-bug", null, null, hosts));
 
         // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
-        tools.Should().HaveCount(14);
+        tools.Should().HaveCount(16);
     }
 
     [Fact]

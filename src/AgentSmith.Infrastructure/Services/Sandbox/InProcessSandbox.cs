@@ -39,7 +39,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
     {
         var path = ResolvePath(step.Path!);
         if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
-        var maxMatches = step.MaxMatches ?? SizeLimits.GrepMaxMatches;
+        var maxMatches = step.HeadLimit ?? SizeLimits.GrepDefaultHeadLimit;
         try
         {
             var regex = new System.Text.RegularExpressions.Regex(step.Pattern!,

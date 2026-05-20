@@ -22,7 +22,7 @@ public sealed class RunResultFormatterDialogueTrailTests
                     new DateTimeOffset(2025, 3, 15, 14, 3, 12, TimeSpan.Zero), "@holger")),
             new(
                 new DialogQuestion("q2", QuestionType.Choice, "Which approach?",
-                    "Two valid options", new List<string> { "A", "B" }.AsReadOnly(), "A", TimeSpan.FromMinutes(5)),
+                    "Two valid options", new List<DialogChoice> { new("A"), new("B") }.AsReadOnly(), "A", TimeSpan.FromMinutes(5)),
                 new DialogAnswer("q2", "B", null,
                     new DateTimeOffset(2025, 3, 15, 14, 10, 0, TimeSpan.Zero), "@dev"))
         };

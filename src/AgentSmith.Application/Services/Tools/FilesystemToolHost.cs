@@ -1,21 +1,30 @@
 using System.ComponentModel;
+using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
-/// Sandbox filesystem tools (ReadFile/WriteFile/ListFiles/Grep/RunCommand).
-/// Per-phase filter: every phase set includes RunCommand — the LLM benefits
-/// from raw shell access (find/grep/head/wc/curl) at every stage. A
-/// destructive-command blocklist (<see cref="CommandGuard"/>) is applied
-/// inside RunCommand as defense-in-depth on top of the sandbox boundary.
-/// Write-capable sets (Bootstrap/Implementation) additionally include
-/// WriteFile.
+/// Sandbox filesystem + shell tools. Schemas mirror MCP filesystem-server
+/// where they exist (read/write/list/edit/tree) and Claude Code's grep + bash
+/// shapes where MCP is silent. Every parameter list is flat + primitive-typed
+/// so OpenAI strict mode and small Ollama tool calling both accept the
+/// generated JSON schema.
+///
+/// Per-phase filter: Implementation gets the full surface; Bootstrap drops
+/// run_command + http_request; Plan/Verify/Investigate get the read-only
+/// subset (read_file, grep_in_*, find_files, list_directory, directory_tree,
+/// run_command — destructive commands blocked by CommandGuard).
+///
+/// Deprecated aliases (grep / glob / list_files) stay registered as
+/// forwarders for the agent-smith-skills SKILL.md files that still call
+/// them; p0154 removes them together with the catalogue rename.
 /// </summary>
 public sealed class FilesystemToolHost : IToolHost
 {
@@ -51,15 +60,18 @@ public sealed class FilesystemToolHost : IToolHost
         };
     }
 
-    [Description("Reads the contents of a file at the given path.")]
+    [Description("Reads a file. Optional start_line (1-based) and line_count select a slice; omit both to read the whole file. By default each line is prefixed with its number and a tab so you can cite file:line directly; pass with_line_numbers=false to get bare content.")]
     public Task<string> ReadFile(
         [Description("Repository-relative path to read.")] string path,
+        [Description("Optional 1-based starting line. Omit to read from the beginning.")] int? start_line = null,
+        [Description("Optional count of lines to return from start_line. Omit to read to the end.")] int? line_count = null,
+        [Description("When true (default), each output line is prefixed with its line number and a tab.")] bool with_line_numbers = true,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: ReadFile path={Path}", path);
+        _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
         return _guards.CheckRead(path) is { } error
             ? Task.FromResult(error)
-            : _runner.ReadAsync(path, ct);
+            : _runner.ReadAsync(path, start_line, line_count, with_line_numbers, ct);
     }
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]
@@ -76,170 +88,304 @@ public sealed class FilesystemToolHost : IToolHost
         return result;
     }
 
-    [Description("Lists the immediate contents (files + subdirectories) of a directory. Pass depth>1 for recursive listing. Use this to discover the shape of an unfamiliar directory; use find_files when you already know a name pattern.")]
+    [Description("Lists the contents of a directory. Pass depth>1 for recursive listing. with_sizes=true adds a size column; sort_by={name|size|mtime} controls ordering. Use this for ad-hoc inspection; use directory_tree for a nested overview, find_files when you already know a name pattern.")]
     public Task<string> ListDirectory(
         [Description("Repository-relative directory path. Use '.' for the repo root.")] string path = ".",
-        [Description("Recursion depth (1 = direct children only). Omit for full recursion — use sparingly on large trees.")] int? depth = null,
+        [Description("Recursion depth (1 = direct children only). Omit for direct children only.")] int? depth = null,
+        [Description("When true, include a size column. Default false.")] bool with_sizes = false,
+        [Description("Sort order: 'name' (default), 'size' (descending), or 'mtime' (newest first).")] string sort_by = "name",
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: ListDirectory path={Path} depth={Depth}", path, depth);
-        return _guards.CheckRead(path) is { } error
-            ? Task.FromResult(error)
-            : _runner.ListAsync(path, depth, ct);
+        _logger?.LogInformation("tool_call: ListDirectory path={Path} depth={Depth} sizes={Sizes} sort={Sort}", path, depth, with_sizes, sort_by);
+        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        var sort = ParseSortBy(sort_by);
+        return _runner.ListAsync(path, depth, with_sizes, sort, ct);
     }
 
-    [Description("Finds files whose names match a glob pattern, tree-recursive under the given root. Use when you know the file-name shape ('*.cs', 'Program.cs', '**/Controller.cs'). For directory-shape exploration use list_directory.")]
-    public Task<string> FindFiles(
-        [Description("Glob pattern matched against file names, e.g. '*.cs' or '**/Controller.cs'.")] string pattern,
+    private static DirectorySortBy ParseSortBy(string s) => s?.ToLowerInvariant() switch
+    {
+        "size" => DirectorySortBy.Size,
+        "mtime" => DirectorySortBy.Mtime,
+        _ => DirectorySortBy.Name
+    };
+
+    [Description("Returns a nested text tree of the given directory, MCP filesystem-server directory_tree shape. Use this to get a one-shot layout overview instead of N list_directory walks.")]
+    public Task<string> DirectoryTree(
+        [Description("Repository-relative root directory. Use '.' for the repo root.")] string root = ".",
+        [Description("Maximum recursion depth (default 4).")] int? max_depth = null,
+        [Description("Optional list of basename globs to skip (e.g. ['*.min.js', 'bin']). The standard noisy dirs (.git, node_modules, bin, obj, etc.) are always skipped.")] IReadOnlyList<string>? exclude_globs = null,
+        CancellationToken ct = default)
+    {
+        _logger?.LogInformation("tool_call: DirectoryTree root={Root} depth={Depth}", root, max_depth);
+        return _guards.CheckRead(root) is { } error
+            ? Task.FromResult(error)
+            : _runner.TreeAsync(root, max_depth, exclude_globs, ct);
+    }
+
+    [Description("Finds files whose path (relative to root) matches a glob pattern. Pattern is path-relative — 'Controller.cs' matches any file with 'Controller.cs' in its path; '*.cs' matches every .cs file; 'src/**/*.cs' matches every .cs under src/. Truncates at head_limit and appends a marker line.")]
+    public async Task<string> FindFiles(
+        [Description("Glob pattern matched against the path relative to root. Substring match if no glob chars are present.")] string pattern,
         [Description("Repository-relative directory to search under (default '.').")] string root = ".",
+        [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: FindFiles pattern={Pattern} root={Root}", pattern, root);
-        if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
-        var namePattern = pattern.StartsWith("**/", StringComparison.Ordinal) ? pattern[3..] : pattern;
-        var cmd = $"find {ShellQuote(root)} -type f -name {ShellQuote(namePattern)} 2>/dev/null | head -200";
-        return _runner.RunAsync(cmd, ct);
+        if (_guards.CheckRead(root) is { } error) return error;
+        var limit = head_limit ?? SizeLimits.GrepDefaultHeadLimit;
+        var normalized = NormalizeFindPattern(pattern);
+        // head -N+1 so we can detect over-limit and emit the truncation marker.
+        var cmd = $"find {ShellQuote(root)} -type f -path {ShellQuote(normalized)} 2>/dev/null | head -{limit + 1}";
+        var structured = await _runner.RunAsync(cmd, timeoutSeconds: null, ct);
+        return FormatFindOutput(structured, limit);
     }
 
-    [Description("Replaces an EXACT string occurrence in a file. old_string must appear EXACTLY ONCE in the file or the call fails — provide enough surrounding context to make it unique. Use this for targeted edits instead of WriteFile (which overwrites the whole file).")]
+    private static string NormalizeFindPattern(string pattern)
+    {
+        var normalized = pattern.Replace("**", "*");
+        var hasGlob = normalized.Contains('*') || normalized.Contains('?');
+        return hasGlob ? normalized : $"*{normalized}*";
+    }
+
+    private static string FormatFindOutput(string structured, int limit)
+    {
+        // RunAsync returns the labeled-section format; pull stdout out.
+        var stdout = ExtractStdoutSection(structured);
+        var lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length <= limit) return string.Join('\n', lines);
+        return string.Join('\n', lines.Take(limit)) + $"\n(truncated: {limit} matches)";
+    }
+
+    private static string ExtractStdoutSection(string structured)
+    {
+        var idx = structured.IndexOf("stdout:\n", StringComparison.Ordinal);
+        if (idx < 0) return string.Empty;
+        var start = idx + "stdout:\n".Length;
+        var end = structured.IndexOf("\n\nstderr:", start, StringComparison.Ordinal);
+        return end < 0 ? structured[start..] : structured[start..end];
+    }
+
+    [Description("Replaces an EXACT string occurrence in a file. By default old_string must appear EXACTLY ONCE — provide enough surrounding context to make it unique. With replace_all=true, every occurrence is replaced and the count is reported.")]
     public async Task<string> Edit(
         [Description("Repository-relative path to edit.")] string path,
-        [Description("Exact string to find. Must appear exactly once in the file. Include enough surrounding context for uniqueness.")] string old_string,
+        [Description("Exact string to find. Include enough surrounding context for uniqueness unless replace_all is true.")] string old_string,
         [Description("Replacement string.")] string new_string,
+        [Description("When true, replace every occurrence and report the count. Default false.")] bool replace_all = false,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: Edit path={Path} old_len={Old} new_len={New}", path, old_string?.Length ?? 0, new_string?.Length ?? 0);
+        _logger?.LogInformation("tool_call: Edit path={Path} old_len={Old} new_len={New} replace_all={All}",
+            path, old_string?.Length ?? 0, new_string?.Length ?? 0, replace_all);
         if (_guards.CheckRead(path) is { } readErr) return readErr;
         if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
         if (string.IsNullOrEmpty(old_string)) return "Error: old_string must not be empty.";
 
-        var content = await _runner.ReadAsync(path, ct);
+        var content = await _runner.ReadAsync(path, startLine: null, lineCount: null, withLineNumbers: false, ct);
         if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
 
-        var idx = content.IndexOf(old_string, StringComparison.Ordinal);
-        if (idx < 0) return $"Error: old_string not found in {path}.";
-        if (content.IndexOf(old_string, idx + 1, StringComparison.Ordinal) >= 0)
-            return $"Error: old_string appears multiple times in {path} — extend the snippet with surrounding context to make it unique.";
-
-        var newContent = string.Concat(content.AsSpan(0, idx), new_string, content.AsSpan(idx + old_string.Length));
+        var (newContent, count, error) = ApplyEdit(content, old_string, new_string, replace_all, path);
+        if (error is not null) return error;
         var result = await _runner.WriteAsync(path, newContent, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             _changes.Add(new CodeChange(new FilePath(path), newContent, "Modify"));
-        return result;
+        return replace_all
+            ? $"{result}\nReplaced {count} occurrence(s)."
+            : result;
     }
 
-    [Description("Sends an HTTP request from inside the sandbox and returns response status, headers, and body. Use for live API probing (e.g. anonymous endpoint behavior, malformed payload response codes, header inspection) when a target URL is reachable. Built on `curl -sS -i` under the hood.")]
+    private static (string Content, int Count, string? Error) ApplyEdit(
+        string content, string oldString, string newString, bool replaceAll, string path)
+    {
+        var idx = content.IndexOf(oldString, StringComparison.Ordinal);
+        if (idx < 0) return (content, 0, $"Error: old_string not found in {path}.");
+        if (!replaceAll && content.IndexOf(oldString, idx + 1, StringComparison.Ordinal) >= 0)
+            return (content, 0, $"Error: old_string appears multiple times in {path} — extend the snippet with surrounding context to make it unique, or pass replace_all=true.");
+        if (!replaceAll)
+        {
+            var single = string.Concat(content.AsSpan(0, idx), newString, content.AsSpan(idx + oldString.Length));
+            return (single, 1, null);
+        }
+        // Manual replace_all so we can count and avoid Regex pitfalls with special chars.
+        var sb = new StringBuilder(content.Length);
+        var pos = 0;
+        var count = 0;
+        while (pos < content.Length)
+        {
+            var next = content.IndexOf(oldString, pos, StringComparison.Ordinal);
+            if (next < 0) { sb.Append(content, pos, content.Length - pos); break; }
+            sb.Append(content, pos, next - pos);
+            sb.Append(newString);
+            pos = next + oldString.Length;
+            count++;
+        }
+        return (sb.ToString(), count, null);
+    }
+
+    [Description("Atomically applies multiple text edits to a single file. All edits succeed or none apply. Useful for a refactor or rename across one file in one round-trip. With dry_run=true, returns a per-edit summary and writes nothing.")]
+    public async Task<string> MultiEdit(
+        [Description("Repository-relative path to edit.")] string path,
+        [Description("Ordered list of edits to apply. Each edit is {old_string, new_string, replace_all (optional, default false)}.")] IReadOnlyList<MultiEditOp> edits,
+        [Description("When true, simulate the edits and return a summary without writing.")] bool dry_run = false,
+        CancellationToken ct = default)
+    {
+        _logger?.LogInformation("tool_call: MultiEdit path={Path} edits={Count} dry_run={Dry}", path, edits?.Count ?? 0, dry_run);
+        if (edits is null || edits.Count == 0) return "Error: edits must contain at least one entry.";
+        if (_guards.CheckRead(path) is { } readErr) return readErr;
+        if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
+
+        var content = await _runner.ReadAsync(path, startLine: null, lineCount: null, withLineNumbers: false, ct);
+        if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
+
+        var summary = new StringBuilder();
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var op = edits[i];
+            if (string.IsNullOrEmpty(op.old_string)) return $"Error: edit #{i + 1} old_string must not be empty.";
+            var (next, count, err) = ApplyEdit(content, op.old_string, op.new_string ?? string.Empty, op.replace_all, path);
+            if (err is not null) return $"Error in edit #{i + 1}: {err[7..]}";
+            summary.AppendLine($"edit #{i + 1}: {count} replacement(s)");
+            content = next;
+        }
+
+        if (dry_run) return $"dry_run: would apply {edits.Count} edit(s) to {path}\n{summary}";
+
+        var result = await _runner.WriteAsync(path, content, ct);
+        if (!result.StartsWith("Error", StringComparison.Ordinal))
+            _changes.Add(new CodeChange(new FilePath(path), content, "Modify"));
+        return $"{result}\nApplied {edits.Count} edit(s).\n{summary}";
+    }
+
+    /// <summary>Per-edit operation for <see cref="MultiEdit"/>. Flat record so the
+    /// generated JSON schema is OpenAI-strict-mode safe and Ollama-friendly.</summary>
+    public sealed record MultiEditOp(
+        [property: Description("Exact string to find.")] string old_string,
+        [property: Description("Replacement string.")] string new_string,
+        [property: Description("When true, replace every occurrence in this step. Default false.")] bool replace_all = false);
+
+    [Description("Sends an HTTP request from inside the sandbox and returns response status, headers, and body. Use for live API probing (anonymous endpoint behaviour, malformed-payload response codes, header inspection). For reading documentation pages, p0154 ships web_fetch.")]
     public Task<string> HttpRequest(
         [Description("HTTP method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.")] string method,
         [Description("Full URL including scheme.")] string url,
-        [Description("Optional request body for POST/PUT/PATCH. Empty for GET/HEAD/DELETE/OPTIONS.")] string? body = null,
+        [Description("Optional request body for POST/PUT/PATCH.")] string? body = null,
         [Description("Optional request headers, one per line: 'Authorization: Bearer xyz\\nContent-Type: application/json'.")] string? headers = null,
-        [Description("Optional connection timeout in seconds (default 15, max 60).")] int? timeoutSeconds = null,
+        [Description("Optional connection timeout in seconds (default 15, max 60).")] int? timeout_seconds = null,
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: HttpRequest {Method} {Url} body_len={BodyLen}", method, url, body?.Length ?? 0);
-
         var allowedMethods = new[] { "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS" };
         var upperMethod = method?.ToUpperInvariant() ?? "GET";
         if (!allowedMethods.Contains(upperMethod))
             return Task.FromResult($"Error: unsupported HTTP method '{method}'. Allowed: {string.Join(", ", allowedMethods)}.");
-
         if (string.IsNullOrWhiteSpace(url))
             return Task.FromResult("Error: url is required.");
 
-        var clampedTimeout = Math.Clamp(timeoutSeconds ?? 15, 1, 60);
+        var clampedTimeout = Math.Clamp(timeout_seconds ?? 15, 1, 60);
         var parts = new List<string> { "curl", "-sS", "-i", "--max-time", clampedTimeout.ToString(), "-X", upperMethod };
         if (!string.IsNullOrEmpty(headers))
-        {
             foreach (var line in headers.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                parts.Add("-H");
-                parts.Add(line);
-            }
-        }
+            { parts.Add("-H"); parts.Add(line); }
         if (!string.IsNullOrEmpty(body))
-        {
-            parts.Add("--data-raw");
-            parts.Add(body);
-        }
+        { parts.Add("--data-raw"); parts.Add(body); }
         parts.Add(url);
 
         var cmd = string.Join(" ", parts.Select(ShellQuote));
-        return _runner.RunAsync(cmd, ct);
+        return _runner.RunAsync(cmd, timeoutSeconds: clampedTimeout + 5, ct);
     }
 
     private static string ShellQuote(string s) => "'" + s.Replace("'", "'\\''") + "'";
 
-    [Description("Searches a single file for lines matching a regular expression. Use when you already know the file path (e.g. cited in an upstream observation). For searching across a directory tree, use grep_in_tree.")]
+    [Description("Searches a single file for lines matching a regular expression. Use when you already know the file path. context_before / context_after / context (shorthand) include adjacent lines. output_mode: 'content' (default, with line numbers), 'files_with_matches' (just the path), 'count' (matches per file).")]
     public Task<string> GrepInFile(
         [Description("Repository-relative path to a specific file.")] string path,
         [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
+        [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
+        [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,
+        [Description("Lines of context after each match (-A). Overridden by 'context' if set.")] int? context_after = null,
+        [Description("Shorthand for context_before + context_after.")] int? context = null,
+        [Description("'content' (default), 'files_with_matches', or 'count'.")] string output_mode = "content",
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: GrepInFile path={Path} pattern={Pattern}", path, pattern);
-        return _guards.CheckRead(path) is { } error
-            ? Task.FromResult(error)
-            : _runner.GrepAsync(pattern, path, glob: null, maxMatches, ct);
+        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        var (before, after) = ResolveContext(context_before, context_after, context);
+        var mode = ParseOutputMode(output_mode);
+        return _runner.GrepAsync(pattern, path, glob: null, head_limit, before, after, mode, ct);
     }
 
-    [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. For a single known file, use grep_in_file.")]
+    [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'.")]
     public Task<string> GrepInTree(
         [Description("Regular expression pattern to search for.")] string pattern,
         [Description("Repository-relative directory to search under (default '.').")] string root = ".",
         [Description("Optional glob filter for file names (e.g. '*.cs', '**/*.json').")] string? glob = null,
-        [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
+        [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
+        [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,
+        [Description("Lines of context after each match (-A). Overridden by 'context' if set.")] int? context_after = null,
+        [Description("Shorthand for context_before + context_after.")] int? context = null,
+        [Description("'content' (default), 'files_with_matches', or 'count'.")] string output_mode = "content",
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: GrepInTree pattern={Pattern} root={Root} glob={Glob}", pattern, root, glob);
-        return _guards.CheckRead(root) is { } error
-            ? Task.FromResult(error)
-            : _runner.GrepAsync(pattern, root, glob, maxMatches, ct);
+        if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
+        var (before, after) = ResolveContext(context_before, context_after, context);
+        var mode = ParseOutputMode(output_mode);
+        return _runner.GrepAsync(pattern, root, glob, head_limit, before, after, mode, ct);
     }
 
-    // Deprecated aliases — kept to preserve the contract that v2.5.1 SKILL.md
-    // files reference (`grep`, `glob`, `list_files`). The next agent-smith-skills
-    // release migrates the prompts to the new names; once a release or two has
-    // shipped with the renamed prompts, these aliases come out.
-    [Description("[DEPRECATED — use grep_in_file or grep_in_tree.] Searches files for a regular expression. Forwards to grep_in_tree when path is a directory, grep_in_file when path is a file.")]
-    public Task<string> Grep(
-        [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Repository-relative path to search under (file or directory).")] string path = ".",
-        [Description("Optional glob filter (e.g. '*.cs') — only meaningful when path is a directory.")] string? glob = null,
-        [Description("Maximum number of matches to return (default 200).")] int? maxMatches = null,
-        CancellationToken ct = default)
+    private static (int? Before, int? After) ResolveContext(int? before, int? after, int? context)
     {
-        _logger?.LogInformation("tool_call: Grep [deprecated] pattern={Pattern} path={Path} glob={Glob}", pattern, path, glob);
-        return _guards.CheckRead(path) is { } error
-            ? Task.FromResult(error)
-            : _runner.GrepAsync(pattern, path, glob, maxMatches, ct);
+        if (context is { } c && c > 0) return (c, c);
+        return (before, after);
     }
 
-    [Description("[DEPRECATED — use find_files.] Lists files matching a glob pattern. Forwards to find_files.")]
-    public Task<string> Glob(
-        [Description("Glob pattern, e.g. '*.cs' or 'Program.cs'.")] string pattern,
-        [Description("Repository-relative base path to search from (default '.').")] string path = ".",
-        CancellationToken ct = default) => FindFiles(pattern, path, ct);
+    private static GrepOutputMode ParseOutputMode(string mode) => mode?.ToLowerInvariant() switch
+    {
+        "files_with_matches" => GrepOutputMode.FilesWithMatches,
+        "count" => GrepOutputMode.Count,
+        _ => GrepOutputMode.Content
+    };
 
-    [Description("[DEPRECATED — use list_directory.] Lists files and folders under the given path. Forwards to list_directory.")]
-    public Task<string> ListFiles(
-        [Description("Repository-relative path to list. Use '.' for the repo root.")] string path = ".",
-        [Description("Optional max depth to recurse.")] int? maxDepth = null,
-        CancellationToken ct = default) => ListDirectory(path, maxDepth, ct);
-
-    [Description("Runs a shell command (passed to /bin/sh -c). Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard on top of the sandbox boundary; use find/grep/head/wc/curl/ls/cat freely.")]
+    [Description("Runs a shell command (passed to /bin/sh -c). Returns labeled sections: header lines (exit_code, elapsed_ms, truncated) followed by 'stdout:' and 'stderr:' blocks. Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard; use find/grep/head/wc/curl/ls/cat freely.")]
     public Task<string> RunCommand(
         [Description("Shell command to execute (passed to /bin/sh -c).")] string command,
+        [Description("Optional timeout in seconds (default 60, max 600). Use for builds and test runs that may exceed the default.")] int? timeout_seconds = null,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: RunCommand cmd={Command}", command);
+        _logger?.LogInformation("tool_call: RunCommand cmd={Command} timeout={Timeout}", command, timeout_seconds);
         if (CommandGuard.Check(command) is { } error)
         {
             _logger?.LogWarning("RunCommand blocked by destructive-command guard: {Command}", command);
             return Task.FromResult(error);
         }
-        return _runner.RunAsync(command, ct);
+        return _runner.RunAsync(command, timeout_seconds, ct);
     }
+
+    // Deprecated aliases — kept registered as forwarders until p0154 ships the
+    // skills catalogue rename. Descriptions reflect the deprecation; the
+    // SourceAnchoringPreamble does not mention them so the LLM is not steered
+    // toward the old names.
+
+    [Description("[DEPRECATED — use grep_in_file or grep_in_tree.] Forwards to the path-shape-appropriate replacement.")]
+    public Task<string> Grep(
+        [Description("Regular expression pattern.")] string pattern,
+        [Description("Repository-relative path to search under (file or directory).")] string path = ".",
+        [Description("Optional glob filter (only meaningful when path is a directory).")] string? glob = null,
+        [Description("Maximum number of matches to return.")] int? max_matches = null,
+        CancellationToken ct = default)
+    {
+        _logger?.LogInformation("tool_call: Grep [deprecated] pattern={Pattern} path={Path}", pattern, path);
+        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        return _runner.GrepAsync(pattern, path, glob, max_matches, contextBefore: null, contextAfter: null, GrepOutputMode.Content, ct);
+    }
+
+    [Description("[DEPRECATED — use find_files.] Lists files matching a glob pattern.")]
+    public Task<string> Glob(
+        [Description("Glob pattern.")] string pattern,
+        [Description("Repository-relative base path (default '.').")] string path = ".",
+        CancellationToken ct = default) => FindFiles(pattern, path, head_limit: null, ct);
+
+    [Description("[DEPRECATED — use list_directory.] Lists files and folders under the given path.")]
+    public Task<string> ListFiles(
+        [Description("Repository-relative path. Use '.' for the repo root.")] string path = ".",
+        [Description("Optional max depth.")] int? max_depth = null,
+        CancellationToken ct = default) => ListDirectory(path, max_depth, with_sizes: false, sort_by: "name", ct);
 
     private static AIFunction Tool(Delegate impl, string name) =>
         AIFunctionFactory.Create(impl, name: name);
@@ -251,9 +397,9 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(GrepInTree, "grep_in_tree"),
         Tool(FindFiles, "find_files"),
         Tool(ListDirectory, "list_directory"),
+        Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
-        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
         Tool(Grep, "grep"),
         Tool(Glob, "glob"),
         Tool(ListFiles, "list_files")
@@ -266,32 +412,18 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(ReadFile, "read_file"),
         Tool(WriteFile, "write_file"),
         Tool(Edit, "edit"),
+        Tool(MultiEdit, "multi_edit"),
         Tool(GrepInFile, "grep_in_file"),
         Tool(GrepInTree, "grep_in_tree"),
         Tool(FindFiles, "find_files"),
         Tool(ListDirectory, "list_directory"),
+        Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
-        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
         Tool(Grep, "grep"),
         Tool(Glob, "glob"),
         Tool(ListFiles, "list_files")
     ];
 
-    private IEnumerable<AIFunction> All() =>
-    [
-        Tool(ReadFile, "read_file"),
-        Tool(WriteFile, "write_file"),
-        Tool(Edit, "edit"),
-        Tool(ListDirectory, "list_directory"),
-        Tool(FindFiles, "find_files"),
-        Tool(GrepInFile, "grep_in_file"),
-        Tool(GrepInTree, "grep_in_tree"),
-        Tool(RunCommand, "run_command"),
-        Tool(HttpRequest, "http_request"),
-        // Deprecated aliases — kept until agent-smith-skills migrates its prompts.
-        Tool(Grep, "grep"),
-        Tool(Glob, "glob"),
-        Tool(ListFiles, "list_files")
-    ];
+    private IEnumerable<AIFunction> All() => BootstrapSet();
 }

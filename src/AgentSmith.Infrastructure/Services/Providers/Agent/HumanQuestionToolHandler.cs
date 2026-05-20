@@ -34,9 +34,10 @@ internal sealed class HumanQuestionToolHandler(
         if (!Enum.TryParse<QuestionType>(normalizedType, ignoreCase: true, out var questionType))
             return $"Error: Invalid question_type '{questionTypeStr}'.";
 
-        List<string>? choices = null;
+        List<DialogChoice>? choices = null;
         if (choicesNode is JsonArray arr)
-            choices = arr.Select(c => c?.GetValue<string>() ?? "").Where(c => c.Length > 0).ToList();
+            choices = arr.Select(c => c?.GetValue<string>() ?? "").Where(c => c.Length > 0)
+                .Select(label => new DialogChoice(label)).ToList();
 
         var questionId = Guid.NewGuid().ToString("N");
         var question = new DialogQuestion(
