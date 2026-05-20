@@ -96,7 +96,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
                 if (path is null || lineText is null) continue;
                 matches.Add(new JsonObject
                 {
-                    ["path"] = System.IO.Path.GetRelativePath(root, path),
+                    ["path"] = RelativeFromRoot(root, path),
                     ["line"] = lineNumber,
                     ["text"] = TruncateLine(lineText)
                 });
@@ -131,7 +131,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
             var info = new FileInfo(file);
             if (info.Length > MaxFileSizeBytes) return false;
             var lines = File.ReadAllLines(file);
-            var rel = System.IO.Path.GetRelativePath(root, file);
+            var rel = RelativeFromRoot(root, file);
             for (var i = 0; i < lines.Length; i++)
             {
                 if (matches.Count >= maxMatches) return true;
@@ -146,8 +146,25 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         return false;
     }
 
+    // Path.GetRelativePath returns "." when root == file, which is useless as a
+    // match-record path. When the caller targeted a single file, surface the
+    // filename instead so consumers (LLM, JSON consumers) get a meaningful anchor.
+    private static string RelativeFromRoot(string root, string file) =>
+        string.Equals(root, file, StringComparison.OrdinalIgnoreCase)
+            ? System.IO.Path.GetFileName(file)
+            : System.IO.Path.GetRelativePath(root, file);
+
     private static IEnumerable<string> EnumerateFiles(string root, string? glob)
     {
+        // Skills routinely pass a specific file path (e.g. a controller cited
+        // in an upstream observation) instead of a directory. Directory.EnumerateFiles
+        // throws DirectoryNotFoundException on a file path, masking the real
+        // intent. Handle the file case explicitly; ignore glob when targeting
+        // a single file.
+        if (File.Exists(root))
+            return new[] { root };
+        if (!Directory.Exists(root))
+            return Array.Empty<string>();
         if (string.IsNullOrEmpty(glob) || glob == "**/*")
             return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(f => !IsExcluded(f));
         var pattern = NormalizeGlobToRegex(glob);

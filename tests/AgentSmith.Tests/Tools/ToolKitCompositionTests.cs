@@ -28,9 +28,13 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        // Plan phase = read-side filesystem surface + log_decision + ask_human. No write_file / edit.
+        // p0152: read-side filesystem surface (new primitives + deprecated aliases)
+        // + log_decision + ask_human. No write_file / edit in Plan.
         tools.Should().BeEquivalentTo(
-            "read_file", "grep", "glob", "list_files", "run_command", "http_request", "log_decision", "ask_human");
+            "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
+            "run_command", "http_request",
+            "grep", "glob", "list_files", // deprecated aliases
+            "log_decision", "ask_human");
     }
 
     [Fact]
@@ -40,8 +44,8 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
-        // 8 filesystem-host tools + log_decision + ask_human.
-        tools.Should().HaveCount(10);
+        // p0152: 9 new filesystem-host primitives + 3 deprecated aliases + log_decision + ask_human.
+        tools.Should().HaveCount(14);
     }
 
     [Fact]
