@@ -47,6 +47,91 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
+    public async Task Probe_AuthConfigReviewer_WithProductionStructuredOutputInstruction()
+    {
+        // Same skill, but appends the actual production structured-output-contributor.md
+        // text at the end of the system prompt. Hypothesis: this is what kills tool use
+        // in production by reframing the LLM's task as "JSON generator" not "investigator".
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody + "\n\n" + ProductionStructuredOutputContributorInstruction,
+            userPrompt: ReviewPhaseUserPrompt);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"If ToolCallCount drops from 2 to 0 vs. the plain probe, the production");
+        _out.WriteLine($"structured-output instruction is the regression trigger.");
+        // Intentionally NOT asserting — we want to observe.
+    }
+
+    [Fact]
+    public async Task Probe_AuthConfigReviewer_WithProductionSizedUserPrompt()
+    {
+        // Same skill + same SKILL.md body, but the user prompt is bloated to roughly
+        // match production size (~15-20k input tokens) by appending simulated
+        // ProjectContext + CodeMap + CompressedScannerFindings + UpstreamObservations.
+        // Hypothesis: at this volume the LLM stops using tools and just emits JSON.
+        var bigUserPrompt = BuildProductionSizedUserPrompt();
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody,
+            userPrompt: bigUserPrompt);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"plain probe: 2 tool calls @ ~6k input tokens");
+        _out.WriteLine($"this probe:  {report.ToolCallCount} tool calls @ {report.InputTokens} input tokens");
+        _out.WriteLine($"If ToolCallCount dropped to 0, prompt SIZE (not content) is the regression trigger.");
+    }
+
+    [Fact]
+    public async Task Probe_AuthConfigReviewer_WithRealCatalogV25SkillBody()
+    {
+        // Loads the ACTUAL SKILL.md from the cached v2.5.0 catalog the user's
+        // CLI downloaded — strips YAML frontmatter, uses just the prompt body.
+        // Hypothesis: the inline shorthand I had in this test file doesn't
+        // exactly match what production sees; the real body has the "validator
+        // will downgrade ... finding survives either way" wording that might
+        // be the regression trigger.
+        var realBody = LoadRealSkillBody("api-security", "auth-config-reviewer");
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: realBody,
+            userPrompt: ReviewPhaseUserPrompt);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"This uses the EXACT SKILL.md body from cached catalog v2.5.0.");
+        _out.WriteLine($"If tool-call count drops to 0 here, the published SKILL.md is the regression trigger.");
+    }
+
+    private static string LoadRealSkillBody(string catalog, string skill)
+    {
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cache", "agentsmith", "skills", "skills", catalog, skill, "SKILL.md");
+        if (!File.Exists(path))
+            throw new InvalidOperationException(
+                $"Real SKILL.md not found at {path}. Run a pipeline once to populate the cache, " +
+                "or set AGENTSMITH_SKILL_CACHE to point to a populated cache directory.");
+        var raw = File.ReadAllText(path);
+        // strip YAML frontmatter (between --- markers)
+        if (raw.StartsWith("---"))
+        {
+            var endOfFrontmatter = raw.IndexOf("---", 3, StringComparison.Ordinal);
+            if (endOfFrontmatter > 0)
+                raw = raw[(endOfFrontmatter + 3)..].TrimStart('\n', '\r');
+        }
+        return raw;
+    }
+
+    [Fact]
     public async Task Probe_ApiVulnAnalystPlanner_OnAuthPortFixture()
     {
         var report = await RunProbe(
@@ -269,6 +354,55 @@ public sealed class LiveSkillProbeTests
         ## Output
 
         JSON only, single line. Output: { "observations": [ { "concern": "security", "category": "API2:2023", "api_path": "POST /api/x", "description": "...", "severity": "high", "confidence": 90, "evidence_mode": "analyzed_from_source", "file": "src/Program.cs", "start_line": 12 } ] }
+        """;
+
+    /// <summary>Builds a user prompt that simulates the size/shape Production assembles
+    /// (CompressApiScanFindings 1357 entries + ProjectContext + CodeMap + UpstreamObservations).</summary>
+    private static string BuildProductionSizedUserPrompt()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("### Project context");
+        sb.AppendLine();
+        sb.AppendLine("Small .NET 8 Web API similar to an identity-token gateway. ASP.NET Core minimal hosting.");
+        sb.AppendLine("Single solution, source available, language=C#. Domain: identity & permission management.");
+        sb.AppendLine("Architecture: layered (API / Application / Domain / Infrastructure.Persistence). MediatR-based CQRS.");
+        sb.AppendLine();
+        sb.AppendLine("### Code map (top modules)");
+        sb.AppendLine();
+        for (int i = 0; i < 60; i++)
+            sb.AppendLine($"- Module{i}: Controller / Application / Infrastructure paths summarized (200-1500 LoC).");
+        sb.AppendLine();
+        sb.AppendLine("### Compressed scanner findings (1357 entries → 4 category slices + 38 top anchors)");
+        sb.AppendLine();
+        sb.AppendLine("**Spectral (schema-level, 768 errors / 390 warnings)**");
+        for (int i = 0; i < 200; i++)
+            sb.AppendLine($"- spectral-{i:D3}: GET /api/resource/{i} — missing maxLength on field 'name' (RFC 7807)");
+        sb.AppendLine();
+        sb.AppendLine("**Nuclei (header-level, 195 informational)**");
+        for (int i = 0; i < 80; i++)
+            sb.AppendLine($"- nuclei-{i:D3}: header check — Strict-Transport-Security missing on GET /api/x{i}");
+        sb.AppendLine();
+        sb.AppendLine("**ZAP (4 findings, 1 low)**");
+        sb.AppendLine("- zap-001: Cookie attributes (low) — Set-Cookie without SameSite on /api/session");
+        sb.AppendLine("- zap-002 / 003 / 004: informational headers");
+        sb.AppendLine();
+        sb.AppendLine("### Prior-round observations on the bus");
+        sb.AppendLine();
+        sb.AppendLine("- inventory-auth-stack (potential): cited Program.cs as the file configuring JWT bearer");
+        sb.AppendLine("- api-design-auditor (potential): schema-level findings around missing constraints (50+ items)");
+        sb.AppendLine("- auth-tester (potential): schema-level JWT analysis — issuer/audience claims not documented");
+        sb.AppendLine("- api-vuln-analyst-investigator (potential): OWASP API4:2023 risk from missing rate-limit docs");
+        sb.AppendLine();
+        sb.AppendLine("### Your task");
+        sb.AppendLine();
+        sb.AppendLine("Review the authentication and authorization configuration. Emit your observations now.");
+        return sb.ToString();
+    }
+
+    // Verbatim copy of src/AgentSmith.Application/Prompts/Resources/structured-output-contributor.md
+    // — the actual instruction Production appends. Hypothesis: this is the regression trigger.
+    private const string ProductionStructuredOutputContributorInstruction = """
+        Respond with a JSON array of findings. Each finding: { "file": "", "line": 0, "title": "", "severity": "", "details": "", "apiPath": "METHOD /path", "schemaName": "SchemaName" }. Use apiPath for endpoint-level findings and schemaName for schema-level findings. Omit both for file-based findings. Max 50 items. Output minified JSON on a single line — no whitespace between tokens, no indentation, no newlines.
         """;
 
     // ─────────────────────────────────────────────────────────────────────────
