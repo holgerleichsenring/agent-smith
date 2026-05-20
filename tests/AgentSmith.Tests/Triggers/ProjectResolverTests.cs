@@ -97,6 +97,70 @@ public sealed class ProjectResolverTests
     }
 
     [Fact]
+    public void PipelineFromLabel_ConfiguredButNoLabelMatches_DropsMatch()
+    {
+        var trigger = TriggerWithTag("alpha");
+        trigger.PipelineFromLabel = new Dictionary<string, string>
+        {
+            ["agent-smith:bug"] = "fix-bug",
+            ["agent-smith:feature"] = "add-feature",
+        };
+        var config = ConfigWith(("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with { GithubTrigger = trigger }));
+
+        var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha"] });
+
+        matches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PipelineFromLabel_ConfiguredAndLabelMatches_ReturnsMappedPipeline()
+    {
+        var trigger = TriggerWithTag("alpha");
+        trigger.PipelineFromLabel = new Dictionary<string, string>
+        {
+            ["agent-smith:bug"] = "fix-bug",
+            ["agent-smith:feature"] = "add-feature",
+        };
+        var config = ConfigWith(("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with { GithubTrigger = trigger }));
+
+        var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha", "agent-smith:feature"] });
+
+        matches.Should().ContainSingle()
+            .Which.PipelineName.Should().Be("add-feature");
+    }
+
+    [Fact]
+    public void NoPipelineFromLabel_UsesDefaultPipeline()
+    {
+        var config = ConfigWith(("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with { GithubTrigger = TriggerWithTag("alpha") }));
+
+        var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha"] });
+
+        matches.Should().ContainSingle()
+            .Which.PipelineName.Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public void GlobalPipelineTriggers_ConfiguredButNoLabelMatches_DropsMatch()
+    {
+        var globalTriggers = new PipelineTriggerMap(new Dictionary<string, string>
+        {
+            ["agent-smith:bug"] = "fix-bug",
+            ["agent-smith:feature"] = "add-feature",
+        });
+        var config = ConfigWith(globalTriggers,
+            ("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+                project => project with { GithubTrigger = TriggerWithTag("alpha") }));
+
+        var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha"] });
+
+        matches.Should().BeEmpty();
+    }
+
+    [Fact]
     public void RepoStrategy_MatchesByRepoUrl()
     {
         var url = "https://github.com/acme/app.git";
@@ -115,6 +179,11 @@ public sealed class ProjectResolverTests
 
     private static AgentSmithConfig ConfigWith(
         params (string Name, TrackerConnection Tracker, Func<ResolvedProject, ResolvedProject> Shape)[] entries)
+        => ConfigWith(PipelineTriggerMap.Empty, entries);
+
+    private static AgentSmithConfig ConfigWith(
+        PipelineTriggerMap globalTriggers,
+        params (string Name, TrackerConnection Tracker, Func<ResolvedProject, ResolvedProject> Shape)[] entries)
     {
         var projects = new Dictionary<string, ResolvedProject>();
         foreach (var (name, tracker, shape) in entries)
@@ -127,7 +196,7 @@ public sealed class ProjectResolverTests
             };
             projects[name] = shape(project);
         }
-        return new AgentSmithConfig { Projects = projects };
+        return new AgentSmithConfig { Projects = projects, PipelineTriggers = globalTriggers };
     }
 
     private static WebhookTriggerConfig TriggerWithTag(string tag) =>
