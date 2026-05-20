@@ -5,6 +5,7 @@ public sealed record DialogQuestion(
     QuestionType Type,
     string Text,
     string? Context,
-    IReadOnlyList<string>? Choices,
+    IReadOnlyList<DialogChoice>? Choices,
     string? DefaultAnswer,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    int? RecommendedIndex = null);

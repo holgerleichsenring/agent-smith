@@ -30,6 +30,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
             StepKind.WriteFile => WriteFileAsync(step, cancellationToken),
             StepKind.ListFiles => Task.FromResult(ListFiles(step, progress)),
             StepKind.Grep => Task.FromResult(Grep(step, progress)),
+            StepKind.DirectoryTree => Task.FromResult(DirectoryTree(step)),
             StepKind.Shutdown => Task.FromResult(Success(step, 0, null)),
             _ => Task.FromResult(Failure(step, 0, $"Unsupported kind {step.Kind}"))
         };
@@ -39,7 +40,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
     {
         var path = ResolvePath(step.Path!);
         if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
-        var maxMatches = step.MaxMatches ?? SizeLimits.GrepMaxMatches;
+        var maxMatches = step.HeadLimit ?? SizeLimits.GrepDefaultHeadLimit;
         try
         {
             var regex = new System.Text.RegularExpressions.Regex(step.Pattern!,
@@ -196,12 +197,37 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
         try
         {
             var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-            return Success(step, 0, encoding.GetString(bytes));
+            var content = encoding.GetString(bytes);
+            // Duplicates FileStepHandler.SliceLines on purpose — InProcessSandbox
+            // lives in Infrastructure, Sandbox.Agent is an Exe project that
+            // cannot be referenced. Keep the two implementations in sync when
+            // touching slicing semantics.
+            return Success(step, 0, SliceLines(content, step.StartLine, step.LineCount, step.WithLineNumbers));
         }
         catch (DecoderFallbackException)
         {
             return Failure(step, 0, "binary or non-UTF-8 content not supported");
         }
+    }
+
+    private static string SliceLines(string content, int? startLine, int? lineCount, bool withLineNumbers)
+    {
+        var lines = content.Split('\n');
+        var start = Math.Max(1, startLine ?? 1);
+        var count = lineCount ?? int.MaxValue;
+        var endExclusive = (int)Math.Min((long)start - 1 + count, lines.Length);
+        var startIdx = Math.Min(start - 1, lines.Length);
+        if (startIdx >= lines.Length) return string.Empty;
+        if (!withLineNumbers) return string.Join('\n', lines[startIdx..endExclusive]);
+        var width = lines.Length.ToString().Length;
+        var sb = new StringBuilder();
+        for (var i = startIdx; i < endExclusive; i++)
+        {
+            sb.Append((i + 1).ToString().PadLeft(width));
+            sb.Append('\t').Append(lines[i]);
+            if (i + 1 < endExclusive) sb.Append('\n');
+        }
+        return sb.ToString();
     }
 
     private async Task<StepResult> WriteFileAsync(Step step, CancellationToken cancellationToken)
@@ -223,12 +249,109 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
         var path = ResolvePath(step.Path!);
         if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
         var maxDepth = step.MaxDepth ?? 1;
-        var entries = new List<string>(SizeLimits.ListFilesMaxEntries);
-        var truncated = EnumerateUntilLimit(path, maxDepth, entries);
+        var entries = new List<(string Path, long? Size, DateTimeOffset Mtime, bool IsDir)>(SizeLimits.ListFilesMaxEntries);
+        var truncated = EnumerateRichUntilLimit(path, maxDepth, entries);
         if (truncated)
             progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, "directory truncated at 1000 entries"));
-        var rewritten = entries.Select(VirtualisePath).ToList();
-        return Success(step, 0, JsonSerializer.Serialize(rewritten, WireFormat.Json));
+        var sorted = step.SortBy switch
+        {
+            DirectorySortBy.Size => entries.OrderByDescending(e => e.Size ?? -1).ToList(),
+            DirectorySortBy.Mtime => entries.OrderByDescending(e => e.Mtime).ToList(),
+            _ => entries.OrderBy(e => e.Path, StringComparer.Ordinal).ToList()
+        };
+        var json = JsonSerializer.Serialize(sorted.Select(e =>
+        {
+            var obj = new System.Text.Json.Nodes.JsonObject { ["path"] = VirtualisePath(e.Path) };
+            if (e.Size.HasValue) obj["size_bytes"] = e.Size.Value;
+            obj["mtime"] = e.Mtime.ToString("O");
+            obj["is_directory"] = e.IsDir;
+            return obj;
+        }).ToList(), WireFormat.Json);
+        return Success(step, 0, json);
+    }
+
+    private static bool EnumerateRichUntilLimit(
+        string root, int maxDepth,
+        List<(string Path, long? Size, DateTimeOffset Mtime, bool IsDir)> entries)
+    {
+        var stack = new Stack<(string Path, int Depth)>();
+        stack.Push((root, 0));
+        while (stack.Count > 0)
+        {
+            var (current, depth) = stack.Pop();
+            IEnumerable<string> children;
+            try { children = Directory.EnumerateFileSystemEntries(current); } catch { continue; }
+            foreach (var entry in children)
+            {
+                if (entries.Count >= SizeLimits.ListFilesMaxEntries) return true;
+                var isDir = Directory.Exists(entry);
+                long? size = null;
+                var mtime = DateTimeOffset.MinValue;
+                try
+                {
+                    if (isDir) mtime = new DirectoryInfo(entry).LastWriteTimeUtc;
+                    else { var fi = new FileInfo(entry); size = fi.Length; mtime = fi.LastWriteTimeUtc; }
+                }
+                catch { /* leave defaults */ }
+                entries.Add((entry, size, mtime, isDir));
+                if (depth + 1 < maxDepth && isDir) stack.Push((entry, depth + 1));
+            }
+        }
+        return false;
+    }
+
+    private StepResult DirectoryTree(Step step)
+    {
+        var path = ResolvePath(step.Path!);
+        if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
+        var maxDepth = step.MaxDepth ?? 4;
+        var excludes = (step.ExcludeGlobs ?? Array.Empty<string>())
+            .Select(g => new System.Text.RegularExpressions.Regex(
+                "^" + System.Text.RegularExpressions.Regex.Escape(g).Replace("\\*", "[^/]*").Replace("\\?", ".") + "$",
+                System.Text.RegularExpressions.RegexOptions.Compiled, TimeSpan.FromSeconds(2)))
+            .ToArray();
+        var sb = new StringBuilder();
+        sb.Append(Path.GetFileName(path.TrimEnd('/', '\\'))).Append("/\n");
+        RenderTree(path, 1, maxDepth, excludes, "", sb);
+        return Success(step, 0, sb.ToString().TrimEnd('\n'));
+    }
+
+    private static readonly string[] DefaultTreeExclusions =
+    [
+        ".git", "node_modules", "bin", "obj", ".vs", ".idea", "dist", "build",
+        ".next", ".nuxt", "coverage", ".terraform", "vendor", "__pycache__"
+    ];
+
+    private static void RenderTree(
+        string dir, int depth, int maxDepth,
+        System.Text.RegularExpressions.Regex[] excludes, string prefix, StringBuilder sb)
+    {
+        if (depth > maxDepth) return;
+        IEnumerable<string> children;
+        try { children = Directory.EnumerateFileSystemEntries(dir); } catch { return; }
+        var list = children
+            .Where(c => !ShouldExcludeFromTree(Path.GetFileName(c), excludes))
+            .OrderBy(c => !Directory.Exists(c))
+            .ThenBy(c => c, StringComparer.Ordinal)
+            .ToList();
+        for (var i = 0; i < list.Count; i++)
+        {
+            var entry = list[i];
+            var isLast = i == list.Count - 1;
+            var name = Path.GetFileName(entry);
+            var isDir = Directory.Exists(entry);
+            sb.Append(prefix).Append(isLast ? "└── " : "├── ").Append(name);
+            if (isDir) sb.Append('/');
+            sb.Append('\n');
+            if (isDir) RenderTree(entry, depth + 1, maxDepth, excludes, prefix + (isLast ? "    " : "│   "), sb);
+        }
+    }
+
+    private static bool ShouldExcludeFromTree(string name, System.Text.RegularExpressions.Regex[] excludes)
+    {
+        if (DefaultTreeExclusions.Contains(name)) return true;
+        foreach (var rx in excludes) if (rx.IsMatch(name)) return true;
+        return false;
     }
 
     // Mirror image of ResolvePath: translate the actual workDir back to /work so callers

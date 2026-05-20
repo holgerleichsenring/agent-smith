@@ -125,7 +125,10 @@ public sealed class ConsoleDialogueTransport(
             case QuestionType.Choice when question.Choices is { Count: > 0 }:
                 for (var i = 0; i < question.Choices.Count; i++)
                 {
-                    sb.AppendLine($"  {i + 1}. {question.Choices[i]}");
+                    var choice = question.Choices[i];
+                    var marker = i == question.RecommendedIndex ? " (recommended)" : "";
+                    var suffix = string.IsNullOrEmpty(choice.Description) ? "" : $" — {choice.Description}";
+                    sb.AppendLine($"  {i + 1}. {choice.Label}{marker}{suffix}");
                 }
                 sb.Append("Enter number: ");
                 break;
@@ -159,7 +162,7 @@ public sealed class ConsoleDialogueTransport(
 
             case QuestionType.Choice when question.Choices is { Count: > 0 }:
                 if (int.TryParse(trimmed, out var idx) && idx >= 1 && idx <= question.Choices.Count)
-                    return question.Choices[idx - 1];
+                    return question.Choices[idx - 1].Label;
                 return trimmed;
 
             case QuestionType.Approval:

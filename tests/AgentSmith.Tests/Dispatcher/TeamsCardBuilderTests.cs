@@ -13,8 +13,9 @@ public sealed class TeamsCardBuilderTests
         string? context = null,
         IReadOnlyList<string>? choices = null)
     {
+        var rich = choices?.Select(c => new DialogChoice(c)).ToList();
         return new DialogQuestion(
-            questionId, type, text, context, choices, null, TimeSpan.FromSeconds(30));
+            questionId, type, text, context, rich, null, TimeSpan.FromSeconds(30));
     }
 
     [Fact]
