@@ -33,13 +33,13 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
                 if (!Matches(trigger, project, envelope)) continue;
 
                 var pipeline = PipelineResolver.Resolve(
-                    trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger)
-                    ?? trigger.DefaultPipeline;
+                    trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
 
                 if (string.IsNullOrEmpty(pipeline))
                 {
-                    logger?.LogWarning(
-                        "ProjectResolver: project '{Project}' matched envelope on {Kind} but pipeline resolution returned null/empty; skipping.",
+                    // No DefaultPipeline fallback: when pipeline_from_label is set it acts as a strict filter; an unmatched ticket must be dropped.
+                    logger?.LogInformation(
+                        "ProjectResolver: project '{Project}' matched envelope on {Kind} but no pipeline_from_label entry matched; dropping.",
                         projectName, kind);
                     continue;
                 }
