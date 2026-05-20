@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using Markdig;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
@@ -88,11 +89,11 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
             _attachmentLoader.DownloadAsync, cancellationToken);
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
-        => PatchAsync(ticketId, [Op("/fields/System.History", comment)], cancellationToken);
+        => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment))], cancellationToken);
 
     public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
         => PatchAsync(ticketId,
-            [Op("/fields/System.History", resolution), Op("/fields/System.State", _doneStatus)],
+            [Op("/fields/System.History", ToHtml(resolution)), Op("/fields/System.State", _doneStatus)],
             cancellationToken);
 
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
@@ -106,6 +107,17 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
 
     private static JsonPatchOperation Op(string path, string value) =>
         new() { Operation = Operation.Add, Path = path, Value = value };
+
+    // ADO's System.History field renders HTML natively; sending raw markdown
+    // produces plain-text-with-no-line-breaks in the UI. The dedicated Comments
+    // REST API accepts a `format=markdown` parameter but the bundled SDK does
+    // not surface it (CommentCreate exposes Text only). Converting client-side
+    // keeps the existing UpdateWorkItemAsync call path intact.
+    private static readonly MarkdownPipeline MarkdownPipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+
+    private static string ToHtml(string markdown) =>
+        string.IsNullOrEmpty(markdown) ? markdown : Markdown.ToHtml(markdown, MarkdownPipeline);
 
     private static string EscapeWiql(string s) => s.Replace("'", "''");
 }
