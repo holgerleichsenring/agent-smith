@@ -99,6 +99,9 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);
+
+            LogPromptIfEnabled(request, messages, options);
+
             var outcome = await _retry.InvokeAsync(chat, messages, options, validator, ct, costTracker.Track);
             return (outcome, null);
         }
@@ -106,6 +109,30 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         {
             return (null, ex);
         }
+    }
+
+    /// <summary>
+    /// Debug-level dump of the exact prompt + tool surface handed to the LLM for this
+    /// skill call. Off by default (Debug); enable via appsettings / Logging:LogLevel:
+    /// <c>"AgentSmith.Application.Services.Loop.SkillCallRuntime": "Debug"</c> when
+    /// diagnosing skill prompt-composition issues. Each chat message is dumped in full
+    /// with its role + char count; tool names + descriptions are listed.
+    /// </summary>
+    private void LogPromptIfEnabled(SkillCallRequest request, IList<ChatMessage> messages, ChatOptions options)
+    {
+        if (!_logger.IsEnabled(LogLevel.Debug)) return;
+        for (var i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            var text = string.Join("\n", msg.Contents.OfType<TextContent>().Select(t => t.Text));
+            _logger.LogDebug(
+                "skill_prompt skill={Skill} msg[{Index}/{Total}] role={Role} chars={Chars}\n{Text}",
+                request.SkillName, i + 1, messages.Count, msg.Role, text.Length, text);
+        }
+        var toolNames = options.Tools?.OfType<AIFunction>().Select(t => t.Name).ToList() ?? new();
+        _logger.LogDebug(
+            "skill_prompt skill={Skill} tools_offered={Count} names=[{Names}]",
+            request.SkillName, toolNames.Count, string.Join(", ", toolNames));
     }
 
     private static IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
