@@ -27,17 +27,20 @@ public sealed class FilesystemToolHostTests
     // find_files (was glob), list_directory (was list_files). Old names remain in
     // every phase set as deprecated aliases until the agent-smith-skills catalog
     // migrates its prompts; the assertions below cover both new + deprecated.
+    // p0153: surface gains directory_tree + multi_edit; deprecated grep / glob /
+    // list_files stay registered as forwarders until p0154 ships the skills rename.
     private static readonly string[] ReadOnlyToolNames =
     {
         "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
-        "run_command", "http_request",
+        "directory_tree", "run_command", "http_request",
         "grep", "glob", "list_files" // deprecated aliases
     };
 
     private static readonly string[] WriteCapableToolNames =
     {
-        "read_file", "write_file", "edit", "grep_in_file", "grep_in_tree", "find_files",
-        "list_directory", "run_command", "http_request",
+        "read_file", "write_file", "edit", "multi_edit",
+        "grep_in_file", "grep_in_tree", "find_files",
+        "list_directory", "directory_tree", "run_command", "http_request",
         "grep", "glob", "list_files" // deprecated aliases
     };
 
@@ -145,6 +148,43 @@ public sealed class FilesystemToolHostTests
     }
 
     [Fact]
+    public async Task GetChanges_TwoWritesSamePath_DedupedToLatestContent()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Kind == StepKind.WriteFile),
+                It.IsAny<IProgress<StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        var host = Build(sandbox.Object);
+
+        await host.WriteFile("src/x.cs", "v1");
+        await host.WriteFile("src/x.cs", "v2");
+
+        var changes = host.GetChanges();
+        changes.Should().ContainSingle();
+        changes[0].Path.Value.Should().Be("src/x.cs");
+        changes[0].Content.Should().Be("v2");
+    }
+
+    [Fact]
+    public async Task GetChanges_WritesToTwoDifferentPaths_KeepsBoth()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Kind == StepKind.WriteFile),
+                It.IsAny<IProgress<StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        var host = Build(sandbox.Object);
+
+        await host.WriteFile("src/a.cs", "a");
+        await host.WriteFile("src/b.cs", "b");
+
+        host.GetChanges().Select(c => c.Path.Value).Should().BeEquivalentTo(new[] { "src/a.cs", "src/b.cs" });
+    }
+
+    [Fact]
     public async Task RunCommand_DelegatesToSandbox()
     {
         var sandbox = new Mock<ISandbox>();
@@ -157,7 +197,7 @@ public sealed class FilesystemToolHostTests
 
         var result = await host.RunCommand("echo hi");
 
-        result.Should().Contain("Exit code: 0");
+        result.Should().Contain("exit_code: 0").And.Contain("stdout:").And.Contain("stderr:");
         sandbox.VerifyAll();
     }
 
@@ -186,7 +226,8 @@ public sealed class FilesystemToolHostTests
                 It.Is<Step>(st => st.Kind == StepKind.Grep),
                 It.IsAny<IProgress<StepEvent>?>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null, "[{\"file\":\"x.cs\"}]"));
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null,
+                "[{\"path\":\"x.cs\",\"line\":1,\"text\":\"foo\",\"kind\":\"match\"}]"));
         var host = Build(sandbox.Object);
 
         var result = await host.Grep("foo", ".");

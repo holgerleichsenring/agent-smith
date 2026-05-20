@@ -53,7 +53,7 @@ public sealed class RedisDialogueTransportTests
     {
         var question = new DialogQuestion(
             "q-choice", QuestionType.Choice, "Pick one",
-            null, ["A", "B", "C"], "A", TimeSpan.FromMinutes(1));
+            null, [new DialogChoice("A"), new DialogChoice("B"), new DialogChoice("C")], "A", TimeSpan.FromMinutes(1));
 
         _db.Setup(d => d.StreamAddAsync(
                 It.IsAny<RedisKey>(), It.IsAny<NameValueEntry[]>(),

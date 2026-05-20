@@ -43,8 +43,14 @@ public sealed class TeamsQuestionCardBuilder
         var actions = new JsonArray();
         if (q.Choices is not null)
         {
-            foreach (var choice in q.Choices)
-                actions.Add(AdaptiveCardPrimitives.ActionSubmit(choice, QuestionData(q, choice)));
+            for (var i = 0; i < q.Choices.Count; i++)
+            {
+                var choice = q.Choices[i];
+                var label = i == q.RecommendedIndex ? $"{choice.Label} ⭐" : choice.Label;
+                if (!string.IsNullOrEmpty(choice.Description))
+                    label = $"{label} — {choice.Description}";
+                actions.Add(AdaptiveCardPrimitives.ActionSubmit(label, QuestionData(q, choice.Label)));
+            }
         }
 
         return AdaptiveCardPrimitives.WrapCard(body, actions);

@@ -30,7 +30,7 @@ public sealed class RedisDialogueTransport(
             new("questionType", question.Type.ToString()),
             new("text", question.Text),
             new("context", question.Context ?? ""),
-            new("choices", question.Choices is not null ? string.Join("|", question.Choices) : ""),
+            new("choices", question.Choices is not null ? string.Join("|", question.Choices.Select(c => c.Label)) : ""),
             new("defaultAnswer", question.DefaultAnswer ?? ""),
             new("timeoutSeconds", question.Timeout.TotalSeconds.ToString("F0")),
         };

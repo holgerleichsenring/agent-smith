@@ -5,5 +5,6 @@ public static class SizeLimits
     public const long ReadFileMaxBytes = 1_048_576;
     public const long WriteFileMaxBytes = 10_485_760;
     public const int ListFilesMaxEntries = 1000;
-    public const int GrepMaxMatches = 200;
+    public const int GrepDefaultHeadLimit = 1000;
+    public const int RunCommandMaxBufferBytes = 1_048_576;
 }

@@ -14,7 +14,16 @@ public sealed record Step(
     int? MaxDepth = null,
     string? Pattern = null,
     string? Glob = null,
-    int? MaxMatches = null)
+    int? HeadLimit = null,
+    int? StartLine = null,
+    int? LineCount = null,
+    bool WithLineNumbers = false,
+    int? ContextBefore = null,
+    int? ContextAfter = null,
+    GrepOutputMode OutputMode = GrepOutputMode.Content,
+    bool WithSizes = false,
+    DirectorySortBy SortBy = DirectorySortBy.Name,
+    IReadOnlyList<string>? ExcludeGlobs = null)
 {
     public const int CurrentSchemaVersion = 1;
     public const int DefaultTimeoutSeconds = 600;
@@ -38,6 +47,9 @@ public sealed record Step(
                 ? (false, "ListFiles step requires non-empty Path")
                 : (true, null),
             StepKind.Grep => ValidateGrep(),
+            StepKind.DirectoryTree => string.IsNullOrEmpty(Path)
+                ? (false, "DirectoryTree step requires non-empty Path")
+                : (true, null),
             _ => (false, $"Unknown StepKind: {Kind}")
         };
     }
@@ -59,4 +71,18 @@ public sealed record Step(
             return (false, "Grep step requires non-empty Pattern");
         return (true, null);
     }
+}
+
+public enum GrepOutputMode
+{
+    Content = 0,
+    FilesWithMatches = 1,
+    Count = 2
+}
+
+public enum DirectorySortBy
+{
+    Name = 0,
+    Size = 1,
+    Mtime = 2
 }

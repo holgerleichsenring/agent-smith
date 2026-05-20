@@ -20,12 +20,13 @@ public sealed class SlackTypedQuestionTests
         string? defaultAnswer = null,
         TimeSpan? timeout = null)
     {
+        var rich = choices?.Select(c => new DialogChoice(c)).ToList();
         return new DialogQuestion(
             questionId,
             type,
             text,
             context,
-            choices,
+            rich,
             defaultAnswer,
             timeout ?? TimeSpan.FromSeconds(30));
     }

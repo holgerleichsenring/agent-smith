@@ -8,6 +8,7 @@ internal sealed class StepExecutor(
     IProcessRunner runner,
     FileStepHandler fileHandler,
     GrepStepHandler grepHandler,
+    DirectoryTreeStepHandler treeHandler,
     ILogger<StepExecutor> logger) : IStepExecutor
 {
     public Task<StepResult> ExecuteAsync(
@@ -21,6 +22,7 @@ internal sealed class StepExecutor(
             StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles
                 => fileHandler.HandleAsync(step, onEvents, cancellationToken),
             StepKind.Grep => grepHandler.HandleAsync(step, onEvents, cancellationToken),
+            StepKind.DirectoryTree => treeHandler.HandleAsync(step, onEvents, cancellationToken),
             _ => throw new ArgumentException(
                 $"StepExecutor does not handle Kind={step.Kind}", nameof(step))
         };

@@ -36,13 +36,13 @@ public sealed class GrepStepHandlerTests : IDisposable
     }
 
     [Fact]
-    public async Task HandleAsync_RespectsMaxMatches_AndEmitsTruncationEvent()
+    public async Task HandleAsync_RespectsHeadLimit_AndEmitsTruncationEvent()
     {
         File.WriteAllText(Path.Combine(_root, "a.cs"),
             string.Join('\n', Enumerable.Range(0, 10).Select(_ => "TODO")));
         var handler = BuildHandlerNoRipgrep();
         var step = new Step(1, Guid.NewGuid(), StepKind.Grep,
-            Path: _root, Pattern: "TODO", MaxMatches: 3);
+            Path: _root, Pattern: "TODO", HeadLimit: 3);
         var truncationEvents = new List<StepEvent>();
 
         var result = await handler.HandleAsync(step, evs =>

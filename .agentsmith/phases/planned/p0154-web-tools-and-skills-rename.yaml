@@ -1,0 +1,147 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0154
+goal: "Ship the work that hangs off the agent-smith-skills minor release that
+  pairs with p0153's filesystem-tool parity: web_fetch as a new tool host,
+  removal of the deprecated grep / glob / list_files aliases from
+  FilesystemToolHost, and the cross-repo SKILL.md sweep that renames the
+  old tool calls and audits glob patterns for the new path-relative
+  find_files semantics. All three deltas land in one skills minor bump
+  so installations either have the full new surface or the full old one
+  — no half-migrated state.
+
+  References:
+  github.com/modelcontextprotocol/servers/tree/main/src/fetch
+  HtmlAgilityPack + ReverseMarkdown (NuGet, both BSD/MIT)"
+
+requires: ["p0153"]
+
+scope:
+  in: |
+    (1) New WebToolHost class hosting web_fetch(url, max_length?,
+        start_index?, raw?). Mirrors MCP fetch-server. Default: HTTP GET,
+        HTML → markdown (HtmlAgilityPack + ReverseMarkdown), truncate to
+        max_length (default 100000), start_index for pagination. raw=true
+        skips conversion. Lives in the C# process (no sandbox round-trip
+        — the agent already reaches the open internet for the live LLM
+        calls). Wired into AgenticToolSurface alongside existing hosts.
+
+    (2) Drop deprecated aliases (grep, glob, list_files) from
+        FilesystemToolHost. ReadOnlySet / BootstrapSet / All registrations
+        contain only the post-p0153 tool set.
+
+    (3) agent-smith-skills working copy:
+        - Every SKILL.md referencing grep / glob / list_files renamed to
+          grep_in_tree / grep_in_file / find_files / list_directory.
+        - Glob-pattern audit: every find_files / glob call's pattern is
+          verified against the new path-relative matching semantics
+          p0153 ships. Basename-only patterns like 'Controller.cs' that
+          relied on the old -name behaviour become '**/Controller.cs'.
+        - Skills that historically said 'I cannot look up X because I have
+          no web access' updated to use web_fetch where they have a
+          concrete URL (supply-chain-auditor, compliance-checker,
+          false-positive-filter).
+        - Package version bumped to the next minor.
+
+    (4) SourceAnchoringPreamble: no further change (p0153 already named
+        only the new tools); just verify the deprecated names do not
+        creep back into the recon-flow paragraph.
+
+  out: |
+    web_search / search-provider integration. Out per the p0153 decision
+    — no provider account; revisit when one is in place.
+
+    Any new filesystem / shell tool shape changes — p0153 owns those.
+
+    MCP-server-hosted filesystem executor. Future migration; the schemas
+    p0153 ships make it a transport swap when the time comes.
+
+decisions:
+  - key: |
+      web_fetch lives in the C# process, not the sandbox. — Sandbox is
+      the boundary for code that touches the repo working copy; web_fetch
+      reads public docs URLs and never writes anywhere. Hosting it in
+      the agent process avoids a Step round-trip for every page fetch
+      and keeps the implementation small (one HttpClient + a markdown
+      converter). The sandbox's existing http_request stays for live
+      API probing against the repo's target system. alternatives:
+      proxy web_fetch through the sandbox (rejected: no security benefit
+      since the URL is public, plus latency cost); merge with
+      http_request (rejected: different shapes — http_request returns
+      raw status + headers + body; web_fetch returns markdown-converted
+      text with pagination).
+
+  - key: |
+      Drop aliases in the same phase that ships the skills rename. —
+      The phases-decoupled grace window p0153 sketched depends on the
+      skills catalogue being updated at the same release boundary as
+      the alias removal; doing them in one phase means there is never
+      a moment where a published skill release expects tools that the
+      shipped agent-smith does not register, or vice versa.
+      alternatives: rename skills in p0153, drop aliases in p0154
+      (rejected: same coupling, different ordering, more deploy steps);
+      keep aliases indefinitely (rejected: surface-area tax).
+
+  - key: |
+      Glob-pattern audit is part of the skills sweep, not a separate
+      task. — p0153's find_files semantics change (basename →
+      path-relative) breaks silently for old patterns. The skills sweep
+      is the natural place to catch this: anyone touching a SKILL.md to
+      rename grep → grep_in_tree is also touching the file that contains
+      the glob patterns, so verify them in the same pass.
+
+steps:
+  - id: web-tool-host
+    action: "WebToolHost class with web_fetch(url, max_length?, start_index?, raw?) using HtmlAgilityPack + ReverseMarkdown. IHttpClientFactory-backed HttpClient (no direct new HttpClient). 30s default timeout, configurable."
+    new:
+      - "src/AgentSmith.Application/Services/Tools/WebToolHost.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs"
+      - "src/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+      - "src/AgentSmith.Application/DependencyInjection/ApplicationExtensions.cs (or equivalent — locate via existing host registrations)"
+
+  - id: drop-aliases
+    action: "Remove Grep / Glob / ListFiles methods and their Tool(...) registrations from ReadOnlySet, BootstrapSet, All in FilesystemToolHost."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+
+  - id: skills-rename
+    action: "SKILL.md sweep in the agent-smith-skills working copy: rename grep -> grep_in_tree (with grep_in_file when path is clearly a single file), glob -> find_files, list_files -> list_directory. Skills using find_files / glob patterns audited for path-relative compatibility; basename-style patterns rewritten with '**/' prefix where needed."
+    modify:
+      - "[../agent-smith-skills/skills/**/SKILL.md]"
+      - "[../agent-smith-skills/baselines/** if any tool names appear there]"
+
+  - id: skills-web-fetch-adoption
+    action: "Skills that historically said 'no web access' updated to use web_fetch when they have a concrete URL: supply-chain-auditor (vendor advisories), compliance-checker (standard references), false-positive-filter (CVE descriptions). Each adoption is a small focused edit, not a rewrite."
+    modify:
+      - "[../agent-smith-skills/skills/security/supply-chain-auditor/SKILL.md]"
+      - "[../agent-smith-skills/skills/security/compliance-checker/SKILL.md]"
+      - "[../agent-smith-skills/skills/security/false-positive-filter/SKILL.md]"
+      - "[../agent-smith-skills/skills/coding/false-positive-filter/SKILL.md]"
+
+  - id: skills-release
+    action: "Bump skills package version to the next minor and ship."
+    modify:
+      - "[../agent-smith-skills/package.json or VERSION or whichever file holds the version]"
+
+  - id: tests
+    action: "Cover WebToolHost behaviour and the alias-removal invariant."
+    new:
+      - "tests/AgentSmith.Tests/Tools/WebToolHostFetchTests.cs"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostNoDeprecatedAliasesTests.cs"
+
+tests:
+  - "WebToolHost_Fetch_DefaultMode_ReturnsMarkdownFromHtml"
+  - "WebToolHost_Fetch_RawTrue_ReturnsOriginalBody"
+  - "WebToolHost_Fetch_HonoursMaxLengthAndStartIndex"
+  - "WebToolHost_Fetch_NonHtmlContentType_ReturnsBodyUnchanged"
+  - "WebToolHost_Fetch_TimeoutHonoured"
+  - "FilesystemToolHost_ReadOnlySet_DoesNotIncludeDeprecatedAliases"
+  - "FilesystemToolHost_BootstrapSet_DoesNotIncludeDeprecatedAliases"
+  - "FilesystemToolHost_All_DoesNotIncludeDeprecatedAliases"
+
+done:
+  - "WebToolHost.web_fetch returns markdown for a known docs URL; raw mode returns the original body; max_length + start_index pagination work."
+  - "FilesystemToolHost no longer registers Grep / Glob / ListFiles in any phase. Test FilesystemToolHost_*Set_DoesNotIncludeDeprecatedAliases green."
+  - "agent-smith-skills working copy: zero SKILL.md hits for 'grep'|'glob'|'list_files' as tool names outside historical changelog text; glob patterns audited; web_fetch adopted in the three flagged skills; minor-version bumped and released."
+  - "Full test suite green; /smoke green for api-scan + security-scan + fix-bug pipelines using the post-skills-release surface."
+  - "A skill that previously had to say 'no web access' now successfully uses web_fetch in a real smoke run."

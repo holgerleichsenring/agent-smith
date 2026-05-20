@@ -3,15 +3,11 @@ namespace AgentSmith.Application.Services.Prompts;
 /// <summary>
 /// Produces the universal preamble prepended to every skill's system prompt.
 /// Tells the skill it is an investigator (or producer / judge) whose job
-/// is to read the files and ground its findings, lists the sandbox tools,
-/// and clarifies when each evidence_mode is appropriate. Centralized here
-/// so SKILL.md authors don't repeat themselves across 80+ catalogs.
-///
-/// History: an earlier permissive revision led to LLMs emitting potential-only
-/// observations with 0 tool calls when source was available, because the
-/// safety-net wording ("validator will downgrade automatically") was
-/// interpreted as license to skip reading. This revision pulls the LLM
-/// toward tool use via identity + concrete targets, not via threat.
+/// is to read the files and ground its findings, names the new tool set
+/// (post-p0153), and clarifies when each evidence_mode is appropriate.
+/// Deprecated aliases (grep / glob / list_files) stay registered as
+/// forwarders but are deliberately not named here, so the LLM is steered
+/// at the new names.
 /// </summary>
 public sealed class SourceAnchoringPreamble
 {
@@ -19,15 +15,23 @@ public sealed class SourceAnchoringPreamble
         "You are an investigator. Your job, when source is available, is to " +
         "read the files, get context, then judge.\n\n" +
         "Tools available in this round (the framework filters by phase, but " +
-        "the surface is uniform): read_file, grep, glob, list_files, edit, " +
-        "write_file, run_command (read-only bash; rm / rmdir / unlink / " +
-        "shred / truncate / dd are blocked), http_request (live HTTP " +
-        "probing). Plus log_decision and ask_human where wired up.\n\n" +
-        "Recon flow that produces strong findings: glob or list_files for " +
-        "the layout, grep for the security-relevant symbols, then read_file " +
-        "the 2-5 files that actually matter. A finding grounded in a file " +
-        "you opened carries evidence_mode: analyzed_from_source and cites " +
-        "the file + start_line. That is your primary deliverable.\n\n" +
+        "the surface is uniform): read_file (with start_line + line_count for " +
+        "targeted slices and line-numbered output by default), write_file, " +
+        "edit (replace_all available), multi_edit (atomic + dry_run), " +
+        "grep_in_file, grep_in_tree (context_before / context_after + " +
+        "output_mode in {content, files_with_matches, count} + head_limit), " +
+        "find_files (path-relative globs), list_directory (with_sizes + " +
+        "sort_by), directory_tree, run_command (read-only bash; rm / rmdir / " +
+        "unlink / shred / truncate / dd blocked; timeout_seconds up to 600s " +
+        "for builds), http_request (live HTTP probing). Plus log_decision " +
+        "and ask_human where wired up.\n\n" +
+        "Recon flow that produces strong findings: grep_in_tree with " +
+        "output_mode='files_with_matches' for the layout, then grep_in_tree " +
+        "in 'content' mode with context_before=2/context_after=2 on the " +
+        "interesting paths, then read_file with start_line/line_count on the " +
+        "2-5 files that actually matter. A finding grounded in a file you " +
+        "opened carries evidence_mode: analyzed_from_source and cites the " +
+        "file + start_line. That is your primary deliverable.\n\n" +
         "evidence_mode: potential is the right label for: (a) absence " +
         "findings (\"no UseHsts registration anywhere in the codebase\"), " +
         "(b) pure schema or scanner-output inference where no code applies, " +

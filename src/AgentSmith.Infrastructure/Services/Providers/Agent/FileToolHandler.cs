@@ -22,6 +22,21 @@ internal sealed class FileToolHandler(
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
 
+    private void RecordChange(string path, string content, string changeType)
+    {
+        var idx = _changes.FindIndex(c => c.Path.Value == path);
+        if (idx >= 0)
+        {
+            // Preserve original "Create" — a file created and later modified in the same run is still a Create.
+            var effectiveType = _changes[idx].ChangeType == "Create" ? "Create" : changeType;
+            _changes[idx] = new CodeChange(_changes[idx].Path, content, effectiveType);
+        }
+        else
+        {
+            _changes.Add(new CodeChange(new FilePath(path), content, changeType));
+        }
+    }
+
     public string ReadFile(JsonNode? input)
     {
         var path = ToolParams.GetString(input, "path");
@@ -71,7 +86,7 @@ internal sealed class FileToolHandler(
             Directory.CreateDirectory(directory);
 
         File.WriteAllText(fullPath, content);
-        _changes.Add(new CodeChange(new FilePath(path), content, changeType));
+        RecordChange(path, content, changeType);
         fileReadTracker?.InvalidateRead(path);
 
         logger.LogDebug("Wrote file {Path} ({ChangeType})", path, changeType);
