@@ -13,13 +13,34 @@ public sealed class SourceAnchoringPreambleTests
         var text = preamble.Build();
 
         text.Should().Contain("read_file")
-            .And.Contain("grep")
-            .And.Contain("glob")
-            .And.Contain("list_files")
+            .And.Contain("grep_in_file")
+            .And.Contain("grep_in_tree")
+            .And.Contain("find_files")
+            .And.Contain("list_directory")
+            .And.Contain("directory_tree")
             .And.Contain("edit")
+            .And.Contain("multi_edit")
             .And.Contain("write_file")
             .And.Contain("run_command")
             .And.Contain("http_request");
+    }
+
+    [Fact]
+    public void Build_DoesNotNameDeprecatedAliases()
+    {
+        // p0153: deprecated grep / glob / list_files stay registered as forwarders
+        // but the preamble must steer the LLM at the new names. p0154 removes the
+        // aliases.
+        var preamble = new SourceAnchoringPreamble();
+
+        var text = preamble.Build();
+
+        text.Should().NotMatchRegex(@"\bglob\b");
+        text.Should().NotMatchRegex(@"\blist_files\b");
+        // 'grep' is part of 'grep_in_file' / 'grep_in_tree' so we cannot regex on
+        // it; instead assert the standalone-tool comma-separated list does not
+        // mention it as its own entry.
+        text.Should().NotContain(", grep, ");
     }
 
     [Fact]

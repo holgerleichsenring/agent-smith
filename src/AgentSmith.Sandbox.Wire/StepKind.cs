@@ -7,5 +7,6 @@ public enum StepKind
     ReadFile = 2,
     WriteFile = 3,
     ListFiles = 4,
-    Grep = 5
+    Grep = 5,
+    DirectoryTree = 6
 }

@@ -18,7 +18,7 @@ public sealed class ConsoleDialogueTransportTests
         QuestionType type, string text = "Test?", string? context = null,
         IReadOnlyList<string>? choices = null, string? defaultAnswer = null,
         TimeSpan? timeout = null) =>
-        new("q-1", type, text, context, choices, defaultAnswer, timeout ?? TimeSpan.FromMinutes(1));
+        new("q-1", type, text, context, choices?.Select(c => new DialogChoice(c)).ToList(), defaultAnswer, timeout ?? TimeSpan.FromMinutes(1));
 
     [Fact]
     public async Task InfoType_ReturnsNull_WithoutWaitingForInput()

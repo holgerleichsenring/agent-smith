@@ -186,10 +186,11 @@ public class FileStepHandlerTests : IDisposable
         var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
 
         result.ExitCode.Should().Be(0);
-        var entries = JsonSerializer.Deserialize<string[]>(result.OutputContent!)!;
-        entries.Should().Contain(e => e.EndsWith("top.txt"));
-        entries.Should().Contain(e => e.EndsWith("sub"));
-        entries.Should().NotContain(e => e.EndsWith("nested.txt"));
+        var entries = JsonSerializer.Deserialize<List<JsonElement>>(result.OutputContent!)!;
+        var paths = entries.Select(e => e.GetProperty("path").GetString()!).ToList();
+        paths.Should().Contain(p => p.EndsWith("top.txt"));
+        paths.Should().Contain(p => p.EndsWith("sub"));
+        paths.Should().NotContain(p => p.EndsWith("nested.txt"));
     }
 
     [Fact]
@@ -203,8 +204,8 @@ public class FileStepHandlerTests : IDisposable
 
         var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
 
-        var entries = JsonSerializer.Deserialize<string[]>(result.OutputContent!)!;
-        entries.Should().Contain(e => e.EndsWith("nested.txt"));
+        var entries = JsonSerializer.Deserialize<List<JsonElement>>(result.OutputContent!)!;
+        entries.Select(e => e.GetProperty("path").GetString()).Should().Contain(p => p!.EndsWith("nested.txt"));
     }
 
     [Fact]
@@ -220,8 +221,8 @@ public class FileStepHandlerTests : IDisposable
             batch => { emitted.AddRange(batch); return Task.CompletedTask; },
             CancellationToken.None);
 
-        var entries = JsonSerializer.Deserialize<string[]>(result.OutputContent!)!;
-        entries.Length.Should().Be(SizeLimits.ListFilesMaxEntries);
+        var entries = JsonSerializer.Deserialize<List<JsonElement>>(result.OutputContent!)!;
+        entries.Count.Should().Be(SizeLimits.ListFilesMaxEntries);
         emitted.Should().Contain(e => e.Kind == StepEventKind.Stderr && e.Line.Contains("truncated"));
     }
 
