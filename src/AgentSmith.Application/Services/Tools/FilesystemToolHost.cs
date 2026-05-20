@@ -38,6 +38,16 @@ public sealed class FilesystemToolHost : IToolHost
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
 
+    // Dedup by path: the LLM frequently makes several edits to the same file in one run.
+    // Downstream consumers (commit comment, run-result, log "N files changed") expect a per-file set.
+    private void RecordChange(string path, string content)
+    {
+        var change = new CodeChange(new FilePath(path), content, "Modify");
+        var idx = _changes.FindIndex(c => c.Path.Value == path);
+        if (idx >= 0) _changes[idx] = change;
+        else _changes.Add(change);
+    }
+
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
         _ = investigatorMode;
@@ -72,7 +82,7 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckWrite(path) is { } error) return error;
         var result = await _runner.WriteAsync(path, content, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
-            _changes.Add(new CodeChange(new FilePath(path), content, "Modify"));
+            RecordChange(path, content);
         return result;
     }
 
@@ -124,7 +134,7 @@ public sealed class FilesystemToolHost : IToolHost
         var newContent = string.Concat(content.AsSpan(0, idx), new_string, content.AsSpan(idx + old_string.Length));
         var result = await _runner.WriteAsync(path, newContent, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
-            _changes.Add(new CodeChange(new FilePath(path), newContent, "Modify"));
+            RecordChange(path, newContent);
         return result;
     }
 

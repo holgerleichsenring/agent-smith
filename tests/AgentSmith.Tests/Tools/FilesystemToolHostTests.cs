@@ -130,6 +130,43 @@ public sealed class FilesystemToolHostTests
     }
 
     [Fact]
+    public async Task GetChanges_TwoWritesSamePath_DedupedToLatestContent()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Kind == StepKind.WriteFile),
+                It.IsAny<IProgress<StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        var host = Build(sandbox.Object);
+
+        await host.WriteFile("src/x.cs", "v1");
+        await host.WriteFile("src/x.cs", "v2");
+
+        var changes = host.GetChanges();
+        changes.Should().ContainSingle();
+        changes[0].Path.Value.Should().Be("src/x.cs");
+        changes[0].Content.Should().Be("v2");
+    }
+
+    [Fact]
+    public async Task GetChanges_WritesToTwoDifferentPaths_KeepsBoth()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Kind == StepKind.WriteFile),
+                It.IsAny<IProgress<StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        var host = Build(sandbox.Object);
+
+        await host.WriteFile("src/a.cs", "a");
+        await host.WriteFile("src/b.cs", "b");
+
+        host.GetChanges().Select(c => c.Path.Value).Should().BeEquivalentTo(new[] { "src/a.cs", "src/b.cs" });
+    }
+
+    [Fact]
     public async Task RunCommand_DelegatesToSandbox()
     {
         var sandbox = new Mock<ISandbox>();
