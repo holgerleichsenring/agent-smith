@@ -37,7 +37,10 @@ jobs:
       - name: Test
         env:
           AGENTSMITH_TEST_SKILLS_DIR: ${{ github.workspace }}/test-skills
-        run: dotnet test --no-build --verbosity normal
+        # Exclude live-LLM probes (Category=LiveLLM) — they hit a paid API and
+        # require AZURE_OPENAI_API_KEY / OPENAI_API_KEY which CI does not have.
+        # Run them manually from a developer machine.
+        run: dotnet test --no-build --verbosity normal --filter "Category!=LiveLLM"
 
   docker:
     needs: test

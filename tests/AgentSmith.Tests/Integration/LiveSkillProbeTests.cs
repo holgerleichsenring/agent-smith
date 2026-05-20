@@ -23,15 +23,31 @@ namespace AgentSmith.Tests.Integration;
 ///   OPENAI_API_KEY=sk-... dotnet test --filter "FullyQualifiedName~LiveSkillProbeTests"
 /// Cost: ~$0.02 per probe (gpt-4.1, ~1-3 round trips).
 /// </summary>
+[Trait("Category", "LiveLLM")]
 public sealed class LiveSkillProbeTests
 {
     private readonly ITestOutputHelper _out;
 
     public LiveSkillProbeTests(ITestOutputHelper output) => _out = output;
 
+    /// <summary>
+    /// Soft-skip: these probes hit a paid LLM API. CI (no API key) silently
+    /// passes them; developer machines (with AZURE_OPENAI_API_KEY or
+    /// OPENAI_API_KEY in env) actually exercise them. The CI workflow ALSO
+    /// filters Category=LiveLLM out, so this is defense-in-depth.
+    /// </summary>
+    private bool LlmCredentialsAvailable()
+    {
+        var have = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"))
+                   || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+        if (!have) _out.WriteLine("SKIP: no AZURE_OPENAI_API_KEY / OPENAI_API_KEY in env — probe is paid-API, only runs locally.");
+        return have;
+    }
+
     [Fact]
     public async Task Probe_AuthConfigReviewer_OnAuthPortFixture()
     {
+        if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
             skillName: "auth-config-reviewer",
             phase: SkillExecutionPhase.Review,
@@ -49,6 +65,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionStructuredOutputInstruction()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Same skill, but appends the actual production structured-output-contributor.md
         // text at the end of the system prompt. Hypothesis: this is what kills tool use
         // in production by reframing the LLM's task as "JSON generator" not "investigator".
@@ -69,6 +86,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionSizedUserPrompt()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Same skill + same SKILL.md body, but the user prompt is bloated to roughly
         // match production size (~15-20k input tokens) by appending simulated
         // ProjectContext + CodeMap + CompressedScannerFindings + UpstreamObservations.
@@ -91,15 +109,12 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionExactWiring()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Mirror SkillCallRuntime + ChatClientFactory EXACTLY:
         //   1. Tools wrapped with TracingAIFunction (SkillCallRuntime.cs:111)
         //   2. Chat client = ChatClientBuilder(bare).UseFunctionInvocation(...).Build() (ChatClientFactory.cs)
         //   3. TracingChatClient wraps everything (SkillCallRuntime.cs:98)
         // If the bug reproduces here, the regression is in one of these three production layers.
-        var apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")
-                     ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey))
-            throw new SkipProbeException("No LLM credentials.");
 
         var fixtureRoot = ResolveFixtureRoot();
         var sandbox = new InProcessSandbox(jobId: "probe-prodwiring-" + Guid.NewGuid().ToString("N")[..8],
@@ -170,6 +185,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithRealCatalogV25SkillBody()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Loads the ACTUAL SKILL.md from the cached v2.5.0 catalog the user's
         // CLI downloaded — strips YAML frontmatter, uses just the prompt body.
         // Hypothesis: the inline shorthand I had in this test file doesn't
@@ -213,6 +229,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_ApiVulnAnalystPlanner_OnAuthPortFixture()
     {
+        if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
             skillName: "api-vuln-analyst-planner",
             phase: SkillExecutionPhase.Plan,
