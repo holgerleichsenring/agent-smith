@@ -12,6 +12,11 @@ internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<
 
     public async Task<int> RunAsync(string jobId, CancellationToken cancellationToken)
     {
+        // job scope is visible from every logger sharing this factory's
+        // ExternalScopeProvider — including StepExecutor + handler loggers —
+        // so `[job=<short>]` prefixes every line emitted while a step is in
+        // flight, matching the server-side `[run=...] [ticket=...]` convention.
+        using var jobScope = logger.BeginScope("job={Job}", ShortJobId(jobId));
         var idleCycles = 0;
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -54,6 +59,9 @@ internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<
             cancellationToken);
         await bus.PushResultAsync(jobId, result, cancellationToken);
     }
+
+    private static string ShortJobId(string jobId) =>
+        jobId.Length > 8 ? jobId[..8] : jobId;
 
     private async Task PushValidationFailureAsync(
         string jobId, Step step, string error, CancellationToken cancellationToken)
