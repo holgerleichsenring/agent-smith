@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.1...v0.57.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* **prompts:** reposition discussion-suffix JSON requirement so tool use survives ([#178](https://github.com/holgerleichsenring/agent-smith/issues/178)) ([103de9a](https://github.com/holgerleichsenring/agent-smith/commit/103de9aa472a2307e6e5ad6000a1aaf67d5708ca))
+
 ## [0.57.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.0...v0.57.1) (2026-05-19)
 
 
