@@ -23,15 +23,31 @@ namespace AgentSmith.Tests.Integration;
 ///   OPENAI_API_KEY=sk-... dotnet test --filter "FullyQualifiedName~LiveSkillProbeTests"
 /// Cost: ~$0.02 per probe (gpt-4.1, ~1-3 round trips).
 /// </summary>
+[Trait("Category", "LiveLLM")]
 public sealed class LiveSkillProbeTests
 {
     private readonly ITestOutputHelper _out;
 
     public LiveSkillProbeTests(ITestOutputHelper output) => _out = output;
 
+    /// <summary>
+    /// Soft-skip: these probes hit a paid LLM API. CI (no API key) silently
+    /// passes them; developer machines (with AZURE_OPENAI_API_KEY or
+    /// OPENAI_API_KEY in env) actually exercise them. The CI workflow ALSO
+    /// filters Category=LiveLLM out, so this is defense-in-depth.
+    /// </summary>
+    private bool LlmCredentialsAvailable()
+    {
+        var have = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"))
+                   || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+        if (!have) _out.WriteLine("SKIP: no AZURE_OPENAI_API_KEY / OPENAI_API_KEY in env — probe is paid-API, only runs locally.");
+        return have;
+    }
+
     [Fact]
     public async Task Probe_AuthConfigReviewer_OnAuthPortFixture()
     {
+        if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
             skillName: "auth-config-reviewer",
             phase: SkillExecutionPhase.Review,
@@ -49,6 +65,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionStructuredOutputInstruction()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Same skill, but appends the actual production structured-output-contributor.md
         // text at the end of the system prompt. Hypothesis: this is what kills tool use
         // in production by reframing the LLM's task as "JSON generator" not "investigator".
@@ -69,6 +86,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithProductionSizedUserPrompt()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Same skill + same SKILL.md body, but the user prompt is bloated to roughly
         // match production size (~15-20k input tokens) by appending simulated
         // ProjectContext + CodeMap + CompressedScannerFindings + UpstreamObservations.
@@ -89,8 +107,149 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
+    public async Task Probe_AuthConfigReviewer_WithDiscussionSuffixKillPhrase()
+    {
+        // The smoking gun from PromptPrefixBuilder.cs:36-40 (BuildDiscussionParts):
+        //   "## Your Task
+        //    Based on the discussion so far, provide your analysis as a JSON array of observations.
+        //    This is round {round}.
+        //
+        //    Respond ONLY with a JSON array. No other text."
+        // Hypothesis: that last sentence kills tool calls because the LLM interprets
+        // tool invocations as "other text".
+        if (!LlmCredentialsAvailable()) return;
+        var killSuffix = """
+
+
+            ## Your Task
+            Based on the discussion so far, provide your analysis as a JSON array of observations.
+            This is round 2.
+
+            Respond ONLY with a JSON array. No other text.
+            """;
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody,
+            userPrompt: ReviewPhaseUserPrompt + killSuffix);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"Plain probe: 2 tool calls.");
+        _out.WriteLine($"This probe:  {report.ToolCallCount} tool calls.");
+        _out.WriteLine($"If tool_calls dropped to 0, 'Respond ONLY ... No other text.' is the trigger.");
+    }
+
+    [Fact]
+    public async Task Probe_AuthConfigReviewer_WithFixedDiscussionSuffix()
+    {
+        // Validates the proposed fix: rephrase the kill-phrase to position JSON as
+        // the FINAL output (after any tool calls), not the IMMEDIATE response.
+        if (!LlmCredentialsAvailable()) return;
+        var fixedSuffix = """
+
+
+            ## Your Task
+            Investigate the discussion above and ground your analysis in the codebase. Use the available tools to read relevant source files when source is available.
+            This is round 2.
+
+            When your investigation is complete, respond with a JSON array of observations. The final response (after any tool calls) must be only the JSON array — no preamble or commentary outside the array.
+            """;
+        var report = await RunProbe(
+            skillName: "auth-config-reviewer",
+            phase: SkillExecutionPhase.Review,
+            investigatorMode: null,
+            skillBody: AuthConfigReviewerSkillBody,
+            userPrompt: ReviewPhaseUserPrompt + fixedSuffix);
+
+        PrintReport(report);
+        _out.WriteLine($"--- ANALYSIS ---");
+        _out.WriteLine($"Kill-phrase probe:  0 tool calls (bug reproduced)");
+        _out.WriteLine($"Fixed-phrase probe: {report.ToolCallCount} tool calls");
+        _out.WriteLine($"If > 0, the fix recovers tool use.");
+    }
+
+    [Fact]
+    public async Task Probe_AuthConfigReviewer_WithProductionExactWiring()
+    {
+        if (!LlmCredentialsAvailable()) return;
+        // Mirror SkillCallRuntime + ChatClientFactory EXACTLY:
+        //   1. Tools wrapped with TracingAIFunction (SkillCallRuntime.cs:111)
+        //   2. Chat client = ChatClientBuilder(bare).UseFunctionInvocation(...).Build() (ChatClientFactory.cs)
+        //   3. TracingChatClient wraps everything (SkillCallRuntime.cs:98)
+        // If the bug reproduces here, the regression is in one of these three production layers.
+
+        var fixtureRoot = ResolveFixtureRoot();
+        var sandbox = new InProcessSandbox(jobId: "probe-prodwiring-" + Guid.NewGuid().ToString("N")[..8],
+            workDir: fixtureRoot, logger: NullLogger.Instance);
+        var fsHost = new FilesystemToolHost(sandbox, repoPath: fixtureRoot,
+            logger: NullLogger<FilesystemToolHost>.Instance);
+        var bareTools = fsHost.GetTools(SkillExecutionPhase.Review, null).Cast<AITool>().ToList();
+
+        var trace = new AgentSmith.Application.Services.Loop.LoopTraceCollector();
+        var wrappedTools = bareTools
+            .Select(t => t is AIFunction f
+                ? (AITool)new AgentSmith.Application.Services.Loop.TracingAIFunction(f, trace)
+                : t)
+            .ToList();
+
+        var baseClient = BuildChatClient();
+        var fiClient = new ChatClientBuilder(baseClient)
+            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = 25)
+            .Build();
+        var chatClient = new AgentSmith.Application.Services.Loop.TracingChatClient(fiClient, trace);
+
+        var preamble = new SourceAnchoringPreamble().Build();
+        var systemPrompt = preamble + "\n\n" + LoadRealSkillBody("api-security", "auth-config-reviewer");
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, ReviewPhaseUserPrompt),
+        };
+        var options = new ChatOptions { Tools = wrappedTools };
+
+        var response = await chatClient.GetResponseAsync(messages, options);
+
+        var toolCallContents = response.Messages
+            .SelectMany(m => m.Contents)
+            .OfType<FunctionCallContent>()
+            .ToList();
+        var textContents = response.Messages
+            .SelectMany(m => m.Contents)
+            .OfType<TextContent>()
+            .Select(t => t.Text)
+            .ToList();
+        var traceEntries = trace.Build();
+
+        _out.WriteLine($"=== Probe: auth-config-reviewer (PRODUCTION-EXACT WIRING) ===");
+        _out.WriteLine($"Tools offered:          {wrappedTools.Count}");
+        _out.WriteLine($"Response FunctionCalls: {toolCallContents.Count}");
+        _out.WriteLine($"Trace entries total:    {traceEntries.Count}");
+        _out.WriteLine($"Trace tool-call entries:{traceEntries.Count(e => e.Kind == LoopTraceEntryKind.ToolCall)}");
+        _out.WriteLine($"Trace LLM entries:      {traceEntries.Count(e => e.Kind == LoopTraceEntryKind.LlmCall)}");
+        _out.WriteLine($"ReadSet count:          {trace.ReadSet.Count}");
+        _out.WriteLine($"Input tokens:           {response.Usage?.InputTokenCount}");
+        _out.WriteLine($"Output tokens:          {response.Usage?.OutputTokenCount}");
+        _out.WriteLine("--- Trace entries ---");
+        foreach (var e in traceEntries)
+            _out.WriteLine($"  [{e.Kind}] {e.ToolName ?? e.ModelName ?? "?"} ({e.DurationMs}ms)" + (e.Success == false ? $" ERROR={e.ErrorMessage}" : ""));
+        _out.WriteLine("--- Response FunctionCallContent ---");
+        if (toolCallContents.Count == 0)
+            _out.WriteLine("  (NONE — bug reproduced!)");
+        foreach (var tc in toolCallContents)
+            _out.WriteLine($"  {tc.Name}({SerializeArgs(tc.Arguments)})");
+        _out.WriteLine("--- Final text content ---");
+        var snippet = string.Join("\n", textContents);
+        if (snippet.Length > 1500) snippet = snippet[..1500] + "\n…(truncated)";
+        _out.WriteLine(snippet);
+    }
+
+    [Fact]
     public async Task Probe_AuthConfigReviewer_WithRealCatalogV25SkillBody()
     {
+        if (!LlmCredentialsAvailable()) return;
         // Loads the ACTUAL SKILL.md from the cached v2.5.0 catalog the user's
         // CLI downloaded — strips YAML frontmatter, uses just the prompt body.
         // Hypothesis: the inline shorthand I had in this test file doesn't
@@ -134,6 +293,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_ApiVulnAnalystPlanner_OnAuthPortFixture()
     {
+        if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
             skillName: "api-vuln-analyst-planner",
             phase: SkillExecutionPhase.Plan,

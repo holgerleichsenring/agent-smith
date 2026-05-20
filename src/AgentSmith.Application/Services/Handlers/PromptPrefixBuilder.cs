@@ -34,10 +34,10 @@ public sealed class PromptPrefixBuilder
             {discussionSoFar}
 
             ## Your Task
-            Based on the discussion so far, provide your analysis as a JSON array of observations.
+            Investigate the discussion above and ground your analysis in the codebase. Use the available tools to read relevant source files and (when applicable) probe the running target before forming conclusions.
             This is round {round}.
 
-            Respond ONLY with a JSON array. No other text.
+            When your investigation is complete, respond with a JSON array of observations. The final response (after any tool calls) must be only the JSON array — no preamble or commentary outside the array.
             """.Trim();
         return (prefix, suffix);
     }
