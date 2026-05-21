@@ -6,12 +6,12 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Lazy sandbox lifecycle for a pipeline run: decide whether a step needs a
-/// sandbox, boot it on first need, expose the live instance to the loop, and
-/// dispose it once on pipeline exit.
+/// Lazy sandbox lifecycle for a pipeline run. Under p0158e the coordinator owns
+/// one sandbox per configured repo (mixed-stack support); the run-wide sandbox-
+/// requiring decision still hinges on whether ANY command needs a sandbox.
 ///
-/// Responsibility (one): sandbox lifecycle. Toolchain-language resolution +
-/// SandboxSpecBuilder calls live here, no longer in PipelineExecutor.
+/// Responsibility (one): per-repo sandbox lifecycle. Per-repo toolchain-language
+/// resolution + SandboxSpecBuilder calls live here.
 /// </summary>
 public interface IPipelineSandboxCoordinator : IAsyncDisposable
 {
@@ -22,11 +22,12 @@ public interface IPipelineSandboxCoordinator : IAsyncDisposable
     bool IsSandboxRequiring(string commandName);
 
     /// <summary>
-    /// Create the sandbox (idempotent). Subsequent calls return the
-    /// already-booted instance. Sets <c>ContextKeys.Sandbox</c> in the pipeline
-    /// context the first time around.
+    /// Create one sandbox per configured repo (idempotent). Subsequent calls return
+    /// the already-booted instances. Publishes ContextKeys.Sandboxes (dict keyed by
+    /// repo name) AND ContextKeys.Sandbox (singular, = Sandboxes[Repos[0].Name])
+    /// for back-compat with handlers that still read the singular slot.
     /// </summary>
-    Task<ISandbox> EnsureSandboxAsync(
+    Task<IReadOnlyDictionary<string, ISandbox>> EnsureSandboxesAsync(
         ResolvedProject projectConfig,
         PipelineContext context,
         CancellationToken cancellationToken);

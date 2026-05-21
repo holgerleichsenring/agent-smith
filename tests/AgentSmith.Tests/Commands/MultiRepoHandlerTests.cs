@@ -16,14 +16,13 @@ using Moq;
 namespace AgentSmith.Tests.Commands;
 
 /// <summary>
-/// p0158b spec-driven multi-repo behaviour: workdir layout, per-repo iteration,
-/// per-repo PR open with empty-changes skip, OpenedPullRequests publication,
-/// monorepo N=1 path equivalence.
+/// p0158e spec-driven behaviour: per-repo sandboxes, handlers dispatch git ops
+/// to the right sandbox, single-repo monorepo path still works.
 /// </summary>
 public sealed class MultiRepoHandlerTests
 {
     [Fact]
-    public async Task Checkout_PlacesEachRepo_InRunRootSubdirectory_KeyedByRepoName()
+    public async Task Checkout_PerRepo_DispatchesCloneToOwnSandbox()
     {
         var harness = new CheckoutHarness();
         harness.AddRepo("server", "https://x/server.git");
@@ -32,11 +31,18 @@ public sealed class MultiRepoHandlerTests
         var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
-        harness.CloneWorkdirs.Should().BeEquivalentTo(new[] { "/work/server", "/work/client" });
+        harness.GetSandbox("server").Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("clone")
+                && st.Args!.Contains("https://x/server.git")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
+        harness.GetSandbox("client").Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("clone")
+                && st.Args!.Contains("https://x/client.git")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Checkout_LocalProvider_KeepsBindMountLayout_PerRepoSubdir()
+    public async Task Checkout_LocalProvider_PublishesPrimaryRepository_AtConstWorkPath()
     {
         var harness = new CheckoutHarness();
         harness.AddLocalRepo("only-repo", "/tmp");
@@ -45,11 +51,11 @@ public sealed class MultiRepoHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         var stored = harness.Pipeline.Get<Repository>(ContextKeys.Repository);
-        stored.LocalPath.Should().Be("/work/only-repo");
+        stored.LocalPath.Should().Be(Repository.SandboxWorkPath);
     }
 
     [Fact]
-    public async Task BranchCreate_SameName_AppliedToEveryCheckedOutRepo()
+    public async Task BranchCreate_SameName_AppliedInEveryRepoSandbox()
     {
         var harness = new CheckoutHarness(branch: "agent-smith/ticket-42");
         harness.AddRepo("a", "https://x/a.git");
@@ -57,9 +63,11 @@ public sealed class MultiRepoHandlerTests
 
         await harness.RunAsync();
 
-        harness.CheckoutBranchSteps.Should().HaveCount(2);
-        harness.CheckoutBranchSteps.Should().AllSatisfy(s =>
-            s.Args!.Should().Contain("agent-smith/ticket-42"));
+        foreach (var name in new[] { "a", "b" })
+            harness.GetSandbox(name).Verify(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args!.Count == 2
+                    && st.Args!.Contains("checkout") && st.Args!.Contains("agent-smith/ticket-42")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -93,71 +101,77 @@ public sealed class MultiRepoHandlerTests
     }
 
     [Fact]
-    public async Task Monorepo_WorkdirLayout_IsRunRoot_PlusOneRepoSubdir_NotFlat()
+    public async Task Monorepo_N1_StillWorks_PrimaryRepositoryPublishedAtConstWorkPath()
     {
         var harness = new CheckoutHarness();
         harness.AddRepo("solo", "https://x/solo.git");
 
-        await harness.RunAsync();
+        var result = await harness.RunAsync();
 
-        harness.CloneWorkdirs.Should().ContainSingle().Which.Should().Be("/work/solo");
+        result.IsSuccess.Should().BeTrue();
+        var stored = harness.Pipeline.Get<Repository>(ContextKeys.Repository);
+        stored.LocalPath.Should().Be(Repository.SandboxWorkPath);
+        harness.GetSandbox("solo").Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("clone")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private sealed class CheckoutHarness
     {
         public PipelineContext Pipeline { get; } = new();
-        public List<string> CloneWorkdirs { get; } = new();
-        public List<Step> CheckoutBranchSteps { get; } = new();
 
         private readonly List<RepoConnection> _repos = new();
+        private readonly Dictionary<string, Mock<ISandbox>> _sandboxes = new(StringComparer.Ordinal);
         private readonly Mock<ISourceProviderFactory> _factoryMock = new();
-        private readonly Mock<ISandbox> _sandboxMock = new();
         private readonly BranchName? _branch;
 
         public CheckoutHarness(string? branch = null)
         {
             _branch = branch is null ? null : new BranchName(branch);
-            Pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
-            _sandboxMock.Setup(s => s.RunStepAsync(
-                    It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
-                .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
-                {
-                    if (step.Command == "git" && step.Args is { Count: > 0 } args)
-                    {
-                        if (args[0] == "-c" && args.Contains("clone") && step.WorkingDirectory is not null)
-                            CloneWorkdirs.Add(step.WorkingDirectory);
-                        else if (args[0] == "checkout" && args.Count == 2)
-                            CheckoutBranchSteps.Add(step);
-                    }
-                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
-                });
         }
+
+        public Mock<ISandbox> GetSandbox(string repoName) => _sandboxes[repoName];
 
         public void AddRepo(string name, string url)
         {
             _repos.Add(new RepoConnection { Name = name, Type = RepoType.GitHub, Url = url, DefaultBranch = "main" });
+            RegisterProvider(name, url, providerType: "github");
+            RegisterSandbox(name);
+        }
+
+        public void AddLocalRepo(string name, string path)
+        {
+            _repos.Add(new RepoConnection { Name = name, Type = RepoType.Local, Path = path, DefaultBranch = "main" });
+            RegisterProvider(name, path, providerType: "Local");
+            RegisterSandbox(name);
+        }
+
+        private void RegisterProvider(string name, string url, string providerType)
+        {
             var providerMock = new Mock<ISourceProvider>();
-            providerMock.SetupGet(p => p.ProviderType).Returns("github");
+            providerMock.SetupGet(p => p.ProviderType).Returns(providerType);
             providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new Repository(new BranchName("main"), url));
             _factoryMock.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Name == name)))
                 .Returns(providerMock.Object);
         }
 
-        public void AddLocalRepo(string name, string path)
+        private void RegisterSandbox(string name)
         {
-            _repos.Add(new RepoConnection { Name = name, Type = RepoType.Local, Path = path, DefaultBranch = "main" });
-            var providerMock = new Mock<ISourceProvider>();
-            providerMock.SetupGet(p => p.ProviderType).Returns("Local");
-            providerMock.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new Repository(new BranchName("main"), path));
-            _factoryMock.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Name == name)))
-                .Returns(providerMock.Object);
+            var sandboxMock = new Mock<ISandbox>();
+            sandboxMock.Setup(s => s.RunStepAsync(
+                    It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+                .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                    Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+            _sandboxes[name] = sandboxMock;
         }
 
         public Task<CommandResult> RunAsync()
         {
             Pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, _repos);
+            Pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes,
+                _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CheckoutSourceHandler(
                 _factoryMock.Object,
                 RunStateConceptsTestFactory.Default,
@@ -170,30 +184,15 @@ public sealed class MultiRepoHandlerTests
     {
         public PipelineContext Pipeline { get; } = new();
         private readonly List<RepoConnection> _repos = new();
+        private readonly Dictionary<string, Mock<ISandbox>> _sandboxes = new(StringComparer.Ordinal);
         private readonly HashSet<string> _noChangeRepos = new(StringComparer.Ordinal);
         private readonly Mock<ISourceProviderFactory> _sourceFactoryMock = new();
         private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
-        private readonly Mock<ISandbox> _sandboxMock = new();
 
         public CommitAndPRHarness()
         {
             _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
                 .Returns(new Mock<ITicketProvider>().Object);
-            Pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
-            _sandboxMock.Setup(s => s.RunStepAsync(
-                    It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
-                .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
-                {
-                    if (step.Args is { Count: > 0 } args && args.Contains("commit") && step.WorkingDirectory is not null)
-                    {
-                        var repoName = step.WorkingDirectory.Replace("/work/", string.Empty);
-                        if (_noChangeRepos.Contains(repoName))
-                            return Task.FromResult(new StepResult(
-                                StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
-                                "nothing to commit, working tree clean"));
-                    }
-                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
-                });
         }
 
         public void AddRepo(string name)
@@ -206,6 +205,21 @@ public sealed class MultiRepoHandlerTests
                 .ReturnsAsync($"https://x/{name}/pull/1");
             _sourceFactoryMock.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Name == name)))
                 .Returns(providerMock.Object);
+
+            var capturedName = name;
+            var sandboxMock = new Mock<ISandbox>();
+            sandboxMock.Setup(s => s.RunStepAsync(
+                    It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+                .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                {
+                    if (step.Args is { Count: > 0 } args && args.Contains("commit")
+                        && _noChangeRepos.Contains(capturedName))
+                        return Task.FromResult(new StepResult(
+                            StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                            "nothing to commit, working tree clean"));
+                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
+                });
+            _sandboxes[name] = sandboxMock;
         }
 
         public void SimulateNoChangesFor(string repoName) => _noChangeRepos.Add(repoName);
@@ -213,6 +227,9 @@ public sealed class MultiRepoHandlerTests
         public Task<CommandResult> RunAsync()
         {
             Pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, _repos);
+            Pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes,
+                _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CommitAndPRHandler(
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
                 new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),

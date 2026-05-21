@@ -4,6 +4,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -12,9 +13,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Runs project-specific tests against the code changes. Routes through ISandbox
-/// when available; falls back to detected-project test command for CLI mode.
-/// For dotnet projects, captures structured TRX results into ContextKeys.TestResults.
+/// Runs per-repo tests against the code changes (p0158f). Iterates
+/// ContextKeys.RepoProjectMaps; each repo with a non-empty ci.test_command
+/// runs in its OWN per-repo sandbox (Sandboxes[repo.Name]) where /work is
+/// the repo root. Repos with empty test_command are skipped (docs/markdown
+/// repos shouldn't fail the test gate). Aggregates TrxSummary via
+/// Combine; overall pass/fail is logical-AND.
 /// </summary>
 public sealed class TestHandler(
     TrxResultParser trxParser,
@@ -29,47 +33,38 @@ public sealed class TestHandler(
     {
         logger.LogInformation("Running tests for {Changes} changes...", context.Changes.Count);
 
-        var resolved = ResolveTestCommand(context.Pipeline);
-        if (resolved.Command is null)
+        var perRepo = ResolvePerRepoMaps(context.Pipeline);
+        if (perRepo is null || perRepo.Count == 0)
         {
-            var reason = resolved.SkipReason ?? "no test command resolved";
-            logger.LogWarning("{Reason}", reason);
             context.Pipeline.Set(ContextKeys.TestResults, TrxSummary.Empty);
-            return CommandResult.Ok(reason);
+            return CommandResult.Ok("Skipping tests: ProjectMap missing — AnalyzeProject did not run.");
+        }
+        var (sandboxes, _) = MultiRepoTargets.Resolve(context.Pipeline);
+        if (sandboxes is null) return SkipWithoutSandbox(context);
+
+        var outcomes = new List<RepoTestOutcome>(perRepo.Count);
+        var aggregate = TrxSummary.Empty;
+        foreach (var (repoName, map) in perRepo)
+        {
+            var resolved = ResolveTestCommand(map);
+            if (resolved.Command is null)
+            {
+                logger.LogInformation("{Repo}: skip — {Reason}", repoName, resolved.SkipReason);
+                outcomes.Add(new RepoTestOutcome(repoName, ExitCode: 0, Summary: TrxSummary.Empty, Skipped: true));
+                continue;
+            }
+            if (!sandboxes.TryGetValue(repoName, out var sandbox))
+            {
+                logger.LogWarning("{Repo}: no sandbox available; skipping", repoName);
+                continue;
+            }
+            var outcome = await RunOneAsync(repoName, sandbox, resolved, cancellationToken);
+            outcomes.Add(outcome);
+            aggregate = aggregate.Combine(outcome.Summary);
         }
 
-        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return SkipWithoutSandbox(context);
-
-        return await RunInSandboxAsync(context, sandbox, resolved, cancellationToken);
-    }
-
-    // p0155: TestHandler runs whatever ci.test_command the analyzer produced,
-    // tokenized via System.CommandLine's established splitter (no hand-rolled
-    // whitespace + quote handling). IsTrxCapable derives from the command
-    // prefix — a property of the runner, not the project's language.
-    internal static TestCommand ResolveTestCommand(PipelineContext pipeline)
-    {
-        if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap) || projectMap is null)
-            return TestCommand.Skip("Skipping tests: ProjectMap missing — AnalyzeProject did not run.");
-
-        var raw = projectMap.Ci?.TestCommand;
-        if (string.IsNullOrWhiteSpace(raw))
-            return TestCommand.Skip(
-                "Skipping tests: ProjectMap.Ci.TestCommand is empty — analyzer found no test command for this project.");
-
-        var tokens = CommandLineStringSplitter.Instance.Split(raw).ToList();
-        if (tokens.Count == 0)
-            return TestCommand.Skip($"Skipping tests: ci.test_command '{raw}' tokenized to zero arguments.");
-
-        // dotnet test emits TRX when --logger:trx + --results-directory is appended.
-        // Append rather than overwrite so analyzer-supplied flags (e.g. --filter) survive.
-        var head = tokens[0];
-        var isDotnet = head.Equals("dotnet", StringComparison.OrdinalIgnoreCase);
-        if (isDotnet)
-            tokens.AddRange(new[] { "--logger", "trx", "--results-directory", TrxResultsDir });
-
-        return new TestCommand(head, tokens.Skip(1).ToArray(), IsTrxCapable: isDotnet, SkipReason: null);
+        context.Pipeline.Set(ContextKeys.TestResults, aggregate);
+        return BuildAggregateResult(outcomes, aggregate);
     }
 
     private CommandResult SkipWithoutSandbox(TestContext context)
@@ -82,55 +77,73 @@ public sealed class TestHandler(
             "or local Docker socket). Check the Server-Pod's startup logs for sandbox-creation errors.");
     }
 
-    private async Task<CommandResult> RunInSandboxAsync(
-        TestContext context, ISandbox sandbox, TestCommand cmd, CancellationToken cancellationToken)
+    // Multi-repo path uses ContextKeys.RepoProjectMaps; single-repo back-compat
+    // synthesizes a one-entry dict from ContextKeys.ProjectMap.
+    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerRepoMaps(PipelineContext pipeline)
     {
-        logger.LogInformation("Running in sandbox: {Command} {Args}", cmd.Command, string.Join(' ', cmd.Args ?? Array.Empty<string>()));
-        var output = await ExecuteTestStepAsync(sandbox, cmd, cancellationToken);
-
-        if (!cmd.IsTrxCapable)
-        {
-            context.Pipeline.Set(ContextKeys.TestResults, output.Result);
-            return output.ExitCode == 0
-                ? CommandResult.Ok("Tests passed")
-                : CommandResult.Fail($"Tests failed (exit code {output.ExitCode}):\n{output.Result}");
-        }
-
-        var summary = await CollectTrxAsync(sandbox, cancellationToken);
-        context.Pipeline.Set(ContextKeys.TestResults, summary);
-        return BuildResult(summary, output.ExitCode, output.Result);
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
+            return dict;
+        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
+            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
+        return null;
     }
 
-    private static async Task<(int ExitCode, string Result)> ExecuteTestStepAsync(
-        ISandbox sandbox, TestCommand cmd, CancellationToken cancellationToken)
+    // Back-compat overload for fixture tests that seed only ContextKeys.ProjectMap.
+    internal static TestCommand ResolveTestCommand(PipelineContext pipeline)
     {
-        var stdout = new System.Text.StringBuilder();
-        var progress = new Progress<StepEvent>(ev =>
-        {
-            if (ev.Kind is StepEventKind.Stdout or StepEventKind.Stderr)
-                stdout.AppendLine(ev.Line);
-        });
+        if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) || map is null)
+            return TestCommand.Skip("Skipping tests: ProjectMap missing — AnalyzeProject did not run.");
+        return ResolveTestCommand(map);
+    }
+
+    internal static TestCommand ResolveTestCommand(ProjectMap projectMap)
+    {
+        var raw = projectMap.Ci?.TestCommand;
+        if (string.IsNullOrWhiteSpace(raw))
+            return TestCommand.Skip("Skipping tests: ProjectMap.Ci.TestCommand is empty — analyzer found no test command for this project.");
+
+        var tokens = CommandLineStringSplitter.Instance.Split(raw).ToList();
+        if (tokens.Count == 0)
+            return TestCommand.Skip($"ci.test_command '{raw}' tokenized to zero arguments.");
+
+        var head = tokens[0];
+        var isDotnet = head.Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+        if (isDotnet)
+            tokens.AddRange(new[] { "--logger", "trx", "--results-directory", TrxResultsDir });
+
+        return new TestCommand(head, tokens.Skip(1).ToArray(), IsTrxCapable: isDotnet, SkipReason: null);
+    }
+
+    private async Task<RepoTestOutcome> RunOneAsync(
+        string repoName, ISandbox sandbox, TestCommand cmd, CancellationToken ct)
+    {
+        logger.LogInformation("{Repo}: running {Command} {Args}",
+            repoName, cmd.Command, string.Join(' ', cmd.Args ?? Array.Empty<string>()));
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: cmd.Command, Args: cmd.Args, TimeoutSeconds: TestTimeoutSeconds);
-        var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
-        return (result.ExitCode, stdout.ToString());
+        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+
+        if (!cmd.IsTrxCapable)
+            return new RepoTestOutcome(repoName, result.ExitCode, TrxSummary.Empty, Skipped: false);
+
+        var summary = await CollectTrxAsync(sandbox, ct);
+        return new RepoTestOutcome(repoName, result.ExitCode, summary, Skipped: false);
     }
 
-    private async Task<TrxSummary> CollectTrxAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    private async Task<TrxSummary> CollectTrxAsync(ISandbox sandbox, CancellationToken ct)
     {
         var listStep = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ListFiles,
             Path: TrxResultsDir, MaxDepth: 4);
-        var listResult = await sandbox.RunStepAsync(listStep, progress: null, cancellationToken);
+        var listResult = await sandbox.RunStepAsync(listStep, progress: null, ct);
         if (listResult.ExitCode != 0 || string.IsNullOrEmpty(listResult.OutputContent))
             return TrxSummary.Empty;
 
-        // p0153: ListFiles wire shape is [{path, size_bytes, mtime, is_directory}];
-        // legacy shape was string[]. Accept both — extract paths defensively.
         var trxPaths = ExtractPathsEndingWith(listResult.OutputContent, ".trx");
         var summary = TrxSummary.Empty;
         foreach (var trxPath in trxPaths)
-            summary = summary.Combine(await ParseSingleAsync(sandbox, trxPath, cancellationToken));
+            summary = summary.Combine(await ParseSingleAsync(sandbox, trxPath, ct));
         return summary;
     }
 
@@ -153,26 +166,36 @@ public sealed class TestHandler(
         return paths;
     }
 
-    private async Task<TrxSummary> ParseSingleAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
+    private async Task<TrxSummary> ParseSingleAsync(ISandbox sandbox, string path, CancellationToken ct)
     {
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile, Path: path);
-        var result = await sandbox.RunStepAsync(step, progress: null, cancellationToken);
+        var result = await sandbox.RunStepAsync(step, progress: null, ct);
         return result.ExitCode == 0 && result.OutputContent is not null
             ? trxParser.Parse(result.OutputContent)
             : TrxSummary.Empty;
     }
 
-    private static CommandResult BuildResult(TrxSummary summary, int exitCode, string stdout)
+    private static CommandResult BuildAggregateResult(
+        IReadOnlyList<RepoTestOutcome> outcomes, TrxSummary aggregate)
     {
-        var counters = $"{summary.PassedCount}/{summary.TotalCount} passed, {summary.FailedCount} failed";
-        if (summary.FailedCount == 0 && exitCode == 0) return CommandResult.Ok($"Tests passed ({counters})");
-        var failureLines = summary.Failures.Select(f => $"  - {f.TestName}: {f.ErrorMessage}");
+        var ran = outcomes.Where(o => !o.Skipped).ToList();
+        if (ran.Count == 0) return CommandResult.Ok("No repos had a test command; skipped all.");
+
+        var failedRepos = ran.Where(o => o.ExitCode != 0 || o.Summary.FailedCount > 0).ToList();
+        var counters = $"{aggregate.PassedCount}/{aggregate.TotalCount} passed, {aggregate.FailedCount} failed";
+        if (failedRepos.Count == 0)
+            return CommandResult.Ok($"Tests passed ({counters})");
+
+        var failureLines = aggregate.Failures.Select(f => $"  - {f.TestName}: {f.ErrorMessage}");
         var detail = string.Join('\n', failureLines);
-        return CommandResult.Fail($"Tests failed ({counters}, exit {exitCode}):\n{detail}\n{stdout}");
+        var exitSummary = failedRepos[0].ExitCode;
+        return CommandResult.Fail($"Tests failed ({counters}, exit {exitSummary}):\n{detail}");
     }
 
     internal sealed record TestCommand(string? Command, IReadOnlyList<string>? Args, bool IsTrxCapable, string? SkipReason)
     {
         public static TestCommand Skip(string reason) => new(null, null, false, reason);
     }
+
+    private sealed record RepoTestOutcome(string RepoName, int ExitCode, TrxSummary Summary, bool Skipped);
 }

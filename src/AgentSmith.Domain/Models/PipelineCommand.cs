@@ -9,6 +9,11 @@ public sealed record PipelineCommand
     public string Name { get; }
     public string? SkillName { get; init; }
     public int? Round { get; init; }
+    /// <summary>p0158g: names which configured repo this round operates on.
+    /// Used by BootstrapDispatch to fan out one round per repo (different
+    /// languages → different bootstrap skills, each scoped to its repo's
+    /// sandbox). null on single-repo or repo-agnostic rounds.</summary>
+    public string? RepoName { get; init; }
 
     public PipelineCommand(string name)
     {
@@ -16,10 +21,12 @@ public sealed record PipelineCommand
     }
 
     /// <summary>
-    /// Creates a parameterized skill round command.
+    /// Creates a parameterized skill round command. Optional repoName scopes
+    /// the round to one configured repo (p0158g multi-repo dispatch).
     /// </summary>
-    public static PipelineCommand SkillRound(string commandName, string skillName, int round) =>
-        new(commandName) { SkillName = skillName, Round = round };
+    public static PipelineCommand SkillRound(
+        string commandName, string skillName, int round, string? repoName = null) =>
+        new(commandName) { SkillName = skillName, Round = round, RepoName = repoName };
 
     /// <summary>
     /// Creates a simple command without parameters.

@@ -14,12 +14,12 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Checks out the run's repos. Iterates Configs: each repo is cloned into
-/// its own subdirectory at /work/{repo-name}/, then a branch switch is
-/// applied if the requested branch differs from the resolved default.
-/// Local providers trust the sandbox bind-mount and skip the clone. The
-/// primary Repository (Configs[0]) is published on the pipeline context
-/// for downstream skills that operate on "the repo"; multi-repo skills
-/// read ContextKeys.Repos directly.
+/// its OWN per-repo sandbox at /work (the per-repo sandbox is created by
+/// PipelineSandboxCoordinator before this handler runs). Local providers
+/// trust the sandbox bind-mount and skip the clone. The primary Repository
+/// (Configs[0]) is published on ContextKeys.Repository for downstream skills
+/// that read a singular repo; multi-repo skills consume ContextKeys.Repos +
+/// ContextKeys.Sandboxes directly.
 /// </summary>
 public sealed class CheckoutSourceHandler(
     ISourceProviderFactory factory,
@@ -53,34 +53,33 @@ public sealed class CheckoutSourceHandler(
             if (i == 0) primary = repo;
         }
         context.Pipeline.Set(ContextKeys.Repository, primary!);
-        return CommandResult.Ok(
-            $"Checked out {context.Configs.Count} repo(s) under {Repository.SandboxWorkPath}");
+        return CommandResult.Ok($"Checked out {context.Configs.Count} repo(s)");
     }
 
     private async Task<Repository?> CheckoutOneAsync(
         CheckoutSourceContext context, RepoConnection config, CancellationToken ct)
     {
-        var workdir = Repository.WorkPathFor(config.Name);
-        logger.LogInformation("Checking out {Repo} into {Workdir}...", config.Name, workdir);
+        logger.LogInformation("Checking out {Repo} into its sandbox at /work...", config.Name);
 
         var provider = factory.Create(config);
         var resolved = await provider.CheckoutAsync(context.Branch, ct);
-        var repo = new Repository(resolved.CurrentBranch, resolved.RemoteUrl, workdir);
+        var repo = new Repository(resolved.CurrentBranch, resolved.RemoteUrl);
 
         if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
             return repo;
 
-        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return FailWith("CheckoutSource requires an active sandbox.", config);
+        if (!context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null
+            || !sandboxes.TryGetValue(config.Name, out var sandbox))
+            return FailWith($"No sandbox for repo '{config.Name}'.", config);
         if (string.IsNullOrEmpty(config.Url))
             return FailWith("CheckoutSource requires a non-empty source URL for non-local providers.", config);
 
-        await sandbox.RunStepAsync(CheckoutStepFactory.BuildMkdirStep(workdir), progress: null, ct);
-        var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config, workdir), null, ct);
+        var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
         if (clone.ExitCode != 0)
             return FailWith($"git clone failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
 
-        await MaybeSwitchBranchAsync(sandbox, context.Branch, resolved.CurrentBranch, workdir, ct);
+        await MaybeSwitchBranchAsync(sandbox, context.Branch, resolved.CurrentBranch, ct);
         return repo;
     }
 
@@ -91,26 +90,23 @@ public sealed class CheckoutSourceHandler(
     }
 
     private async Task MaybeSwitchBranchAsync(
-        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault,
-        string workdir, CancellationToken ct)
+        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault, CancellationToken ct)
     {
         if (requested is null
             || requested.Value.Equals(resolvedDefault.Value, StringComparison.Ordinal))
             return;
         var branch = requested.Value;
 
-        var existing = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildCheckoutStep(branch, workdir), null, ct);
+        var existing = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(branch), null, ct);
         if (existing.ExitCode == 0)
         {
-            logger.LogInformation("git checkout {Branch} in {Workdir} (existing)", branch, workdir);
+            logger.LogInformation("git checkout {Branch} (existing)", branch);
             return;
         }
-        var created = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildCreateBranchStep(branch, workdir), null, ct);
+        var created = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCreateBranchStep(branch), null, ct);
         if (created.ExitCode != 0)
             logger.LogWarning(
-                "git checkout -b {Branch} failed in {Workdir} (exit={Exit}): {Err}",
-                branch, workdir, created.ExitCode, created.ErrorMessage);
+                "git checkout -b {Branch} failed (exit={Exit}): {Err}",
+                branch, created.ExitCode, created.ErrorMessage);
     }
 }
