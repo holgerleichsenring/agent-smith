@@ -37,8 +37,9 @@ public sealed class InitCommitHandler(
             "Committing .agentsmith/ files across {Repos} repo(s)...",
             context.Configs.Count);
 
-        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return CommandResult.Fail("InitCommit requires an active sandbox; none in pipeline context.");
+        if (!context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
+            return CommandResult.Fail("InitCommit requires Sandboxes published by PipelineSandboxCoordinator.");
 
         context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
 
@@ -46,6 +47,12 @@ public sealed class InitCommitHandler(
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
         {
+            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            {
+                opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed));
+                logger.LogWarning("{Repo}: no sandbox available", repo.Name);
+                continue;
+            }
             var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;
@@ -66,12 +73,11 @@ public sealed class InitCommitHandler(
         InitCommitContext context, ISandbox sandbox, RepoConnection repo,
         TicketId? ticketId, CancellationToken ct)
     {
-        var workdir = Repository.WorkPathFor(repo.Name);
         try
         {
             await gitOps.CommitAndPushAsync(
                 sandbox, context.Repository.CurrentBranch.Value,
-                "chore: initialize .agentsmith/ directory", repo.Type, workdir, ct);
+                "chore: initialize .agentsmith/ directory", repo.Type, ct);
         }
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {
@@ -89,7 +95,7 @@ public sealed class InitCommitHandler(
         {
             var provider = sourceFactory.Create(repo);
             var prUrl = await provider.CreatePullRequestAsync(
-                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty, workdir),
+                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
                 "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId);
             logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);

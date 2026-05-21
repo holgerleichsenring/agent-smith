@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -36,8 +37,10 @@ public sealed class AgenticExecuteHandler(
     {
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
-        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var fs = new FilesystemToolHost(sandbox, context.Repository.LocalPath);
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        var defaultRepo = repos[0].Name;
+        var fs = new FilesystemToolHost(sandboxes, defaultRepo, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
 
@@ -47,7 +50,8 @@ public sealed class AgenticExecuteHandler(
         // First-run: key absent → null → no Verify section in prompt.
         var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(
-            context.Plan, context.Repository, verifyNotes);
+            context.Plan, context.Repository, verifyNotes,
+            repoNames: repos.Select(r => r.Name).ToList());
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);

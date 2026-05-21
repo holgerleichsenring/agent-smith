@@ -28,21 +28,69 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class FilesystemToolHost : IToolHost
 {
-    private readonly SandboxStepRunner _runner;
-    private readonly string _repoPath;
+    private readonly IReadOnlyDictionary<string, SandboxStepRunner> _runners;
+    private readonly string _defaultRepo;
     private readonly ToolGuardInvoker _guards;
     private readonly ILogger? _logger;
     private readonly List<CodeChange> _changes = new();
 
+    // Single-sandbox constructor — kept for back-compat with construction
+    // sites that don't yet read the Sandboxes dict from PipelineContext.
+    // Wraps the one sandbox in an empty-keyed dictionary so routing has a
+    // sensible default ("" matches any unprefixed path).
     public FilesystemToolHost(
         ISandbox sandbox, string repoPath = "/work",
         IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
         ILogger? logger = null)
+        : this(
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [string.Empty] = sandbox },
+            defaultRepo: string.Empty,
+            repoPath, readGuard, writeGuard, logger)
+    { }
+
+    // Multi-sandbox constructor (p0158e). Each tool call's first path segment
+    // is checked against the dictionary keys; matches dispatch the bare
+    // (prefix-stripped) path to that repo's sandbox. Unprefixed paths or
+    // single-entry dicts dispatch to defaultRepo. run_command + http_request
+    // also dispatch to defaultRepo unless overridden via the `repo` argument.
+    public FilesystemToolHost(
+        IReadOnlyDictionary<string, ISandbox> sandboxes,
+        string defaultRepo,
+        string repoPath = "/work",
+        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
+        ILogger? logger = null)
     {
-        _runner = new SandboxStepRunner(sandbox);
-        _repoPath = repoPath;
+        _runners = sandboxes.ToDictionary(
+            kv => kv.Key, kv => new SandboxStepRunner(kv.Value), StringComparer.Ordinal);
+        _defaultRepo = defaultRepo;
         _guards = new ToolGuardInvoker(readGuard, writeGuard);
         _logger = logger;
+        _ = repoPath;
+    }
+
+    private (SandboxStepRunner Runner, string BarePath) Route(string path)
+    {
+        if (_runners.Count <= 1)
+            return (_runners[_defaultRepo], path);
+        var idx = path?.IndexOf('/') ?? -1;
+        var first = idx < 0 ? path ?? string.Empty : path![..idx];
+        if (_runners.TryGetValue(first, out var runner))
+        {
+            var bare = idx < 0 ? "." : path![(idx + 1)..];
+            return (runner, string.IsNullOrEmpty(bare) ? "." : bare);
+        }
+        throw new InvalidOperationException(
+            $"Path '{path}' does not start with a known repo name. " +
+            $"Known repos: [{string.Join(", ", _runners.Keys.Where(k => k.Length > 0))}].");
+    }
+
+    private SandboxStepRunner Resolve(string? repo)
+    {
+        if (string.IsNullOrEmpty(repo))
+            return _runners[_defaultRepo];
+        if (_runners.TryGetValue(repo, out var runner)) return runner;
+        throw new InvalidOperationException(
+            $"Unknown repo '{repo}'. Known repos: [{string.Join(", ", _runners.Keys.Where(k => k.Length > 0))}].");
     }
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
@@ -79,9 +127,9 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
-        return _guards.CheckRead(path) is { } error
-            ? Task.FromResult(error)
-            : _runner.ReadAsync(path, start_line, line_count, with_line_numbers, ct);
+        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        var (runner, bare) = Route(path);
+        return runner.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
     }
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]
@@ -92,7 +140,8 @@ public sealed class FilesystemToolHost : IToolHost
     {
         _logger?.LogInformation("tool_call: WriteFile path={Path} bytes={Bytes}", path, content.Length);
         if (_guards.CheckWrite(path) is { } error) return error;
-        var result = await _runner.WriteAsync(path, content, ct);
+        var (runner, bare) = Route(path);
+        var result = await runner.WriteAsync(bare, content, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             RecordChange(path, content);
         return result;
@@ -109,7 +158,8 @@ public sealed class FilesystemToolHost : IToolHost
         _logger?.LogInformation("tool_call: ListDirectory path={Path} depth={Depth} sizes={Sizes} sort={Sort}", path, depth, with_sizes, sort_by);
         if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
         var sort = ParseSortBy(sort_by);
-        return _runner.ListAsync(path, depth, with_sizes, sort, ct);
+        var (runner, bare) = Route(path);
+        return runner.ListAsync(bare, depth, with_sizes, sort, ct);
     }
 
     private static DirectorySortBy ParseSortBy(string s) => s?.ToLowerInvariant() switch
@@ -127,9 +177,9 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: DirectoryTree root={Root} depth={Depth}", root, max_depth);
-        return _guards.CheckRead(root) is { } error
-            ? Task.FromResult(error)
-            : _runner.TreeAsync(root, max_depth, exclude_globs, ct);
+        if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
+        var (runner, bare) = Route(root);
+        return runner.TreeAsync(bare, max_depth, exclude_globs, ct);
     }
 
     [Description("Finds files whose path (relative to root) matches a glob pattern. Pattern is path-relative — 'Controller.cs' matches any file with 'Controller.cs' in its path; '*.cs' matches every .cs file; 'src/**/*.cs' matches every .cs under src/. Truncates at head_limit and appends a marker line.")]
@@ -143,9 +193,10 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckRead(root) is { } error) return error;
         var limit = head_limit ?? SizeLimits.GrepDefaultHeadLimit;
         var normalized = NormalizeFindPattern(pattern);
+        var (runner, bareRoot) = Route(root);
         // head -N+1 so we can detect over-limit and emit the truncation marker.
-        var cmd = $"find {ShellQuote(root)} -type f -path {ShellQuote(normalized)} 2>/dev/null | head -{limit + 1}";
-        var structured = await _runner.RunAsync(cmd, timeoutSeconds: null, ct);
+        var cmd = $"find {ShellQuote(bareRoot)} -type f -path {ShellQuote(normalized)} 2>/dev/null | head -{limit + 1}";
+        var structured = await runner.RunAsync(cmd, timeoutSeconds: null, ct);
         return FormatFindOutput(structured, limit);
     }
 
@@ -188,12 +239,13 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
         if (string.IsNullOrEmpty(old_string)) return "Error: old_string must not be empty.";
 
-        var content = await _runner.ReadAsync(path, startLine: null, lineCount: null, withLineNumbers: false, ct);
+        var (runner, bare) = Route(path);
+        var content = await runner.ReadAsync(bare, startLine: null, lineCount: null, withLineNumbers: false, ct);
         if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
 
         var (newContent, count, error) = ApplyEdit(content, old_string, new_string, replace_all, path);
         if (error is not null) return error;
-        var result = await _runner.WriteAsync(path, newContent, ct);
+        var result = await runner.WriteAsync(bare, newContent, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             RecordChange(path, newContent);
         return replace_all
@@ -241,7 +293,8 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckRead(path) is { } readErr) return readErr;
         if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
 
-        var content = await _runner.ReadAsync(path, startLine: null, lineCount: null, withLineNumbers: false, ct);
+        var (runner, bare) = Route(path);
+        var content = await runner.ReadAsync(bare, startLine: null, lineCount: null, withLineNumbers: false, ct);
         if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
 
         var summary = new StringBuilder();
@@ -257,7 +310,7 @@ public sealed class FilesystemToolHost : IToolHost
 
         if (dry_run) return $"dry_run: would apply {edits.Count} edit(s) to {path}\n{summary}";
 
-        var result = await _runner.WriteAsync(path, content, ct);
+        var result = await runner.WriteAsync(bare, content, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             RecordChange(path, content);
         return $"{result}\nApplied {edits.Count} edit(s).\n{summary}";
@@ -297,7 +350,8 @@ public sealed class FilesystemToolHost : IToolHost
         parts.Add(url);
 
         var cmd = string.Join(" ", parts.Select(ShellQuote));
-        return _runner.RunAsync(cmd, timeoutSeconds: clampedTimeout + 5, ct);
+        // HttpRequest is sandbox-agnostic in semantics; dispatch via default repo.
+        return Resolve(repo: null).RunAsync(cmd, timeoutSeconds: clampedTimeout + 5, ct);
     }
 
     private static string ShellQuote(string s) => "'" + s.Replace("'", "'\\''") + "'";
@@ -317,7 +371,8 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
         var (before, after) = ResolveContext(context_before, context_after, context);
         var mode = ParseOutputMode(output_mode);
-        return _runner.GrepAsync(pattern, path, glob: null, head_limit, before, after, mode, ct);
+        var (runner, bare) = Route(path);
+        return runner.GrepAsync(pattern, bare, glob: null, head_limit, before, after, mode, ct);
     }
 
     [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'.")]
@@ -336,7 +391,8 @@ public sealed class FilesystemToolHost : IToolHost
         if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
         var (before, after) = ResolveContext(context_before, context_after, context);
         var mode = ParseOutputMode(output_mode);
-        return _runner.GrepAsync(pattern, root, glob, head_limit, before, after, mode, ct);
+        var (runner, bareRoot) = Route(root);
+        return runner.GrepAsync(pattern, bareRoot, glob, head_limit, before, after, mode, ct);
     }
 
     private static (int? Before, int? After) ResolveContext(int? before, int? after, int? context)
@@ -352,19 +408,25 @@ public sealed class FilesystemToolHost : IToolHost
         _ => GrepOutputMode.Content
     };
 
-    [Description("Runs a shell command (passed to /bin/sh -c). Returns labeled sections: header lines (exit_code, elapsed_ms, truncated) followed by 'stdout:' and 'stderr:' blocks. Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard; use find/grep/head/wc/curl/ls/cat freely.")]
+    [Description("Runs a shell command (passed to /bin/sh -c) in the named repo's sandbox. On multi-repo projects, the `repo` argument is REQUIRED — pick the repo whose toolchain matches what the command needs (e.g. repo='server' for `dotnet test`, repo='client' for `npm test`). On single-repo projects, `repo` is optional and defaults to the one repo. Returns labeled sections: header lines (exit_code, elapsed_ms, truncated) followed by 'stdout:' and 'stderr:' blocks. Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard; use find/grep/head/wc/curl/ls/cat freely.")]
     public Task<string> RunCommand(
         [Description("Shell command to execute (passed to /bin/sh -c).")] string command,
+        [Description("Repo whose sandbox runs the command. Required on multi-repo projects; optional on single-repo (defaults to the one repo).")] string? repo = null,
         [Description("Optional timeout in seconds (default 60, max 600). Use for builds and test runs that may exceed the default.")] int? timeout_seconds = null,
         CancellationToken ct = default)
     {
-        _logger?.LogInformation("tool_call: RunCommand cmd={Command} timeout={Timeout}", command, timeout_seconds);
+        _logger?.LogInformation("tool_call: RunCommand cmd={Command} repo={Repo} timeout={Timeout}",
+            command, repo, timeout_seconds);
         if (CommandGuard.Check(command) is { } error)
         {
             _logger?.LogWarning("RunCommand blocked by destructive-command guard: {Command}", command);
             return Task.FromResult(error);
         }
-        return _runner.RunAsync(command, timeout_seconds, ct);
+        if (_runners.Count > 1 && string.IsNullOrEmpty(repo))
+            return Task.FromResult(
+                $"Error: `repo` is required on multi-repo projects. " +
+                $"Known repos: [{string.Join(", ", _runners.Keys.Where(k => k.Length > 0))}].");
+        return Resolve(repo).RunAsync(command, timeout_seconds, ct);
     }
 
     private static AIFunction Tool(Delegate impl, string name) =>

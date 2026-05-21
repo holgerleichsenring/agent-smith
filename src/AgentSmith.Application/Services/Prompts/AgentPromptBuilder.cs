@@ -92,7 +92,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     }
 
     public string BuildExecutionUserPrompt(
-        Plan plan, Repository repository, string? verifyNotes = null)
+        Plan plan, Repository repository, string? verifyNotes = null,
+        IReadOnlyList<string>? repoNames = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -100,7 +101,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-            {BuildVerifyNotesSection(verifyNotes)}
+            {BuildReposInScopeSection(repoNames)}{BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -108,6 +109,24 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             {steps}
 
             Start by listing the relevant files, then implement each step.
+            """;
+    }
+
+    /// <summary>
+    /// p0158e: when the run spans multiple repos, list them so the agent knows
+    /// to use repo-qualified paths in filesystem tool calls and pass `repo` to
+    /// run_command. Single-repo runs emit nothing (back-compat).
+    /// </summary>
+    internal static string BuildReposInScopeSection(IReadOnlyList<string>? repoNames)
+    {
+        if (repoNames is null || repoNames.Count <= 1) return string.Empty;
+        return $"""
+
+
+            ## Repos in scope
+            This run spans {repoNames.Count} repos: {string.Join(", ", repoNames)}.
+            Use repo-qualified paths in filesystem tool calls (e.g. `{repoNames[0]}/src/Foo.cs`).
+            Pass `repo` to run_command (e.g. run_command(command="dotnet test", repo="{repoNames[0]}")).
             """;
     }
 

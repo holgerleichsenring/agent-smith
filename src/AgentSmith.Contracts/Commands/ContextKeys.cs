@@ -23,6 +23,13 @@ public static partial class ContextKeys
     /// Set by the CLI when `--repo NAME` is provided; absent in queue-driven (K8s/Compose) runs.</summary>
     public const string SourceOverrideRepo = "SourceOverrideRepo";
 
+    /// <summary>p0158e: dictionary keyed by repo name holding one ISandbox per configured
+    /// repo (each with its own toolchain image). Published by PipelineSandboxCoordinator
+    /// on first sandbox-requiring command. Handlers iterating Repos dispatch git ops and
+    /// other per-repo work to Sandboxes[repo.Name]. Legacy ContextKeys.Sandbox (singular)
+    /// is populated from Sandboxes[Repos[0].Name] for back-compat callers.</summary>
+    public const string Sandboxes = "Sandboxes";
+
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;

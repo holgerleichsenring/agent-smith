@@ -28,7 +28,7 @@ public sealed class SandboxGitOperationsTests
     [Fact]
     public async Task CommitAndPushAsync_HappyPath_RunsConfigStageCommitPush_InOrder()
     {
-        await _sut.CommitAndPushAsync(_sandboxMock.Object, "feat/branch", "msg", RepoType.GitHub, "/work/test", CancellationToken.None);
+        await _sut.CommitAndPushAsync(_sandboxMock.Object, "feat/branch", "msg", RepoType.GitHub, CancellationToken.None);
 
         var commands = _steps.Select(s => string.Join(' ', new[] { s.Command }.Concat(s.Args ?? Array.Empty<string>()))).ToList();
         commands.Should().Contain(c => c.Contains("config user.email"));
@@ -45,7 +45,7 @@ public sealed class SandboxGitOperationsTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1, "nothing to commit, working tree clean")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, "/work/test", CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("nothing to commit"));
@@ -59,7 +59,7 @@ public sealed class SandboxGitOperationsTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 128, false, 0.1, "non-fast-forward")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, "/work/test", CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("non-fast-forward"));
