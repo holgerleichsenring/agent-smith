@@ -30,6 +30,27 @@ public static partial class ContextKeys
     /// is populated from Sandboxes[Repos[0].Name] for back-compat callers.</summary>
     public const string Sandboxes = "Sandboxes";
 
+    /// <summary>p0158f: dictionary keyed by repo name with each repo's analyzed
+    /// ProjectMap. Populated by AnalyzeProjectHandler iterating per-repo sandboxes.
+    /// Legacy ContextKeys.ProjectMap stays as the primary repo's map for back-compat.</summary>
+    public const string RepoProjectMaps = "RepoProjectMaps";
+
+    /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
+    /// `.agentsmith/context.yaml` content. Legacy ContextKeys.ProjectContext stays
+    /// as the primary repo's YAML for back-compat.</summary>
+    public const string RepoContextYamls = "RepoContextYamls";
+
+    /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
+    /// `.agentsmith/coding-principles.md` content. Legacy ContextKeys.CodingPrinciples
+    /// stays as a single aggregated string (per-repo headers concatenated) for
+    /// AgenticExecute back-compat.</summary>
+    public const string RepoCodingPrinciples = "RepoCodingPrinciples";
+
+    /// <summary>p0158f: comma-separated list of repo names whose bootstrap files are
+    /// missing (context.yaml or coding-principles.md). Populated by BootstrapCheckHandler;
+    /// read by BootstrapGateHandler to render a clear error message.</summary>
+    public const string MissingBootstrapRepos = "MissingBootstrapRepos";
+
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;
