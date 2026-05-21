@@ -29,16 +29,25 @@ public sealed class PersistWorkBranchHandler(
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var primaryRepo) || primaryRepo is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
                 "PersistWorkBranch: no Repository in pipeline context");
-        if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
-                "PersistWorkBranch: no Sandbox in pipeline context");
+                "PersistWorkBranch: no Sandboxes in pipeline context");
 
         var commitMessage = BuildCommitMessage(pipeline);
         var branch = primaryRepo.CurrentBranch.Value;
 
         var outcomes = new List<PerRepoPersistResult>(context.Configs.Count);
         foreach (var repo in context.Configs)
+        {
+            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            {
+                outcomes.Add(new PerRepoPersistResult(
+                    repo.Name, PersistFailureKind.Unknown, "no sandbox available"));
+                continue;
+            }
             outcomes.Add(await PersistOneAsync(sandbox, repo, branch, commitMessage, cancellationToken));
+        }
 
         return Aggregate(pipeline, outcomes);
     }
@@ -46,10 +55,9 @@ public sealed class PersistWorkBranchHandler(
     private async Task<PerRepoPersistResult> PersistOneAsync(
         ISandbox sandbox, RepoConnection repo, string branch, string commitMessage, CancellationToken ct)
     {
-        var workdir = Repository.WorkPathFor(repo.Name);
         try
         {
-            await gitOps.CommitAndPushAsync(sandbox, branch, commitMessage, repo.Type, workdir, ct);
+            await gitOps.CommitAndPushAsync(sandbox, branch, commitMessage, repo.Type, ct);
             logger.LogInformation("{Repo}: pushed WIP commit on branch {Branch}", repo.Name, branch);
             return new PerRepoPersistResult(repo.Name, Kind: null, Message: null);
         }

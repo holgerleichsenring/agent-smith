@@ -1,0 +1,410 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158e
+requires: ["p0158b"]
+supersedes: []
+goal: |
+  Replace the single-sandbox-per-run model from p0158b with one sandbox
+  per configured repo, each with its own toolchain image. Mixed-stack
+  multi-repo projects (e.g. Sample: .NET server + npm client + markdown
+  docs) cannot share a container because each stack needs its own runtime
+  toolchain. The orchestrator stays centralised (one ticket = one
+  pipeline = one agent loop = one plan); execution becomes
+  decentralised (N sandboxes, each with its own toolchain image; tool
+  calls route by repo prefix to the right sandbox).
+
+  Agent's mental model is unchanged: paths still look like
+  `server/src/Foo.cs` — the FilesystemToolHost / RunCommandToolHost
+  strip the repo prefix and dispatch the bare path to that repo's
+  sandbox where /work is the repo root. Per-repo toolchain image
+  resolution uses the existing p0135 layered chain (operator override
+  → remote context.yaml → generic fallback) applied per-repo; no
+  hardcoded slug→image mapping is introduced. The LLM writes each
+  repo's `.agentsmith/context.yaml` with its `primary_language`
+  slug, the orchestrator reads each per-repo context, decides each
+  repo's sandbox image. Central plan, decentralised execution.
+
+scope:
+  in: |
+    (1) Contracts (additive — singular keys deprecated but populated
+        from primary for backward compat):
+        - ContextKeys.Sandboxes : IReadOnlyDictionary<string, ISandbox>
+          (one entry per repo in the run)
+        - ContextKeys.Sandbox (existing, singular) — populated as
+          Sandboxes[Repos[0].Name] for the duration of p0158e; removed
+          in a follow-up once every consumer reads from Sandboxes
+        - IPipelineSandboxCoordinator.EnsureSandboxAsync(repoName, ...)
+          becomes per-repo; existing single-arg overload kept as
+          "ensure all" (creates every repo's sandbox eagerly on first
+          sandbox-requiring command — predictable timing, slight resource
+          waste for unused repos which we accept for now)
+
+    (2) PipelineSandboxCoordinator rewrite:
+        - Builds N SandboxSpecs (one per repo), each via the existing
+          p0135 layered resolution applied to THAT repo's source provider
+          (TryReadFileAsync on the repo's remote .agentsmith/context.yaml,
+          NOT an aggregate across repos)
+        - Creates N sandboxes via sandboxFactory.CreateAsync, publishes
+          ContextKeys.Sandboxes
+        - DisposeAsync disposes every cached sandbox exactly once
+        - Resource limits (CPU / memory) apply per sandbox; total resource
+          consumption is N× the per-repo limits. Operator concern, no
+          aggregate limit logic in p0158e.
+
+    (3) Tool routing — FilesystemToolHost + RunCommandToolHost:
+        - read_file / write_file / edit / multi_edit / find_files /
+          grep_in_file / grep_in_tree / list_directory / directory_tree:
+          parse the first path segment as a repo name. If it matches
+          a configured repo: strip the prefix, dispatch to that repo's
+          sandbox with the bare path. If no match: error with the
+          known-repos list (single-repo project: no prefix needed,
+          path goes to the one sandbox).
+        - find_files / grep_in_tree without a path: search ALL
+          sandboxes and aggregate results with per-repo prefixes
+          restored in the output paths (so `grep "TODO"` returns
+          `server/src/Foo.cs:42: // TODO ...`).
+        - run_command: gains a required `repo` parameter (multi-repo
+          project) or optional (single-repo, defaults to the one).
+          Tool-host throws clear error if `repo` missing on multi-repo
+          run. Output streams come back unmodified; agent sees the
+          command output verbatim.
+
+    (4) Inside each sandbox: /work = THAT repo's root. The
+        /work/{name}/ scheme from p0158b becomes a virtual addressing
+        layer at the tool-host level; inside a sandbox there is just
+        /work containing the cloned repo. Skills calling
+        `dotnet build` from `working_directory=server` see /work/ as
+        the server repo root with .csproj files directly underneath.
+
+    (5) Handler updates — every per-repo iteration grabs the per-repo
+        sandbox:
+        - CheckoutSourceHandler: for each repo, EnsureSandboxAsync(repo)
+          then `git clone <url> .` with WorkingDirectory=/work (no
+          mkdir, no subdir — each sandbox holds one repo at /work)
+        - TryCheckoutSourceHandler: same per-repo dispatch for the
+          api-scan flow (still primary-only inside p0158e; multi-repo
+          fail-soft is a separate concern)
+        - CommitAndPRHandler: per-repo, calls SandboxGitOperations
+          with the per-repo sandbox + /work workdir
+        - InitCommitHandler: per-repo, same pattern
+        - PersistWorkBranchHandler: per-repo, same pattern; failure
+          aggregation logic from p0158b stays
+        - SandboxGitOperations.CommitAndPushAsync: signature changes
+          from `(ISandbox, branch, msg, repoType, workdir, ct)` to
+          `(ISandbox sandbox, string branch, string msg, RepoType type, ct)`
+          — workdir parameter dropped (always /work inside the
+          per-repo sandbox now). Existing callers passing
+          Repository.WorkPathFor(name) drop that argument.
+
+    (6) Repository entity simplification:
+        - Repository.LocalPath becomes a constant again =
+          Repository.SandboxWorkPath (/work). The per-instance LocalPath
+          + WorkPathFor helpers from p0158b stay as deprecated for
+          tool-host external-path rendering, but the Repository entity
+          itself published per-repo in PipelineContext now consistently
+          points to /work inside ITS sandbox.
+
+    (7) Prompt prefix:
+        - PromptPrefixBuilder gains the `Repos in scope` section
+          (planned for p0158f; pulled forward into p0158e because
+          the agent needs to know the layout to use repo-qualified
+          paths in tool calls)
+        - Line shape: `Repos in scope (use repo-qualified paths,
+          e.g. "server/src/Foo.cs"): server, client, docs`
+        - Per-repo language listing is p0158f scope (depends on
+          per-repo AnalyzeProject)
+
+    (8) Tests (~12 new + ~30 fixture updates):
+        - Coordinator_PerRepoSandbox_OnePerConfigured
+        - Coordinator_DisposeAsync_DisposesEverySandboxOnce
+        - Coordinator_ToolchainResolution_PerRepo_NotAggregate
+        - FilesystemToolHost_ReadFile_StripsRepoPrefix_DispatchesToRightSandbox
+        - FilesystemToolHost_ReadFile_UnknownRepoPrefix_ThrowsWithKnownRepos
+        - FilesystemToolHost_GrepInTree_NoPath_AggregatesAcrossSandboxes_WithRepoPrefixedOutput
+        - RunCommandToolHost_MultiRepo_RequiresRepoArg
+        - RunCommandToolHost_SingleRepo_NoRepoArg_DefaultsToOne
+        - CheckoutSourceHandler_PerRepo_ClonesIntoOwnSandbox_AtSlashWork
+        - CommitAndPRHandler_PerRepo_DispatchesGitOpsToCorrectSandbox
+        - Monorepo_N1_ToolPath_NoPrefix_StillWorks (back-compat)
+        - SingleRepo_RunCommand_WithoutRepoArg_StillWorks (back-compat)
+
+  out: |
+    - Per-repo bootstrap + context loading (BootstrapCheck/Gate,
+      LoadContext, AnalyzeProject, etc.): p0158f, sequenced after
+      p0158e. p0158e gives the multi-sandbox foundation; p0158f
+      adds the per-repo bootstrap layer on top.
+    - Moving SandboxSpecBuilder.LanguageImages (the hardcoded
+      slug→image map) to operator-controlled config: separate
+      follow-up. p0158e does NOT touch that map but does NOT add
+      new hardcoded mappings either. The principle (LLM owns the
+      slug; orchestrator routes via operator-configured mapping
+      lives in agent-smith-skills' concept-vocabulary +
+      agentsmith.yml override) gets honoured by reading per-repo
+      context.yaml via the existing p0135 layered chain.
+    - Multi-toolchain composite-image sandbox (one sandbox with
+      all stacks pre-installed): rejected at the umbrella level
+      in p0158 scope.out as a stop-gap; p0158e supersedes that
+      stop-gap entirely.
+    - Cross-sandbox process orchestration beyond what tool calls
+      naturally do (e.g. running a script that spans two
+      sandboxes): out of scope. If a skill needs cross-sandbox
+      coordination, it does it via N separate tool calls.
+    - Host-side source cache (bare/mirror clones): separate
+      follow-up. Independent of multi-sandbox.
+    - api-security-scan ticket-driven migration: separate
+      follow-up.
+
+decisions:
+  - key: "Per-repo sandbox, one sandbox per configured repo. — mixed-stack
+      multi-repo projects cannot share a container because each stack
+      needs its own runtime toolchain (dotnet sdk for C#, node for npm,
+      etc.). The unified-run premise (one ticket = one run) stays at
+      the orchestrator level: one PipelineQueueConsumer dispatch, one
+      agent loop, one plan, one set of cross-linked PRs. Decentralised
+      execution at the sandbox layer matches stack reality without
+      breaking the central-orchestrator pattern. — alternatives:
+      composite multi-stack image (rejected at umbrella level as a
+      stop-gap that explodes image size and tool-version conflicts);
+      same-stack-only multi-repo (rejected — explicitly the Sample
+      case is mixed-stack); sandbox-per-language grouping (rejected —
+      more complex routing logic for marginal container-count savings)."
+
+  - key: "LLM owns the slug; orchestrator routes via existing config —
+      no new hardcoded language detection or slug→image mapping in
+      p0158e. The user's principle (also from p0155 LLM-owned
+      vocabulary): language detection is an LLM/skill responsibility
+      via per-repo `.agentsmith/context.yaml`, not a regex or magic-
+      string switch in C# code. p0135's layered resolution
+      (TryReadFileAsync on the per-repo source provider) reads each
+      repo's LLM-produced primary_language slug, and the existing
+      SandboxSpecBuilder.LanguageImages map resolves it. p0158e does
+      NOT extend that map. Moving the map itself to operator-controlled
+      config (operator decides slug→image, no C# hardcoding) is a
+      follow-up phase. — alternatives: add a new in-code
+      DetectLanguageFromRepoTree method (rejected: re-introduces the
+      pattern p0155 fought to remove); fail if per-repo context.yaml
+      missing (rejected: bootstrap flow needs to work on uninitialised
+      repos — falls back through p0135's chain to the generic image)."
+
+  - key: "Agent's mental model and tool-call paths stay unchanged from
+      p0158b: `server/src/Foo.cs`. The tool layer routes; the agent
+      doesn't see the sandbox boundary. — explicit `read_file(repo,
+      path)` would require a tool-surface version bump and skill-
+      catalog rewrites everywhere. Path-prefix routing is opaque to
+      the agent and to existing skills. The PromptPrefixBuilder
+      `Repos in scope` section teaches the convention once; the
+      filesystem and shell tools enforce it transparently. — alternatives:
+      explicit repo parameter on every tool (rejected: large surface
+      change, skill-catalog churn); virtual-FS layer hiding the
+      sandbox boundary (rejected: hides the layout from the agent so
+      debugging becomes mystery — operator prints a path and can't
+      grep it on the host)."
+
+  - key: "Inside each sandbox, /work = THAT repo's root (NOT
+      /work/{repo-name}/). — the /work/{name}/ layout from p0158b was
+      a single-sandbox addressing scheme. With per-repo sandboxes
+      each container holds one repo; layering an unnecessary subdir
+      inside every sandbox adds confusion for skills that run inline
+      shell commands (`dotnet build` would need `cd server` first).
+      External addressing (orchestrator → tool host) stays with the
+      `server/...` prefix; internal sandbox view is just `/work/...`.
+      The tool host is the translation point. — alternatives: keep
+      /work/{name}/ inside each sandbox (rejected: stutter; every
+      cd inside the sandbox would need the repo name); make the
+      subdir name configurable per repo (rejected: speculative
+      flexibility, no caller needs it)."
+
+  - key: "run_command tool gains a required `repo` parameter on
+      multi-repo runs; single-repo runs accept it as optional
+      (default = the one repo). — unlike filesystem tools whose
+      first path segment naturally encodes the repo, shell commands
+      don't carry that information. Requiring `repo` on multi-repo
+      makes ambiguity impossible. Single-repo back-compat preserves
+      every existing skill prompt that issues `run_command(cmd)`
+      without a repo argument. — alternatives: derive repo from the
+      working_directory of the command (rejected: not every command
+      uses working_directory, e.g. global shell commands); always
+      require repo (rejected: back-compat break for single-repo
+      runs); default to primary on multi-repo (rejected: silent
+      mistargeting, exactly the surprise multi-repo unified-run is
+      supposed to prevent)."
+
+  - key: "All N sandboxes created eagerly on first sandbox-requiring
+      command — predictable timing, slight resource waste accepted.
+      — lazy per-repo creation saves resources but complicates
+      lifecycle (when does each repo's sandbox actually come up?
+      what if the agent surprises us by accessing repo X late?).
+      Eager creation: every sandbox is up before the first tool call,
+      paths are immediately routable, dispose-all is symmetric to
+      create-all. The waste (a sandbox for `docs` that the bug-fix
+      pipeline never touches) is real but small (alpine-class image,
+      ~50MB, ~50ms cold start). — alternatives: lazy per-repo (rejected:
+      timing surprises, harder error reporting); on-demand at the
+      tool-host level (rejected: tool-host shouldn't be in lifecycle
+      management)."
+
+  - key: "ContextKeys.Sandbox (singular) kept during p0158e, populated
+      from Sandboxes[Repos[0].Name]. — every existing handler reads
+      ContextKeys.Sandbox today; immediate removal would force every
+      handler-update into this phase. Marking it deprecated lets each
+      handler migrate to Sandboxes-aware reads incrementally in
+      p0158e (the source-touching ones) and p0158f (the bootstrap/
+      load ones). Removal is a separate cleanup phase once every
+      reader is migrated. — alternatives: hard remove (rejected:
+      scope creep into p0158f territory and beyond); keep forever
+      (rejected: dead-weight ambiguity, the singular key has no
+      sensible meaning in multi-repo)."
+
+  - key: "Resource limits apply per sandbox; aggregate N× the
+      per-repo limit. — operator concern. agentsmith.yml's sandbox
+      resource limits today specify per-sandbox CPU/memory; that
+      shape stays. Operator running a 5-repo project with default
+      2 CPU / 4Gi memory limits sees 10 CPU / 20Gi aggregate
+      consumption per active run. That's a knob the operator already
+      controls; p0158e doesn't change the shape of the knob. —
+      alternatives: aggregate limit divided across N (rejected:
+      surprising semantics, breaks per-sandbox isolation
+      reasoning); fail if aggregate would exceed a configured
+      ceiling (rejected: scope creep, the ceiling itself is a
+      follow-up concern)."
+
+steps:
+  - id: contracts
+    action: "ContextKeys.Sandboxes (Dict<string, ISandbox>). Keep
+      ContextKeys.Sandbox (singular) as deprecated, set from
+      Sandboxes[Repos[0].Name] for back-compat."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: coordinator
+    action: "PipelineSandboxCoordinator rewrite: manages
+      Dictionary<string, ISandbox>. EnsureSandboxAsync (no args)
+      creates ALL repos' sandboxes eagerly via N per-repo
+      ResolveToolchainLanguageAsync + sandboxSpecBuilder.Build +
+      sandboxFactory.CreateAsync. New EnsureSandboxAsync(repoName)
+      overload for handlers that touch a single repo. Publishes
+      ContextKeys.Sandboxes and (compat) ContextKeys.Sandbox. Dispose
+      iterates all cached sandboxes."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+      - "src/AgentSmith.Application/Services/Sandbox/IPipelineSandboxCoordinator.cs (if present)"
+
+  - id: repository-localpath
+    action: "Repository.LocalPath: revert to const = SandboxWorkPath
+      (/work). Static WorkPathFor helper stays for external (tool-
+      host) repo-prefixed addressing. CheckoutSourceHandler's
+      `new Repository(branch, url, workdir)` call sites switch to
+      `new Repository(branch, url)` (default LocalPath = /work,
+      correct now that each repo has its own sandbox)."
+    modify:
+      - "src/AgentSmith.Domain/Entities/Repository.cs"
+
+  - id: sandbox-git-ops
+    action: "SandboxGitOperations.CommitAndPushAsync: drop the
+      workingDirectory parameter (always /work inside the per-repo
+      sandbox). Callers pass the per-repo sandbox; the workdir
+      argument disappears from every callsite."
+    modify:
+      - "src/AgentSmith.Application/Services/SandboxGitOperations.cs"
+
+  - id: handlers-checkout
+    action: "CheckoutSourceHandler: for each repo, ensure that
+      repo's sandbox + clone <url> . at WorkingDirectory=/work.
+      CheckoutStepFactory.BuildCloneStep drops the targetDir param
+      (always /work); BuildMkdirStep removed entirely (no /work/{name}/
+      subdir to create). TryCheckoutSourceHandler: same per-repo
+      sandbox dispatch for the primary repo."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs"
+
+  - id: handlers-commit-init-persist
+    action: "CommitAndPRHandler / InitCommitHandler /
+      PersistWorkBranchHandler: each per-repo iteration reads the
+      per-repo sandbox from ContextKeys.Sandboxes and dispatches
+      git ops accordingly. workdir param drops everywhere."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs"
+
+  - id: tool-routing-fs
+    action: "FilesystemToolHost: path-prefix routing. Parse first
+      segment as repo name; strip prefix; dispatch to that repo's
+      sandbox with the bare path. Unknown prefix throws with the
+      known-repos list. find_files / grep_in_tree without path:
+      aggregate across all sandboxes with repo-prefixed output paths
+      restored. Single-repo project: prefix optional, defaults to
+      the one repo."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+
+  - id: tool-routing-shell
+    action: "RunCommandToolHost (or whichever class hosts the shell
+      tool): gain a required `repo` parameter on multi-repo runs.
+      Tool surface schema updated. Single-repo: optional, defaults
+      to the one repo. PromptPrefixBuilder includes the convention
+      so the agent learns it."
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/ (shell-tool host)"
+
+  - id: prompt-prefix
+    action: "PromptPrefixBuilder: prepend a one-liner naming the
+      repos in scope. Read repo names from ContextKeys.Repos. The
+      per-repo language listing is p0158f scope; p0158e just lists
+      names with the path-convention hint."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PromptPrefixBuilder.cs"
+
+  - id: tests
+    action: "Add the ~12 spec-driven tests in scope.in (8). Update
+      ~30 fixtures across handler/coordinator/tool tests where
+      ContextKeys.Sandbox (singular) was seeded — switch to a
+      single-entry Sandboxes dictionary for back-compat tests,
+      multi-entry for new multi-repo tests."
+    modify:
+      - "tests/AgentSmith.Tests/Services/PipelineSandboxCoordinatorTests.cs"
+      - "tests/AgentSmith.Tests/Services/SandboxGitOperationsTests.cs"
+      - "tests/AgentSmith.Tests/Commands/ (handler tests, multiple)"
+      - "tests/AgentSmith.Tests/Tools/ (filesystem + shell tool tests)"
+
+tests:
+  - "Coordinator_PerRepoSandbox_OnePerConfigured"
+  - "Coordinator_DisposeAsync_DisposesEverySandboxOnce"
+  - "Coordinator_ToolchainResolution_PerRepo_NotAggregate"
+  - "FilesystemToolHost_ReadFile_StripsRepoPrefix_DispatchesToRightSandbox"
+  - "FilesystemToolHost_ReadFile_UnknownRepoPrefix_ThrowsWithKnownRepos"
+  - "FilesystemToolHost_GrepInTree_NoPath_AggregatesAcrossSandboxes_WithRepoPrefixedOutput"
+  - "RunCommandToolHost_MultiRepo_RequiresRepoArg"
+  - "RunCommandToolHost_SingleRepo_NoRepoArg_DefaultsToOne"
+  - "CheckoutSourceHandler_PerRepo_ClonesIntoOwnSandbox_AtSlashWork"
+  - "CommitAndPRHandler_PerRepo_DispatchesGitOpsToCorrectSandbox"
+  - "Monorepo_N1_ToolPath_NoPrefix_StillWorks"
+  - "SingleRepo_RunCommand_WithoutRepoArg_StillWorks"
+
+done:
+  - "ContextKeys.Sandboxes (Dict<repoName, ISandbox>) published by
+     PipelineSandboxCoordinator; ContextKeys.Sandbox (singular) kept
+     as deprecated, populated from primary."
+  - "PipelineSandboxCoordinator creates N sandboxes eagerly on first
+     sandbox-requiring command via per-repo p0135 toolchain
+     resolution (no aggregate, no hardcoded slug→image extensions);
+     disposes all on DisposeAsync."
+  - "Repository.LocalPath restored to const /work; the per-repo
+     /work/{name}/ layout becomes a tool-host addressing scheme,
+     NOT an in-sandbox subdir layout."
+  - "FilesystemToolHost routes by repo prefix; unknown prefix throws
+     with known-repos list; no-path aggregating tools return
+     repo-prefixed output."
+  - "RunCommandToolHost requires `repo` on multi-repo runs;
+     single-repo back-compat preserved."
+  - "Five handlers (CheckoutSource, TryCheckoutSource, CommitAndPR,
+     InitCommit, PersistWorkBranch) dispatch to per-repo sandboxes;
+     SandboxGitOperations workingDirectory parameter removed."
+  - "PromptPrefixBuilder names repos in scope with the
+     repo-qualified-path convention."
+  - "Build + full test suite green; 12 new spec-driven tests
+     passing."
+  - "Mixed-stack smoke (operator-run): a project with .NET + npm +
+     markdown repos checks out cleanly, each sandbox uses the right
+     toolchain image, agent issues repo-prefixed tool calls."

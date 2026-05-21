@@ -35,7 +35,7 @@ public sealed class PipelineExecutorPersistGuardTests
     public async Task ExecuteAsync_SourcelessPipelineFails_DoesNotCallPersistWorkBranch()
     {
         var h = new PipelineExecutorTestBuilder();
-        var pipeline = new PipelineContext();
+        var pipeline = SeedRepos(new PipelineContext());
         var commands = new[] { CommandNames.AgenticExecute };
         ArrangeFirstCommandFailure(h, commands[0]);
 
@@ -75,6 +75,15 @@ public sealed class PipelineExecutorPersistGuardTests
     }
 
     private static PipelineContext NewPipelineWithRepository()
+        => SeedRepos(NewPipelineWithRepositoryRaw());
+
+    private static PipelineContext SeedRepos(PipelineContext pipeline)
+    {
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
+        return pipeline;
+    }
+
+    private static PipelineContext NewPipelineWithRepositoryRaw()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Repository,

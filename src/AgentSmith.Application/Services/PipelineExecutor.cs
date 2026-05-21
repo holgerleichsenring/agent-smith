@@ -51,7 +51,7 @@ public sealed class PipelineExecutor(
         {
             var batch = stepRunner.PeelBatch(current, maxConcurrent);
             if (batch.Any(n => sandbox.IsSandboxRequiring(n.Value.Name)))
-                await sandbox.EnsureSandboxAsync(projectConfig, context, ct);
+                await sandbox.EnsureSandboxesAsync(projectConfig, context, ct);
 
             if (executionCount + batch.Count > MaxCommandExecutions)
             {

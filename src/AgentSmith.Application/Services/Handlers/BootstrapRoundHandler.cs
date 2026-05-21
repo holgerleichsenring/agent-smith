@@ -32,10 +32,17 @@ public sealed class BootstrapRoundHandler(
             return CommandResult.Fail(roleError);
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo) || repo is null)
             return CommandResult.Fail("BootstrapRound: no Repository in pipeline context");
-        if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return CommandResult.Fail("BootstrapRound: no Sandbox in pipeline context");
-        if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap) || projectMap is null)
-            return CommandResult.Fail("BootstrapRound: no ProjectMap in pipeline context");
+
+        var sandbox = ResolvePerRepoSandbox(pipeline, context.RepoName);
+        if (sandbox is null)
+            return CommandResult.Fail(
+                $"BootstrapRound: no sandbox available for repo '{context.RepoName}' " +
+                "(checked Sandboxes[RepoName] and legacy ContextKeys.Sandbox)");
+        var projectMap = ResolvePerRepoProjectMap(pipeline, context.RepoName);
+        if (projectMap is null)
+            return CommandResult.Fail(
+                $"BootstrapRound: no ProjectMap available for repo '{context.RepoName}' " +
+                "(checked RepoProjectMaps[RepoName] and legacy ContextKeys.ProjectMap)");
 
         var bundle = toolHostFactory.Create(sandbox, repo.LocalPath);
         var (system, user) = BootstrapPromptFactory.Build(role, repo, projectMap);
@@ -84,6 +91,27 @@ public sealed class BootstrapRoundHandler(
         if (found is null) { error = $"BootstrapRound: skill '{skillName}' not found in AvailableRoles"; return false; }
         role = found;
         return true;
+    }
+
+    // p0158g: dispatch order — Sandboxes[RepoName] wins; legacy
+    // ContextKeys.Sandbox is the back-compat fallback (single-repo runs +
+    // pre-p0158g test fixtures that only seed the singular slot).
+    private static ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, string repoName)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var dict) && dict is not null
+            && dict.TryGetValue(repoName ?? string.Empty, out var perRepo))
+            return perRepo;
+        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
+    }
+
+    private static ProjectMap? ResolvePerRepoProjectMap(PipelineContext pipeline, string repoName)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) && dict is not null
+            && dict.TryGetValue(repoName ?? string.Empty, out var perRepo))
+            return perRepo;
+        return pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var legacy) ? legacy : null;
     }
 
     private static void PersistOutput(
