@@ -27,22 +27,50 @@ public sealed class PublishProjectLanguageHandler(
     public Task<CommandResult> ExecuteAsync(
         PublishProjectLanguageContext context, CancellationToken cancellationToken)
     {
-        if (!context.Pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) || map is null)
+        var perRepo = ResolvePerRepo(context.Pipeline);
+        if (perRepo is null || perRepo.Count == 0)
             return Task.FromResult(CommandResult.Fail(
                 "PublishProjectLanguage: ContextKeys.ProjectMap is missing. " +
                 "AnalyzeProject must run before this step."));
 
-        var primaryLanguage = map.PrimaryLanguage?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (string.IsNullOrEmpty(primaryLanguage))
+        var slugs = perRepo.Values
+            .Select(m => m.PrimaryLanguage?.Trim().ToLowerInvariant() ?? string.Empty)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+        if (slugs.Count == 0)
             return Task.FromResult(CommandResult.Fail(
                 "PublishProjectLanguage: ProjectMap.PrimaryLanguage is null or empty. " +
                 "The project-analyzer prompt requires a non-empty canonical slug — " +
                 "if the analyzer cannot determine one, it should emit 'generic' explicitly."));
 
+        var primary = slugs[0];
+        var aggregate = string.Join(",", slugs.Distinct(StringComparer.Ordinal));
         var concepts = conceptsFactory(context.Pipeline);
-        concepts.SetString("project_language", primaryLanguage);
+        concepts.SetString("project_language", primary);
+        // project_languages is a new aggregate concept (p0158f); silently skip when
+        // the pinned skill catalog hasn't declared it yet (operator updates catalog
+        // in a separate step). When supported the concept lights up automatically.
+        try { concepts.SetString("project_languages", aggregate); }
+        catch (KeyNotFoundException) { /* concept not in current vocab — skip */ }
 
-        logger.LogDebug("Published project_language={Language}", primaryLanguage);
-        return Task.FromResult(CommandResult.Ok($"project_language={primaryLanguage}"));
+        logger.LogDebug("Published project_language={Primary}, project_languages={Aggregate}",
+            primary, aggregate);
+        // Single-repo back-compat: just primary slug in the message.
+        return Task.FromResult(perRepo.Count == 1
+            ? CommandResult.Ok($"project_language={primary}")
+            : CommandResult.Ok($"project_language={primary}, project_languages={aggregate}"));
+    }
+
+    // Multi-repo path uses ContextKeys.RepoProjectMaps; single-repo back-compat
+    // synthesizes a one-entry dict from ContextKeys.ProjectMap. Existing
+    // single-repo tests / runs keep their existing fixture seeding.
+    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerRepo(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
+            return dict;
+        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
+            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
+        return null;
     }
 }

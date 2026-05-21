@@ -66,7 +66,7 @@ public sealed class PipelineSandboxCoordinatorTests
     }
 
     [Fact]
-    public async Task EnsureSandboxAsync_FirstCall_BootsSandbox_PublishesToContext()
+    public async Task EnsureSandboxesAsync_FirstCall_BootsSandbox_PublishesToContext()
     {
         var sandbox = new Mock<ISandbox>().Object;
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
@@ -76,15 +76,15 @@ public sealed class PipelineSandboxCoordinatorTests
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
 
         var sut = NewSut();
-        var result = await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
+        var result = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        result.Should().BeSameAs(sandbox);
+        result.Values.Should().ContainSingle().Which.Should().BeSameAs(sandbox);
         context.TryGet<ISandbox>(ContextKeys.Sandbox, out var stored).Should().BeTrue();
         stored.Should().BeSameAs(sandbox);
     }
 
     [Fact]
-    public async Task EnsureSandboxAsync_SecondCall_ReturnsCachedSandbox_FactoryCalledOnce()
+    public async Task EnsureSandboxesAsync_SecondCall_ReturnsCachedSandbox_FactoryCalledOnce()
     {
         var sandbox = new Mock<ISandbox>().Object;
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
@@ -94,8 +94,8 @@ public sealed class PipelineSandboxCoordinatorTests
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
 
-        var first = await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
-        var second = await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
+        var first = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
+        var second = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         first.Should().BeSameAs(second);
         _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()),
@@ -112,7 +112,7 @@ public sealed class PipelineSandboxCoordinatorTests
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
-        await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
+        await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         await sut.DisposeAsync();
         await sut.DisposeAsync();
@@ -129,7 +129,7 @@ public sealed class PipelineSandboxCoordinatorTests
     }
 
     [Fact]
-    public async Task EnsureSandboxAsync_SourcePathInContext_AttachedToSpecAsInitialSourcePath()
+    public async Task EnsureSandboxesAsync_SourcePathInContext_AttachedToSpecAsInitialSourcePath()
     {
         SandboxSpec? captured = null;
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
@@ -141,7 +141,7 @@ public sealed class PipelineSandboxCoordinatorTests
         context.Set(ContextKeys.SourcePath, "/tmp/host-clone");
         var sut = NewSut();
 
-        await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
+        await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         captured.Should().NotBeNull();
         captured!.InitialSourcePath.Should().Be("/tmp/host-clone");

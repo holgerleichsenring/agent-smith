@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -41,8 +42,9 @@ public sealed class GenerateTestsHandler(
             context.Changes.Count, changedFiles);
 
         var plan = BuildSyntheticPlan(context.Changes);
-        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var fs = new FilesystemToolHost(sandbox, context.Repository.LocalPath);
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        var fs = new FilesystemToolHost(sandboxes, repos[0].Name, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
 
