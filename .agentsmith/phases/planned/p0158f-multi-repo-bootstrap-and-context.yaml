@@ -1,0 +1,376 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158f
+requires: ["p0158e"]
+goal: |
+  Close the multi-repo gap in the bootstrap + context-loading + analyze
+  layer that p0158b left open. Sequenced after p0158e (multi-sandbox) so
+  per-repo bootstrap writes land in each repo's OWN sandbox. After p0158b,
+  repos live at `<repo>/` inside their per-repo sandbox's /work (post-p0158e)
+  but BootstrapCheck, BootstrapGate, LoadContext, LoadCodingPrinciples,
+  AnalyzeProject, PublishProjectLanguage, BootstrapDispatch,
+  BootstrapRound, and TestHandler still assume a single repo at /work/.
+  Symptom on the operator smoke run: BootstrapGate aborts every multi-repo
+  pipeline ("project missing .agentsmith/context.yaml") even when each
+  repo would be perfectly bootstrappable individually, and init-project
+  on a 5-repo project writes nothing usable.
+
+  p0158e iterates these handlers per-repo, treats every configured repo
+  as its own bootstrap unit (each gets `.agentsmith/context.yaml` +
+  `coding-principles.md` in its own subdir), and improves the gate
+  error message to name the missing repos explicitly. The agentic step
+  learns about the repo layout via a "Available repos" line in the
+  prompt prefix so the LLM uses repo-qualified paths in tool calls
+  without per-skill prompt edits. Filesystem tool surface needs no
+  code change — paths are already /work-relative and navigation works
+  once the agent knows the layout.
+
+supersedes: []
+
+scope:
+  in: |
+    (1) Path resolution helpers:
+        - ProjectMetaPaths: keep Root / ContextYaml / CodingPrinciples
+          as repo-relative constants. New helpers
+          `WorkPathFor(repoName)` → `/work/{repoName}/.agentsmith`,
+          `ContextYamlPath(repoName)` →
+          `/work/{repoName}/.agentsmith/context.yaml`,
+          `CodingPrinciplesPath(repoName)` →
+          `/work/{repoName}/.agentsmith/coding-principles.md`.
+
+    (2) ContextKeys (additive — legacy single-value keys retained
+        for backward compat, populated as Configs[0]'s value):
+        - RepoProjectMaps : IReadOnlyDictionary<string, ProjectMap>
+        - RepoContextYamls : IReadOnlyDictionary<string, string>
+        - RepoCodingPrinciples : IReadOnlyDictionary<string, string>
+        - MissingBootstrapRepos : string (comma-separated repo names
+          missing context.yaml or coding-principles.md; populated by
+          BootstrapCheck, read by BootstrapGate for the error message)
+
+    (3) Concept Vocabulary (agent-smith-skills v2.7 catalog bump):
+        - `project_languages : String` — comma-separated list of
+          per-repo PrimaryLanguage slugs (e.g. "csharp,typescript,
+          markdown"). Aggregates RepoProjectMaps[*].PrimaryLanguage.
+          Read by skill activation expressions that span multiple
+          repos.
+        - `project_language : String` (existing) — kept as the
+          primary repo's language for skills that operate on a
+          single repo; semantics narrowed to "primary repo".
+
+    (4) Handlers (per-repo iteration):
+        - BootstrapCheckHandler: iterates Repos, probes each repo's
+          `/work/{name}/.agentsmith/{context.yaml,coding-principles.md}`,
+          sets aggregate `context_yaml_present` = all-present AND
+          `coding_principles_present` = all-present, populates
+          MissingBootstrapRepos with the names of any repo missing
+          either file.
+        - BootstrapGateHandler: error message now reads
+          "Pipeline aborted: missing bootstrap in repos: [server,
+          client, docs]. Run init-project first." when
+          MissingBootstrapRepos is non-empty.
+        - LoadContextHandler: iterates Repos, reads each repo's
+          context.yaml, populates RepoContextYamls; legacy
+          ContextKeys.ProjectContext = Configs[0]'s YAML for
+          backward compat.
+        - LoadCodingPrinciplesHandler: iterates Repos, reads each
+          repo's coding-principles.md, populates
+          RepoCodingPrinciples; legacy ContextKeys.CodingPrinciples
+          = aggregated single string with per-repo headers
+          (`## <repo-name>\n\n{principles}\n\n---\n\n`) so
+          AgenticExecute sees all principles in one document.
+        - AnalyzeProjectHandler: iterates Repos, runs per-repo
+          analysis, populates RepoProjectMaps; legacy
+          ContextKeys.ProjectMap = Configs[0]'s.
+        - PublishProjectLanguageHandler: iterates RepoProjectMaps,
+          publishes per-repo `project_language` for each (via a new
+          repo-scoped SetEnum / SetString convention if the
+          vocabulary supports it; otherwise via the aggregated
+          `project_languages` concept). Sets primary
+          `project_language` to Repos[0]'s.
+        - BootstrapDispatchHandler: iterates RepoProjectMaps. For
+          each repo, picks the bootstrap skill matching its
+          PrimaryLanguage and emits one SkillRound per repo. Skill
+          activation reads `project_language` from a per-repo
+          scope, so csharp-bootstrap fires only for the C# repos
+          and node-bootstrap only for the npm repos.
+        - BootstrapRoundHandler: writes the produced
+          context.yaml / coding-principles.md to
+          `/work/{repo}/.agentsmith/` (per-repo workdir, not the
+          legacy `/work/.agentsmith/`).
+        - TestHandler: iterates RepoProjectMaps; runs each repo's
+          ci.test_command per repo (WorkingDirectory = WorkPathFor);
+          aggregates TRX results into /work/test-results/{repo}/
+          so the result parser stays unchanged. Skips repos with
+          empty ci.test_command. Overall pass/fail is logical-AND.
+
+    (5) Agent prompt awareness:
+        - PromptPrefixBuilder gains a "Repos in scope" section
+          listing the run's repo names + per-repo PrimaryLanguage.
+          Example prefix snippet:
+            ```
+            Repos in scope (working dir /work):
+              - server (csharp)
+              - client (typescript)
+              - docs (markdown)
+            Use repo-qualified paths in tool calls
+            (e.g. "server/src/Foo.cs").
+            ```
+        - No FilesystemToolHost code change: paths are already
+          /work-relative and the agent navigates them correctly
+          once the prefix tells it the layout.
+
+    (6) Tests (~12 new):
+        - BootstrapCheck_AllReposBootstrapped_AllConceptsTrue
+        - BootstrapCheck_SomeReposMissing_AggregateFalse_NamesListed
+        - BootstrapGate_MissingRepos_ErrorListsRepoNames
+        - LoadContext_PopulatesRepoContextYamls_PerRepo
+        - LoadCodingPrinciples_ConcatenatesWithPerRepoHeaders
+        - AnalyzeProject_PopulatesRepoProjectMaps_OnePerRepo
+        - PublishProjectLanguage_MultipleRepos_PublishesAggregateLanguages
+        - BootstrapDispatch_PerRepoLanguage_EmitsPerRepoSkillRounds
+        - BootstrapRound_WritesToPerRepoAgentsmithDir
+        - Test_MultipleRepos_RunsEachReposCommand_AggregatesTrx
+        - PromptPrefix_ListsAvailableRepos_WithLanguages
+        - Monorepo_N1_BootstrapPath_UsesWorkPathFor (regression
+          for single-repo projects under the new path scheme)
+
+  out: |
+    - Multi-toolchain composite-image sandbox (each repo's stack
+      gets its own toolchain image): separate follow-up. p0158e
+      assumes p0158b's first-resolved-image strategy in
+      PipelineSandboxCoordinator — fine for monorepos and same-
+      stack multi-repos; mixed-stack projects need a follow-up.
+    - Host-side source cache (bare/mirror clones): separate
+      follow-up phase, independent of bootstrap.
+    - api-security-scan ticket-driven migration: separate
+      follow-up phase.
+    - Skill catalog (agent-smith-skills repo) changes — concept
+      vocabulary bump to v2.7 with `project_languages` and the
+      activation-expression edits — live in that repo. p0158e
+      reads from whichever catalog is pinned; the new aggregate
+      concept lands in the pipeline-side code first so the
+      catalog can adopt it next.
+    - Repo-scoped concept-vocabulary plumbing (separate concept
+      scope per repo). For p0158e a comma-separated
+      `project_languages` aggregate is enough — full repo-scoped
+      activation context is a future enhancement when skills
+      genuinely need per-repo dispatch beyond the bootstrap flow.
+
+decisions:
+  - key: "Per-repo bootstrap is the unified-run-native model:
+      each repo owns its own `.agentsmith/context.yaml` and
+      `coding-principles.md`. — different repos can have
+      different stacks (C#, TypeScript, Markdown) with different
+      ci.test_command, primary_language, and even idiomatic
+      coding standards. One shared file would force everyone
+      onto the lowest common denominator. The user's intuition
+      (`mehr als ein repo = mehr als einen context`) reflects
+      this: bootstrap is a repo-level concept, not a project-
+      level one. — alternatives: project-level shared bootstrap
+      at /work/.agentsmith/ (rejected: forces uniformity that
+      contradicts the per-repo stack reality); primary-repo
+      bootstrap with optional siblings (rejected: silently
+      ignores per-repo conventions when siblings have their
+      own files; the gate becomes a lie)."
+
+  - key: "ContextKeys.ProjectMap / CodingPrinciples / ProjectContext
+      stay as legacy single-value keys, populated from Configs[0]
+      for backward compatibility. — every existing skill prompt
+      and handler that reads these continues to work
+      transparently. Multi-repo-aware skills opt into the new
+      Repo* dictionaries explicitly. This is the same
+      additive-with-computed-primary pattern p0158b used for
+      Context records (Configs + computed Config => Configs[0])
+      and it kept the test-fixture churn bounded then. — alternatives:
+      replace the singular keys with the dictionaries (rejected:
+      breaks every existing handler that reads ProjectMap.PrimaryLanguage
+      etc., huge fixture churn for marginal cleanliness);
+      delete the singular keys (rejected: same).
+      "
+
+  - key: "CodingPrinciples aggregated single string with per-repo
+      headers, NOT a dictionary, in the legacy slot. — the
+      AgenticExecute prompt consumes ContextKeys.CodingPrinciples
+      as one string into the system prompt; preserving that
+      contract means the agent sees per-repo principles inline
+      (`## server\n{csharp-principles}\n---\n## client\n
+      {typescript-principles}\n...`) without prompt-builder
+      changes. RepoCodingPrinciples (dict) is available for
+      multi-repo-aware consumers that want structured access.
+      — alternatives: pass the dict only, force every consumer
+      to flatten (rejected: contract break for AgenticExecute
+      and every other consumer); pass only primary (rejected:
+      silently drops per-repo principles)."
+
+  - key: "Agent learns repo layout via PromptPrefixBuilder, not
+      via tool-surface change. — FilesystemToolHost already
+      resolves paths against /work (sandbox CWD); the agent
+      doesn't need a new tool signature like `read_file(repo,
+      path)`. What it needs is to KNOW the layout, which is a
+      prompt-prefix concern. Adding a `Repos in scope` section
+      to the prefix is one Code change in PromptPrefixBuilder
+      and zero tool-surface changes — no per-platform tool
+      catalog bumps. — alternatives: add a `repo` parameter to
+      every filesystem tool (rejected: forces a tool-surface
+      version bump and skill-catalog rewrites for every tool
+      call site); virtual filesystem with repo-prefixed paths
+      transparently rewritten (rejected: hides the layout from
+      the agent and breaks debugging — agent prints a path and
+      operator can't grep it on the host)."
+
+  - key: "BootstrapDispatch iterates per-repo and emits one
+      SkillRound per repo with a repo-scoped project_language
+      concept. — different repos have different languages; one
+      shared SkillRound can't run csharp-bootstrap AND
+      node-bootstrap because skill activation reads a single
+      project_language value. Per-repo SkillRound invocation
+      lets each round see only its own repo's language, and the
+      skill writes only to that repo's workdir. — alternatives:
+      single SkillRound with all bootstrap skills in scope,
+      let the LLM pick (rejected: bootstrap is deterministic
+      language → skill mapping; LLM choice adds variance
+      where none is wanted); skip multi-language bootstrap
+      and require operators to init each repo individually
+      via CLI (rejected: defeats the unified-run premise that
+      one ticket = one run)."
+
+  - key: "TestHandler iterates RepoProjectMaps, aggregates TRX
+      under /work/test-results/{repo}/. — each repo's
+      ci.test_command runs in its own workdir; TRX outputs
+      land per-repo so the parser sees a clean stream per
+      stack. Aggregation is logical-AND (one repo fails →
+      pipeline fails). Repos with empty ci.test_command are
+      skipped (Docs / Markdown repos shouldn't fail the test
+      gate). — alternatives: run only Repos[0]'s tests
+      (rejected: silently skips real test failures in
+      siblings); concat test commands into one (rejected:
+      breaks TRX shape and stack-specific test runners)."
+
+  - key: "missing_bootstrap_repos concept is a comma-separated
+      string, not a list. — the existing concept vocabulary has
+      no list/array concept type; adding one for one consumer
+      would be a separate vocabulary phase. Comma-separated
+      string preserves the gate's error message (just split
+      and format) and avoids the vocabulary churn. — alternatives:
+      add ConceptType.StringList (rejected: scope creep into
+      vocabulary infrastructure for one consumer); per-repo
+      bool concepts like `bootstrap_present_{name}` (rejected:
+      requires dynamic concept names which the vocabulary
+      doesn't support, and bloats the concept space)."
+
+steps:
+  - id: paths
+    action: "ProjectMetaPaths: add WorkPathFor / ContextYamlPath /
+      CodingPrinciplesPath helpers. ContextKeys: add the four
+      new keys (RepoProjectMaps, RepoContextYamls,
+      RepoCodingPrinciples, MissingBootstrapRepos)."
+    modify:
+      - "src/AgentSmith.Contracts/Services/ProjectMetaPaths.cs"
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: bootstrap-check-gate
+    action: "BootstrapCheckHandler iterates Repos, probes per-
+      repo paths via ISandboxFileReader, populates aggregate
+      concepts + MissingBootstrapRepos. BootstrapGateHandler
+      reads MissingBootstrapRepos and renders the listing in
+      the error message."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs"
+
+  - id: load-context
+    action: "LoadContextHandler iterates Repos, populates
+      RepoContextYamls; legacy ContextKeys.ProjectContext
+      stays at Configs[0]'s YAML."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/LoadContextHandler.cs"
+
+  - id: load-principles
+    action: "LoadCodingPrinciplesHandler iterates Repos,
+      populates RepoCodingPrinciples; legacy
+      ContextKeys.CodingPrinciples = single string with
+      per-repo headers."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs"
+
+  - id: analyze-and-language
+    action: "AnalyzeProjectHandler iterates Repos, populates
+      RepoProjectMaps; legacy ProjectMap = Configs[0]'s.
+      PublishProjectLanguageHandler publishes
+      project_languages (aggregate) + primary project_language
+      (Configs[0])."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PublishProjectLanguageHandler.cs"
+
+  - id: bootstrap-dispatch-round
+    action: "BootstrapDispatchHandler iterates RepoProjectMaps,
+      emits one SkillRound per repo with repo-scoped
+      project_language. BootstrapRoundHandler writes the
+      produced files to /work/{repo}/.agentsmith/."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs"
+
+  - id: test
+    action: "TestHandler iterates RepoProjectMaps, runs each
+      repo's ci.test_command in WorkPathFor(repo) with
+      TRX output to /work/test-results/{repo}/, skips repos
+      with empty test_command, aggregates pass/fail logical-
+      AND."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs"
+
+  - id: prompt-prefix
+    action: "PromptPrefixBuilder: prepend a `Repos in scope`
+      section listing each repo + PrimaryLanguage. Read repo
+      names + per-repo languages from
+      ContextKeys.Repos + ContextKeys.RepoProjectMaps."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PromptPrefixBuilder.cs"
+
+  - id: tests
+    action: "Add the ~12 spec-driven tests in scope.in (6).
+      Update fixtures across handler tests that today seed a
+      single ProjectMap or single .agentsmith path to seed
+      RepoProjectMaps / per-repo paths."
+    modify:
+      - "tests/AgentSmith.Tests/Commands/ (handler tests, multiple)"
+      - "tests/AgentSmith.Tests/Handlers/ (bootstrap, load tests)"
+
+tests:
+  - "BootstrapCheck_AllReposBootstrapped_AllConceptsTrue"
+  - "BootstrapCheck_SomeReposMissing_AggregateFalse_NamesListed"
+  - "BootstrapGate_MissingRepos_ErrorListsRepoNames"
+  - "LoadContext_PopulatesRepoContextYamls_PerRepo"
+  - "LoadCodingPrinciples_ConcatenatesWithPerRepoHeaders"
+  - "AnalyzeProject_PopulatesRepoProjectMaps_OnePerRepo"
+  - "PublishProjectLanguage_MultipleRepos_PublishesAggregateLanguages"
+  - "BootstrapDispatch_PerRepoLanguage_EmitsPerRepoSkillRounds"
+  - "BootstrapRound_WritesToPerRepoAgentsmithDir"
+  - "Test_MultipleRepos_RunsEachReposCommand_AggregatesTrx"
+  - "PromptPrefix_ListsAvailableRepos_WithLanguages"
+  - "Monorepo_N1_BootstrapPath_UsesWorkPathFor"
+
+done:
+  - "ProjectMetaPaths.WorkPathFor / ContextYamlPath /
+     CodingPrinciplesPath helpers in place."
+  - "BootstrapCheck iterates Repos; MissingBootstrapRepos
+     populated; BootstrapGate error names the missing repos."
+  - "LoadContext / LoadCodingPrinciples / AnalyzeProject /
+     PublishProjectLanguage iterate Repos and publish per-repo
+     dictionaries alongside the legacy single-value keys."
+  - "BootstrapDispatch emits per-repo SkillRounds; BootstrapRound
+     writes per-repo .agentsmith/ files."
+  - "TestHandler runs each repo's test command and aggregates
+     TRX under /work/test-results/{repo}/."
+  - "PromptPrefixBuilder lists repos + languages in scope so the
+     agent uses repo-qualified paths in tool calls."
+  - "init-project on a 5-repo project produces 5
+     `.agentsmith/context.yaml` + 5 `coding-principles.md`
+     (one per repo), commits per-repo, opens 5 PRs cross-linked
+     via p0158c."
+  - "Full unit test suite green; 12 new spec-driven tests
+     passing."
+  - "Operator /smoke gate (executed at release time, not by
+     agent): fix-bug + security-scan + api-security-scan
+     against monorepo + multi-repo project."
