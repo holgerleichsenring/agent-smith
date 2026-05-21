@@ -44,17 +44,18 @@ public sealed class CompileKnowledgeHandler(
         }
 
         var lastCompiled = context.FullRecompile
-            ? 0
+            ? string.Empty
             : await RunDirectoryReader.ReadLastCompiledAsync(reader, wikiDir, cancellationToken);
         var newRuns = runDirs
-            .Where(r => r.RunNumber > lastCompiled)
-            .OrderBy(r => r.RunNumber)
+            .Where(r => string.CompareOrdinal(r.RunId, lastCompiled) > 0)
+            .OrderBy(r => r.RunId, StringComparer.Ordinal)
             .ToList();
 
         if (newRuns.Count == 0)
         {
             logger.LogInformation(
-                "Wiki is up to date (last compiled: r{LastCompiled:D2})", lastCompiled);
+                "Wiki is up to date (last compiled: {LastCompiled})",
+                RunIdGenerator.FormatForDisplay(lastCompiled));
             return CommandResult.Ok("Wiki up to date");
         }
 
@@ -65,8 +66,10 @@ public sealed class CompileKnowledgeHandler(
         var userPrompt = promptBuilder.BuildUserPrompt(existingWiki, runData);
 
         logger.LogInformation(
-            "Compiling {Count} new run(s) into knowledge base (r{From:D2}..r{To:D2})",
-            newRuns.Count, newRuns[0].RunNumber, newRuns[^1].RunNumber);
+            "Compiling {Count} new run(s) into knowledge base ({From}..{To})",
+            newRuns.Count,
+            RunIdGenerator.FormatForDisplay(newRuns[0].RunId),
+            RunIdGenerator.FormatForDisplay(newRuns[^1].RunId));
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Summarization);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Summarization);
@@ -93,14 +96,14 @@ public sealed class CompileKnowledgeHandler(
             logger.LogDebug("Updated wiki file: {File}", fileName);
         }
 
-        var latestRun = newRuns[^1].RunNumber;
+        var latestRun = newRuns[^1].RunId;
         await RunDirectoryReader.WriteLastCompiledAsync(
             reader, wikiDir, latestRun, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.WikiUpdates, wikiUpdates);
 
         var summary = $"Wiki updated with {newRuns.Count} run(s), " +
-                      $"{wikiUpdates.Count} file(s) written (up to r{latestRun:D2})";
+                      $"{wikiUpdates.Count} file(s) written (up to {RunIdGenerator.FormatForDisplay(latestRun)})";
         logger.LogInformation("{Summary}", summary);
         return CommandResult.Ok(summary);
     }

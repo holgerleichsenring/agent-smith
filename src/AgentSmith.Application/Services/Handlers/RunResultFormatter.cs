@@ -35,7 +35,7 @@ public static class RunResultFormatter
 
     public static string FormatResult(
         Ticket ticket, Plan plan, IReadOnlyList<CodeChange> changes,
-        int runNumber, int durationSeconds, RunCostSummary? costSummary,
+        string runId, int durationSeconds, RunCostSummary? costSummary,
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
         SecurityTrend? securityTrend = null,
         IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
@@ -45,7 +45,7 @@ public static class RunResultFormatter
             ? "fix" : "feat";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# r{runNumber:D2}: {ticket.Title}");
+        sb.AppendLine($"# Run {RunIdGenerator.FormatForDisplay(runId)}: {ticket.Title}");
         sb.AppendLine();
 
         RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary);
@@ -75,13 +75,13 @@ public static class RunResultFormatter
     /// trail) that's useful regardless of mode.
     /// </summary>
     public static string FormatInitResult(
-        int runNumber, int durationSeconds, RunCostSummary? costSummary,
+        string runId, int durationSeconds, RunCostSummary? costSummary,
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
         IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
         IReadOnlyList<CallCostRecord>? perSkillBreakdown = null)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"# r{runNumber:D2}: init-project");
+        sb.AppendLine($"# Run {RunIdGenerator.FormatForDisplay(runId)}: init-project");
         sb.AppendLine();
         sb.AppendLine("Bootstrap run — generated `.agentsmith/context.yaml` + `coding-principles.md`.");
         sb.AppendLine();

@@ -122,6 +122,7 @@ public sealed class WriteRunResultHandlerArtifactsTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        pipeline.Set(ContextKeys.RunId, "2026-05-20T22-27-43-8a3f");
         return pipeline;
     }
 

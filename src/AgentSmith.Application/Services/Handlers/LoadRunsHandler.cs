@@ -34,9 +34,9 @@ public sealed class LoadRunsHandler(
 
         var runDirs = await RunDirectoryReader.GetRunDirectoriesAsync(reader, runsDir, cancellationToken);
         var recentRuns = runDirs
-            .OrderByDescending(r => r.RunNumber)
+            .OrderByDescending(r => r.RunId, StringComparer.Ordinal)
             .Take(context.LookbackRuns)
-            .OrderBy(r => r.RunNumber)
+            .OrderBy(r => r.RunId, StringComparer.Ordinal)
             .ToList();
 
         foreach (var run in recentRuns)
@@ -44,7 +44,7 @@ public sealed class LoadRunsHandler(
             var resultPath = Path.Combine(run.Path, "result.md");
             var content = await reader.TryReadAsync(resultPath, cancellationToken);
             if (content is null) continue;
-            sb.AppendLine($"### Run r{run.RunNumber:D2} ({run.Name})");
+            sb.AppendLine($"### Run {RunIdGenerator.FormatForDisplay(run.RunId)} ({run.Name})");
             sb.AppendLine(content);
             sb.AppendLine();
             runCount++;

@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0155
+goal: "Delete ProjectLanguageMapper (closed csharp/node/python/generic enum from
+  p0130c) and TestHandler's PrimaryLanguage switch. TestHandler runs whatever
+  ci.test_command the analyzer produced (when present) via an established shell
+  tokenizer; PublishProjectLanguageHandler publishes ProjectMap.PrimaryLanguage
+  verbatim after trim+lower; project_language vocabulary relaxes from enum to
+  string; generic-bootstrap activates only when the analyzer deliberately emits
+  'generic'. Fixes the a6914f38 test-skip (PrimaryLanguage='C#' missed switch
+  case 'csharp') and unlocks polyglot test runs without code change.
+  Supersedes the ProjectLanguageMapper-related decisions of p0130c."
+
+requires: []
+
+scope:
+  in: |
+    (1) Delete ProjectLanguageMapper + tests. PublishProjectLanguageHandler
+        publishes PrimaryLanguage.Trim().ToLowerInvariant() directly; Fail
+        when ProjectMap missing or PrimaryLanguage empty.
+
+    (2) TestHandler.ResolveTestCommand reads projectMap.Ci.TestCommand and
+        splits it with an established shell tokenizer (e.g.
+        System.CommandLine.Parsing.CommandLineStringSplitter or equivalent —
+        do not hand-roll). IsTrxCapable = command.StartsWith("dotnet",
+        OrdinalIgnoreCase). Empty Ci.TestCommand → skip with explicit
+        message naming the missing field. PrimaryLanguage switch deleted.
+
+    (3) project-analyzer-system.md: example "primary_language": "csharp"
+        (not "C#"); add Rule "primary_language is a lowercase canonical
+        slug; 'generic' is a deliberate choice for repos with no primary
+        language". Ci-detection guidance untouched — ci.test_command may
+        legitimately be empty when no CI file and no manifest hint exists.
+
+    (4) Cross-repo agent-smith-skills: concept-vocabulary.yaml project_language
+        from enum (csharp/node/python/generic) to string. generic-bootstrap
+        SKILL.md description rewritten — deliberate analyzer choice, not
+        silent fallback. activates_when clauses unchanged across all four
+        bootstrap skills. Minor version bump.
+
+    (5) BootstrapDispatchHandler no-match Fail message includes both the
+        observed project_language value and the names of every available
+        bootstrap skill.
+
+    (6) Tests per the list below.
+
+  out: |
+    - Removing PublishProjectLanguageHandler. Concept publication stays.
+    - Adding lua/java/go/rust bootstrap skills. First operator request.
+    - Changing BootstrapDispatch's Fail-loud policy on 0/>1 matches.
+    - Sandbox execution shape changes.
+    - Analyzer prompt rework beyond the slug rule + example swap.
+
+decisions:
+  - key: "project_language closed enum → free-form string; LLM owns the canonical form via prompt rule. Adding a 5th language becomes a skill PR, not a C# PR. — alternatives: config-driven mapper (rejected, same hardcoding, different file); LLM judgement at dispatch (rejected, wasted call when slug + name comparison is deterministic)."
+
+  - key: "No defaults in BootstrapDispatchHandler. 0 matches → Fail. generic-bootstrap requires the analyzer to explicitly emit 'generic'. — alternatives: named-fallback to generic-bootstrap (rejected, magic one layer up); skill-convention 'fallback: true' tag (rejected, new metadata for one use case)."
+
+  - key: "IsTrxCapable derives from command-prefix (starts-with 'dotnet'), not from language. Property of the runner, not the project. — alternatives: probe output (rejected, requires a test run to discover whether output is parseable); per-runner adapter registry (rejected, premature)."
+
+  - key: "PublishProjectLanguageHandler Fails on null/empty PrimaryLanguage (was: silently defaulted to 'generic'). Masked missing-ProjectMap as successful generic classification. — alternatives: silent skip (rejected, makes downstream Fail message less actionable)."
+
+  - key: "Analyzer prompt teaches slug rule + a handful of examples, not enumeration. LLM extrapolates; dispatcher fails loud on typos. — alternatives: enumerate every language in the prompt (rejected, bloat + still incomplete)."
+
+  - key: "Shell tokenizer is an established library, never hand-rolled. Whitespace-with-quote-handling is a well-known source of bugs; one of the test cases must cover a quoted argument (dotnet test --filter \"Category=Unit\")."
+
+steps:
+  - id: delete-mapper
+    action: "Delete ProjectLanguageMapper + tests. Rewrite PublishProjectLanguageHandler to publish raw lowered+trimmed value; Fail on missing/empty."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PublishProjectLanguageHandler.cs"
+    delete:
+      - "src/AgentSmith.Application/Services/Activation/ProjectLanguageMapper.cs"
+      - "tests/AgentSmith.Tests/Activation/ProjectLanguageMapperTests.cs"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/PublishProjectLanguageHandlerTests.cs"
+
+  - id: test-handler
+    action: "ResolveTestCommand reads Ci.TestCommand, splits via established shell tokenizer; IsTrxCapable from command-prefix; skip-with-message when empty. Delete PrimaryLanguage switch."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs"
+      - "tests/AgentSmith.Tests/Commands/TestHandlerTests.cs"
+
+  - id: dispatcher-message
+    action: "No-match Fail message lists observed project_language + available bootstrap skill names."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+      - "tests/AgentSmith.Tests/Handlers/BootstrapDispatchHandlerTests.cs"
+
+  - id: analyzer-prompt
+    action: "Replace 'primary_language: C#' example with 'csharp'. Add slug-rule sentence including deliberate 'generic'."
+    modify:
+      - "src/AgentSmith.Application/Prompts/Resources/project-analyzer-system.md"
+
+  - id: skills-vocabulary
+    action: "Cross-repo: project_language enum → string; generic-bootstrap description rewritten; minor version bump + CHANGELOG."
+    modify:
+      - "[../agent-smith-skills/skills/concept-vocabulary.yaml]"
+      - "[../agent-smith-skills/skills/coding/generic-bootstrap/SKILL.md]"
+      - "[../agent-smith-skills/version.txt]"
+      - "[../agent-smith-skills/CHANGELOG.md]"
+
+  - id: pin-update
+    action: "Bump skills-version pin."
+    modify:
+      - "config/agentsmith.yml"
+
+tests:
+  - "TestHandler_Resolve_UsesCiTestCommandVerbatim_WhenNonEmpty"
+  - "TestHandler_Resolve_TokenizesQuotedArguments_KeepingQuotedValueAsSingleArg"
+  - "TestHandler_Resolve_SkipsWithDescriptiveMessage_WhenCiTestCommandEmpty"
+  - "TestHandler_Resolve_IsTrxCapable_WhenCommandStartsWithDotnet"
+  - "TestHandler_Resolve_NotTrxCapable_ForNonDotnetCommands"
+  - "TestHandler_Resolve_ExecutesArbitraryLanguageCommand_Parameterised"
+  - "PublishProjectLanguage_Publishes_LoweredTrimmedPrimaryLanguage_Verbatim"
+  - "PublishProjectLanguage_Fails_WhenProjectMapMissing"
+  - "PublishProjectLanguage_Fails_WhenPrimaryLanguageNullOrEmpty"
+  - "BootstrapDispatch_NoMatch_FailMessageIncludesObservedLanguageAndAvailableSkillNames"
+
+done:
+  - "ProjectLanguageMapper.cs + tests deleted; grep returns zero hits outside historical phase YAMLs."
+  - "PublishProjectLanguageHandler publishes PrimaryLanguage verbatim; Fails on missing/empty."
+  - "TestHandler executes Ci.TestCommand verbatim through established shell tokenizer; no PrimaryLanguage switch remains."
+  - "project-analyzer-system.md: slug-rule sentence + 'csharp' example."
+  - "agent-smith-skills released with type:string + updated generic-bootstrap description; agent-smith pinned."
+  - "Full unit test suite green."
+  - "/smoke green for fix-bug, security-scan, api-scan."
+  - "Repro of a6914f38: C# project with ci.test_command='dotnet test' now executes tests instead of logging 'No test framework detected'."
+  - "Polyglot happy-path: agent runs against a Lua or Go fixture and TestHandler executes the analyzer's ci.test_command verbatim (not just the fail-loud no-match path)."

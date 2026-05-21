@@ -37,7 +37,8 @@ public sealed class ExecutePipelineUseCase(
     public async Task<CommandResult> ExecuteAsync(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
     {
-        var runId = Guid.NewGuid().ToString("N")[..8];
+        var runStartedAt = DateTimeOffset.UtcNow;
+        var runId = RunIdGenerator.Generate(runStartedAt);
         using var logScope = logger.BeginScope("run={RunId}", runId);
 
         var ticketDesc = request.TicketId is not null ? $" ticket #{request.TicketId.Value}" : "";
@@ -61,7 +62,7 @@ public sealed class ExecutePipelineUseCase(
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, runId);
-        pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow);
+        pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
         pipeline.Set(ContextKeys.CurrentRepo, currentRepo);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
