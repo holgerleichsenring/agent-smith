@@ -93,7 +93,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
     public string BuildExecutionUserPrompt(
         Plan plan, Repository repository, string? verifyNotes = null,
-        IReadOnlyList<string>? repoNames = null)
+        IReadOnlyList<string>? repoNames = null,
+        IReadOnlyDictionary<string, string>? repoLanguages = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -101,7 +102,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-            {BuildReposInScopeSection(repoNames)}{BuildVerifyNotesSection(verifyNotes)}
+            {BuildReposInScopeSection(repoNames, repoLanguages)}{BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -115,16 +116,26 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     /// <summary>
     /// p0158e: when the run spans multiple repos, list them so the agent knows
     /// to use repo-qualified paths in filesystem tool calls and pass `repo` to
-    /// run_command. Single-repo runs emit nothing (back-compat).
+    /// run_command. p0158f: include per-repo PrimaryLanguage when available so
+    /// the agent picks the right test command per repo. Single-repo runs emit
+    /// nothing (back-compat).
     /// </summary>
-    internal static string BuildReposInScopeSection(IReadOnlyList<string>? repoNames)
+    internal static string BuildReposInScopeSection(
+        IReadOnlyList<string>? repoNames,
+        IReadOnlyDictionary<string, string>? repoLanguages = null)
     {
         if (repoNames is null || repoNames.Count <= 1) return string.Empty;
+        var bullets = string.Join("\n", repoNames.Select(name =>
+        {
+            var lang = repoLanguages is not null && repoLanguages.TryGetValue(name, out var l) ? l : null;
+            return lang is null ? $"  - {name}" : $"  - {name} ({lang})";
+        }));
         return $"""
 
 
             ## Repos in scope
-            This run spans {repoNames.Count} repos: {string.Join(", ", repoNames)}.
+            This run spans {repoNames.Count} repos:
+            {bullets}
             Use repo-qualified paths in filesystem tool calls (e.g. `{repoNames[0]}/src/Foo.cs`).
             Pass `repo` to run_command (e.g. run_command(command="dotnet test", repo="{repoNames[0]}")).
             """;

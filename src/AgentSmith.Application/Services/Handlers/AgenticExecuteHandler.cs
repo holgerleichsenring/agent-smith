@@ -49,9 +49,14 @@ public sealed class AgenticExecuteHandler(
         // p0129a: VerifyRoundHandler sets ContextKeys.VerifyNotes when re-loop fires.
         // First-run: key absent → null → no Verify section in prompt.
         var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
+        var repoLanguages = context.Pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps, out var maps) && maps is not null
+            ? maps.ToDictionary(kv => kv.Key, kv => kv.Value.PrimaryLanguage, StringComparer.Ordinal)
+            : null;
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(
             context.Plan, context.Repository, verifyNotes,
-            repoNames: repos.Select(r => r.Name).ToList());
+            repoNames: repos.Select(r => r.Name).ToList(),
+            repoLanguages: repoLanguages);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);

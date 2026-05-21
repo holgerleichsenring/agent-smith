@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -11,12 +12,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Probes the working repo for <c>.agentsmith/context.yaml</c> and
-/// <c>.agentsmith/coding-principles.md</c> via <see cref="ISandboxFileReader"/>
-/// and publishes <c>context_yaml_present</c> + <c>coding_principles_present</c>.
-/// Registered in DI but not wired into any pipeline preset in p0125c — gating
-/// (the policy decision of whether to abort on missing files) lives next to
-/// init-project's bootstrap flow in p0130 (D6).
+/// Per-repo bootstrap probe (p0158f). Iterates ContextKeys.Repos; for each
+/// repo's sandbox checks /work/.agentsmith/context.yaml and
+/// /work/.agentsmith/coding-principles.md. Publishes:
+///   - context_yaml_present : true only if EVERY repo has it
+///   - coding_principles_present : true only if EVERY repo has it
+///   - ContextKeys.MissingBootstrapRepos : comma-separated names of repos
+///     missing either file (consumed by BootstrapGateHandler for the
+///     operator-facing error message)
 /// </summary>
 public sealed class BootstrapCheckHandler(
     ISandboxFileReaderFactory readerFactory,
@@ -36,20 +39,48 @@ public sealed class BootstrapCheckHandler(
     public async Task<CommandResult> ExecuteAsync(
         BootstrapCheckContext context, CancellationToken cancellationToken)
     {
-        if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return CommandResult.Fail("BootstrapCheck requires an active sandbox.");
+        var (sandboxes, repos) = ResolveTargets(context.Pipeline);
+        if (sandboxes is null || repos is null)
+            return CommandResult.Fail("BootstrapCheck requires Sandboxes + Repos (or legacy Sandbox).");
 
-        var reader = readerFactory.Create(sandbox);
-        var contextYamlPresent = await reader.ExistsAsync(ContextYamlPath, cancellationToken);
-        var principlesPresent = await reader.ExistsAsync(CodingPrinciplesPath, cancellationToken);
+        var allContext = true;
+        var allPrinciples = true;
+        var missing = new List<string>();
+        foreach (var repo in repos)
+        {
+            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            {
+                missing.Add(repo.Name);
+                allContext = allPrinciples = false;
+                continue;
+            }
+            var (ctx, princ) = await ProbeOneAsync(sandbox, repo.Name, cancellationToken);
+            if (!ctx || !princ) missing.Add(repo.Name);
+            allContext &= ctx;
+            allPrinciples &= princ;
+        }
 
         var concepts = conceptsFactory(context.Pipeline);
-        concepts.SetBool("context_yaml_present", contextYamlPresent);
-        concepts.SetBool("coding_principles_present", principlesPresent);
+        concepts.SetBool("context_yaml_present", allContext);
+        concepts.SetBool("coding_principles_present", allPrinciples);
+        context.Pipeline.Set(ContextKeys.MissingBootstrapRepos, string.Join(",", missing));
 
         logger.LogDebug(
-            "Bootstrap files: context.yaml={Context}, coding-principles.md={Principles}",
-            contextYamlPresent, principlesPresent);
-        return CommandResult.Ok($"context.yaml={contextYamlPresent}, principles={principlesPresent}");
+            "Bootstrap probe: context.yaml all-present={Context}, coding-principles all-present={Principles}, missing=[{Missing}]",
+            allContext, allPrinciples, string.Join(", ", missing));
+        return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
+    }
+
+    private static (IReadOnlyDictionary<string, ISandbox>?, IReadOnlyList<RepoConnection>?) ResolveTargets(
+        PipelineContext pipeline) => MultiRepoTargets.Resolve(pipeline);
+
+    private async Task<(bool Context, bool Principles)> ProbeOneAsync(
+        ISandbox sandbox, string repoName, CancellationToken ct)
+    {
+        var reader = readerFactory.Create(sandbox);
+        var ctx = await reader.ExistsAsync(ContextYamlPath, ct);
+        var princ = await reader.ExistsAsync(CodingPrinciplesPath, ct);
+        logger.LogDebug("{Repo}: context.yaml={Ctx}, principles={Princ}", repoName, ctx, princ);
+        return (ctx, princ);
     }
 }

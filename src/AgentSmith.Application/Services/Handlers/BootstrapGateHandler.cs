@@ -22,10 +22,6 @@ public sealed class BootstrapGateHandler(
 {
     private const string ApiSecurityScan = "api-security-scan";
 
-    private const string FailMessage =
-        "Pipeline aborted: project missing .agentsmith/context.yaml or coding-principles.md. " +
-        "Run init-project first.";
-
     public Task<CommandResult> ExecuteAsync(
         BootstrapGateContext context, CancellationToken cancellationToken)
     {
@@ -46,14 +42,19 @@ public sealed class BootstrapGateHandler(
         var contextYamlPresent = concepts.GetBool("context_yaml_present");
         var principlesPresent = concepts.GetBool("coding_principles_present");
 
-        if (!contextYamlPresent || !principlesPresent)
-        {
-            logger.LogError(
-                "Bootstrap gate aborts pipeline: context.yaml={Context}, coding-principles.md={Principles}",
-                contextYamlPresent, principlesPresent);
-            return Task.FromResult(CommandResult.Fail(FailMessage));
-        }
+        if (contextYamlPresent && principlesPresent)
+            return Task.FromResult(CommandResult.Ok("Bootstrap files present in every repo."));
 
-        return Task.FromResult(CommandResult.Ok("Bootstrap files present."));
+        var missingCsv = context.Pipeline.TryGet<string>(
+            ContextKeys.MissingBootstrapRepos, out var m) ? m ?? string.Empty : string.Empty;
+        var missingList = string.IsNullOrEmpty(missingCsv)
+            ? "(unknown — BootstrapCheck did not run)"
+            : $"[{missingCsv}]";
+        logger.LogError(
+            "Bootstrap gate aborts pipeline: missing in repos {Missing} (context.yaml all-present={Context}, principles all-present={Principles})",
+            missingList, contextYamlPresent, principlesPresent);
+        return Task.FromResult(CommandResult.Fail(
+            $"Pipeline aborted: missing bootstrap in repos: {missingList}. " +
+            "Run init-project first."));
     }
 }
