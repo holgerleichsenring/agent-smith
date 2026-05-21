@@ -41,8 +41,8 @@ public sealed class ToolKitTests
 
         // p0151a: Plan-phase recon skills need ls/find via run_command for
         // directory inventory. WriteFile still excluded — Plan is read-side only.
-        // p0152: grep_in_file/grep_in_tree replace the overloaded grep; list_directory
-        // replaces list_files. The old names remain as deprecated aliases.
+        // p0154: deprecated grep / glob / list_files aliases removed in lockstep
+        // with the agent-smith-skills 2.6.0 catalogue rename.
         tools.Should().Contain("read_file")
              .And.Contain("grep_in_tree").And.Contain("list_directory")
              .And.Contain("run_command").And.Contain("log_decision").And.Contain("ask_human");
@@ -56,17 +56,17 @@ public sealed class ToolKitTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, hosts));
 
-        // p0153: 11 filesystem-host primitives (read/write/edit/multi_edit/
+        // p0154: 11 filesystem-host primitives (read/write/edit/multi_edit/
         // list_directory/directory_tree/find_files/grep_in_file/grep_in_tree/
-        // run/http) + 3 deprecated aliases + log_decision + ask_human = 16 total.
-        tools.Should().HaveCount(16);
+        // run/http) + log_decision + ask_human = 13 total. Deprecated aliases
+        // gone alongside the agent-smith-skills 2.6.0 catalogue rename.
+        tools.Should().HaveCount(13);
         tools.Should().Contain(new[]
         {
             "read_file", "write_file", "edit", "multi_edit",
             "list_directory", "directory_tree", "find_files", "grep_in_file", "grep_in_tree",
             "run_command", "http_request",
-            "log_decision", "ask_human",
-            "grep", "glob", "list_files" // deprecated aliases — backward-compat for v2.5.1 skills
+            "log_decision", "ask_human"
         });
     }
 
@@ -101,7 +101,7 @@ public sealed class ToolKitTests
         var tools = NamesOf(kit.GetToolsFor("fix-bug", null, null, hosts));
 
         // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
-        tools.Should().HaveCount(16);
+        tools.Should().HaveCount(13);
     }
 
     [Fact]

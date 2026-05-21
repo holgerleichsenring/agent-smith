@@ -40,6 +40,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
+        services.AddTransient<ICommandHandler<PrCrossLinkContext>, PrCrossLinkHandler>();
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<PhaseAdvanceContext>, PhaseAdvanceHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();

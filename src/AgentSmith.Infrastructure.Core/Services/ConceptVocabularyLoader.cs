@@ -85,10 +85,11 @@ public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> log
             "bool" => ConceptType.Bool,
             "int" => ConceptType.Int,
             "enum" => ConceptType.Enum,
+            "string" => ConceptType.String,
             null or "" => throw new InvalidOperationException(
-                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' is missing 'type' (must be bool, int, or enum)"),
+                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' is missing 'type' (must be bool, int, enum, or string)"),
             _ => throw new InvalidOperationException(
-                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' has unknown type '{rawType}' (must be bool, int, or enum)")
+                $"concept-vocabulary.yaml at {path}: entry '{conceptName}' has unknown type '{rawType}' (must be bool, int, enum, or string)")
         };
 
     private static void ValidateAttributes(RawConcept entry, ConceptType type, string path)

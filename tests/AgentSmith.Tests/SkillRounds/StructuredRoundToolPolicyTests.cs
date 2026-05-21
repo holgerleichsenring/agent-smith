@@ -52,7 +52,7 @@ public sealed class StructuredRoundToolPolicyTests
         // Active mode probing flows through the prompt's JSON contract (no
         // separate IToolHost wraps it today); the tool set always carries
         // Read/Grep so the LLM can verify probe targets against the spec.
-        ToolNames(tools).Should().Contain(new[] { "read_file", "grep" });
+        ToolNames(tools).Should().Contain(new[] { "read_file", "grep_in_tree" });
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class StructuredRoundToolPolicyTests
         // Active vs passive is a prompt-layer distinction (the probe JSON
         // block) — not a tool-layer one. p0151a: Plan-phase tools include
         // RunCommand for recon regardless of active/passive mode.
-        ToolNames(tools).Should().Contain(new[] { "read_file", "grep", "run_command" });
+        ToolNames(tools).Should().Contain(new[] { "read_file", "grep_in_tree", "run_command" });
     }
 
     [Fact]

@@ -2,9 +2,10 @@ namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
 /// Pipeline-execution PipelineContext keys: run metadata + lifecycle markers
-/// (RunId, RunStartedAt, ActivePhaseStep, FailedStepName, Sandbox), and the
-/// preset selectors (PipelineTypeName, PipelineName). Plan/verify/skill keys
-/// live in dedicated partial files (Plan, Verify, Skill).
+/// (RunId — canonical UTC timestamp + suffix per pipeline run, RunStartedAt,
+/// ActivePhaseStep, FailedStepName, Sandbox), and the preset selectors
+/// (PipelineTypeName, PipelineName). Plan/verify/skill keys live in dedicated
+/// partial files (Plan, Verify, Skill).
 /// </summary>
 public static partial class ContextKeys
 {
@@ -12,7 +13,6 @@ public static partial class ContextKeys
     public const string DiscussionLog = "DiscussionLog";
     public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";
-    public const string RunNumber = "RunNumber";
     public const string RunCostSummary = "RunCostSummary";
     public const string RunDurationSeconds = "RunDurationSeconds";
 
@@ -40,8 +40,10 @@ public static partial class ContextKeys
     public const string DialogueAnswer = "DialogueAnswer";
     public const string DialogueQuestion = "DialogueQuestion";
     
-    /// <summary>Short correlation id (8 hex chars) generated per pipeline run, attached as
-    /// log scope so concurrent runs are filterable in shared log streams.</summary>
+    /// <summary>Canonical run identifier: UTC ISO-8601 timestamp + 4-hex suffix
+    /// (e.g. <c>2026-05-20T22-27-43-8a3f</c>). Generated once at pipeline start
+    /// by ExecutePipelineUseCase; reused as log-scope tag, WIP commit trailer,
+    /// run-directory prefix, and context.yaml <c>runs:</c> entry key.</summary>
     public const string RunId = "RunId";
 
     /// <summary>Display label of the pipeline step that failed (set by PipelineExecutor before

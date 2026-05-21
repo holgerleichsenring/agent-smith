@@ -1,0 +1,371 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+# SUPERSEDED by sliced phases p0158a, p0158b — see decisions.md.
+# This file is retained as the umbrella spec for the overall design intent.
+# Implement via the slices, not this parent directly.
+phase: p0158
+goal: |
+  Collapse the per-repo fan-out introduced in p0140 into a single pipeline run
+  per ticket. One PipelineRequest, one workdir containing all configured repos
+  as sibling subdirectories, one agent loop, 1..N PRs (one per repo with
+  changes). Monorepo (Repos.Count==1) is the same code path with N=1.
+  Supersedes p0023.
+
+requires: ["p0140b", "p0140d", "p0140e"]
+
+supersedes: ["p0023"]
+
+scope:
+  in: |
+    (1) PipelineRequest.RepoName field removed. SpawnPipelineRunsUseCase builds
+        exactly one ClaimRequest per ticket. SpawnRegionExecutor enqueues once.
+
+    (2) ContextKeys.CurrentRepo (RepoConnection, singular) replaced by
+        ContextKeys.Repos (IReadOnlyList<RepoConnection>). ExecutePipelineUseCase
+        drops ResolveCurrentRepo; sets Repos = projectConfig.Repos.
+
+    (3) Workdir layout: run-root contains one subdirectory per repo, named by
+        repo key from config (e.g. `{run-root}/server/`, `{run-root}/client/`).
+        Monorepo: same layout with one subdir.
+
+        Migration note for existing single-repo projects: workdir root moves
+        one level deeper (`{run-root}/{repo-key}/` instead of `{run-root}/`).
+        Skill / handler path construction sites are audited in the `builders`
+        and `handlers` steps; no skill-catalog YAML is expected to change
+        (skills consume context objects, not raw paths), but any hard-coded
+        path in the application layer is updated to be repo-rooted.
+
+    (4) Checkout / branch / commit / PR-open handlers iterate over Repos.
+        Branch name identical across repos: `agentsmith/ticket-{ticketId}`.
+        PR opened only in repos with staged changes.
+
+        PR cross-linking is two-pass: pass-1 opens every PR with a provisional
+        body (no sibling URLs yet — they don't exist); pass-2 PATCHes each
+        opened PR's body to insert the sibling URL list. Pass-2 runs only
+        after every pass-1 PR-open has either succeeded or failed; failures
+        in pass-1 are recorded and surfaced in pass-2 bodies as `(open
+        failed)`. Single-PR runs skip pass-2.
+
+    (5) Sandbox: one sandbox per run, all repo subdirectories mounted under the
+        same workdir. PipelineSandboxCoordinator builds SandboxSpec from Repos
+        (list), not CurrentRepo (singular). Toolchain image picked by p0135
+        auto-detect applied to `Repos[0]`, then fall-through to the next repo
+        whose context.yaml resolves an image, then to the generic image.
+        Operator-provided composite image (config-level override) wins over
+        auto-detect when present.
+
+    (6) Context builders that consume CurrentRepo
+        (SourceConfigOverrider, SourceContextBuilders, PlanExecutionContextBuilders,
+        LegalContextBuilders, PersistWorkBranchContextBuilder) refactored to take
+        Repos. Per-repo loops live in the builders / handlers, not in skill YAML.
+
+    (7) Heartbeat, lifecycle status, cost cap, compaction history: unchanged —
+        all already per-ticket and stay per-ticket.
+
+    (8) EnqueuedReconciler: re-enqueues exactly one PipelineRequest per orphan
+        ticket (no RepoName, no fan-out). The original p0140d-era multi-repo
+        re-fan-out problem disappears with the fan-out itself.
+
+    (9) CLI:
+        - Default: process all configured repos for the project.
+        - `--repo NAME` (optional): scope filter — limit this run to one repo
+          from the configured set. The remaining repos are not checked out.
+        - When `--repo NAME` is set, existing `--source-path` / `--source-url` /
+          `--source-type` / `--source-auth` flags in SourceOptions apply to
+          that one repo (skip clone, use local path).
+        - Without `--repo NAME`, `--source-*` flags are rejected with a clear
+          error when the project has multiple repos.
+
+    (10) Tests rewritten: ExecutePipelineUseCaseCurrentRepoTests becomes
+         ExecutePipelineUseCaseReposTests. New tests for: multi-repo workdir
+         layout, per-repo PR opening with empty-repo skip, branch-name
+         consistency, `--repo` scope filter, `--source-path` scoped to one repo.
+
+    (11) Delete planned/p0023-multi-repo-update.yaml (superseded).
+
+  out: |
+    - Host-side source cache (bare/mirror clones with worktree-add per run).
+      Separate follow-up phase. Today's fresh `--depth=1` clone per repo per
+      run remains; the multiplier becomes N instead of 1, accepted for now.
+    - api-security-scan ticket-driven migration. Separate follow-up phase.
+      p0158 enables it cleanly but does not perform it.
+    - Cross-PR dependency declaration / coordination at CI level. PR bodies
+      cross-link siblings, nothing more.
+    - Per-pipeline opt-in to old fan-out semantics. Removed entirely; if a
+      future pipeline needs per-repo isolation, it lives as a different
+      pipeline-preset shape, not a runtime flag on the unified one.
+    - CodeMap / Plan token-cost strategy for N≥3 repos. Acknowledged but not
+      solved here; see notes/. The unified run does not pre-load all repo
+      contents into context — skills decide what to read per their existing
+      contracts.
+    - Multi-toolchain sandbox (p0135 follow-up). p0135 auto-detects ONE
+      toolchain image from one repo's context.yaml. Unified-run projects with
+      mixed stacks (e.g. `.NET` server + `npm` client) need either a
+      operator-configured multi-toolchain image or per-repo sandbox switching
+      inside the run. p0158 takes the pragmatic position: pick the toolchain
+      from the first repo whose context.yaml resolves an image (existing p0135
+      logic, applied to `Repos[0]` then fall-through), and document that
+      multi-stack projects need an operator-provided composite image until the
+      follow-up phase lands.
+
+decisions:
+  - key: "One PipelineRequest per ticket, not N. — fan-out is wrong for any
+      pipeline whose plan spans repos (fix-bug, add-feature, api-security-scan,
+      security-scan): two isolated agents on a coordinated change produce at
+      best one green + one broken PR. Token / wall-clock savings of fan-out
+      are illusory because each lane re-loads its own context and re-runs its
+      own plan. — alternatives: keep fan-out, add a 'shared planner' upstream
+      (rejected: doubles the architecture and forces every skill to reason
+      about which mode it is in)."
+
+  - key: "Workdir layout = run-root + one subdir per repo, keyed by repo
+      config name. — gives skills a stable, repo-aware path scheme
+      (`server/src/Auth.cs` vs. `client/src/Auth.cs`) without per-skill
+      configuration. Monorepo is the N=1 degenerate case, no special path. —
+      alternatives: flatten monorepo (rejected, introduces a second code
+      path); separate workdirs per repo (rejected, defeats the shared-context
+      premise)."
+
+  - key: "Branch name identical across repos: `agentsmith/ticket-{id}`. —
+      trivial correlation across PRs; operator can match by branch alone.
+      Existing branch in any repo is force-updated (we own the namespace). —
+      alternatives: per-repo suffix (rejected, complicates correlation for
+      zero gain)."
+
+  - key: "PR opened only in repos with staged changes. — empty-repo PR is
+      noise. PR-body of each opened PR lists sibling PR URLs opened in the
+      same run. — alternatives: open empty PRs for visibility (rejected,
+      pollutes review queues)."
+
+  - key: "CLI `--repo NAME` scopes the run to one configured repo; without it
+      all configured repos run. CLI is the only mode where scope-reduction
+      makes sense (K8s/Compose process the configured project as-is). The
+      `--source-*` overrides require `--repo NAME` when the project is
+      multi-repo, so a local checkout can substitute for one specific repo
+      without ambiguity. — alternatives: `--repos a,b,c` multi-select
+      (rejected, config is the source of truth — CLI is not a second
+      definition surface); `--source-*` without `--repo` on multi-repo
+      projects (rejected, ambiguous which repo it overrides)."
+
+  - key: "Sandbox mounts all repos under one workdir. — matches the
+      shared-context premise; one container, one toolchain stack (or
+      multi-toolchain image). Per-repo sandboxes would re-introduce fan-out
+      semantics inside the sandbox layer. — alternatives: per-repo sandbox
+      (rejected, defeats the architecture); separate sandbox per language
+      detected (deferred, dispatcher-level concern, not p0158)."
+
+  - key: "EnqueuedReconciler re-enqueues a single PipelineRequest per orphan
+      ticket. — the per-ticket heartbeat is the only liveness signal that
+      ever existed; with fan-out gone, one ticket = one job to re-enqueue.
+      The p0140d-era 'how do we re-fan correctly' problem is dissolved, not
+      solved. — alternatives: persist per-repo claim records (rejected, no
+      longer needed)."
+
+  - key: "Multi-toolchain sandbox is deferred. p0135 auto-detection picks one
+      image from one repo's context.yaml; p0158 applies it to `Repos[0]`
+      with fall-through and accepts that mixed-stack projects need an
+      operator-configured composite image until a follow-up phase reworks
+      sandbox layering. — the alternatives (per-repo sandbox switching mid-
+      run, or building a composite image at runtime) are real engineering
+      lifts and would dominate p0158's scope; better as a separate phase
+      with its own decisions."
+
+  - key: "PR cross-linking is implemented as two-pass open-then-patch, not
+      single-pass. — the first PR cannot reference the second PR's URL at
+      open time because the second URL doesn't exist yet. All three target
+      platforms (GitHub, GitLab, Azure DevOps) support patching a PR/MR
+      body after creation, so the cost is one extra PATCH per opened PR.
+      Pass-2 runs after all pass-1 opens settle so partial failures are
+      visible in every sibling's body. — alternatives: back-links-only
+      (rejected, asymmetric UX); follow-up comment per PR (rejected, the
+      cross-links belong in the body where reviewers look first)."
+
+  - key: "ClaimSpawnAsync (list-shaped) collapses back to ClaimAsync
+      (single request). — the list interface was added in p0140b for fan-
+      out; with fan-out gone the list is always length 1, so the list-
+      shaped API is dead weight. Revert keeps TicketClaimService /
+      SpawnRegionExecutor smaller and removes the trivially-true
+      AssertSharedTicket invariant. — alternatives: keep the list shape
+      for a hypothetical future fan-out (rejected, YAGNI — if fan-out
+      returns it returns as a different pipeline-preset shape, see scope.out)."
+
+steps:
+  - id: contracts
+    action: "Remove PipelineRequest.RepoName. Remove ClaimRequest.RepoName.
+      Rename ContextKeys.CurrentRepo → ContextKeys.Repos
+      (IReadOnlyList<RepoConnection>)."
+    modify:
+      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs"
+      - "src/AgentSmith.Contracts/Models/ClaimRequest.cs"
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: spawn
+    action: "SpawnPipelineRunsUseCase.BuildRequests: build exactly one
+      ClaimRequest per ticket (no per-repo loop). Collapse ClaimSpawnAsync
+      back to ClaimAsync (single request, no list): delete the list-shaped
+      method on ITicketClaimService, delete SpawnRegionExecutor.EnqueueAllAsync
+      and the AssertSharedTicket helper, inline the single-request region
+      into TicketClaimService. Verify the exact method names against current
+      source before editing — internals have shifted since p0140b."
+    modify:
+      - "src/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+      - "src/AgentSmith.Application/Services/Claim/SpawnRegionExecutor.cs"
+      - "src/AgentSmith.Application/Services/Claim/TicketClaimService.cs"
+      - "src/AgentSmith.Contracts/Services/ITicketClaimService.cs"
+
+  - id: execute
+    action: "ExecutePipelineUseCase: drop ResolveCurrentRepo. Set
+      ContextKeys.Repos = projectConfig.Repos. Drop the multi-repo branch /
+      error path (no longer reachable)."
+    modify:
+      - "src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+
+  - id: builders
+    action: "Refactor every CurrentRepo consumer to read Repos and loop.
+      SourceContextBuilders / PersistWorkBranchContextBuilder /
+      PlanExecutionContextBuilders / LegalContextBuilders /
+      SourceConfigOverrider / PipelineSandboxCoordinator."
+    modify:
+      - "src/AgentSmith.Application/Services/SourceConfigOverrider.cs"
+      - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+      - "src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs"
+      - "src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs"
+      - "src/AgentSmith.Application/Services/Builders/LegalContextBuilders.cs"
+
+  - id: handlers
+    action: "Checkout / branch / commit / PR-open handlers iterate over
+      Repos. Each repo lands in `{run-root}/{repo-key}/`. Branch name
+      `agentsmith/ticket-{id}` in every checked-out repo. PR opened only
+      when staged changes exist for that repo.
+
+      PR-open is two-pass: pass-1 opens every PR with a provisional body
+      (no sibling URLs); pass-2 PATCHes each opened PR's body to insert
+      the sibling URL list once all pass-1 opens have settled. Failed
+      pass-1 opens are recorded as `(open failed)` in pass-2 bodies of
+      successful siblings. Single-PR runs skip pass-2. PR-open handler
+      sites verified against current source (handler-class name may
+      differ from sketch)."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ (PR-open handler, exact class name verified at edit time)"
+
+  - id: toolchain
+    action: "PipelineSandboxCoordinator: apply p0135 toolchain auto-detect
+      to each repo in `Repos` in order, take the first resolved image.
+      Operator-provided composite image (existing config-level override)
+      wins over auto-detect. Document the precedence in code and in the
+      sandbox section of the p0140e operator docs."
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+      - "docs/ (sandbox / toolchain section)"
+
+  - id: reconciler
+    action: "EnqueuedReconciler.ReconcileProjectAsync: re-enqueue one
+      PipelineRequest per orphan ticket (no RepoName parameter — the field
+      no longer exists)."
+    modify:
+      - "src/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs"
+
+  - id: metrics
+    action: "p0140e counters: the spawn-all-matched-projects counter stays
+      (multi-project matching is unchanged). Per-repo enqueue counters
+      collapse — one ticket = one enqueue, so the N-per-ticket metric loses
+      meaning. Drop or rename to `pipeline_runs_enqueued_total` (per ticket).
+      The empty-plan skip counter stays valid. Update p0140e docs to reflect
+      the unified-run model."
+    modify:
+      - "src/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs (counter site)"
+      - "src/AgentSmith.Application/Services/Claim/SpawnRegionExecutor.cs (counter site)"
+      - "docs/ (p0140e operator docs touching multi-repo behaviour)"
+
+  - id: cli
+    action: "Add `--repo NAME` option (scope filter) to commands that today
+      take SourceOptions (FixCommand, FeatureCommand, ApiScanCommand,
+      SecurityScanCommand, InitCommand, AutonomousCommand, RunCommand,
+      LegalCommand). SourceOptions.ApplyTo: emit a scoped override
+      (ContextKeys.SourceOverrideRepo + existing keys) when `--repo NAME`
+      is present. Reject `--source-*` without `--repo NAME` on multi-repo
+      projects with a clear error."
+    modify:
+      - "src/AgentSmith.Cli/Commands/SourceOptions.cs"
+      - "src/AgentSmith.Cli/Commands/FixCommand.cs"
+      - "src/AgentSmith.Cli/Commands/FeatureCommand.cs"
+      - "src/AgentSmith.Cli/Commands/ApiScanCommand.cs"
+      - "src/AgentSmith.Cli/Commands/SecurityScanCommand.cs"
+      - "src/AgentSmith.Cli/Commands/InitCommand.cs"
+      - "src/AgentSmith.Cli/Commands/AutonomousCommand.cs"
+      - "src/AgentSmith.Cli/Commands/RunCommand.cs"
+      - "src/AgentSmith.Cli/Commands/LegalCommand.cs"
+
+  - id: scope
+    action: "ExecutePipelineUseCase reads optional ContextKeys.SourceOverrideRepo
+      from request.Context. If present: filter Repos down to that single
+      entry and apply per-repo source overrides to it. If absent: pass
+      Repos through unfiltered."
+    modify:
+      - "src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+      - "src/AgentSmith.Application/Services/SourceConfigOverrider.cs"
+
+  - id: tests
+    action: "Rename ExecutePipelineUseCaseCurrentRepoTests →
+      ExecutePipelineUseCaseReposTests, rewrite for list semantics.
+      Delete MultiRepoEnqueueSmokeTests' fan-out assertions; replace with
+      a single-request assertion + workdir-layout assertion. Add tests:
+      branch-name consistency across repos, empty-repo PR skip, PR body
+      cross-linking, `--repo NAME` scope filter, `--source-path` rejection
+      on multi-repo without `--repo`. Update ClaimSpawnAsyncTests for the
+      single-request shape."
+    modify:
+      - "tests/AgentSmith.Tests/Services/ExecutePipelineUseCaseCurrentRepoTests.cs"
+      - "tests/AgentSmith.Tests/EndToEnd/MultiRepoEnqueueSmokeTests.cs"
+      - "tests/AgentSmith.Tests/EndToEnd/SingleRepoRegressionTests.cs"
+      - "tests/AgentSmith.Tests/Claim/ClaimSpawnAsyncTests.cs"
+      - "tests/AgentSmith.Tests/Spawning/SpawnPipelineRunsUseCaseTests.cs"
+      - "tests/AgentSmith.Tests/Services/Lifecycle/EnqueuedReconcilerTests.cs"
+
+  - id: cleanup
+    action: "Delete planned/p0023-multi-repo-update.yaml. CHANGELOG entry:
+      fan-out removed; one ticket = one run = 1..N PRs."
+    modify:
+      - ".agentsmith/phases/planned/p0023-multi-repo-update.yaml (delete)"
+      - "CHANGELOG.md"
+
+tests:
+  - "ExecutePipelineUseCase_SetsRepos_FromProjectConfig"
+  - "ExecutePipelineUseCase_RepoOverride_FiltersToSingleRepo"
+  - "ExecutePipelineUseCase_RepoOverride_Missing_OnMultiRepo_Throws_WhenSourceFlagsSet"
+  - "SpawnPipelineRunsUseCase_BuildsExactlyOneClaimRequestPerTicket"
+  - "EnqueuedReconciler_ReEnqueues_ExactlyOnce_PerOrphanTicket_NotPerRepo"
+  - "EnqueuedReconciler_OnMultiRepoProject_EmitsOneRequest_NotNAsBefore"
+  - "Checkout_PlacesEachRepo_InRunRootSubdirectory_KeyedByRepoName"
+  - "BranchCreate_SameName_AppliedToEveryCheckedOutRepo"
+  - "PrOpen_SkipsRepo_WithNoStagedChanges"
+  - "PrCrossLinks_TwoPass_AllOpenedPrBodies_PatchedWithSiblingUrls"
+  - "PrCrossLinks_FailedOpen_ShownAsOpenFailed_InSurvivingSiblingBodies"
+  - "PrCrossLinks_SinglePrRun_SkipsPass2"
+  - "Sandbox_PicksToolchain_FromFirstRepoWithResolvableImage"
+  - "Sandbox_NoRepoResolvesImage_FallsBackToGenericImage"
+  - "Sandbox_OperatorCompositeImage_WinsOverAutoDetect"
+  - "Cli_RepoOption_ScopesRunToOneRepo"
+  - "Cli_RepoOption_UnknownName_Throws_WithKnownReposList"
+  - "Cli_RepoOption_OnSingleRepoProject_MatchingName_NoOp"
+  - "Cli_SourceFlags_RejectedOnMultiRepo_WithoutRepoOption"
+  - "Monorepo_WorkdirLayout_IsRunRoot_PlusOneRepoSubdir_NotFlat"
+
+done:
+  - "PipelineRequest.RepoName and ClaimRequest.RepoName deleted."
+  - "ContextKeys.CurrentRepo replaced by ContextKeys.Repos (list)."
+  - "SpawnPipelineRunsUseCase emits one ClaimRequest per ticket."
+  - "ClaimSpawnAsync (list) reverted to ClaimAsync (single); AssertSharedTicket and EnqueueAllAsync deleted."
+  - "Workdir layout: run-root + one subdir per configured repo. Single-repo projects are NOT layout-compatible with pre-p0158 runs — workdir root is one level deeper."
+  - "Branch name identical across all repos in a run."
+  - "PRs opened only in repos with staged changes."
+  - "PR cross-linking via two-pass open-then-PATCH; pass-2 skipped on single-PR runs; failed pass-1 opens surface as `(open failed)` in surviving siblings' bodies."
+  - "EnqueuedReconciler re-enqueues exactly one PipelineRequest per orphan ticket (proven by non-N test on a multi-repo project)."
+  - "CLI: `--repo NAME` scope filter on all source-using commands; unknown name throws with known-repos list; `--source-*` rejected without `--repo` on multi-repo projects."
+  - "PipelineSandboxCoordinator mounts all repos under one workdir; toolchain resolved via p0135 auto-detect over Repos with fall-through, operator composite image wins."
+  - "Full unit test suite green."
+  - "/smoke green (queue-mode) for fix-bug, security-scan, api-security-scan, against both a monorepo project (1 repo) and a multi-repo project (≥2 repos). api-security-scan ticket-driven migration itself is out of scope (see scope.out) — the smoke validates today's queue-mode path under the new unified-run semantics."
+  - "planned/p0023-multi-repo-update.yaml deleted."
+  - "CHANGELOG notes fan-out removal."

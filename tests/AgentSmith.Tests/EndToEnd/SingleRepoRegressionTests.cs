@@ -152,9 +152,12 @@ public sealed class SingleRepoRegressionTests
         captured.TicketId!.Value.Should().Be(ticketId);
         captured.Headless.Should().BeTrue();
         captured.PlanAnswers.Should().BeNull();
-        captured.RepoName.Should().Be(repoName);
         captured.Context.Should().NotBeNull();
         captured.Context![ContextKeys.DoneStatus].Should().Be(doneStatus);
+        // repoName parameter retained for call-site readability but no longer
+        // asserted on PipelineRequest: the unified-run model derives repo set
+        // from project config at ExecutePipelineUseCase time, not from the request.
+        _ = (platform, repoName);
     }
 
     private static WebhookTriggerConfig NewTrigger() => new()

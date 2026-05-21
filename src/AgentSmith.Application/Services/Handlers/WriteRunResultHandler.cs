@@ -13,9 +13,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Writes run artifacts (plan.md + result.md) to .agentsmith/runs/r{NN}-{slug}/
-/// and appends the run entry to state.done in .agentsmith/context.yaml.
-/// Formatting is delegated to RunResultFormatter.
+/// Writes run artifacts (plan.md + result.md) to
+/// <c>.agentsmith/runs/{RunId}-{slug}/</c> and appends the run entry under the
+/// top-level <c>runs:</c> key in <c>.agentsmith/context.yaml</c> (creating that
+/// key when absent — no silent skip). Formatting is delegated to
+/// RunResultFormatter. RunId is generated once at pipeline start by
+/// ExecutePipelineUseCase and read from PipelineContext here.
 /// </summary>
 public sealed class WriteRunResultHandler(
     ISandboxFileReaderFactory readerFactory,
@@ -37,14 +40,13 @@ public sealed class WriteRunResultHandler(
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
 
-        var contextPath = Path.Combine(agentDir, ContextFileName);
-        var nextRunNumber = await DetermineNextRunNumberAsync(reader, contextPath, cancellationToken);
+        var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
 
         // p0130c-followup: init-project routes through this handler but has
         // no Ticket/Plan/Changes — use a static "init" slug + skip plan.md
         // (no plan to render) + render result.md in init-mode.
         var slug = context.Ticket is not null ? GenerateSlug(context.Ticket.Title) : "init";
-        var runDirName = $"r{nextRunNumber:D2}-{slug}";
+        var runDirName = $"{runId}-{slug}";
         var runDir = Path.Combine(runsDir, runDirName);
 
         if (context.Ticket is not null && context.Plan is not null)
@@ -73,24 +75,23 @@ public sealed class WriteRunResultHandler(
         var resultMd = context.Ticket is not null && context.Plan is not null
             ? RunResultFormatter.FormatResult(
                 context.Ticket, context.Plan, context.Changes,
-                nextRunNumber, durationSeconds, costSummary, trail, decisions, securityTrend,
+                runId, durationSeconds, costSummary, trail, decisions, securityTrend,
                 dialogueEntries.Count > 0 ? dialogueEntries : null,
                 perSkillBreakdown)
             : RunResultFormatter.FormatInitResult(
-                nextRunNumber, durationSeconds, costSummary, trail, decisions,
+                runId, durationSeconds, costSummary, trail, decisions,
                 dialogueEntries.Count > 0 ? dialogueEntries : null,
                 perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
-        await AppendToContextYamlAsync(reader, contextPath, nextRunNumber, context.Ticket, cancellationToken);
-
-        context.Pipeline.Set(ContextKeys.RunNumber, nextRunNumber);
+        await AppendToContextYamlAsync(
+            reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, cancellationToken);
 
         logger.LogInformation(
-            "Written run result r{RunNumber:D2} to {Dir}",
-            nextRunNumber, runDirName);
+            "Written run result {RunId} to {Dir}",
+            RunIdGenerator.FormatForDisplay(runId), runDirName);
 
-        return CommandResult.Ok($"Run r{nextRunNumber:D2} recorded in {runDirName}");
+        return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {runDirName}");
     }
 
     /// <summary>
@@ -151,29 +152,6 @@ public sealed class WriteRunResultHandler(
         return breakdown.Count == 0 ? null : breakdown;
     }
 
-    internal static async Task<int> DetermineNextRunNumberAsync(
-        ISandboxFileReader reader, string contextPath, CancellationToken cancellationToken)
-    {
-        var content = await reader.TryReadAsync(contextPath, cancellationToken);
-        if (content is null) return 1;
-
-        try
-        {
-            var matches = Regex.Matches(content, @"^\s+r(\d+):", RegexOptions.Multiline);
-            var maxNumber = 0;
-            foreach (Match match in matches)
-            {
-                if (int.TryParse(match.Groups[1].Value, out var num) && num > maxNumber)
-                    maxNumber = num;
-            }
-            return maxNumber + 1;
-        }
-        catch
-        {
-            return 1;
-        }
-    }
-
     internal static string GenerateSlug(string title)
     {
         var slug = title.ToLowerInvariant();
@@ -183,31 +161,55 @@ public sealed class WriteRunResultHandler(
         return slug.Length > 40 ? slug[..40].TrimEnd('-') : slug;
     }
 
-    private static async Task AppendToContextYamlAsync(
-        ISandboxFileReader reader, string contextPath, int runNumber, Ticket? ticket, CancellationToken ct)
+    /// <summary>
+    /// Appends <c>"{runId}": "{entry}"</c> under a top-level <c>runs:</c> key,
+    /// creating that key at end-of-file when absent. Fixes the previous silent
+    /// no-op when the target repo's context.yaml lacked the legacy
+    /// <c>state.active:</c> anchor (observed in run a6914f38).
+    /// </summary>
+    internal static async Task AppendToContextYamlAsync(
+        ISandboxFileReader reader, string contextPath, string runId, Ticket? ticket, CancellationToken ct)
     {
-        var content = await reader.TryReadAsync(contextPath, ct);
-        if (content is null) return;
+        var content = await reader.TryReadAsync(contextPath, ct) ?? string.Empty;
 
         // p0130c-followup: init-mode runs have no ticket; render a "bootstrap"
         // entry so operators see the run history grow consistently across modes.
-        var entry = ticket is not null
-            ? FormatTicketEntry(runNumber, ticket)
-            : $"    r{runNumber:D2}: \"bootstrap: init-project\"";
+        var summary = ticket is not null ? FormatTicketSummary(ticket) : "bootstrap: init-project";
+        var entryLine = $"  \"{runId}\": \"{summary}\"";
 
-        var insertPattern = new Regex(@"^(\s+active:)", RegexOptions.Multiline);
-        var match = insertPattern.Match(content);
-
-        if (match.Success)
-            content = content.Insert(match.Index, entry + "\n");
+        var runsKey = new Regex(@"^runs:\s*$", RegexOptions.Multiline);
+        if (runsKey.IsMatch(content))
+        {
+            content = AppendUnderRunsKey(content, entryLine);
+        }
+        else
+        {
+            if (content.Length > 0 && !content.EndsWith('\n')) content += "\n";
+            if (content.Length > 0) content += "\n";
+            content += "runs:\n" + entryLine + "\n";
+        }
 
         await reader.WriteAsync(contextPath, content, ct);
     }
 
-    private static string FormatTicketEntry(int runNumber, Ticket ticket)
+    private static string AppendUnderRunsKey(string content, string entryLine)
+    {
+        var lines = content.Split('\n').ToList();
+        var runsIdx = lines.FindIndex(l => Regex.IsMatch(l, @"^runs:\s*$"));
+        var insertAt = runsIdx + 1;
+        while (insertAt < lines.Count && (lines[insertAt].StartsWith("  ") || lines[insertAt].Length == 0))
+        {
+            if (lines[insertAt].Length == 0) break;
+            insertAt++;
+        }
+        lines.Insert(insertAt, entryLine);
+        return string.Join('\n', lines);
+    }
+
+    private static string FormatTicketSummary(Ticket ticket)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
-        return $"    r{runNumber:D2}: \"{changeType} #{ticket.Id}: {ticket.Title}\"";
+        return $"{changeType} #{ticket.Id}: {ticket.Title}";
     }
 }

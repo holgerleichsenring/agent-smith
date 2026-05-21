@@ -9,10 +9,10 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Services.Builders;
 
 /// <summary>
-/// p0140d: context builders that previously read project.Repo now read the per-run
-/// RepoConnection from PipelineContext under ContextKeys.CurrentRepo. These tests
-/// pin that contract so a regression to project.Repo (or a typo on the key) trips
-/// before reaching production.
+/// Context builders read the run's repos from PipelineContext under ContextKeys.Repos
+/// (a list); single-repo context objects take the primary entry (Repos[0]). These
+/// tests pin that contract so a regression (wrong key, wrong index) trips before
+/// reaching production.
 /// </summary>
 public sealed class BuildersReadCurrentRepoFromContextTests
 {
@@ -37,7 +37,7 @@ public sealed class BuildersReadCurrentRepoFromContextTests
     public void CommitAndPRContextBuilder_ReadsCurrentRepoFromPipelineContext()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, ExpectedRepo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { ExpectedRepo, ProjectWithDifferentSibling.Repos[1] });
         pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("main"), "url"));
         pipeline.Set<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, Array.Empty<CodeChange>());
         pipeline.Set(ContextKeys.Ticket, new Ticket(
@@ -53,7 +53,7 @@ public sealed class BuildersReadCurrentRepoFromContextTests
     public void InitCommitContextBuilder_ReadsCurrentRepoFromPipelineContext()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, ExpectedRepo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { ExpectedRepo, ProjectWithDifferentSibling.Repos[1] });
         pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("agentsmith/init"), "url"));
 
         var ctx = (InitCommitContext)new InitCommitContextBuilder().Build(
@@ -66,7 +66,7 @@ public sealed class BuildersReadCurrentRepoFromContextTests
     public void AcquireSourceContextBuilder_ReadsCurrentRepoFromPipelineContext()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, ExpectedRepo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { ExpectedRepo, ProjectWithDifferentSibling.Repos[1] });
 
         var ctx = (AcquireSourceContext)new AcquireSourceContextBuilder().Build(
             PipelineCommand.Simple(CommandNames.AcquireSource), ProjectWithDifferentSibling, pipeline);

@@ -11,15 +11,14 @@ using Moq;
 namespace AgentSmith.Tests.EndToEnd;
 
 /// <summary>
-/// p0140b end-to-end smoke for multi-repo fan-out. A single ticket envelope resolves to a
-/// project with three repos and produces exactly ONE
-/// <see cref="ITicketClaimService.ClaimSpawnAsync"/> call holding three distinct
-/// <see cref="ClaimRequest"/>s.
+/// End-to-end smoke for the unified-run model: a single ticket envelope resolves
+/// to a project with three repos and produces exactly ONE ClaimAsync call (no
+/// per-repo fan-out). p0158 reversal of the p0140b fan-out behaviour.
 /// </summary>
 public sealed class MultiRepoEnqueueSmokeTests
 {
     [Fact]
-    public async Task MultiRepoEnqueueSmoke_ThreeRepos_OneTicket_EnqueuesThreePipelineRequests_UnderOneClaimRegion()
+    public async Task MultiRepoEnqueueSmoke_ThreeRepos_OneTicket_EmitsExactlyOneClaimRequest_NotThree()
     {
         var config = new AgentSmithConfig
         {
@@ -47,15 +46,15 @@ public sealed class MultiRepoEnqueueSmokeTests
         };
 
         var calls = 0;
-        IReadOnlyList<ClaimRequest>? captured = null;
+        ClaimRequest? captured = null;
         var claimService = new Mock<ITicketClaimService>();
-        claimService.Setup(c => c.ClaimSpawnAsync(
-                It.IsAny<IReadOnlyList<ClaimRequest>>(),
+        claimService.Setup(c => c.ClaimAsync(
+                It.IsAny<ClaimRequest>(),
                 It.IsAny<AgentSmithConfig>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<ClaimRequest>, AgentSmithConfig, CancellationToken>(
+            .Callback<ClaimRequest, AgentSmithConfig, CancellationToken>(
                 (r, _, _) => { calls++; captured = r; })
-            .ReturnsAsync(Array.Empty<ClaimResult>());
+            .ReturnsAsync(ClaimResult.Claimed());
 
         var resolver = new ProjectResolver(NullLogger<ProjectResolver>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
@@ -79,10 +78,8 @@ public sealed class MultiRepoEnqueueSmokeTests
 
         calls.Should().Be(1);
         captured.Should().NotBeNull();
-        captured!.Should().HaveCount(3);
-        captured.Select(r => r.RepoName).Should().BeEquivalentTo(new[] { "repo-a", "repo-b", "repo-c" });
-        captured.Should().AllSatisfy(r => r.Platform.Should().Be("github"));
-        captured.Should().AllSatisfy(r => r.TicketId.Value.Should().Be("42"));
-        captured.Should().AllSatisfy(r => r.PipelineName.Should().Be("fix-bug"));
+        captured!.Platform.Should().Be("github");
+        captured.TicketId.Value.Should().Be("42");
+        captured.PipelineName.Should().Be("fix-bug");
     }
 }

@@ -1,19 +1,22 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Lifecycle;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
-using Repository = AgentSmith.Domain.Entities.Repository;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Pushes the work branch when the pipeline failed mid-run after local changes
-/// exist. Stamps the failure kind into <see cref="ContextKeys.PersistFailureKind"/>
-/// on the pipeline context so the executor's wrapper can route logs accordingly.
-/// Runs git operations in the sandbox where the modifications live.
+/// Pushes a WIP commit per repo when the pipeline failed mid-run after local
+/// changes exist. Iterates Configs and attempts the push per-repo in its own
+/// /work/{name}/ subdir; aggregates outcomes so the operator log lists each
+/// repo's result. Stamps the worst-case failure kind into
+/// ContextKeys.PersistFailureKind so the executor's wrapper can route logs
+/// accordingly.
 /// </summary>
 public sealed class PersistWorkBranchHandler(
     SandboxGitOperations gitOps,
@@ -23,7 +26,7 @@ public sealed class PersistWorkBranchHandler(
         PersistWorkBranchContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
-        if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo) || repo is null)
+        if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var primaryRepo) || primaryRepo is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
                 "PersistWorkBranch: no Repository in pipeline context");
         if (!pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
@@ -31,66 +34,80 @@ public sealed class PersistWorkBranchHandler(
                 "PersistWorkBranch: no Sandbox in pipeline context");
 
         var commitMessage = BuildCommitMessage(pipeline);
+        var branch = primaryRepo.CurrentBranch.Value;
 
+        var outcomes = new List<PerRepoPersistResult>(context.Configs.Count);
+        foreach (var repo in context.Configs)
+            outcomes.Add(await PersistOneAsync(sandbox, repo, branch, commitMessage, cancellationToken));
+
+        return Aggregate(pipeline, outcomes);
+    }
+
+    private async Task<PerRepoPersistResult> PersistOneAsync(
+        ISandbox sandbox, RepoConnection repo, string branch, string commitMessage, CancellationToken ct)
+    {
+        var workdir = Repository.WorkPathFor(repo.Name);
         try
         {
-            await gitOps.CommitAndPushAsync(
-                sandbox, repo.CurrentBranch.Value, commitMessage,
-                context.Source.Type, cancellationToken);
-            logger.LogInformation(
-                "PersistWorkBranch: pushed WIP commit on branch {Branch}", repo.CurrentBranch);
-            return CommandResult.Ok($"Persisted WIP branch {repo.CurrentBranch}");
+            await gitOps.CommitAndPushAsync(sandbox, branch, commitMessage, repo.Type, workdir, ct);
+            logger.LogInformation("{Repo}: pushed WIP commit on branch {Branch}", repo.Name, branch);
+            return new PerRepoPersistResult(repo.Name, Kind: null, Message: null);
         }
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {
-            logger.LogInformation("PersistWorkBranch: working tree clean — nothing to persist");
-            return RecordAndFail(pipeline, PersistFailureKind.NoChanges,
-                "No local changes to persist");
+            logger.LogInformation("{Repo}: working tree clean — nothing to persist", repo.Name);
+            return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
         }
         catch (Exception ex) when (LooksLikeAuth(ex))
         {
-            logger.LogError(ex, "PersistWorkBranch: auth denied on push");
-            return RecordAndFail(pipeline, PersistFailureKind.AuthDenied,
-                $"Persist failed (auth denied): {ex.Message}", ex);
+            logger.LogError(ex, "{Repo}: auth denied on push", repo.Name);
+            return new PerRepoPersistResult(repo.Name, PersistFailureKind.AuthDenied, ex.Message);
         }
         catch (Exception ex) when (LooksLikeDivergent(ex))
         {
-            logger.LogError(ex, "PersistWorkBranch: remote diverged — refusing to force-push");
-            return RecordAndFail(pipeline, PersistFailureKind.RemoteDivergent,
-                $"Persist failed (remote diverged, no force-push): {ex.Message}", ex);
+            logger.LogError(ex, "{Repo}: remote diverged — refusing to force-push", repo.Name);
+            return new PerRepoPersistResult(repo.Name, PersistFailureKind.RemoteDivergent, ex.Message);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "PersistWorkBranch: transient network failure");
-            return RecordAndFail(pipeline, PersistFailureKind.NetworkBlip,
-                $"Persist failed (network): {ex.Message}", ex);
+            logger.LogWarning(ex, "{Repo}: transient network failure", repo.Name);
+            return new PerRepoPersistResult(repo.Name, PersistFailureKind.NetworkBlip, ex.Message);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "PersistWorkBranch: unexpected failure");
-            return RecordAndFail(pipeline, PersistFailureKind.Unknown,
-                $"Persist failed: {ex.Message}", ex);
+            logger.LogError(ex, "{Repo}: unexpected persist failure", repo.Name);
+            return new PerRepoPersistResult(repo.Name, PersistFailureKind.Unknown, ex.Message);
         }
     }
 
-    private static CommandResult RecordAndFail(
-        PipelineContext pipeline, PersistFailureKind kind, string message, Exception? exception = null)
+    private static CommandResult Aggregate(
+        PipelineContext pipeline, IReadOnlyList<PerRepoPersistResult> outcomes)
     {
-        pipeline.Set(ContextKeys.PersistFailureKind, kind);
-        return CommandResult.Fail(message, exception);
+        var allClean = outcomes.All(o => o.Kind == PersistFailureKind.NoChanges);
+        if (allClean)
+            return RecordAndFail(pipeline, PersistFailureKind.NoChanges,
+                "No local changes to persist in any repo");
+
+        var worstFailure = outcomes
+            .Where(o => o.Kind is not null and not PersistFailureKind.NoChanges)
+            .Select(o => o.Kind!.Value)
+            .DefaultIfEmpty()
+            .Max();
+        if (worstFailure == default)
+            return CommandResult.Ok($"Persisted WIP across {outcomes.Count} repo(s)");
+
+        var failedNames = string.Join(", ", outcomes
+            .Where(o => o.Kind is not null and not PersistFailureKind.NoChanges)
+            .Select(o => o.RepoName));
+        return RecordAndFail(pipeline, worstFailure,
+            $"Persist failed in {failedNames} ({worstFailure})");
     }
 
-    private static string BuildCommitMessage(PipelineContext pipeline)
+    private static CommandResult RecordAndFail(
+        PipelineContext pipeline, PersistFailureKind kind, string message)
     {
-        var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : "unknown";
-        var pipelineName = pipeline.TryGet<ResolvedPipelineConfig>(
-            ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
-            ? resolved.PipelineName : "unknown";
-        var failedStep = pipeline.TryGet<string>(ContextKeys.FailedStepName, out var fs) ? fs : "unknown";
-        return $"[wip] agent-smith run {runId}\n\n" +
-               $"Run-Id: {runId}\n" +
-               $"Pipeline: {pipelineName}\n" +
-               $"Failed-Step: {failedStep}\n";
+        pipeline.Set(ContextKeys.PersistFailureKind, kind);
+        return CommandResult.Fail(message);
     }
 
     private static bool LooksLikeEmptyCommit(Exception ex) =>
@@ -107,4 +124,20 @@ public sealed class PersistWorkBranchHandler(
     private static bool LooksLikeDivergent(Exception ex) =>
         ex.Message.Contains("non-fast-forward", StringComparison.OrdinalIgnoreCase)
         || ex.Message.Contains("rejected", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildCommitMessage(PipelineContext pipeline)
+    {
+        var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : "unknown";
+        var pipelineName = pipeline.TryGet<ResolvedPipelineConfig>(
+            ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
+            ? resolved.PipelineName : "unknown";
+        var failedStep = pipeline.TryGet<string>(ContextKeys.FailedStepName, out var fs) ? fs : "unknown";
+        return $"[wip] agent-smith run {runId}\n\n" +
+               $"Run-Id: {runId}\n" +
+               $"Pipeline: {pipelineName}\n" +
+               $"Failed-Step: {failedStep}\n";
+    }
+
+    private sealed record PerRepoPersistResult(
+        string RepoName, PersistFailureKind? Kind, string? Message);
 }

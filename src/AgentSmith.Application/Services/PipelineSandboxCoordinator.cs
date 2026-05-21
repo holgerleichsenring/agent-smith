@@ -100,9 +100,14 @@ public sealed class PipelineSandboxCoordinator(
             return (inMemory.PrimaryLanguage, SandboxToolchainResolutionLayer.InMemoryProjectMap);
         }
 
-        var currentRepo = context.Get<RepoConnection>(ContextKeys.CurrentRepo);
-        var result = await sandboxLanguageResolver.ResolveAsync(currentRepo, cancellationToken);
-        return (result.Language, result.Layer);
+        var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        foreach (var repo in repos)
+        {
+            var result = await sandboxLanguageResolver.ResolveAsync(repo, cancellationToken);
+            if (!string.IsNullOrEmpty(result.Language))
+                return (result.Language, result.Layer);
+        }
+        return (null, SandboxToolchainResolutionLayer.GenericFallback);
     }
 
     public async ValueTask DisposeAsync()

@@ -23,5 +23,6 @@ public static partial class PipelinePresets
         CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
         CommandNames.RunVerifyPhase, // p0129a
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+        CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];
 }

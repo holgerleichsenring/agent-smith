@@ -4,9 +4,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// Project entry with catalog references already materialized to records.
 /// Produced by ConfigCatalogResolver after the loader parses raw YAML.
 ///
-/// Repos is the multi-repo source of truth. The transitional single-repo `Repo`
-/// accessor was removed in p0140d; consumers read CurrentRepo from PipelineContext
-/// (set by ExecutePipelineUseCase from PipelineRequest.RepoName) or iterate Repos.
+/// Repos is the multi-repo source of truth. Consumers read the run's repos from
+/// PipelineContext under ContextKeys.Repos (set by ExecutePipelineUseCase from
+/// project.Repos, optionally filtered by ContextKeys.SourceOverrideRepo).
 /// </summary>
 public sealed record ResolvedProject
 {

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0152
+phase: p0157
 goal: |
   Eliminate non-DI constructors from function (service) classes across the
   codebase. Current state: 38 implementation classes accept non-service

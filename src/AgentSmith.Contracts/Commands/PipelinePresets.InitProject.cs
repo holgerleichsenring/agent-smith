@@ -19,5 +19,6 @@ public static partial class PipelinePresets
         CommandNames.BootstrapDispatch,          // p0130c: emits SkillRound for the matching bootstrap skill
         CommandNames.WriteRunResult,
         CommandNames.InitCommit,
+        CommandNames.PrCrossLink, // p0158c: multi-repo init pass-2 (no-op for single-PR runs)
     ];
 }

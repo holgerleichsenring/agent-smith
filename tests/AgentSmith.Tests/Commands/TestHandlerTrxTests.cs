@@ -97,14 +97,16 @@ public sealed class TestHandlerTrxTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, sandbox);
+        // p0155: ci.test_command drives the runner now. "dotnet test" prefix
+        // makes the command TRX-capable; PrimaryLanguage is just metadata.
         pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
-            PrimaryLanguage: "dotnet",
+            PrimaryLanguage: "csharp",
             Frameworks: ["xunit"],
             Modules: [],
             TestProjects: [],
             EntryPoints: [],
             Conventions: new Conventions(null, null, null),
-            Ci: new CiConfig(false, null, null, null)));
+            Ci: new CiConfig(HasCi: true, BuildCommand: null, TestCommand: "dotnet test --verbosity minimal", CiSystem: null)));
         var repo = new Repository(new BranchName("main"), "https://github.com/o/r.git");
         return new TestContext(repo, new List<CodeChange>(), pipeline);
     }

@@ -65,7 +65,7 @@ public class CommandContextFactoryTests
         var project = CreateProjectConfig();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("456"));
-        pipeline.Set(ContextKeys.CurrentRepo, project.Repos.Single());
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, project.Repos);
 
         var result = _sut.Create(PipelineCommand.Simple(CommandNames.CheckoutSource), project, pipeline);
 

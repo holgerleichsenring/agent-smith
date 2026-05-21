@@ -25,11 +25,11 @@ public sealed class TestHandlerNoSandboxFailsTests
         NullLoggerFactory.Instance.CreateLogger<TestHandler>());
 
     [Fact]
-    public async Task ExecuteAsync_TestFrameworkDetected_NoSandbox_ReturnsFail()
+    public async Task ExecuteAsync_TestCommandPresent_NoSandbox_ReturnsFail()
     {
         var pipeline = new PipelineContext();
-        // p0131b: ProjectMap (populated by AnalyzeProjectHandler) is now the
-        // source of truth for language/test-command resolution.
+        // p0155: ci.test_command is the source of truth for what to run; the
+        // PrimaryLanguage switch is gone.
         pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
             PrimaryLanguage: "csharp",
             Frameworks: Array.Empty<string>(),
@@ -37,7 +37,7 @@ public sealed class TestHandlerNoSandboxFailsTests
             TestProjects: Array.Empty<TestProject>(),
             EntryPoints: Array.Empty<string>(),
             Conventions: new Conventions(null, null, null),
-            Ci: new CiConfig(false, null, null, null)));
+            Ci: new CiConfig(HasCi: true, BuildCommand: null, TestCommand: "dotnet test", CiSystem: null)));
 
         var context = NewTestContext(pipeline);
 
@@ -48,16 +48,16 @@ public sealed class TestHandlerNoSandboxFailsTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoTestFrameworkDetected_StillSkipsAsOk()
+    public async Task ExecuteAsync_EmptyCiTestCommand_StillSkipsAsOk()
     {
-        // Regression guard: "no test framework" is a property of the project (legitimately
-        // nothing to run), not a runtime defect. That path remains a soft skip.
+        // Regression guard: empty ci.test_command is a legitimate "nothing to run"
+        // signal (analyzer found no CI hint). Soft skip, never a hard fail.
         var context = NewTestContext(new PipelineContext());
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No test framework detected");
+        result.Message.Should().Contain("ProjectMap missing");
     }
 
     private static TestContext NewTestContext(PipelineContext pipeline)

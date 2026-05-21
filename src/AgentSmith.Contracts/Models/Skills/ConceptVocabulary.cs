@@ -39,6 +39,7 @@ public sealed record ConceptVocabulary(IReadOnlyDictionary<string, ProjectConcep
             ConceptType.Bool => false,
             ConceptType.Int => 0,
             ConceptType.Enum => concept.EnumValues![0],
+            ConceptType.String => string.Empty,
             _ => throw new InvalidOperationException($"Unknown ConceptType {concept.Type}")
         };
     }
