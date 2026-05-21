@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.59.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.58.1...v0.59.0) (2026-05-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* pre-p0156 r{NN} run directories become invisible to wiki compilation. The clean switchover documented in p0156 spec.
+
+### Features
+
+* p0158 multi repo unified run ([#191](https://github.com/holgerleichsenring/agent-smith/issues/191)) ([d6fbde9](https://github.com/holgerleichsenring/agent-smith/commit/d6fbde952d96268806c81b389c233107efb25029))
+
 ## [0.58.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.58.0...v0.58.1) (2026-05-20)
 
 
