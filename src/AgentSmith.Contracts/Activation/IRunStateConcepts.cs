@@ -17,6 +17,15 @@ public interface IRunStateConcepts
     /// <summary>Reads an Enum concept. Returns the first declared enum value when unset. Throws on type mismatch or undeclared name.</summary>
     string GetEnum(string name);
 
+    /// <summary>
+    /// Reads either an Enum OR String concept as a string. Returns the per-type
+    /// default when unset (first enum value / empty string). Throws on undeclared
+    /// name or when the concept is Bool/Int. Activation-expression evaluators use
+    /// this so <c>project_language = "csharp"</c> works regardless of whether the
+    /// vocabulary declared the concept as Enum or String.
+    /// </summary>
+    string GetString(string name);
+
     /// <summary>Stores a Bool value. Throws <see cref="ConceptTypeMismatchException"/> if the concept is not declared as Bool, or <see cref="KeyNotFoundException"/> if undeclared.</summary>
     void SetBool(string name, bool value);
 
@@ -25,4 +34,12 @@ public interface IRunStateConcepts
 
     /// <summary>Stores an Enum value. Throws <see cref="ConceptTypeMismatchException"/> on type mismatch, <see cref="ArgumentException"/> when the value is not in the declared enum_values, or <see cref="KeyNotFoundException"/> if undeclared.</summary>
     void SetEnum(string name, string value);
+
+    /// <summary>
+    /// Stores a free-form string value for a <see cref="ConceptType.String"/>
+    /// concept. No value-set validation — the producer owns the canonical-slug
+    /// rule. Throws on type mismatch (use <see cref="SetEnum"/> for closed-set
+    /// concepts) or undeclared name.
+    /// </summary>
+    void SetString(string name, string value);
 }

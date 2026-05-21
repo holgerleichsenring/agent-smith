@@ -34,7 +34,7 @@ public sealed class ApiSkillPromptStrategy(
         var stable = $"""
             {projectBriefBuilder.Build(pipeline)}
 
-            Project language: {conceptsFactory(pipeline).GetEnum("project_language")}.
+            Project language: {conceptsFactory(pipeline).GetString("project_language")}.
 
             ## API Security Scan Target
             Title: {spec?.Title ?? "Unknown"}

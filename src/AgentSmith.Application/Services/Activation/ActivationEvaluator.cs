@@ -58,7 +58,10 @@ public sealed class ActivationEvaluator
         e switch
         {
             StringLiteralExpression s => s.Value,
-            IdentifierExpression id => state.GetEnum(id.Name),
+            // p0155: GetString accepts both Enum and String concepts, so
+            // `project_language = "csharp"` works whether the vocabulary
+            // declared project_language as enum (legacy) or string (post-p0155).
+            IdentifierExpression id => state.GetString(id.Name),
             _ => throw new ActivationExpressionEvaluateException(
                 $"Cannot resolve {e.GetType().Name} as a string.")
         };
