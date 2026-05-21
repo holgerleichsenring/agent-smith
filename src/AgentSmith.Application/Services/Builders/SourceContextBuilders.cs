@@ -27,7 +27,7 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
                 : null;
 
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        return new CheckoutSourceContext(repos[0], branch, pipeline);
+        return new CheckoutSourceContext(repos, branch, pipeline);
     }
 }
 
@@ -41,7 +41,7 @@ public sealed class TryCheckoutSourceContextBuilder : IContextBuilder
             ? null
             : new BranchName(primary.DefaultBranch);
 
-        return new TryCheckoutSourceContext(primary, branch, pipeline);
+        return new TryCheckoutSourceContext(repos, branch, pipeline);
     }
 }
 

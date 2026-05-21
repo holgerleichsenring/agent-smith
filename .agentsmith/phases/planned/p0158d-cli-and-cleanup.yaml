@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158d
+goal: |
+  Fourth and final slice of p0158: CLI ergonomics, metrics counter
+  collapse, operator-doc updates, and the operator-grade smoke gate that
+  validates the whole unified-run model end-to-end. Adds `--repo NAME`
+  to the eight source-using CLI commands, populating
+  ContextKeys.SourceOverrideRepo (read since p0158a). Rejects `--source-*`
+  flags without `--repo` on multi-repo projects. Collapses the per-repo
+  enqueue counters from p0140e (now meaningless after p0158a). Updates
+  the p0140e operator docs to describe the unified-run model. Closes the
+  p0158 umbrella with /smoke green on monorepo + multi-repo.
+
+requires: ["p0158c"]
+
+supersedes: []
+
+scope:
+  in: |
+    (1) CLI:
+        - Add `--repo NAME` option to SourceOptions.
+        - Wire option into the eight source-using commands: FixCommand,
+          FeatureCommand, ApiScanCommand, SecurityScanCommand,
+          InitCommand, AutonomousCommand, RunCommand, LegalCommand.
+        - SourceOptions.ApplyTo: when --repo is present, emit
+          ContextKeys.SourceOverrideRepo = NAME on the request context
+          (read by ExecutePipelineUseCase.ResolveRepos since p0158a;
+          ResolveRepos filters Repos to the named entry or throws with
+          known-repos list).
+        - Reject `--source-*` flags without `--repo` on multi-repo
+          projects with a clear error pointing at the project name and
+          repo count. Single-repo projects accept the flags without
+          --repo (legacy ergonomics preserved).
+
+    (2) Metrics:
+        - p0140e per-repo enqueue counter sites: with p0158a's collapse,
+          no per-repo counter increment happens anymore. Remove the
+          counter declaration if dead, or rename to
+          `pipeline_runs_enqueued_total` (per ticket).
+        - spawn-all-matched-projects counter unchanged; empty-plan skip
+          counter unchanged.
+
+    (3) Operator docs:
+        - Update p0140e docs sections describing multi-repo behaviour to
+          reflect the unified-run model (one ticket = one run = 1..N PRs,
+          workdir layout, cross-link two-pass).
+        - CHANGELOG entry: fan-out removal (p0158a), workdir layout
+          change for single-repo projects (p0158b, NOT bit-for-bit
+          compatible with pre-p0158a runs), PR cross-link (p0158c), CLI
+          ergonomics (p0158d).
+
+    (4) Smoke gate:
+        - /smoke (queue-mode) for fix-bug, security-scan,
+          api-security-scan against a monorepo project (one configured
+          repo) and a multi-repo project (≥2 configured repos). All
+          must be green for the slice to ship.
+
+    (5) Tests:
+        - Cli_RepoOption_ScopesRunToOneRepo
+        - Cli_RepoOption_UnknownName_Throws_WithKnownReposList
+        - Cli_RepoOption_OnSingleRepoProject_MatchingName_NoOp
+        - Cli_SourceFlags_RejectedOnMultiRepo_WithoutRepoOption
+        - Cli_SourceFlags_AcceptedOnSingleRepoProject_WithoutRepoOption
+
+  out: |
+    - Host-side source cache: separate follow-up phase.
+    - api-security-scan ticket-driven migration: separate follow-up phase.
+    - Multi-toolchain composite-image sandbox: separate follow-up phase.
+
+decisions:
+  - key: "Single-repo projects keep accepting `--source-*` without
+      `--repo`. — for the common case (developer working on a single
+      configured repo), forcing `--repo NAME` would be a regression in
+      ergonomics. Multi-repo projects have a real ambiguity (which repo
+      does --source-path override?) so the rejection only fires there.
+      — alternatives: require --repo always (rejected: bad ergonomics
+      for single-repo); silently apply to Repos[0] on multi-repo
+      (rejected: ambiguous, easy to misuse)."
+
+steps:
+  - id: cli
+    action: "Add `--repo NAME` to SourceOptions; populate
+      ContextKeys.SourceOverrideRepo on the request context. Add
+      multi-repo guard in SourceOptions.ApplyTo that rejects --source-*
+      without --repo on multi-repo projects with a clear error."
+    modify:
+      - "src/AgentSmith.Cli/Commands/SourceOptions.cs"
+      - "src/AgentSmith.Cli/Commands/FixCommand.cs"
+      - "src/AgentSmith.Cli/Commands/FeatureCommand.cs"
+      - "src/AgentSmith.Cli/Commands/ApiScanCommand.cs"
+      - "src/AgentSmith.Cli/Commands/SecurityScanCommand.cs"
+      - "src/AgentSmith.Cli/Commands/InitCommand.cs"
+      - "src/AgentSmith.Cli/Commands/AutonomousCommand.cs"
+      - "src/AgentSmith.Cli/Commands/RunCommand.cs"
+      - "src/AgentSmith.Cli/Commands/LegalCommand.cs"
+
+  - id: metrics
+    action: "Audit p0140e counter declarations + increment sites. Remove
+      per-repo enqueue counter if dead; otherwise rename to
+      pipeline_runs_enqueued_total. Update p0140e operator docs."
+    modify:
+      - "src/AgentSmith.Application/ (metrics declaration sites)"
+      - "docs/ (p0140e operator docs)"
+
+  - id: changelog
+    action: "CHANGELOG entries for p0158a / b / c / d. Document the
+      workdir-layout change for single-repo projects as a breaking
+      change with no auto-migration."
+    modify:
+      - "CHANGELOG.md"
+
+  - id: tests
+    action: "Add the five CLI-side tests. Where the CLI test surface
+      doesn't cover SourceOptions directly, add focused tests against
+      SourceOptions.ApplyTo using a synthetic InvocationContext."
+    modify:
+      - "tests/AgentSmith.Tests/Cli/ (new tests for --repo / multi-repo guard)"
+
+  - id: smoke
+    action: "Run /smoke against fix-bug + security-scan +
+      api-security-scan, monorepo and multi-repo project. Block ship
+      on any red."
+
+tests:
+  - "Cli_RepoOption_ScopesRunToOneRepo"
+  - "Cli_RepoOption_UnknownName_Throws_WithKnownReposList"
+  - "Cli_RepoOption_OnSingleRepoProject_MatchingName_NoOp"
+  - "Cli_SourceFlags_RejectedOnMultiRepo_WithoutRepoOption"
+  - "Cli_SourceFlags_AcceptedOnSingleRepoProject_WithoutRepoOption"
+
+done:
+  - "`--repo NAME` available on all eight source-using CLI commands;
+     emits ContextKeys.SourceOverrideRepo on the request context."
+  - "`--source-*` flags rejected without `--repo` on multi-repo
+     projects; accepted on single-repo projects."
+  - "Unknown `--repo NAME` throws with the known-repos list at
+     ExecutePipelineUseCase (existing p0158a behaviour, exercised via
+     CLI here)."
+  - "p0140e per-repo counter sites cleaned up; spawn-all-matched
+     counter + empty-plan skip counter unchanged."
+  - "p0140e operator docs reflect the unified-run model."
+  - "CHANGELOG documents p0158a/b/c/d collectively."
+  - "/smoke green (queue-mode) for fix-bug, security-scan,
+     api-security-scan, monorepo + multi-repo project. p0158 umbrella
+     closed."

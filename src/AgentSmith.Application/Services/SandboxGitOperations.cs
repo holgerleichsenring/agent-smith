@@ -20,31 +20,31 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
 
     public async Task CommitAndPushAsync(
         ISandbox sandbox, string branchName, string message,
-        RepoType repoType, CancellationToken cancellationToken)
+        RepoType repoType, string workingDirectory, CancellationToken cancellationToken)
     {
-        await ConfigureUserAsync(sandbox, cancellationToken);
-        await StageAllAsync(sandbox, cancellationToken);
-        var committed = await CommitAsync(sandbox, message, cancellationToken);
+        await ConfigureUserAsync(sandbox, workingDirectory, cancellationToken);
+        await StageAllAsync(sandbox, workingDirectory, cancellationToken);
+        var committed = await CommitAsync(sandbox, message, workingDirectory, cancellationToken);
         if (!committed)
         {
-            logger.LogInformation("Working tree clean, nothing to commit");
+            logger.LogInformation("Working tree clean in {Workdir}, nothing to commit", workingDirectory);
             throw new InvalidOperationException("nothing to commit, working tree clean");
         }
-        await PushAsync(sandbox, branchName, repoType, cancellationToken);
+        await PushAsync(sandbox, branchName, repoType, workingDirectory, cancellationToken);
     }
 
-    private static async Task ConfigureUserAsync(ISandbox sandbox, CancellationToken ct)
+    private static async Task ConfigureUserAsync(ISandbox sandbox, string workdir, CancellationToken ct)
     {
-        await Run(sandbox, "git", new[] { "config", "user.email", "agent-smith@noreply.local" }, ct);
-        await Run(sandbox, "git", new[] { "config", "user.name", "Agent Smith" }, ct);
+        await Run(sandbox, "git", new[] { "config", "user.email", "agent-smith@noreply.local" }, workdir, ct);
+        await Run(sandbox, "git", new[] { "config", "user.name", "Agent Smith" }, workdir, ct);
     }
 
-    private static async Task StageAllAsync(ISandbox sandbox, CancellationToken ct) =>
-        await Run(sandbox, "git", new[] { "add", "-A" }, ct);
+    private static async Task StageAllAsync(ISandbox sandbox, string workdir, CancellationToken ct) =>
+        await Run(sandbox, "git", new[] { "add", "-A" }, workdir, ct);
 
-    private async Task<bool> CommitAsync(ISandbox sandbox, string message, CancellationToken ct)
+    private async Task<bool> CommitAsync(ISandbox sandbox, string message, string workdir, CancellationToken ct)
     {
-        var result = await sandbox.RunStepAsync(BuildStep("git", new[] { "commit", "-m", message }), null, ct);
+        var result = await sandbox.RunStepAsync(BuildStep("git", new[] { "commit", "-m", message }, workdir), null, ct);
         if (result.ExitCode == 0) return true;
         var error = result.ErrorMessage ?? string.Empty;
         if (error.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)) return false;
@@ -53,35 +53,29 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
     }
 
     private static async Task PushAsync(
-        ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct)
+        ISandbox sandbox, string branch, RepoType repoType, string workdir, CancellationToken ct)
     {
-        // p0125c-followup: push needs GIT_TOKEN for the credential helper to
-        // echo, same as the clone Step in CheckoutSourceHandler. Resolve via
-        // the shared GitTokenResolver so CLI runs against private remotes
-        // (AzureRepos / GitHub / GitLab) authenticate correctly. Server (K8s)
-        // mode also reaches this code path; its pod-level GIT_TOKEN injection
-        // still works because Step.Env overlays on top of the inherited pod
-        // env without removing existing entries.
         var token = GitTokenResolver.Resolve(repoType);
         var env = token is null
             ? null
             : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
 
         var result = await sandbox.RunStepAsync(
-            BuildStep("git", new[] { "-c", CredHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}" }, env), null, ct);
+            BuildStep("git", new[] { "-c", CredHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}" }, workdir, env), null, ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
 
-    private static async Task Run(ISandbox sandbox, string cmd, IReadOnlyList<string> args, CancellationToken ct)
+    private static async Task Run(
+        ISandbox sandbox, string cmd, IReadOnlyList<string> args, string workdir, CancellationToken ct)
     {
-        var result = await sandbox.RunStepAsync(BuildStep(cmd, args), null, ct);
+        var result = await sandbox.RunStepAsync(BuildStep(cmd, args, workdir), null, ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"{cmd} {string.Join(' ', args)} failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
 
-    private static Step BuildStep(string cmd, IReadOnlyList<string> args,
+    private static Step BuildStep(string cmd, IReadOnlyList<string> args, string workdir,
         IReadOnlyDictionary<string, string>? env = null) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: cmd, Args: args, Env: env, TimeoutSeconds: GitTimeoutSeconds);
+            Command: cmd, Args: args, WorkingDirectory: workdir, Env: env, TimeoutSeconds: GitTimeoutSeconds);
 }

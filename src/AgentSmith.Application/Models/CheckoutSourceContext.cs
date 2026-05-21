@@ -5,9 +5,14 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Models;
 
 /// <summary>
-/// Context for checking out a source repository.
+/// Context for checking out the run's source repos. Configs is the full list
+/// of configured repos for the run; multi-repo handlers iterate, single-repo
+/// handlers can read Config (the computed primary = Configs[0]).
 /// </summary>
 public sealed record CheckoutSourceContext(
-    RepoConnection Config,
+    IReadOnlyList<RepoConnection> Configs,
     BranchName? Branch,
-    PipelineContext Pipeline) : ICommandContext;
+    PipelineContext Pipeline) : ICommandContext
+{
+    public RepoConnection Config => Configs[0];
+}

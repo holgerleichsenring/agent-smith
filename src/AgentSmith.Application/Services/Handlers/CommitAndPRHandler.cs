@@ -1,18 +1,25 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Commits changes (in the sandbox where the modifications live) and creates a
-/// pull request via the source provider's API. If a DoneStatus is configured
-/// (e.g. from a Jira webhook trigger), transitions the ticket to that status;
-/// otherwise closes the ticket.
+/// Commits changes per repo (in the sandbox where the modifications live) and
+/// opens a pull request via the source provider's API. Per repo: detect staged
+/// changes (skip if none), commit + push, open PR with a sibling-PR marker in
+/// the body that p0158c's PATCH pass replaces with actual sibling URLs. Each
+/// outcome is recorded in ContextKeys.OpenedPullRequests; single-PR runs also
+/// publish ContextKeys.PullRequestUrl for backward compatibility with the
+/// pipeline executor result adapter. Ticket lifecycle finalization runs after
+/// all repos have been processed and references the primary PR URL.
 /// </summary>
 public sealed class CommitAndPRHandler(
     ISourceProviderFactory sourceFactory,
@@ -21,60 +28,106 @@ public sealed class CommitAndPRHandler(
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
+    private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
+
     public async Task<CommandResult> ExecuteAsync(
         CommitAndPRContext context, CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Creating PR for ticket {Ticket} with {Changes} changes...",
-            context.Ticket.Id, context.Changes.Count);
+            "Creating PRs for ticket {Ticket} across {Repos} repo(s)...",
+            context.Ticket.Id, context.Configs.Count);
 
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return CommandResult.Fail("CommitAndPR requires an active sandbox; none in pipeline context.");
 
-        var sourceProvider = sourceFactory.Create(context.RepoConnection);
+        var opened = new List<OpenedPullRequest>(context.Configs.Count);
+        foreach (var repo in context.Configs)
+            opened.Add(await OpenOneAsync(context, sandbox, repo, cancellationToken));
 
-        var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
-        await gitOps.CommitAndPushAsync(
-            sandbox, context.Repository.CurrentBranch.Value, message,
-            context.RepoConnection.Type, cancellationToken);
+        context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
+        var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
+        if (primaryUrl is not null)
+            context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
-        var prUrl = await sourceProvider.CreatePullRequestAsync(
-            context.Repository,
-            context.Ticket.Title,
-            context.Ticket.Description,
-            cancellationToken,
-            linkedTicketId: context.Ticket.Id);
-
-        context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
-
-        logger.LogInformation("Pull request created: {Url}", prUrl);
-
-        await FinalizeTicketAsync(context, prUrl, cancellationToken);
-
-        return CommandResult.Ok($"Pull request created: {prUrl}");
+        await FinalizeTicketAsync(context, opened, cancellationToken);
+        return BuildResult(opened);
     }
 
-    private Task FinalizeTicketAsync(
-        CommitAndPRContext context, string prUrl, CancellationToken cancellationToken)
+    private async Task<OpenedPullRequest> OpenOneAsync(
+        CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, CancellationToken ct)
     {
+        var workdir = Repository.WorkPathFor(repo.Name);
+        var branch = context.Repository.CurrentBranch.Value;
+        var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
+        try
+        {
+            await gitOps.CommitAndPushAsync(sandbox, branch, message, repo.Type, workdir, ct);
+        }
+        catch (Exception ex) when (LooksLikeEmptyCommit(ex))
+        {
+            logger.LogInformation("{Repo}: no changes, skipping PR", repo.Name);
+            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{Repo}: commit/push failed", repo.Name);
+            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+        }
+
+        try
+        {
+            var provider = sourceFactory.Create(repo);
+            var body = $"{context.Ticket.Description}\n\n{SiblingMarker}";
+            var prUrl = await provider.CreatePullRequestAsync(
+                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty, workdir),
+                context.Ticket.Title, body, ct, linkedTicketId: context.Ticket.Id);
+            logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
+            return new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{Repo}: PR open failed", repo.Name);
+            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+        }
+    }
+
+    private static bool LooksLikeEmptyCommit(Exception ex) =>
+        ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
+        || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
+
+    private Task FinalizeTicketAsync(
+        CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
+    {
+        var primary = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened);
+        if (primary is null) return Task.CompletedTask;
+
         var changes = string.Join("\n",
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
-
         var summary = $"""
-            ## Agent Smith - Completed in {context.RepoConnection.Name}
+            ## Agent Smith - Completed across {context.Configs.Count} repo(s)
 
-            **PR:** {prUrl}
+            **Primary PR:** {primary.Url}
 
             ### Changes
             {changes}
 
             This ticket was automatically processed by Agent Smith.
             """;
-
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-
         return TicketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
-            doneStatus, summary, logger, cancellationToken);
+            doneStatus, summary, logger, ct);
+    }
+
+    private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
+    {
+        var openedEntries = opened.Where(o => o.Status == OpenStatus.Opened).ToList();
+        var failed = opened.Count(o => o.Status == OpenStatus.Failed);
+        if (openedEntries.Count == 0 && failed > 0)
+            return CommandResult.Fail($"All {opened.Count} PR open attempts failed.");
+        if (openedEntries.Count == 1)
+            return CommandResult.Ok($"Pull request created: {openedEntries[0].Url}");
+        var urls = string.Join(", ", openedEntries.Select(o => o.Url));
+        return CommandResult.Ok($"Pull requests created: {urls}");
     }
 }

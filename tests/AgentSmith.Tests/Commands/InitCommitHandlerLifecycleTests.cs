@@ -155,7 +155,7 @@ public sealed class InitCommitHandlerLifecycleTests
     private InitCommitContext CreateContext(PipelineContext pipeline)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
-        return new InitCommitContext(repo, new RepoConnection(), new TrackerConnection(), pipeline);
+        return new InitCommitContext(repo, new[] { new RepoConnection() }, new TrackerConnection(), pipeline);
     }
 
     private PipelineContext NewPipelineWithSandbox()

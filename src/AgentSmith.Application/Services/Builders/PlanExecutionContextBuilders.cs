@@ -92,7 +92,7 @@ public sealed class CommitAndPRContextBuilder : IContextBuilder
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new CommitAndPRContext(repo, changes, ticket, repos[0], project.Tracker, pipeline);
+        return new CommitAndPRContext(repo, changes, ticket, repos, project.Tracker, pipeline);
     }
 }
 
@@ -102,7 +102,7 @@ public sealed class InitCommitContextBuilder : IContextBuilder
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        return new InitCommitContext(repo, repos[0], project.Tracker, pipeline);
+        return new InitCommitContext(repo, repos, project.Tracker, pipeline);
     }
 }
 
