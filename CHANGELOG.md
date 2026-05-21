@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.60.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.59.0...v0.60.0) (2026-05-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **bootstrap:** per-repo BootstrapDispatch + BootstrapRound (p0158g)
+* **sandbox:** per-repo sandbox + tool-layer path-prefix routing (p0158e)
+
+### Features
+
+* **bootstrap:** per-repo BootstrapDispatch + BootstrapRound (p0158g) ([9a53ab8](https://github.com/holgerleichsenring/agent-smith/commit/9a53ab8c4a0ee19015209898644968270fe9a442))
+* **bootstrap:** per-repo gate + load + analyze (p0158f) ([f32addb](https://github.com/holgerleichsenring/agent-smith/commit/f32addb3d712bc629d53069d00216f557b643565))
+* p0158 multi repo unified run ([660f847](https://github.com/holgerleichsenring/agent-smith/commit/660f84743070594a2eafd7eb6bd735b7569e0659))
+* **sandbox:** per-repo sandbox + tool-layer path-prefix routing (p0158e) ([a5e6a03](https://github.com/holgerleichsenring/agent-smith/commit/a5e6a0395d9d80e2164215766685257d168f08b8))
+
 ## [0.59.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.58.1...v0.59.0) (2026-05-21)
 
 
