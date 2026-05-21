@@ -18,6 +18,12 @@
     <!-- p0155: shell-tokenize ProjectMap.Ci.TestCommand without hand-rolling.
          Same beta pin as the CLI project to keep the transitive surface aligned. -->
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <!-- p0154: WebToolHost converts fetched HTML to markdown. HtmlAgilityPack
+         is a battle-tested HTML parser; ReverseMarkdown is the standard HTML→md
+         converter on top of it. Both BSD/MIT — same license posture as the rest
+         of the dependency graph. -->
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
+    <PackageReference Include="ReverseMarkdown" Version="4.6.0" />
   </ItemGroup>
 
   <PropertyGroup>
