@@ -79,7 +79,7 @@ public class CommitAndPRHandlerTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("sandbox");
+        result.Message.Should().Contain("Sandboxes");
     }
 
     [Fact]
@@ -164,10 +164,18 @@ public class CommitAndPRHandlerTests
         return new CommitAndPRContext(repo, changes, ticket, new[] { new RepoConnection() }, new TrackerConnection(), pl);
     }
 
+    private void SeedSandboxes(PipelineContext pipeline)
+    {
+        pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [string.Empty] = _sandboxMock.Object });
+    }
+
     private PipelineContext NewPipelineWithSandbox()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        SeedSandboxes(pipeline);
         return pipeline;
     }
 }
