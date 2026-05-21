@@ -46,6 +46,12 @@ public static partial class ContextKeys
     /// pass to render the sibling URL list back into each opened PR's body.</summary>
     public const string OpenedPullRequests = "OpenedPullRequests";
 
+    /// <summary>Dictionary&lt;repoName, body-string-used-at-open-time&gt; published by
+    /// CommitAndPRHandler / InitCommitHandler alongside OpenedPullRequests. p0158c's
+    /// PrCrossLinkHandler reads this to do in-memory marker-replace per PR without
+    /// re-fetching bodies from the platform.</summary>
+    public const string OpenedPullRequestBodies = "OpenedPullRequestBodies";
+
     public const string Decisions = "Decisions";
     public const string Attachments = "Attachments";
     public const string SourceFilePath = "SourceFilePath";

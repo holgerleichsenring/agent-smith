@@ -43,10 +43,16 @@ public sealed class InitCommitHandler(
         context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
 
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
+        var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
-            opened.Add(await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken));
+        {
+            var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
+            opened.Add(result);
+            if (body is not null) bodies[repo.Name] = body;
+        }
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
         var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
@@ -56,7 +62,7 @@ public sealed class InitCommitHandler(
         return BuildResult(opened);
     }
 
-    private async Task<OpenedPullRequest> OpenOneAsync(
+    private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
         InitCommitContext context, ISandbox sandbox, RepoConnection repo,
         TicketId? ticketId, CancellationToken ct)
     {
@@ -70,28 +76,28 @@ public sealed class InitCommitHandler(
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {
             logger.LogInformation("{Repo}: no init changes, skipping PR", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: init commit/push failed", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
         }
 
+        var body = $"Auto-generated project context, code map, and coding principles.\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
-            var body = $"Auto-generated project context, code map, and coding principles.\n\n{SiblingMarker}";
             var prUrl = await provider.CreatePullRequestAsync(
                 new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty, workdir),
                 "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId);
             logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
-            return new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened);
+            return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: init PR open failed", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
         }
     }
 

@@ -26,6 +26,7 @@ public sealed class InitProjectPipelinePresetTests
             CommandNames.BootstrapDispatch,
             CommandNames.WriteRunResult,
             CommandNames.InitCommit,
+            CommandNames.PrCrossLink, // p0158c
         }, options => options.WithStrictOrdering());
     }
 

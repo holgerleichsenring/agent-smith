@@ -41,10 +41,16 @@ public sealed class CommitAndPRHandler(
             return CommandResult.Fail("CommitAndPR requires an active sandbox; none in pipeline context.");
 
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
+        var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
-            opened.Add(await OpenOneAsync(context, sandbox, repo, cancellationToken));
+        {
+            var (result, body) = await OpenOneAsync(context, sandbox, repo, cancellationToken);
+            opened.Add(result);
+            if (body is not null) bodies[repo.Name] = body;
+        }
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
         var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
@@ -53,7 +59,7 @@ public sealed class CommitAndPRHandler(
         return BuildResult(opened);
     }
 
-    private async Task<OpenedPullRequest> OpenOneAsync(
+    private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
         CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, CancellationToken ct)
     {
         var workdir = Repository.WorkPathFor(repo.Name);
@@ -66,28 +72,28 @@ public sealed class CommitAndPRHandler(
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {
             logger.LogInformation("{Repo}: no changes, skipping PR", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: commit/push failed", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
         }
 
+        var body = $"{context.Ticket.Description}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
-            var body = $"{context.Ticket.Description}\n\n{SiblingMarker}";
             var prUrl = await provider.CreatePullRequestAsync(
                 new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty, workdir),
                 context.Ticket.Title, body, ct, linkedTicketId: context.Ticket.Id);
             logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
-            return new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened);
+            return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: PR open failed", repo.Name);
-            return new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
         }
     }
 

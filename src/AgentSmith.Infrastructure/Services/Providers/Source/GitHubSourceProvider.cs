@@ -106,6 +106,32 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on PR #{PrNumber}", prNumber);
     }
 
+    public async Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken)
+    {
+        if (!TryParsePullNumber(prUrl, out var prNumber)) return false;
+        try
+        {
+            var client = CreateGitHubClient();
+            await client.PullRequest.Update(_owner, _repo, prNumber,
+                new PullRequestUpdate { Body = newBody });
+            _logger.LogInformation("Updated PR body for #{Pr}", prNumber);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update PR body for #{Pr}", prNumber);
+            return false;
+        }
+    }
+
+    private static bool TryParsePullNumber(string prUrl, out int prNumber)
+    {
+        prNumber = 0;
+        var match = System.Text.RegularExpressions.Regex.Match(prUrl, @"/pull/(\d+)");
+        return match.Success && int.TryParse(match.Groups[1].Value, out prNumber);
+    }
+
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var client = CreateGitHubClient();

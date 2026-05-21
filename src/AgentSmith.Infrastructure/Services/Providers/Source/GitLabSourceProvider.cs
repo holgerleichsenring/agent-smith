@@ -103,6 +103,36 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
     }
 
+    public async Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken)
+    {
+        if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
+        try
+        {
+            var encodedProject = Uri.EscapeDataString(_projectPath);
+            var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/merge_requests/{iid}";
+            using var request = new HttpRequestMessage(HttpMethod.Put, url);
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+            request.Content = JsonContent.Create(new { description = newBody });
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            _logger.LogInformation("Updated MR body for !{Iid}", iid);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update MR body for !{Iid}", iid);
+            return false;
+        }
+    }
+
+    private static bool TryParseMergeRequestIid(string mrUrl, out int iid)
+    {
+        iid = 0;
+        var match = System.Text.RegularExpressions.Regex.Match(mrUrl, @"/merge_requests/(\d+)");
+        return match.Success && int.TryParse(match.Groups[1].Value, out iid);
+    }
+
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var branch = await GetDefaultBranchAsync(cancellationToken);
