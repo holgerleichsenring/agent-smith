@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.58.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.58.0...v0.58.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* **sandbox-agent:** operator-grade logs — job scope, real command, single line ([#190](https://github.com/holgerleichsenring/agent-smith/issues/190)) ([2e9c02e](https://github.com/holgerleichsenring/agent-smith/commit/2e9c02ed507b3b3ea61aee07eb2882929c117794))
+* **sandbox:** SandboxFileReader + TestHandler accept new ListFiles object shape ([#188](https://github.com/holgerleichsenring/agent-smith/issues/188)) ([54694c1](https://github.com/holgerleichsenring/agent-smith/commit/54694c17c8661354647048f9a039afe2bd193293))
+
 ## [0.58.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.57.2...v0.58.0) (2026-05-20)
 
 
