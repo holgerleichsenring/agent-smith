@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158g
+requires: ["p0158f"]
+supersedes: []
+goal: |
+  Close the multi-repo init-project gap left open by p0158f: per-repo
+  BootstrapDispatch + BootstrapRound so a 5-repo init run produces 5
+  `.agentsmith/context.yaml` + 5 `coding-principles.md` (one per repo,
+  each language-appropriate). Today (post-p0158f) init-project bootstraps
+  only Repos[0]; multi-repo operators must run init-project once per
+  repo via `cli init --repo NAME` until p0158g lands the automated
+  per-repo dispatch.
+
+scope:
+  in: |
+    (1) BootstrapDispatchHandler:
+        - Iterate RepoProjectMaps. For each repo:
+          - Set concept project_language = that repo's PrimaryLanguage
+            (per-iteration concept mutation OR per-iteration scope)
+          - Run ActivationSkillFilter against the current concept state
+          - Emit one PipelineCommand.SkillRound(BootstrapRound, skill, round=1)
+            with a new RepoName parameter
+        - All N commands queued via OkAndContinueWith
+
+    (2) PipelineCommand.SkillRound: gain a RepoName field so per-repo
+        dispatch is explicit. SkillRoundContext / BootstrapRoundContext
+        carry RepoName forward to the handler.
+
+    (3) BootstrapRoundContext + BootstrapRoundContextBuilder:
+        - Add `string RepoName` field
+        - Builder reads it from PipelineCommand parameters
+
+    (4) BootstrapRoundHandler:
+        - Use RepoName to look up Sandboxes[RepoName] (not legacy Sandbox)
+        - Use Sandboxes[RepoName] when constructing BootstrapToolHostFactory
+        - Use RepoProjectMaps[RepoName] when picking the ProjectMap
+          (not legacy ProjectMap)
+        - WriteFile paths are repo-relative `/work/.agentsmith/...` in
+          the per-repo sandbox (p0158e layout — no further work needed
+          since the per-repo sandbox already has /work = that repo)
+
+    (5) BootstrapToolHostFactory:
+        - Construction site updated to take a single sandbox (per-repo)
+          + the per-repo write-guard. No multi-sandbox routing inside the
+          bootstrap tool host — each BootstrapRound iteration creates a
+          fresh host scoped to one sandbox.
+
+    (6) Concept activation context per-iteration:
+        - Either: BootstrapDispatch temporarily mutates concept state
+          before each ActivationFilter call (revert via try/finally so
+          the concept state is restored after the last emission).
+        - Or: introduce a per-iteration scoped concept overlay (more
+          architectural change, separate concern).
+        - Pick the simpler option in implementation; document the choice
+          in decisions.md.
+
+    (7) Tests (~6 new):
+        - BootstrapDispatch_MultipleReposWithDifferentLanguages_EmitsOneRoundPerRepo
+        - BootstrapDispatch_NoBootstrapSkillForRepoLanguage_FailsWithKnownSkillsList
+        - BootstrapDispatch_PreservesConceptStateAcrossIterations
+        - BootstrapRound_WritesToCorrectPerRepoSandbox
+        - BootstrapRound_WritesToPerRepoAgentsmithDir
+        - InitProject_FiveRepos_ProducesFivePullRequests (smoke-style)
+
+  out: |
+    - Repo-scoped concept-vocabulary plumbing (full per-repo concept
+      scope as a first-class infrastructure feature). For p0158g a
+      per-iteration mutation + revert is enough.
+    - Catalog bump (agent-smith-skills): adding `project_languages`
+      aggregate concept happens in that repo, separate cadence.
+    - Multi-toolchain composite-image sandbox: separate follow-up.
+    - Operator-configured slug→image mapping (replacing the hardcoded
+      SandboxSpecBuilder.LanguageImages): separate follow-up phase
+      mentioned in p0158e/p0158f decisions.
+
+decisions:
+  # populated during execution
+  []
+
+steps:
+  - id: command-shape
+    action: "PipelineCommand.SkillRound: add RepoName parameter.
+      SkillRoundContext + BootstrapRoundContext add RepoName field;
+      builders read it from the PipelineCommand."
+    modify:
+      - "src/AgentSmith.Domain/Models/PipelineCommand.cs"
+      - "src/AgentSmith.Application/Models/SkillRoundContext.cs"
+      - "src/AgentSmith.Application/Models/BootstrapRoundContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/SkillContextBuilders.cs"
+
+  - id: dispatch
+    action: "BootstrapDispatchHandler iterates RepoProjectMaps; per
+      iteration mutates project_language concept, runs filter, emits
+      one BootstrapRound command with RepoName + skill. Restores
+      concept state at the end."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+
+  - id: round
+    action: "BootstrapRoundHandler reads RepoName from context; looks
+      up Sandboxes[RepoName] and RepoProjectMaps[RepoName]; constructs
+      BootstrapToolHostFactory against that single sandbox."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs"
+      - "src/AgentSmith.Application/Services/BootstrapToolHostFactory.cs (if needed)"
+
+  - id: tests
+    action: "Add the six spec-driven tests in scope.in (7). Update
+      existing single-repo BootstrapDispatchTests / BootstrapRoundTests
+      fixtures to seed Sandboxes[''] + RepoProjectMaps[''] and pass
+      RepoName='' (back-compat single-repo)."
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/ (BootstrapDispatchTests, BootstrapRoundTests, new MultiRepoBootstrapDispatchTests)"
+
+tests:
+  - "BootstrapDispatch_MultipleReposWithDifferentLanguages_EmitsOneRoundPerRepo"
+  - "BootstrapDispatch_NoBootstrapSkillForRepoLanguage_FailsWithKnownSkillsList"
+  - "BootstrapDispatch_PreservesConceptStateAcrossIterations"
+  - "BootstrapRound_WritesToCorrectPerRepoSandbox"
+  - "BootstrapRound_WritesToPerRepoAgentsmithDir"
+  - "InitProject_FiveRepos_ProducesFivePullRequests"
+
+done:
+  - "PipelineCommand.SkillRound carries RepoName; SkillRoundContext +
+     BootstrapRoundContext expose it; builders fill it from the
+     command."
+  - "BootstrapDispatchHandler emits one BootstrapRound per repo with
+     repo-scoped activation; concept state restored after the last
+     iteration."
+  - "BootstrapRoundHandler uses Sandboxes[RepoName] +
+     RepoProjectMaps[RepoName]; BootstrapToolHostFactory takes the
+     per-repo sandbox."
+  - "init-project on a 5-repo project produces 5
+     `.agentsmith/context.yaml` + 5 `coding-principles.md` (one per
+     repo with the right language) and 5 PRs cross-linked via p0158c."
+  - "Build + full test suite green; 6 new spec-driven tests passing."
+  - "Operator /smoke gate (executed at release time, not by agent):
+     init-project on a mixed-stack 3+ repo project produces the
+     expected per-repo bootstrap files."

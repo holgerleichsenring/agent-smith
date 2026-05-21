@@ -1,8 +1,10 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -30,36 +32,50 @@ public sealed class AnalyzeProjectHandler(
     public async Task<CommandResult> ExecuteAsync(
         AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
-        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var reader = readerFactory.Create(sandbox);
-        var repoPath = context.Repository.LocalPath;
-        var cacheDir = paths.ProjectCacheDir(context.Repository.RemoteUrl);
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
 
-        // Cache-key is hashed over manifests inside the repo (sandbox-side);
-        // cache JSON itself lives on the host so init-PRs stay clean.
-        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, repoPath, cancellationToken);
-        var map = await TryLoadCachedAsync(cacheDir, cacheKey, cancellationToken);
+        var perRepo = new Dictionary<string, ProjectMap>(StringComparer.Ordinal);
+        foreach (var repo in repos)
+        {
+            if (!sandboxes.TryGetValue(repo.Name, out var sandbox)) continue;
+            var map = await AnalyzeOneAsync(context, sandbox, repo, cancellationToken);
+            perRepo[repo.Name] = map;
+        }
+
+        context.Pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps, perRepo);
+        if (perRepo.TryGetValue(repos[0].Name, out var primary))
+        {
+            context.Pipeline.Set(ContextKeys.ProjectMap, primary);
+            context.Pipeline.Set(ContextKeys.CodeMap, ToCodeMapText(primary));
+        }
+        return CommandResult.Ok($"Analyzed {perRepo.Count} repo(s)");
+    }
+
+    private async Task<ProjectMap> AnalyzeOneAsync(
+        AnalyzeCodeContext context, ISandbox sandbox, RepoConnection repo, CancellationToken ct)
+    {
+        var reader = readerFactory.Create(sandbox);
+        var repoPath = Repository.SandboxWorkPath;
+        var cacheDir = paths.ProjectCacheDir(repo.Url ?? repo.Name);
+        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, repoPath, ct);
+        var map = await TryLoadCachedAsync(cacheDir, cacheKey, ct);
         if (map is null)
         {
-            logger.LogInformation("ProjectMap cache miss — running analyzer for {Path}", repoPath);
+            logger.LogInformation("{Repo}: ProjectMap cache miss — running analyzer", repo.Name);
             var agent = context.Pipeline.Resolved().Agent;
-            map = await analyzer.AnalyzeAsync(repoPath, agent, sandbox, cancellationToken);
-            await PersistCacheAsync(cacheDir, map, cacheKey, cancellationToken);
+            map = await analyzer.AnalyzeAsync(repoPath, agent, sandbox, ct);
+            await PersistCacheAsync(cacheDir, map, cacheKey, ct);
             logger.LogInformation(
-                "ProjectMap analyzed: {Lang}, {Modules} module(s), {Tests} test project(s)",
-                map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
+                "{Repo}: analyzed lang={Lang}, modules={Modules}, test_projects={Tests}",
+                repo.Name, map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
         }
         else
         {
             logger.LogInformation(
-                "ProjectMap cache hit ({Tests} test project(s)) — skipping analyzer", map.TestProjects.Count);
+                "{Repo}: ProjectMap cache hit ({Tests} test project(s))", repo.Name, map.TestProjects.Count);
         }
-
-        context.Pipeline.Set(ContextKeys.ProjectMap, map);
-        context.Pipeline.Set(ContextKeys.CodeMap, ToCodeMapText(map));
-
-        return CommandResult.Ok(
-            $"Analyzed: {map.Modules.Count} module(s), {map.TestProjects.Count} test project(s)");
+        return map;
     }
 
     private static string ToCodeMapText(ProjectMap map) =>
