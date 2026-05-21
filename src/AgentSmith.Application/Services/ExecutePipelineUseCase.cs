@@ -53,7 +53,7 @@ public sealed class ExecutePipelineUseCase(
         if (!config.Projects.TryGetValue(projectName, out var projectConfig))
             throw new ConfigurationException($"Project '{projectName}' not found in configuration.");
 
-        var currentRepo = ResolveCurrentRepo(projectConfig, request.RepoName);
+        var repos = ResolveRepos(projectConfig, request.Context);
 
         var commands = PipelinePresets.TryResolve(request.PipelineName)
             ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
@@ -63,7 +63,7 @@ public sealed class ExecutePipelineUseCase(
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, runId);
         pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
-        pipeline.Set(ContextKeys.CurrentRepo, currentRepo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, repos);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
@@ -126,27 +126,30 @@ public sealed class ExecutePipelineUseCase(
     }
 
     /// <summary>
-    /// p0140d: resolves PipelineRequest.RepoName → RepoConnection. Single-repo projects with
-    /// a null RepoName fall back to the only repo (preserves bit-for-bit behaviour for pre-
-    /// p0140b enqueues that lacked RepoName). Multi-repo projects without a RepoName, or
-    /// any RepoName that doesn't match a repo in the project, throw with a clear message.
+    /// Resolves the repos this run will operate on. By default returns all configured repos.
+    /// If ContextKeys.SourceOverrideRepo is set in the request context (CLI `--repo NAME`),
+    /// filters down to that single repo; unknown names throw with the known-repos list.
     /// </summary>
-    private static RepoConnection ResolveCurrentRepo(ResolvedProject project, string? repoName)
+    private static IReadOnlyList<RepoConnection> ResolveRepos(
+        ResolvedProject project, IReadOnlyDictionary<string, object>? requestContext)
     {
-        if (string.IsNullOrEmpty(repoName))
-        {
-            if (project.Repos.Count == 1) return project.Repos[0];
+        if (project.Repos.Count == 0)
             throw new InvalidOperationException(
-                $"PipelineRequest.RepoName is null/empty but project '{project.Name}' has "
-                + $"{project.Repos.Count} repos. A RepoName is required for multi-repo projects.");
-        }
+                $"Project '{project.Name}' has no repos configured.");
+
+        if (requestContext is null
+            || !requestContext.TryGetValue(ContextKeys.SourceOverrideRepo, out var value)
+            || value is not string repoName
+            || string.IsNullOrEmpty(repoName))
+            return project.Repos;
+
         var match = project.Repos.SingleOrDefault(r =>
             string.Equals(r.Name, repoName, StringComparison.OrdinalIgnoreCase));
         if (match is null)
             throw new InvalidOperationException(
-                $"PipelineRequest.RepoName '{repoName}' does not match any repo in project "
-                + $"'{project.Name}'. Known repos: [{string.Join(", ", project.Repos.Select(r => r.Name))}].");
-        return match;
+                $"--repo '{repoName}' does not match any repo in project '{project.Name}'. "
+                + $"Known repos: [{string.Join(", ", project.Repos.Select(r => r.Name))}].");
+        return new[] { match };
     }
 
     /// <summary>

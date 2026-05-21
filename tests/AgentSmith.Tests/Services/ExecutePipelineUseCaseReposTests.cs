@@ -13,11 +13,12 @@ using Moq;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0140d: ExecutePipelineUseCase.ResolveCurrentRepo resolves the run's RepoConnection
-/// from PipelineRequest.RepoName + project.Repos and sets it on the PipelineContext
-/// under ContextKeys.CurrentRepo before invoking the pipeline executor.
+/// ExecutePipelineUseCase publishes the run's repos on PipelineContext under
+/// ContextKeys.Repos. Default: all configured project repos. When the request's
+/// Context carries ContextKeys.SourceOverrideRepo (CLI `--repo NAME`), the list
+/// is filtered to that single repo; unknown names throw with the known-repos list.
 /// </summary>
-public sealed class ExecutePipelineUseCaseCurrentRepoTests
+public sealed class ExecutePipelineUseCaseReposTests
 {
     private readonly Mock<IConfigurationLoader> _configMock = new();
     private readonly Mock<IIntentParser> _intentMock = new();
@@ -25,12 +26,11 @@ public sealed class ExecutePipelineUseCaseCurrentRepoTests
     private readonly Mock<ISourceConfigOverrider> _sourceOverriderMock = new();
     private readonly ExecutePipelineUseCase _sut;
 
-    public ExecutePipelineUseCaseCurrentRepoTests()
+    public ExecutePipelineUseCaseReposTests()
     {
         var skillLoaderMock = new Mock<ISkillLoader>();
         skillLoaderMock.Setup(s => s.LoadVocabulary(It.IsAny<string>()))
             .Returns(ConceptVocabulary.Empty);
-        // SourceConfigOverrider is a no-op so it doesn't disturb CurrentRepo.
         _sourceOverriderMock
             .Setup(o => o.Apply(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>()))
             .Returns<ResolvedProject, PipelineContext>((project, _) => project);
@@ -48,53 +48,42 @@ public sealed class ExecutePipelineUseCaseCurrentRepoTests
     }
 
     [Fact]
-    public async Task ExecutePipeline_RepoNameNull_SingleRepoProject_FallsBackToOnlyRepo()
+    public async Task ExecutePipeline_NoScopeOverride_PublishesAllConfiguredRepos()
     {
-        var onlyRepo = new RepoConnection { Name = "only-repo", Url = "https://example/only" };
-        SetupConfig("demo", onlyRepo);
-        var captured = CaptureCurrentRepo();
+        var repoA = new RepoConnection { Name = "repo-a", Url = "https://example/a" };
+        var repoB = new RepoConnection { Name = "repo-b", Url = "https://example/b" };
+        SetupConfig("demo", repoA, repoB);
+        var captured = CaptureRepos();
         var request = new PipelineRequest("demo", "fix-bug");
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
 
-        captured.Value.Should().BeSameAs(onlyRepo);
+        captured.Value.Should().NotBeNull();
+        captured.Value!.Should().BeEquivalentTo(new[] { repoA, repoB }, o => o.WithStrictOrdering());
     }
 
     [Fact]
-    public async Task ExecutePipeline_RepoNameNull_MultiRepoProject_Throws()
-    {
-        SetupConfig("demo",
-            new RepoConnection { Name = "repo-a" },
-            new RepoConnection { Name = "repo-b" });
-        var request = new PipelineRequest("demo", "fix-bug");
-
-        var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
-
-        var ex = await act.Should().ThrowAsync<InvalidOperationException>();
-        ex.Which.Message.Should().Contain("demo");
-        ex.Which.Message.Should().Contain("RepoName");
-    }
-
-    [Fact]
-    public async Task ExecutePipeline_RepoNameMatchesByNameCaseInsensitive()
+    public async Task ExecutePipeline_RepoOverride_FiltersToSingleRepo_CaseInsensitive()
     {
         var target = new RepoConnection { Name = "repo-a", Url = "https://example/a" };
         SetupConfig("demo", target, new RepoConnection { Name = "repo-b" });
-        var captured = CaptureCurrentRepo();
-        var request = new PipelineRequest("demo", "fix-bug", RepoName: "REPO-A");
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "REPO-A" });
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
 
-        captured.Value.Should().BeSameAs(target);
+        captured.Value.Should().ContainSingle().Which.Should().BeSameAs(target);
     }
 
     [Fact]
-    public async Task ExecutePipeline_RepoNameNotInProjectRepos_Throws_WithKnownReposList()
+    public async Task ExecutePipeline_RepoOverride_UnknownName_Throws_WithKnownReposList()
     {
         SetupConfig("demo",
             new RepoConnection { Name = "a" },
             new RepoConnection { Name = "b" });
-        var request = new PipelineRequest("demo", "fix-bug", RepoName: "bogus");
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "bogus" });
 
         var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
 
@@ -102,6 +91,20 @@ public sealed class ExecutePipelineUseCaseCurrentRepoTests
         ex.Which.Message.Should().Contain("bogus");
         ex.Which.Message.Should().Contain("a");
         ex.Which.Message.Should().Contain("b");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_RepoOverride_OnSingleRepoProject_MatchingName_NoOp()
+    {
+        var only = new RepoConnection { Name = "only", Url = "https://example/only" };
+        SetupConfig("demo", only);
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "only" });
+
+        await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        captured.Value.Should().ContainSingle().Which.Should().BeSameAs(only);
     }
 
     private void SetupConfig(string projectName, params RepoConnection[] repos)
@@ -119,9 +122,9 @@ public sealed class ExecutePipelineUseCaseCurrentRepoTests
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(config);
     }
 
-    private CapturedRepo CaptureCurrentRepo()
+    private CapturedRepos CaptureRepos()
     {
-        var captured = new CapturedRepo();
+        var captured = new CapturedRepos();
         _pipelineMock
             .Setup(p => p.ExecuteAsync(
                 It.IsAny<IReadOnlyList<string>>(),
@@ -130,14 +133,14 @@ public sealed class ExecutePipelineUseCaseCurrentRepoTests
                 It.IsAny<CancellationToken>()))
             .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
             {
-                captured.Value = ctx.Get<RepoConnection>(ContextKeys.CurrentRepo);
+                captured.Value = ctx.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
                 return Task.FromResult(CommandResult.Ok("captured"));
             });
         return captured;
     }
 
-    private sealed class CapturedRepo
+    private sealed class CapturedRepos
     {
-        public RepoConnection? Value { get; set; }
+        public IReadOnlyList<RepoConnection>? Value { get; set; }
     }
 }

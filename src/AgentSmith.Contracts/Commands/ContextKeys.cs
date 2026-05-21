@@ -13,10 +13,15 @@ public static partial class ContextKeys
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";
 
-    /// <summary>p0140d: the RepoConnection for THIS run. Resolved at the top of ExecutePipelineUseCase
-    /// from PipelineRequest.RepoName + project.Repos. Single source of truth for "which repo is
-    /// this run for" — every consumer that previously read project.Repo now reads CurrentRepo.</summary>
-    public const string CurrentRepo = "CurrentRepo";
+    /// <summary>The list of RepoConnections this run operates on
+    /// (IReadOnlyList&lt;RepoConnection&gt;). Published by ExecutePipelineUseCase from the project's
+    /// configured Repos, optionally filtered to a single entry when SourceOverrideRepo is set.
+    /// Single-repo projects expose a one-element list; multi-repo projects expose all repos.</summary>
+    public const string Repos = "Repos";
+
+    /// <summary>Optional repo name (string) that scopes the run to a single configured repo.
+    /// Set by the CLI when `--repo NAME` is provided; absent in queue-driven (K8s/Compose) runs.</summary>
+    public const string SourceOverrideRepo = "SourceOverrideRepo";
 
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";

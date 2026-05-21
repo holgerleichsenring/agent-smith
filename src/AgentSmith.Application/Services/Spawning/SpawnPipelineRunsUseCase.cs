@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Spawning;
 
 /// <summary>
-/// Builds one ClaimRequest per RepoConnection on the resolved project and submits the
-/// batch through ITicketClaimService.ClaimSpawnAsync. The matched trigger is passed in
-/// so DoneStatus can flow into the per-request InitialContext exactly as today's webhook
-/// handlers populate it.
+/// Builds exactly one ClaimRequest per ticket and submits it through
+/// ITicketClaimService.ClaimAsync. The matched trigger is passed in so DoneStatus
+/// can flow into the request's InitialContext exactly as today's webhook
+/// handlers populate it. The unified-run model: one ticket = one pipeline run
+/// over all configured repos (no per-repo fan-out).
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
@@ -35,38 +36,29 @@ public sealed class SpawnPipelineRunsUseCase(
             throw new InvalidOperationException(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
 
-        var requests = BuildRequests(project, pipelineName, envelope, matchedTrigger, planAnswers);
-        var results = await claimService.ClaimSpawnAsync(requests, config, ct);
+        var request = BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers);
+        var result = await claimService.ClaimAsync(request, config, ct);
 
         logger.LogInformation(
-            "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → {RepoCount} repo(s); outcomes=[{Outcomes}]",
-            project.Name, pipelineName, envelope.TicketId, requests.Count,
-            string.Join(",", results.Select(r => r.Outcome)));
+            "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → outcome={Outcome}",
+            project.Name, pipelineName, envelope.TicketId, result.Outcome);
 
-        return new SpawnResult(results);
+        return new SpawnResult(new[] { result });
     }
 
-    private static IReadOnlyList<ClaimRequest> BuildRequests(
+    private static ClaimRequest BuildRequest(
         ResolvedProject project,
         string pipelineName,
         IncomingTicketEnvelope envelope,
         WebhookTriggerConfig matchedTrigger,
         Dictionary<string, string>? planAnswers)
-    {
-        var ticketId = new TicketId(envelope.TicketId!);
-        var initialContext = BuildInitialContext(matchedTrigger);
-        var requests = new ClaimRequest[project.Repos.Count];
-        for (var i = 0; i < project.Repos.Count; i++)
-            requests[i] = new ClaimRequest(
-                Platform: envelope.Platform!,
-                ProjectName: project.Name,
-                TicketId: ticketId,
-                PipelineName: pipelineName,
-                InitialContext: initialContext,
-                PlanAnswers: planAnswers,
-                RepoName: project.Repos[i].Name);
-        return requests;
-    }
+        => new(
+            Platform: envelope.Platform!,
+            ProjectName: project.Name,
+            TicketId: new TicketId(envelope.TicketId!),
+            PipelineName: pipelineName,
+            InitialContext: BuildInitialContext(matchedTrigger),
+            PlanAnswers: planAnswers);
 
     private static Dictionary<string, object>? BuildInitialContext(WebhookTriggerConfig trigger)
     {

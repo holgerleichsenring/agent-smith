@@ -27,10 +27,10 @@ public sealed class PipelineExecutorLifecycleFailureTests
         // Pipeline must contain a sandbox-requiring command for sandbox-coordinator
         // to actually invoke the factory; CheckoutSourceCommand is the canonical example.
         var commands = new[] { CommandNames.CheckoutSource };
-        // Executor reads CurrentRepo from the pipeline context for sandbox-language
+        // Executor reads Repos from the pipeline context for sandbox-language
         // resolution; tests must seed it explicitly.
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, new RepoConnection());
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
 
         var act = async () => await h.Sut.ExecuteAsync(
             commands, new ResolvedProject(), pipeline, CancellationToken.None);

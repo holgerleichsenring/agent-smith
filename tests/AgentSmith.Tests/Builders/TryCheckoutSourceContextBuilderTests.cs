@@ -17,7 +17,7 @@ public sealed class TryCheckoutSourceContextBuilderTests
         var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = "develop" };
         var project = new ResolvedProject { Repos = new[] { repo } };
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, repo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { repo });
 
         var context = (TryCheckoutSourceContext)_builder.Build(
             new PipelineCommand(CommandNames.TryCheckoutSource), project, pipeline);
@@ -31,7 +31,7 @@ public sealed class TryCheckoutSourceContextBuilderTests
         var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null };
         var project = new ResolvedProject { Repos = new[] { repo } };
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, repo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { repo });
 
         var context = (TryCheckoutSourceContext)_builder.Build(
             new PipelineCommand(CommandNames.TryCheckoutSource), project, pipeline);
@@ -45,7 +45,7 @@ public sealed class TryCheckoutSourceContextBuilderTests
         var repo = new RepoConnection { Type = RepoType.GitHub, Url = "u", DefaultBranch = null };
         var project = new ResolvedProject { Repos = new[] { repo } };
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, repo);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { repo });
         pipeline.Set(ContextKeys.CheckoutBranch, "feature/from-webhook");
         pipeline.Set(ContextKeys.TicketId, new TicketId("BUG-123"));
 

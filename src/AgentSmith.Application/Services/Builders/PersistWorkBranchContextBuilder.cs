@@ -10,6 +10,6 @@ public sealed class PersistWorkBranchContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
         => new PersistWorkBranchContext(
-            pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo),
+            pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)[0],
             pipeline.Resolved().Agent, pipeline);
 }
