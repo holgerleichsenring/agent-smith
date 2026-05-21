@@ -10,7 +10,9 @@ namespace AgentSmith.Application.Services.Builders;
 public sealed class AcquireSourceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-        => new AcquireSourceContext(pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo), pipeline);
+        => new AcquireSourceContext(
+            pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)[0],
+            pipeline);
 }
 
 public sealed class BootstrapDocumentContextBuilder : IContextBuilder
@@ -28,8 +30,8 @@ public sealed class DeliverOutputContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         pipeline.TryGet<string>(ContextKeys.OutputFormat, out var outputFormat);
-        return new DeliverOutputContext(currentRepo, repo, pipeline, outputFormat);
+        return new DeliverOutputContext(repos[0], repo, pipeline, outputFormat);
     }
 }

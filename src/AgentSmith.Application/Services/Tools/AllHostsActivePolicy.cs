@@ -16,7 +16,11 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
     {
         typeof(FilesystemToolHost),
         typeof(LogDecisionToolHost),
-        typeof(HumanToolHost)
+        typeof(HumanToolHost),
+        // p0154: WebToolHost is in the allow-list so skills that need web_fetch
+        // can resolve it through ToolKit when the construction site provides one.
+        // Sites that do not pass a WebToolHost leave web_fetch off the surface.
+        typeof(WebToolHost)
     };
 
     public IReadOnlySet<Type> GetAllowedHosts(string pipelineName)

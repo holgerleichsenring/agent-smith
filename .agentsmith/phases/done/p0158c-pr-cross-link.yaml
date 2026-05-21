@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158c
+goal: |
+  Third slice of p0158: PR cross-link two-pass. After p0158b ships per-repo PR
+  open with a `<!-- agentsmith:sibling-prs -->` marker in each body, p0158c
+  adds the PATCH pass that replaces every marker with the actual sibling PR
+  URL list. Adds a new IPullRequestBodyPatcher abstraction and per-platform
+  implementations (GitHub, Azure DevOps, GitLab); the patch pass runs
+  immediately after CommitAndPRHandler / InitCommitHandler within the same
+  pipeline step. Single-PR runs skip the pass-2 patch entirely. Failed
+  pass-1 opens surface as `(open failed)` entries inside surviving siblings'
+  bodies.
+
+requires: ["p0158b"]
+
+supersedes: []
+
+scope:
+  in: |
+    (1) Contract:
+        - New IPullRequestBodyPatcher : ITypedProvider. One method
+          `Task<bool> TryUpdateBodyAsync(string prUrl, string newBody,
+          RepoConnection repo, CancellationToken ct)`. Returns true on
+          success (HTTP 2xx); false on any non-success or exception
+          (logged). Provider impls parse the prUrl to recover the
+          platform-specific identifier (GitHub: owner/repo/pulls/{n},
+          Azure DevOps: pullRequestId, GitLab: project_id + merge_request_iid).
+        - New IPullRequestBodyPatcherFactory : Create(RepoConnection) →
+          IPullRequestBodyPatcher.
+
+    (2) Per-platform implementations:
+        - GitHubPullRequestBodyPatcher: PATCH /repos/{owner}/{repo}/pulls/{n}
+          via Octokit. Body update only; no other fields touched.
+        - AzureReposPullRequestBodyPatcher: GitClient.UpdatePullRequestAsync
+          with GitPullRequest { Description = newBody }; supplied PR id
+          extracted from the URL.
+        - GitLabPullRequestBodyPatcher: PUT /projects/{id}/merge_requests/{iid}
+          with { description: newBody } via the existing GitLab REST client.
+        - LocalPullRequestBodyPatcher: no-op (returns true, logs at debug).
+
+    (3) Cross-link orchestrator:
+        - New PrCrossLinkOrchestrator service. Method
+          RunAsync(IReadOnlyList<OpenedPullRequest>, IReadOnlyList<RepoConnection>, CT).
+          Logic: if opened count < 2, skip. Build the sibling URL list once
+          (Opened entries' URLs + `(open failed)` placeholders for Failed
+          entries). For each Opened entry, fetch its current body via a
+          new IPullRequestReader (also per-platform), replace the marker
+          line with the rendered sibling block, PATCH via
+          IPullRequestBodyPatcher.
+
+        Actually: simpler — pass the new body inline. The handlers already
+        know the *original* body content (title + description + marker).
+        Render the new body = original-body.Replace(marker, siblingsBlock).
+        Handlers publish ContextKeys.OpenedPullRequestBodies (Dictionary<repoName, string>)
+        in addition to ContextKeys.OpenedPullRequests so the orchestrator
+        has the per-PR body source to operate on. PATCH replaces the
+        marker substring in-place.
+
+    (4) Pipeline executor wiring:
+        - Insert PrCrossLinkOrchestrator.RunAsync between CommitAndPR /
+          InitCommit and the next handler. Two options: (a) make it a
+          separate PipelineCommand (cleaner but adds a step); (b) run it
+          inline at the tail of CommitAndPRHandler / InitCommitHandler
+          (less ceremonial). Option (a) chosen — the cross-link is a
+          discrete capability and the executor visibility helps operator
+          debugging.
+        - New ContextBuilder + Command + Handler scaffolding for the
+          PrCrossLink step.
+
+    (5) Tests:
+        - PrCrossLinks_TwoPass_AllOpenedPrBodies_PatchedWithSiblingUrls
+        - PrCrossLinks_SinglePrRun_SkipsPass2 (no PATCH calls)
+        - PrCrossLinks_FailedOpen_ShownAsOpenFailed_InSurvivingSiblingBodies
+        - PrCrossLinks_PatchFailure_LoggedButDoesNotFailPipeline
+        - Per-platform smoke for each IPullRequestBodyPatcher impl against
+          mocked HTTP / Octokit / GitClient interactions.
+
+  out: |
+    - CLI `--repo NAME` flag, scope-override enforcement on multi-repo
+      `--source-*`, metrics counter collapse, operator-doc updates:
+      remain in p0158d.
+    - Full end-to-end smoke (compose / k8s) against monorepo + multi-repo:
+      runs at the end of p0158d.
+    - Cross-PR dependency declaration / CI-level coordination beyond the
+      sibling URL list: out of scope for the p0158 umbrella entirely.
+
+decisions:
+  - key: "PrCrossLinkOrchestrator as a separate PipelineCommand+Handler,
+      not inline tail-call in CommitAndPRHandler. — keeps the cross-link
+      capability discoverable in pipeline-step logs and lets it be skipped
+      cleanly when not applicable. Also lets future pipelines reuse the
+      cross-link without going through CommitAndPR. — alternatives: inline
+      tail-call (rejected: hides the capability from operator logs and
+      ties cross-link to commit flow)."
+
+  - key: "Handlers publish OpenedPullRequestBodies (per-repo body strings)
+      alongside OpenedPullRequests so the orchestrator does in-memory
+      marker-replace instead of fetching each body back from the platform.
+      — saves one HTTP call per opened PR and removes the need for an
+      IPullRequestReader abstraction at this phase. — alternatives: fetch
+      bodies via a new reader interface (rejected: extra round-trip and
+      a new abstraction for one consumer)."
+
+steps:
+  - id: contract
+    action: "Add IPullRequestBodyPatcher + IPullRequestBodyPatcherFactory
+      in Contracts/Providers."
+    new:
+      - "src/AgentSmith.Contracts/Providers/IPullRequestBodyPatcher.cs"
+      - "src/AgentSmith.Contracts/Providers/IPullRequestBodyPatcherFactory.cs"
+
+  - id: impls
+    action: "Per-platform IPullRequestBodyPatcher implementations under
+      Infrastructure/Services/Providers/PullRequests/."
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Providers/PullRequests/GitHubPullRequestBodyPatcher.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/PullRequests/AzureReposPullRequestBodyPatcher.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/PullRequests/GitLabPullRequestBodyPatcher.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/PullRequests/LocalPullRequestBodyPatcher.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/PullRequests/PullRequestBodyPatcherFactory.cs"
+
+  - id: orchestrator
+    action: "Add PrCrossLinkOrchestrator service + Command + Handler +
+      ContextBuilder. Handler iterates OpenedPullRequests; for each Opened
+      entry, replaces the marker with the rendered siblings block and
+      PATCHes via IPullRequestBodyPatcher. Single-PR runs short-circuit."
+    new:
+      - "src/AgentSmith.Application/Services/PullRequests/PrCrossLinkOrchestrator.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PrCrossLinkHandler.cs"
+      - "src/AgentSmith.Application/Models/PrCrossLinkContext.cs"
+
+  - id: handler-body-publish
+    action: "Update CommitAndPRHandler + InitCommitHandler to also publish
+      ContextKeys.OpenedPullRequestBodies (Dictionary<string, string>:
+      repoName → body-string-used-at-open-time)."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs"
+
+  - id: presets
+    action: "Insert PrCrossLink step into pipeline presets between the
+      commit-pr step and pipeline end."
+    modify:
+      - "src/AgentSmith.Application/Services/Pipelines/ (preset definitions, multiple)"
+
+  - id: tests
+    action: "Add the six spec-driven tests + per-platform patcher unit
+      tests with mocked clients."
+    modify:
+      - "tests/AgentSmith.Tests/PullRequests/ (new test directory)"
+
+tests:
+  - "PrCrossLinks_TwoPass_AllOpenedPrBodies_PatchedWithSiblingUrls"
+  - "PrCrossLinks_SinglePrRun_SkipsPass2"
+  - "PrCrossLinks_FailedOpen_ShownAsOpenFailed_InSurvivingSiblingBodies"
+  - "PrCrossLinks_PatchFailure_LoggedButDoesNotFailPipeline"
+  - "GitHubPullRequestBodyPatcher_PatchSucceeds_OnHttp200"
+  - "AzureReposPullRequestBodyPatcher_UpdateSucceeds_AgainstMockedClient"
+  - "GitLabPullRequestBodyPatcher_PatchSucceeds_OnHttp200"
+
+done:
+  - "IPullRequestBodyPatcher contract + factory + 4 platform impls present
+     and registered in DI."
+  - "PrCrossLinkOrchestrator (+ Command + Handler + ContextBuilder) runs
+     immediately after CommitAndPR / InitCommit in each preset."
+  - "Multi-PR runs end with every opened PR body containing the sibling
+     URL list inline; single-PR runs leave the marker in place (acceptable
+     no-op) or strip it (TBD at implementation time)."
+  - "Failed pass-1 opens render as `(open failed)` in surviving siblings'
+     bodies."
+  - "Build + full unit test suite green; new tests passing."

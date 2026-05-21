@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Tools;
 public sealed class AllHostsActivePolicyTests
 {
     [Fact]
-    public void GetAllowedHosts_FixBug_ReturnsAllThreeHosts()
+    public void GetAllowedHosts_FixBug_ReturnsAllHosts()
     {
         var policy = new AllHostsActivePolicy();
 
@@ -16,28 +16,29 @@ public sealed class AllHostsActivePolicyTests
         {
             typeof(FilesystemToolHost),
             typeof(LogDecisionToolHost),
-            typeof(HumanToolHost)
+            typeof(HumanToolHost),
+            typeof(WebToolHost)
         });
     }
 
     [Fact]
-    public void GetAllowedHosts_UnknownPipeline_ReturnsAllThreeHosts()
+    public void GetAllowedHosts_UnknownPipeline_ReturnsAllHosts()
     {
         var policy = new AllHostsActivePolicy();
 
         var allowed = policy.GetAllowedHosts("invoice-processor-not-yet-registered");
 
-        allowed.Should().HaveCount(3);
+        allowed.Should().HaveCount(4);
     }
 
     [Fact]
-    public void GetAllowedHosts_WildcardSentinel_ReturnsAllThreeHosts()
+    public void GetAllowedHosts_WildcardSentinel_ReturnsAllHosts()
     {
         var policy = new AllHostsActivePolicy();
 
         var allowed = policy.GetAllowedHosts(IToolKit.WildcardPipelineName);
 
-        allowed.Should().HaveCount(3);
+        allowed.Should().HaveCount(4);
     }
 
     [Fact]

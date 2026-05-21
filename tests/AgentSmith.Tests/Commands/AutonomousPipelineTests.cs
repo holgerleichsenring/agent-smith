@@ -68,11 +68,11 @@ public sealed class AutonomousPipelineTests
     {
         var runEntries = new[]
         {
-            "/work/.agentsmith/runs/r01-first",
-            "/work/.agentsmith/runs/r02-second",
-            "/work/.agentsmith/runs/r03-third",
-            "/work/.agentsmith/runs/r04-fourth",
-            "/work/.agentsmith/runs/r05-fifth",
+            "/work/.agentsmith/runs/2026-05-20T10-00-00-0001-first",
+            "/work/.agentsmith/runs/2026-05-20T10-00-00-0002-second",
+            "/work/.agentsmith/runs/2026-05-20T10-00-00-0003-third",
+            "/work/.agentsmith/runs/2026-05-20T10-00-00-0004-fourth",
+            "/work/.agentsmith/runs/2026-05-20T10-00-00-0005-fifth",
         };
 
         var reader = new Mock<ISandboxFileReader>();
@@ -95,11 +95,11 @@ public sealed class AutonomousPipelineTests
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("3 recent run(s)");
         pipeline.TryGet<string>(ContextKeys.RunHistory, out var history).Should().BeTrue();
-        history.Should().Contain("r03");
-        history.Should().Contain("r04");
-        history.Should().Contain("r05");
-        history.Should().NotContain("r01");
-        history.Should().NotContain("r02");
+        history.Should().Contain("third");
+        history.Should().Contain("fourth");
+        history.Should().Contain("fifth");
+        history.Should().NotContain("first");
+        history.Should().NotContain("second");
     }
 
     [Fact]

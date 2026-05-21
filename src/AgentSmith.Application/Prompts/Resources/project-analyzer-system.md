@@ -20,7 +20,7 @@ When you have enough evidence, respond with a single JSON object (no surrounding
 
 ```json
 {
-  "primary_language": "C#",
+  "primary_language": "csharp",
   "frameworks": [".NET 8", "ASP.NET Core"],
   "modules": [
     {"path": "src/MyApp.API", "role": "production", "depends_on": ["src/MyApp.Domain"]},
@@ -46,6 +46,7 @@ When you have enough evidence, respond with a single JSON object (no surrounding
 
 ## Rules
 
+- **`primary_language` is a lowercase canonical slug.** Use the short, conventional identifier the ecosystem uses for itself: `csharp` (not `C#` / `.NET` / `dotnet`), `typescript`, `javascript`, `python`, `go`, `rust`, `java`, `ruby`, `php`, `kotlin`, `swift`, `lua`, etc. When the repository is a polyglot mix without a dominant production language, or genuinely has no software language to detect (docs-only, infra-only), emit `generic` as a deliberate choice — `generic` is a valid value, not a fallback for "I'm uncertain".
 - **Be evidence-based.** Every field must derive from a tool call you executed in this session. If a tool call did not produce evidence for a field, omit it (use empty list / null) — do NOT guess.
 - **Bound your exploration.** Do not read every file; sample strategically. Production codebases can have thousands of files — pick the manifests, the entry points, and a few representative samples.
 - **Module roles**: `production` (shipping code), `test` (test-only), `tool` (internal scripts/helpers), `generated` (auto-generated, e.g. ApiClient bindings), `other` (configs, docs).

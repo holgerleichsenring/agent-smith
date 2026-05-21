@@ -73,7 +73,7 @@ public sealed class PipelineSandboxCoordinatorTests
             .ReturnsAsync(sandbox);
 
         var context = new PipelineContext();
-        context.Set(ContextKeys.CurrentRepo, new RepoConnection());
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
 
         var sut = NewSut();
         var result = await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
@@ -91,7 +91,7 @@ public sealed class PipelineSandboxCoordinatorTests
             .ReturnsAsync(sandbox);
 
         var context = new PipelineContext();
-        context.Set(ContextKeys.CurrentRepo, new RepoConnection());
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
 
         var first = await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
@@ -110,7 +110,7 @@ public sealed class PipelineSandboxCoordinatorTests
             .ReturnsAsync(sandboxMock.Object);
 
         var context = new PipelineContext();
-        context.Set(ContextKeys.CurrentRepo, new RepoConnection());
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
         await sut.EnsureSandboxAsync(new ResolvedProject(), context, CancellationToken.None);
 
@@ -137,7 +137,7 @@ public sealed class PipelineSandboxCoordinatorTests
             .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = new PipelineContext();
-        context.Set(ContextKeys.CurrentRepo, new RepoConnection());
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         context.Set(ContextKeys.SourcePath, "/tmp/host-clone");
         var sut = NewSut();
 

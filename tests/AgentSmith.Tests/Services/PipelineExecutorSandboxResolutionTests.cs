@@ -65,7 +65,7 @@ public sealed class PipelineExecutorSandboxResolutionTests
         var repoConnection = new RepoConnection();
         var project = new ResolvedProject { Repos = new[] { repoConnection } };
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentRepo, repoConnection);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { repoConnection });
         var act = async () => await h.Sut.ExecuteAsync(
             commands, project, pipeline, CancellationToken.None);
 

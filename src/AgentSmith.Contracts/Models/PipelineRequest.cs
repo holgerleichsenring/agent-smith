@@ -13,5 +13,4 @@ public sealed record PipelineRequest(
     bool IsInit = false,
     bool Headless = false,
     Dictionary<string, object>? Context = null,
-    Dictionary<string, string>? PlanAnswers = null,
-    string? RepoName = null);
+    Dictionary<string, string>? PlanAnswers = null);

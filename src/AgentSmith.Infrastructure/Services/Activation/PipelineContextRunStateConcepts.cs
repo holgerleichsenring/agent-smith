@@ -28,6 +28,19 @@ public sealed class PipelineContextRunStateConcepts : IRunStateConcepts
 
     public string GetEnum(string name) => (string)Get(name, ConceptType.Enum, "string");
 
+    public string GetString(string name)
+    {
+        if (!_vocabulary.TryGet(name, out var concept))
+            throw new KeyNotFoundException(
+                $"Concept '{name}' is not declared in concept-vocabulary.yaml.");
+        if (concept.Type != ConceptType.Enum && concept.Type != ConceptType.String)
+            throw new ConceptTypeMismatchException(name, concept.Type, "string");
+        var values = GetOrCreateValues();
+        return values.TryGetValue(name, out var stored)
+            ? (string)stored
+            : (string)_vocabulary.GetDefault(name);
+    }
+
     public void SetBool(string name, bool value)
     {
         EnsureType(name, ConceptType.Bool, "bool");
@@ -53,6 +66,12 @@ public sealed class PipelineContextRunStateConcepts : IRunStateConcepts
             throw new ArgumentException(
                 $"Concept '{name}' value '{value}' is not in the declared enum_values [{string.Join(", ", allowed)}].",
                 nameof(value));
+        StoreValue(name, value);
+    }
+
+    public void SetString(string name, string value)
+    {
+        EnsureType(name, ConceptType.String, "string");
         StoreValue(name, value);
     }
 

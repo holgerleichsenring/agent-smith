@@ -89,10 +89,10 @@ public sealed class CommitAndPRContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new CommitAndPRContext(repo, changes, ticket, currentRepo, project.Tracker, pipeline);
+        return new CommitAndPRContext(repo, changes, ticket, repos, project.Tracker, pipeline);
     }
 }
 
@@ -101,8 +101,8 @@ public sealed class InitCommitContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
-        return new InitCommitContext(repo, currentRepo, project.Tracker, pipeline);
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        return new InitCommitContext(repo, repos, project.Tracker, pipeline);
     }
 }
 

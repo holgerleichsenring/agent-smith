@@ -181,7 +181,7 @@ public sealed class PersistWorkBranchHandlerTests
     }
 
     private static PersistWorkBranchContext NewContext(PipelineContext pipeline) =>
-        new(new RepoConnection { Type = RepoType.AzureDevOps, Url = "https://dev.azure.com/x/y" },
+        new(new[] { new RepoConnection { Type = RepoType.AzureDevOps, Url = "https://dev.azure.com/x/y" } },
             new AgentConfig(),
             pipeline);
 }

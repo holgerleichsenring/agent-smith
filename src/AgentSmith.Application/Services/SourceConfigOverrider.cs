@@ -6,34 +6,49 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Merges CLI-provided source overrides into the run's CurrentRepo. p0140d: reads
-/// CurrentRepo from the pipeline context (set by ExecutePipelineUseCase from
-/// PipelineRequest.RepoName) instead of project.Repo. For multi-repo projects only
-/// the run's repo is overridden; sibling repos in project.Repos are preserved.
+/// Merges CLI-provided source overrides into the run's Repos. The CLI may also set
+/// ContextKeys.SourceOverrideRepo to scope the overrides to a single repo by name;
+/// in that case the overrides apply only to the named repo, sibling repos are
+/// preserved. When SourceOverrideRepo is absent (queue-driven K8s/Compose runs),
+/// no source override is expected.
 /// </summary>
 public sealed class SourceConfigOverrider(ILogger<SourceConfigOverrider> logger) : ISourceConfigOverrider
 {
     public ResolvedProject Apply(ResolvedProject project, PipelineContext pipeline)
     {
-        var current = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
-        var updated = ApplyTypeOverride(current, pipeline);
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        var targetName = pipeline.TryGet<string>(ContextKeys.SourceOverrideRepo, out var t) ? t : null;
+        var updated = BuildUpdatedRepos(repos, pipeline, targetName);
+        if (ReferenceEquals(updated, repos)) return project;
+
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, updated);
+        return project with { Repos = updated };
+    }
+
+    private IReadOnlyList<RepoConnection> BuildUpdatedRepos(
+        IReadOnlyList<RepoConnection> repos, PipelineContext pipeline, string? targetName)
+    {
+        var arr = new RepoConnection[repos.Count];
+        var anyChanged = false;
+        for (var i = 0; i < repos.Count; i++)
+        {
+            arr[i] = repos[i];
+            if (targetName is not null
+                && !string.Equals(repos[i].Name, targetName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            arr[i] = ApplyOverrides(repos[i], pipeline);
+            if (!ReferenceEquals(arr[i], repos[i])) anyChanged = true;
+        }
+        return anyChanged ? arr : repos;
+    }
+
+    private RepoConnection ApplyOverrides(RepoConnection repo, PipelineContext pipeline)
+    {
+        var updated = ApplyTypeOverride(repo, pipeline);
         updated = ApplyPathOverride(updated, pipeline);
         updated = ApplyUrlOverride(updated, pipeline);
         updated = ApplyAuthOverride(updated, pipeline);
-
-        if (ReferenceEquals(current, updated)) return project;
-
-        pipeline.Set(ContextKeys.CurrentRepo, updated);
-        return project with { Repos = ReplaceInList(project.Repos, current, updated) };
-    }
-
-    private static IReadOnlyList<RepoConnection> ReplaceInList(
-        IReadOnlyList<RepoConnection> repos, RepoConnection oldRepo, RepoConnection newRepo)
-    {
-        var arr = new RepoConnection[repos.Count];
-        for (var i = 0; i < repos.Count; i++)
-            arr[i] = ReferenceEquals(repos[i], oldRepo) ? newRepo : repos[i];
-        return arr;
+        return updated;
     }
 
     private RepoConnection ApplyTypeOverride(RepoConnection repo, PipelineContext pipeline)

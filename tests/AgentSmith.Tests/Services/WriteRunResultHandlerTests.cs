@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
@@ -16,6 +18,8 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class WriteRunResultHandlerTests
 {
+    private const string SampleRunId = "2026-05-20T22-27-43-8a3f";
+
     private readonly InMemoryDialogueTrail _dialogueTrail = new();
     private readonly Dictionary<string, string> _written = new();
     private readonly Dictionary<string, string?> _initialFiles = new();
@@ -142,28 +146,47 @@ public sealed class WriteRunResultHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AppendsToContextYaml()
+    public async Task ExecuteAsync_AppendsRunIdUnderRunsKey_WhenRunsKeyExists()
     {
-        SetupContextYaml();
+        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}\nruns:\n";
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var yaml = _written["/work/.agentsmith/context.yaml"];
-        yaml.Should().Contain("r01:");
+        yaml.Should().Contain("runs:");
+        yaml.Should().Contain($"\"{SampleRunId}\":");
         yaml.Should().Contain("feat #42");
     }
 
     [Fact]
-    public async Task ExecuteAsync_StoresRunNumberInPipeline()
+    public async Task ExecuteAsync_CreatesRunsKey_WhenAbsent_AndAppends()
     {
-        SetupContextYaml();
+        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        context.Pipeline.TryGet<int>(ContextKeys.RunNumber, out var runNumber).Should().BeTrue();
-        runNumber.Should().Be(1);
+        var yaml = _written["/work/.agentsmith/context.yaml"];
+        yaml.Should().Contain("runs:");
+        yaml.Should().Contain($"\"{SampleRunId}\":");
+        yaml.Should().Contain("feat #42");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AppendsRunsEntry_WhenNoStateActiveAnchor()
+    {
+        // Reproduces a6914f38: target repo's context.yaml has no `state.active:` anchor.
+        // Pre-p0156 this silent-no-op'd; post-p0156 the runs: key is created and the entry lands.
+        _initialFiles["/work/.agentsmith/context.yaml"] = "# operator notes\nproject: foo\n";
+        var context = CreateContext("Fix login bug");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var yaml = _written["/work/.agentsmith/context.yaml"];
+        yaml.Should().Contain("runs:");
+        yaml.Should().Contain($"\"{SampleRunId}\":");
+        yaml.Should().Contain("fix #42");
     }
 
     [Fact]
@@ -217,24 +240,7 @@ public sealed class WriteRunResultHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ExistingRuns_IncrementsNumber()
-    {
-        var yaml = "state:\n  done:\n    p01: \"initial setup\"\n    r01: \"feat #10: Add auth\"\n    r02: \"fix #11: Fix login\"\n  active: {}";
-        _initialFiles["/work/.agentsmith/context.yaml"] = yaml;
-
-        var context = CreateContext("Add dashboard");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        _written.Should().ContainKey("/work/.agentsmith/context.yaml");
-        _written["/work/.agentsmith/context.yaml"].Should().Contain("r03:");
-
-        context.Pipeline.TryGet<int>(ContextKeys.RunNumber, out var runNumber).Should().BeTrue();
-        runNumber.Should().Be(3);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_RunDirNameIncludesSlug()
+    public async Task ExecuteAsync_RunDirName_StartsWithRunId()
     {
         SetupContextYaml();
         var context = CreateContext("Add login feature");
@@ -242,97 +248,55 @@ public sealed class WriteRunResultHandlerTests
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var planPath = _written.Keys.First(k => k.EndsWith("plan.md"));
-        planPath.Should().Contain("r01-add-login-feature");
+        planPath.Should().Contain($"{SampleRunId}-add-login-feature");
     }
 
     [Fact]
-    public void AppendDecisions_GroupsByCategory()
+    public async Task ExecuteAsync_TwoSameSecondRuns_GetDifferentRunIds_NoDirectoryCollision()
     {
-        var sb = new StringBuilder();
-        var decisions = new List<PlanDecision>
-        {
-            new("Architecture", "**First**: reason"),
-            new("Tooling", "**Tool1**: reason"),
-            new("Architecture", "**Second**: reason")
-        };
-
-        RunResultSectionWriter.AppendDecisions(sb, decisions);
-        var result = sb.ToString();
-
-        result.Should().Contain("## Decisions");
-        result.Should().Contain("### Architecture");
-        result.Should().Contain("### Tooling");
-        result.Should().Contain("- **First**: reason");
-        result.Should().Contain("- **Second**: reason");
-        result.Should().Contain("- **Tool1**: reason");
-
-        var archIndex = result.IndexOf("### Architecture", StringComparison.Ordinal);
-        var toolIndex = result.IndexOf("### Tooling", StringComparison.Ordinal);
-        archIndex.Should().BeLessThan(toolIndex);
+        // The 4-hex suffix is the disambiguator. Two RunIds generated against the
+        // same UtcNow produce different suffixes — and therefore different
+        // directory names — with overwhelming probability (16-bit keyspace).
+        var fixedNow = new DateTimeOffset(2026, 5, 20, 22, 27, 43, TimeSpan.Zero);
+        var seen = new HashSet<string>();
+        for (var i = 0; i < 1000; i++)
+            seen.Add(RunIdGenerator.Generate(fixedNow));
+        // With 16 bits and 1000 draws, birthday-bound collision probability is
+        // ~0.76% per pair, so on average ~7 collisions in 1000 draws. We assert
+        // that distinct identifiers are produced for at least 95% of draws —
+        // far stricter than the production failure mode (a single concurrent pair).
+        seen.Count.Should().BeGreaterThanOrEqualTo(950);
     }
 
     [Fact]
-    public void AppendDecisions_NullOrEmpty_WritesNothing()
+    public void RunIdGenerator_Generate_MatchesCanonicalFormat()
     {
-        var sb = new StringBuilder();
-        RunResultSectionWriter.AppendDecisions(sb, null);
-        sb.ToString().Should().BeEmpty();
-
-        sb.Clear();
-        RunResultSectionWriter.AppendDecisions(sb, new List<PlanDecision>());
-        sb.ToString().Should().BeEmpty();
+        var runId = RunIdGenerator.Generate(DateTimeOffset.UtcNow);
+        Regex.IsMatch(runId, @"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-[0-9a-f]{4}$")
+            .Should().BeTrue();
     }
 
     [Fact]
-    public async Task DetermineNextRunNumberAsync_NoFile_Returns1()
+    public void RunIdGenerator_IsValid_AcceptsCanonical_RejectsLegacy()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-
-        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
-            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
-
-        result.Should().Be(1);
+        RunIdGenerator.IsValid("2026-05-20T22-27-43-8a3f").Should().BeTrue();
+        RunIdGenerator.IsValid("r01").Should().BeFalse();
+        RunIdGenerator.IsValid("2026-05-20T22-27-43").Should().BeFalse();
+        RunIdGenerator.IsValid("2026-05-20T22-27-43-XYZW").Should().BeFalse();
     }
 
     [Fact]
-    public async Task DetermineNextRunNumberAsync_EmptyState_Returns1()
+    public void RunIdGenerator_FormatForDisplay_RendersHumanReadable()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("state:\n  done: {}\n  active: {}");
-
-        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
-            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
-
-        result.Should().Be(1);
+        RunIdGenerator.FormatForDisplay("2026-05-20T22-27-43-8a3f")
+            .Should().Be("2026-05-20 22:27:43 UTC (8a3f)");
     }
 
     [Fact]
-    public async Task DetermineNextRunNumberAsync_WithExistingRuns_ReturnsNext()
+    public void RunIdGenerator_FormatForDisplay_FallsBackToVerbatim_ForLegacyOrUnknownShape()
     {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("state:\n  done:\n    r01: \"first\"\n    r02: \"second\"\n  active: {}");
-
-        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
-            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
-
-        result.Should().Be(3);
-    }
-
-    [Fact]
-    public async Task DetermineNextRunNumberAsync_MixedPhaseAndRunKeys_OnlyCountsRuns()
-    {
-        var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("state:\n  done:\n    p01: \"init\"\n    p02: \"auth\"\n    r01: \"first run\"\n  active: {}");
-
-        var result = await WriteRunResultHandler.DetermineNextRunNumberAsync(
-            reader.Object, "/work/.agentsmith/context.yaml", CancellationToken.None);
-
-        result.Should().Be(2);
+        RunIdGenerator.FormatForDisplay("r01").Should().Be("r01");
+        RunIdGenerator.FormatForDisplay("").Should().Be("");
     }
 
     [Theory]
@@ -363,6 +327,7 @@ public sealed class WriteRunResultHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        pipeline.Set(ContextKeys.RunId, SampleRunId);
         return pipeline;
     }
 

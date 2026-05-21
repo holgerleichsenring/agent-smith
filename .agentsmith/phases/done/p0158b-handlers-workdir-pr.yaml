@@ -1,0 +1,309 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158b
+goal: |
+  Second slice of p0158 (re-narrowed at execution time): workdir layout
+  change + per-repo handler iteration. Workdir moves from `/work/` to
+  `/work/{repo-key}/` (one subdirectory per configured repo, even for
+  single-repo projects). The five repo-touching handlers
+  (CheckoutSource, TryCheckoutSource, CommitAndPR, InitCommit,
+  PersistWorkBranch) and their context records become list-shaped and
+  iterate the run's Repos list. PR open continues to use the existing
+  CreatePullRequestAsync path per repo; each opened PR's body includes
+  an HTML-comment marker (`<!-- agentsmith:sibling-prs -->`) so that
+  p0158c's two-pass PATCH step can later replace the marker with sibling
+  URLs without revisiting handler code. PR cross-link two-pass itself,
+  the IPullRequestBodyPatcher contract, the per-platform PATCH
+  implementations, the CLI `--repo NAME` flag, the metrics collapse, and
+  the operator-doc updates are explicitly deferred to p0158c and p0158d
+  for scope/commit hygiene.
+
+requires: ["p0158a"]
+
+supersedes: []
+
+scope:
+  in: |
+    (1) Domain entity:
+        - Repository.LocalPath becomes per-instance (was: const-derived
+          SandboxWorkPath). Ctor gains an optional localPath parameter
+          defaulting to SandboxWorkPath so existing single-arg call
+          sites stay source-compatible.
+        - New static Repository.WorkPathFor(string repoName) returns
+          "/work/{repoName}". Single source of truth for the per-repo
+          in-sandbox path.
+
+    (2) Sandbox helper:
+        - SandboxGitOperations.CommitAndPushAsync gains a workingDirectory
+          parameter (required). Existing callers must pass an explicit
+          path — typically `repository.LocalPath` after p0158b's
+          handler changes set it per-repo. Internal Step builders use
+          the supplied path instead of an implicit `/work`.
+
+    (3) Context records — list-shaped:
+        - CheckoutSourceContext, TryCheckoutSourceContext,
+          CommitAndPRContext, InitCommitContext,
+          PersistWorkBranchContext: replace the singular
+          RepoConnection Config / Source field with
+          IReadOnlyList<RepoConnection> Configs. A computed
+          property Config => Configs[0] is retained on each record so
+          existing read sites that only touch the primary repo keep
+          compiling unchanged.
+
+    (4) Builders:
+        - CheckoutSourceContextBuilder, TryCheckoutSourceContextBuilder,
+          PersistWorkBranchContextBuilder, CommitAndPRContextBuilder,
+          InitCommitContextBuilder: read ContextKeys.Repos and pass the
+          full list as Configs (not just Repos[0] as in p0158a's
+          transitional read).
+
+    (5) Handlers — per-repo iteration:
+        - CheckoutStepFactory (new, internal static): mkdir / clone /
+          checkout / checkout -b Step builders, all parameterised by
+          target directory. Extracted so CheckoutSourceHandler stays
+          under the 120-LOC limit after iteration is added.
+        - CheckoutSourceHandler: iterates Configs. For each repo:
+          mkdir -p `/work/{name}` (sandbox-side step), then
+          `git clone <url> .` with WorkingDirectory=`/work/{name}`,
+          then per-repo branch switch. Publishes the primary Repository
+          (Configs[0]) on ContextKeys.Repository for downstream skills
+          that operate on "the repo"; multi-repo skills read
+          ContextKeys.Repos directly. Local-mode bind-mount short-circuit
+          is preserved per repo (provider type Local).
+        - TryCheckoutSourceHandler: same iteration pattern.
+        - CommitAndPRHandler: iterates Configs. For each repo: detect
+          staged changes (skip if none), commit + push, open PR via
+          existing CreatePullRequestAsync. PR body includes the marker
+          line `<!-- agentsmith:sibling-prs -->` so p0158c's PATCH
+          step can later replace it with sibling URLs without
+          touching the handler. Multi-PR runs publish a list of opened
+          PR URLs under new ContextKeys.OpenedPullRequests; single-PR
+          runs continue to publish ContextKeys.PullRequestUrl for
+          backward compatibility with the existing executor result
+          adapter.
+        - InitCommitHandler: same iteration pattern. Per-repo init
+          commit + PR with marker in body. Multi-repo init publishes
+          OpenedPullRequests; single-repo init publishes
+          PullRequestUrl.
+        - PersistWorkBranchHandler: iterates Configs. For each repo
+          with a published Repository entity, attempt the WIP push;
+          aggregate failures so the operator log lists per-repo
+          outcomes.
+
+    (6) New ContextKey:
+        - ContextKeys.OpenedPullRequests : value type
+          IReadOnlyList<OpenedPullRequest>, set by CommitAndPRHandler
+          and InitCommitHandler. OpenedPullRequest record is a small
+          new model under AgentSmith.Application.Models holding
+          { RepoName, Url, OpenStatus }; OpenStatus = Opened | Skipped
+          (no changes) | Failed. p0158c consumes this list to drive
+          its PATCH pass.
+
+    (7) Tests:
+        - Add: Checkout_PlacesEachRepo_InRunRootSubdirectory_KeyedByRepoName
+        - Add: Checkout_LocalProvider_KeepsBindMountLayout_PerRepoSubdir
+        - Add: BranchCreate_SameName_AppliedToEveryCheckedOutRepo
+        - Add: CommitAndPR_SkipsRepo_WithNoStagedChanges
+        - Add: CommitAndPR_PublishesOpenedPullRequests_ListInPipelineContext
+        - Add: Monorepo_WorkdirLayout_IsRunRoot_PlusOneRepoSubdir_NotFlat
+        - Update fixtures across ~30 affected test files where
+          a CheckoutSource/CommitAndPR/InitCommit/PersistWorkBranch
+          context is constructed with a singular RepoConnection: swap
+          to `new[] { repoConnection }` for Configs.
+
+  out: |
+    - PR cross-link two-pass + IPullRequestBodyPatcher per-platform
+      implementations: deferred to p0158c. p0158b leaves the marker
+      line in opened PR bodies and publishes OpenedPullRequests so
+      p0158c's PATCH step is a pure additive change with no handler
+      touch.
+    - CLI `--repo NAME` on the eight source-using commands, the
+      ContextKeys.SourceOverrideRepo population, and the rejection of
+      `--source-*` without `--repo` on multi-repo projects: deferred to
+      p0158d. The ContextKey is already read by ExecutePipelineUseCase
+      since p0158a, so p0158d is purely CLI-side.
+    - p0140e metrics counter collapse, operator-doc updates, CHANGELOG
+      sections describing the new behaviours: deferred to p0158d.
+    - Final operator-grade smoke (fix-bug + security-scan +
+      api-security-scan against a monorepo and a multi-repo project):
+      deferred to p0158d so it validates the full unified-run model
+      including CLI and cross-link.
+    - Host-side source cache, api-security-scan ticket-driven
+      migration, multi-toolchain composite-image sandbox: as in the
+      p0158 umbrella — separate follow-up phases beyond p0158d.
+
+decisions:
+  - key: "p0158b re-narrowed at execution time to workdir + handlers
+      only; PR cross-link and CLI deferred to p0158c / p0158d. — the
+      original p0158b spec bundled PR cross-link two-pass (three
+      platform PATCH implementations) and CLI on eight commands with
+      the handler-iteration core. Implementing all of this end-to-end
+      proved to be a multi-conversation marathon that risked half-baked
+      intermediate states. The re-narrowed slice ships a clean
+      unified-run handler core with ~30 fixture updates and 6 new
+      tests; p0158c and p0158d are purely additive (no handler edits)
+      on top. — alternatives: keep the wide spec (rejected: same risk
+      as before); skip workdir layout and only do PR cross-link
+      (rejected: the cross-link is purely cosmetic without per-repo
+      iteration, so the workdir+handlers slice is logically first)."
+
+  - key: "Context records replace singular Config with list Configs
+      and add a computed Config => Configs[0] property. — the
+      computed property keeps every existing read-site of `.Config`
+      compiling unchanged (handlers using only the primary repo can
+      adopt the new shape incrementally). Test fixtures change once
+      (singular → list construction) and never again. — alternatives:
+      keep both fields (rejected: stale duplicate state, builders
+      have to fill both); rename Config → PrimaryConfig (rejected:
+      noisier churn for read-sites without a corresponding behaviour
+      change)."
+
+  - key: "OpenedPullRequests is published as a new ContextKey by both
+      CommitAndPR and InitCommit handlers; PullRequestUrl stays in
+      place for single-PR runs. — p0158c's PATCH pass reads
+      OpenedPullRequests directly and runs after CommitAndPR /
+      InitCommit. Keeping PullRequestUrl preserves backward
+      compatibility with the existing pipeline-executor result
+      adapter (which surfaces the PR URL on CommandResult.PrUrl).
+      — alternatives: only publish OpenedPullRequests and have the
+      result adapter pick Configs[0]'s URL (rejected: ties result
+      adapter to multi-repo semantics for a single-line ergonomic win);
+      no marker in pass-1 body (rejected: p0158c would have to
+      compose the whole body, fragile against operator edits)."
+
+  - key: "SandboxGitOperations.CommitAndPushAsync gains a required
+      workingDirectory parameter instead of a default of
+      Repository.SandboxWorkPath. — making it required forces every
+      caller to be explicit about which repo's tree is being committed.
+      A default `/work` would silently re-introduce the single-repo
+      assumption at the first caller that forgot to pass through.
+      — alternatives: default to SandboxWorkPath (rejected: trap
+      waiting to bite a future handler); take a Repository parameter
+      instead (rejected: tighter coupling, and callers in p0158c's
+      PATCH pass don't have a Repository in scope)."
+
+steps:
+  - id: domain
+    action: "Repository entity: LocalPath becomes per-instance with
+      optional ctor parameter (default SandboxWorkPath); add static
+      WorkPathFor(string repoName) helper."
+    modify:
+      - "src/AgentSmith.Domain/Entities/Repository.cs"
+
+  - id: sandbox-git
+    action: "SandboxGitOperations.CommitAndPushAsync gains a required
+      workingDirectory parameter; internal Step builders consume it.
+      Cascade: every caller (CommitAndPRHandler / InitCommitHandler /
+      PersistWorkBranchHandler) passes the per-repo Repository.LocalPath."
+    modify:
+      - "src/AgentSmith.Application/Services/Sandbox/SandboxGitOperations.cs (or current location)"
+
+  - id: contexts
+    action: "Replace singular Config / Source with
+      IReadOnlyList<RepoConnection> Configs on the five context records;
+      add computed Config => Configs[0]. PersistWorkBranchContext's
+      Source field follows the same pattern."
+    modify:
+      - "src/AgentSmith.Application/Models/CheckoutSourceContext.cs"
+      - "src/AgentSmith.Application/Models/TryCheckoutSourceContext.cs"
+      - "src/AgentSmith.Application/Models/CommitAndPRContext.cs"
+      - "src/AgentSmith.Application/Models/InitCommitContext.cs"
+      - "src/AgentSmith.Application/Models/PersistWorkBranchContext.cs"
+
+  - id: builders
+    action: "Builders pass the full Repos list as Configs (not just
+      Repos[0]); each builder reads ContextKeys.Repos and constructs
+      the list-shaped context."
+    modify:
+      - "src/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs"
+      - "src/AgentSmith.Application/Services/Builders/PersistWorkBranchContextBuilder.cs"
+      - "src/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs"
+
+  - id: opened-pr-record
+    action: "New record OpenedPullRequest { RepoName, Url, OpenStatus }
+      + enum OpenStatus { Opened, SkippedNoChanges, Failed }. New
+      ContextKeys.OpenedPullRequests constant. Both in Contracts /
+      Application as appropriate."
+    new:
+      - "src/AgentSmith.Application/Models/OpenedPullRequest.cs"
+
+  - id: checkout-factory
+    action: "Extract CheckoutStepFactory (static) with mkdir / clone /
+      checkout / checkout -b builders, all parameterised by target
+      directory."
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs"
+
+  - id: checkout-handler
+    action: "Rewrite CheckoutSourceHandler to iterate Configs:
+      mkdir -p /work/{name} + clone there + per-repo branch switch.
+      Publishes primary Repository = Configs[0] under
+      ContextKeys.Repository for legacy single-repo skills."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs"
+
+  - id: try-checkout-handler
+    action: "Rewrite TryCheckoutSourceHandler to iterate Configs with
+      the same /work/{name} layout. Local-mode short-circuit preserved
+      per repo."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs"
+
+  - id: commit-pr-handler
+    action: "Rewrite CommitAndPRHandler to iterate Configs.
+      Per-repo: detect staged changes (skip if none), commit + push,
+      open PR with marker line in body. Publish OpenedPullRequests
+      list on PipelineContext; for single-PR runs also publish
+      PullRequestUrl for backward compatibility."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+
+  - id: init-commit-handler
+    action: "Rewrite InitCommitHandler with the same per-repo iteration:
+      bootstrap commit per repo, init PR per repo with marker. Publish
+      OpenedPullRequests for multi-repo; keep PullRequestUrl for
+      single-repo."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs"
+
+  - id: persist-handler
+    action: "PersistWorkBranchHandler iterates Configs; per-repo WIP
+      push; aggregates failure kinds across repos (worst case wins for
+      ContextKeys.PersistFailureKind)."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs"
+
+  - id: tests
+    action: "Update ~30 fixtures across handler tests + builder tests
+      where a single RepoConnection was previously passed as Config /
+      Source; swap to `new[] { repoConnection }`. Add the six new
+      tests listed in scope.in (7)."
+    modify:
+      - "tests/AgentSmith.Tests/Commands/ (handler tests, multiple)"
+      - "tests/AgentSmith.Tests/Builders/ (builder tests, multiple)"
+
+tests:
+  - "Checkout_PlacesEachRepo_InRunRootSubdirectory_KeyedByRepoName"
+  - "Checkout_LocalProvider_KeepsBindMountLayout_PerRepoSubdir"
+  - "BranchCreate_SameName_AppliedToEveryCheckedOutRepo"
+  - "CommitAndPR_SkipsRepo_WithNoStagedChanges"
+  - "CommitAndPR_PublishesOpenedPullRequests_ListInPipelineContext"
+  - "Monorepo_WorkdirLayout_IsRunRoot_PlusOneRepoSubdir_NotFlat"
+
+done:
+  - "Repository.LocalPath is per-instance; WorkPathFor(name) is the
+     single source of truth for `/work/{name}`."
+  - "SandboxGitOperations.CommitAndPushAsync requires workingDirectory
+     from every caller."
+  - "Five context records are list-shaped (Configs); a computed Config
+     property preserves legacy primary-repo read sites."
+  - "CheckoutSourceHandler / TryCheckoutSourceHandler iterate Configs;
+     each repo lives at /work/{name} in the sandbox; single-repo
+     projects use the same layout with N=1."
+  - "CommitAndPRHandler / InitCommitHandler iterate Configs; per-repo
+     PR open with marker `<!-- agentsmith:sibling-prs -->` in body;
+     OpenedPullRequests list published on PipelineContext;
+     PullRequestUrl still published for single-PR runs."
+  - "PersistWorkBranchHandler iterates Configs; per-repo WIP push;
+     PersistFailureKind aggregated."
+  - "Build green; full unit test suite green; the six new spec-driven
+     tests are present and passing."

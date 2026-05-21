@@ -41,12 +41,14 @@ public sealed class CheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new RepoConnection { Type = RepoType.Local, Path = "/tmp" }, branch, pipeline);
+            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, branch, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        pipeline.Get<Repository>(ContextKeys.Repository).Should().Be(repo);
+        var stored = pipeline.Get<Repository>(ContextKeys.Repository);
+        stored.CurrentBranch.Should().Be(repo.CurrentBranch);
+        stored.RemoteUrl.Should().Be(repo.RemoteUrl);
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public sealed class CheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new RepoConnection { Type = RepoType.GitHub }, new BranchName("feature/test"), pipeline);
+            new[] { new RepoConnection { Type = RepoType.GitHub } }, new BranchName("feature/test"), pipeline);
 
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 

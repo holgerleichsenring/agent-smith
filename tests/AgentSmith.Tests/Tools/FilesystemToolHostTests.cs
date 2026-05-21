@@ -22,26 +22,21 @@ public sealed class FilesystemToolHostTests
     private static IReadOnlyList<string> NamesOf(IEnumerable<AIFunction> tools)
         => tools.Select(f => f.Name).ToList();
 
-    // p0152: split the overloaded grep / glob / list_files surface into explicit
-    // primitives — grep_in_file vs grep_in_tree (file-or-directory disambiguated),
-    // find_files (was glob), list_directory (was list_files). Old names remain in
-    // every phase set as deprecated aliases until the agent-smith-skills catalog
-    // migrates its prompts; the assertions below cover both new + deprecated.
-    // p0153: surface gains directory_tree + multi_edit; deprecated grep / glob /
-    // list_files stay registered as forwarders until p0154 ships the skills rename.
+    // p0153 split the overloaded grep / glob / list_files surface into explicit
+    // primitives — grep_in_file / grep_in_tree / find_files / list_directory —
+    // and registered the old names as forwarders. p0154 removed the forwarders
+    // alongside the agent-smith-skills 2.6.0 catalogue rename.
     private static readonly string[] ReadOnlyToolNames =
     {
         "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
-        "directory_tree", "run_command", "http_request",
-        "grep", "glob", "list_files" // deprecated aliases
+        "directory_tree", "run_command", "http_request"
     };
 
     private static readonly string[] WriteCapableToolNames =
     {
         "read_file", "write_file", "edit", "multi_edit",
         "grep_in_file", "grep_in_tree", "find_files",
-        "list_directory", "directory_tree", "run_command", "http_request",
-        "grep", "glob", "list_files" // deprecated aliases
+        "list_directory", "directory_tree", "run_command", "http_request"
     };
 
     [Fact]
@@ -202,7 +197,7 @@ public sealed class FilesystemToolHostTests
     }
 
     [Fact]
-    public async Task ListFiles_DelegatesToSandbox()
+    public async Task ListDirectory_DelegatesToSandbox()
     {
         var sandbox = new Mock<ISandbox>();
         sandbox.Setup(s => s.RunStepAsync(
@@ -212,14 +207,14 @@ public sealed class FilesystemToolHostTests
             .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null, "[\"a.cs\",\"b.cs\"]"));
         var host = Build(sandbox.Object);
 
-        var result = await host.ListFiles(".");
+        var result = await host.ListDirectory(".");
 
         result.Should().Contain("a.cs").And.Contain("b.cs");
         sandbox.VerifyAll();
     }
 
     [Fact]
-    public async Task Grep_DelegatesToSandbox()
+    public async Task GrepInFile_DelegatesToSandbox()
     {
         var sandbox = new Mock<ISandbox>();
         sandbox.Setup(s => s.RunStepAsync(
@@ -230,7 +225,7 @@ public sealed class FilesystemToolHostTests
                 "[{\"path\":\"x.cs\",\"line\":1,\"text\":\"foo\",\"kind\":\"match\"}]"));
         var host = Build(sandbox.Object);
 
-        var result = await host.Grep("foo", ".");
+        var result = await host.GrepInFile("foo", "x.cs");
 
         result.Should().Contain("x.cs");
         sandbox.VerifyAll();

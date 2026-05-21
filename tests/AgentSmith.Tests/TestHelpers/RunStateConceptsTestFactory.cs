@@ -57,9 +57,11 @@ internal static class RunStateConceptsTestFactory
         ["source_available"] = new("source_available", "test", ConceptType.Bool, null, null, []),
         ["context_yaml_present"] = new("context_yaml_present", "test", ConceptType.Bool, null, null, []),
         ["coding_principles_present"] = new("coding_principles_present", "test", ConceptType.Bool, null, null, []),
+        // p0155: project_language is a free-form string owned by the
+        // project-analyzer LLM; closed-enum mapper deleted.
         ["project_language"] = new(
-            "project_language", "test", ConceptType.Enum,
-            new[] { "csharp", "node", "python", "generic" }, null, []),
+            "project_language", "test", ConceptType.String,
+            null, null, []),
     });
 
     /// <summary>Default factory — production-equivalent vocabulary when reachable, fallback otherwise.</summary>

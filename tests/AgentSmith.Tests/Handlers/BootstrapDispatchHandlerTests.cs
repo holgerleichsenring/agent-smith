@@ -14,15 +14,16 @@ namespace AgentSmith.Tests.Handlers;
 
 public sealed class BootstrapDispatchHandlerTests
 {
-    // p0130c vocab: pipeline_name gains "init-project"; new project_language enum.
+    // p0155: project_language is a free-form string; the LLM owns the slug
+    // vocabulary via the project-analyzer prompt.
     private static readonly ConceptVocabulary Vocab = new(new Dictionary<string, ProjectConcept>
     {
         ["pipeline_name"] = new(
             "pipeline_name", "test", ConceptType.Enum,
             new[] { "init-project", "fix-bug", "security-scan" }, null, []),
         ["project_language"] = new(
-            "project_language", "test", ConceptType.Enum,
-            new[] { "csharp", "node", "python", "generic" }, null, []),
+            "project_language", "test", ConceptType.String,
+            null, null, []),
     });
 
     private readonly ActivationSkillFilter _filter = new(
@@ -65,14 +66,21 @@ public sealed class BootstrapDispatchHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoMatch_FailsWithProjectLanguageInMessage()
+    public async Task ExecuteAsync_NoMatch_FailMessage_IncludesObservedLanguageAndAvailableSkillNames()
     {
-        // Catalog only contains a Node-bootstrap; project_language=python → no match
+        // Catalog contains node + generic bootstrap; project_language=python → no match.
+        // p0155: failure must surface both the observed slug AND the available skill
+        // names so the operator can diagnose missing skill vs typo'd analyzer output.
         var pipeline = PipelineFor("init-project", "python",
             new RoleSkillDefinition
             {
                 Name = "node-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"node\"",
+            },
+            new RoleSkillDefinition
+            {
+                Name = "generic-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"generic\"",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -80,6 +88,8 @@ public sealed class BootstrapDispatchHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("python");
+        result.Message.Should().Contain("node-bootstrap");
+        result.Message.Should().Contain("generic-bootstrap");
     }
 
     [Fact]
@@ -150,7 +160,7 @@ public sealed class BootstrapDispatchHandlerTests
 
         var concepts = _conceptsFactory(pipeline);
         concepts.SetEnum("pipeline_name", pipelineName);
-        concepts.SetEnum("project_language", projectLanguage);
+        concepts.SetString("project_language", projectLanguage);
         return pipeline;
     }
 }

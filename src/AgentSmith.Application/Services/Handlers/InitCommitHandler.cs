@@ -1,19 +1,25 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Commits generated .agentsmith/ files and creates a pull request. When the
-/// run was triggered by a labelled ticket (p0133), finalizes the ticket via
-/// the shared TicketLifecycle helper — transitions to done_status (or closes
-/// as fallback) and posts a PR-link summary. Slack-modal / CLI init paths
-/// publish no TicketId; the lifecycle branch then no-ops.
+/// Commits generated .agentsmith/ files per repo and creates an init pull
+/// request per repo. Iterates Configs: per repo detect staged changes (skip
+/// if none — bootstrap on an already-initialized repo is a no-op), commit,
+/// push, open PR with a sibling-PR marker in the body that p0158c later
+/// PATCHes with sibling URLs. Publishes ContextKeys.OpenedPullRequests for
+/// multi-repo runs; single-repo runs also publish ContextKeys.PullRequestUrl
+/// for backward compatibility. When a TicketId is present, finalizes the
+/// ticket via the shared TicketLifecycle helper.
 /// </summary>
 public sealed class InitCommitHandler(
     ISourceProviderFactory sourceFactory,
@@ -22,53 +28,107 @@ public sealed class InitCommitHandler(
     ILogger<InitCommitHandler> logger)
     : ICommandHandler<InitCommitContext>
 {
+    private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
+
     public async Task<CommandResult> ExecuteAsync(
         InitCommitContext context, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Committing .agentsmith/ files and creating PR...");
+        logger.LogInformation(
+            "Committing .agentsmith/ files across {Repos} repo(s)...",
+            context.Configs.Count);
 
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
             return CommandResult.Fail("InitCommit requires an active sandbox; none in pipeline context.");
 
-        var sourceProvider = sourceFactory.Create(context.RepoConnection);
-
-        var message = "chore: initialize .agentsmith/ directory";
-        await gitOps.CommitAndPushAsync(
-            sandbox, context.Repository.CurrentBranch.Value, message,
-            context.RepoConnection.Type, cancellationToken);
-
-        // Resolve TicketId once so the PR creation can carry the link AND the
-        // post-PR lifecycle finalize sees the same id without re-reading.
         context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
 
-        var prUrl = await sourceProvider.CreatePullRequestAsync(
-            context.Repository,
-            "Initialize .agentsmith/ directory",
-            "Auto-generated project context, code map, and coding principles.",
-            cancellationToken,
-            linkedTicketId: ticketId);
-
-        context.Pipeline.Set(ContextKeys.PullRequestUrl, prUrl);
-
-        logger.LogInformation("Init PR created: {Url}", prUrl);
-
-        if (ticketId is not null)
+        var opened = new List<OpenedPullRequest>(context.Configs.Count);
+        var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
+        foreach (var repo in context.Configs)
         {
-            context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-
-            var summary = $"""
-                ## Agent Smith - Init Complete in {context.RepoConnection.Name}
-
-                **PR:** {prUrl}
-
-                Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge the PR to enable agent-smith pipelines on this repository.
-                """;
-
-            await TicketLifecycle.FinalizeAsync(
-                ticketFactory, context.TrackerConnection, ticketId,
-                doneStatus, summary, logger, cancellationToken);
+            var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
+            opened.Add(result);
+            if (body is not null) bodies[repo.Name] = body;
         }
 
-        return CommandResult.Ok($"Pull request created: {prUrl}");
+        context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
+        var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
+        if (primaryUrl is not null)
+            context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
+
+        if (ticketId is not null && primaryUrl is not null)
+            await FinalizeTicketAsync(context, primaryUrl, ticketId, cancellationToken);
+        return BuildResult(opened);
+    }
+
+    private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
+        InitCommitContext context, ISandbox sandbox, RepoConnection repo,
+        TicketId? ticketId, CancellationToken ct)
+    {
+        var workdir = Repository.WorkPathFor(repo.Name);
+        try
+        {
+            await gitOps.CommitAndPushAsync(
+                sandbox, context.Repository.CurrentBranch.Value,
+                "chore: initialize .agentsmith/ directory", repo.Type, workdir, ct);
+        }
+        catch (Exception ex) when (LooksLikeEmptyCommit(ex))
+        {
+            logger.LogInformation("{Repo}: no init changes, skipping PR", repo.Name);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{Repo}: init commit/push failed", repo.Name);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+        }
+
+        var body = $"Auto-generated project context, code map, and coding principles.\n\n{SiblingMarker}";
+        try
+        {
+            var provider = sourceFactory.Create(repo);
+            var prUrl = await provider.CreatePullRequestAsync(
+                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty, workdir),
+                "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId);
+            logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
+            return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{Repo}: init PR open failed", repo.Name);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+        }
+    }
+
+    private static bool LooksLikeEmptyCommit(Exception ex) =>
+        ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
+        || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
+
+    private Task FinalizeTicketAsync(
+        InitCommitContext context, string primaryUrl, TicketId ticketId, CancellationToken ct)
+    {
+        context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
+        var summary = $"""
+            ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
+
+            **Primary PR:** {primaryUrl}
+
+            Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge to enable agent-smith pipelines.
+            """;
+        return TicketLifecycle.FinalizeAsync(
+            ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
+    }
+
+    private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
+    {
+        var openedEntries = opened.Where(o => o.Status == OpenStatus.Opened).ToList();
+        var failed = opened.Count(o => o.Status == OpenStatus.Failed);
+        if (openedEntries.Count == 0 && failed > 0)
+            return CommandResult.Fail($"All {opened.Count} init PR open attempts failed.");
+        if (openedEntries.Count == 1)
+            return CommandResult.Ok($"Pull request created: {openedEntries[0].Url}");
+        var urls = string.Join(", ", openedEntries.Select(o => o.Url));
+        return CommandResult.Ok($"Pull requests created: {urls}");
     }
 }

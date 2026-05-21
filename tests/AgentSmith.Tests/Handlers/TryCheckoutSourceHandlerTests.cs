@@ -29,7 +29,7 @@ public sealed class TryCheckoutSourceHandlerTests
     public async Task ExecuteAsync_NoSourceConfigured_OkAndSourcePathUnset()
     {
         var pipeline = new PipelineContext();
-        var context = new TryCheckoutSourceContext(new RepoConnection(), null, pipeline);
+        var context = new TryCheckoutSourceContext(new[] { new RepoConnection() }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -46,7 +46,7 @@ public sealed class TryCheckoutSourceHandlerTests
             var pipeline = new PipelineContext();
             pipeline.Set(ContextKeys.SourcePath, temp);
             var context = new TryCheckoutSourceContext(
-                new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" }, null, pipeline);
+                new[] { new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" } }, null, pipeline);
 
             var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -67,7 +67,7 @@ public sealed class TryCheckoutSourceHandlerTests
         {
             var pipeline = new PipelineContext();
             var context = new TryCheckoutSourceContext(
-                new RepoConnection { Type = RepoType.Local, Path = temp }, null, pipeline);
+                new[] { new RepoConnection { Type = RepoType.Local, Path = temp } }, null, pipeline);
 
             var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -82,7 +82,7 @@ public sealed class TryCheckoutSourceHandlerTests
     {
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new RepoConnection { Type = RepoType.Local, Path = "/does/not/exist/" + Guid.NewGuid() },
+            new[] { new RepoConnection { Type = RepoType.Local, Path = "/does/not/exist/" + Guid.NewGuid() } },
             null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
@@ -100,7 +100,7 @@ public sealed class TryCheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" }, null, pipeline);
+            new[] { new RepoConnection { Type = RepoType.GitHub, Url = "https://github.com/x/y" } }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -114,7 +114,7 @@ public sealed class TryCheckoutSourceHandlerTests
     {
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new RepoConnection { Type = RepoType.GitHub, Url = null }, null, pipeline);
+            new[] { new RepoConnection { Type = RepoType.GitHub, Url = null } }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -133,7 +133,7 @@ public sealed class TryCheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new TryCheckoutSourceContext(
-            new RepoConnection { Type = RepoType.GitLab, Url = "https://gitlab.com/x/y" }, null, pipeline);
+            new[] { new RepoConnection { Type = RepoType.GitLab, Url = "https://gitlab.com/x/y" } }, null, pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 

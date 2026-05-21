@@ -8,16 +8,18 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Checks out a source repository. Pure-Step after p0117b: provider.CheckoutAsync
-/// returns metadata only (default branch, clone URL); the actual git clone runs
-/// in the sandbox via Step{Kind=Run}, plus an optional `git checkout &lt;branch&gt;`
-/// when the requested branch differs from the resolved default.
+/// Checks out the run's repos. Iterates Configs: each repo is cloned into
+/// its own subdirectory at /work/{repo-name}/, then a branch switch is
+/// applied if the requested branch differs from the resolved default.
+/// Local providers trust the sandbox bind-mount and skip the clone. The
+/// primary Repository (Configs[0]) is published on the pipeline context
+/// for downstream skills that operate on "the repo"; multi-repo skills
+/// read ContextKeys.Repos directly.
 /// </summary>
 public sealed class CheckoutSourceHandler(
     ISourceProviderFactory factory,
@@ -25,136 +27,90 @@ public sealed class CheckoutSourceHandler(
     ILogger<CheckoutSourceHandler> logger)
     : ICommandHandler<CheckoutSourceContext>, IConceptWriter
 {
-    private const int CloneTimeoutSeconds = 300;
-    private const int CheckoutTimeoutSeconds = 60;
-
     public IReadOnlyList<ConceptDeclaration> DeclaredConcepts { get; } =
-        [new ConceptDeclaration("source_available", ConceptType.Bool)];
+        new[] { new ConceptDeclaration("source_available", ConceptType.Bool) };
 
     public async Task<CommandResult> ExecuteAsync(
         CheckoutSourceContext context, CancellationToken cancellationToken)
     {
-        var result = await RunCheckoutAsync(context, cancellationToken);
+        var result = await CheckoutAllAsync(context, cancellationToken);
         conceptsFactory(context.Pipeline).SetBool("source_available", result.IsSuccess);
         return result;
     }
 
-    private async Task<CommandResult> RunCheckoutAsync(
-        CheckoutSourceContext context, CancellationToken cancellationToken)
+    private async Task<CommandResult> CheckoutAllAsync(
+        CheckoutSourceContext context, CancellationToken ct)
     {
-        logger.LogInformation("Resolving source metadata for branch {Branch}...", context.Branch);
+        if (context.Configs.Count == 0)
+            return CommandResult.Fail("No repos configured; nothing to check out.");
 
-        var provider = factory.Create(context.Config);
-        var repo = await provider.CheckoutAsync(context.Branch, cancellationToken);
-        context.Pipeline.Set(ContextKeys.Repository, repo);
-
-        if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
+        Repository? primary = null;
+        for (var i = 0; i < context.Configs.Count; i++)
         {
-            // Local source: operator binds basePath to the sandbox /work outside this code.
-            // No clone required; trust the bind-mount.
-            logger.LogInformation("Local source provider — sandbox /work assumed bind-mounted");
-            return CommandResult.Ok($"Local source ready at {Repository.SandboxWorkPath}");
+            var repo = await CheckoutOneAsync(context, context.Configs[i], ct);
+            if (repo is null)
+                return CommandResult.Fail($"Checkout failed for repo '{context.Configs[i].Name}'.");
+            if (i == 0) primary = repo;
         }
-
-        return await CloneAndSwitchAsync(context, repo, cancellationToken);
+        context.Pipeline.Set(ContextKeys.Repository, primary!);
+        return CommandResult.Ok(
+            $"Checked out {context.Configs.Count} repo(s) under {Repository.SandboxWorkPath}");
     }
 
-    private async Task<CommandResult> CloneAndSwitchAsync(
-        CheckoutSourceContext context, Repository repo, CancellationToken cancellationToken)
+    private async Task<Repository?> CheckoutOneAsync(
+        CheckoutSourceContext context, RepoConnection config, CancellationToken ct)
     {
+        var workdir = Repository.WorkPathFor(config.Name);
+        logger.LogInformation("Checking out {Repo} into {Workdir}...", config.Name, workdir);
+
+        var provider = factory.Create(config);
+        var resolved = await provider.CheckoutAsync(context.Branch, ct);
+        var repo = new Repository(resolved.CurrentBranch, resolved.RemoteUrl, workdir);
+
+        if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
+            return repo;
+
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
-            return CommandResult.Fail("CheckoutSource requires an active sandbox to perform the clone.");
+            return FailWith("CheckoutSource requires an active sandbox.", config);
+        if (string.IsNullOrEmpty(config.Url))
+            return FailWith("CheckoutSource requires a non-empty source URL for non-local providers.", config);
 
-        if (string.IsNullOrEmpty(context.Config.Url))
-            return CommandResult.Fail("CheckoutSource requires a non-empty source URL for non-local providers.");
+        await sandbox.RunStepAsync(CheckoutStepFactory.BuildMkdirStep(workdir), progress: null, ct);
+        var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config, workdir), null, ct);
+        if (clone.ExitCode != 0)
+            return FailWith($"git clone failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
 
-        var cloneResult = await RunStepAsync(sandbox, BuildCloneStep(context.Config), cancellationToken);
-        if (cloneResult.ExitCode != 0)
-            return CommandResult.Fail($"git clone failed (exit={cloneResult.ExitCode}): {cloneResult.ErrorMessage}");
-        logger.LogInformation("Sandbox-side `git clone` completed in {Duration:F1}s", cloneResult.DurationSeconds);
+        await MaybeSwitchBranchAsync(sandbox, context.Branch, resolved.CurrentBranch, workdir, ct);
+        return repo;
+    }
 
-        await MaybeSwitchBranchAsync(sandbox, context.Branch, repo.CurrentBranch, cancellationToken);
-        return CommandResult.Ok($"Repository cloned to {Repository.SandboxWorkPath}");
+    private Repository? FailWith(string message, RepoConnection config)
+    {
+        logger.LogWarning("{Repo}: {Message}", config.Name, message);
+        return null;
     }
 
     private async Task MaybeSwitchBranchAsync(
-        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault, CancellationToken cancellationToken)
+        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault,
+        string workdir, CancellationToken ct)
     {
-        if (!NeedsBranchSwitch(requested, resolvedDefault)) return;
-        var branchValue = requested?.Value ?? resolvedDefault.Value;
+        if (requested is null
+            || requested.Value.Equals(resolvedDefault.Value, StringComparison.Ordinal))
+            return;
+        var branch = requested.Value;
 
-        // Two-step: try to check out an existing remote-tracking branch first
-        // (a re-run on the same ticket lands here when the previous run already
-        // pushed agent-smith/<id>). If that fails, fall through to `checkout -b`
-        // to create a fresh local branch off the default. Without the fallback
-        // we'd stay on the default branch and InitCommit's push would either
-        // accidentally target the default branch or fail force-with-lease.
-        var checkoutResult = await RunStepAsync(sandbox, BuildCheckoutStep(branchValue), cancellationToken);
-        if (checkoutResult.ExitCode == 0)
+        var existing = await sandbox.RunStepAsync(
+            CheckoutStepFactory.BuildCheckoutStep(branch, workdir), null, ct);
+        if (existing.ExitCode == 0)
         {
-            logger.LogInformation(
-                "Sandbox-side `git checkout {Branch}` succeeded (reusing existing branch)",
-                branchValue);
+            logger.LogInformation("git checkout {Branch} in {Workdir} (existing)", branch, workdir);
             return;
         }
-
-        logger.LogInformation(
-            "Sandbox-side `git checkout {Branch}` did not find the branch ({Error}); creating it locally",
-            branchValue, checkoutResult.ErrorMessage ?? "no error message");
-
-        var createResult = await RunStepAsync(sandbox, BuildCreateBranchStep(branchValue), cancellationToken);
-        if (createResult.ExitCode != 0)
+        var created = await sandbox.RunStepAsync(
+            CheckoutStepFactory.BuildCreateBranchStep(branch, workdir), null, ct);
+        if (created.ExitCode != 0)
             logger.LogWarning(
-                "Sandbox-side `git checkout -b {Branch}` failed (exit={Exit}): {Error}",
-                branchValue, createResult.ExitCode, createResult.ErrorMessage);
-        else
-            logger.LogInformation(
-                "Sandbox-side `git checkout -b {Branch}` created new branch off default",
-                branchValue);
+                "git checkout -b {Branch} failed in {Workdir} (exit={Exit}): {Err}",
+                branch, workdir, created.ExitCode, created.ErrorMessage);
     }
-
-    private static bool NeedsBranchSwitch(BranchName? requested, BranchName resolvedDefault) =>
-        requested is not null
-        && !requested.Value.Equals(resolvedDefault.Value, StringComparison.Ordinal);
-
-    private static Task<StepResult> RunStepAsync(ISandbox sandbox, Step step, CancellationToken ct) =>
-        sandbox.RunStepAsync(step, progress: null, ct);
-
-    private static Step BuildCloneStep(RepoConnection config)
-    {
-        const string credHelper = "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
-
-        // Server (K8s) mode injects GIT_TOKEN at pod creation via PodSpecBuilder
-        // sourcing from a Secret. CLI / InProcessSandbox mode reads the per-platform
-        // host env var (AZURE_DEVOPS_TOKEN / GITHUB_TOKEN / GITLAB_TOKEN) and stamps
-        // it as GIT_TOKEN on the Step so the credential helper has something to
-        // echo. Without this CLI-mode clones fail with exit 128 against private
-        // remotes.
-        var token = GitTokenResolver.Resolve(config.Type);
-        var env = token is null
-            ? null
-            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
-
-        return new Step(
-            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git",
-            Args: ["-c", credHelper, "clone", config.Url!, "."],
-            WorkingDirectory: Repository.SandboxWorkPath,
-            Env: env,
-            TimeoutSeconds: CloneTimeoutSeconds);
-    }
-
-    private static Step BuildCheckoutStep(string branch) =>
-        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git",
-            Args: ["checkout", branch],
-            WorkingDirectory: Repository.SandboxWorkPath,
-            TimeoutSeconds: CheckoutTimeoutSeconds);
-
-    private static Step BuildCreateBranchStep(string branch) =>
-        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git",
-            Args: ["checkout", "-b", branch],
-            WorkingDirectory: Repository.SandboxWorkPath,
-            TimeoutSeconds: CheckoutTimeoutSeconds);
 }

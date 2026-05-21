@@ -33,4 +33,16 @@ public interface ISourceProvider : ITypedProvider
     /// .agentsmith/context.yaml before the sandbox is created.
     /// </summary>
     Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Updates the body / description of an already-opened pull request. Used by
+    /// PrCrossLinkHandler in p0158c's pass-2 to replace the sibling-PRs marker
+    /// with the actual sibling URL list once every per-repo PR has been opened.
+    /// Returns true on success (HTTP 2xx / no throw); false on any non-success
+    /// or exception (logged at WARN). prUrl is the web URL returned by the
+    /// prior CreatePullRequestAsync call; each impl parses it to recover the
+    /// platform-specific identifier.
+    /// </summary>
+    Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken);
 }

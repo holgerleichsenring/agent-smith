@@ -161,7 +161,7 @@ public class CommitAndPRHandlerTests
         {
             new(new FilePath("README.md"), "content", "Created")
         };
-        return new CommitAndPRContext(repo, changes, ticket, new RepoConnection(), new TrackerConnection(), pl);
+        return new CommitAndPRContext(repo, changes, ticket, new[] { new RepoConnection() }, new TrackerConnection(), pl);
     }
 
     private PipelineContext NewPipelineWithSandbox()

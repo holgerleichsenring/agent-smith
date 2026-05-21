@@ -17,6 +17,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// so skills can read project sources via their Read/Grep tools. Any failure
 /// leaves SourcePath unset and lets the pipeline continue in passive schema-
 /// only mode.
+///
+/// Multi-repo note: as of p0158b the context is list-shaped (Configs), but
+/// this handler still operates on Configs[0] (= Source) because api-scan
+/// today consumes a single primary repo. Multi-repo fail-soft (front-end +
+/// back-end correlation) is a follow-up beyond p0158d.
 /// </summary>
 public sealed class TryCheckoutSourceHandler(
     IHostSourceCloner cloner,

@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0156
+goal: "Replace the sequential r{NN} run-numbering scheme with ISO-8601 timestamp
+  identifiers plus a 4-hex collision suffix, and fix the silent context.yaml-skip
+  in the same pass. Both failures observed in run a6914f38: the directory was
+  always r01-xyz (silent no-op when the target repo's context.yaml lacked the
+  template's `state.active:` anchor) and two tickets enqueued in the same second
+  computed the same next-number from a shared pre-state. New scheme: directory
+  `{yyyy-MM-ddTHH-mm-ss}-{4hex}-{slug}/`; context.yaml entry under a dedicated
+  `runs:` key the handler creates if missing. Sub-second collision-resistance
+  comes from the 4-hex suffix (16-bit keyspace, ls-readable, lexicographically
+  stable across the second boundary). No counter, no shared pre-state, no anchor
+  dependency."
+
+requires: []
+
+scope:
+  in: |
+    (1) Run directory name format changes from `r{NN}-{slug}` to
+        `{yyyy-MM-ddTHH-mm-ss}-{4hex}-{slug}` (colons → dashes for filesystem
+        safety; 4hex = lowercase, fixed-width). Generated from the run's start
+        timestamp in UTC plus a random 16-bit suffix.
+
+    (2) context.yaml entry lands under a top-level `runs:` key,
+        auto-created when missing. Entry shape:
+        `"2026-05-20T22-27-43-8a3f": "fix #18794: ..."` (quoted key).
+        WriteRunResultHandler creates the `runs:` block at end-of-file
+        if absent — never silent-no-op.
+
+    (3) RunDirectoryReader parses the new prefix (timestamp + suffix). Old
+        r{NN}-style directories are NOT enumerated (clean switchover, no
+        dual-format support — pre-p0156 runs become invisible to wiki
+        compilation).
+
+    (4) .last-compiled file stores the full RunId string (timestamp + suffix)
+        instead of an int. CompileKnowledgeHandler filters by ordinal string
+        comparison (the fixed-width format is lexicographically sortable by
+        design — verified by a format-invariant test).
+
+    (5) RunNumber concept (ContextKeys.RunNumber, RunData.RunNumber,
+        RunDirectoryInfo.RunNumber) renamed to RunId : string. Display
+        sites that wrote "Run r{N:D2}" now write the timestamp with seconds
+        AND the suffix so the operator can map the display back to a
+        directory (e.g. `Run 2026-05-20 22:27:43 UTC (8a3f)`).
+
+    (6) Tests updated for the new shape; new test for the same-second
+        scenario (two WriteRunResultHandler invocations with identical
+        wall-clock seconds get different RunIds via the suffix and produce
+        distinct directories); format-invariant test pins the canonical
+        shape so ordinal string comparison stays valid.
+
+  out: |
+    - Migration of existing r{NN} directories. Cold cut; document in CHANGELOG.
+    - Sub-millisecond precision or full UUID. 16-bit suffix is the chosen
+      balance between collision-resistance and ls-readability.
+    - Renaming the `runs:` key shape further (e.g. to a list). Keeps the
+      keyed-by-timestamp shape so dispatcher/index lookups stay O(1).
+
+decisions:
+  - key: "ISO-8601 timestamp with `:`→`-` plus 4-hex suffix as run identifier. Lexicographically sortable (timestamp dominates; fixed-width suffix tiebreaks within the second), filesystem-safe across all OSes, human-readable in directory listings. — alternatives: UUID (rejected, unreadable in `ls`); epoch seconds (rejected, opaque); per-ticket counter (rejected, still requires shared pre-state for re-runs)."
+
+  - key: "4-hex random suffix on the ISO timestamp absorbs same-second collisions. 16 bits is enough — birthday bound puts 50% collision at ~256 simultaneous runs, while batch-enqueued tickets (e.g. weekly cron with the 'Weekly' tag from a6914f38) realistically only fire 2-10 at a time. Suffix is fixed-width lowercase hex so lex-sort of the full identifier stays stable across the second boundary. — alternatives: nanosecond precision (rejected, false sense of safety, still collidable in theory); full UUID (rejected, kills ls readability for no gain); plain second-precision timestamps without suffix (rejected, batch-enqueue collisions are the very case p0156 exists to fix — accepting them would re-introduce the a6914f38-class overwrite bug at a smaller probability)."
+
+  - key: "Dedicated top-level `runs:` key, not reuse of `state.active:`. The previous code abused an anchor from the agent-smith template that real target repos don't have. `runs:` is unambiguous, self-describing, and the handler can create it on first run without guessing existing structure. — alternatives: scan-disk-only (rejected, loses the audit-trail in context.yaml the operator can read at a glance)."
+
+  - key: "Clean switchover, no dual-format reader. The fleet is small; old r{NN} directories become wiki-invisible after p0156 ships. CHANGELOG documents it. — alternatives: dual-format RunDirectoryReader (rejected, ongoing maintenance burden for a one-time transition)."
+
+  - key: "Display retains seconds AND the hex suffix so the operator can map a rendered Run header back to a directory on disk. Dropping either field forces a `ls runs/ | grep` to disambiguate same-minute or same-second runs. — alternatives: render only minute precision (rejected, undoes the disambiguation the suffix exists for); render the full identifier verbatim (rejected, ISO-with-dashes is harder to read than `2026-05-20 22:27:43 UTC (8a3f)`)."
+
+steps:
+  - id: handler
+    action: "WriteRunResultHandler: drop DetermineNextRunNumberAsync. Generate RunId from run start UTC timestamp plus a 4-hex random suffix (Random.Shared, lowercase). Rename `nextRunNumber` → `runId`. AppendToContextYamlAsync: find or create top-level `runs:` block, append `\"{runId}\": \"{summary}\"`. Never silent-skip."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+
+  - id: reader
+    action: "RunDirectoryReader: parse `{timestamp}-{4hex}-{slug}` prefix; drop r{NN} branch. RunNumber → RunId : string in RunDirectoryInfo + RunData. .last-compiled stores the full RunId string; ReadLastCompiledAsync returns string."
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/RunDirectoryReader.cs"
+
+  - id: consumers
+    action: "Rename ContextKeys.RunNumber → RunId. Update KnowledgePromptBuilder, LoadRunsHandler, CompileKnowledgeHandler, RunResultFormatter — display sites format the timestamp with seconds and surface the suffix (e.g. `Run 2026-05-20 22:27:43 UTC (8a3f)`)."
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.Pipeline.cs"
+      - "src/AgentSmith.Application/Services/Handlers/KnowledgePromptBuilder.cs"
+      - "src/AgentSmith.Application/Services/Handlers/LoadRunsHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs"
+      - "src/AgentSmith.Application/Services/Formatters/RunResultFormatter.cs (or wherever Run header is rendered)"
+
+  - id: tests
+    action: "Rewrite WriteRunResultHandler / RunDirectoryReader / CompileKnowledgeHandler tests for the new shape. Add same-second test (two invocations with identical UtcNow yield different RunIds + different directories). Add format-invariant test pinning `^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}-[0-9a-f]{4}$` so ordinal string compare stays valid."
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/WriteRunResultHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/RunDirectoryReaderTests.cs (if absent, new)"
+      - "tests/AgentSmith.Tests/Handlers/CompileKnowledgeHandlerTests.cs"
+
+  - id: docs
+    action: "CHANGELOG entry: identifier-scheme change; pre-p0156 r{NN} directories become wiki-invisible."
+    modify:
+      - "CHANGELOG.md"
+
+tests:
+  - "WriteRunResult_RunId_IsUtcTimestampWith4HexSuffix_FilesystemSafe"
+  - "WriteRunResult_RunId_FormatMatchesCanonicalRegex"
+  - "WriteRunResult_AppendsToContextYaml_RunsSection_WhenPresent"
+  - "WriteRunResult_CreatesRunsSection_WhenAbsent_AndAppends"
+  - "WriteRunResult_AppendsToContextYaml_EvenWhenNoStateActiveAnchor_Exists"
+  - "WriteRunResult_TwoSameSecondRuns_GetDifferentSuffixes_NoDirectoryCollision"
+  - "RunDirectoryReader_Enumerates_TimestampPrefixedDirectories_OnlyNotLegacyR##"
+  - "RunDirectoryReader_LastCompiled_RoundTripsFullRunId"
+  - "CompileKnowledge_FiltersByOrdinalStringCompare_OfRunId"
+
+done:
+  - "Run directories use `{yyyy-MM-ddTHH-mm-ss}-{4hex}-{slug}` naming."
+  - "context.yaml entry always lands under `runs:` (created if missing); silent-skip path deleted."
+  - "Repro of a6914f38: a second fix-bug run against the same target+ticket produces a distinct directory and a second `runs:` entry — no overwrite."
+  - "Two same-second fix-bug runs (different tickets, same target repo) each get unique identifiers via the 4-hex suffix and unique directories."
+  - "Format-invariant test pins the canonical regex; CompileKnowledge ordinal string compare proven valid by that pin."
+  - "RunNumber-typed fields are gone; consumers use RunId : string."
+  - "Display surfaces seconds and the hex suffix so operator can map header → directory."
+  - "Full unit test suite green; /smoke green for fix-bug, security-scan, api-scan."
+  - "CHANGELOG notes pre-p0156 r{NN} directories become wiki-invisible."

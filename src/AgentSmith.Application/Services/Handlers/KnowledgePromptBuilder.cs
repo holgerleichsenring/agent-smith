@@ -24,7 +24,7 @@ public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
 
         foreach (var run in runs)
         {
-            sb.AppendLine($"### Run r{run.RunNumber:D2} ({run.DirName})");
+            sb.AppendLine($"### Run {RunIdGenerator.FormatForDisplay(run.RunId)} ({run.DirName})");
             sb.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(run.Plan))

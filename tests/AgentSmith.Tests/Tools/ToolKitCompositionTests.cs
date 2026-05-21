@@ -28,13 +28,12 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
-        // p0153: read-side filesystem surface (new primitives + directory_tree
-        // + deprecated aliases) + log_decision + ask_human. No write_file / edit /
-        // multi_edit in Plan.
+        // p0154: read-side filesystem surface + directory_tree + log_decision + ask_human.
+        // Deprecated aliases (grep/glob/list_files) removed with the catalogue rename.
+        // No write_file / edit / multi_edit in Plan.
         tools.Should().BeEquivalentTo(
             "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
             "directory_tree", "run_command", "http_request",
-            "grep", "glob", "list_files", // deprecated aliases
             "log_decision", "ask_human");
     }
 
@@ -45,8 +44,8 @@ public sealed class ToolKitCompositionTests
 
         var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
-        // p0153: 11 filesystem-host primitives + 3 deprecated aliases + log_decision + ask_human = 16.
-        tools.Should().HaveCount(16);
+        // p0154: 11 filesystem-host primitives + log_decision + ask_human = 13. Deprecated aliases gone.
+        tools.Should().HaveCount(13);
     }
 
     [Fact]

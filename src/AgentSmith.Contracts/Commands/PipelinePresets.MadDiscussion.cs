@@ -16,5 +16,6 @@ public static partial class PipelinePresets
         CommandNames.ConvergenceCheck,
         CommandNames.CompileDiscussion,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+        CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];
 }

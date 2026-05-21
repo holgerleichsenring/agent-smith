@@ -47,7 +47,7 @@ public sealed class DiscussionRoundToolPolicyTests
         var tools = policy.GetTools(role, pipeline);
 
         tools.Should().NotBeEmpty();
-        ToolNames(tools).Should().Contain(new[] { "read_file", "grep", "list_files" });
+        ToolNames(tools).Should().Contain(new[] { "read_file", "grep_in_tree", "list_directory" });
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class DiscussionRoundToolPolicyTests
 
         var tools = policy.GetTools(role, pipeline);
 
-        ToolNames(tools).Should().Contain(new[] { "read_file", "grep", "list_files" });
+        ToolNames(tools).Should().Contain(new[] { "read_file", "grep_in_tree", "list_directory" });
     }
 
     [Fact]
