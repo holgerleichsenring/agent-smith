@@ -2,12 +2,15 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Activation;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -100,12 +103,23 @@ public sealed class MultiRepoBootstrapTests
     }
 
     [Fact]
-    public void PublishProjectLanguage_MultipleRepos_PublishesPrimaryAndSetsAggregateWhenVocabSupports()
+    public async Task PublishProjectLanguage_MultipleRepos_PublishesPrimaryAndSetsAggregateWhenVocabSupports()
     {
-        // The current pinned skill catalog doesn't declare project_languages yet
-        // (catalog bump separate from p0158f). PublishProjectLanguage publishes
-        // primary project_language to the concept vocabulary; the aggregate
-        // attempt is silently swallowed when the concept isn't in the vocab.
+        // p0158f behaviour with a post-p0155 vocab (project_language declared as
+        // String, project_languages absent so the handler's catch swallows it).
+        // Uses a hand-rolled vocab so the test is invariant under the CI-pinned
+        // skill-catalog version — RunStateConceptsTestFactory.Default would
+        // pull whatever SKILLS_VERSION CI has pinned, and pre-p0155 catalogs
+        // (v2.1.2, v2.2.0) still declare project_language as Enum which would
+        // make PublishProjectLanguageHandler.SetString throw.
+        var vocab = new ConceptVocabulary(new Dictionary<string, ProjectConcept>
+        {
+            ["project_language"] = new(
+                "project_language", "test", ConceptType.String, null, null, []),
+        });
+        var conceptsFactory = (PipelineContext ctx) =>
+            (IRunStateConcepts)new PipelineContextRunStateConcepts(ctx, vocab);
+
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
@@ -116,10 +130,10 @@ public sealed class MultiRepoBootstrapTests
             });
 
         var handler = new PublishProjectLanguageHandler(
-            RunStateConceptsTestFactory.Default,
+            conceptsFactory,
             NullLogger<PublishProjectLanguageHandler>.Instance);
-        var result = handler.ExecuteAsync(
-            new PublishProjectLanguageContext(pipeline), CancellationToken.None).Result;
+        var result = await handler.ExecuteAsync(
+            new PublishProjectLanguageContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         // Aggregate is communicated via the message line when count > 1
