@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Contracts.Commands;
@@ -31,9 +32,10 @@ public sealed class TestHandler(
         var resolved = ResolveTestCommand(context.Pipeline);
         if (resolved.Command is null)
         {
-            logger.LogWarning("No test framework detected in ProjectMap, skipping tests");
+            var reason = resolved.SkipReason ?? "no test command resolved";
+            logger.LogWarning("{Reason}", reason);
             context.Pipeline.Set(ContextKeys.TestResults, TrxSummary.Empty);
-            return CommandResult.Ok("No test framework detected, skipping tests");
+            return CommandResult.Ok(reason);
         }
 
         if (!context.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) || sandbox is null)
@@ -42,29 +44,33 @@ public sealed class TestHandler(
         return await RunInSandboxAsync(context, sandbox, resolved, cancellationToken);
     }
 
-    private TestCommand ResolveTestCommand(PipelineContext pipeline)
+    // p0155: TestHandler runs whatever ci.test_command the analyzer produced,
+    // tokenized via System.CommandLine's established splitter (no hand-rolled
+    // whitespace + quote handling). IsTrxCapable derives from the command
+    // prefix — a property of the runner, not the project's language.
+    internal static TestCommand ResolveTestCommand(PipelineContext pipeline)
     {
-        // p0131b: DetectedProject branch retired with BootstrapProjectHandler.
-        // ProjectMap (populated by AnalyzeProjectHandler) is now the single
-        // source of truth for language/test-command resolution.
         if (!pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var projectMap) || projectMap is null)
-            return TestCommand.None;
+            return TestCommand.Skip("Skipping tests: ProjectMap missing — AnalyzeProject did not run.");
 
-        return projectMap.PrimaryLanguage.ToLowerInvariant() switch
-        {
-            "dotnet" or "dotnet8" or "dotnet9" or "csharp" => DotnetTestCommand(),
-            "node" or "node20" or "javascript" or "typescript"
-                => new TestCommand("npm", new[] { "test" }, IsTrxCapable: false),
-            "python" or "python3"
-                => new TestCommand("pytest", Array.Empty<string>(), IsTrxCapable: false),
-            _ => TestCommand.None
-        };
+        var raw = projectMap.Ci?.TestCommand;
+        if (string.IsNullOrWhiteSpace(raw))
+            return TestCommand.Skip(
+                "Skipping tests: ProjectMap.Ci.TestCommand is empty — analyzer found no test command for this project.");
+
+        var tokens = CommandLineStringSplitter.Instance.Split(raw).ToList();
+        if (tokens.Count == 0)
+            return TestCommand.Skip($"Skipping tests: ci.test_command '{raw}' tokenized to zero arguments.");
+
+        // dotnet test emits TRX when --logger:trx + --results-directory is appended.
+        // Append rather than overwrite so analyzer-supplied flags (e.g. --filter) survive.
+        var head = tokens[0];
+        var isDotnet = head.Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+        if (isDotnet)
+            tokens.AddRange(new[] { "--logger", "trx", "--results-directory", TrxResultsDir });
+
+        return new TestCommand(head, tokens.Skip(1).ToArray(), IsTrxCapable: isDotnet, SkipReason: null);
     }
-
-    private static TestCommand DotnetTestCommand() => new(
-        "dotnet",
-        new[] { "test", "--verbosity", "minimal", "--logger", "trx", "--results-directory", TrxResultsDir },
-        IsTrxCapable: true);
 
     private CommandResult SkipWithoutSandbox(TestContext context)
     {
@@ -165,8 +171,8 @@ public sealed class TestHandler(
         return CommandResult.Fail($"Tests failed ({counters}, exit {exitCode}):\n{detail}\n{stdout}");
     }
 
-    private sealed record TestCommand(string? Command, IReadOnlyList<string>? Args, bool IsTrxCapable)
+    internal sealed record TestCommand(string? Command, IReadOnlyList<string>? Args, bool IsTrxCapable, string? SkipReason)
     {
-        public static TestCommand None { get; } = new(null, null, false);
+        public static TestCommand Skip(string reason) => new(null, null, false, reason);
     }
 }

@@ -22,9 +22,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// subset (read_file, grep_in_*, find_files, list_directory, directory_tree,
 /// run_command — destructive commands blocked by CommandGuard).
 ///
-/// Deprecated aliases (grep / glob / list_files) stay registered as
-/// forwarders for the agent-smith-skills SKILL.md files that still call
-/// them; p0154 removes them together with the catalogue rename.
+/// p0154 removed the deprecated grep / glob / list_files aliases in lockstep
+/// with the agent-smith-skills 2.6.0 SKILL.md rename. Skills must use
+/// grep_in_file / grep_in_tree / find_files / list_directory directly.
 /// </summary>
 public sealed class FilesystemToolHost : IToolHost
 {
@@ -367,39 +367,11 @@ public sealed class FilesystemToolHost : IToolHost
         return _runner.RunAsync(command, timeout_seconds, ct);
     }
 
-    // Deprecated aliases — kept registered as forwarders until p0154 ships the
-    // skills catalogue rename. Descriptions reflect the deprecation; the
-    // SourceAnchoringPreamble does not mention them so the LLM is not steered
-    // toward the old names.
-
-    [Description("[DEPRECATED — use grep_in_file or grep_in_tree.] Forwards to the path-shape-appropriate replacement.")]
-    public Task<string> Grep(
-        [Description("Regular expression pattern.")] string pattern,
-        [Description("Repository-relative path to search under (file or directory).")] string path = ".",
-        [Description("Optional glob filter (only meaningful when path is a directory).")] string? glob = null,
-        [Description("Maximum number of matches to return.")] int? max_matches = null,
-        CancellationToken ct = default)
-    {
-        _logger?.LogInformation("tool_call: Grep [deprecated] pattern={Pattern} path={Path}", pattern, path);
-        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
-        return _runner.GrepAsync(pattern, path, glob, max_matches, contextBefore: null, contextAfter: null, GrepOutputMode.Content, ct);
-    }
-
-    [Description("[DEPRECATED — use find_files.] Lists files matching a glob pattern.")]
-    public Task<string> Glob(
-        [Description("Glob pattern.")] string pattern,
-        [Description("Repository-relative base path (default '.').")] string path = ".",
-        CancellationToken ct = default) => FindFiles(pattern, path, head_limit: null, ct);
-
-    [Description("[DEPRECATED — use list_directory.] Lists files and folders under the given path.")]
-    public Task<string> ListFiles(
-        [Description("Repository-relative path. Use '.' for the repo root.")] string path = ".",
-        [Description("Optional max depth.")] int? max_depth = null,
-        CancellationToken ct = default) => ListDirectory(path, max_depth, with_sizes: false, sort_by: "name", ct);
-
     private static AIFunction Tool(Delegate impl, string name) =>
         AIFunctionFactory.Create(impl, name: name);
 
+    // p0154: deprecated grep / glob / list_files aliases removed alongside the
+    // agent-smith-skills 2.6.0 rename. The new tool surface is the only surface.
     private IEnumerable<AIFunction> ReadOnlySet() =>
     [
         Tool(ReadFile, "read_file"),
@@ -410,9 +382,6 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
-        Tool(Grep, "grep"),
-        Tool(Glob, "glob"),
-        Tool(ListFiles, "list_files")
     ];
 
     private IEnumerable<AIFunction> InvestigatorSet() => ReadOnlySet();
@@ -430,9 +399,6 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
-        Tool(Grep, "grep"),
-        Tool(Glob, "glob"),
-        Tool(ListFiles, "list_files")
     ];
 
     private IEnumerable<AIFunction> All() => BootstrapSet();

@@ -30,6 +30,12 @@ public static partial class CommandNames
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitAndPR = "CommitAndPRCommand";
     public const string InitCommit = "InitCommitCommand";
+
+    /// <summary>p0158c: PR cross-link pass-2. Runs after CommitAndPR / InitCommit when
+    /// multiple PRs opened in the same run. Replaces the sibling-PRs marker in each
+    /// opened PR's body with the actual sibling URL list via the source provider's
+    /// UpdatePullRequestBodyAsync. No-op when fewer than two PRs opened.</summary>
+    public const string PrCrossLink = "PrCrossLinkCommand";
     public const string GenerateTests = "GenerateTestsCommand";
     public const string GenerateDocs = "GenerateDocsCommand";
     public const string Triage = "TriageCommand";

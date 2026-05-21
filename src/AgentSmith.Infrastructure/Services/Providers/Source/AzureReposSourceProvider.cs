@@ -173,6 +173,33 @@ public sealed class AzureReposSourceProvider(
     private Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken) =>
         clientFactory.CreateGitClientAsync(_organizationUrl, personalAccessToken, cancellationToken);
 
+    public async Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken)
+    {
+        if (!TryParsePullRequestId(prUrl, out var prId)) return false;
+        try
+        {
+            var client = CreateGitClient();
+            await client.UpdatePullRequestAsync(
+                new GitPullRequest { Description = newBody },
+                project, repoName, prId, cancellationToken: cancellationToken);
+            logger.LogInformation("Updated PR body for !{PrId}", prId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to update PR body for !{PrId}", prId);
+            return false;
+        }
+    }
+
+    private static bool TryParsePullRequestId(string prUrl, out int prId)
+    {
+        prId = 0;
+        var match = System.Text.RegularExpressions.Regex.Match(prUrl, @"/pullrequest/(\d+)");
+        return match.Success && int.TryParse(match.Groups[1].Value, out prId);
+    }
+
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var client = CreateGitClient();

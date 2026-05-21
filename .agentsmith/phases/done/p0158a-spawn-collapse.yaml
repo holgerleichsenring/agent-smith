@@ -1,0 +1,197 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0158a
+goal: |
+  First slice of p0158: collapse the per-repo fan-out at the enqueue layer.
+  PipelineRequest no longer carries RepoName; SpawnPipelineRunsUseCase emits
+  exactly one ClaimRequest per ticket; ITicketClaimService.ClaimSpawnAsync
+  (list-shaped) is removed in favour of ClaimAsync (single). ContextKeys.
+  CurrentRepo (singular RepoConnection) becomes ContextKeys.Repos (list of
+  RepoConnection); ContextKeys.SourceOverrideRepo (string) is added so the
+  consumer side can optionally scope the run to a single repo by name.
+  Consumer-side behaviour is preserved bit-for-bit by reading Repos[0] in
+  every place that previously read CurrentRepo — true multi-repo unified-run
+  (workdir layout, per-repo iteration, PR cross-link, CLI `--repo`) lands in
+  the follow-up slice p0158b. The original Sample-class reconciler bug
+  (multi-repo project orphan tickets hitting ResolveCurrentRepo's
+  multi-repo throw on every reconcile interval) is dissolved at this slice
+  because RepoName is no longer a field on the request — there is no
+  resolve-from-name path anymore.
+
+requires: ["p0140b", "p0140d", "p0140e"]
+
+supersedes: []
+
+scope:
+  in: |
+    (1) Contracts:
+        - PipelineRequest.RepoName : removed
+        - ClaimRequest.RepoName : removed
+        - ContextKeys.CurrentRepo : renamed to ContextKeys.Repos
+          (value type: IReadOnlyList<RepoConnection>)
+        - ContextKeys.SourceOverrideRepo : new (value type: string;
+          read by ExecutePipelineUseCase to filter Repos to a single match)
+
+    (2) Spawn / claim:
+        - SpawnPipelineRunsUseCase.BuildRequests : emits exactly one
+          ClaimRequest per ticket (no per-repo loop, no list output).
+          The matched trigger's DoneStatus still flows into InitialContext.
+        - ITicketClaimService.ClaimSpawnAsync (list-shaped): removed.
+        - ITicketClaimService.ClaimAsync (single): retained as the only
+          entry point.
+        - SpawnRegionExecutor (list-shaped): deleted.
+        - SingleClaimRegionExecutor (new, internal): owns the in-lock body
+          of the claim region for a single request — read ticket lifecycle,
+          transition Pending → Enqueued, enqueue one PipelineRequest.
+          Extracted from TicketClaimService to keep both classes under
+          the 120-LOC limit.
+        - AssertSharedTicket invariant: removed (trivially true for one
+          request, no longer needed).
+
+    (3) Execute / scope-override wiring:
+        - ExecutePipelineUseCase.ResolveCurrentRepo : deleted.
+        - ExecutePipelineUseCase.ResolveRepos (new, private): returns the
+          project's full Repos list by default; when the request's Context
+          contains ContextKeys.SourceOverrideRepo, filters to the single
+          named repo. Unknown name throws InvalidOperationException with
+          the known-repos list in the message.
+        - PipelineContext publishes ContextKeys.Repos at run start.
+
+    (4) Builders / coordinator (consumer-side, Wave-1 transitional read):
+        - SourceConfigOverrider: rewritten to operate on the Repos list and
+          honour SourceOverrideRepo for per-repo scoping of source flag
+          overrides.
+        - PipelineSandboxCoordinator: toolchain-language resolution now
+          iterates Repos and uses the first repo whose
+          ISandboxLanguageResolver call returns a non-null language; falls
+          back to GenericFallback.
+        - CheckoutSourceContextBuilder, TryCheckoutSourceContextBuilder,
+          PersistWorkBranchContextBuilder, CommitAndPRContextBuilder,
+          InitCommitContextBuilder, AcquireSourceContextBuilder,
+          DeliverOutputContextBuilder: read ContextKeys.Repos and pass
+          Repos[0] into the existing single-repo Context types. Per-repo
+          iteration is NOT introduced here — that is p0158b's scope.
+
+    (5) Reconciler:
+        - EnqueuedReconciler.ReconcileProjectAsync : no change required —
+          the existing code already enqueued a request without RepoName.
+          The original Sample-class loop bug is now dissolved because
+          PipelineRequest no longer has a RepoName field at all.
+
+    (6) Tests:
+        - ExecutePipelineUseCaseCurrentRepoTests.cs : deleted.
+        - ExecutePipelineUseCaseReposTests.cs : new. Covers
+          NoScopeOverride_PublishesAllConfiguredRepos /
+          RepoOverride_FiltersToSingleRepo_CaseInsensitive /
+          RepoOverride_UnknownName_Throws_WithKnownReposList /
+          RepoOverride_OnSingleRepoProject_MatchingName_NoOp.
+        - ClaimSpawnAsyncTests.cs : deleted (concept removed).
+        - SpawnPipelineRunsUseCaseTests.cs : rewritten — asserts exactly
+          one ClaimAsync per ticket regardless of repo count, no fan-out.
+        - MultiRepoEnqueueSmokeTests.cs : rewritten — asserts exactly one
+          ClaimAsync call (not three) for a three-repo project.
+        - SingleRepoRegressionTests.cs : adjusted — removed the
+          captured.RepoName assertion from AssertCanonicalShape.
+        - BuildersReadCurrentRepoFromContextTests.cs : adjusted — tests
+          now seed ContextKeys.Repos as a list, doc updated.
+        - TryCheckoutSourceContextBuilderTests.cs,
+          CommandContextFactoryTests.cs,
+          PipelineExecutorLifecycleFailureTests.cs,
+          PipelineExecutorSandboxResolutionTests.cs,
+          PipelineSandboxCoordinatorTests.cs : mechanical swap to seed
+          ContextKeys.Repos with a one-element list instead of
+          ContextKeys.CurrentRepo.
+
+  out: |
+    - True multi-repo unified-run behaviour (workdir layout
+      `{run-root}/{repo-key}/`, per-repo Checkout/Branch/Commit/PR
+      iteration, PR cross-linking, CLI `--repo NAME`, p0140e counter
+      collapse): all deferred to p0158b. p0158a only fixes the enqueue
+      side and the contracts; the consumer side keeps reading Repos[0]
+      so a multi-repo project today still only processes its first repo.
+    - Host-side source cache, api-security-scan ticket-driven migration,
+      multi-toolchain composite-image sandbox: as in the p0158 umbrella —
+      separate follow-up phases beyond p0158b.
+
+decisions:
+  - key: "Two-slice split (p0158a enqueue + p0158b consumer-side) instead
+      of one umbrella commit. — the original p0158 spec was implementable
+      end-to-end, but the consumer-side change (handlers, workdir layout,
+      PR cross-link two-pass across three platform APIs, CLI on eight
+      commands, ~20 new tests) cascades into test-fixture rewrites at
+      every handler boundary. p0158a delivers the smallest standalone
+      slice that (a) dissolves the original Sample-class reconciler
+      bug, (b) leaves the codebase in a clean compileable + test-green
+      state, (c) unblocks p0158b cleanly. — alternatives: ship p0158
+      as one commit (rejected: realistically multi-conversation, partial
+      states are higher-risk than a clean slice); ship only the reconciler
+      hotfix (rejected: would still leave RepoName as a misleading field
+      and the resolve-from-name path as a latent multi-repo trap)."
+
+  - key: "Repos[0] read on the consumer side is the explicit transitional
+      contract. — every builder/coordinator that previously read
+      CurrentRepo now reads Repos[0]. For single-repo projects this is
+      bit-for-bit identical to today (one repo, list of length 1,
+      [0] is that repo). For multi-repo projects this means only the
+      first configured repo is processed; sibling repos are ignored. This
+      is a known limitation of the slice — p0158b lifts it. — alternatives:
+      change every Context type to be list-shaped immediately (rejected:
+      cascades the change into handlers and tests, defeating the slicing
+      premise); throw on multi-repo until p0158b (rejected: would
+      re-introduce the Sample-class loop bug at the consumer side after
+      removing it at the enqueue side)."
+
+  - key: "ClaimSpawnAsync collapses to ClaimAsync; SingleClaimRegionExecutor
+      replaces SpawnRegionExecutor. — the list-shaped interface was added
+      in p0140b for the fan-out that p0158a removes. With one request per
+      ticket the list is always length 1, so the list shape is dead weight
+      and AssertSharedTicket becomes a trivially-true no-op. Splitting the
+      in-lock body into SingleClaimRegionExecutor keeps both classes
+      under the 120-LOC limit (TicketClaimService: 60 LOC,
+      SingleClaimRegionExecutor: 55 LOC). — alternatives: inline the body
+      into TicketClaimService (rejected: pushes it over 120 LOC); keep
+      ClaimSpawnAsync as a one-element wrapper (rejected: YAGNI, no
+      caller benefits)."
+
+  - key: "ContextKeys.SourceOverrideRepo is the consumer-side scope filter,
+      added now even though no CLI populates it yet. — p0158b's CLI step
+      will set this key from `--repo NAME`. Adding the read side now in
+      ExecutePipelineUseCase + SourceConfigOverrider means p0158b's CLI
+      slice is purely additive (CLI flag + ContextKeys population), not
+      a cross-cutting consumer-side change. The unread key is a documented
+      no-op until p0158b lands. — alternatives: defer the read side too
+      (rejected: would force p0158b to touch ExecutePipelineUseCase again
+      for what is logically a CLI-only change)."
+
+steps:
+  - id: snapshot
+    action: "Wave-1 implementation as shipped on the phase branch. Steps
+      were executed end-to-end before this spec was retroactively narrowed
+      from p0158; see the commit diff for the canonical record."
+
+tests:
+  - "ExecutePipelineUseCase_NoScopeOverride_PublishesAllConfiguredRepos"
+  - "ExecutePipelineUseCase_RepoOverride_FiltersToSingleRepo_CaseInsensitive"
+  - "ExecutePipelineUseCase_RepoOverride_UnknownName_Throws_WithKnownReposList"
+  - "ExecutePipelineUseCase_RepoOverride_OnSingleRepoProject_MatchingName_NoOp"
+  - "SpawnPipelineRuns_OneRepo_EnqueuesOneRun"
+  - "SpawnPipelineRuns_ThreeRepos_StillEnqueuesExactlyOneRequest_NoFanOut"
+  - "SpawnPipelineRuns_PipelineNameFlowsThroughUnchanged"
+  - "SpawnPipelineRuns_InitialContextCarriesDoneStatusFromMatchedTrigger"
+  - "MultiRepoEnqueueSmoke_ThreeRepos_OneTicket_EmitsExactlyOneClaimRequest_NotThree"
+  - "Builders_ReadRepos_FromPipelineContext (CommitAndPR / InitCommit / AcquireSource)"
+
+done:
+  - "PipelineRequest.RepoName and ClaimRequest.RepoName deleted."
+  - "ContextKeys.CurrentRepo replaced by ContextKeys.Repos (list type);
+     ContextKeys.SourceOverrideRepo added."
+  - "SpawnPipelineRunsUseCase emits exactly one ClaimRequest per ticket."
+  - "ClaimSpawnAsync removed from ITicketClaimService; SpawnRegionExecutor
+     replaced by SingleClaimRegionExecutor."
+  - "ExecutePipelineUseCase publishes Repos on PipelineContext; optional
+     SourceOverrideRepo filters the list to a single matching repo;
+     unknown name throws with the known-repos list."
+  - "Original Sample-class reconciler bug (orphan multi-repo tickets
+     looping on ResolveCurrentRepo's multi-repo throw) dissolved: there is
+     no RepoName field and no resolve-from-name path anymore."
+  - "Build green, full unit test suite green (1955 main tests +
+     83 sandbox-agent tests, 0 failures)."

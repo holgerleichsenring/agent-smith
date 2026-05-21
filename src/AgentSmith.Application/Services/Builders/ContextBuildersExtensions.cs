@@ -28,6 +28,7 @@ public static class ContextBuildersExtensions
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
+        AddBuilder<PrCrossLinkContextBuilder>(services, CommandNames.PrCrossLink);
         AddBuilder<TriageContextBuilder>(services, CommandNames.Triage);
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);

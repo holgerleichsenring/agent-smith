@@ -5,11 +5,15 @@ using AgentSmith.Domain.Entities;
 namespace AgentSmith.Application.Models;
 
 /// <summary>
-/// Context for committing .agentsmith/ files and creating a PR during project init.
-/// Unlike CommitAndPRContext, no ticket is needed — the commit is a standalone init.
+/// Context for committing .agentsmith/ files and creating a PR during project
+/// init across the run's repos. Configs is the full list; the handler
+/// iterates per-repo. Unlike CommitAndPRContext, no ticket is needed.
 /// </summary>
 public sealed record InitCommitContext(
     Repository Repository,
-    RepoConnection RepoConnection,
+    IReadOnlyList<RepoConnection> Configs,
     TrackerConnection TrackerConnection,
-    PipelineContext Pipeline) : ICommandContext;
+    PipelineContext Pipeline) : ICommandContext
+{
+    public RepoConnection RepoConnection => Configs[0];
+}

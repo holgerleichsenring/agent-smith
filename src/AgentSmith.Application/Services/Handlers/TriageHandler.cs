@@ -75,6 +75,9 @@ public sealed class TriageHandler(
             ConceptType.Enum => state.GetEnum(name) is var e && !string.Equals(e, concept.EnumValues![0], StringComparison.Ordinal)
                 ? $"{name}={e}"
                 : null,
+            ConceptType.String => state.GetString(name) is var s && !string.IsNullOrEmpty(s)
+                ? $"{name}={s}"
+                : null,
             _ => null
         };
 }

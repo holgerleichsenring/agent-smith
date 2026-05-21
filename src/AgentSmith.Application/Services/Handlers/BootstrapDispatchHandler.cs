@@ -35,13 +35,17 @@ public sealed class BootstrapDispatchHandler(
                 "Run LoadSkills before BootstrapDispatch."));
 
         var matched = activationFilter.Filter(roles, conceptsFactory(context.Pipeline));
-        var projectLanguage = conceptsFactory(context.Pipeline).GetEnum("project_language");
+        var projectLanguage = conceptsFactory(context.Pipeline).GetString("project_language");
 
         if (matched.Count == 0)
+        {
+            var availableNames = string.Join(", ", roles.Select(r => r.Name).OrderBy(n => n, StringComparer.Ordinal));
             return Task.FromResult(CommandResult.Fail(
                 $"BootstrapDispatch: no bootstrap skill matched project_language='{projectLanguage}'. " +
-                "Either the language enum value is missing a producer skill, or the skills catalog " +
-                "does not include the matching bootstrap-* skill."));
+                $"Available skills: [{availableNames}]. " +
+                "Either the analyzer emitted a language slug with no producer skill, or the skills " +
+                "catalog is missing the matching bootstrap-* skill for that slug."));
+        }
 
         if (matched.Count > 1)
             return Task.FromResult(CommandResult.Fail(

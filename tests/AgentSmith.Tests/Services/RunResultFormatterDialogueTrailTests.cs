@@ -116,7 +116,7 @@ public sealed class RunResultFormatterDialogueTrailTests
         };
 
         var result = RunResultFormatter.FormatResult(
-            ticket, plan, changes, 1, 0, null, null, null, null, dialogueTrail);
+            ticket, plan, changes, "2026-05-20T22-27-43-8a3f", 0, null, null, null, null, dialogueTrail);
 
         result.Should().Contain("## Dialogue Trail");
         result.Should().Contain("Proceed?");
@@ -138,7 +138,7 @@ public sealed class RunResultFormatterDialogueTrailTests
         };
 
         var result = RunResultFormatter.FormatResult(
-            ticket, plan, changes, 1, 0, null, null);
+            ticket, plan, changes, "2026-05-20T22-27-43-8a3f", 0, null, null);
 
         result.Should().NotContain("## Dialogue Trail");
     }

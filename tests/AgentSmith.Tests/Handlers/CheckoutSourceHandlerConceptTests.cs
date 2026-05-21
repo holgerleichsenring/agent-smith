@@ -39,7 +39,7 @@ public sealed class CheckoutSourceHandlerConceptTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new RepoConnection { Type = RepoType.Local, Path = "/tmp" }, new BranchName("main"), pipeline);
+            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, new BranchName("main"), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 
@@ -59,7 +59,7 @@ public sealed class CheckoutSourceHandlerConceptTests
         var pipeline = new PipelineContext();
         // No sandbox set => Fail path; URL non-empty so we hit the sandbox guard.
         var context = new CheckoutSourceContext(
-            new RepoConnection { Type = RepoType.GitHub, Url = "https://example.com/x.git" },
+            new[] { new RepoConnection { Type = RepoType.GitHub, Url = "https://example.com/x.git" } },
             new BranchName("main"), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
@@ -77,7 +77,7 @@ public sealed class CheckoutSourceHandlerConceptTests
         {
             var pipeline = new PipelineContext();
             var context = new TryCheckoutSourceContext(
-                new RepoConnection { Type = RepoType.Local, Path = temp }, null, pipeline);
+                new[] { new RepoConnection { Type = RepoType.Local, Path = temp } }, null, pipeline);
 
             var result = await TryCheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 
@@ -94,7 +94,7 @@ public sealed class CheckoutSourceHandlerConceptTests
     public async Task ExecuteAsync_TryCheckoutFailsSoft_PublishesSourceAvailableFalse()
     {
         var pipeline = new PipelineContext();
-        var context = new TryCheckoutSourceContext(new RepoConnection(), null, pipeline);
+        var context = new TryCheckoutSourceContext(new[] { new RepoConnection() }, null, pipeline);
 
         var result = await TryCheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 

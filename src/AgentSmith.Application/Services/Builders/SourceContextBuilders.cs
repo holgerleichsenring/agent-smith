@@ -26,8 +26,8 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
                 ? TicketBranchNamer.Compose(ticketId!)
                 : null;
 
-        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
-        return new CheckoutSourceContext(currentRepo, branch, pipeline);
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        return new CheckoutSourceContext(repos, branch, pipeline);
     }
 }
 
@@ -35,12 +35,13 @@ public sealed class TryCheckoutSourceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var currentRepo = pipeline.Get<RepoConnection>(ContextKeys.CurrentRepo);
-        var branch = string.IsNullOrWhiteSpace(currentRepo.DefaultBranch)
+        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        var primary = repos[0];
+        var branch = string.IsNullOrWhiteSpace(primary.DefaultBranch)
             ? null
-            : new BranchName(currentRepo.DefaultBranch);
+            : new BranchName(primary.DefaultBranch);
 
-        return new TryCheckoutSourceContext(currentRepo, branch, pipeline);
+        return new TryCheckoutSourceContext(repos, branch, pipeline);
     }
 }
 

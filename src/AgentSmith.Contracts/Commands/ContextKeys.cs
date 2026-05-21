@@ -13,10 +13,15 @@ public static partial class ContextKeys
     public const string Ticket = "Ticket";
     public const string Repository = "Repository";
 
-    /// <summary>p0140d: the RepoConnection for THIS run. Resolved at the top of ExecutePipelineUseCase
-    /// from PipelineRequest.RepoName + project.Repos. Single source of truth for "which repo is
-    /// this run for" — every consumer that previously read project.Repo now reads CurrentRepo.</summary>
-    public const string CurrentRepo = "CurrentRepo";
+    /// <summary>The list of RepoConnections this run operates on
+    /// (IReadOnlyList&lt;RepoConnection&gt;). Published by ExecutePipelineUseCase from the project's
+    /// configured Repos, optionally filtered to a single entry when SourceOverrideRepo is set.
+    /// Single-repo projects expose a one-element list; multi-repo projects expose all repos.</summary>
+    public const string Repos = "Repos";
+
+    /// <summary>Optional repo name (string) that scopes the run to a single configured repo.
+    /// Set by the CLI when `--repo NAME` is provided; absent in queue-driven (K8s/Compose) runs.</summary>
+    public const string SourceOverrideRepo = "SourceOverrideRepo";
 
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
@@ -34,6 +39,18 @@ public static partial class ContextKeys
     public const string SwaggerSpecFull = "SwaggerSpecFull";
     public const string CheckoutBranch = "CheckoutBranch";
     public const string ResolvedPipeline = "ResolvedPipeline";
+
+    /// <summary>The list of OpenedPullRequest entries produced by CommitAndPRHandler
+    /// or InitCommitHandler during multi-repo runs. Holds one entry per configured
+    /// repo with status Opened/SkippedNoChanges/Failed. Read by p0158c's PATCH
+    /// pass to render the sibling URL list back into each opened PR's body.</summary>
+    public const string OpenedPullRequests = "OpenedPullRequests";
+
+    /// <summary>Dictionary&lt;repoName, body-string-used-at-open-time&gt; published by
+    /// CommitAndPRHandler / InitCommitHandler alongside OpenedPullRequests. p0158c's
+    /// PrCrossLinkHandler reads this to do in-memory marker-replace per PR without
+    /// re-fetching bodies from the platform.</summary>
+    public const string OpenedPullRequestBodies = "OpenedPullRequestBodies";
 
     public const string Decisions = "Decisions";
     public const string Attachments = "Attachments";

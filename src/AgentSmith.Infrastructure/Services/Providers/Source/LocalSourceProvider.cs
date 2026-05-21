@@ -41,4 +41,8 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         if (!File.Exists(full)) return null;
         return await File.ReadAllTextAsync(full, cancellationToken);
     }
+
+    public Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
 }
