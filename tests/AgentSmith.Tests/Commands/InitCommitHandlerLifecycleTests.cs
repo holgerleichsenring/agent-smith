@@ -162,6 +162,9 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [string.Empty] = _sandboxMock.Object });
         return pipeline;
     }
 }
