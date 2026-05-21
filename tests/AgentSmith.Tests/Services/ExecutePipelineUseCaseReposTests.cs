@@ -94,6 +94,56 @@ public sealed class ExecutePipelineUseCaseReposTests
     }
 
     [Fact]
+    public async Task ExecutePipeline_SourceFlags_RejectedOnMultiRepo_WithoutRepoOption()
+    {
+        SetupConfig("demo",
+            new RepoConnection { Name = "a" },
+            new RepoConnection { Name = "b" });
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/repo" });
+
+        var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        var ex = await act.Should().ThrowAsync<InvalidOperationException>();
+        ex.Which.Message.Should().Contain("demo");
+        ex.Which.Message.Should().Contain("--repo");
+        ex.Which.Message.Should().Contain("a");
+        ex.Which.Message.Should().Contain("b");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_SourceFlags_WithRepoOption_AcceptedOnMultiRepo()
+    {
+        var target = new RepoConnection { Name = "a", Url = "https://example/a" };
+        SetupConfig("demo", target, new RepoConnection { Name = "b" });
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object>
+            {
+                [ContextKeys.SourceOverrideRepo] = "a",
+                [ContextKeys.SourcePath] = "/tmp/repo",
+            });
+
+        await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        captured.Value.Should().ContainSingle().Which.Name.Should().Be("a");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_SourceFlags_AcceptedOnSingleRepoProject_WithoutRepoOption()
+    {
+        var only = new RepoConnection { Name = "only", Url = "https://example/only" };
+        SetupConfig("demo", only);
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("demo", "fix-bug",
+            Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/repo" });
+
+        await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        captured.Value.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task ExecutePipeline_RepoOverride_OnSingleRepoProject_MatchingName_NoOp()
     {
         var only = new RepoConnection { Name = "only", Url = "https://example/only" };

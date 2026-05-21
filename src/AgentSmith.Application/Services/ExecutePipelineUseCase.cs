@@ -137,19 +137,45 @@ public sealed class ExecutePipelineUseCase(
             throw new InvalidOperationException(
                 $"Project '{project.Name}' has no repos configured.");
 
-        if (requestContext is null
-            || !requestContext.TryGetValue(ContextKeys.SourceOverrideRepo, out var value)
-            || value is not string repoName
-            || string.IsNullOrEmpty(repoName))
-            return project.Repos;
+        var hasScopeOverride = requestContext is not null
+            && requestContext.TryGetValue(ContextKeys.SourceOverrideRepo, out var value)
+            && value is string repoName
+            && !string.IsNullOrEmpty(repoName);
 
+        GuardSourceOverridesRequireRepoOnMultiRepo(project, requestContext, hasScopeOverride);
+
+        if (!hasScopeOverride) return project.Repos;
+
+        var target = ((string)requestContext![ContextKeys.SourceOverrideRepo]!);
         var match = project.Repos.SingleOrDefault(r =>
-            string.Equals(r.Name, repoName, StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Name, target, StringComparison.OrdinalIgnoreCase));
         if (match is null)
             throw new InvalidOperationException(
-                $"--repo '{repoName}' does not match any repo in project '{project.Name}'. "
+                $"--repo '{target}' does not match any repo in project '{project.Name}'. "
                 + $"Known repos: [{string.Join(", ", project.Repos.Select(r => r.Name))}].");
         return new[] { match };
+    }
+
+    /// <summary>
+    /// Multi-repo guard: any `--source-*` flag set without `--repo NAME` on a
+    /// project with more than one configured repo is ambiguous (which repo
+    /// gets overridden?). Reject with a clear error pointing at the project
+    /// and the known repo list. Single-repo projects accept the flags without
+    /// `--repo` (legacy ergonomics).
+    /// </summary>
+    private static void GuardSourceOverridesRequireRepoOnMultiRepo(
+        ResolvedProject project, IReadOnlyDictionary<string, object>? requestContext, bool hasScopeOverride)
+    {
+        if (hasScopeOverride || project.Repos.Count <= 1 || requestContext is null) return;
+        var sourceFlags = new[]
+        {
+            ContextKeys.SourceType, ContextKeys.SourcePath,
+            ContextKeys.SourceUrl, ContextKeys.SourceAuth,
+        };
+        if (!sourceFlags.Any(requestContext.ContainsKey)) return;
+        throw new InvalidOperationException(
+            $"Project '{project.Name}' has {project.Repos.Count} repos — `--source-*` requires `--repo NAME` "
+            + $"to disambiguate. Known repos: [{string.Join(", ", project.Repos.Select(r => r.Name))}].");
     }
 
     /// <summary>
