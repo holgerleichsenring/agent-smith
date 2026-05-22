@@ -33,8 +33,8 @@ theme:
     repo: fontawesome/brands/github
 
 extra_css:
-  - stylesheets/custom.css
-  - overrides/stylesheets/linear.css
+  - stylesheets/tokens.css
+  - stylesheets/overrides.css
 
 extra:
   social:
@@ -96,6 +96,7 @@ nav:
     - Branch Persistence: concepts/branch-persistence.md
     - Phases & Runs: concepts/phases-and-runs.md
     - Self-Documentation: concepts/self-documentation.md
+    - Multi-Repo Pipelines: concepts/multi-repo-pipelines.md
     - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
     - Triage: concepts/triage.md
     - Context Compaction: concepts/context-compaction.md

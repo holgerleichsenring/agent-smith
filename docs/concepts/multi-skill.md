@@ -10,14 +10,12 @@ Agent Smith supports three pipeline types. Each pipeline selects its execution s
 
 Used by: **mad-discussion**, **legal-analysis**
 
-1. **Triage** -- LLM analyzes the ticket and codebase, selects relevant roles
-2. **Skill Rounds** -- each role analyzes the problem and states its position
-3. **Convergence** -- roles discuss via OBJECTION/AGREE rounds until they reach consensus
-4. **Execution** -- the consolidated plan goes to the agentic loop
+1. **Triage** — LLM analyzes the ticket and codebase, selects relevant roles
+2. **Skill Rounds** — each role analyzes the problem and contributes typed observations
+3. **Convergence** — `ConvergenceCheckHandler` evaluates aggregated observations and decides whether to run another round (hard cap, default 3)
+4. **Execution** — the consolidated plan goes to the agentic loop
 
-Discussion pipelines use free-text accumulation. Each role can **AGREE**, **OBJECT** (blocking concern with alternative), or **SUGGEST** (non-blocking improvement). The discussion ends when all active roles agree, subject to a configurable round limit (default 3).
-
-This is the original multi-skill mode and remains unchanged.
+Observations are typed (see [Multi-Agent Orchestration](multi-agent-orchestration.md)): each carries `Concern`, `Confidence`, `Blocking`, and `EvidenceMode`. The free-text `OBJECT` / `AGREE` / `SUGGEST` prose-regex convergence path from earlier versions was retired in p0146c. Discussion pipelines still iterate rounds — but the iteration signal is the structured observation, not parsed prose.
 
 ### Structured Pipelines
 
@@ -72,7 +70,7 @@ The graph is fully deterministic -- the same set of skills always produces the s
 
 ## Backward Compatibility
 
-Skills without an `## orchestration` block in their `agentsmith.md` default to `role: contributor` with `output: artifact`. In discussion pipelines, these skills participate exactly as before: LLM triage selects them, they speak in rounds, and convergence is checked via OBJECTION/AGREE mechanics.
+Skills without an `## orchestration` block in their `SKILL.md` default to `role: analyst` with `output: list`. LLM triage selects them and they contribute observations per round; convergence is checked structurally on the aggregated observations.
 
 ## Skill Categories
 
@@ -88,29 +86,28 @@ Agent Smith ships with role sets for different domains:
 
 ## Discussion Flow
 
-Discussion pipelines (mad, legal) run in rounds:
+Discussion pipelines (mad-discussion, legal-analysis) run in rounds. Each round, every selected role emits one or more **typed observations** — `Concern` text, `Confidence` (0–100), `Blocking` flag, `EvidenceMode` (`Potential` or `AnalyzedFromSource`):
 
 ```
-Round 1:
-  Architect:  "OBJECT -- this violates our layering rules. Propose: add interface in Contracts."
-  DBA:        "AGREE -- schema change is backward compatible."
-  Tester:     "SUGGEST -- add integration test for the new endpoint."
+Round 1
+  Architect:  Concern="layering violation — Contracts needs the new interface"
+              Confidence=85  Blocking=true   EvidenceMode=AnalyzedFromSource
+  DBA:        Concern="schema change is backward compatible — verified"
+              Confidence=90  Blocking=false  EvidenceMode=AnalyzedFromSource
+  Tester:     Concern="add integration test for the new endpoint"
+              Confidence=75  Blocking=false  EvidenceMode=Potential
 
-Round 2:
-  Architect:  "AGREE -- interface added to the plan."
-  Tester:     "AGREE -- integration test included."
+Round 2
+  Architect:  Concern="acknowledged — interface added to plan"
+              Confidence=90  Blocking=false  EvidenceMode=AnalyzedFromSource
+  Tester:     Concern="integration test included in plan"
+              Confidence=85  Blocking=false  EvidenceMode=AnalyzedFromSource
 
--> Consensus reached after 2 rounds.
--> Consolidated plan goes to execution.
+→ ConvergenceCheckHandler: no blocking observations with Confidence ≥ 70.
+→ Consolidated plan goes to execution.
 ```
 
-Each role can:
-
-- **AGREE** -- satisfied with the current plan
-- **OBJECT** -- has a blocking concern (must include reasoning and alternative)
-- **SUGGEST** -- has a non-blocking improvement
-
-The discussion ends when all active roles agree. A hard limit prevents endless debates (configurable, default 3 rounds).
+`ConvergenceCheckHandler` runs against aggregated `SkillObservation`s, not prose. Round count is capped (default 3) to prevent endless debate. Blocking observations with `Confidence < 70` are auto-downgraded to `Blocking=false` with a structured log entry — speculation never breaks the pipeline.
 
 ## Project-Specific Skills
 
