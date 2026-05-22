@@ -97,4 +97,17 @@ public sealed class JiraTicketProvider : ITicketProvider
 
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => _transitioner.TransitionAsync(ticketId, statusName, null, cancellationToken);
+
+    // Jira issues have no rev-guard on comments + transitions; sequential is safe.
+    public async Task FinalizeAsync(
+        TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(doneStatus))
+            await CloseTicketAsync(ticketId, comment, cancellationToken);
+        else
+        {
+            await UpdateStatusAsync(ticketId, comment, cancellationToken);
+            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
+        }
+    }
 }
