@@ -110,15 +110,15 @@ public sealed class CommitAndPRHandler(
     private Task FinalizeTicketAsync(
         CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
     {
-        var primary = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened);
-        if (primary is null) return Task.CompletedTask;
+        if (!opened.Any(o => o.Status == OpenStatus.Opened)) return Task.CompletedTask;
 
         var changes = string.Join("\n",
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
         var summary = $"""
             ## Agent Smith - Completed across {context.Configs.Count} repo(s)
 
-            **Primary PR:** {primary.Url}
+            ### Pull requests
+            {RenderPullRequestList(opened)}
 
             ### Changes
             {changes}
@@ -130,6 +130,14 @@ public sealed class CommitAndPRHandler(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, ct);
     }
+
+    private static string RenderPullRequestList(IReadOnlyList<OpenedPullRequest> opened) =>
+        string.Join("\n", opened.Select(o => o.Status switch
+        {
+            OpenStatus.Opened => $"- **{o.RepoName}**: {o.Url}",
+            OpenStatus.SkippedNoChanges => $"- **{o.RepoName}**: _(no changes)_",
+            _ => $"- **{o.RepoName}**: _(open failed)_",
+        }));
 
     private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
     {
