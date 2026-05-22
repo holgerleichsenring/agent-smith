@@ -147,6 +147,50 @@ public sealed class InitCommitHandlerLifecycleTests
         result.Message.Should().Contain("pull/7");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_MultiRepo_SummaryListsEveryRepoNotJustPrimary()
+    {
+        // Pre-fix the init summary only included `Primary PR: {url}`; with N
+        // repos the operator reading the ticket only saw one of the N PRs.
+        // Listing every repo + its PR keeps the ticket self-contained without
+        // forcing a traversal into the primary PR body's sibling block.
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal)
+            {
+                ["server"] = _sandboxMock.Object,
+                ["client"] = _sandboxMock.Object,
+                ["docs"] = _sandboxMock.Object,
+            });
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.DoneStatus, "closed");
+        var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
+        var configs = new[]
+        {
+            new RepoConnection { Name = "server" },
+            new RepoConnection { Name = "client" },
+            new RepoConnection { Name = "docs" },
+        };
+        var context = new InitCommitContext(repo, configs, new TrackerConnection(), pipeline);
+
+        string? postedSummary = null;
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
+            .Returns(Task.CompletedTask);
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        postedSummary.Should().NotBeNull();
+        postedSummary.Should().Contain("Pull requests");
+        postedSummary.Should().Contain("**server**:");
+        postedSummary.Should().Contain("**client**:");
+        postedSummary.Should().Contain("**docs**:");
+    }
+
     private InitCommitContext CreateContext(PipelineContext pipeline)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
