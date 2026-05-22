@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0159b
+goal: "Re-skin the Eleventy marketing site (`website/`) to the new
+  Zapier-structured / Smith-green design system from p0159a. Headline
+  becomes `Tickets become PRs.` The hero is a cream `hero-band` with
+  the animated lifecycle SVG (one ticket -> N sandboxes -> N PRs) as the
+  `workspace-mockup-card` floating below the text. Pipeline taxonomy
+  becomes a grid of `card-feature-*` tiles (one tint per pipeline). The
+  current terminal demo is demoted to a second viewport as
+  `card-terminal-panel`. Every color, radius, type role, and spacing
+  value references `tokens.css` via `var(--…)` — zero hardcoded hex."
+
+requires: ["p0159a"]
+
+scope:
+  in: |
+    (1) New `website/src/_includes/partials/hero-lifecycle.njk` partial:
+        cream `hero-band`, headline in `display-xl` ("Tickets become
+        PRs."), eyebrow in `eyebrow-uppercase` ("Self-hosted. Multi-repo.
+        AI-driven."), button row (primary green `button-primary` "Get
+        started", outline `button-tertiary` "View on GitHub"), then the
+        lifecycle SVG inlined as the `workspace-mockup-card`. SVG carries
+        five stages (ticket -> spawn -> work -> PRs -> resolved) with
+        CSS-driven auto-advance + manual stage chips. Visual reference is
+        the `agent-smith-lifecycle.html` artefact from this session.
+
+    (2) `website/src/static/lifecycle.svg` as a self-contained
+        re-embeddable copy (no JS in the SVG itself; stage advance lives
+        in `main.js`). Colors via the token vocabulary, not hardcoded.
+
+    (3) Pipeline taxonomy section rewritten as a `card-feature-*` grid.
+        One pastel tint per pipeline:
+          fix-bug -> cream, add-feature -> cream-bold,
+          security-scan -> rose, api-security-scan -> sky,
+          legal-analysis -> lavender, mad-discussion -> mint,
+          init-project -> peach, autonomous -> yellow,
+          skill-manager -> dark (`card-feature-dark`).
+        Each tile: eyebrow + heading-4 title + body-md description +
+        `badge-pill` row for triggers/step-count + primary CTA to docs.
+
+    (4) Principles section rebuilt using two `card-feature-cream` cards
+        side by side, plus one `card-terminal-panel` showing a sample
+        `agentsmith.yml` (with `var(--terminal-…)` tokens for syntax
+        highlighting). Drops the existing two-column principle-list /
+        config-box markup.
+
+    (5) Old `hero-demo.njk` (terminal panel demo) demoted to a separate
+        second-viewport section titled "What a fix-bug run looks like" —
+        same content, rebuilt as `card-terminal-panel` chrome via tokens.
+
+    (6) Footer rebuild: dark `footer-region` (matches Zapier
+        polarity-flipped pattern), three-column link grid, fine-print
+        row at bottom in `caption` type.
+
+    (7) `website/src/static/styles.css` rewritten end-to-end. References
+        `var(--…)` exclusively for colors / radii / spacing / font
+        families and sizes. Old green-on-dark Linear-style rules
+        replaced; nothing kept as zombie CSS. Inter loaded via the
+        `tokens.css` @font-face; Geist-Sans CDN link removed.
+
+    (8) `_data/pipelines.json`: step counts + demo lines verified against
+        current `.agentsmith/context.yaml` for `fix-bug`,
+        `api-security-scan`, `security-scan`, `add-feature`,
+        `mad-discussion`. Tab labels stay; demo bodies refreshed to match
+        actual handler order.
+
+    (9) `_data/site.json`: tagline updated to "Tickets become PRs."
+        Sub-line: "Self-hosted, multi-repo CI for AI pipelines."
+
+  out: |
+    - MkDocs Material restyling. That's p0159c.
+    - Net-new content pages (Sentinel, Blog) — keep existing nav links.
+    - Real pricing page. The `pricing-card` component is defined in the
+      DESIGN.md system but not instantiated on the landing this phase.
+    - Real Sentinel preview / partner pages — separate phase.
+
+decisions:
+  - key: "Headline is `Tickets become PRs.` not the current
+      `Self-hosted AI pipelines for real work.` — Outcome beats
+      capability for hero impact. The capability framing belongs in the
+      sub-line."
+
+  - key: "Lifecycle SVG inlined in the Eleventy partial, not loaded as
+      `<img src=lifecycle.svg>`. — CSS animations + stage chips need to
+      drive the SVG DOM; inlining is the only way to get cross-element
+      CSS reach without a JS framework. The static copy at
+      `static/lifecycle.svg` is retained for docs-side re-embed as
+      `<img>` (where MkDocs Material sanitizes inline `<style>`)."
+
+  - key: "Replace `styles.css` wholesale, not merge-patch. — Mixing the
+      old green-Linear rules with the new Zapier-cream rules creates
+      cascade conflicts that take longer to debug than rewrite. The
+      old rules are saved in git history if we ever need them."
+
+  - key: "One tint per pipeline as a deterministic mapping, not a
+      randomized palette. — The same `card-feature-rose` chrome should
+      mean `security-scan` on the landing, in docs, and in any future
+      surface. Documented in DESIGN.md's Components > Notes."
+
+  - key: "Old terminal demo demoted, not deleted. — The CLI step-list
+      is genuinely informative for users who want to know what runs
+      under the hood. Move it down the page as a second viewport
+      (`What a fix-bug run looks like`); don't make the first viewport
+      compete with the lifecycle diagram for the same attention slot."
+
+steps:
+  - id: tokens-wired
+    action: "Verify `tokens.css` from p0159a is in place. Wire it into
+      `index.njk` as the first stylesheet link. Confirm CSS custom
+      properties resolve in DevTools."
+
+  - id: hero-partial
+    action: "Write `hero-lifecycle.njk`. Cream `hero-band`, headline
+      `display-xl`, eyebrow `eyebrow-uppercase`, button row, then the
+      `workspace-mockup-card` wrapping the inlined lifecycle SVG. Stage
+      chips below. Replace the current hero block in `index.njk`."
+    new:
+      - "website/src/_includes/partials/hero-lifecycle.njk"
+    modify:
+      - "website/src/index.njk"
+
+  - id: lifecycle-svg
+    action: "Author `static/lifecycle.svg`. Reuse the structure /
+      animation logic from the `agent-smith-lifecycle.html` artefact
+      but use token vocabulary for colors (`var(--color-canvas)`,
+      `var(--color-primary)`, `var(--color-ink)`, etc.). Five stages,
+      `data-s` attribute drives state."
+    new:
+      - "website/src/static/lifecycle.svg"
+    modify:
+      - "website/src/static/main.js"
+
+  - id: pipeline-cards
+    action: "Rewrite the existing `pipeline-cards.njk` partial: one
+      `card-feature-*` per pipeline with the deterministic tint mapping.
+      Each card: eyebrow + heading-4 + body-md + badge-pill row + ghost
+      button link to docs."
+    modify:
+      - "website/src/_includes/partials/pipeline-cards.njk"
+
+  - id: principles-and-terminal
+    action: "Replace the existing `principles-grid` markup with two
+      `card-feature-cream` tiles + one `card-terminal-panel` containing
+      a sample agentsmith.yml. Demote the existing `hero-demo.njk`
+      terminal-step panels into a second-viewport section after the
+      principles, rebuilt as `card-terminal-panel` chrome."
+    modify:
+      - "website/src/index.njk"
+      - "website/src/_includes/partials/hero-demo.njk (rebuild as card-terminal-panel variant or rename)"
+
+  - id: footer
+    action: "Rebuild the existing footer in `index.njk` as a dark
+      `footer-region` with three-column link grid + fine-print row. Use
+      `var(--color-ink)` background, `var(--color-canvas-soft)` text."
+    modify:
+      - "website/src/index.njk"
+
+  - id: stylesheet
+    action: "Rewrite `website/src/static/styles.css` end-to-end. Every
+      color / radius / typography role / spacing reference goes through
+      `var(--…)`. Drop the Geist-Sans CDN link from `index.njk` (Inter
+      is in tokens.css now). Drop legacy `--green`, `--bg`, `--surf`
+      tokens — they're replaced by the new naming."
+    modify:
+      - "website/src/static/styles.css"
+      - "website/src/index.njk"
+
+  - id: site-data
+    action: "Refresh `_data/pipelines.json` step counts + demo lines
+      against `.agentsmith/context.yaml`. Update `_data/site.json`
+      tagline + description."
+    modify:
+      - "website/src/_data/pipelines.json"
+      - "website/src/_data/site.json"
+
+  - id: verify
+    action: "`npm run build` from `website/` must pass. Manual browser
+      walk: hero displays animated SVG, headline reads `Tickets become
+      PRs.`, stage chips advance the lifecycle, pipeline grid renders
+      with tints, terminal panel below shows yaml + cli content,
+      footer is dark. DevTools confirms zero hardcoded hex remain in
+      computed styles (all colors are CSS custom properties)."
+
+tests: []
+
+done:
+  - "Hero leads with `Tickets become PRs.` + lifecycle SVG."
+  - "Pipeline taxonomy grid uses deterministic tint mapping (documented
+    in DESIGN.md)."
+  - "Old terminal demo demoted to second viewport as `card-terminal-panel`."
+  - "`styles.css` references `var(--…)` exclusively; no hardcoded hex
+    visible in source."
+  - "`npm run build` passes. `_site/` renders without console errors."
+  - "Manual browser walk confirms hero, animation, pipeline cards,
+    terminal panel, footer all render with the new tokens."
