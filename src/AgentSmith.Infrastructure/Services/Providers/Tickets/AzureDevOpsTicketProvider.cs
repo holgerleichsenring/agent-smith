@@ -99,6 +99,20 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.State", statusName)], cancellationToken);
 
+    // Atomic post-PR finalize: AzDO bumps System.Rev on every PATCH, so two
+    // sequential UpdateStatus + Transition calls race with any concurrent
+    // observer (parallel run, operator UI edit, automation rule) and the
+    // second one crashes with TF26071. Combining both ops into one PATCH
+    // is the only safe pattern. CloseTicketAsync uses the same shape.
+    public Task FinalizeAsync(
+        TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
+    {
+        var state = string.IsNullOrWhiteSpace(doneStatus) ? _doneStatus : doneStatus;
+        return PatchAsync(ticketId,
+            [Op("/fields/System.History", ToHtml(comment)), Op("/fields/System.State", state)],
+            cancellationToken);
+    }
+
     private async Task PatchAsync(TicketId ticketId, JsonPatchDocument patch, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id)) return;
