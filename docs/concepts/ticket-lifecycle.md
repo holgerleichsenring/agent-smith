@@ -47,12 +47,15 @@ The `agent-smith:` prefix marks lifecycle labels owned by the framework. Other l
 
 | Transition | Owner | When |
 |------------|-------|------|
-| Pending → Enqueued | `TicketClaimService` | Webhook or poll fires; pre-checks pass; SETNX claim-lock acquired |
+| Pending → Enqueued | `TicketClaimService.ClaimAsync` | Webhook or poll fires; pre-checks pass; SETNX claim-lock acquired. **Emits exactly one `ClaimRequest` per ticket** — multi-repo projects don't fan out at this layer (p0158a). |
 | Enqueued → InProgress | `PipelineExecutor` | Consumer dequeues a `PipelineRequest`, before the first command runs |
 | InProgress → Done | `PipelineExecutor` (via `LifecycleScope.Dispose`) | All pipeline commands succeeded |
 | InProgress → Failed | `PipelineExecutor` (via `LifecycleScope.MarkFailed` + Dispose) | Any command failed; error comment posted to ticket |
 | InProgress → Pending | `StaleJobDetector` | No Redis heartbeat for the ticket and the consumer pod is gone — pipeline is presumed crashed |
 | Enqueued → Enqueued (re-push) | `EnqueuedReconciler` | Ticket is Enqueued but the queue has no entry and no in-flight pipeline owns it |
+
+!!! info "Single ClaimRequest per ticket"
+    `ClaimRequest` and `PipelineRequest` no longer carry a `RepoName` field (removed in p0158a). For a multi-repo project, one claim → one pipeline run → N sandboxes routed by path-prefix → N pull requests. See [Multi-Repo Pipelines](multi-repo-pipelines.md) for the run-side flow.
 
 ## Concurrency primitives
 
