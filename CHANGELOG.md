@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.60.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.60.0...v0.60.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **tickets:** atomic AzDO finalize to prevent TF26071 rev race ([91762e6](https://github.com/holgerleichsenring/agent-smith/commit/91762e6c2fb73865a10bad4632065d504d81fcb6))
+* **tickets:** atomic AzDO finalize to prevent TF26071 rev race ([054af4f](https://github.com/holgerleichsenring/agent-smith/commit/054af4ff6549fc1e3ef4a3361cf36b0ffeb3b282))
+
 ## [0.60.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.59.0...v0.60.0) (2026-05-21)
 
 
