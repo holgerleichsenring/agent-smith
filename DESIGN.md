@@ -20,6 +20,8 @@ colors:
   terminal-text: "#d8d4cc"
   terminal-accent: "#22c55e"
   terminal-mute: "#6b7280"
+  terminal-link: "#5eb1ff"
+  terminal-string: "#e8c46d"
 
 typography:
   display-xl:
