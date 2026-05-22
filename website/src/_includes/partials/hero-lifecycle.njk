@@ -1,0 +1,30 @@
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">Self-hosted · multi-repo · AI-driven</div>
+    <h1 class="hero-headline">Tickets become PRs.</h1>
+    <p class="hero-sub">
+      One ticket, one run, N pull requests. Agent Smith reads from your tracker,
+      spawns a sandbox per repository, writes the code, opens the PRs, and writes
+      the ticket back as resolved — all on your own infrastructure.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-primary">Get started →</a>
+      <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-tertiary">View on GitHub</a>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <a href="https://github.com/{{ site.githubRepo }}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z" fill="currentColor"/></svg>
+          <span id="gh-stars">—</span> stars
+        </a>
+      </div>
+      <div class="hero-meta-item"><strong>{{ pipelines | length }}</strong> pipeline presets</div>
+      <div class="hero-meta-item"><strong>{{ providers | length }}</strong> AI providers</div>
+      <div class="hero-meta-item"><strong>MIT</strong> licensed</div>
+    </div>
+  </div>
+
+  <div class="hero-mockup">
+    <img src="lifecycle.svg" alt="Lifecycle diagram: ticket → orchestrator → sandboxes → pull requests → resolved" loading="eager" />
+  </div>
+</section>
