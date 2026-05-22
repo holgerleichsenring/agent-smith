@@ -64,9 +64,10 @@ public class CommitAndPRHandlerTests
             It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("push")),
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
 
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "123"),
             It.Is<string>(s => s.Contains("Agent Smith") && s.Contains("pull/42")),
+            null,
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -85,8 +86,9 @@ public class CommitAndPRHandlerTests
     [Fact]
     public async Task ExecuteAsync_TicketCloseFailure_StillReturnsPRSuccess()
     {
-        _ticketProviderMock.Setup(t => t.CloseTicketAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
 
         var context = CreateContext();
@@ -100,9 +102,10 @@ public class CommitAndPRHandlerTests
     public async Task ExecuteAsync_IncludesChangeListInSummary()
     {
         string? postedSummary = null;
-        _ticketProviderMock.Setup(t => t.CloseTicketAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<TicketId, string, CancellationToken>((_, summary, _) => postedSummary = summary)
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, summary, _, _) => postedSummary = summary)
             .Returns(Task.CompletedTask);
 
         var context = CreateContext();
@@ -114,7 +117,7 @@ public class CommitAndPRHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithDoneStatus_TransitionsInsteadOfClosing()
+    public async Task ExecuteAsync_WithDoneStatus_FinalizesAtomicallyWithStatus()
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.DoneStatus, "In Review");
@@ -124,32 +127,27 @@ public class CommitAndPRHandlerTests
 
         result.IsSuccess.Should().BeTrue();
 
-        _ticketProviderMock.Verify(t => t.TransitionToAsync(
-            It.Is<TicketId>(id => id.Value == "123"),
-            "In Review",
-            It.IsAny<CancellationToken>()), Times.Once);
-
-        _ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+        // Comment + status transition collapsed into ONE provider call so AzDO
+        // can emit a single PATCH and avoid the TF26071 rev race.
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "123"),
             It.Is<string>(s => s.Contains("Agent Smith")),
+            "In Review",
             It.IsAny<CancellationToken>()), Times.Once);
-
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithoutDoneStatus_ClosesTicket()
+    public async Task ExecuteAsync_WithoutDoneStatus_FinalizesAtomicallyWithNullStatus()
     {
         var context = CreateContext();
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        _ticketProviderMock.Verify(t => t.TransitionToAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.IsAny<string>(),
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
