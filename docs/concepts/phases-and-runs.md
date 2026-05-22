@@ -24,10 +24,10 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 │   └── concepts/         # Domain-specific articles
 ├── security/             # SARIF snapshots for trend analysis
 └── runs/
-    ├── r01-fix-login-bug/
+    ├── 2026-05-20T22-27-43-8a3f-fix-login-bug/
     │   ├── plan.md       # Execution plan
     │   └── result.md     # Outcome with cost data
-    └── r02-add-search/
+    └── 2026-05-20T22-29-11-4c19-add-search/
         ├── plan.md
         └── result.md
 ```
@@ -149,15 +149,27 @@ Pass/fail status of the test suite.
 
 ### Run Numbering
 
-Runs use a global counter (`r01`, `r02`, ...) tracked in `context.yaml`. Each run gets a directory named `r{NN}-slug`:
+Run identifiers use an **ISO-8601 UTC timestamp** plus a 4-hex collision suffix and a slug — `{yyyy-MM-ddTHH-mm-ss}-{4hex}-{slug}`. Lexicographically sortable, filesystem-safe across every OS, readable in `ls`, and collision-resistant under same-second batch enqueue (the 16-bit suffix kills the race that hit the old `r{NN}` counter when two tickets queued in the same second).
 
 ```
 runs/
-├── r01-fix-login-bug/
-├── r02-add-search-endpoint/
-├── r03-security-scan-api/
-└── r04-fix-null-reference/
+├── 2026-05-20T22-27-43-8a3f-fix-login-bug/
+├── 2026-05-20T22-29-11-4c19-add-search-endpoint/
+├── 2026-05-20T23-04-02-b7d1-security-scan-api/
+└── 2026-05-21T08-17-55-2e09-fix-null-reference/
 ```
+
+Each run also appends an entry under a top-level `runs:` key in `context.yaml`:
+
+```yaml
+runs:
+  "2026-05-20T22-27-43-8a3f": "fix #54: null ref in UserService"
+  "2026-05-20T22-29-11-4c19": "feat #61: add /search endpoint"
+```
+
+Display sites render the timestamp with seconds plus the suffix (`Run 2026-05-20 22:27:43 UTC (8a3f)`) so the operator can map a header back to a directory at a glance.
+
+Pre-p0156 directories using the old `r{NN}` format are invisible to wiki compilation; document them in `CHANGELOG.md` if you have any.
 
 ## Agent Smith Evolution
 

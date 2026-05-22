@@ -2,14 +2,17 @@
 
 Complete reference for the main configuration file.
 
-## Full Annotated Example
+!!! warning "Drift notice — 2026-05-22"
+    Sections below show the **inline-per-project** schema (one `source`/`tickets`/`agent` block per project) used before p0139. The current schema is **catalog-based**: top-level `agents:`, `trackers:`, `repos:` catalogs that projects reference by name, with multi-repo support (p0140) via `projects.{name}.repos: [name, name, ...]`. For the up-to-date schema see [Multi-Repo Projects](multi-repo.md) and the schema reference at `agentsmith-yml-schema.md` in this directory. A full rewrite of this page is tracked as a follow-up.
+
+## Full Annotated Example (legacy inline shape — superseded)
 
 ```yaml
 # ─── Projects ────────────────────────────────────────────────────────
 projects:
   my-api:                           # Project key (used in CLI: --project my-api)
     source:
-      type: GitHub                  # GitHub | AzureRepos | GitLab | Local
+      type: GitHub                  # GitHub | AzureDevOps | GitLab | Local
       url: https://github.com/owner/repo
       auth: token                   # Auth method (resolved from secrets)
       # default_branch: main        # PR target branch (auto-detected if omitted)
@@ -163,7 +166,7 @@ Each key under `projects` defines a project. Use `--project <key>` on the CLI to
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `source.type` | Yes | Source provider: `GitHub`, `AzureRepos`, `GitLab`, `Local` |
+| `source.type` | Yes | Source provider: `GitHub`, `AzureDevOps`, `GitLab`, `Local` |
 | `source.url` | Yes* | Repository URL (*not required for `Local`) |
 | `source.path` | No | Local path (for `Local` type) |
 | `source.auth` | Yes | Auth method: `token` |

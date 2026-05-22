@@ -27,17 +27,21 @@ Handlers receive a typed context object and return a `CommandResult` (success or
 
 ## Pipeline Presets
 
-Agent Smith ships with seven presets defined in `PipelinePresets.cs`:
+Agent Smith ships with nine presets defined in `PipelinePresets.*.cs`. Step counts are total commands in the preset; many are pipeline-plumbing (PipelineNameInitializer, BootstrapCheck, BootstrapGate, LoadSkills, EmptyPlanCheck) and aren't user-visible.
 
 | Preset | Steps | Use case |
 |--------|-------|----------|
-| `fix-bug` | 13 | Ticket → code → test → PR |
-| `add-feature` | 14 | Same + GenerateTests + GenerateDocs |
-| `fix-no-test` | 12 | Like fix-bug but skips test step |
-| `init-project` | 3 | Bootstrap .agentsmith/ directory |
-| `security-scan` | 18 | Static patterns + git history + dependency audit + AI panel |
-| `api-security-scan` | 8 | Nuclei + Spectral + AI panel |
-| `mad-discussion` | 7 | Multi-agent design discussion |
+| `fix-bug` | 22 | Ticket → code → review → verify → test → PR (multi-repo cross-linked) |
+| `add-feature` | 24 | Same flow + GenerateTests + GenerateDocs |
+| `fix-no-test` | 21 | Like fix-bug but skips Test |
+| `init-project` | 6 | Bootstrap `.agentsmith/` per repo (cross-linked via PrCrossLink) |
+| `security-scan` | 14 | Static patterns + git history + dependency audit + AI panel (read-only) |
+| `api-security-scan` | 9 | Nuclei + Spectral + AI panel against a live API |
+| `legal-analysis` | 8 | Contract review with five legal specialists |
+| `mad-discussion` | 9 | Multi-agent design discussion |
+| `autonomous` | 3 | Open-ended operator-driven loop |
+
+Authoritative source-of-truth is each `src/AgentSmith.Contracts/Commands/PipelinePresets.{Name}.cs` file — counts here track but may lag.
 
 ## Pipeline Types and Triage
 
