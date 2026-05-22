@@ -62,6 +62,24 @@ public interface ITicketProvider : ITypedProvider
         => Task.CompletedTask;
 
     /// <summary>
+    /// Post-PR finalize: in one provider-native step, post the summary comment
+    /// AND move the ticket to <paramref name="doneStatus"/> (or close it when
+    /// <paramref name="doneStatus"/> is null/empty).
+    /// </summary>
+    /// <remarks>
+    /// On Azure DevOps the two changes MUST land in the same WIT PATCH —
+    /// AzDO bumps <c>System.Rev</c> after every write and any concurrent
+    /// observer (other agent-smith run, operator UI edit, server-side
+    /// automation rule) between two sequential PATCHes produces
+    /// <c>TF26071: This work item has been changed by someone else</c>
+    /// and the second call aborts. Other providers (GitHub/GitLab/Jira)
+    /// have no equivalent rev guard, so the default body's two sequential
+    /// calls are safe — they implement this method by delegation.
+    /// </remarks>
+    Task FinalizeAsync(
+        TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists tickets whose lifecycle label matches the given status. Used by
     /// EnqueuedReconciler and StaleJobDetector to enumerate Enqueued/InProgress tickets.
     /// Default: empty list — providers that don't support lifecycle search don't participate.
