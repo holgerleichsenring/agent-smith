@@ -96,6 +96,19 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId),
             new { state_event = ToStateEvent(statusName) }, cancellationToken);
 
+    // GitLab issues have no rev-guard; sequential note + state change is safe.
+    public async Task FinalizeAsync(
+        TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(doneStatus))
+            await CloseTicketAsync(ticketId, comment, cancellationToken);
+        else
+        {
+            await UpdateStatusAsync(ticketId, comment, cancellationToken);
+            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
+        }
+    }
+
     private string IssueUrl(TicketId ticketId) =>
         $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
 

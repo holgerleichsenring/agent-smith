@@ -12,6 +12,13 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// Ticket — so handlers that only have the id (init-project's label-triggered
 /// path) can call it without an extra FetchTicket step.
 /// </summary>
+/// <remarks>
+/// Delegates to <see cref="ITicketProvider.FinalizeAsync"/> so the provider can
+/// pick the atomic-vs-sequential shape that fits its backend. AzDO collapses
+/// both writes into one PATCH to avoid the TF26071 (System.Rev) race that bit
+/// production when comment + state landed as two PATCHes; GitHub/GitLab/Jira
+/// stay on two sequential calls (no rev guard exists there).
+/// </remarks>
 public static class TicketLifecycle
 {
     public static async Task FinalizeAsync(
@@ -26,20 +33,10 @@ public static class TicketLifecycle
         try
         {
             var provider = ticketFactory.Create(ticketConfig);
-
-            if (!string.IsNullOrWhiteSpace(doneStatus))
-            {
-                await provider.UpdateStatusAsync(ticketId, summary, cancellationToken);
-                await provider.TransitionToAsync(ticketId, doneStatus, cancellationToken);
-                logger.LogInformation(
-                    "Ticket {Ticket} transitioned to '{DoneStatus}' with summary",
-                    ticketId, doneStatus);
-            }
-            else
-            {
-                await provider.CloseTicketAsync(ticketId, summary, cancellationToken);
-                logger.LogInformation("Ticket {Ticket} closed with summary", ticketId);
-            }
+            await provider.FinalizeAsync(ticketId, summary, doneStatus, cancellationToken);
+            logger.LogInformation(
+                "Ticket {Ticket} finalized (status='{Status}')",
+                ticketId, doneStatus ?? "<close>");
         }
         catch (Exception ex)
         {
