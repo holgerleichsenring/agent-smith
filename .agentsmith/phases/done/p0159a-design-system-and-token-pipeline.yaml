@@ -1,0 +1,182 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0159a
+goal: "Codify the new design system at the repo root as `DESIGN.md` (Zapier
+  structural template, Smith-green primary, Inter-only, plus one Smith-specific
+  `card-terminal-panel` for CLI/code surfaces) and build the token pipeline that
+  lets both sites consume it: a tiny Node script parses the YAML frontmatter
+  and emits `tokens.css` (CSS custom properties) referenced by Eleventy and
+  MkDocs Material via `extra_css`. Sites never hardcode colors again. Swapping
+  designs tomorrow = replace DESIGN.md, rerun the build, both sites pick up
+  new values automatically."
+
+requires: []
+
+scope:
+  in: |
+    (1) `DESIGN.md` at repo root with YAML frontmatter following the
+        getdesign.md format (version, name, description, colors, typography,
+        rounded, spacing, components) plus the prose sections (Overview,
+        Colors, Typography, Layout, Elevation, Shapes, Components,
+        Do's & Don'ts, Responsive). Single source of truth — no fork in
+        docs/DESIGN.md.
+
+    (2) `scripts/build-tokens.mjs` — Node, no deps beyond `js-yaml` (or
+        regex-based YAML frontmatter parser, whichever is smaller). Reads
+        DESIGN.md, emits `website/src/static/tokens.css` and
+        `docs/stylesheets/tokens.css` containing CSS custom properties for
+        every color, typography role, radius, and spacing token.
+        Property naming: `--color-primary`, `--typography-display-xl-size`,
+        `--rounded-md`, `--spacing-xl` etc. Variable names follow the YAML
+        path lower-kebab-cased.
+
+    (3) `npm run build:tokens` script added at the repo-root scope
+        (root-level `package.json` if absent, or hooked into website's
+        existing `package.json` with a relative output to docs/). The
+        Eleventy build runs `build:tokens` as a pre-step; the docs build
+        runs it as a pre-step in the MkDocs CI workflow.
+
+    (4) Inter @font-face wiring. `tokens.css` includes an `@font-face`
+        block sourcing Inter variable from `cdn.jsdelivr.net` (matching
+        the existing Geist loader pattern in `website/src/index.njk`) so
+        both sites can `font-family: var(--typography-body-md-family)`
+        without a separate import.
+
+    (5) Old `docs/DESIGN.md` (Linear-themed, from p0066) deleted. The
+        single source is now repo-root `DESIGN.md`. Update `docs/mkdocs.yml`
+        nav entry from `DESIGN.md` to `../DESIGN.md` (or a symlink) so the
+        Architecture > Design System link still works from the docs site.
+
+    (6) Document the swap-tomorrow workflow as a short section in
+        DESIGN.md itself: "To swap to a different design system, replace
+        the YAML frontmatter, keep token names stable, rerun
+        `npm run build:tokens`. Token names are the contract; values are
+        the variable."
+
+  out: |
+    - Actually re-skinning the Eleventy landing. That's p0159b.
+    - Actually re-skinning the MkDocs Material theme. That's p0159c.
+    - Adopting a full design-token tool like Style Dictionary or
+      Specify. We need ~80 lines of Node, not a 200-package dep tree.
+    - Tailwind / utility-class layer. CSS custom properties hold the
+      whole token surface; sites can layer Tailwind on top later if
+      they want, but tokens stay framework-agnostic.
+    - Per-component class generation (no `.card-feature-cream` CSS
+      class is emitted; sites compose tokens themselves). Components
+      in DESIGN.md are documentation, not generated CSS classes.
+
+decisions:
+  - key: "CSS custom properties as the consumption surface, not Tailwind
+      tokens or Style Dictionary. — Both sites already serve CSS; tokens
+      ride straight in `:root { --color-primary: #22c55e; ... }`. Zero
+      runtime, zero build complexity beyond a 80-line YAML-to-CSS
+      transformer. Style Dictionary would solve the same problem with
+      a 30-dep tree."
+
+  - key: "DESIGN.md at repo root, not under docs/. — Single source of
+      truth is repo-root for ops files (LICENSE, CHANGELOG, README,
+      DESIGN). Docs sites *consume* DESIGN.md, they don't host it.
+      Old `docs/DESIGN.md` deleted."
+
+  - key: "Smith-green (`#22c55e`) swaps in for Zapier-orange as
+      `{colors.primary}`. — Existing logo is green, existing styles.css
+      is green-coded — a color change costs more than a token-value
+      change. Structural Zapier system stays 1:1; only the one accent
+      hex differs."
+
+  - key: "Inter for everything, no proprietary display face. — Zapier's
+      Degular Display is licensed-only; Notion-Sans, Sohne, similar.
+      Inter at weight 500 is the documented open-source substitute for
+      every one of those — pick the substitute once at the system
+      level, not per-site. Mono surfaces use IBM Plex Mono (already in
+      the current landing)."
+
+  - key: "Add `card-terminal-panel` component as the only Smith-specific
+      addition. — The source system (Zapier) doesn't carry a code/CLI
+      panel because Zapier is no-code. Agent Smith's whole visual story
+      is code-shaped output; needs a first-class component. Sits next
+      to `card-feature-dark`, just with monospace typography + a
+      terminal-tinted background."
+
+  - key: "Token names are the swap contract, values are the variable.
+      — When the user picks a new design tomorrow, the YAML values
+      change but the *names* of tokens (`colors.primary`,
+      `typography.display-xl`, `rounded.md`) must stay stable. The
+      build script doesn't enforce this; the discipline is documented
+      in DESIGN.md's swap-tomorrow section."
+
+steps:
+  - id: design-doc
+    action: "Write `DESIGN.md` at repo root. YAML frontmatter per
+      getdesign.md convention + prose sections. Use the Zapier template
+      from the user's reference verbatim for structure; swap orange ->
+      Smith-green; add `card-terminal-panel`; rewrite Overview / Do's &
+      Don'ts in Smith's voice (workflow-automation for dev-tool, not
+      app-connection-for-everyone)."
+    new:
+      - "DESIGN.md"
+
+  - id: build-script
+    action: "Write `scripts/build-tokens.mjs`. Inputs: repo-root
+      `DESIGN.md`. Outputs: `website/src/static/tokens.css` and
+      `docs/stylesheets/tokens.css`. Parse YAML frontmatter, walk
+      colors/typography/rounded/spacing maps, emit
+      `:root { --color-…: …; }`. Include an `@font-face` block for
+      Inter variable. Idempotent. Exit non-zero on missing required
+      tokens (`colors.primary` etc.)."
+    new:
+      - "scripts/build-tokens.mjs"
+
+  - id: package-wiring
+    action: "Add `build:tokens` script. Pre-step on both site builds:
+      Eleventy's `npm run build` calls `build:tokens` first; MkDocs CI
+      workflow runs `node scripts/build-tokens.mjs` before
+      `mkdocs build`. If repo has no root `package.json`, the script
+      lives in `website/package.json` and writes the docs output
+      via a relative path."
+    modify:
+      - "website/package.json"
+      - ".github/workflows/docs.yml (or wherever mkdocs builds)"
+
+  - id: docs-design-removal
+    action: "Delete old `docs/DESIGN.md` (Linear-themed from p0066).
+      Update `docs/mkdocs.yml` Architecture > Design System nav entry
+      to point at the repo-root file (`../DESIGN.md`) or replace with
+      a docs-internal markdown page that links externally."
+    delete:
+      - "docs/DESIGN.md"
+    modify:
+      - "docs/mkdocs.yml"
+
+  - id: swap-tomorrow-doc
+    action: "Add a short section to DESIGN.md ('Swapping the design
+      system') that documents: token NAMES are the contract, VALUES
+      are free to change; the workflow is replace frontmatter ->
+      rerun build:tokens -> sites pick up automatically; new
+      components require both sites to update; deprecated component
+      keys should be kept as aliases for one minor version."
+
+  - id: verify
+    action: "Run `node scripts/build-tokens.mjs` locally. Verify
+      `tokens.css` lands in both output paths. Open both files,
+      confirm token coverage matches DESIGN.md frontmatter. Verify
+      Eleventy build still passes (sites don't reference tokens yet —
+      that's b/c — but the file must exist and not break the build)."
+
+tests: []
+
+done:
+  - "`DESIGN.md` exists at repo root with YAML frontmatter (Zapier
+    structure, Smith-green primary, Inter typography, plus
+    `card-terminal-panel`) and prose sections."
+  - "`scripts/build-tokens.mjs` reads DESIGN.md and writes
+    `website/src/static/tokens.css` + `docs/stylesheets/tokens.css`
+    containing one CSS custom property per token; runnable as
+    `node scripts/build-tokens.mjs`."
+  - "Token names follow the YAML path (`colors.primary` -> `--color-primary`)
+    and are documented in DESIGN.md's Swapping section as the contract."
+  - "Old `docs/DESIGN.md` is gone; `docs/mkdocs.yml` Architecture > Design
+    System entry points at the new location."
+  - "`npm run build` in `website/` still passes (tokens.css exists,
+    nothing references it yet)."
+  - "Inter `@font-face` is in `tokens.css`; loading is verifiable in a
+    browser via `document.fonts.check('500 56px Inter')`."
