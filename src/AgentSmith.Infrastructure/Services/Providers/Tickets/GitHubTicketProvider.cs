@@ -96,6 +96,19 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [statusName]);
     }
 
+    // GitHub issues have no rev-guard; sequential comment + state change is safe.
+    public async Task FinalizeAsync(
+        TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(doneStatus))
+            await CloseTicketAsync(ticketId, comment, cancellationToken);
+        else
+        {
+            await UpdateStatusAsync(ticketId, comment, cancellationToken);
+            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
+        }
+    }
+
     private static bool TryParseIssueNumber(TicketId id, out int n) => int.TryParse(id.Value, out n);
 
     private static (string owner, string repo) ParseGitHubUrl(string url)

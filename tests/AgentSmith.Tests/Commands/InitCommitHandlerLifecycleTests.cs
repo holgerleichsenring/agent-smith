@@ -64,17 +64,14 @@ public sealed class InitCommitHandlerLifecycleTests
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("pull/7");
 
-        _ticketProviderMock.Verify(t => t.UpdateStatusAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _ticketProviderMock.Verify(t => t.TransitionToAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
         _ticketFactoryMock.Verify(f => f.Create(It.IsAny<TrackerConnection>()), Times.Never);
     }
 
     [Fact]
-    public async Task ExecuteAsync_TicketIdWithDoneStatus_TransitionsAndPostsPRLinkSummary()
+    public async Task ExecuteAsync_TicketIdWithDoneStatus_FinalizesAtomicallyWithStatus()
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
@@ -82,68 +79,66 @@ public sealed class InitCommitHandlerLifecycleTests
         var context = CreateContext(pipeline);
 
         string? postedSummary = null;
-        _ticketProviderMock.Setup(t => t.UpdateStatusAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<TicketId, string, CancellationToken>((_, s, _) => postedSummary = s)
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
             .Returns(Task.CompletedTask);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
 
-        _ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+        // Comment + transition collapsed into ONE provider call so AzDO can
+        // land both as a single PATCH (no TF26071 rev race).
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "42"),
             It.Is<string>(s => s.Contains("pull/7")),
+            "closed",
             It.IsAny<CancellationToken>()), Times.Once);
-        _ticketProviderMock.Verify(t => t.TransitionToAsync(
-            It.Is<TicketId>(id => id.Value == "42"), "closed",
-            It.IsAny<CancellationToken>()), Times.Once);
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
 
         postedSummary.Should().Contain("pull/7");
         postedSummary.Should().Contain("Init Complete");
     }
 
     [Fact]
-    public async Task ExecuteAsync_TicketIdWithoutDoneStatus_ClosesTicketWithPRLinkSummary()
+    public async Task ExecuteAsync_TicketIdWithoutDoneStatus_FinalizesAtomicallyWithNullStatus()
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("99"));
         var context = CreateContext(pipeline);
 
         string? postedSummary = null;
-        _ticketProviderMock.Setup(t => t.CloseTicketAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<TicketId, string, CancellationToken>((_, s, _) => postedSummary = s)
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
             .Returns(Task.CompletedTask);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
 
-        _ticketProviderMock.Verify(t => t.CloseTicketAsync(
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "99"),
             It.Is<string>(s => s.Contains("pull/7")),
+            null,
             It.IsAny<CancellationToken>()), Times.Once);
-        _ticketProviderMock.Verify(t => t.TransitionToAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _ticketProviderMock.Verify(t => t.UpdateStatusAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
 
         postedSummary.Should().Contain("pull/7");
     }
 
     [Fact]
-    public async Task ExecuteAsync_TicketTransitionFails_StillReturnsPRSuccess()
+    public async Task ExecuteAsync_TicketFinalizeFails_StillReturnsPRSuccess()
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
         pipeline.Set(ContextKeys.DoneStatus, "closed");
         var context = CreateContext(pipeline);
 
-        _ticketProviderMock.Setup(t => t.TransitionToAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("API error"));
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
