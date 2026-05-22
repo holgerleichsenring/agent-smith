@@ -117,6 +117,57 @@ public class CommitAndPRHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_MultiRepo_SummaryListsEveryRepoNotJustPrimary()
+    {
+        // Multi-repo summary used to expose only the primary PR; operators
+        // reading the ticket then had to traverse to the primary's body for
+        // the sibling list (p0158c's cross-link). Listing each repo + its PR
+        // status in the ticket comment keeps the ticket self-contained.
+        string? postedSummary = null;
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, summary, _, _) => postedSummary = summary)
+            .Returns(Task.CompletedTask);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal)
+            {
+                ["server"] = _sandboxMock.Object,
+                ["client"] = _sandboxMock.Object,
+                ["docs"] = _sandboxMock.Object,
+            });
+        var repo = new Repository(new BranchName("fix/123"), "https://github.com/test/repo");
+        var ticket = new Ticket(new TicketId("123"), "Fix the bug", "Description", null, "Open", "GitHub");
+        var changes = new List<CodeChange>
+        {
+            new(new FilePath("README.md"), "content", "Created")
+        };
+        var configs = new[]
+        {
+            new RepoConnection { Name = "server" },
+            new RepoConnection { Name = "client" },
+            new RepoConnection { Name = "docs" },
+        };
+        var context = new CommitAndPRContext(repo, changes, ticket, configs, new TrackerConnection(), pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Exactly(3));
+        postedSummary.Should().NotBeNull();
+        postedSummary.Should().Contain("Pull requests");
+        postedSummary.Should().Contain("**server**:");
+        postedSummary.Should().Contain("**client**:");
+        postedSummary.Should().Contain("**docs**:");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithDoneStatus_FinalizesAtomicallyWithStatus()
     {
         var pipeline = NewPipelineWithSandbox();

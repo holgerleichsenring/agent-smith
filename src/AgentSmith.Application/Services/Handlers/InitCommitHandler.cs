@@ -65,7 +65,7 @@ public sealed class InitCommitHandler(
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
         if (ticketId is not null && primaryUrl is not null)
-            await FinalizeTicketAsync(context, primaryUrl, ticketId, cancellationToken);
+            await FinalizeTicketAsync(context, opened, ticketId, cancellationToken);
         return BuildResult(opened);
     }
 
@@ -112,19 +112,29 @@ public sealed class InitCommitHandler(
         || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
 
     private Task FinalizeTicketAsync(
-        InitCommitContext context, string primaryUrl, TicketId ticketId, CancellationToken ct)
+        InitCommitContext context, IReadOnlyList<OpenedPullRequest> opened,
+        TicketId ticketId, CancellationToken ct)
     {
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
         var summary = $"""
             ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
 
-            **Primary PR:** {primaryUrl}
+            ### Pull requests
+            {RenderPullRequestList(opened)}
 
             Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge to enable agent-smith pipelines.
             """;
         return TicketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
     }
+
+    private static string RenderPullRequestList(IReadOnlyList<OpenedPullRequest> opened) =>
+        string.Join("\n", opened.Select(o => o.Status switch
+        {
+            OpenStatus.Opened => $"- **{o.RepoName}**: {o.Url}",
+            OpenStatus.SkippedNoChanges => $"- **{o.RepoName}**: _(no changes)_",
+            _ => $"- **{o.RepoName}**: _(open failed)_",
+        }));
 
     private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
     {
