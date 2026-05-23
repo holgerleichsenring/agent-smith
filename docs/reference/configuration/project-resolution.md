@@ -10,7 +10,7 @@ This page covers the four strategies (`tag`, `area-path`, `repo`, `to_address`),
 
 1. A ticket event arrives. The platform handler builds an `IncomingTicketEnvelope` containing the ticket id, labels, area path (ADO only), source repo URL (when known), and to-address (Email — p0141).
 2. `ProjectResolver.Resolve(envelope)` walks every project's trigger and asks "does this project's `project_resolution` match this envelope?"
-3. The match list is returned. **Zero matches** → structured log entry; optional tracker comment if `TrackerConnection.ZeroMatchComment` is configured (p0140b). **One match** → normal claim and spawn. **Two or more matches** → all projects claim and spawn in parallel; the `agent_smith_ambiguous_resolution_total` counter increments once per matched (project, pipeline). See [Multi-Repo Projects — Ambiguous-tag handling](multi-repo.md#ambiguous-tag-handling).
+3. The match list is returned. **Zero matches** → structured log entry; optional tracker comment if `TrackerConnection.ZeroMatchComment` is configured (p0140b). **One match** → normal claim and spawn. **Two or more matches** → all projects claim and spawn in parallel; the `agent_smith_ambiguous_resolution_total` counter increments once per matched (project, pipeline). See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-repo project model.
 
 The four strategies differ only in *what* `Resolve` compares against. Their YAML shape is uniform:
 
@@ -249,7 +249,7 @@ Watch p0141's release notes for activation.
 
 ## See also
 
-- [Multi-Repo Projects](multi-repo.md) — fan-out behaviour, ambiguous-tag handling, init flow.
+- [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — the multi-repo project model.
 - [Metrics](../operations/metrics.md) — `agent_smith_ambiguous_resolution_total` and the cost-of-ambiguity dashboard.
 - [agentsmith.yml Schema](agentsmith-yml-schema.md) — catalog reference; trigger-block / tracker-type cross-validation.
 - [Webhooks](webhooks.md) — the ingress path that builds the `IncomingTicketEnvelope`.
