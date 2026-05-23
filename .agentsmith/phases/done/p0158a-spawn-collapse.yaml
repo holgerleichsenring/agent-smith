@@ -11,7 +11,7 @@ goal: |
   Consumer-side behaviour is preserved bit-for-bit by reading Repos[0] in
   every place that previously read CurrentRepo — true multi-repo unified-run
   (workdir layout, per-repo iteration, PR cross-link, CLI `--repo`) lands in
-  the follow-up slice p0158b. The original AuthPort-class reconciler bug
+  the follow-up slice p0158b. The original multi-repo reconciler bug
   (multi-repo project orphan tickets hitting ResolveCurrentRepo's
   multi-repo throw on every reconcile interval) is dissolved at this slice
   because RepoName is no longer a field on the request — there is no
@@ -74,7 +74,7 @@ scope:
     (5) Reconciler:
         - EnqueuedReconciler.ReconcileProjectAsync : no change required —
           the existing code already enqueued a request without RepoName.
-          The original AuthPort-class loop bug is now dissolved because
+          The original multi-repo loop bug is now dissolved because
           PipelineRequest no longer has a RepoName field at all.
 
     (6) Tests:
@@ -119,7 +119,7 @@ decisions:
       PR cross-link two-pass across three platform APIs, CLI on eight
       commands, ~20 new tests) cascades into test-fixture rewrites at
       every handler boundary. p0158a delivers the smallest standalone
-      slice that (a) dissolves the original AuthPort-class reconciler
+      slice that (a) dissolves the original multi-repo reconciler
       bug, (b) leaves the codebase in a clean compileable + test-green
       state, (c) unblocks p0158b cleanly. — alternatives: ship p0158
       as one commit (rejected: realistically multi-conversation, partial
@@ -137,7 +137,7 @@ decisions:
       change every Context type to be list-shaped immediately (rejected:
       cascades the change into handlers and tests, defeating the slicing
       premise); throw on multi-repo until p0158b (rejected: would
-      re-introduce the AuthPort-class loop bug at the consumer side after
+      re-introduce the multi-repo loop bug at the consumer side after
       removing it at the enqueue side)."
 
   - key: "ClaimSpawnAsync collapses to ClaimAsync; SingleClaimRegionExecutor
@@ -190,7 +190,7 @@ done:
   - "ExecutePipelineUseCase publishes Repos on PipelineContext; optional
      SourceOverrideRepo filters the list to a single matching repo;
      unknown name throws with the known-repos list."
-  - "Original AuthPort-class reconciler bug (orphan multi-repo tickets
+  - "Original multi-repo reconciler bug (orphan multi-repo tickets
      looping on ResolveCurrentRepo's multi-repo throw) dissolved: there is
      no RepoName field and no resolve-from-name path anymore."
   - "Build green, full unit test suite green (1955 main tests +
