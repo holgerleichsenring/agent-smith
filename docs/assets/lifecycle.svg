@@ -1,1 +1,356 @@
-../../website/src/static/lifecycle.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 580" role="img" aria-labelledby="lc-title lc-desc">
+  <title id="lc-title">A ticket becomes pull requests — Agent Smith</title>
+  <desc id="lc-desc">A ticket comes in from your tracker. Agent Smith spawns one sandbox per repository, clones each repo, then drives a tool-calling loop with every sandbox while the code is written. When the work is done the orchestrator opens one pull request per repo against your git host and sets the ticket back to resolved.</desc>
+
+  <defs>
+    <marker id="lc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <symbol id="lc-folder" viewBox="0 0 16 14">
+      <path d="M1 3.5C1 2.7 1.7 2 2.5 2H6L7.5 3.5H13.5C14.3 3.5 15 4.2 15 5V11.5C15 12.3 14.3 13 13.5 13H2.5C1.7 13 1 12.3 1 11.5V3.5Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="lc-branch" viewBox="0 0 16 16">
+      <path d="M5 3.25a1.75 1.75 0 1 1 2.5 1.575v3.55a4.5 4.5 0 0 0 2.875.97A1.75 1.75 0 1 1 10.375 11a4.5 4.5 0 0 1-4.875-1.05V12.575a1.75 1.75 0 1 1-1.5 0V4.825A1.75 1.75 0 0 1 5 3.25Z" fill="currentColor"/>
+    </symbol>
+  </defs>
+
+  <style>
+    .lc-bg        { fill: #fffefb; }
+    .lc-surface   { fill: #f8f4f0; stroke: #c5c0b1; stroke-width: 0.5; }
+    .lc-surface-2 { fill: #ffffff; stroke: #c5c0b1; stroke-width: 0.5; }
+    .lc-code      { fill: #1c1e22; }
+    .lc-text      { fill: #201515; font-family: 'Inter', system-ui, sans-serif; }
+    .lc-mute      { fill: #939084; font-family: 'Inter', system-ui, sans-serif; }
+    .lc-on-code   { fill: #d8d4cc; font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    .lc-mono      { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    .lc-accent    { fill: #22c55e; }
+    .lc-stroke-accent { stroke: #22c55e; }
+    .lc-label     { fill: #939084; font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.6px; }
+
+    /* Stage timing — 14s loop:
+       0–14   stage 1  (ticket flies from tracker into orchestrator)
+       14–28  stage 2  (sandboxes spawn, git-clone packets fly out)
+       28–60  stage 3  (orchestrator ↔ sandbox tool-call loop; work bars pulse)
+       60–85  stage 4  (commits flow up to orchestrator; orchestrator opens PRs in git host)
+       85–100 stage 5  (orchestrator marks ticket resolved in the tracker) */
+
+    @keyframes lc-ticket-flow {
+      0%        { opacity: 0; transform: translate(0, 0); }
+      2%        { opacity: 1; transform: translate(0, 0); }
+      12%       { opacity: 1; transform: translate(140px, 65px); }
+      14%, 100% { opacity: 0; transform: translate(140px, 65px); }
+    }
+    @keyframes lc-sandbox-grow {
+      0%, 18%   { opacity: 0; transform: scaleY(0.05); }
+      26%       { opacity: 1; transform: scaleY(1); }
+      85%       { opacity: 1; transform: scaleY(1); }
+      95%, 100% { opacity: 0; transform: scaleY(1); }
+    }
+    @keyframes lc-fanout {
+      0%, 18%   { opacity: 0; }
+      26%       { opacity: 0.7; }
+      85%       { opacity: 0.7; }
+      95%, 100% { opacity: 0; }
+    }
+    @keyframes lc-repo-packet {
+      0%, 16%   { opacity: 0; transform: translate(0, 0); }
+      18%       { opacity: 1; transform: translate(0, 0); }
+      26%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
+      28%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
+    }
+    /* Bidirectional loop packets — bounce between orchestrator and sandbox during work stage */
+    @keyframes lc-loop-bounce {
+      0%, 28%   { opacity: 0; transform: translate(0, 0); }
+      30%       { opacity: 1; transform: translate(0, 0); }
+      34%       { transform: translate(var(--tx), var(--ty)); }
+      38%       { transform: translate(0, 0); }
+      42%       { transform: translate(var(--tx), var(--ty)); }
+      46%       { transform: translate(0, 0); }
+      50%       { transform: translate(var(--tx), var(--ty)); }
+      54%       { transform: translate(0, 0); }
+      58%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
+      60%, 100% { opacity: 0; transform: translate(0, 0); }
+    }
+    @keyframes lc-workbar {
+      0%, 100% { transform: scaleX(0.25); }
+      50%      { transform: scaleX(1); }
+    }
+    @keyframes lc-work-show {
+      0%, 28%   { opacity: 0; }
+      31%, 58%  { opacity: 1; }
+      62%, 100% { opacity: 0; }
+    }
+    /* Commit packets fly UP from each sandbox to the orchestrator */
+    @keyframes lc-commit-up {
+      0%, 60%   { opacity: 0; transform: translate(0, 0); }
+      62%       { opacity: 1; transform: translate(0, 0); }
+      68%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
+      71%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
+    }
+    /* PR-egress wires (orchestrator → git host) fade in for stage 4 */
+    @keyframes lc-pr-wire-show {
+      0%, 62%   { opacity: 0; }
+      66%, 84%  { opacity: 0.7; }
+      87%, 100% { opacity: 0; }
+    }
+    /* PR packets fly FROM orchestrator TO git host */
+    @keyframes lc-pr-out {
+      0%, 67%   { opacity: 0; transform: translate(0, 0); }
+      69%       { opacity: 1; transform: translate(0, 0); }
+      77%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
+      79%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
+    }
+    /* PR badges land inside the git host boxes */
+    @keyframes lc-pr-badge {
+      0%, 76%   { opacity: 0; transform: translateY(4px); }
+      80%, 94%  { opacity: 1; transform: translateY(0); }
+      97%, 100% { opacity: 0; }
+    }
+    /* Ticket update flies from orchestrator back to the tracker */
+    @keyframes lc-ticket-return {
+      0%, 84%   { opacity: 0; transform: translate(0, 0); }
+      86%       { opacity: 1; transform: translate(0, 0); }
+      93%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
+      95%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
+    }
+    @keyframes lc-resolved-show {
+      0%, 86%   { opacity: 0; }
+      91%, 97%  { opacity: 1; }
+      100%      { opacity: 0; }
+    }
+    @keyframes lc-wire-flow { to { stroke-dashoffset: -20; } }
+
+    .lc-ticket      { animation: lc-ticket-flow 14s ease-in-out infinite; }
+    .lc-sandbox     { transform-box: fill-box; transform-origin: center bottom;
+                      animation: lc-sandbox-grow 14s cubic-bezier(.2,.8,.3,1.2) infinite; }
+    .lc-fanout      { animation: lc-fanout 14s ease-in-out infinite; }
+    .lc-packet      { transform-box: fill-box; animation: lc-repo-packet 14s ease-in-out infinite; color: #22c55e; }
+    .lc-loop        { transform-box: fill-box; animation: lc-loop-bounce 14s ease-in-out infinite; }
+    .lc-work        { animation: lc-work-show 14s ease-in-out infinite; }
+    .lc-workbar     { transform-origin: left; transform-box: fill-box;
+                      animation: lc-workbar 1.6s ease-in-out infinite; }
+    .lc-wb-b        { animation-delay: 0.3s; } .lc-wb-c { animation-delay: 0.6s; }
+    .lc-commit      { transform-box: fill-box; animation: lc-commit-up 14s ease-in-out infinite; }
+    .lc-pr-wire-a   { animation: lc-pr-wire-show 14s ease-in-out infinite; }
+    .lc-pr-fly      { transform-box: fill-box; animation: lc-pr-out 14s ease-in-out infinite; color: #22c55e; }
+    .lc-pr-badge    { transform-box: fill-box; animation: lc-pr-badge 14s ease-in-out infinite; }
+    .lc-ticket-back { transform-box: fill-box; animation: lc-ticket-return 14s ease-in-out infinite; }
+    .lc-resolved    { animation: lc-resolved-show 14s ease-in-out infinite; }
+    .lc-wire        { stroke: #22c55e; stroke-dasharray: 4 6; animation: lc-wire-flow 1.4s linear infinite; }
+    .lc-wire-soft   { stroke: #c5c0b1; stroke-dasharray: 4 6;
+                      animation: lc-wire-flow 1.4s linear infinite; }
+
+    /* Per-sandbox stagger */
+    .lc-sb-1 { animation-delay: 0s; }
+    .lc-sb-2 { animation-delay: 0.45s; }
+    .lc-sb-3 { animation-delay: 0.9s; }
+    /* Up-packet runs out of phase with its down-packet partner so they look like
+       two separate conversations on the same wire rather than one bouncing dot. */
+    .lc-loop-rev.lc-sb-1 { animation-delay: -1.05s; }
+    .lc-loop-rev.lc-sb-2 { animation-delay: -0.6s; }
+    .lc-loop-rev.lc-sb-3 { animation-delay: -0.15s; }
+    /* Stage-4 PR stagger */
+    .lc-pr-1 { animation-delay: 0s; }
+    .lc-pr-2 { animation-delay: 0.3s; }
+    .lc-pr-3 { animation-delay: 0.6s; }
+  </style>
+
+  <!-- Page background (light) -->
+  <rect width="920" height="580" rx="14" class="lc-bg"/>
+
+  <!-- SOURCE COLUMN — tracker (top) + git host (bottom) -->
+  <g>
+    <text x="40" y="22" class="lc-label lc-mono" font-size="10" font-weight="500">YOUR TRACKER</text>
+    <rect x="40" y="32" width="150" height="38" rx="7" class="lc-surface-2"/>
+    <text x="58" y="56" class="lc-text" font-size="13">Azure DevOps</text>
+    <rect x="40" y="76" width="150" height="38" rx="7" class="lc-surface-2"/>
+    <text x="58" y="100" class="lc-text" font-size="13">Jira</text>
+
+    <text x="40" y="130" class="lc-label lc-mono" font-size="10" font-weight="500">YOUR GIT HOST</text>
+    <rect x="40" y="140" width="150" height="58" rx="7" class="lc-surface-2"/>
+    <text x="58" y="160" class="lc-text" font-size="13">GitHub</text>
+    <g class="lc-pr-badge lc-mono">
+      <rect x="50" y="166" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
+      <text x="56" y="176" class="lc-accent" font-size="10">PR · server  ✓</text>
+    </g>
+    <g class="lc-pr-badge lc-mono lc-sb-2">
+      <rect x="50" y="181" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
+      <text x="56" y="191" class="lc-accent" font-size="10">PR · client  ✓</text>
+    </g>
+
+    <rect x="40" y="204" width="150" height="42" rx="7" class="lc-surface-2"/>
+    <text x="58" y="224" class="lc-text" font-size="13">GitLab</text>
+    <g class="lc-pr-badge lc-mono lc-sb-3">
+      <rect x="50" y="230" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
+      <text x="56" y="240" class="lc-accent" font-size="10">PR · worker  ✓</text>
+    </g>
+  </g>
+
+  <!-- Feeder lines into orchestrator -->
+  <path d="M190 51  C 240 51,  252 80,  320 90"  fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 95  C 240 95,  252 105, 320 108" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 160 C 240 160, 252 132, 320 128" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 224 C 250 224, 252 160, 320 148" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+
+  <!-- STAGE 1: ticket flying from Azure DevOps into orchestrator -->
+  <g class="lc-ticket">
+    <circle cx="200" cy="51" r="8" class="lc-accent"/>
+    <text x="200" y="54" class="lc-mono" font-size="9" fill="#fffefb" text-anchor="middle" font-weight="600">#</text>
+  </g>
+
+  <!-- ORCHESTRATOR -->
+  <rect x="326" y="68" width="210" height="104" rx="9" class="lc-surface-2"/>
+  <text x="344" y="94" class="lc-text" font-size="15" font-weight="600">Agent Smith</text>
+  <text x="344" y="113" class="lc-mute" font-size="12.5">orchestrator + agent loop</text>
+  <g class="lc-mono">
+    <rect x="344" y="126" width="86" height="30" rx="5" class="lc-surface"/>
+    <text x="357" y="145" class="lc-text" font-size="11.5">pipeline</text>
+    <rect x="438" y="126" width="84" height="30" rx="5" class="lc-surface"/>
+    <text x="452" y="145" class="lc-accent" font-size="11.5">redis</text>
+  </g>
+  <text x="552" y="88" class="lc-mute lc-mono" font-size="11">k8s</text>
+  <text x="552" y="103" class="lc-mute lc-mono" font-size="11">/ compose</text>
+
+  <!-- STAGE 2: fan-out arrows (orchestrator → sandboxes) -->
+  <g class="lc-fanout">
+    <path d="M380 172 L 188 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <path d="M430 172 L 430 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <path d="M484 172 L 672 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <text x="430" y="200" class="lc-accent lc-mono" font-size="11" text-anchor="middle">git clone — one repo per sandbox</text>
+  </g>
+
+  <!-- STAGE 2: repo packets fly from orchestrator to each sandbox -->
+  <g class="lc-packet lc-sb-1" style="--tx: -242px; --ty: 90px">
+    <rect x="423" y="166" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-folder" x="425" y="167" width="10" height="10" color="#fffefb"/>
+  </g>
+  <g class="lc-packet lc-sb-2" style="--tx: 0px; --ty: 90px">
+    <rect x="423" y="166" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-folder" x="425" y="167" width="10" height="10" color="#fffefb"/>
+  </g>
+  <g class="lc-packet lc-sb-3" style="--tx: 242px; --ty: 90px">
+    <rect x="423" y="166" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-folder" x="425" y="167" width="10" height="10" color="#fffefb"/>
+  </g>
+
+  <!-- STAGE 3: bidirectional tool-call loop — packets bounce between orchestrator and each sandbox while work bars pulse -->
+  <g class="lc-loop lc-sb-1" style="--tx: -192px; --ty: 82px">
+    <circle cx="380" cy="172" r="3.5" fill="#22c55e"/>
+  </g>
+  <g class="lc-loop lc-sb-2" style="--tx: 0px; --ty: 82px">
+    <circle cx="430" cy="172" r="3.5" fill="#22c55e"/>
+  </g>
+  <g class="lc-loop lc-sb-3" style="--tx: 188px; --ty: 82px">
+    <circle cx="484" cy="172" r="3.5" fill="#22c55e"/>
+  </g>
+  <g class="lc-loop lc-loop-rev lc-sb-1" style="--tx: 192px; --ty: -82px">
+    <circle cx="188" cy="254" r="3.5" fill="#22c55e"/>
+  </g>
+  <g class="lc-loop lc-loop-rev lc-sb-2" style="--tx: 0px; --ty: -82px">
+    <circle cx="430" cy="254" r="3.5" fill="#22c55e"/>
+  </g>
+  <g class="lc-loop lc-loop-rev lc-sb-3" style="--tx: -188px; --ty: -82px">
+    <circle cx="672" cy="254" r="3.5" fill="#22c55e"/>
+  </g>
+
+  <!-- SANDBOXES (3 staggered) -->
+  <g class="lc-sandbox lc-sb-1">
+    <rect x="106" y="256" width="190" height="160" rx="9" class="lc-surface-2"/>
+    <text x="122" y="282" class="lc-text" font-size="15" font-weight="600">server</text>
+    <text x="122" y="300" class="lc-accent lc-mono" font-size="11.5">dotnet/sdk:8.0</text>
+    <rect x="122" y="312" width="158" height="68" rx="5" class="lc-code"/>
+    <g class="lc-work">
+      <rect x="134" y="324" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="134" y="324" width="134" height="6" rx="3" class="lc-accent lc-workbar"/>
+      <rect x="134" y="338" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="134" y="338" width="134" height="6" rx="3" class="lc-accent lc-workbar lc-wb-c"/>
+    </g>
+    <text x="134" y="360" class="lc-on-code" font-size="10.5">Auth.cs</text>
+    <text x="134" y="374" class="lc-on-code" font-size="10.5">LoginController.cs</text>
+    <text x="122" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+  </g>
+  <g class="lc-sandbox lc-sb-2">
+    <rect x="335" y="256" width="190" height="160" rx="9" class="lc-surface-2"/>
+    <text x="351" y="282" class="lc-text" font-size="15" font-weight="600">client</text>
+    <text x="351" y="300" class="lc-accent lc-mono" font-size="11.5">node:20</text>
+    <rect x="351" y="312" width="158" height="68" rx="5" class="lc-code"/>
+    <g class="lc-work">
+      <rect x="363" y="324" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="363" y="324" width="134" height="6" rx="3" class="lc-accent lc-workbar lc-wb-b"/>
+      <rect x="363" y="338" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="363" y="338" width="134" height="6" rx="3" class="lc-accent lc-workbar"/>
+    </g>
+    <text x="363" y="360" class="lc-on-code" font-size="10.5">authClient.ts</text>
+    <text x="363" y="374" class="lc-on-code" font-size="10.5">session.ts</text>
+    <text x="351" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+  </g>
+  <g class="lc-sandbox lc-sb-3">
+    <rect x="564" y="256" width="190" height="160" rx="9" class="lc-surface-2"/>
+    <text x="580" y="282" class="lc-text" font-size="15" font-weight="600">worker</text>
+    <text x="580" y="300" class="lc-accent lc-mono" font-size="11.5">python:3.12</text>
+    <rect x="580" y="312" width="158" height="68" rx="5" class="lc-code"/>
+    <g class="lc-work">
+      <rect x="592" y="324" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="592" y="324" width="134" height="6" rx="3" class="lc-accent lc-workbar lc-wb-c"/>
+      <rect x="592" y="338" width="134" height="6" rx="3" fill="#22c55e" opacity="0.22"/>
+      <rect x="592" y="338" width="134" height="6" rx="3" class="lc-accent lc-workbar"/>
+    </g>
+    <text x="592" y="360" class="lc-on-code" font-size="10.5">token_queue.py</text>
+    <text x="592" y="374" class="lc-on-code" font-size="10.5">refresh_job.py</text>
+    <text x="580" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+  </g>
+
+  <!-- STAGE 4a: commit packets fly UP from each sandbox to the orchestrator -->
+  <g class="lc-commit lc-sb-1" style="--tx: 192px; --ty: -82px">
+    <rect x="194" y="250" width="14" height="10" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="197" y="251" width="8" height="8" color="#fffefb"/>
+  </g>
+  <g class="lc-commit lc-sb-2" style="--tx: 0px; --ty: -82px">
+    <rect x="423" y="250" width="14" height="10" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="426" y="251" width="8" height="8" color="#fffefb"/>
+  </g>
+  <g class="lc-commit lc-sb-3" style="--tx: -188px; --ty: -82px">
+    <rect x="652" y="250" width="14" height="10" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="655" y="251" width="8" height="8" color="#fffefb"/>
+  </g>
+
+  <!-- STAGE 4b: PR egress wires (orchestrator → git host) -->
+  <g class="lc-pr-wire-a">
+    <path d="M 326 130 C 280 130, 240 168, 195 168" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <path d="M 326 150 C 280 150, 240 218, 195 224" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <text x="262" y="125" class="lc-accent lc-mono" font-size="11" text-anchor="middle">open pull request</text>
+  </g>
+
+  <!-- STAGE 4b: PR packets fly FROM orchestrator TO git host -->
+  <g class="lc-pr-fly lc-pr-1" style="--tx: -126px; --ty: 38px">
+    <rect x="322" y="124" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="324" y="125" width="10" height="10" color="#fffefb"/>
+  </g>
+  <g class="lc-pr-fly lc-pr-2" style="--tx: -126px; --ty: 50px">
+    <rect x="322" y="138" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="324" y="139" width="10" height="10" color="#fffefb"/>
+  </g>
+  <g class="lc-pr-fly lc-pr-3" style="--tx: -126px; --ty: 76px">
+    <rect x="322" y="148" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="324" y="149" width="10" height="10" color="#fffefb"/>
+  </g>
+
+  <!-- STAGE 5: ticket update — orchestrator writes back to the tracker -->
+  <g class="lc-resolved">
+    <path d="M 320 90 C 260 90, 240 60, 195 51" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <text x="262" y="80" class="lc-accent lc-mono" font-size="11" text-anchor="middle">ticket update</text>
+  </g>
+  <g class="lc-ticket-back" style="--tx: -125px; --ty: -39px">
+    <circle cx="320" cy="90" r="6" class="lc-accent"/>
+    <path d="M317 90 l2 2 l4 -4" stroke="#fffefb" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- STAGE 5: resolved banner -->
+  <g class="lc-resolved">
+    <rect x="40" y="448" width="840" height="48" rx="9" class="lc-surface"/>
+    <circle cx="66" cy="472" r="9" class="lc-accent"/>
+    <path d="M61.5 472 l3 3 l6 -7" stroke="#fffefb" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="86" y="469" class="lc-text" font-size="14" font-weight="600">ticket #4471 — resolved</text>
+    <text x="86" y="486" class="lc-mute" font-size="12">3 pull requests open, all on branch agentsmith/ticket-4471, links commented on the ticket</text>
+  </g>
+</svg>
