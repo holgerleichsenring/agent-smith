@@ -19,11 +19,14 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.indexes
     - navigation.instant
+    - navigation.tracking
+    - toc.follow
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -129,6 +132,8 @@ nav:
       - Fix Bug / Add Feature: reference/pipelines/fix-and-feature.md
       - Security scan:         reference/pipelines/security-scan.md
       - API scan:              reference/pipelines/api-scan.md
+      - First API scan walkthrough: reference/getting-started/first-api-scan.md
+      - API-security baseline (IDE-buddy): reference/baselines/api-security-ide-buddy.md
       - Legal analysis:        reference/pipelines/legal-analysis.md
       - MAD discussion:        reference/pipelines/mad-discussion.md
       - Skill manager:         reference/pipelines/skill-manager.md
@@ -152,6 +157,7 @@ nav:
       - Project structure:  reference/architecture/project-structure.md
       - AI clients:         reference/architecture/ai-clients.md
       - Phase workflow:     reference/architecture/phase-workflow.md
+      - Design system:      DESIGN.md
     - Skills catalog (older guides):
       - Source modes:    reference/skills/source-modes.md
       - Bootstrap:       reference/skills/bootstrap.md
@@ -184,13 +190,9 @@ nav:
       - 'Webhooks: Jira':       reference/setup/webhooks/jira.md
     - Integrations:
       - PR comments: reference/integrations/pr-comments.md
-    - First API scan:        reference/getting-started/first-api-scan.md
-    - Baselines:
-      - API-security ide-buddy: reference/baselines/api-security-ide-buddy.md
     - Run logs:
       - First end-to-end test:  reference/run-logs/001-first-e2e-test.md
       - Azure DevOps Docker:    reference/run-logs/002-azure-devops-docker.md
-    - Design system: DESIGN.md
   - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
   - Community: https://github.com/holgerleichsenring/agent-smith/issues
