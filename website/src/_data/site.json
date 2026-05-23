@@ -1,7 +1,7 @@
 {
   "title": "Agent Smith",
-  "tagline": "Tickets become PRs.",
-  "description": "Self-hosted, multi-repo CI for AI pipelines. One ticket in, N pull requests out — on your own infrastructure.",
+  "tagline": "from ticket to PR",
+  "description": "Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, it clones the repo into a sandbox, writes the code, runs the tests, opens the PR, and sets the ticket back to resolved. Every run shows its cost, and every change comes with the reasoning the agent followed.",
   "githubRepo": "holgerleichsenring/agent-smith",
   "docsUrl": "https://docs.agent-smith.org",
   "sentinelUrl": "https://sentinel.agent-smith.org",

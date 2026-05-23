@@ -1,78 +1,77 @@
 <img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="max-width: 600px;">
 
-**Tickets become PRs.** Self-hosted, multi-repo CI for AI pipelines. One ticket in, N pull requests out — running on your own infrastructure, calling your own AI provider, no SaaS in between.
+# From ticket to PR
 
----
+Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
 
-## The lifecycle
+This page is the orientation. There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
+
+## What it does, in one paragraph
+
+You drop a ticket into your tracker. Agent Smith reads it, clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), generates a plan, lets you approve it (or runs headless if you've told it to), writes the code, runs the tests, opens one pull request per repo with the changes cross-linked, and writes the ticket back as resolved with every PR URL in the comment.
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](assets/lifecycle.svg)
 
-One ticket lands in the orchestrator. Agent Smith spawns **one sandbox per repository** in the project, each running its own toolchain image (`dotnet/sdk:8.0`, `node:20`, `alpine:3`, anything you configure). The orchestrator holds one plan and one agent conversation across every repo; tool calls dispatch by path prefix. Each sandbox produces one pull request. The ticket is written back as resolved with every PR link cross-referenced.
+## What lands on disk after a run
 
----
-
-## What a fix-bug run looks like
-
-The 13 user-visible steps of the [`fix-bug` pipeline](pipelines/fix-and-feature.md). Plumbing (pipeline-name init, bootstrap probes, skill loaders, empty-plan checks) runs between these but isn't shown.
+Every run gets a directory under `.agentsmith/runs/`. The directory name is the run id — a UTC timestamp plus a 4-hex collision suffix plus a slug.
 
 ```
-You:           "fix #54 in todo-list"
-               ↓
- [ 1/13] FetchTicket          → Reads ticket from Azure DevOps / GitHub / Jira / GitLab
- [ 2/13] CheckoutSource       → Clones every repo in the project, creates branch agentsmith/ticket-54
- [ 3/13] LoadContext          → Loads each repo's .agentsmith/context.yaml
- [ 4/13] LoadCodingPrinciples → Loads each repo's coding-principles.md
- [ 5/13] AnalyzeCode          → Scout agent maps each repo, identifies relevant files
- [ 6/13] Triage               → Picks the right skill roster for this ticket
- [ 7/13] GeneratePlan         → AI generates a step-by-step implementation plan (multi-role)
- [ 8/13] Approval             → Shows plan, waits for your OK (or runs headless)
- [ 9/13] AgenticExecute       → AI writes the code per repo, iterating with tools
- [10/13] RunReviewPhase       → Multi-role review against the plan
- [11/13] RunVerifyPhase       → Evidence-grounded verifiers (build/test/static analysis)
- [12/13] Test                 → Runs each repo's test suite
- [13/13] CommitAndPR          → One PR per repo with changes, cross-linked
-         PrCrossLink          → Sibling-PR body markers replaced with real URLs
-               ↓
-Agent Smith:   "4 pull requests opened. Ticket #54 → Done."
+.agentsmith/runs/2026-05-22T14-03-11-9f2a-fix-login-bug/
+├── plan.md       — the plan the agent followed, role-by-role
+├── result.md     — what got done, cost in tokens and USD
+└── decisions.md  — non-obvious choices made during the run
 ```
 
-That's the standard bug fix. There are [seven more pipelines](pipelines/index.md).
+`plan.md` and `decisions.md` are the why-record. Six months later, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason I built it this way — I got tired of code I couldn't reverse-engineer.
 
----
+## What's supported
 
-## Quick Links
+**Trackers** — these are the ticket sources Agent Smith reads from and writes back to.
 
-| | |
+| Tracker | Trigger modes | Connect page |
+|---|---|---|
+| Azure DevOps Boards | webhook · polling · label | [Azure DevOps](connect-your-stuff/tracker-azure-devops.md) |
+| Jira | webhook · polling · label | [Jira](connect-your-stuff/tracker-jira.md) |
+| GitHub Issues | webhook · label | [GitHub Issues](connect-your-stuff/tracker-github-issues.md) |
+| GitLab Issues | webhook · polling · label | [GitLab Issues](connect-your-stuff/tracker-gitlab-issues.md) |
+
+**AI providers** — Agent Smith calls these directly from your infrastructure. You pick the model per role (a cheap one for scout passes, the good one for the actual code).
+
+| Provider | Notes |
 |---|---|
-| **[Installation](getting-started/installation.md)** — Binary, Docker, or source | **[First Bug Fix](getting-started/first-bug-fix.md)** — From ticket to PR in 5 minutes |
-| **[API Security Scan](getting-started/first-api-scan.md)** — Scan a live API | **[Pipelines](pipelines/index.md)** — All seven pipeline presets |
-| **[Configuration](configuration/agentsmith-yml.md)** — agentsmith.yml reference | **[Multi-Repo Projects](concepts/multi-repo-pipelines.md)** — One ticket, N pull requests |
-| **[AI Providers](providers/index.md)** — Claude, GPT-4, Gemini, Ollama, Groq | **[CI/CD Integration](cicd/index.md)** — Azure DevOps, GitHub Actions, GitLab |
-| **[Architecture](architecture/index.md)** — Clean Architecture deep-dive | **[Design System](DESIGN.md)** — Tokens, components, swap-tomorrow contract |
+| Anthropic Claude | First-class. Prompt caching on by default. |
+| OpenAI | First-class. Reasoning models supported. |
+| Azure OpenAI | Same as OpenAI plus per-deployment routing. |
+| Google Gemini | First-class. |
+| Ollama | Local models. No API key, no internet. |
+| OpenAI-compatible | Groq, LM Studio, vLLM, your own endpoint. |
 
----
+See [Connect your AI provider](connect-your-stuff/ai-providers.md) for the config blocks.
 
-## Pipelines at a Glance
+**Skills** — the role definitions (architect, backend dev, security analyst, contract reviewer, …) live in a separate repo, `github.com/holgerleichsenring/agent-smith-skills`, versioned with release tags. You pin a tag in your `agentsmith.yml` and you're done. The skills repo gets updates without touching your Agent Smith binary, and the binary gets updates without touching your skills. See [Skills catalog](how-it-works/skills-catalog.md) for the pin strategy.
 
-| Pipeline | What it does |
-|----------|-------------|
-| **fix-bug** | Ticket → branch → code → review → verify → test → PR (per repo) |
-| **add-feature** | Same flow, plus generated tests and docs |
-| **security-scan** | Multi-role code security review (read-only) |
-| **api-security-scan** | Nuclei + Spectral + AI panel against a live API |
-| **legal-analysis** | Contract review with five legal specialists |
-| **mad-discussion** | Multi-agent design discussion |
-| **init-project** | Bootstrap `.agentsmith/` for each repo in a project |
-| **autonomous** | Open-ended operator-driven flow |
-| **skill-manager** | Author / lint / validate skills |
+## Get running today
 
----
+The pages below are the fast-path. They assume you have Docker (or a Kubernetes cluster you can deploy to) and an API key for an AI provider. If you've got that, you're ten minutes away from your first run.
+
+1. [Install](get-it-running/install.md) — CLI binary, Docker image, or k8s.
+2. [Connect your tracker](connect-your-stuff/tracker-azure-devops.md) — pick the page for your tracker.
+3. [Connect your repos](connect-your-stuff/repos-mono.md) — single repo, or [multi-repo](connect-your-stuff/repos-multi.md) if your project spans more than one.
+4. [Connect your AI provider](connect-your-stuff/ai-providers.md) — the config block for the provider you have.
+5. [First run](get-it-running/first-run.md) — `agent-smith fix "#54 in todolist"` end to end.
+
+Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use).
+
+## How it works, when you have time
+
+- [Methodology](how-it-works/methodology.md) — the spec-first plan→review→verify→execute flow and why.
+- [Lifecycle](how-it-works/lifecycle.md) — what happens between ticket-in and ticket-back.
+- [Multi-repo pipelines](how-it-works/multi-repo.md) — one ticket, N sandboxes, N pull requests.
+- [Skills catalog](how-it-works/skills-catalog.md) — where skills live, how versioning works.
+
+Everything else lives in [Reference](reference/). That's where the per-pipeline pages, the full schema, the architecture deep-dives and the historical run-logs sit.
 
 ## License
 
-MIT License. Copyright (c) 2026 Holger Leichsenring.
-
----
-
-**[CodingSoul Blog](https://codingsoul.org)** — Posts about building Agent Smith · **[Community](https://github.com/holgerleichsenring/agent-smith/issues)** — Discuss, ask questions, share your setups
+MIT. Copyright (c) 2026 Holger Leichsenring. Source at [`github.com/holgerleichsenring/agent-smith`](https://github.com/holgerleichsenring/agent-smith).
