@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.61.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.60.1...v0.61.0) (2026-05-22)
+
+
+### Features
+
+* **design:** repo-root DESIGN.md + token pipeline (p0159a) ([f1aca75](https://github.com/holgerleichsenring/agent-smith/commit/f1aca759a6441501ecb2433364d7c0c0e5ac5d6d))
+* **docs:** MkDocs Material re-skin + content drift fix (p0159c) ([52d1db9](https://github.com/holgerleichsenring/agent-smith/commit/52d1db9c316e1b9d3945a25cc478c70c77d2080a))
+* **landing:** Eleventy re-skin against DESIGN.md tokens (p0159b) ([0d9407f](https://github.com/holgerleichsenring/agent-smith/commit/0d9407fce44c00a46067c54ce57f5a8f1775af75))
+
 ## [0.60.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.60.0...v0.60.1) (2026-05-22)
 
 
