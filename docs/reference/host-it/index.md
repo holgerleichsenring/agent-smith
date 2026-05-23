@@ -6,9 +6,9 @@ Agent Smith supports four deployment models, from a single binary on your laptop
 
 | Option | Best for | Requirements |
 |--------|----------|-------------|
-| [Single Binary](binary.md) | CI/CD pipelines, local dev, quick scans | None (self-contained) |
-| [Docker](docker.md) | Persistent server, full stack with tools | Docker Engine |
-| [Kubernetes](kubernetes.md) | Production, multi-tenant, auto-scaling | K8s cluster, Redis |
+| [CLI single-binary](../../host-it/cli.md) | CI/CD pipelines, local dev, quick scans | None (self-contained) |
+| [Docker Compose](../../host-it/docker-compose.md) | Persistent server, full stack with tools | Docker Engine |
+| [Kubernetes](../../host-it/kubernetes.md) | Production, multi-tenant, auto-scaling | K8s cluster, Redis |
 | [Chat Gateway](chat-gateway.md) | Team collaboration via Slack/Teams | K8s or Docker, Redis |
 
 ## Quick Decision Guide

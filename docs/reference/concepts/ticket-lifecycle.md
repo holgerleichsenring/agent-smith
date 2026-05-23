@@ -55,7 +55,7 @@ The `agent-smith:` prefix marks lifecycle labels owned by the framework. Other l
 | Enqueued → Enqueued (re-push) | `EnqueuedReconciler` | Ticket is Enqueued but the queue has no entry and no in-flight pipeline owns it |
 
 !!! info "Single ClaimRequest per ticket"
-    `ClaimRequest` and `PipelineRequest` no longer carry a `RepoName` field (removed in p0158a). For a multi-repo project, one claim → one pipeline run → N sandboxes routed by path-prefix → N pull requests. See [Multi-Repo Pipelines](multi-repo-pipelines.md) for the run-side flow.
+    `ClaimRequest` and `PipelineRequest` no longer carry a `RepoName` field (removed in p0158a). For a multi-repo project, one claim → one pipeline run → N sandboxes routed by path-prefix → N pull requests. See [Multi-repo](../../how-it-works/multi-repo.md) for the run-side flow.
 
 ## Concurrency primitives
 

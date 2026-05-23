@@ -10,8 +10,9 @@ The canonical machine-readable form is `config/agentsmith.schema.json`
 A complete worked example is in `config/agentsmith.example.yml`.
 
 If you're coming from a pre-p0139 config (per-project inline `source`,
-`tickets`, `agent` blocks), see
-[migration-from-pre-p0139.md](migration-from-pre-p0139.md).
+`tickets`, `agent` blocks), the up-to-date catalog-based shape is in
+[Connect your stuff: tracker pages](../../connect-your-stuff/tracker-azure-devops.md)
+and [Repos: multi-repo](../../connect-your-stuff/repos-multi.md).
 
 ---
 
