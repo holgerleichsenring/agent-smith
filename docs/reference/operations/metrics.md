@@ -161,6 +161,6 @@ p0140e ships the two umbrella-required counters. Latency histograms (per-handler
 
 ## See also
 
-- [Multi-Repo Projects — Ambiguous-tag handling](../configuration/multi-repo.md#ambiguous-tag-handling) — the design context the counters quantify.
+- [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — the design context the counters quantify.
 - [Project Resolution Strategies](../configuration/project-resolution.md) — how ambiguity arises and how to tighten it.
 - [Server Resilience](server-resilience.md) — `/health` endpoints, the other operator-facing observability surface.
