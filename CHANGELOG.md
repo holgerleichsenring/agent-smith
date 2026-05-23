@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.61.0...v0.62.0) (2026-05-23)
+
+
+### Features
+
+* **docs:** task-oriented restructure + Holger-voice rewrite (p0160) ([b6feb05](https://github.com/holgerleichsenring/agent-smith/commit/b6feb05fd81a8bf65f0cb78af5806a7e32932638))
+
 ## [0.61.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.60.1...v0.61.0) (2026-05-22)
 
 
