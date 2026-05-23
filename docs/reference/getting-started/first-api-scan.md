@@ -4,7 +4,7 @@ Scan a running API for security vulnerabilities in under 2 minutes.
 
 ## Prerequisites
 
-- Agent Smith [installed](installation.md)
+- Agent Smith [installed](../../get-it-running/install.md)
 - `ANTHROPIC_API_KEY` (or other AI provider key)
 - Docker running (for Nuclei and Spectral tool containers)
 - A target API with a swagger.json endpoint

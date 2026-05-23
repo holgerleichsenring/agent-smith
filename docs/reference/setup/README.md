@@ -59,4 +59,4 @@ How user-added labels (`agent-smith`, `security-review`, etc.) map to pipelines 
 - [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — Pending → Enqueued → InProgress → Done/Failed, who owns each transition, what survives crashes
 - [Webhook Configuration Reference](../configuration/webhooks.md) — secrets, claim flow, HTTP response codes, PR comment commands
 - [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — full config schema with trigger/polling/queue sections
-- [Chat Gateway Architecture](../deployment/chat-gateway.md) — how the Slack/Teams Dispatcher works
+- [Chat Gateway Architecture](../host-it/chat-gateway.md) — how the Slack/Teams Dispatcher works

@@ -165,12 +165,12 @@ Once every repo has the `.agentsmith/` directory merged on its default branch, s
 
 > **Pitfall**: a ticket on a partially-bootstrapped multi-repo project still spawns N pipeline runs. The runs against bootstrapped repos succeed; the runs against not-yet-bootstrapped repos abort fast with "Run init-project first" and produce a failed-run artefact under `.agentsmith/runs/<run-id>/`. This is noisy. Bootstrap every repo in the project before relying on ticket-triggered runs.
 
-See [Multi-Repo Projects](../configuration/multi-repo.md) for the fan-out model, ambiguous-tag handling, and the metrics that quantify cost-of-ambiguity in multi-repo setups.
+See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-repo project model.
 
 ## See also
 
 - [Label-Based Triggers](label-triggers.md) — full reference for `pipeline_from_label` config and matching rules.
 - [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — how Agent Smith claims tickets and transitions their state.
 - [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — complete config schema.
-- [Multi-Repo Projects](../configuration/multi-repo.md) — fan-out behaviour and the parallel-isolation model.
+- [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — fan-out behaviour and the parallel-isolation model.
 - [Project Resolution Strategies](../configuration/project-resolution.md) — `tag`, `area-path`, `repo`, `to_address`.
