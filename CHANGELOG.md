@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.62.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.62.0...v0.62.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* **docs:** broken intra-doc links + lifecycle SVG on docs home ([4fad32e](https://github.com/holgerleichsenring/agent-smith/commit/4fad32eef06772b53deff48e85d4cbd93788f141))
+* **docs:** broken intra-doc links after p0160 page moves + SVG symlink → file ([fb431f9](https://github.com/holgerleichsenring/agent-smith/commit/fb431f9f3fed855e549c0c6abd99021885128cbd))
+
 ## [0.62.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.61.0...v0.62.0) (2026-05-23)
 
 
