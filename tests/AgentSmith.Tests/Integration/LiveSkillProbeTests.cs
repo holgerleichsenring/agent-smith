@@ -45,7 +45,7 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
-    public async Task Probe_AuthConfigReviewer_OnSampleFixture()
+    public async Task Probe_AuthConfigReviewer_OnSampleAuthApiFixture()
     {
         if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
@@ -291,7 +291,7 @@ public sealed class LiveSkillProbeTests
     }
 
     [Fact]
-    public async Task Probe_ApiVulnAnalystPlanner_OnSampleFixture()
+    public async Task Probe_ApiVulnAnalystPlanner_OnSampleAuthApiFixture()
     {
         if (!LlmCredentialsAvailable()) return;
         var report = await RunProbe(
@@ -434,12 +434,12 @@ public sealed class LiveSkillProbeTests
 
     private static string ResolveFixtureRoot()
     {
-        // Walk up from test bin/ to repo root; fixtures live under tests/.../Integration/Fixtures/SampleLike
+        // Walk up from test bin/ to repo root; fixtures live under tests/.../Integration/Fixtures/SampleAuthApiLike
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "tests")))
             dir = dir.Parent;
         if (dir is null) throw new InvalidOperationException("Could not locate repo root from test bin path.");
-        return Path.Combine(dir.FullName, "tests", "AgentSmith.Tests", "Integration", "Fixtures", "SampleLike");
+        return Path.Combine(dir.FullName, "tests", "AgentSmith.Tests", "Integration", "Fixtures", "SampleAuthApiLike");
     }
 
     private sealed record ProbeReport(
