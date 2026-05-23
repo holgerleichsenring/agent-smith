@@ -1,6 +1,6 @@
 site_name: Agent Smith
 site_url: https://docs.agent-smith.org
-site_description: Self-hosted AI orchestration — technical documentation
+site_description: Open source AI coding agent — technical documentation
 repo_url: https://github.com/holgerleichsenring/agent-smith
 repo_name: holgerleichsenring/agent-smith
 docs_dir: .
@@ -75,101 +75,122 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
-    - getting-started/index.md
-    - Installation: getting-started/installation.md
-    - First Bug Fix: getting-started/first-bug-fix.md
-    - First API Scan: getting-started/first-api-scan.md
-  - Pipelines:
-    - pipelines/index.md
-    - Fix Bug / Add Feature: pipelines/fix-and-feature.md
-    - Security Scan: pipelines/security-scan.md
-    - API Scan: pipelines/api-scan.md
-    - Legal Analysis: pipelines/legal-analysis.md
-    - MAD Discussion: pipelines/mad-discussion.md
-    - Skill Manager: pipelines/skill-manager.md
-    - Autonomous: pipelines/autonomous.md
-  - Concepts:
-    - concepts/index.md
-    - Pipeline System: concepts/pipeline-system.md
-    - Ticket Lifecycle: concepts/ticket-lifecycle.md
-    - Branch Persistence: concepts/branch-persistence.md
-    - Phases & Runs: concepts/phases-and-runs.md
-    - Self-Documentation: concepts/self-documentation.md
-    - Multi-Repo Pipelines: concepts/multi-repo-pipelines.md
-    - Multi-Agent Orchestration: concepts/multi-agent-orchestration.md
-    - Triage: concepts/triage.md
-    - Context Compaction: concepts/context-compaction.md
-    - Multi-Skill Architecture: concepts/multi-skill.md
-    - Decision Logging: concepts/decisions.md
-    - Cost Tracking: concepts/cost-tracking.md
-    - Interactive Dialogue: concepts/interactive-dialogue.md
-    - Knowledge Base: concepts/knowledge-base.md
-    - Sandbox Architecture: concepts/sandbox-architecture.md
-    - Sandbox Agent: concepts/sandbox-agent.md
-  - Configuration:
-    - configuration/index.md
-    - agentsmith.yml Reference: configuration/agentsmith-yml.md
-    - Skills Reference: configuration/skills.md
-    - SKILL.md Migration: configuration/skills/migration.md
-    - Concept Vocabulary: configuration/concept-vocabulary.md
-    - Tool Configuration: configuration/tools.md
-    - Webhooks: configuration/webhooks.md
-    - Multi-Repo Projects: configuration/multi-repo.md
-    - Project Resolution: configuration/project-resolution.md
-    - Security Scan Config: configuration/security-scan.md
-    - Custom Security Patterns: security/custom-patterns.md
-  - Skill Catalog:
-    - Source Modes: skills/source-modes.md
-    - Bootstrap Skills: skills/bootstrap.md
-    - Air-gap Installs: skills/airgap.md
-    - Local Iteration: skills/local-iteration.md
-  - AI Providers:
-    - providers/index.md
-    - Claude: providers/claude.md
-    - OpenAI: providers/openai.md
-    - Gemini: providers/gemini.md
-    - Ollama: providers/ollama.md
-    - OpenAI-Compatible: providers/openai-compatible.md
-  - CI/CD Integration:
-    - cicd/index.md
-    - Azure DevOps: cicd/azure-devops.md
-    - GitHub Actions: cicd/github-actions.md
-    - GitLab CI: cicd/gitlab-ci.md
-  - Deployment:
-    - deployment/index.md
-    - Single Binary: deployment/binary.md
-    - Docker: deployment/docker.md
-    - Kubernetes: deployment/kubernetes.md
-    - Chat Gateway: deployment/chat-gateway.md
-    - Docker + K8s Troubleshooting: docker-k8s-troubleshooting.md
-  - Operations:
-    - Server Resilience: operations/server-resilience.md
-    - Metrics: operations/metrics.md
-  - Setup Guides:
-    - setup/README.md
-    - Slack: setup/slack.md
-    - Slack Setup (Walkthrough): slack-setup.md
-    - Teams: setup/teams.md
-    - Webhooks:
-      - GitHub: setup/webhooks/github.md
-      - GitLab: setup/webhooks/gitlab.md
-      - Azure DevOps: setup/webhooks/azure-devops.md
-      - Jira: setup/webhooks/jira.md
-    - Polling: setup/polling.md
-    - Polling vs Webhooks: setup/polling-vs-webhooks.md
-    - Label Triggers: setup/label-triggers.md
-  - Integrations:
-    - PR Comments: integrations/pr-comments.md
-  - Architecture:
-    - architecture/index.md
-    - Clean Architecture: architecture/layers.md
-    - Project Structure: architecture/project-structure.md
-    - Phase Workflow: architecture/phase-workflow.md
-    - Design System: DESIGN.md
-  - Run Logs:
-    - First End-to-End Test: run-log-001-first-e2e-test.md
-    - Azure DevOps Docker: run-log-002-azure-devops-docker.md
+
+  - Get it running:
+    - Install: get-it-running/install.md
+    - First run: get-it-running/first-run.md
+
+  - Connect your stuff:
+    - 'Tracker: Azure DevOps':    connect-your-stuff/tracker-azure-devops.md
+    - 'Tracker: Jira':            connect-your-stuff/tracker-jira.md
+    - 'Tracker: GitHub Issues':   connect-your-stuff/tracker-github-issues.md
+    - 'Tracker: GitLab Issues':   connect-your-stuff/tracker-gitlab-issues.md
+    - 'Repos: mono-repo':         connect-your-stuff/repos-mono.md
+    - 'Repos: multi-repo':        connect-your-stuff/repos-multi.md
+    - AI providers:               connect-your-stuff/ai-providers.md
+
+  - Trigger it:
+    - Webhooks: trigger-it/webhooks.md
+    - Polling:  trigger-it/polling.md
+    - Labels:   trigger-it/labels.md
+    - CLI:      trigger-it/cli.md
+
+  - Host it:
+    - CLI single-binary: host-it/cli.md
+    - Docker Compose:    host-it/docker-compose.md
+    - Kubernetes:        host-it/kubernetes.md
+
+  - How it works:
+    - Methodology:    how-it-works/methodology.md
+    - Lifecycle:      how-it-works/lifecycle.md
+    - Multi-repo:     how-it-works/multi-repo.md
+    - Skills catalog: how-it-works/skills-catalog.md
+
+  - Reference:
+    - Concepts:
+      - reference/concepts/index.md
+      - Pipeline system:             reference/concepts/pipeline-system.md
+      - Ticket lifecycle:            reference/concepts/ticket-lifecycle.md
+      - Branch persistence:          reference/concepts/branch-persistence.md
+      - Phases & runs:               reference/concepts/phases-and-runs.md
+      - Self-documentation:          reference/concepts/self-documentation.md
+      - Multi-agent orchestration:   reference/concepts/multi-agent-orchestration.md
+      - Multi-skill architecture:    reference/concepts/multi-skill.md
+      - Triage:                      reference/concepts/triage.md
+      - Context compaction:          reference/concepts/context-compaction.md
+      - Decision logging:            reference/concepts/decisions.md
+      - Cost tracking:               reference/concepts/cost-tracking.md
+      - Interactive dialogue:        reference/concepts/interactive-dialogue.md
+      - Knowledge base:              reference/concepts/knowledge-base.md
+      - Sandbox architecture:        reference/concepts/sandbox-architecture.md
+      - Sandbox agent:               reference/concepts/sandbox-agent.md
+    - Pipelines:
+      - reference/pipelines/index.md
+      - Fix Bug / Add Feature: reference/pipelines/fix-and-feature.md
+      - Security scan:         reference/pipelines/security-scan.md
+      - API scan:              reference/pipelines/api-scan.md
+      - Legal analysis:        reference/pipelines/legal-analysis.md
+      - MAD discussion:        reference/pipelines/mad-discussion.md
+      - Skill manager:         reference/pipelines/skill-manager.md
+      - Autonomous:            reference/pipelines/autonomous.md
+    - Configuration:
+      - reference/configuration/index.md
+      - agentsmith.yml reference: reference/configuration/agentsmith-yml.md
+      - agentsmith.yml schema:    reference/configuration/agentsmith-yml-schema.md
+      - Concept vocabulary:       reference/configuration/concept-vocabulary.md
+      - Project resolution:       reference/configuration/project-resolution.md
+      - Pipeline cost cap:        reference/configuration/pipeline-cost-cap.md
+      - Security scan config:     reference/configuration/security-scan.md
+      - Skills reference:         reference/configuration/skills.md
+      - SKILL.md migration:       reference/configuration/skills/migration.md
+      - Tool configuration:       reference/configuration/tools.md
+      - Webhooks:                 reference/configuration/webhooks.md
+      - Custom security patterns: reference/security/custom-patterns.md
+    - Architecture:
+      - reference/architecture/index.md
+      - Clean architecture: reference/architecture/layers.md
+      - Project structure:  reference/architecture/project-structure.md
+      - AI clients:         reference/architecture/ai-clients.md
+      - Phase workflow:     reference/architecture/phase-workflow.md
+    - Skills catalog (older guides):
+      - Source modes:    reference/skills/source-modes.md
+      - Bootstrap:       reference/skills/bootstrap.md
+      - Air-gap installs: reference/skills/airgap.md
+      - Local iteration: reference/skills/local-iteration.md
+    - CI/CD integration:
+      - reference/cicd/index.md
+      - Azure DevOps:   reference/cicd/azure-devops.md
+      - GitHub Actions: reference/cicd/github-actions.md
+      - GitLab CI:      reference/cicd/gitlab-ci.md
+    - Host-it deep dives:
+      - reference/host-it/index.md
+      - Chat gateway: reference/host-it/chat-gateway.md
+      - Docker + K8s troubleshooting: reference/host-it/docker-k8s-troubleshooting.md
+    - Operations:
+      - Server resilience: reference/operations/server-resilience.md
+      - Metrics:           reference/operations/metrics.md
+    - Setup guides:
+      - reference/setup/README.md
+      - Slack:                  reference/setup/slack.md
+      - Slack setup walkthrough: reference/setup/slack-setup.md
+      - Teams:                  reference/setup/teams.md
+      - Polling:                reference/setup/polling.md
+      - Polling vs Webhooks:    reference/setup/polling-vs-webhooks.md
+      - Label triggers:         reference/setup/label-triggers.md
+      - Onboarding:             reference/setup/onboarding.md
+      - 'Webhooks: Azure DevOps': reference/setup/webhooks/azure-devops.md
+      - 'Webhooks: GitHub':     reference/setup/webhooks/github.md
+      - 'Webhooks: GitLab':     reference/setup/webhooks/gitlab.md
+      - 'Webhooks: Jira':       reference/setup/webhooks/jira.md
+    - Integrations:
+      - PR comments: reference/integrations/pr-comments.md
+    - First API scan:        reference/getting-started/first-api-scan.md
+    - Baselines:
+      - API-security ide-buddy: reference/baselines/api-security-ide-buddy.md
+    - Run logs:
+      - First end-to-end test:  reference/run-logs/001-first-e2e-test.md
+      - Azure DevOps Docker:    reference/run-logs/002-azure-devops-docker.md
+    - Design system: DESIGN.md
   - Sentinel: https://sentinel.agent-smith.org
   - Blog: https://codingsoul.org
   - Community: https://github.com/holgerleichsenring/agent-smith/issues

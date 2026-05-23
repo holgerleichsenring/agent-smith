@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ site.title }} &mdash; {{ site.tagline }}</title>
+<title>{{ site.title }} — {{ site.tagline }}</title>
 <meta name="description" content="{{ site.description }}">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
@@ -17,96 +17,128 @@
     agent-smith
   </a>
   <ul class="nav-links">
-    <li><a href="#pipelines">Pipelines</a></li>
     <li><a href="#how">How it works</a></li>
-    <li><a href="#skills">Skills</a></li>
-    <li><a href="#deploy">Deploy</a></li>
+    <li><a href="#why">Why I built it this way</a></li>
+    <li><a href="#more">More pipelines</a></li>
     <li><a href="{{ site.docsUrl }}">Docs</a></li>
   </ul>
   <div class="nav-cta">
     <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-text">GitHub</a>
-    <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-primary">Get started →</a>
+    <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-primary">Get started</a>
   </div>
 </nav>
 
 <!-- HERO -->
 {% include "partials/hero-lifecycle.njk" %}
 
-<!-- PIPELINES -->
-{% include "partials/pipeline-cards.njk" %}
+<!-- HOW IT WORKS — Holger-voice walkthrough -->
+<section class="prose-section" id="how">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">How a ticket actually becomes a PR</h2>
+    <p class="prose">
+      You drop a ticket into your tracker — Jira, Azure DevOps, GitHub Issues, GitLab, whatever you use. Agent Smith reads it, figures out which project it belongs to, and starts a run. If your project has more than one repo, every repo gets its own sandbox with its own toolchain image (one runs <code class="inline-code">dotnet/sdk:8.0</code>, another runs <code class="inline-code">node:20</code>, a Python worker gets <code class="inline-code">python:3.12</code>). Each sandbox clones its repo and cuts a branch named <code class="inline-code">agentsmith/ticket-{N}</code>.
+    </p>
+    <p class="prose">
+      Then the AI does the boring middle part. It analyses the code, comes up with a plan, lets you approve it (or runs headless if you trust the pipeline), writes the changes, runs the tests, and commits. One pull request per repo, all linked to each other in the PR body so reviewers see the whole change at once. The ticket gets set to resolved with every PR URL in the comment.
+    </p>
+    <p class="prose">
+      That's the standard flow. There's an approval gate before any code change lands, and every run records token usage and dollar cost so you actually know what you spent.
+    </p>
 
-<!-- HOW IT WORKS (terminal demo, demoted second viewport) -->
-{% include "partials/how-it-works.njk" %}
-
-<!-- SKILLS -->
-{% include "partials/skills.njk" %}
-
-<!-- PROVIDERS -->
-{% include "partials/providers.njk" %}
-
-<!-- DEPLOY -->
-{% include "partials/deploy.njk" %}
-
-<!-- PRINCIPLES -->
-<section class="principles-section">
-  <div class="section-wrap">
-    <div class="principles-grid">
-      <div>
-        <div class="section-eyebrow">Philosophy</div>
-        <h2 class="section-title">Your AI.<br>Your infrastructure.<br>Your rules.</h2>
-        <div class="principle-list">
-          <div class="principle"><span class="principle-dot"></span><div><strong>No SaaS in between</strong><span>Your code and tickets never leave your infrastructure. Agent Smith calls your AI provider directly.</span></div></div>
-          <div class="principle"><span class="principle-dot"></span><div><strong>Cost transparent</strong><span>Every run records token usage and dollar cost. You always know what you spent and why.</span></div></div>
-          <div class="principle"><span class="principle-dot"></span><div><strong>Skills over prompts</strong><span>Specialist roles in YAML. Add your own domain experts. No prompt engineering required.</span></div></div>
-          <div class="principle"><span class="principle-dot"></span><div><strong>Human in the loop</strong><span>Approval step before execution. Run headless when you trust the pipeline. Your call.</span></div></div>
-        </div>
+    <div class="terminal-panel-prose">
+      <div class="terminal-bar">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="terminal-title">agent-smith fix "#54 in todo-list"</span>
       </div>
-      <div class="config-box terminal-panel">
-        <div class="config-bar">agentsmith.yml</div>
-        <div class="config-body">
-<span class="ck">projects</span>:<br>
-&nbsp;&nbsp;<span class="ck">my-product</span>:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">repos</span>:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="ck">name</span>: <span class="cs">"server"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">url</span>: <span class="cs">"github.com/org/server"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="ck">name</span>: <span class="cs">"client"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">url</span>: <span class="cs">"github.com/org/client"</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">ticket_provider</span>: <span class="cv">github</span><br>
-<br>
-<span class="ck">agent</span>:<br>
-&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">claude</span><br>
-&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"claude-sonnet-4-6"</span><br>
-<br>
-<span class="cc"># Or run fully local:</span><br>
-<span class="ck">agent</span>:<br>
-&nbsp;&nbsp;<span class="ck">provider</span>: <span class="cv">ollama</span><br>
-&nbsp;&nbsp;<span class="ck">model</span>: <span class="cs">"llama3.3:70b"</span>
-        </div>
+      <div class="terminal-body">
+        <div><span class="tk-mute">$ </span><span class="tk-text">agent-smith fix "#54 in todo-list"</span></div>
+        <div class="tk-blank"></div>
+        <div><span class="tk-mute">[1]</span> <span class="tk-text">FetchTicket          </span><span class="tk-mute">→ Null ref in UserService</span></div>
+        <div><span class="tk-mute">[2]</span> <span class="tk-text">CheckoutSource       </span><span class="tk-mute">→ branch agentsmith/ticket-54 (3 repos)</span></div>
+        <div><span class="tk-mute">[3]</span> <span class="tk-text">LoadContext          </span><span class="tk-mute">→ project context for server, client, worker</span></div>
+        <div><span class="tk-mute">[4]</span> <span class="tk-text">AnalyzeCode          </span><span class="tk-mute">→ Scout mapped 483 files</span></div>
+        <div><span class="tk-mute">[5]</span> <span class="tk-text">Triage               </span><span class="tk-mute">→ backend-dev + tester picked</span></div>
+        <div><span class="tk-mute">[6]</span> <span class="tk-text">GeneratePlan         </span><span class="tk-mute">→ 4 steps, consensus after round 1</span></div>
+        <div><span class="tk-mute">[7]</span> <span class="tk-text">Approval             </span><span class="tk-ok">→ approved</span></div>
+        <div><span class="tk-mute">[8]</span> <span class="tk-text">AgenticExecute       </span><span class="tk-mute">→ UserService.cs, authClient.ts modified</span></div>
+        <div><span class="tk-mute">[9]</span> <span class="tk-text">Test                 </span><span class="tk-ok">→ 47 tests passed</span></div>
+        <div><span class="tk-mute">[10]</span><span class="tk-text"> CommitAndPR         </span><span class="tk-url">→ pull/42, pull/43</span></div>
+        <div><span class="tk-mute">[11]</span><span class="tk-text"> PrCrossLink         </span><span class="tk-mute">→ siblings linked in both PRs</span></div>
+        <div class="tk-blank"></div>
+        <div><span class="tk-ok">2 pull requests open · ticket #54 → resolved · $0.018</span></div>
       </div>
     </div>
   </div>
 </section>
 
+<!-- WHY I BUILT IT THIS WAY -->
+<section class="prose-section prose-section-cream" id="why">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">Why I built it this way</h2>
+
+    <h3 class="prose-heading">Your code stays on your machine.</h3>
+    <p class="prose">
+      Agent Smith calls your AI provider directly — Claude, OpenAI, Gemini, Ollama for local, anything OpenAI-compatible. The request goes from your host straight to the provider. I built it that way because freelancing means other people's code is my responsibility, and that meant their code had to stay on infrastructure I run.
+    </p>
+
+    <h3 class="prose-heading">You see what every run cost.</h3>
+    <p class="prose">
+      Every run writes a result file with token usage and dollar cost. Six months later you can answer "what did this ticket actually cost in tokens?" by reading the file. I wanted that record because guessing turned out to be expensive.
+    </p>
+
+    <h3 class="prose-heading">Approval sits between the plan and the code.</h3>
+    <p class="prose">
+      The AI generates a plan, the plan gets shown to you, you approve or reject. Trust the pipeline? Set a config flag and runs go headless. Both modes ship because some teams want the eyeball, some don't.
+    </p>
+
+    <h3 class="prose-heading">One sandbox per repo, with its own toolchain.</h3>
+    <p class="prose">
+      A .NET server and a Node client each get their own image — <code class="inline-code">dotnet/sdk:8.0</code> on one side, <code class="inline-code">node:20</code> on the other. The orchestrator holds one plan and one agent conversation across both; the tool calls dispatch by path prefix so each file change lands in the right sandbox.
+    </p>
+  </div>
+</section>
+
+<!-- MORE PIPELINES — demoted, brief mention -->
+<section class="prose-section" id="more">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">There are more pipelines than fix-bug</h2>
+    <p class="prose">
+      fix-bug is the headline because it's the one most people show up for. Eight more presets ship in the box: <code class="inline-code">add-feature</code> (same flow plus generated tests and docs), <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (multi-role review against a codebase or a live API), <code class="inline-code">legal-analysis</code> (contract review with five legal specialists), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory in each repo of a project), <code class="inline-code">autonomous</code>, <code class="inline-code">skill-manager</code>. Same orchestrator, different roles, different output shapes.
+    </p>
+    <p class="prose">
+      You can also define your own in <code class="inline-code">agentsmith.yml</code>. Skill files are YAML, no prompt engineering. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Pipeline reference is in the docs.</a>
+    </p>
+  </div>
+</section>
+
+<!-- PROVIDERS + DEPLOY (compact) -->
+<section class="prose-section prose-section-cream">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">Providers and deploy</h2>
+    <p class="prose">
+      Works with Claude, OpenAI, Gemini, Ollama (for fully local), and anything OpenAI-compatible (Groq, Azure OpenAI, LM Studio, vLLM, your own endpoint). You pick the model per role: a cheap one for the scout pass that maps the codebase, the good one for the actual code.
+    </p>
+    <p class="prose">
+      Deploy as a single binary, Docker container, or Kubernetes. The sandbox-agent injects via an init-container into whatever toolchain image your repos use, so you get one carrier image plus the upstream toolchain image you already trust. A chat gateway lets you trigger runs from Slack and Teams when that's how your team works.
+    </p>
+    <p class="prose"><a class="prose-link" href="{{ site.docsUrl }}/connect-your-stuff/ai-providers/">AI providers</a> · <a class="prose-link" href="{{ site.docsUrl }}/host-it/docker-compose/">Docker Compose</a> · <a class="prose-link" href="{{ site.docsUrl }}/host-it/kubernetes/">Kubernetes</a></p>
+  </div>
+</section>
+
 <!-- CTA -->
 <section class="cta-section">
-  <h2 class="cta-title">From ticket to PR.<br>In minutes.</h2>
-  <p class="cta-sub">Open source. Self-hosted. Multi-repo. Free forever.</p>
-  <div class="cta-actions">
-    <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-on-dark">Get started →</a>
-    <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-secondary-on-dark">View on GitHub</a>
-  </div>
-  <div class="cta-links">
-    <a href="{{ site.docsUrl }}">Documentation</a>
-    <a href="{{ site.docsUrl }}/pipelines/">Pipelines</a>
-    <a href="{{ site.docsUrl }}/concepts/multi-skill/">Skills</a>
-    <a href="{{ site.docsUrl }}/deployment/">Deploy</a>
-    <a href="{{ site.sentinelUrl }}">Sentinel</a>
-    <a href="{{ site.blogUrl }}">Blog</a>
+  <div class="section-wrap section-narrow">
+    <h2 class="cta-title">Have a look</h2>
+    <p class="cta-sub">First bug fix in about five minutes if your Docker is set up. The getting-started guide walks through it.</p>
+    <div class="cta-actions">
+      <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-on-dark">Get started</a>
+      <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-secondary-on-dark">View on GitHub</a>
+    </div>
   </div>
 </section>
 
 <footer class="footer-region">
-  <div class="footer-l"><span>agent-smith</span> &middot; MIT License &middot; &copy; 2026 Holger Leichsenring</div>
+  <div class="footer-l">agent-smith · MIT License · © 2026 Holger Leichsenring</div>
   <div class="footer-r">
     <a href="{{ site.docsUrl }}">Docs</a>
     <a href="{{ site.sentinelUrl }}">Sentinel</a>
