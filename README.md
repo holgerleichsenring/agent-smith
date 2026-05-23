@@ -1,50 +1,44 @@
 # Agent Smith
 
-**Your AI. Your infrastructure. Your rules.**
+> **From ticket to PR.**
+> Every run shows its cost. Every change comes with the reasoning the agent followed.
 
-Self-hosted AI orchestration · code · legal · security · workflows
-
-[![Agent smith](/docs/agent-smith-logo-large-green.png)](logo)
+[![Agent Smith](docs/agent-smith-logo-large-green.png)](https://docs.agent-smith.org)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](Dockerfile)
 
-Agent Smith is an open-source framework for building and running AI-powered workflows. Define pipelines as chains of steps. Each step can spawn sub-agents, run multi-role discussions, call tools, or just move files around. The framework handles orchestration, tool calling, cost tracking, and delivery.
-
-Everything runs on your infrastructure. Your API keys. Your data. No SaaS platform in between.
-
-**[Documentation](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Community](https://agent-smith.org)**
+**[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)**
 
 ---
 
-## What It Does
+Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
 
-```
-You:           "fix #54 in todo-list"
-               ↓
- [1/13] FetchTicket          → Reads ticket from Azure DevOps / GitHub / Jira / GitLab
- [2/13] CheckoutSource       → Clones repo, creates branch fix/54
- [3/13] BootstrapProject     → Detects language, framework, project type
- [4/13] LoadCodeMap          → Generates navigable code map
- [5/13] LoadCodingPrinciples      → Loads your coding standards & domain rules
- [6/13] LoadContext          → Loads project context (.agentsmith/context.yaml)
- [7/13] AnalyzeCode          → Scout agent maps the codebase, identifies relevant files
- [8/13] GeneratePlan         → AI generates a step-by-step implementation plan
- [9/13] Approval             → Shows plan, waits for your OK (or runs headless)
-[10/13] AgenticExecute       → AI agent writes the code, iterating with tools
-[11/13] Test                 → Runs your test suite
-[12/13] WriteRunResult       → Writes run result with token usage & cost data
-[13/13] CommitAndPR          → Commits, pushes, opens PR, closes ticket
-               ↓
-Agent Smith:   "Pull request created: https://github.com/.../pull/42"
-```
+I built it because most AI coding tools stop at a suggestion in your editor and call it a day. I wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so six months later I can answer "why did we pick path A over B in this fix" without guessing.
 
-That's the standard bug fix pipeline. There are [seven more](https://docs.agent-smith.org/pipelines/).
+![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](docs/assets/lifecycle.svg)
 
----
+## What it does
 
-## Installation
+You drop a ticket into your tracker. Agent Smith reads it, clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), writes the code, runs the tests, opens one pull request per repo with the changes cross-linked, and writes the ticket back as resolved with every PR URL in the comment.
+
+The reasoning the agent followed lands on disk in `.agentsmith/runs/{run-id}/` — a `plan.md`, a `result.md` with token usage and dollar cost, and a `decisions.md` for the non-obvious choices. Read it six months later when you've forgotten why.
+
+## What it works with
+
+| Trackers | AI providers | Hosting |
+|---|---|---|
+| Azure DevOps Boards | Anthropic Claude | CLI single-binary |
+| Jira | OpenAI | Docker Compose |
+| GitHub Issues | Azure OpenAI | Kubernetes |
+| GitLab Issues | Google Gemini | |
+| | Ollama (local) | |
+| | OpenAI-compatible (Groq, vLLM, LM Studio, …) | |
+
+The skills — the role definitions for what an architect / reviewer / security analyst does in a run — live in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), pinned by tag in your `agentsmith.yml`. Skills update without a binary upgrade.
+
+## Install
 
 ```bash
 # Linux (x64)
@@ -59,34 +53,78 @@ curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/downl
 docker pull holgerleichsenring/agent-smith:latest
 ```
 
-All platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows) on the [Releases page](https://github.com/holgerleichsenring/agent-smith/releases). Full [installation guide](https://docs.agent-smith.org/getting-started/installation/).
+Every platform (Linux x64 / ARM64, macOS Intel / Apple Silicon, Windows) is on the [releases page](https://github.com/holgerleichsenring/agent-smith/releases). The [install guide](https://docs.agent-smith.org/get-it-running/install/) walks through CLI / Docker / Kubernetes setups.
 
----
+## First run
 
-## Quick Start
+Drop an `agentsmith.yml` in a working directory:
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+```yaml
+agents:
+  default-openai:
+    type: openai
+    models:
+      primary: { model: gpt-4.1 }
 
-# Fix a bug
-agent-smith fix --ticket 42 --project my-api --headless
+repos:
+  todolist:
+    type: github
+    url: https://github.com/acme-org/todolist
+    auth: github_token
 
-# Scan a live API
-agent-smith api-scan --swagger https://api.example.com/swagger.json \
-  --target https://api.example.com --output console,markdown
+trackers:
+  acme-issues:
+    type: github
+    organization: acme-org
+    auth: github_token
 
-# Security scan a codebase
-agent-smith security-scan --repo . --project my-api
+projects:
+  todolist:
+    agent: default-openai
+    tracker: acme-issues
+    repos: [todolist]
+
+secrets:
+  openai_api_key: ${OPENAI_API_KEY}
+  github_token:   ${GITHUB_TOKEN}
 ```
 
-See the [documentation](https://docs.agent-smith.org) for configuration, CI/CD integration, AI provider setup, and more.
+Set the secrets, fix a ticket:
 
----
+```bash
+export OPENAI_API_KEY=sk-...
+export GITHUB_TOKEN=ghp_...
+
+agent-smith fix "#54 in todolist"
+```
+
+The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
+
+## More than fix-bug
+
+`fix-bug` is the headline because it's the one most people show up for. Eight more presets ship in the box:
+
+- `add-feature` — same flow plus generated tests and docs.
+- `security-scan` — multi-role code security review.
+- `api-security-scan` — Nuclei + Spectral + an AI panel against a live API.
+- `legal-analysis` — contract review with five legal specialists.
+- `mad-discussion` — multi-agent design discussion when you want to argue something out.
+- `init-project` — bootstraps `.agentsmith/context.yaml` per repo in a project.
+- `autonomous` — open-ended operator-driven loop.
+- `skill-manager` — author / lint / validate skills.
+
+Same orchestrator, different roles. You can define your own in `agentsmith.yml` too — see the [pipeline reference](https://docs.agent-smith.org/reference/pipelines/).
+
+## Where the docs are
+
+- **[Get it running](https://docs.agent-smith.org/get-it-running/install/)** — install + first run.
+- **[Connect your stuff](https://docs.agent-smith.org/connect-your-stuff/tracker-azure-devops/)** — tracker + repos + AI provider, with a copy-pasteable YAML per system.
+- **[Trigger it](https://docs.agent-smith.org/trigger-it/webhooks/)** — webhooks, polling, labels, CLI.
+- **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes.
+- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first plan → review → verify → execute methodology.
 
 ## License
 
-MIT License. Copyright (c) 2026 Holger Leichsenring.
+MIT. Copyright (c) 2026 Holger Leichsenring.
 
-<p align="center">
-  Built with Claude · Runs on .NET 8 · Ships via Docker · 567 tests and counting
-</p>
+If you find Agent Smith useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).
