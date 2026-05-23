@@ -2,12 +2,12 @@
 phase: p0149
 goal: "Today every DI registration lives in three god-class ServiceCollectionExtensions
   files (Application 442 lines, Infrastructure 194 lines, Server 242 lines). Adding a
-  service touches the same call list every other agent touches. Migrate to the
-  Sample.Common pattern: each feature-set owns its own `AddXxx()` extension method, in
-  the project that holds the services it registers. Composition root has a flat list
-  of calls; removing one call removes one feature-set but the program still runs.
-  Concrete reference shape: `Sample.Common.Commands/Extensions/ServiceCollectionExtensions.cs`
-  — one tight extension per featureset, lives next to the services it registers."
+  service touches the same call list every other agent touches. Migrate to a
+  per-featureset DI extension pattern: each feature-set owns its own `AddXxx()`
+  extension method, in the project that holds the services it registers.
+  Composition root has a flat list of calls; removing one call removes one
+  feature-set but the program still runs. One tight extension per featureset,
+  lives next to the services it registers."
 
 requires: ["p0148"]
 
@@ -82,9 +82,9 @@ scope:
 decisions:
   - key: |
       Each feature-set's extension method lives in the project that owns
-      the services. Reason: matches the Sample.Common pattern; removing one
-      feature-set means removing one folder + one Add call, the program
-      still compiles. The current "all DI in Application/Extensions/" makes
+      the services. Reason: matches the per-featureset DI extension pattern;
+      removing one feature-set means removing one folder + one Add call,
+      the program still compiles. The current "all DI in Application/Extensions/" makes
       that test fail because services in Infrastructure register from
       Application's monolith. -- alternatives: Installer pattern with
       IInstaller (rejected: loop boilerplate, no compile-time visibility
