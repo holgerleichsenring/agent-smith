@@ -5,7 +5,7 @@ supersedes: []
 goal: |
   Replace the single-sandbox-per-run model from p0158b with one sandbox
   per configured repo, each with its own toolchain image. Mixed-stack
-  multi-repo projects (e.g. AuthPort: .NET server + npm client + markdown
+  multi-repo projects (e.g. a mixed-stack project: .NET server + npm client + markdown
   docs) cannot share a container because each stack needs its own runtime
   toolchain. The orchestrator stays centralised (one ticket = one
   pipeline = one agent loop = one plan); execution becomes
@@ -164,8 +164,8 @@ decisions:
       breaking the central-orchestrator pattern. — alternatives:
       composite multi-stack image (rejected at umbrella level as a
       stop-gap that explodes image size and tool-version conflicts);
-      same-stack-only multi-repo (rejected — explicitly the AuthPort
-      case is mixed-stack); sandbox-per-language grouping (rejected —
+      same-stack-only multi-repo (rejected — the case being addressed
+      is explicitly mixed-stack); sandbox-per-language grouping (rejected —
       more complex routing logic for marginal container-count savings)."
 
   - key: "LLM owns the slug; orchestrator routes via existing config —

@@ -246,10 +246,10 @@ steps:
     action: "Write one page per supported tracker family
       (azure-devops, jira, github-issues, gitlab-issues). Each: full
       catalog block + project wiring + trigger config + label mapping,
-      anchored on TodoList. Use the user-supplied real example
-      (anonymised: RhenusITPD/Cloud Development/RHS.AuthPort.* →
-      acme-org/Platform/TodoList.*) as the structural template for
-      the azure-devops page; adapt shape per tracker for the others."
+      anchored on TodoList. Use a real-world organisation/project/repo
+      layout as the structural template for the azure-devops page
+      (anonymised to acme-org/Platform/TodoList.*); adapt shape per
+      tracker for the others."
     new:
       - "docs/connect-your-stuff/tracker-azure-devops.md"
       - "docs/connect-your-stuff/tracker-jira.md"
