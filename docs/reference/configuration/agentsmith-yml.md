@@ -3,7 +3,7 @@
 Complete reference for the main configuration file.
 
 !!! warning "Drift notice — 2026-05-22"
-    Sections below show the **inline-per-project** schema (one `source`/`tickets`/`agent` block per project) used before p0139. The current schema is **catalog-based**: top-level `agents:`, `trackers:`, `repos:` catalogs that projects reference by name, with multi-repo support (p0140) via `projects.{name}.repos: [name, name, ...]`. For the up-to-date schema see [Multi-Repo Projects](multi-repo.md) and the schema reference at `agentsmith-yml-schema.md` in this directory. A full rewrite of this page is tracked as a follow-up.
+    Sections below show the **inline-per-project** schema (one `source`/`tickets`/`agent` block per project) used before p0139. The current schema is **catalog-based**: top-level `agents:`, `trackers:`, `repos:` catalogs that projects reference by name, with multi-repo support (p0140) via `projects.{name}.repos: [name, name, ...]`. For the up-to-date schema see [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) and the [schema reference](agentsmith-yml-schema.md) in this directory. A full rewrite of this page is tracked as a follow-up.
 
 ## Full Annotated Example (legacy inline shape — superseded)
 
@@ -212,7 +212,7 @@ The legacy `pipeline: <name>` single-string form continues to work — the loade
 
 ### agent
 
-See [AI Providers](../providers/index.md) for provider-specific configuration.
+See [AI providers](../../connect-your-stuff/ai-providers.md) for provider-specific configuration.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|

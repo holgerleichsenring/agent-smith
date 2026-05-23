@@ -70,7 +70,7 @@ Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for
 - [Multi-repo pipelines](how-it-works/multi-repo.md) — one ticket, N sandboxes, N pull requests.
 - [Skills catalog](how-it-works/skills-catalog.md) — where skills live, how versioning works.
 
-Everything else lives in [Reference](reference/). That's where the per-pipeline pages, the full schema, the architecture deep-dives and the historical run-logs sit.
+Everything else lives in Reference. That's where the per-pipeline pages, the full [agentsmith.yml schema](reference/configuration/agentsmith-yml-schema.md), the [architecture deep-dives](reference/architecture/index.md), the [pipeline-specific pages](reference/pipelines/index.md) and the historical run-logs sit.
 
 ## License
 
