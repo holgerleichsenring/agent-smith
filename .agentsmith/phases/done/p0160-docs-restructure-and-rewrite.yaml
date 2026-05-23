@@ -1,0 +1,387 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0160
+goal: "Restructure the MkDocs site from a 50+ page feature-catalogue into a
+  task-oriented documentation surface aimed at one reader: somebody who showed
+  up to get Agent Smith running today. Cut the nav to five top-level sections
+  (Get it running / Connect your stuff / Trigger it / Host it / How it works /
+  Reference). Write a 'TodoList' project as the anchor sample and reuse it
+  across every Connect-page so the reader sees the same names in every block.
+  Rewrite all surviving pages in the blog-mode voice from
+  `config/docs-writing-skill.md` (full Holger voice, in-medias-res start,
+  positive descriptions per the new Rule 9). Concrete copy-pasteable YAML
+  samples for every supported tracker (Azure DevOps, Jira, GitHub Issues,
+  GitLab Issues), every supported AI provider, every trigger mode (webhook /
+  polling / label / CLI), and every hosting mode (CLI / docker-compose / k8s).
+  Surface what the docs today bury: skills now live in a separate versioned
+  `agent-smith-skills` repo, pinned via `skills.source` + `skills.version` in
+  agentsmith.yml — the docs still imply they ship in-tree. Tune the eleventy
+  landing hero in the same phase to drop the negation-definitions the updated
+  writing skill now flags."
+
+requires: []
+
+scope:
+  in: |
+    (1) `docs/mkdocs.yml` rewritten with five task-oriented top-level
+        sections. Working titles:
+          - Get it running       (install, first run, what to expect)
+          - Connect your stuff   (tracker, repos, AI provider)
+          - Trigger it           (webhook, polling, label, CLI)
+          - Host it              (CLI single-binary, docker-compose, k8s)
+          - How it works         (methodology, lifecycle, multi-repo, skills)
+          - Reference            (deep-dive concepts + per-pipeline pages,
+                                  catch-all for everything that doesn't fit)
+        No more than six top-level sections; sub-pages no deeper than two
+        levels.
+
+    (2) New `docs/index.md` — methodology + outcomes + three overview tables
+        (Trackers, AI providers, Skills-catalog source) + the lifecycle SVG.
+        Reader closes the page knowing what Agent Smith does, what they get
+        back, and which Connect-pages to click next.
+
+    (3) `docs/get-it-running/install.md` — single-binary download, Docker
+        pull, k8s `helm install` (or raw manifest) for the three install
+        modes. Each gets a copy-pasteable snippet using the anonymised
+        TodoList project as the example.
+
+    (4) `docs/get-it-running/first-run.md` — `agent-smith fix "#54 in
+        todolist"` walk-through end to end. What the operator types, what
+        the agent prints, where the PR shows up, what's in the run
+        directory afterwards.
+
+    (5) `docs/connect-your-stuff/tracker-azure-devops.md` — full
+        `agentsmith.yml` block under `trackers:` plus the `projects:`
+        wiring (project_resolution.strategy / trigger_statuses /
+        done_status / pipeline_from_label). Anchored on TodoList.
+
+    (6) `docs/connect-your-stuff/tracker-jira.md` — same shape, Jira
+        specifics (project key, label-mode, transition names).
+
+    (7) `docs/connect-your-stuff/tracker-github-issues.md` — same shape,
+        GitHub Issues specifics (org/repo, label-trigger).
+
+    (8) `docs/connect-your-stuff/tracker-gitlab-issues.md` — same shape,
+        GitLab Issues specifics.
+
+    (9) `docs/connect-your-stuff/repos-mono.md` — single-repo TodoList
+        wired to one tracker. Smallest viable `agentsmith.yml`.
+
+    (10) `docs/connect-your-stuff/repos-multi.md` — multi-repo TodoList
+         (TodoList.Api + TodoList.Web + TodoList.Worker + TodoList.Docs)
+         showing the catalog-first shape (top-level `repos:` map,
+         `projects.X.repos: [name, name, ...]` reference list), with one
+         worked sample per tracker family at the end.
+
+    (11) `docs/connect-your-stuff/ai-providers.md` — one block per
+         provider (Claude, OpenAI, Azure OpenAI, Gemini, Ollama,
+         OpenAI-compatible). Each block: minimal config + how to pick a
+         model per role (scout/primary/planning/summarization), cache /
+         retry / compaction defaults, pricing table if relevant.
+
+    (12) `docs/trigger-it/webhooks.md` — webhook setup per tracker family
+         (URL shape, payload, secret verification). Sample curl + the
+         tracker-side configuration page screenshots-or-instructions.
+
+    (13) `docs/trigger-it/polling.md` — `polling.enabled: true` block,
+         interval / jitter, when to choose polling over webhooks (NAT,
+         on-prem trackers, dev iteration).
+
+    (14) `docs/trigger-it/labels.md` — `pipeline_from_label` mapping
+         (which label triggers which pipeline), the `agent-smith:*`
+         lifecycle labels Agent Smith writes back, label-mode for Jira.
+
+    (15) `docs/trigger-it/cli.md` — manual CLI invocation, useful for
+         dev iteration before webhooks are wired.
+
+    (16) `docs/host-it/cli.md` — single-binary install, where to put the
+         config file, env vars for secrets.
+
+    (17) `docs/host-it/docker-compose.md` — full `docker-compose.yml`
+         (orchestrator + sandbox-agent + Redis) using the TodoList config.
+
+    (18) `docs/host-it/kubernetes.md` — Deployment + Service + ConfigMap
+         + Secret + (optional) Helm values, with the TodoList config.
+
+    (19) `docs/how-it-works/methodology.md` — what Agent Smith actually
+         does and why (spec-first flow, plan → review → verify → execute,
+         multi-role skills, evidence-grounded observations). What lands
+         in the run directory (plan.md, result.md, cost data, decisions).
+
+    (20) `docs/how-it-works/lifecycle.md` — embeds the lifecycle SVG +
+         prose walking through ticket-in → sandboxes → PRs → ticket-back.
+
+    (21) `docs/how-it-works/multi-repo.md` — already exists from p0159c
+         as `concepts/multi-repo-pipelines.md`; move into new structure
+         and Holger-voice-pass.
+
+    (22) `docs/how-it-works/skills-catalog.md` — *new and load-bearing*.
+         Documents that skills live in a separate
+         `github.com/holgerleichsenring/agent-smith-skills` repository,
+         pinned via top-level `skills.source: default` and
+         `skills.version: vX.Y.Z` in agentsmith.yml. Cache-dir, version
+         strategy (skills are released as tags, the SDK pins one tag
+         at a time, bumping is a config change not a binary update).
+
+    (23) `docs/reference/` directory holding the demoted deep-dive
+         pages: full agentsmith.yml schema reference (generated or
+         manually maintained), per-pipeline pages (fix-bug,
+         add-feature, security-scan, api-security-scan, legal-analysis,
+         mad-discussion, init-project, autonomous, skill-manager) —
+         existing content reviewed but not rewritten in this phase, just
+         re-located.
+
+    (24) Eleventy landing hero side-quest: replace
+         `Agent Smith ships pull requests, not suggestions.` and the
+         `No SaaS sitting in between, because I didn't want to hand my
+         clients' tickets to somebody else's server.` sub-line with
+         positive descriptions per the updated Rule 9 of the writing
+         skill. The updated skill's gold-standard hero is
+         `From ticket to PR` / `Every run shows its cost. Every change
+         shows its reasoning.` — that's the model to aim at.
+
+    (25) Anonymisation. Every sample uses **TodoList** as the project
+         name (and `TodoList.Api`, `TodoList.Worker`, `TodoList.Web`,
+         `TodoList.Docs` for multi-repo). Organisation is `acme-org`
+         (or similar generic). Real customer / employer names never
+         appear, even in examples. Per `[[feedback_no_customer_names]]`.
+
+  out: |
+    - Pipeline-deep-dive pages (security-scan, api-security-scan,
+      legal-analysis, mad-discussion, etc.) are kept in Reference but
+      NOT rewritten this phase. Holger-voice pass on those is a
+      follow-up.
+    - Auto-generated config reference from C# Configuration records.
+      Manual sync only this phase; generator is its own phase.
+    - Translations / i18n. English-only.
+    - Run-log retrospectives (`run-log-*.md`). Historical, stay where
+      they are.
+    - Skills repo itself — this phase documents the boundary and the
+      pin strategy from the consumer side. The skills repo has its
+      own README / docs.
+    - Sentinel / chat-gateway / Slack-setup pages — not in the new
+      "get running today" nav, stay in Reference as-is.
+
+decisions:
+  - key: "Task-oriented nav over feature-oriented catalogue. — Today's
+      nav is organised around what Agent Smith *contains* (Pipelines,
+      Concepts, Configuration, Providers, …). The reader's question is
+      'how do I get this running'. New nav follows the reader's verbs
+      (get / connect / trigger / host / understand), not the codebase's
+      nouns. Old catalogue stays accessible under Reference."
+
+  - key: "TodoList as the running fictional anchor across every Connect
+      page. — One project name re-used everywhere means the reader sees
+      the same identifiers in the tracker block, the repos block, the
+      pipeline_from_label block, the webhook URL — and recognises the
+      pattern instead of context-switching per page."
+
+  - key: "Skills-catalog page is part of How-it-works, not Reference.
+      — Where skills live (separate versioned repo) is a conceptual
+      decision about how the system extends, not a tunable knob. It
+      changes how the reader thinks about Agent Smith — that's a
+      How-it-works concern."
+
+  - key: "Concept pages with no get-running value get demoted to
+      Reference, not deleted. — Branch-Persistence, Self-Documentation,
+      Decision-Logging, Knowledge-Base, Context-Compaction, Interactive-
+      Dialogue, Sandbox-Architecture, Sandbox-Agent, Phases-and-Runs
+      describe Agent-Smith-internal implementation. Useful for
+      contributors and curious operators, not for the
+      I-want-to-ship-today reader. Reference is the right home — same
+      content, demoted in the nav hierarchy."
+
+  - key: "Holger-voice blog-mode for the docs body, hero-mode reserved
+      for the landing only. — Per the updated writing skill's
+      'Zwei Modi' section. The docs are a story the reader has agreed
+      to read; full voice, in-medias-res starts, 'I built it this way
+      because…' admissible. The eleventy landing hero stays hook-plus-
+      delivery."
+
+  - key: "Landing hero rule-9 pass bundled into this phase, not split
+      out. — The Rule-9 issue was introduced in p0159b by my own
+      hand and is small enough that splitting it into its own phase
+      adds ceremony without saving review surface. Touch it once,
+      review it once."
+
+  - key: "Five Connect-pages, not one big 'Configuration Reference'. —
+      The reader's actual question per-tracker / per-provider is
+      'show me the YAML and the trigger setup, end to end'. A combined
+      reference page hides the per-system specifics in a parameter
+      table; per-tracker pages keep one sample sequence per system."
+
+steps:
+  - id: audit
+    action: "Inventory every page currently in `docs/`. Classify each:
+      keep-in-place / rewrite-in-new-nav / demote-to-Reference /
+      delete. Output is `.agentsmith/notes/p0160-doc-inventory.md`
+      with a one-line decision per file."
+    new:
+      - ".agentsmith/notes/p0160-doc-inventory.md"
+
+  - id: nav
+    action: "Rewrite `docs/mkdocs.yml` nav to the five task-oriented
+      sections plus Reference. Every page in the new nav exists as a
+      placeholder or content file before merging."
+    modify:
+      - "docs/mkdocs.yml"
+
+  - id: landing-docs
+    action: "Rewrite `docs/index.md`. Methodology + outcomes + three
+      overview tables (Trackers, AI providers, Skills-catalog source).
+      Lifecycle SVG embedded. Reader closes the page knowing what
+      Agent Smith does and which Connect-page to click."
+    modify:
+      - "docs/index.md"
+
+  - id: get-running
+    action: "Write `docs/get-it-running/install.md` +
+      `docs/get-it-running/first-run.md`. Install covers CLI / Docker /
+      K8s in three short blocks. First-run is the
+      `agent-smith fix '#54 in todolist'` walkthrough end to end."
+    new:
+      - "docs/get-it-running/install.md"
+      - "docs/get-it-running/first-run.md"
+
+  - id: connect-trackers
+    action: "Write one page per supported tracker family
+      (azure-devops, jira, github-issues, gitlab-issues). Each: full
+      catalog block + project wiring + trigger config + label mapping,
+      anchored on TodoList. Use the user-supplied real example
+      (anonymised: AcmeOrg/Cloud Development/Sample.* →
+      acme-org/Platform/TodoList.*) as the structural template for
+      the azure-devops page; adapt shape per tracker for the others."
+    new:
+      - "docs/connect-your-stuff/tracker-azure-devops.md"
+      - "docs/connect-your-stuff/tracker-jira.md"
+      - "docs/connect-your-stuff/tracker-github-issues.md"
+      - "docs/connect-your-stuff/tracker-gitlab-issues.md"
+
+  - id: connect-repos
+    action: "Write `repos-mono.md` (single-repo TodoList) +
+      `repos-multi.md` (TodoList.Api + .Web + .Worker + .Docs).
+      Each shows the catalog-first shape (top-level `repos:` map +
+      `projects.X.repos: [name, ...]` reference list)."
+    new:
+      - "docs/connect-your-stuff/repos-mono.md"
+      - "docs/connect-your-stuff/repos-multi.md"
+
+  - id: connect-ai
+    action: "Write `ai-providers.md` — one block per provider (Claude,
+      OpenAI, Azure OpenAI, Gemini, Ollama, OpenAI-compatible). Each
+      block: minimal config + per-role model picks (scout/primary/
+      planning/summarization) + cache/retry/compaction defaults +
+      pricing if relevant."
+    new:
+      - "docs/connect-your-stuff/ai-providers.md"
+
+  - id: trigger-it
+    action: "Write the four Trigger-it pages: webhooks (per tracker
+      family), polling, labels (`pipeline_from_label` + lifecycle
+      label table), CLI manual invocation."
+    new:
+      - "docs/trigger-it/webhooks.md"
+      - "docs/trigger-it/polling.md"
+      - "docs/trigger-it/labels.md"
+      - "docs/trigger-it/cli.md"
+
+  - id: host-it
+    action: "Write the three Host-it pages: cli single-binary,
+      docker-compose (full file, orchestrator + sandbox-agent + Redis),
+      kubernetes (Deployment + Service + ConfigMap + Secret + optional
+      Helm values). Every file uses the TodoList config as the example."
+    new:
+      - "docs/host-it/cli.md"
+      - "docs/host-it/docker-compose.md"
+      - "docs/host-it/kubernetes.md"
+
+  - id: how-it-works
+    action: "Write `methodology.md` (spec-first, plan→review→verify→
+      execute, evidence-grounded observations, run-directory outputs).
+      Write `lifecycle.md` (lifecycle SVG + prose). Move existing
+      `concepts/multi-repo-pipelines.md` to `how-it-works/multi-repo.md`
+      with a Holger-voice pass. Write the load-bearing
+      `skills-catalog.md` documenting the separate
+      `agent-smith-skills` repo + the pin strategy."
+    new:
+      - "docs/how-it-works/methodology.md"
+      - "docs/how-it-works/lifecycle.md"
+      - "docs/how-it-works/skills-catalog.md"
+    rename:
+      - "docs/concepts/multi-repo-pipelines.md → docs/how-it-works/multi-repo.md"
+
+  - id: reference
+    action: "Move demoted pages (Phases & Runs, Self-Documentation,
+      Decision Logging, Knowledge Base, Context Compaction, Interactive
+      Dialogue, Sandbox Architecture, Sandbox Agent, Branch Persistence,
+      Triage, Multi-Skill, Pipeline System, Ticket Lifecycle, Multi-
+      Agent Orchestration, and the per-pipeline pages) under
+      `docs/reference/`. Update internal links. No content rewrite this
+      phase."
+    path: "docs/reference/"
+
+  - id: landing-rule9
+    action: "Tune the eleventy landing hero (`hero-lifecycle.njk` +
+      `site.json` description) per Rule 9 of the updated writing skill:
+      drop `Agent Smith ships pull requests, not suggestions.` and the
+      `No SaaS sitting in between, because I didn't want to hand my
+      clients' tickets to somebody else's server.` sub-line. Replace
+      with positive descriptions in the spirit of `From ticket to PR` +
+      `Every run shows its cost. Every change shows its reasoning.`
+      Keep concrete delivery on each half."
+    modify:
+      - "website/src/_includes/partials/hero-lifecycle.njk"
+      - "website/src/_data/site.json"
+      - "website/src/index.njk"
+
+  - id: drift-fix
+    action: "Targeted drift sweep on pages that moved into the new nav.
+      For each: read against the named code source-of-truth and fix
+      obvious stale references. Document each touched file in the
+      audit-notes file. Pages already audited in p0159c (sandbox-arch,
+      sandbox-agent, multi-skill, phases-and-runs, pipeline-system,
+      multi-repo-pipelines, ticket-lifecycle, agentsmith-yml.md,
+      multi-repo.md, project-resolution.md, tools.md) are
+      verified-not-re-rewritten."
+    modify:
+      - ".agentsmith/notes/p0160-doc-inventory.md"
+
+  - id: verify
+    action: "`mkdocs build --strict` from `docs/` must pass. Manual
+      browser walk: from `docs/index.md`, reach a working
+      `agentsmith.yml` for the reader's tracker + repos + AI provider
+      in ≤ 4 clicks, and a working hosting manifest in ≤ 5 clicks.
+      Eleventy landing hero builds clean and reads positive per
+      Rule 9."
+
+tests: []
+
+done:
+  - "`docs/mkdocs.yml` nav has five task-oriented top-level sections plus
+    Reference. No section deeper than two levels."
+  - "TodoList appears as the anchor sample across every Connect-page
+    (tracker, repos, AI, trigger, host). No real customer / employer
+    names anywhere in the docs."
+  - "Every supported tracker (Azure DevOps, Jira, GitHub Issues, GitLab
+    Issues) has its own page with a complete copy-pasteable
+    `agentsmith.yml` block."
+  - "Mono-repo + multi-repo samples are present, side by side, using the
+    catalog-first p0139 / p0140a shape."
+  - "Every supported AI provider has a config block on
+    `ai-providers.md`."
+  - "Four Trigger-it pages exist (webhooks / polling / labels / cli),
+    each with a working sample."
+  - "Three Host-it pages exist (cli / docker-compose / k8s), each with
+    full manifest content using the TodoList config."
+  - "`how-it-works/skills-catalog.md` documents that skills live in
+    the `agent-smith-skills` repo and how `skills.source` +
+    `skills.version` pin a release tag."
+  - "`how-it-works/methodology.md` describes what Agent Smith does +
+    what lands in the run directory."
+  - "Demoted concept pages are under `docs/reference/`. Internal links
+    updated."
+  - "Landing hero passes Rule 9 (no negation-definitions in the headline
+    or sub-lines)."
+  - "`mkdocs build --strict` passes. Browser walk confirms the
+    get-running path is ≤ 4 clicks; the host-it path is ≤ 5 clicks."
+  - "`.agentsmith/notes/p0160-doc-inventory.md` is the audit trail of
+    what moved, what was rewritten, and what was demoted."
