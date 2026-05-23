@@ -78,12 +78,12 @@
 
     <h3 class="prose-heading">Your code stays on your machine.</h3>
     <p class="prose">
-      Agent Smith calls your AI provider directly — Claude, OpenAI, Gemini, Ollama for local, anything OpenAI-compatible. The request goes from your host straight to the provider. I built it that way because freelancing means other people's code is my responsibility, and that meant their code had to stay on infrastructure I run.
+      Agent Smith calls sdoes not store any information about your code. It runs on your infrastructure. The more AI is been used, the more information is probably been saved unwantedly. 
     </p>
 
     <h3 class="prose-heading">You see what every run cost.</h3>
     <p class="prose">
-      Every run writes a result file with token usage and dollar cost. Six months later you can answer "what did this ticket actually cost in tokens?" by reading the file. I wanted that record because guessing turned out to be expensive.
+      Great developers write great code. They even write documentation. I never seen [the why being documented](https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/). Agent Smith will document the plan and maintain a decisions.md log. Reasoning will be available over the complete lifecycle of the program. 
     </p>
 
     <h3 class="prose-heading">Approval sits between the plan and the code.</h3>
@@ -93,7 +93,12 @@
 
     <h3 class="prose-heading">One sandbox per repo, with its own toolchain.</h3>
     <p class="prose">
-      A .NET server and a Node client each get their own image — <code class="inline-code">dotnet/sdk:8.0</code> on one side, <code class="inline-code">node:20</code> on the other. The orchestrator holds one plan and one agent conversation across both; the tool calls dispatch by path prefix so each file change lands in the right sandbox.
+      You prefer mono repositories? Great, Agent Smith can work on UI, backend and workers directly. You got multi repositories per project? No problem. Agent Smith will create one sandbox per repository and create multiple pull requests.
+    </p>
+
+    <h3 class="prose-heading">Which languages ares supported?</h3>
+    <p class="prose">
+      You write Python? The sandbox will be Python based. Dotnet? Sandbox will use your dotnet sdk. The language is not part of the Agent Smith, it is part of the infrastructure that is used to get the job done. There are no limitations in terms of languages.
     </p>
   </div>
 </section>
