@@ -1,14 +1,14 @@
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">Self-hosted · multi-repo · AI-driven</div>
-    <h1 class="hero-headline">Tickets become PRs.</h1>
+    <h1 class="hero-headline">From ticket to PR</h1>
     <p class="hero-sub">
-      One ticket, one run, N pull requests. Agent Smith reads from your tracker,
-      spawns a sandbox per repository, writes the code, opens the PRs, and writes
-      the ticket back as resolved — all on your own infrastructure.
+      Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, it clones the repo into a sandbox, writes the code, runs the tests, opens the PR, and sets the ticket back to resolved.
+    </p>
+    <p class="hero-sub hero-sub-secondary">
+      Every run shows its cost. Every change comes with the reasoning the agent followed.
     </p>
     <div class="hero-actions">
-      <a href="{{ site.docsUrl }}/getting-started/" class="btn btn-primary">Get started →</a>
+      <a href="{{ site.docsUrl }}/get-it-running/install/" class="btn btn-primary">Get started</a>
       <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-tertiary">View on GitHub</a>
     </div>
     <div class="hero-meta">
@@ -18,13 +18,13 @@
           <span id="gh-stars">—</span> stars
         </a>
       </div>
-      <div class="hero-meta-item"><strong>{{ pipelines | length }}</strong> pipeline presets</div>
-      <div class="hero-meta-item"><strong>{{ providers | length }}</strong> AI providers</div>
-      <div class="hero-meta-item"><strong>MIT</strong> licensed</div>
+      <div class="hero-meta-item">MIT licensed</div>
+      <div class="hero-meta-item">Runs on your infrastructure</div>
+      <div class="hero-meta-item">Calls your AI provider directly</div>
     </div>
   </div>
 
   <div class="hero-mockup">
-    <img src="lifecycle.svg" alt="Lifecycle diagram: ticket → orchestrator → sandboxes → pull requests → resolved" loading="eager" />
+    <img src="lifecycle.svg" alt="A ticket comes in from your tracker. Agent Smith spawns one sandbox per repo, drives a tool-calling loop, then opens one PR per repo and resolves the ticket." loading="eager" />
   </div>
 </section>
