@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0127c: Skill content migration + hard cutover (D3 slice 3/3, cross-repo)
+phase: p0127c
+decisions:
+  - category: Architecture
+    chose: "**Hard cutover, no dual-tolerance period.** Loader removes legacy parsing in the same PR that flips the agent-smith-skills pin to 2.0.0; the 2.0.0 skills release is the first version that no longer carries any legacy SKILL.md files. Same discipline as p0125a's vocabulary cutover."
+    reason: |
+      alternatives: ship 2.0.0 with a one-version dual-tolerance period (rejected: extends the cleanup phase by one release cycle for no observable benefit; nobody pins to old versions today).
+  - category: Architecture
+    chose: "**`NewFormatSkillBuilder` dual-writes the legacy `RoleSkillDefinition` fields from the new taxonomy** (RolesSupported = [single role], RoleAssignments = [single empty entry], Activation = Empty, OutputContract = built from output_schema, References = []). This compatibility layer keeps existing consumers (SkillIndexBuilder, TriageOutputProducer, TriageOutputValidator, SkillBodyResolver) working during the [Obsolete] window before p0131 removes them. The mapping is deterministic: producer→Lead, investigator→Analyst, judge→Reviewer, filter→Filter. -- alternatives: update every consumer to read the new fields directly in this slice (rejected: scope explosion"
+    reason: |
+      TriageOutputValidator alone has dense legacy assumptions; better to land the cutover with a compat layer and migrate consumers in p0131); leave the legacy fields null on new-format skills (rejected: every consumer breaks at runtime).
+  - category: Architecture
+    chose: "**Multi-role split mechanically with `<original>-<suffix>` naming.** Producer → `-planner`, investigator → `-investigator`, judge → `-judge`, filter → `-filter`. 8 multi-role skills (3 three-role + 5 two-role) become 19 single-role files; total catalog grows 44 → 55. Per-skill review of \"was this genuinely multi-role\" is a follow-up"
+    reason: |
+      the new format invites natural deduplication when bodies were near-identical. -- alternatives: per-skill judgment on each split (rejected: 8 reviews × decision points = bottleneck); reuse the original suffix-less name for one role and create new ones for the others (rejected: file name collisions in catalog directories).
+  - category: Implementation
+    chose: "**Best-effort `activates_when` per skill category, not per-skill domain analysis.** Each category maps to its pipeline: api-security/* → `pipeline_name = \"api-security-scan\"`, security/* → `pipeline_name = \"security-scan\"`, mad/* → `pipeline_name = \"mad-discussion\"`, legal/* → `pipeline_name = \"legal-analysis\"`, coding/* → `pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"`. Operators tune individual expressions later as the vocabulary grows. The migration's job is \"every skill loads under the new format\"; per-skill activation refinement is its own follow-up."
+    reason: |
+      alternatives: walk every skill with the operator (rejected: 44 decision points blocking a structural cutover); use `activates_when: "true"` everywhere (rejected: would activate every skill for every pipeline, defeating the purpose).
+  - category: Implementation
+    chose: "**Vocabulary extension: `legal-analysis` added to `pipeline_name` enum.** Previously the enum excluded legal-analysis (per p0125c's deliberate fence"
+    reason: |
+      non-published pipelines threw at SetEnum). The migration unblocks legal/* skills' `activates_when` expressions. PipelineNameInitializerHandler will now successfully publish pipeline_name="legal-analysis" when the legal-analysis pipeline runs. -- alternatives: keep the legal/* skills behind a different concept (rejected: pipeline_name is the natural gate; adding one more enum value is the smallest change).
+  - category: Implementation
+    chose: "**`survey_scope` populated as `[\"**/*\"]` for all survey-mode skills.** The script-driven migration uses a uniform broad scope. Per-skill scope refinement (e.g. `[\"**/*Controller.cs\"]` for api-design-auditor) is a follow-up after operators see which scopes need to be tightened in practice."
+    reason: |
+      alternatives: per-skill scope authoring (rejected: blocking on per-skill domain decisions).
+  - category: Implementation
+    chose: "**Category enum closed at p0127c: `{auth, injection, secrets, iam, crypto, headers, inputs, outputs}`.** ValidateConceptsCommand extends `CheckNewFormatRules` with the closed-enum check. Verify_hint skills that declare a category outside the enum fail at build time. The migration assigns each verify_hint skill a category from this enum based on the skill's domain (auth-* skills → `auth`, secrets-detector → `secrets`, etc.)."
+  - category: Implementation
+    chose: "**Legacy `roles_supported` field kept on SkillMdFrontmatter as a \"rejection probe\".** YamlDotNet's IgnoreUnmatchedProperties would silently ignore an unknown legacy field; keeping the typed field lets the parser detect the legacy shape and throw `SkillFormatException` with a clear migration message. The field is parsed only for rejection"
+    reason: |
+      never consumed for behavior. -- alternatives: text-search the raw frontmatter for the substring `roles_supported:` (rejected: fragile, false positives on indented YAML or comments); ignore the legacy shape silently (rejected: operators with old SKILL.md files would see "skill not loaded" with no migration hint).
+  - category: TradeOff
+    chose: "**Two test files have `[Fact(Skip = ...)]` instead of being deleted.** `SkillMdParserExtendedTests.RolesSupportedFrontmatter_ParsesAllRoles` and `BodySplitByH2Header_ProducesRoleBodyMap` test functionality that no longer exists. Skipping with a `p0127c: ...` reason preserves the intent in the test file as documentation; p0131 deletes them outright with the legacy-field cleanup."
+    reason: |
+      alternatives: delete now (rejected: removes the trail of "this used to test X; X was retired in p0127c"); rewrite to test new format (rejected: the new SkillMdParserNewFormatTests already cover that ground).
+  - category: TradeOff
+    chose: "**SkillIndexEntry shape unchanged in this slice.** The spec called for simplifying SkillIndexEntry to (Name, Description, Role, Category?, OutputSchema?, ActivatesWhen) but every consumer (TriageOutputProducer.RenderSkills, SkillIndexBuilder, TriageOutputValidator) reads the legacy shape. Changing SkillIndexEntry forces a multi-handler refactor that's better bundled with the [Obsolete]→delete cleanup in p0131. The compat layer (NewFormatSkillBuilder dual-write) keeps the legacy shape valid in the meantime."
+    reason: |
+      alternatives: simplify SkillIndexEntry now (rejected: cascading refactor across triage layer); leave SkillIndexEntry simplified to a backward-compat record (rejected: consumers still reach for RolesSupported / Activation; nullable doesn't help).

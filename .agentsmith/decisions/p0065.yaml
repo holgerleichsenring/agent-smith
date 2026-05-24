@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0065: Website Redesign
+phase: p0065
+decisions:
+  - category: Architecture
+    chose: CSS-only redesign, no template changes
+    reason: isolates visual changes from site structure
+  - category: Implementation
+    chose: Shadow-as-border (1px rgba border) over CSS borders
+    reason: aligns with Vercel/Geist aesthetic while maintaining simple HTML
+  - category: TradeOff
+    chose: Three font weights only (400/500/600) over full spectrum
+    reason: constrains design but reduces font loading, enforces visual hierarchy

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0008: Context Compaction
+phase: p0008
+decisions:
+  - category: Architecture
+    chose: Haiku for summarization, not custom rule-based compression
+    reason: LLM-generated summaries more useful than keyword extraction
+  - category: Architecture
+    chose: FileReadTracker deduplicates file reads
+    reason: prevents same file content from inflating conversation history
+  - category: TradeOff
+    chose: Last N iterations always preserved fully
+    reason: accepted overhead to maintain recent decision context
+  - category: Implementation
+    chose: Compaction triggered periodically, not continuously
+    reason: prevents overhead from constant summarization

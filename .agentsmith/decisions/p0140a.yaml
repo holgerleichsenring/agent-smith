@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0140a: Resolver foundation slice of multi-repo + project pipelines
+phase: p0140a
+decisions:
+  - category: Architecture
+    chose: "**p0140 sliced into a/b/c/d/e"
+    reason: |
+      implemented a first.** Codebase exploration after p0139 landed revealed the spec's "4 webhook handlers + 4 pollers" model didn't match reality (11 webhook handlers in `src/AgentSmith.Server/Services/Webhooks/`, pollers wired per-project not per-tracker, 18 `.Repo` shim consumers across 8 files, no metrics infrastructure). Honest sizing for the umbrella spec was 4-7 sessions of focused work. Slicing it lets each piece land as a reviewable single-purpose PR. The umbrella p0140 spec stays in planned/ as the design-intent reference, with a SUPERSEDED note pointing at the slices. -- alternatives: implement the umbrella in one PR (rejected: would have produced 6 half-implemented changes overlapping in one branch); restart the planning from scratch (rejected: the umbrella's design decisions are good, only the implementation needed slicing).
+  - category: Architecture
+    chose: "**`ProjectResolver` is project-only; pipeline-within-project still delegates to `PipelineResolver.Resolve`.** The new resolver picks WHICH project owns an incoming ticket; once that's decided, the existing pipeline-from-label / default-pipeline / global-fallback chain (touched in p0139) keeps deciding WHICH pipeline of that project runs. Coupling both decisions into a single new resolver would double the test surface for no benefit"
+    reason: |
+      pipeline routing is already correctly handled today. `ProjectResolver.Resolve` returns `ProjectMatch(ProjectName, PipelineName, Kind)` tuples; the `Kind` field carries the trigger-block name that matched (github/gitlab/azuredevops/jira) for diagnostics. -- alternatives: coupled (project + pipeline) resolver (rejected: doubles test surface, two responsibilities); replace PipelineResolver (rejected: actively-used in polling path, no benefit to rewrite).
+  - category: Architecture
+    chose: "**Adding `ITicketProvider.SupportsComments` in the foundation slice, not in the consumer slice.** The interface change has zero behaviour cost (default-true means today's 4 providers inherit it unchanged) but adding it in p0140b alongside the 11 webhook-handler migrations would crowd the PR. Doing it in p0140a keeps the noise minimal: one line on the interface, no provider implementations need touching, the future Email provider (p0141) overrides to false, and the consumer slice can focus on handler structure."
+    reason: |
+      alternatives: bundle into p0140b (rejected: noise crowds the slice that already touches 11 files); skip until p0141 (rejected: p0140b's zero-match path needs the capability check at the handler call site).
+  - category: Architecture
+    chose: "**`IncomingTicketEnvelope` is the new platform-neutral input"
+    reason: |
+      `WebhookResult` is not extended.** Today's WebhookResult is the handler's OUTPUT (already-resolved project + pipeline). The envelope is the INPUT to ProjectResolver. Same data flow but a separate type because: (a) the envelope has fields WebhookResult lacks (labels, area-path, source-repo-url, to-address); (b) WebhookResult carries handler-internal state (TriggerInput, InitialContext, DialogueAnswer) the resolver shouldn't see; (c) a single envelope type lets the resolver be tested independently of any handler. -- alternatives: extend WebhookResult with the new fields (rejected: conflates input + output shape); per-handler envelope builders without a typed shape (rejected: can't test the resolver against a typed input).
+  - category: Architecture
+    chose: "**`PipelineDefinition.AgentName` (string catalog-ref) is added alongside the existing `Agent: AgentConfig?` field"
+    reason: |
+      not replacing it.** AgentName is the original YAML reference (e.g. `agent: claude-fast`); Agent is the catalog-resolved AgentConfig that `PipelineConfigResolver.Resolve` consumes. ConfigCatalogResolver populates both at load-time. Keeping AgentName for diagnostics + validator error messages ("pipeline X declares agent Y which is not in catalog") makes failures readable without grepping the YAML. -- alternatives: only AgentName + look up at resolve-time (rejected: PipelineConfigResolver would need agents-catalog injection — invasive change); only Agent + lose the original reference (rejected: error messages reference the catalog key, not the resolved AgentConfig hash).
+  - category: Implementation
+    chose: "**`RawPipelineEntry` introduced to separate YAML-binding from the resolved `PipelineDefinition`.** Pre-p0140a, RawProjectEntry.Pipelines was typed as `List<PipelineDefinition>`"
+    reason: |
+      which has `AgentConfig? Agent` — so YAML like `pipelines: [{name: foo, agent: bar}]` couldn't bind ("bar" is a string, AgentConfig is an object). No project actually used the pipelines feature so it didn't break anything, but the type was structurally wrong. RawPipelineEntry has `string? Agent` (catalog ref); ResolvedProjectBuilder maps Raw → Resolved with the catalog lookup. -- alternatives: change PipelineDefinition.Agent to `string?` (rejected: PipelineConfigResolver consumes it as AgentConfig today); custom YamlTypeConverter to accept either string or object (rejected: deferred — only needed for the `- pipeline-name` shorthand form which p0140a doesn't ship; object form `{name: ..., agent?: ..., skills_path?: ...}` is sufficient for now).
+  - category: Implementation
+    chose: "**`AreaPathNormalizer` is `internal static`"
+    reason: |
+      lives in Triggers next to ProjectResolver.** ADO area paths come with either `\` (native) or `/` (YAML-safe) separators, plus the YAML quoted-string double-escape pitfall (`"...\\B..."` silently becomes `...\B...` in the deserialised string). Normalising to backslash form on both sides of the comparison is the cheapest correct path. Prefix matching enforces a real path-segment boundary so `ContosoMain\Billing` doesn't match the sibling `ContosoMain\BillingOther`. -- alternatives: leave the operator's form as-is and compare verbatim (rejected: `Contoso/Billing` would never match `Contoso\Billing`); make the comparator pluggable (rejected: premature; one comparator is what's needed).
+  - category: Implementation
+    chose: "**`ProjectResolution` is REQUIRED on every declared trigger block at the schema level"
+    reason: |
+      validated at startup, not at first-webhook.** With multi-tenant trackers being the realistic majority (one ADO project hosting 60 repos, one Jira install used by 8 teams), the webhook handler can't route without an explicit declaration. Catching the missing field at config-load surfaces the mistake before any traffic arrives. The validator emits a typed error per missing trigger; the loader writes it as a runtime-nullable property so the validator can produce a clean message instead of a null-deref. -- alternatives: required at the C# record level (rejected: bypasses the typed validator message — operators see a null-ref stack trace instead); optional with a default of tag-by-project-name (rejected: silent magic).
+  - category: Implementation
+    chose: "**`ResolutionStrategy` enum has 4 values including `ToAddress` (Email, p0141).** Adding the enum value now"
+    reason: |
+      even though no Email provider exists yet — lets p0141 land without revisiting this enum's serialization shape later. The schema enum lists all four; the resolver's switch returns false for ToAddress when the envelope has no ToAddress field (today's behaviour for every non-Email webhook handler). -- alternatives: 3-value enum, add ToAddress in p0141 (rejected: enum-value addition is a serialization-compat hazard once configs have been written; better to declare the surface now).
+  - category: Implementation
+    chose: "**Validator's \"pipelines references unknown agent\" is defence-in-depth, not the primary check.** ResolvedProjectBuilder's ResolvePipelines already fails fast at load when AgentName doesn't resolve, AND emits a precise `pipeline 'X' references agent 'Y' which is not defined in agents: catalog` error. The validator only catches the case where AgentName is populated but Agent is null (test fixtures, partial loads). The validator test for this case constructs a deliberately-broken ResolvedProject without going through the resolver."
+    reason: |
+      alternatives: skip the validator check (rejected: the validator runs at server startup independently of the loader; defense-in-depth catches programmatic config construction); make the validator the primary (rejected: duplicates the resolver's logic).
+  - category: TradeOff
+    chose: "**No production caller goes through ProjectResolver in p0140a.** The resolver exists, is DI-registered, has 7 strategy tests + 3 normalizer tests"
+    reason: |
+      but no webhook handler invokes it. The first consumer migration lands in p0140b. This is the cost of slicing the foundation out: a feature that's not yet active, with full test coverage, ahead of the migration that turns it on. The benefit is that p0140b can focus exclusively on handler structure changes without re-litigating the data model. -- alternatives: ship the resolver only when the first consumer is also ready (rejected: collapses the foundation+migration into one large PR — the original problem); ship the consumer migration with a mocked resolver (rejected: defeats the test surface).
+  - category: TradeOff
+    chose: "**Pipelines list YAML shorthand (string entry) deferred.** The schema's pipelineEntry $def declares oneOf string-or-object, but the YAML loader only accepts the object form today (RawProjectEntry.Pipelines is `List<RawPipelineEntry>`, and YamlDotNet without a custom converter can't bind a scalar to a class). A custom IYamlTypeConverter for RawPipelineEntry would add ~40 lines for a convenience that no production project currently uses (the dogfood config uses singular `pipeline: fix-bug`). When a project actually needs `pipelines: [foo, bar]` shorthand, add the converter then."
+    reason: |
+      alternatives: ship the converter now (rejected: ~40 lines + a test surface for an unused feature); reject the schema's oneOf shape (rejected: spec wants both forms eventually; keeping the schema accurate to intent has value).

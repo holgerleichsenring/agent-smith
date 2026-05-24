@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0147b: Incomplete Skill Outcomes as Observations
+phase: p0147b
+decisions:
+  - category: Architecture
+    chose: "SkillCallRuntime emits typed SkillObservations for Incomplete and FailedRuntime outcomes via a new stateless `RuntimeObservationFactory`. Reason: SkillObservation is the universal pipeline carrier (p0123); rendering limit-hits as observations lets triage and downstream skill rounds reason about them, not just logs."
+    reason: |
+      alternatives: structured logging (rejected: invisible to downstream skills); a new status field on SkillRound result (rejected: less composable than observations).
+  - category: Architecture
+    chose: Runtime observations travel on `SkillCallResult.RuntimeObservations` (new property, default empty) so existing callers stay compatible; round handlers explicitly route them into the shared observation list via `SkillRoundHandlerBase.BufferRuntimeObservations`.
+    reason: |
+      alternatives: have the runtime mutate pipeline context directly (rejected: would couple SkillCallRuntime to PipelineContext, currently passed only as cost-tracker via PipelineCostTracker).
+  - category: Implementation
+    chose: Category prefixes are stable string constants on a new `ExecutionLimitCategories` static class
+    reason: |
+      `execution-limit-tool-calls` / `execution-limit-tokens` / `execution-limit-wall-clock` / `execution-error`. Reason: token cap, tool-call cap, and wall-clock cap have different operator responses (raise budget vs narrow scope vs simplify prompt); splitting at observation creation time avoids string-parsing the description downstream.
+  - category: Implementation
+    chose: "Severity is always `Info`, Blocking is always `false`. Reason: limit-hits are expected operational events, not bugs; they must not poison the Critical/High/Medium/Low signal in the summary or trigger gate-failure paths. Operators who want to track limit-hit rate read the Info bucket."
+  - category: Implementation
+    chose: LimitEnforcer.HitLimit label (`"tokens"` / `"wall-clock"`) is reused as the disambiguator. When `Incomplete` arrives without an enforcer label, the only remaining path is the ME.AI FunctionInvokingChatClient hitting its `MaximumIterationsPerRequest` cap
+    reason: |
+      that maps to `execution-limit-tool-calls`. Reason: ME.AI owns the tool-call counter, so the runtime can't see the exact event, only its effect.
+  - category: Architecture
+    chose: "Output strategies (Console / Markdown / SARIF / Summary) split observations into operator-facing findings and execution-limit observations and render them in separate sections. Reason: the Critical/High/Medium/Low/Info severity tally must reflect what the operator is asked to action; limit-hits inflate that tally without representing security findings."
+  - category: Implementation
+    chose: "SARIF maps execution-limit observations to `\"note\"` level and attaches a suppression marker (`kind: inSource, status: accepted`). Reason: SARIF consumers like GitHub Code Scanning count error/warning results as alerts; suppression keeps limit-hits visible in the SARIF file without surfacing them as code-scanning alerts."
+  - category: TradeOff
+    chose: "The same round may both succeed and emit a limit-hit observation (e.g. Incomplete with partial output). Both flow into the pipeline observation list; downstream filters can decide whether to drop one. Reason: dropping the partial output to avoid the duplicate would lose work the LLM already produced; keeping both is the conservative choice and matches the existing \"Incomplete still proceeds with partial output\" rule."

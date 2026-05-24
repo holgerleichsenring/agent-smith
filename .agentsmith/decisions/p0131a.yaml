@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0131a: Skill loader + frontmatter cleanup (D7 slice 1/4)
+phase: p0131a
+decisions:
+  - category: Architecture
+    chose: "**SkillRoleMapping as a static helper in Contracts.Models.Skills, not a method on RoleSkillDefinition.** The mapping is the bridge between SKILL.md frontmatter (producer/investigator/judge/filter) and pipeline-side SkillRole enum (Lead/Analyst/Reviewer/Filter). Static helper keeps it callable from validator + filter handler + future runtime callers without forcing a non-null Role on every entity instance."
+    reason: |
+      alternatives: extension method on RoleSkillDefinition (rejected: same null-handling cost); switch in every caller (rejected: drift on 4 places).
+  - category: Architecture
+    chose: "**SkillIndexEntry shape simplified to (Name, Description, Role, OutputSchema?, ActivatesWhen?).** Legacy ActivationCriteria-bag, RoleAssignments, OutputType retired together with the multi-role format. Rewriting consumers is mechanical; keeping a v2-vs-v1 split would force every consumer to handle both."
+    reason: |
+      alternatives: deprecate-and-add-v2 (rejected: drift trap; nobody pinned to legacy now post-p0127c).
+  - category: Architecture
+    chose: "**TriageOutputValidator's rationale-key check goes vocabulary-only.** Pre-p0131a the validator checked rationale keys against (a) skill's Activation.Positive bag, (b) skill's RoleAssignments[role].Criteria bag, (c) the global vocabulary. Bags (a) and (b) retired with the multi-role format; the vocabulary fallback (added in p0124 for resilience) becomes the only validation. The skill-specific keys lived in legacy bags as priority signals to the prompt; with `activates_when` they're already first-class."
+    reason: |
+      alternatives: parse activates_when AST + check identifiers (rejected: validates the activation contract not the rationale; redundant with build-time `validate-concepts`).
+  - category: Implementation
+    chose: "**ConceptVocabularyValidator becomes a no-op stub instead of being deleted.** The type is wired via DI in YamlSkillLoader's constructor; deleting it would cascade into a constructor-signature change + DI rebinding + 5 test files. Keeping it as a no-op (with a single LogTrace) keeps the load pipeline shape stable and gives future load-time concept checks a place to plug in."
+    reason: |
+      alternatives: delete the class + all references (rejected: pointless cascade for the size of the cleanup).
+  - category: Implementation
+    chose: "**SkillBodyResolver shrunk from 82 to 19 lines.** RoleBodies branch retired (no per-role body in new format) + {{ref:X}} placeholder substitution retired (References field gone). The cache stays"
+    reason: |
+      body string interning per (skill, role) tuple is still cheap and removes per-call allocations. The one operator-facing skill that still has stale `{{ref:X}}` placeholders (architect-planner) has had them orphaned since p0127c shipped 2.0.0; they now render verbatim in the prompt. Not a regression — the placeholders were already non-functional.
+  - category: TradeOff
+    chose: "**`_index/<category>.yaml` schema is breaking-changed.** Pre-p0131a YAML carried `roles_supported`/`activation`/`role_assignment`/`output_type` per skill. Post-p0131a it's `role`/`output_schema`/`activates_when`. Operators checking these files into git see a noisy diff on next run. Acceptable: the index is auto-generated and the operator-tooling around it is internal."
+    reason: |
+      alternatives: emit both shapes for a deprecation window (rejected: dead-code; the index is a generated artifact, not a stable contract).
+  - category: TradeOff
+    chose: "**SkillMdParserExtendedTests.cs deleted entirely.** 210 lines of legacy-shape fixtures, 2 already skipped, the rest asserted rejection of legacy formats"
+    reason: |
+      those rejections happen via the missing-Role branch now, covered by RoleSkillDefinitionNewFormatFieldsTests.LegacyFormat_RejectedAtLoad. The `Parse_RoleAndRolesSupportedBothPresent_RejectsSkill` test was deleted from SkillMdParserNewFormatTests for the same reason: YamlDotNet's IgnoreUnmatchedProperties just drops the unknown `roles_supported` field; the rejection probe is gone.

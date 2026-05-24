@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0140c: Poller restructure (per-tracker)
+phase: p0140c
+decisions:
+  - category: Architecture
+    chose: "**One `TrackerPoller` replaces the four per-platform pollers, not four per-tracker wrappers.** Post-p0140c the loop is identical across platforms"
+    reason: |
+      pull open tickets, build envelope (Labels-only — Ticket lacks AreaPath/SourceRepoUrl), resolve, per-match spawn. The only platform-specific value is the `Platform` string on the envelope, which comes from `tracker.Type.ToString()`. Preserving 4 wrapper files would be ceremony — each wrapper ~10 lines delegating to a shared helper. One class, `tracker.Type` carries the platform identity. -- alternatives: 4 per-platform wrappers around a TrackerPollLoop helper (rejected: 4 files of duplicated plumbing); template-method base class (rejected: violates 'no fat base classes — composition over inheritance'); preserve the 4 files per spec text (rejected: the spec's '4 pollers change ctor' was a holdover from the pre-collapse model, not a design intent).
+  - category: Architecture
+    chose: "**`PollerHostedService` no longer touches `ITicketClaimService`"
+    reason: |
+      pollers own the spawn path.** Pre-p0140c: poller→ClaimRequest→PollerHostedService→ClaimService→Enqueue. Post-p0140c: each poller calls `ISpawnPipelineRunsUseCase.ExecuteAsync` directly per matched project, which goes through `ITicketClaimService.ClaimSpawnAsync` (p0140b). PollerHostedService shrinks to a parallel-loop driver + `PollResult` summary logger. Dedup machinery (Redis lock + lifecycle transition) is preserved end-to-end. -- alternatives: keep PollerHostedService as the ClaimAsync caller (rejected: forces it to know about resolver+spawn semantics; concentration of spawn knowledge in SpawnPipelineRunsUseCase is the right boundary); keep pollers yielding ClaimRequests but route through SpawnPipelineRunsUseCase from the host (rejected: per-match spawning is a per-ticket decision, not a per-cycle decision).
+  - category: Architecture
+    chose: "**Claim-lock key stays `agentsmith:claim-lock:{platform}:{ticket-id}` (NOT `{tracker-name}:{ticket-id}`).** A ticket id is unique within a platform. Switching the lock key to per-tracker would split webhook-driven and poller-driven claims into separate buckets"
+    reason: |
+      but they SHOULD race for the same lock so a webhook-arrived ticket isn't double-spawned by the next poll cycle. -- alternatives: per-tracker lock key (rejected: webhook + poller race for the same ticket would no longer be detected); per-(project, ticket) lock key (rejected: a ticket spawning N projects via ambiguous-match would self-block); leave today's pre-p0140b shape (chosen: ClaimSpawnAsync from p0140b uses this exact key shape, no change required).
+  - category: Architecture
+    chose: "**`PollResult` is a count summary, not a list of ClaimRequests or ClaimResults.** Pollers handle their own dispatching during PollAsync; the host only needs visibility into per-cycle counts (polled / matched / spawned / status-filtered / zero-matched). Returning richer per-ticket data would force the host to know about per-ticket semantics it doesn't need."
+    reason: |
+      alternatives: return ClaimResult list (rejected: leaks claim-region details out of the poller); return void + emit counts via metrics (deferred: metrics are p0140e; PollResult is the bridge for now).
+  - category: Architecture
+    chose: "**`TrackerConnection.Polling` is a new property; the old `ResolvedProject.Polling` stays as a deprecated input.** Operators with project-level polling get a structured warning at startup via `PollingConfigDeprecationWarner` but the server starts cleanly. The project-level block is parsed (still binds on RawProjectEntry → ResolvedProject) but the per-tracker pollers don't consult it. Cleanup is a follow-up phase once operators have migrated."
+    reason: |
+      alternatives: hard remove `ResolvedProject.Polling` (rejected: breaks every operator config in one release; the spec's slicing model favours soft-migration windows); silent ignore without warning (rejected: operators won't notice the deprecation until polling silently stops working).
+  - category: Implementation
+    chose: "**`ZeroMatchComment` binding bug from p0140a fixed alongside `Polling` binding.** Audit revealed `RawTrackerEntry` had no `ZeroMatchComment` field and `TrackerCatalogBuilder.TryBuild` didn't project it onto `TrackerConnection`"
+    reason: |
+      so the p0140a property never bound from YAML. Both fields added in the same edit. The webhook spawn dispatcher's zero-match comment path was effectively dead-code before this fix. -- alternatives: ship the p0140c Polling fix alone and file p0140a-followup (rejected: same file, same edit, same review window — would be artificial to split).
+  - category: Implementation
+    chose: "**`PollerFactory.Build` becomes per-tracker but stays a static helper, not a DI registration.** Today's PollerFactory.Build is invoked from `PollerLeaderHostedService.RunPollerAsync` per leader-acquisition cycle, with the freshly-loaded config snapshot. Per-tracker enumeration is the trivial swap (foreach over `config.Trackers.Values where Polling.Enabled`). Pollers remain non-DI services because their config (TrackerConnection + AgentSmithConfig snapshot) is per-cycle, not per-process."
+    reason: |
+      alternatives: register pollers via DI scopes (rejected: scope lifetime doesn't match leader-tenure; current factory pattern works); inject IConfigurationLoader into pollers + reload per-poll (rejected: poll cycles would see config drift mid-cycle; per-leader-tenure snapshot is the right cadence).
+  - category: Implementation
+    chose: "**Polling path supports only tag-strategy project resolution (Labels-only envelope).** The Ticket entity has Labels but no AreaPath or SourceRepoUrl. `TrackerPoller.BuildEnvelope` populates only `Labels` + `TicketId` + `Platform`. Operators configuring `project_resolution: area-path` on an ADO project served by polling will see zero matches (logged as `polling-zero-match`). Adding AreaPath to Ticket would touch all 4 provider implementations + tests"
+    reason: |
+      deferred until an operator actually hits this. To be documented in p0140e operator docs. -- alternatives: extend Ticket with optional AreaPath (rejected: invasive for an unproven need); fail-loud at startup if polling-enabled tracker serves a non-tag-strategy project (rejected: false-positive risk if the project doesn't actually use polling for area-path).
+  - category: TradeOff
+    chose: "**Project-level `Polling` removal deferred.** The deprecation warner ships, the project-level field stays bindable, the per-tracker pollers ignore it. Hard removal is a follow-up phase once operator configs are migrated. The dogfood config (config/agentsmith.yml) has no project-level Polling.Enabled=true today, so dogfood is clean."

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0158c: PR cross-link pass-2
+phase: p0158c
+decisions:
+  - category: Architecture
+    chose: "**UpdatePullRequestBodyAsync added to ISourceProvider (deviates from the spec's separate IPullRequestBodyPatcher contract).** Each source provider already carries platform-specific credentials, client factory, and URL parsing for its CreatePullRequestAsync. Building a parallel IPullRequestBodyPatcher hierarchy (+ factory + 4 impls + DI wiring) would duplicate every one of those concerns for a one-method capability. The provider extension keeps the open + patch logic colocated where the platform knowledge already lives, fits the existing \"ISourceProvider as the platform's git surface\" pattern, and lands the same observable behaviour with ~4x fewer new types. -- alternatives: ship the IPullRequestBodyPatcher contract per spec (rejected: premature abstraction"
+    reason: |
+      no second consumer of "PR body update" is on the roadmap, and the spec's appeal to SRP separation breaks down when the patcher needs the same credential plumbing as the opener); inline the PATCH calls into PrCrossLinkHandler (rejected: handler would have to switch on RepoType and own four platform clients, defeating the source-provider pattern).
+  - category: Architecture
+    chose: "**PrCrossLinkOrchestrator is a discrete PipelineCommand+Handler (CommandNames.PrCrossLink), inserted after CommitAndPR / InitCommit in each preset.** Keeps the cross-link capability visible in pipeline-step logs, separates concerns from the commit-and-PR-open flow, and lets a future pipeline reuse the cross-link without going through CommitAndPR. The handler short-circuits on < 2 opened PRs so the cost on single-repo runs is exactly one method invocation."
+    reason: |
+      alternatives: inline as tail-call inside CommitAndPRHandler / InitCommitHandler (rejected: hides the capability from operator logs and ties cross-link to commit flow); separate orchestrator service called from the existing handlers (rejected: same indirection without the executor visibility).
+  - category: Architecture
+    chose: "**Handlers publish OpenedPullRequestBodies (per-repo body strings) alongside OpenedPullRequests so the orchestrator does in-memory marker-replace.** Saves one HTTP fetch per opened PR on the PATCH path and removes the need for an IPullRequestReader abstraction. The body string is the one used at open time, so the marker is guaranteed present and the post-replace body has only the marker section changed (operator edits to the rest of the body happen between open and patch only in pathological races; pass-2 runs synchronously immediately after CommitAndPR within the same pipeline step)."
+    reason: |
+      alternatives: fetch body via a new IPullRequestReader (rejected: extra round-trip per opened PR, new abstraction for one consumer); patch via PUT with a freshly composed full body (rejected: same in-memory replace, just with one more parameter).
+  - category: Implementation
+    chose: "**Sibling block renders Opened entries with URLs, Failed entries as `(open failed)`, and SkippedNoChanges entries as `(no changes)`.** Each line is `- {repoName}: {state}`. Failed and skipped entries appear because operators reviewing one PR want to know whether a sibling repo intentionally got no PR (no changes) or whether a sibling open broke (operator should investigate)."
+    reason: |
+      alternatives: omit non-Opened siblings (rejected: hides the failed-open case from reviewers who only see the surviving PRs); include only Failed (rejected: skipped repos still have operational relevance when reviewers expect a sibling PR).
+  - category: Implementation
+    chose: "**Marker is the literal HTML comment `<!-- agentsmith:sibling-prs -->`, replaced via ordinal String.Replace.** Survives manual edits to surrounding body content (reviewers can edit the description above and below the marker section). Single-PR runs leave the marker in place (acceptable harmless artefact)"
+    reason: |
+      pass-2 is skipped so no PATCH ever fires. -- alternatives: strip the marker on single-PR runs (rejected: would require a separate strip-only path that doesn't help anyone); use a structured block (`<!-- BEGIN siblings -->...<!-- END siblings -->`) (rejected: more fragile if the body is ever round-tripped through a markdown renderer that strips comment whitespace).
+  - category: TradeOff
+    chose: "**Patch failures are logged at WARN and do NOT fail the pipeline.** Each provider's UpdatePullRequestBodyAsync returns false on any non-2xx / exception; the orchestrator counts patched-vs-total and reports it in the result message. The PR is the load-bearing artifact; a missing cross-link is a cosmetic loss that an operator can fix manually if needed. Hard-failing the pipeline because a body update returned 500 would teach operators to ignore the noisy alert."
+    reason: |
+      alternatives: fail on any patch failure (rejected: too noisy for a cosmetic capability); retry with backoff (rejected: out of scope, marker stays in place and operator can re-trigger).

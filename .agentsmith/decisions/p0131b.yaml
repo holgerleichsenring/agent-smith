@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0131b: BootstrapProjectHandler + CodeMapGenerator removal (D7 slice 2/4)
+phase: p0131b
+decisions:
+  - category: Architecture
+    chose: "**Cascading deletion: BootstrapProjectHandler took ~10 supporting services with it.** The entire chain was load-time-only"
+    reason: |
+      IProjectDetector, IRepoSnapshotCollector, IContextGenerator, IContextValidator, ICodingPrinciplesGenerator, ICodeMapGenerator, MetaFileBootstrapper, SkillYamlGenerator, ContextUserPromptBuilder, ILanguageDetector + 3 impls all lived in the BootstrapProject path. Once that path goes, they're orphans. Deleting them as a package keeps the diff coherent and avoids leaving dead-but-compilable types around. -- alternatives: keep them as dead code (rejected: code rot); split the cleanup (rejected: arbitrary slicing for one semantic cut).
+  - category: Architecture
+    chose: "**CommandNames.BootstrapProject + LoadCodeMap constants kept; registered in RetiredCommands with migration hints.** Operators with custom pipeline presets in `agentsmith.yml` may still reference these step names; removing the constants would break YAML loading hard. The retired-commands path (existing pattern from p0123's ExtractFindings retirement) gives a clear boot-time error pointing operators to the right migration."
+  - category: Architecture
+    chose: "**ContextKeys.CodeMap stays.** AnalyzeProjectHandler emits a YAML-ish text rendering of ProjectMap into ContextKeys.CodeMap for prompt-builders that consume the map as a single string (PlanExecution builders, SkillRoundHandlerBase, ProjectBriefBuilder). Retiring it now would force a parallel rewrite of those builders to consume the structured ProjectMap directly"
+    reason: |
+      out of scope. The text key continues to exist; only its writer changes (LoadCodeMapHandler retired; AnalyzeProjectHandler's existing emit path is now the single source).
+  - category: Implementation
+    chose: "**TestHandler.ResolveTestCommand drops the DetectedProject branch.** Pre-p0131b TestHandler had a DetectedProject branch (populated by BootstrapProjectHandler) followed by a ProjectMap fallback. With BootstrapProjectHandler retired, DetectedProject is never populated. Falling through to ProjectMap is the natural and correct behavior; the dead branch is removed."
+  - category: TradeOff
+    chose: "**InitProject preset already migrated in p0130c"
+    reason: |
+      no changes here.** The other 6 code-touching presets just lose the BootstrapProject + LoadCodeMap steps; the BootstrapGate (p0130a) handles missing-files failures structurally. After p0131b, the gate is the only mechanism that produces the "run init-project first" message — which is exactly what the gate was designed for. The cascading retirement of MetaFileBootstrapper / SkillYamlGenerator means there is no more silently-emitted `.agentsmith/skill.yaml` either; operators who want one have to write it explicitly.
+  - category: TradeOff
+    chose: "**7 test files deleted entirely.** CodeMapGeneratorTests, ContextGeneratorTests, ContextValidatorTests, LoadCodeMapHandlerTests, ProjectDetectorTests, RepoSnapshotCollectorTests, LlmResponseHelperTests"
+    reason: |
+      total ~1100 lines. The deleted services were their only reason to exist. Migrating them would mean inventing replacement APIs and writing tests against ProjectAnalyzer / ProjectMap consumers — those already have their own coverage in AnalyzeProjectHandlerTests / ProjectMapPromptRendererTests.

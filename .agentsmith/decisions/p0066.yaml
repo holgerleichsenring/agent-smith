@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0066: Docs Enhancement — Self-Documentation & Multi-Agent Orchestration
+phase: p0066
+decisions:
+  - category: Architecture
+    chose: DESIGN.md placed in docs/ not project root
+    reason: it is a docs-site concern, not product code
+  - category: Tooling
+    chose: CSS-only theme overrides via extra_css, no custom MkDocs templates
+    reason: keeps MkDocs upgrades safe
+  - category: TradeOff
+    chose: Content first, styling second
+    reason: missing content is a blocker, imperfect styling is not
+  - category: Implementation
+    chose: Reuse existing fix-and-feature.md instead of creating separate fix-bug.md
+    reason: page already covers both pipelines

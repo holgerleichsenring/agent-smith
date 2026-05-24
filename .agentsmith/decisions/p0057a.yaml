@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0057a: Skill Standard
+phase: p0057a
+decisions:
+  - category: Architecture
+    chose: Three-file skill structure (SKILL.md + agentsmith.md + source.md) over single YAML
+    reason: separates portable skill content from Agent-Smith extensions and provenance
+  - category: TradeOff
+    chose: Local skills require source.md with origin=local
+    reason: enforces explicit knowledge of whether skills are internal or external

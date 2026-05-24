@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0022: CCS Auto-Bootstrap
+phase: p0022
+decisions:
+  - category: Architecture
+    chose: `ProjectDetector` is deterministic (no LLM, pure file system)
+    reason: fast, zero cost, fully testable
+  - category: Architecture
+    chose: Single cheap LLM call for context generation
+    reason: one-shot avoids iterative refinement, cost ~$0.01
+  - category: TradeOff
+    chose: Generated `.context.yaml` committed to repo
+    reason: persistent project context, avoids regeneration on every run

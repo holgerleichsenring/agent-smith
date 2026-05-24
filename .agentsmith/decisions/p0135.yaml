@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0135: follow-up: GitHub + Azure DevOps client-factory injection
+phase: p0135
+decisions:
+  - category: Architecture
+    chose: "**Resolution order: override → host-cache → remote-context-yaml → in-memory ProjectMap → generic.** The override is deterministic operator intent and wins outright. Host-cache (`project-map.json` under `IAgentSmithPaths.ProjectCacheDir(source.Url)`) is fast + local + present after the first `AnalyzeProjectHandler` run on a repo, so it precedes the REST roundtrip. Remote `.agentsmith/context.yaml` precedes in-memory `ProjectMap` because in-memory is structurally null at sandbox-create time (the pipeline loop hasn't run yet)"
+    reason: |
+      the slot stays for symmetry, not because it ever fires today. Generic fallback remains so init-project + scan pipelines keep working on repos that have no language signal yet. -- alternatives: cache after remote (rejected: local-and-fast first); drop remote-context-yaml (rejected: a fresh server pod with cold cache + a bootstrapped repo would be language-blind on every fix-bug); fail-loud on unknown language (rejected: init-project + scan pipelines legitimately run on the generic toolchain).
+  - category: Architecture
+    chose: "**`ISourceProvider.TryReadFileAsync(path)` as a new interface method, not a separate helper service.** Each provider has a fundamentally different file-read API"
+    reason: |
+      AzDO `GitHttpClient.GetItemContentAsync`, Octokit `Repository.Content.GetAllContentsByRef`, GitLab REST raw-file endpoint, Local `File.ReadAllTextAsync`. A central helper would re-switch on provider type and own all four code paths. Returns `string?` (raw content) — parsing is the caller's job; the provider contract stays minimal. -- alternatives: `IFileReader<TProvider>` service family (rejected: ceremonial DI for what is already a provider concern); expose a full repo-content interface (rejected: scope creep, p0023 multi-repo can extend it later).
+  - category: Implementation
+    chose: "**Resolver returns `string? language`, not a partial `ProjectMap`.** `ProjectMap` is a sealed record with seven required fields; constructing a partial one full of empty defaults leaks empty `Modules`/`TestProjects`/`Conventions` into a code path that only consumes `PrimaryLanguage`. The new resolver returns just the language string, and `SandboxSpecBuilder` gained a `Build(ProjectConfig, string? language)` overload"
+    reason: |
+      the existing `Build(ProjectConfig, ProjectMap?)` overload delegates to it with `projectMap?.PrimaryLanguage` so the in-memory branch keeps working. -- alternatives: synthesize partial ProjectMap (rejected: misleading shape); new `LanguageHint` record (rejected: viral type proliferation for a single string).
+  - category: Implementation
+    chose: "**Default-branch resolution stays on the provider, not the resolver.** Each provider already exposes `GetDefaultBranchAsync` (with cache) for `CreatePullRequestAsync`"
+    reason: |
+      `TryReadFileAsync` reuses it internally. The resolver passes only the file path; the provider picks the branch. Keeps `SandboxLanguageResolver` agnostic of provider URL shapes and avoids a parallel default-branch fetch path. Layer 2b therefore reads from the default branch — at sandbox-create time the work-branch doesn't exist yet (CheckoutSource hasn't run) and the default branch is the contract surface init-project's PR merged into. -- alternatives: resolver computes the default branch (rejected: duplicates provider knowledge); pass branch as resolver-API parameter (rejected: leaks branch concerns into the resolver for a value the provider already has).
+  - category: Implementation
+    chose: "**Resolution-layer names are a closed enum (`SandboxToolchainResolutionLayer`), not free-form log strings.** The pipeline-start log line names which layer hit; if layer names drift across the code-base, operator log-grep / dashboards break silently. The enum forces every call site to pick from the same set"
+    reason: |
+      `Override`, `HostCache`, `RemoteContextYaml`, `InMemoryProjectMap`, `GenericFallback`. -- alternatives: const strings (rejected: easier to typo, no compiler check); inline literals (rejected: three different spellings in six months).
+  - category: Implementation
+    chose: "**`ISandboxLanguageResolver` interface extracted for test mocking.** Moq can't mock sealed concrete classes, and the three existing `PipelineExecutor*Tests` files need a stubbed resolver to set up their executor. Hand-rolling a stub class per test is more code than a tiny interface; un-sealing the resolver would invite subclassing as a real use case. The interface is internal-shape (one async method) and the cost is one extra file."
+    reason: |
+      alternatives: un-seal `SandboxLanguageResolver` (rejected: subclassing is not a real use case); hand-roll a stub (rejected: duplicates the contract in three test files).
+  - category: TradeOff
+    chose: "**YAML parsing of `stack.lang` lives in `SandboxLanguageResolver`, using YamlDotNet's `UnderscoredNamingConvention`.** Application layer gains a YamlDotNet `PackageReference` (already in Infrastructure). The alternative was to parse via raw string-matching to avoid the dependency, but that breaks on quoting, comments, and nested key ordering"
+    reason: |
+      operators write context.yaml by hand and the format already uses YamlDotNet's snake-case convention elsewhere. YamlDotNet's strict deserializer raises on non-scalar `stack.lang` (e.g. a list), which the resolver catches and treats as "no language detected" — falls through to GenericFallback rather than throwing. -- alternatives: hand-rolled regex parser (rejected: brittle); pull the parse helper out of Infrastructure (rejected: Application calling into Infrastructure inverts the layering).
+  - category: TradeOff
+    chose: "**Cache-stale tolerance: read `PrimaryLanguage` from `project-map.json` even when the on-disk cache key shows stale manifest hashes.** `PrimaryLanguage` is a near-immutable repository attribute"
+    reason: |
+      a .NET project doesn't become a Node project between runs. Manifest-hash staleness matters for module/test-project enumeration (AnalyzeProjectHandler re-runs the analyzer in that case) but not for toolchain image selection. -- alternatives: enforce cache-key match (rejected: produces unnecessary cache-misses on every `dotnet add package`); refresh the cache opportunistically (rejected: scope creep into AnalyzeProjectHandler's territory).
+  - category: TradeOff
+    chose: "**`SandboxSpecBuilder.LanguageImages` dictionary extended with operator-facing aliases (`C#`, `.NET 8`, `TypeScript`, `Node.js`, `golang`).** Cache writes use lowercase canonical strings (`csharp`, `node`, `typescript`), but `stack.lang` in operator-edited `.agentsmith/context.yaml` uses the human-facing names. Adding both sides to the same `OrdinalIgnoreCase` map is one new row per alias and prevents resolver-callers from needing a normalisation step."
+    reason: |
+      alternatives: normalise inside the resolver (rejected: hides the mapping from the spec-builder which is the actual decision point); maintain two maps (rejected: drift risk).
+  - category: TradeOff
+    chose: "**GitHub + Azure DevOps `TryReadFileAsync` unit tests deferred.** Both providers construct their underlying SDK client (`Octokit.GitHubClient`, `VssConnection.GetClient<GitHttpClient>()`) internally, with no injection seam. Unit-testing them at the same level as Local + GitLab would require a constructor-injection refactor (factory delegate or `IConnection` parameter) that touches every call site in Infrastructure"
+    reason: |
+      scope creep beyond p0135. Local (filesystem) and GitLab (`HttpClient` already injectable) cover the four canonical cases — `ExistingFile_ReturnsContent` / `FileNotFound_ReturnsNull` / `ServerError_Throws` / `AuthError_Throws` (Local replaces auth with `Canceled`). The Octokit/VssConnection wrappers are thin enough that the contract surface they implement is exercised by the resolver's RemoteContextYaml-hit test against the abstract interface. Logged as a follow-up so a future refactor doesn't pretend the testability gap was never noticed. -- alternatives: inject SDK clients via constructor delegates now (rejected: scope creep); wire in `WireMock` for HTTP-level testing (rejected: dependency churn for two test files); skip silently (rejected: gap should be visible in the log).
+  - category: Implementation
+    chose: "**`IGitHubClientFactory` + `IAzDoClientFactory` close the testability gap deferred in p0135.** Both providers used to hard-`new` their SDK clients (`new GitHubClient(...)`, `new VssConnection(...)`) inside private methods, so the four `TryReadFileAsync` cases were untestable at the unit level (logged at end of p0135 as \"deferred until injection seam exists\"). New factory interfaces live in `Infrastructure/Services/Providers/Source/`, registered as DI singletons. `SourceProviderFactory` resolves them and passes the per-provider instance into each provider's ctor. -- alternatives: `Func<>`-delegate parameter on the provider ctor (rejected: pretty, but every future telemetry/retry decorator would have to wrap a delegate instead of an interface"
+    reason: |
+      the interface is the conventional seam in this codebase); `internal virtual` + `InternalsVisibleTo` (rejected: un-seals the providers and pushes test concerns into the production type hierarchy).
+  - category: Implementation
+    chose: "**`IGitHubClientFactory.Create` returns `IGitHubClient` (Octokit's interface), not `GitHubClient`.** Octokit's main type tree is interface-first (`IGitHubClient` → `IRepositoriesClient` → `IRepositoryContentsClient`) which Moq mocks cleanly. Returning the concrete `GitHubClient` would have forced tests to either `Mock<GitHubClient>(ProductHeaderValue)` (its properties aren't all virtual) or stand up a fake `IConnection`"
+    reason: |
+      both heavier than just typing the seam at the interface. Production `DefaultGitHubClientFactory` still constructs a real `GitHubClient` and returns it via the interface.
+  - category: Implementation
+    chose: "**`IAzDoClientFactory` exposes three methods (sync git client, async git client, work-item client), not just `Create(VssConnection)`.** Each AzDo SDK client is obtained via a different `VssConnection.GetClient<T>()` call shape (sync vs async) and from different connection objects in the existing provider code (PR-creation path uses sync, comment-thread path uses async). Surfacing the three explicit methods means each call site keeps its existing shape and tests can mock the one method they need"
+    reason: |
+      instead of having to stub the full `VssConnection` (which is also a concrete class with a non-trivial ctor). -- alternatives: factory returns `VssConnection` (rejected: pushes the SDK boilerplate back into the provider AND makes mocking harder); collapse async into sync (rejected: would change CreatePullRequestAsync's call shape, scope creep).
+  - category: Implementation
+    chose: "**AzDo test pins the exact 14-parameter `GetItemContentAsync` overload in a helper method.** The AzDo SDK ships four `GetItemContentAsync` overloads on `GitHttpClientBase` (`{string, Guid}` project × `{string, Guid}` repositoryId) plus four older 13-param variants on `GitCompatHttpClientBase` marked `[Obsolete]`. The production call uses named arguments"
+    reason: |
+      the compiler picks the non-obsolete 14-param `(string, string, ...)` overload. Centralising the Moq `Setup(c => c.GetItemContentAsync(It.IsAny<...>() × 14))` in `SetupGetItemContentAsync` keeps the four `[Fact]`s readable and makes a future SDK-version bump (param-count or nullability changes) a one-line fix. -- alternatives: inline Setup per test (rejected: 14-line block × 4 tests, signal-to-noise tanks); match on partial parameters (rejected: Moq's expression tree binds to a specific overload, partial match isn't possible).

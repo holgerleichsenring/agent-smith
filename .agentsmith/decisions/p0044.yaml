@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0044: Rename ProcessTicket → ExecutePipeline
+phase: p0044
+decisions:
+  - category: Architecture
+    chose: Renamed ProcessTicketUseCase to ExecutePipelineUseCase
+    reason: reflects that system orchestrates arbitrary workflows, not just tickets

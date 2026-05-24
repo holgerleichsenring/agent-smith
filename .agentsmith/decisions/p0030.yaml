@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0030: Systemic Fixes
+phase: p0030
+decisions:
+  - category: Architecture
+    chose: `CommandResult` carries PR URL through pipeline
+    reason: URLs were previously lost due to generic return type
+  - category: Architecture
+    chose: `OrphanJobDetector` as background service monitoring in-memory + Redis
+    reason: catches orphans from pre-deployment jobs
+  - category: Implementation
+    chose: Remove `CancellationToken = default` optional parameters
+    reason: forces explicit cancellation token threading

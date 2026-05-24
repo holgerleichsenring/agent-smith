@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0037: Strategy Pattern Pipeline Abstraction
+phase: p0037
+decisions:
+  - category: Architecture
+    chose: Chose strategy pattern with tell-don't-ask principle
+    reason: no "if type == coding" anywhere, type resolves correct implementations via DI
+  - category: Architecture
+    chose: Single class size limit of 120 lines enforced to prevent god objects and improve maintainability
+  - category: Architecture
+    chose: Renamed pipeline steps (CheckoutSource → AcquireSource, Test → Validate) despite migration burden
+    reason: reflects true semantics across all pipeline types

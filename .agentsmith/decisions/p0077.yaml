@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0077: Pipeline Fixes
+phase: p0077
+decisions:
+  - category: Architecture
+    chose: skills_path resolved relative to config file directory
+    reason: |
+      same pattern as tsconfig.json, docker-compose.yml. Config file is the anchor point, not CWD or repo root. Covers: local scan (repo has its own skills), API scan (no repo), CI with separate config repo (external CI repo's tools/agent-smith/config/).
+  - category: Implementation
+    chose: ZAP exit codes 0-3 are valid scan results (pass/info/warnings/failures), not errors
+    reason: |
+      only >3 indicates a tool crash. Previously any non-zero was treated as failure, discarding valid DAST findings.
+  - category: Implementation
+    chose: Docker cp directories created with mode 0777
+    reason: |
+      ZAP container runs as UID 1000 (zap user), but docker cp creates files as root. World-writable permissions fix the PermissionDenied on /zap/wrk/zap-report.json.

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0112: Branch Persistence MVP (shipped as p0112a)
+phase: p0112
+decisions:
+  - category: Architecture
+    chose: "**Push the work branch on every run that produced commits, regardless of pipeline outcome.** CommitAndPRHandler is a late pipeline step"
+    reason: |
+      when a run fails before it (TestCommand fails, AgenticExecute crashes), local work in /tmp dies with the container. Push-on-failure makes the branch a durable artifact tied to the ticket, not the run. PR creation is decoupled from branch push: losing tokens because no PR was opened is the wrong trade-off.
+  - category: Architecture
+    chose: "**Branch identity is `agent-smith/<platform>/<projectSlug>/<ticketId>`.** One branch per ticket, regardless of run count. Subsequent runs fast-forward to the existing remote branch instead of branching off main again"
+    reason: |
+      avoids force-push by design. Hard cutover from legacy `fix/<ticketId>` per AAD-DEV operator confirmation; documented as a known break for any other deployment that needs a one-time migration script.
+  - category: Architecture
+    chose: "**CheckoutSourceHandler resumes from remote branch when present**"
+    reason: |
+      fetch + checkout if `agent-smith/<platform>/<projectSlug>/<ticketId>` exists; else create fresh from main. Triage / Plan / AgenticExecute see whatever state the previous run left. PlanArtifact-in-context (p0111c) lets a subsequent run short-circuit if available.
+  - category: Implementation
+    chose: "**PersistWorkBranchHandler returns CommandResult.Fail with typed FailureKind on every error path**"
+    reason: |
+      no log-and-return-Ok. PipelineExecutor wraps the persist invocation in its OWN try/catch separate from the normal command-loop catch: persist runs in the failure path AFTER the original failure cause is captured in `result`, so a persist exception (GitException, OutOfMemory in LibGit2 mid-call) must NOT overwrite the original failure cause for lifecycle.MarkFailed().
+  - category: Implementation
+    chose: "**WIP commits prefixed `[wip] agent-smith run <runId>`** with `Run-Id`, `Pipeline`, `Failed-Step` trailers"
+    reason: |
+      reviewers see at a glance the commit is mid-pipeline + non-human + log-correlatable. Auto-flips PR/MR to Draft on GitHub/GitLab; Azure DevOps logs INFO (no native Draft equivalent).
+  - category: Implementation
+    chose: "**LibGit2Sharp reused, NOT shell-out git.** Existing GitHub/AzureRepos/GitLab/Local SourceProviders all use LibGit2Sharp; shell-out would diverge the codebase. Confirmed project-wide choice from p0001 onward."
+  - category: TradeOff
+    chose: "**Push failures non-fatal warnings, not pipeline failures**"
+    reason: |
+      pipeline already failed, can't make it worse. (project, ticket)-keyed counter increments on non-transient failures (auth misconfigured, branch protection blocked, divergent remote that won't resolve); after `ConsecutiveFailureThreshold=3`, escalates to error-level log + structured `persist-blocked` marker on the ticket lifecycle so recurring auth/permission issues don't get silently swallowed.
+  - category: TradeOff
+    chose: "**Out-of-scope: container kills (OOM, eviction, SIGKILL, kernel panic).** Persist runs only when the pipeline cleanly handed control to PipelineExecutor's failure path"
+    reason: |
+      a process crash dies before the handler. Documented as a known gap; mitigation belongs to a follow-up phase (periodic checkpoint-push during AgenticExecute, or sidecar/watchdog reading the running container's repo).

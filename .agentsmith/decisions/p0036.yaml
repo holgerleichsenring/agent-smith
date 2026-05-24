@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0036: GenerateTests & GenerateDocs + Pipeline Resilience
+phase: p0036
+decisions:
+  - category: Architecture
+    chose: Per-command exception handling in PipelineExecutor prevents single command crash from failing entire pipeline
+  - category: Architecture
+    chose: GenerateTests and GenerateDocs execute synthetic plans via IAgentProvider instead of custom logic
+    reason: reuses agentic loop
+  - category: Architecture
+    chose: OrphanJobDetector replaced time-based detection with container liveness checking (IsAliveAsync)
+    reason: eliminates false positives from slow operations

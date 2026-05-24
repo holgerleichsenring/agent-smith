@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0146b: Retire RegexIntentParser
+phase: p0146b
+decisions:
+  - category: Architecture
+    chose: "**DI registration uses an explicit factory, not the two-generic form.** `AddTransient<IIntentParser, LlmIntentParser>()` would let MS.DI try to resolve every ctor parameter"
+    reason: |
+      and `AgentConfig haikusConfig` has no registration in the Application graph (it's a config record callers populate per-call, not a service). The factory builds the AgentConfig inline (`new AgentConfig { Type = "claude" }`), mirroring the identical pattern already used in `AgentSmith.Server/Extensions/ServiceCollectionExtensions.cs:137` for the Server-side `ILlmIntentParser`. ServerDiLifetimeTests caught the difference. -- alternatives: register a default `AgentConfig` singleton (rejected: other call sites pass `new AgentConfig { Type = "claude" }` per-call too — promoting it to a DI singleton would conflict); add a parameterless overload to LlmIntentParser (rejected: would silently swallow misconfiguration).
+  - category: Implementation
+    chose: "**String overload of `ExecutePipelineUseCase.ExecuteAsync` KEPT, only its regex shapes deleted.** The spec's premise that \"every real entry-point already builds PipelineRequest directly\" was wrong on one detail: `WebhookRequestProcessor.ExecuteLegacyAsync` (AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:86) also hits the overload via webhook TriggerInput. Deleting the overload would have orphaned the webhook legacy path. The collapsed body just calls `intentParser.ParseAsync` + `ResolvePipelineName` + `new PipelineRequest`. -- alternatives: delete the overload + migrate webhook to PipelineRequest directly (rejected: out of scope; spec said \"delete if no real caller is left\""
+    reason: there IS a real caller).
+  - category: Implementation
+    chose: "**`ExecuteAsync_InitMode_IncludesPrUrl` test DELETED.** It passed `\"init todo-list\"` and relied on the deleted regex init shape to build `PipelineRequest(IsInit: true)` without invoking the intent parser. After the regex deletion, `init <project>` (no ticket) would route through `LlmIntentParser.ParseAsync` which throws `ConfigurationException` on ticket-less input"
+    reason: |
+      there's no longer a "regex init via run" path to test. The structured `agent-smith init` CLI command builds PipelineRequest directly and is the supported init entry-point. -- alternatives: rewrite the test to use a synthetic init-style mock response (rejected: would be testing the mock, not real behaviour; the `agent-smith init` command already covers the IsInit flow end-to-end).
