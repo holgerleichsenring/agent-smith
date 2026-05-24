@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0032: Architecture Cleanup
+phase: p0032
+decisions:
+  - category: Architecture
+    chose: `ILlmClient` abstraction wrapping LLM providers
+    reason: generators become thin prompt-builders, can swap providers without code changes
+  - category: Architecture
+    chose: `CommandNames` + `PipelinePresets` code-defined
+    reason: eliminates magic strings, single source of truth
+  - category: TradeOff
+    chose: Remove language-specific collection code → feed raw files to LLM
+    reason: less code, more flexible, slightly higher token cost

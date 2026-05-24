@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0043a: CI/CD Docker Publish
+phase: p0043a
+decisions:
+  - category: Tooling
+    chose: Chosen multi-arch build (amd64 + arm64) with QEMU emulation
+    reason: supports both x86 servers and Apple Silicon developers
+  - category: TradeOff
+    chose: "Stayed on mcr.microsoft.com/dotnet/sdk:8.0 for Host despite larger image"
+    reason: needed for cloned repo build/test execution

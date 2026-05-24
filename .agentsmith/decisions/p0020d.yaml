@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0020d: Agentic Detail Updates
+phase: p0020d
+decisions:
+  - category: Architecture
+    chose: `ReportDetailAsync` on `IProgressReporter`
+    reason: fire-and-forget so failed detail posts never abort pipeline
+  - category: Implementation
+    chose: Rate throttling on detail events (max 1 per 3 files)
+    reason: prevents Slack API rate limit errors
+  - category: TradeOff
+    chose: Thread ts stored in memory only
+    reason: Dispatcher restart loses thread continuity but degrades to top-level messages

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0127b: Triage filter via activates_when + specificity tie-break (D3 slice 2/3)
+phase: p0127b
+decisions:
+  - category: Architecture
+    chose: "**`PhaseSpecificityTrimmer` extracted as a separate service.** TriageOutputProducer was already 196 lines pre-phase; folding the trim logic (BuildScoreIndex / TrimPhase / TrimList / TotalSkillCount / EnumerateNames) inline would have pushed it past 250. The trimmer is a single-responsibility orchestrator (cap any phase whose total exceeds the per-phase cap, drop lowest-specificity first), independently testable, and lets the producer stay focused on the LLM-call pipeline. -- alternatives: keep all the helpers private inside the producer (rejected: pushed the producer over 250 lines and entangled trim logic with the validate/retry path it doesn't share); make TrimToCap an internal static method tested via InternalsVisibleTo (rejected: trimming has its own dependencies"
+    reason: the scorer + the score index — and that's a service shape, not a static).
+  - category: Architecture
+    chose: "**Pre-filter happens inside TriageOutputProducer's ProduceAsync, not in StructuredTriageStrategy.** The strategy is a thin orchestrator (~66 lines, mostly logging + command expansion). Filtering is a property of how triage decides input, which lives in the producer. Adding a separate strategy step would mean two collaborators that walk the skill list with no shared state."
+    reason: |
+      alternatives: a new pre-strategy phase (rejected: extra DI plumbing for no observability gain).
+  - category: Architecture
+    chose: "**`ActivationSkillFilter` + `ActivationSpecificityScorer` are singletons in DI.** Both are stateless (the per-call parse cache lives inside the Filter call frame, not on the field). Singleton lifetime matches `ActivationExpressionParser` / `ActivationEvaluator` from p0125b"
+    reason: |
+      the same shape pattern. -- alternatives: scoped (rejected: nothing scoped about them); transient (rejected: pointless allocation per resolve).
+  - category: Implementation
+    chose: "**Specificity score is derived from AST shape (count of Identifier + Comparison nodes), not from a frontmatter field.** Phase C didn't introduce a separate `specificity` key; deriving from `activates_when` keeps it a single source of truth"
+    reason: |
+      operators who want a different score order rewrite their expression to be more specific (add an AND clause). The walker counts Identifier + Comparison terms and sums across And/Or branches; Not contributes 0 itself but its inner counts. Parse failures fall back to 0 so a malformed expression simply ranks lowest in the trim. -- alternatives: explicit `specificity:` frontmatter int (rejected: hand-tuned numbers drift from the actual expression; two sources of truth); count of AND-clauses only (rejected: misses OR-branches and comparison density).
+  - category: Implementation
+    chose: "**Skills with no `activates_when` pass through the pre-filter unchanged.** Parallel-format discipline from p0127a"
+    reason: |
+      legacy skills haven't migrated yet and shouldn't be gated by a check they don't participate in. They flow into the LLM prompt with their existing `activation.positive`/`negative`; the LLM still applies the legacy heuristic. After p0127c migrates every skill, every active skill carries `activates_when` and the legacy path becomes dead code (cleanup in p0131).
+  - category: Implementation
+    chose: "**`MaxSkillsPerPhase=5` default; counts ALL members of a `PhaseAssignment` (Lead + Analysts + Reviewers + Filter), not just one role.** The existing PhaseAssignment shape constrains Lead and Filter to one each"
+    reason: |
+      the variance is in Analysts + Reviewers. Treating the cap as a total-member count makes the limit predictable for operators without forcing per-role caps. When the total exceeds the cap, Lead and Filter slots are preserved; Analysts trimmed first, Reviewers second. -- alternatives: cap each role list independently (rejected: 5+5+5+1+1 caps would let phases balloon to 17 skills); cap only Analysts (rejected: Reviewers can balloon the same way).
+  - category: Implementation
+    chose: "**Trim ties broken by skill name ascending, not by frontmatter order or LLM order.** Determinism guarantees the trim is reproducible across runs given the same inputs"
+    reason: |
+      re-running on the same ticket produces the same kept-skills list, so debugging a flagged-out skill is straightforward. -- alternatives: keep LLM order (rejected: LLM ordering is stochastic across runs); keep frontmatter order (rejected: opaque to operators reading the trim log).
+  - category: Implementation
+    chose: "**Specificity tie-break is post-LLM, not pre-LLM.** The LLM's job is to pick which skills genuinely match the ticket; the cap is a guardrail against runaway picks. Pre-LLM trimming would make decisions blind to ticket content. The post-LLM trim only fires when the LLM exceeds the cap"
+    reason: |
+      typical cases (LLM picks 3 from 5 candidates) never trigger. The trim log is `Phase {Phase} trimmed from {Before} to {After} skills by specificity (kept: {Names})` so operators see exactly what was dropped.
+  - category: Implementation
+    chose: "**Parse-failure on `activates_when` excludes the skill from the candidate set instead of crashing triage.** `validate-concepts` (p0125d) is the build-time gate; a parse failure at runtime means the gate was bypassed. Excluding the skill is fail-safe (the skill simply doesn't run); crashing triage would kill the whole pipeline for one bad skill. The Error log + skill name + offset gives operators the same fix-loop as the build-time verb."
+  - category: TradeOff
+    chose: "**First SkillCallRuntime consumer migration is deferred.** SkillRoundHandlerBase (441 lines) and FilterRoundHandler (224 lines) both build per-role prompts via complex pipelines that don't map 1:1 to SkillCallRequest's flat shape. Migrating either is its own ~40-test phase. Bundling it into p0127b would have ballooned the slice past one-PR-able size. The triage path is independently demonstrable without the consumer migration"
+    reason: |
+      the LLM still sees a narrowed candidate set; PerSkillBreakdown will light up when the consumer migration lands. -- alternatives: migrate SkillRoundHandlerBase here (rejected: 441-line refactor + extensive prompt-build rework explodes the slice).

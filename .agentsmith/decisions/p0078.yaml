@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0078: Gate Category Routing
+phase: p0078
+decisions:
+  - category: Architecture
+    chose: Filter before gate, merge after
+    reason: each gate sees only its input_categories, results are combined.
+  - category: Architecture
+    chose: Unmatched findings pass through unchanged
+    reason: categories not claimed by any gate are not lost.
+  - category: Architecture
+    chose: No gate ordering dependency
+    reason: gates in same stage run independently on disjoint slices.

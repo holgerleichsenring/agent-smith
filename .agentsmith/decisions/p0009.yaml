@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0009: Model Registry & Scout
+phase: p0009
+decisions:
+  - category: Architecture
+    chose: TaskType enum maps task to appropriate model
+    reason: Haiku for discovery, Sonnet for coding, optional Opus for reasoning
+  - category: Architecture
+    chose: Scout as implementation detail of ClaudeAgentProvider, not separate interface
+    reason: keeps IAgentProvider stable
+  - category: TradeOff
+    chose: Scout is read-only (no write_file, no run_command)
+    reason: accepts limitation to prevent Scout from breaking code
+  - category: Architecture
+    chose: "Backward compatible: Models config is optional"
+    reason: existing single-model configs work unchanged

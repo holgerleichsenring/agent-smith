@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0041: Decision Log
+phase: p0041
+decisions:
+  - category: Architecture
+    chose: IDecisionLogger with nullable repoPath and tell-don't-ask pattern
+    reason: handlers always log, implementation decides what to do
+  - category: Implementation
+    chose: FileDecisionLogger + InMemoryDecisionLogger split
+    reason: coding pipelines write to file, non-repo pipelines skip silently
+  - category: Architecture
+    chose: Decisions captured at decision moment (GeneratePlan, AgenticExecute, Bootstrap) not post-processed
+    reason: ensures accuracy

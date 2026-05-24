@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0125a: Concept Vocabulary Typed Schema (D1 slice 1/4)
+phase: p0125a
+decisions:
+  - category: Architecture
+    chose: "**Concept vocabulary becomes typed at the schema level: ConceptType ∈ {Bool, Int, Enum}.** `ProjectConcept` carries `Type`, optional `EnumValues`, optional `IntRange`, and `Writers`. Legacy `Section` field removed"
+    reason: |
+      the three-section split (project_concepts/change_signals/run_context) was informational, no code branched on it; it collapses to a flat namespace with prefix conventions documented in the YAML header. The type system is closed (no string-typed concepts) so future `activates_when` expressions can't drift on typos like `language = "csharp"`. -- alternatives: open string types (rejected: typo-resistance lost), per-entry default override (rejected: per-type defaults are loader-internal so missing-concept evaluation stays predictable).
+  - category: Architecture
+    chose: "**Hard cutover, no dual-tolerance loader.** Boot against the legacy three-section YAML fails loudly with a migration hint pointing at the new schema. Cross-repo PRs (this repo + agent-smith-skills) merge synchronously."
+    reason: |
+      alternatives: dual-tolerance with a follow-up cleanup phase (rejected: two coordinated PRs is one merge dance, dual-tolerance is two; the cleanup-later approach drags the schema split across two phases instead of one).
+  - category: Implementation
+    chose: "**Per-type defaults declared once in `ConceptVocabulary.GetDefault`, not per entry.** False for Bool, 0 for Int, first declared enum value for Enum. `GetDefault` throws on unknown concept name"
+    reason: |
+      writers should fail loud on typos rather than silently see a default. -- alternatives: per-entry `default_when_absent` field (rejected: would let one bool concept default to true and another to false, making activation evaluation surprising once the boolean evaluator lands in p0125b).
+  - category: Implementation
+    chose: "**Loader detects the legacy shape via simple text-pre-check (newline + two-space + section name + colon), not by deserializing twice.** Reason: the YamlDotNet error for shape-mismatch is opaque; the operator-facing error for \"your YAML is in the old shape\" needs to be specific and actionable. Pre-check is one if-statement; cleaner than catching a deserialization exception and inferring intent."
+    reason: |
+      alternatives: catch YamlDotNet exception and inspect (rejected: error messages would degrade once YamlDotNet versions move).
+  - category: TradeOff
+    chose: "**Migration script (`scripts/migrate-concept-vocabulary.csx`) dropped.** 68 entries in 92 lines of YAML is one editor pass; scripting the migration costs more than running it. The YAML lives in our repo (agent-smith-skills), not operator-owned, so there's no second invocation to amortize against."
+    reason: |
+      alternatives: ship the script in the agent-smith repo for future operator-owned vocab files (deferred: no operator vocab files exist yet; revisit when the first one shows up).
+  - category: TradeOff
+    chose: "**Writers list is parsed and stored but not validated against real handler classes in this slice.** The IConceptWriter handler-registry it would be checked against doesn't exist yet"
+    reason: |
+      that's p0125d. Storing the list now means the YAML can be migrated once with final shape; validation lights up when the CLI verb arrives. All 68 migrated entries currently have empty `writers: []` because no publishing handlers exist yet — those land in p0125c.
+  - category: TradeOff
+    chose: "**All 68 migrated entries are typed bool with `writers: []`.** No entry today represents a count or an enum; counts (`findings_count` etc.) appear when scanning handlers publish them in p0125c, project-language enum lands when ProjectAnalyzer publishes it. Bool is the right type for the entire current namespace. Introducing a fictional int/enum entry now to \"exercise the type system\" would couple p0125a to a publisher that doesn't exist. The loader's int/enum paths are exercised by the test pack instead."

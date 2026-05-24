@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0140d: ResolvedProject.Repo shim removal + ContextKeys.CurrentRepo
+phase: p0140d
+decisions:
+  - category: Architecture
+    chose: "**CurrentRepo resolution lives in `ExecutePipelineUseCase`, not `PipelineExecutor.ExecuteAsync`.** The spec placed it in PipelineExecutor.ExecuteAsync but PipelineExecutor takes `ResolvedProject + PipelineContext` not `PipelineRequest`, so it can't see RepoName. ExecutePipelineUseCase is the single entry point that has the request, and it already does pre-execute setup (project lookup, pipeline resolution, context priming). Adding ResolveCurrentRepo right after the project lookup and before `pipeline.Set(...)` calls is the natural place"
+    reason: |
+      and crucially BEFORE `sourceConfigOverrider.Apply()` which now reads CurrentRepo. -- alternatives: thread PipelineRequest into PipelineExecutor (rejected: changes the IPipelineExecutor contract for many other callers); have callers pre-set CurrentRepo (rejected: scatter the resolution logic).
+  - category: Architecture
+    chose: "**`SourceConfigOverrider.Apply` now mutates `pipeline.CurrentRepo` (not just returns a new project).** Discovered while migrating SourceConfigOverrider: the call site at ExecutePipelineUseCase.cs:114 already DISCARDED the return value (pre-existing dormant bug"
+    reason: |
+      overrides silently never propagated to the executor). The p0140d migration adds `pipeline.Set(ContextKeys.CurrentRepo, updated)` inside Apply when overrides change anything. The return value still produces a project with the updated repo replaced in the Repos list (siblings preserved) for callers that DO capture it; the side-effect on pipeline ensures the read path through CurrentRepo also sees the override. Net: CLI source-override flags actually work for the first time. -- alternatives: fix the call site to capture the return (rejected: subtle action-at-a-distance, the call site doesn't know what changed); leave the pipeline-write out and just preserve the old return-only shape (rejected: continues the dormant bug).
+  - category: Architecture
+    chose: "**One `TrackerPoller` to one `ProjectMatch` per-spawn: per-match `TriggerSelectionHelper.ByTrackerType` for the poller path; `ByKind` for webhook path.** Polling knows only its TrackerType (it doesn't know which specific trigger fired since polling has no trigger event). Webhook knows the trigger block via `ProjectMatch.Kind` (\"github\"/\"gitlab\"/etc.). Both paths converge on the same `SpawnPipelineRunsUseCase.ExecuteAsync(...)` with the resolved `WebhookTriggerConfig`. The helper exposes both keys so each caller picks the right one."
+    reason: |
+      alternatives: one helper, polling synthesises the kind string (rejected: maps tracker type back to kind string is awkward and error-prone).
+  - category: Architecture
+    chose: "**`PipelineExecutor` reads CurrentRepo from context, not from `projectConfig`.** Line 205 (sandbox-language resolution) previously read `projectConfig.Repo`. Post-p0140d it reads `context.Get<RepoConnection>(ContextKeys.CurrentRepo)`. The reasoning: PipelineExecutor receives `ResolvedProject` (still useful for project-wide fields like Agent, Tracker, Pipelines) but the run's specific repo is per-context. Consistent with how Sandbox / ProjectMap / ResolvedPipeline are read."
+    reason: |
+      alternatives: pass RepoConnection as a separate parameter (rejected: another ctor/method-signature change; the context-key pattern is the established conduit).
+  - category: Implementation
+    chose: "**Shim deletion is hard, not `[Obsolete]`-with-rollout-window.** The `.Repo` accessor was explicitly transitional from p0139, documented to disappear in p0140 (both in the umbrella spec and in p0139's done criteria). By p0140d every internal consumer has migrated; an `[Obsolete]` window protects external custom handlers that don't exist in any known operator deployment. Compile-time break + the clear error message (\"ResolvedProject has no member 'Repo'\") is more useful than a silent obsolete-warning that gets swallowed."
+    reason: |
+      alternatives: ship `[Obsolete]` for one release window (rejected: no known external consumers; adds noise to internal code).
+  - category: Implementation
+    chose: "**`GitLabMrLabelWebhookHandler.FindProjectBySourceUrl` migrated to iterate `project.Repos` (was `project.Repo.Url`).** This is a dialogue handler (out-of-scope for p0140b webhook migration) but reads `.Repo.Url` for source-URL match, so the shim deletion required a migration. The new logic iterates all repos in all projects and matches against any of their URLs. Multi-repo projects can now correctly attribute a PR comment to the right project regardless of which sibling repo hosts the PR."
+    reason: |
+      alternatives: leave as-is + keep `.Repo` shim (rejected: defeats the entire phase); add a separate "url-of-current-repo" helper (rejected: this is project-lookup, not run-context).
+  - category: Implementation
+    chose: "**`StartupSummaryLogger` emits one project-summary line + N indented per-repo lines.** Pre-p0140d: one line per project with `source={Repo.Type} ({Repo.Url})` baked in. Post-p0140d: one line per project with `{RepoCount} repo(s)` + one indented line per repo (`- {Repo.Name}: {Source}`). Multi-repo projects naturally show their shape at startup, no special case. Single-repo projects show as \"1 repo(s)\" + 1 indented line"
+    reason: |
+      slightly more verbose than before but consistent. -- alternatives: keep the old single-line format when Repos.Count == 1 (rejected: special-casing single-repo defeats the entire shim-removal intent — uniformity is the win).
+  - category: Implementation
+    chose: "**`ExecutePipelineUseCaseTests` fixtures gained explicit Repos.** Four existing tests built `new ResolvedProject { Pipeline = \"fix-bug\" }` with no Repos"
+    reason: |
+      pre-p0140d the test setup happened to bypass any `.Repo` read. Post-p0140d `ResolveCurrentRepo` throws on `Repos.Count == 0` when RepoName is null. Test fixtures now include `Repos = new[] { new RepoConnection { Name = "..." } }`. Operator-facing: a project with zero repos is now an explicit error at run-start, not a silent NRE somewhere downstream. -- alternatives: relax ResolveCurrentRepo to accept zero-Repos (rejected: zero-repo projects are operator misconfigurations; failing fast is correct).
+  - category: TradeOff
+    chose: "**`SourceConfigOverrider.Apply` keeps its `ResolvedProject` return-type even though it now writes through pipeline.** Removing the return would touch every test that asserts the new project shape (the override test pack). Keeping the return-type stable + adding the pipeline-write is the minimal-disruption migration. Some future cleanup phase can collapse to `void Apply(project, pipeline)` if no caller actually captures the return."

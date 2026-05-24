@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0058: Interactive Dialogue
+phase: p0058
+decisions:
+  - category: Architecture
+    chose: Typed DialogQuestion (Confirmation, Choice, FreeText, Approval, Info) over binary Yes/No
+    reason: supports nuanced human input without proliferating new adapters
+  - category: Implementation
+    chose: Dialogue trail always in result.md, never lost
+    reason: audit trail of all agent-human interaction tied to the run
+  - category: TradeOff
+    chose: Timeout defaults to sensible value rather than infinite wait
+    reason: CLI/PR workflows don't block forever without human
+  - category: Implementation
+    chose: Agent has ask_human tool with system prompt rules about when to ask
+    reason: prevents overuse while allowing genuine clarifications

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0043c: SARIF Output Strategy
+phase: p0043c
+decisions:
+  - category: Architecture
+    chose: IPrCommentProvider injected separately into SarifOutputStrategy
+    reason: decouples platform-specific comment posting from finding analysis
+  - category: Implementation
+    chose: Skill output requires structured format (file/line/severity/confidence) instead of prose
+    reason: enables SARIF mapping without LLM re-parsing

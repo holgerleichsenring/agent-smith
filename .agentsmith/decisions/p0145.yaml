@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0145: Pipeline-scoped ToolKit + SandboxToolHost decomposition
+phase: p0145
+decisions:
+  - category: Architecture
+    chose: "**Three hosts, not seven (one per tool).** Decomposition by responsibility, not by granularity. `FilesystemToolHost` bundles everything that operates on the sandbox FS (shared guards, shared sandbox dependency). `LogDecisionToolHost` is a single tool but semantically separate (audit sink, no sandbox dep). `HumanToolHost` likewise semantically separate (operator interaction). Seven hosts would inflate constructor wiring without semantic gain. -- alternatives: one host per tool (rejected: boilerplate explosion); two hosts (sandbox + non-sandbox) (rejected: LogDecision is always-on, AskHuman is optional/conditional"
+    reason: different lifecycles).
+  - category: Architecture
+    chose: "**`IToolHost.GetTools(phase, mode)`"
+    reason: |
+      phase filter lives on the host, not the toolkit.** Per-host phase semantics differ (FilesystemToolHost: WriteFile only in Implementation/Bootstrap; LogDecisionToolHost + HumanToolHost: every phase). Centralising the phase matrix in the ToolKit would leak host-internal knowledge — every new host would need two-file edits. Per-host filter keeps the responsibility local. -- alternatives: central phase-tool matrix in ToolKit (rejected: leaks host internals); no phase argument on hosts (rejected: ToolKit would have to know per-host phase behavior — same problem).
+  - category: Architecture
+    chose: "**`IPipelineToolPolicy` keyed by pipeline NAME, not pipeline TYPE.** PipelineType (Structured/Discussion/...) is too coarse"
+    reason: |
+      fix-bug and add-feature are both Structured, but future message-family pipelines ("invoice-processor", "calendar-scheduler") may both be Message yet need different tool surfaces. Per-name keying matches the declarative pipeline definition directly. -- alternatives: per-PipelineType map (rejected: too coarse); skill-side tool declarations (rejected: skill-side knowledge leaks into tool-side; pipeline definition is the natural home).
+  - category: Architecture
+    chose: "**`AllHostsActivePolicy` is the default for unknown pipeline names, NOT empty set.** Tests, custom operator presets, and the transition window all need a safe fallback. \"All hosts active\" preserves pre-p0145 behaviour 1:1 for code-family pipelines; the per-host phase filter is the second defence line. Empty fallback would silently break unknown pipelines."
+    reason: |
+      alternatives: throw on unknown pipeline (rejected: breaks tests with custom names); pre-register every name explicitly (rejected: boilerplate for every existing preset).
+  - category: Architecture
+    chose: "**`IToolHost` instances are passed at call time to `IToolKit.GetToolsFor`, NOT DI-injected into ToolKit's ctor.** The spec assumed `services.AddScoped<IToolHost, FilesystemToolHost>()` etc. would work, but each host carries per-pipeline-run state (`ISandbox`, `IDialogueTransport?`, `jobId`, `repoPath`) that lives in `PipelineContext`, not DI. ISandbox isn't even DI-registered (only `ISandboxFactory` is). Pivot: ToolKit takes only `IPipelineToolPolicy` via DI (stateless, singleton); callers construct host instances with their runtime state and pass them as a parameter. Existing handlers continue to construct the obsolete `SandboxToolHost` facade unchanged."
+    reason: |
+      alternatives: factory-per-host registration with runtime state via `IServiceProvider.GetRequiredKeyedService` (rejected: still needs per-run state plumbing); register `ISandbox` per-scope (rejected: significant DI rework outside p0145 scope).
+  - category: Implementation
+    chose: "**`FilesystemToolHost` does NOT take `IDecisionLogger`.** Spec listed it as \"minimal, could later go\" but no filesystem tool body references it. Skipping the unused dep keeps the ctor honest; `LogDecisionToolHost` owns the logger."
+    reason: |
+      alternatives: include the dep "for symmetry with the legacy facade" (rejected: dead dependency, principles say no).
+  - category: Implementation
+    chose: "**`HumanToolHost` takes `IDialogueTransport?` + `jobId?` directly, NOT a new `IHumanQueryService`.** Spec referenced \"existing internal `IHumanQueryService`\" but no such interface exists in the codebase (verified across src + agent-smith-skills + sibling phase specs p0141/p0142/p0143/p0144). Pragmatic 1:1 migration uses the same wiring the legacy facade did. A future extraction can introduce the interface when there's a second consumer."
+    reason: |
+      alternatives: extract a phantom interface in p0145 (rejected: scope creep, premature abstraction for one consumer).
+  - category: Implementation
+    chose: "**`SkillCallRuntime` body unchanged"
+    reason: |
+      only `SkillCallRequest.PipelineName` field added.** Spec assumed (post-p0142) that SkillCallRuntime calls `ToolKit.GetToolsFor(phase, mode)`. But p0142 is still in `planned/` — today the runtime takes a pre-built `ToolSet`. Added the optional `PipelineName` field to SkillCallRequest so p0142 has the carrier in place when it migrates the runtime; runtime body itself is untouched. The spec's `SkillCallRuntime_ExecuteAsync_PipelineNameFromRequest_PassedToToolKit` test would be vacuous today and was therefore deferred to p0142. -- alternatives: refactor SkillCallRuntime to call ToolKit now (rejected: scope creep into p0142); skip the field (rejected: p0141 already references it).
+  - category: Implementation
+    chose: "**`ContextKeys.PipelineName` added as a new key alongside the existing `pipeline_name` concept.** The concept is for the activation expression evaluator (enum-typed); the new ContextKey carries the raw preset name string for non-concept consumers (ToolKit lookup, future SkillCallRequest factories). Both are set in `ExecutePipelineUseCase` at run start. -- alternatives: re-use the concept (rejected: concept access requires `IRunStateConcepts` indirection"
+    reason: |
+      overkill for a string lookup); thread `request.PipelineName` through every handler ctor (rejected: ripples through dozens of constructors).
+  - category: Implementation
+    chose: "**`SandboxToolHost` facade keeps all 7 public tool methods + `GetChanges()/GetDecisions()` accessors, delegating to the three internal sub-hosts.** Existing handlers (AgenticExecuteHandler, BootstrapRoundHandler, GenerateDocsHandler, GenerateTestsHandler, ProjectAnalyzer) and the `SandboxToolHostExtensions` extension methods both reach for these"
+    reason: |
+      preserving the surface 1:1 keeps the facade's `[Obsolete]` warning purely informational, no compile-break. Per-pipeline state (change list, decision list) is owned by the appropriate sub-host and exposed through the facade. -- alternatives: facade exposes only `GetTools()` (rejected: extensions + `AIFunctionFactory.Create(host.ReadFile)` patterns break); migrate all callers in p0145 (rejected: scope creep, conflicts with the "facade with [Obsolete]" decision).
+  - category: TradeOff
+    chose: "**`#pragma warning disable CS0618` only in `SandboxToolHostExtensions.cs` (the bridge file).** Suppressing CS0618 at every caller would scatter the warning-suppression. Suppressing only in the canonical bridge that exists *because of* the facade keeps the warning visible at the handler-level call sites"
+    reason: |
+      handlers that still construct `SandboxToolHost` directly continue to warn, signposting the migration path. -- alternatives: suppress at every handler (rejected: hides the migration TODO); mark the extensions class `[Obsolete]` too (rejected: would cascade through callers).

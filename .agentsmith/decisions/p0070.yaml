@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0070: Decision Log — Phase/Run Context
+phase: p0070
+decisions:
+  - category: Architecture
+    chose: sourceLabel as section header instead of category
+    reason: |
+      the real lookup key is "which phase made this decision", not "what kind of decision was it". Category preserved as inline tag.
+  - category: TradeOff
+    chose: Optional parameter instead of new overload
+    reason: |
+      keeps backward compat, callers that don't know their phase context still work with category-only sections.
+  - category: Implementation
+    chose: Ticket ID as sourceLabel in pipeline handlers
+    reason: |
+      GeneratePlanHandler and AgenticExecuteHandler pass #{ticketId} so run decisions land under their ticket.

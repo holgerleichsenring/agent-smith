@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0013: Ticket Writeback
+phase: p0013
+decisions:
+  - category: Architecture
+    chose: Default interface implementations on ITicketProvider
+    reason: backward compatible, existing providers work without changes
+  - category: Implementation
+    chose: Fire-and-forget ticket operations wrapped in try/catch
+    reason: failures never block the pipeline
+  - category: Architecture
+    chose: CommitAndPRHandler closes ticket and posts summary
+    reason: provides feedback loop to issue tracker

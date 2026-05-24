@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0020a: Intent Engine
+phase: p0020a
+decisions:
+  - category: Architecture
+    chose: "Three-stage engine: Regex (free) → Haiku (cheap) → deterministic project resolution"
+    reason: 90% resolved free, fallback only when needed
+  - category: Architecture
+    chose: Parallel ticket provider queries for project resolution
+    reason: minimizes latency on multi-project configs
+  - category: TradeOff
+    chose: Accepted regex brittleness for 90% of inputs to avoid AI cost
+    reason: only calls Haiku on parse failures

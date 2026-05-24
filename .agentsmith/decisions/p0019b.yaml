@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0019b: K8s Helm
+phase: p0019b
+decisions:
+  - category: Architecture
+    chose: Helm Chart replaces manual `apply-k8s-secret.sh`
+    reason: templated secrets, repeatable deployments, built-in rollback
+  - category: TradeOff
+    chose: Kustomize kept for reference
+    reason: users can stick with existing workflow or migrate to Helm incrementally

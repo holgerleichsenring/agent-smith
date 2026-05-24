@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0124: follow-up: TriageOutputValidator vocab-fallback
+phase: p0124
+decisions:
+  - category: Architecture
+    chose: "**`SkillObservation.Description` capped at 500 chars; new optional `Details` field at ≤4000 chars carries long-form prose.** Empirical sweep of recent runs showed typical Description is 200-300 chars, worst case ~500"
+    reason: |
+      the 1500-char cap initially proposed was inflated theory. 500 enforces brevity for Console/Summary scanability; multi-paragraph rationale moves to Details, which Markdown/SARIF render but Console/Summary do not. `ObservationCaps` constants are the single source of truth (DescriptionMaxChars=500, SuggestionMaxChars=300, RationaleMaxChars=500, DetailsMaxChars=4000).
+  - category: Architecture
+    chose: "**Channel-aware output rendering.** Console → Description-only; Summary → Description-only; SARIF.message.text → Description (full), SARIF.properties.detailed_message → Details (when present); Markdown → Description as section head + Details as body paragraph when present. Reason: Console/Summary serve fast triage, Markdown/IDE-hover serve archival reading"
+    reason: |
+      same observation, different channels. Per the user's framing ("die Texte können gerne komplett in die markdown.md aber nicht in die console und auch nicht in die summary").
+  - category: Architecture
+    chose: "**Field truncation with marker, not rejection.** Over-cap fields get truncated to `cap - markerLen` then suffixed with `…[truncated, original was N chars]`. Reason: rejecting drops real findings on a length technicality; truncating preserves the headline + emits a per-(skill,field) warning so skill authors see the nudge. Marker text exposes both the cap-hit and the overshoot magnitude for skill-side tuning. ObservationParser applies caps in `TruncateField` before observation construction; total output never exceeds the cap including the marker."
+  - category: Architecture
+    chose: "**Filter prompt input excludes Details.** The yes/no filter decision needs the headline, not multi-paragraph context. Including Details would inflate per-obs filter input from ~1500 to ~5500 chars, collapsing batch_size from 18 to 5 at max_output_tokens=8192. New private static helper `FilterRoundHandler.RenderForFilter(observation)` emits the trimmed shape (omits Details and Rationale); existing observation-render path stays for non-filter contexts. Filtered-output observations preserve Details intact"
+    reason: we just don't ship it INTO the filter prompt.
+  - category: Architecture
+    chose: "**Batched filter with deterministic batch size from caps, not heuristic budget fraction.** `batch_size = floor(max_output_tokens / 375) × 0.85` (worst-case 1500 chars per obs ≈ 375 tokens; 0.85 reserve for LLM verbosity + JSON envelope). At 8192 → batch_size ≈ 18; at 4096 → ≈ 9. Worst-case basis (not realistic average): if a skill ever emits all-fields-at-cap, we still fit. With caps known, the formula has a single source of truth"
+    reason: |
+      the previous 2/3-budget-fraction was guessing because the cap was unbounded. `TokenBudgetBatcher.Split` does the splitting via JSON-serialize-and-measure (no tiktoken dependency, 4 chars/token proxy).
+  - category: Architecture
+    chose: "**Per-batch failure mode is best-effort + visible.** When a batch returns zero parseable observations, that batch's input observations are kept unchanged and `failedBatchCount` increments. After all batches, if `failedBatchCount > 0`, `FilterCoverageObservationFactory` appends a single Coverage-Incomplete observation: Concern=Correctness (meta-info, not a security finding), Severity=Info, Category=`\"meta\"`, Description = `Filter coverage incomplete: X of Y batches unparseable; Z observations not reviewed and may include false positives.`, ReviewStatus=`\"not_reviewed\"`. Severity=Info is already excluded from HIGH/MEDIUM/LOW counts in `ObservationSummary`, so it shows up in Markdown/SARIF without polluting the headline metric."
+  - category: Architecture
+    chose: "**`ResilientJsonObjectExtractor` is the safety net for genuine output-token truncation.** Caps make truncation-mid-array unlikely (batches deterministically fit), but LLMs can still over-emit (verbose preamble pushing the actual JSON past the budget). Brace-counting state machine with string-literal awareness (`\"` toggles in-string, `\\` escapes next-char)"
+    reason: |
+      ~30 lines, no state-machine library, no Utf8JsonReader complexity. Right separation: extractor finds object boundaries, JsonDocument.Parse validates content per-block.
+  - category: Architecture
+    chose: "**`ObservationParser.TryParseWithoutIds` gains a resilient fallback path.** Order: try `ExtractJsonArray` + `JsonDocument.Parse` (current strict path). On `JsonException`, fall through to `ResilientJsonObjectExtractor.ExtractObjects` on the raw response → element-wise `TryBuildObservation` per extracted block → return survivors. If that yields zero, return null (true full-failure). The strict path is fast for well-formed responses; the resilient path is the diagnostic / recovery channel."
+  - category: Implementation
+    chose: "**Per-batch logging surfaces input count + expected output chars + actual response chars.** The 0.85 reserve is observable in logs, not just guessed. If actual response chars consistently approaches expected, operators see the headroom is being eaten and can lower batch_size or raise max_output_tokens. If actual is consistently well below expected, the reserve was over-conservative and could be tightened in a future tuning pass."
+  - category: Implementation
+    chose: "**Single-observation-exceeds-budget edge case is no longer reachable.** With Description ≤500 and other fields capped, the worst-case JSON-serialized observation is bounded at ~1500 chars. At any reasonable max_output_tokens (≥2000), an observation always fits a batch. Even if a skill bug emitted a 4000-char Description, the parser truncates to 500 with marker, so the persisted observation is still ≤500. Batching arithmetic always works"
+    reason: no special-case for oversized observations needed.
+  - category: Tooling
+    chose: "**agent-smith-skills 1.6.0 → 1.7.0 is the recommended pairing, but pre-1.7.0 skills still work via parser truncation.** Hard-blocking on a specific skills version would brick existing operator setups when they upgrade agent-smith. The parser cap-truncation path enforces correctness regardless of skill version. With v1.6.0 skills the warning logs are noisier (every long Description gets truncated); with v1.7.0 they're rare. Operators running agent-smith p0124 against v1.6.0 skills will see a recurring \"Description truncated from N chars\" warning until they upgrade"
+    reason: |
+      that's the migration nudge. All 16 api-security skills get the standardized length-contract paragraph in their `## Output` section.
+  - category: TradeOff
+    chose: "**No tiktoken-based size estimation.** JSON-serialize-and-measure plus the 0.85 reserve handles the slack without a token-counting dependency. The 4-chars-per-token proxy is conservative for English JSON output (real ratio is closer to 3.5-4.0). Adding tiktoken would tighten the estimate but adds a per-provider tokenizer dep we'd have to keep in lockstep with the model"
+    reason: not worth it for a 15% reserve we already build in.
+  - category: TradeOff
+    chose: "**No retry on per-batch failure.** The batch+fallback combo delivers usable output without retry; retry adds cost (additional LLM calls) and complexity (idempotency, retry budget) for marginal benefit. Coverage-Incomplete observation makes the gap visible"
+    reason: operator can re-run if they care.
+  - category: TradeOff
+    chose: "**Per-Concern field-cap overrides deferred.** Current 16 api-security skills don't need it; legal-analysis pipeline can revisit when it hits the cap. The `ObservationCaps` shape is forward-compat"
+    reason: adding per-Concern overrides later is additive, not breaking.
+  - category: TradeOff
+    chose: "**No artifact-mode batching.** Artifact-role filters produce a single text artifact, not a list; size pressure hasn't surfaced there. If it does, the batching shape can be lifted into the artifact-mode handler later."
+  - category: Architecture
+    chose: "**`TriageOutputValidator.HasKey` accepts any key declared in `concept-vocabulary.yaml` as a valid rationale, even when the cited skill author didn't list it in `role_assignment.<role>.positive`.** Skill-specific keys remain useful as priority signals to the triage prompt (highest-fit skill picks given run context), but they're no longer a closed enum the LLM must memorize. Vocab is the closed namespace; if a key is in vocab, it's a known concept and the LLM's choice is semantically valid. **Why:** during a real api-security-scan run after agent-smith-skills 1.7.1 (which added 15 vocab keys + activation/role_assignment metadata to all skills), the LLM picked `api_security_scan` as the Lead-rationale for `api-vuln-analyst`"
+    reason: |
+      vocab-valid, semantically applicable — but the validator rejected because `api-vuln-analyst.role_assignment.lead.positive` only lists `nuclei_primary` and `owasp_categorisation`. Even after retry, the LLM converged on the same "wrong" choice and triage failed hard. Vocabulary-skill drift was breaking triage with no recovery path. **How to apply:** the skill's own `role_assignment.<role>.positive`/`negative` keys are still checked first (priority signal), the existing `HasNoCriteriaAtAll` defensive default still applies, then vocab-fallback. Order: skill-activation → skill-role-assignment → no-criteria-defensive → vocab. Keys outside both skill criteria AND vocab remain rejected — that's a true LLM hallucination.
+  - category: Implementation
+    chose: "**Vocabulary plumbed into pipeline context as `ContextKeys.ConceptVocabulary`.** `ISkillLoader` gains a `LoadVocabulary(string skillsDirectory)` method (returns `ConceptVocabulary.Empty` when no vocab file found). `LoadSkillsHandler` calls it alongside `LoadRoleDefinitions` and stores both. `TriageOutputProducer` reads vocab from pipeline context and passes it to `validator.Validate(...)`. The validator's `Validate` overload accepts `ConceptVocabulary?` (nullable, defaults to Empty for backward compat with existing callers and test mocks). The original `Validate(output, skills)` overload is removed since callers were a closed set."
+  - category: TradeOff
+    chose: "**Strict `role_assignment.<role>.positive` validation deliberately removed in favor of soft-priority-signal semantics.** Tighter validation theoretically catches more LLM hallucinations early, but in practice the LLM picks vocab-valid keys that just happen not to be in the skill's narrow whitelist"
+    reason: |
+      and the validator can't distinguish "smart fallback" from "hallucination" without the vocab as the reference set. The robust answer: trust vocab as the closed namespace, treat skill criteria as priority hints. Skill authors writing role_assignment blocks now describe *which keys this skill responds to most strongly* (used by the prompt for fit-scoring), not *which keys the LLM is allowed to cite when assigning this skill* (used by the validator as a closed enum).

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0033: Run Cost in Result
+phase: p0033
+decisions:
+  - category: Architecture
+    chose: YAML frontmatter in `result.md` with cost breakdown by phase
+    reason: human-readable and machine-parseable, persists in repo
+  - category: Implementation
+    chose: `RunCostSummary` moved to Contracts
+    reason: Application layer can access without Infrastructure dependency

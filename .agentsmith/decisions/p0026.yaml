@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0026: Coding Principles Detection
+phase: p0026
+decisions:
+  - category: Architecture
+    chose: Per-project coding principles loaded at runtime
+    reason: respects project-specific style, agent sees rules before planning
+  - category: Implementation
+    chose: Principles as free-form markdown (no schema)
+    reason: flexibility for humans to define culture-specific rules

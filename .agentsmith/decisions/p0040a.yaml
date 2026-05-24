@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0040a: Contracts Extensions & ProviderRegistry
+phase: p0040a
+decisions:
+  - category: Architecture
+    chose: ITypedProvider base interface for all typed providers
+    reason: eliminates hardcoded factory switches via ProviderRegistry<T>
+  - category: Architecture
+    chose: AttachmentRef abstraction for all storage sources
+    reason: supports multiple backends without coupling to specific implementation
+  - category: Implementation
+    chose: Config passed at construction time (via IOptions<T>) not at factory method call
+    reason: cleaner DI composition

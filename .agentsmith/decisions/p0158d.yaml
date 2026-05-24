@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0158d: CLI ergonomics + multi-repo guard
+phase: p0158d
+decisions:
+  - category: Architecture
+    chose: "**Multi-repo guard lives in ExecutePipelineUseCase, not in SourceOptions.ApplyTo.** The CLI populates ContextKeys.SourceOverrideRepo + ContextKeys.Source* on the request context; ExecutePipelineUseCase resolves the project, then applies the guard once with full project shape in scope. Pushing the guard into SourceOptions would require every CLI command to resolve the project up-front just to validate flags"
+    reason: |
+      duplicating ExecutePipelineUseCase's config-load + project-resolve flow for one check. The single-checkpoint design also covers non-CLI entry paths (webhooks, pollers, future intents) automatically. -- alternatives: guard in SourceOptions.ApplyTo with an optional ResolvedProject parameter (rejected: defensive but redundant once the executor enforces); guard in each command's pre-flight (rejected: 8 duplicated checks).
+  - category: Implementation
+    chose: "**`--repo NAME` is a single option on SourceOptions; AddTo lights it up on every command that already uses SourceOptions.** Eight source-using commands (FixCommand, FeatureCommand, ApiScanCommand, SecurityScanCommand, InitCommand, AutonomousCommand, RunCommand, LegalCommand) inherit the flag without per-command edits"
+    reason: |
+      they call `_sourceOptions.AddTo(command)` already. The Repo property feeds ContextKeys.SourceOverrideRepo via ApplyTo. -- alternatives: per-command Option definitions (rejected: 8x duplication for one identical flag).
+  - category: TradeOff
+    chose: "**Single-repo projects keep accepting `--source-*` without `--repo`.** For the common case (developer working on a single configured repo), forcing `--repo NAME` would be an ergonomics regression with no disambiguation benefit (Repos[0] IS the project). Multi-repo projects have a real ambiguity (which repo does --source-path override?) so the rejection fires only there."
+    reason: |
+      alternatives: require --repo always (rejected: bad ergonomics for the most common case); silently apply to Repos[0] on multi-repo (rejected: ambiguous, easy to misuse without operator feedback).
+  - category: TradeOff
+    chose: "**CHANGELOG entries are commit-message-driven, not hand-edited.** The repo uses release-please which builds CHANGELOG.md from conventional-commit messages. The p0158a / p0158b / p0158c / p0158d commits each use `feat(...)!: ...` (breaking-change marker) with detailed bodies"
+    reason: |
+      release-please picks those up at the next release and renders the migration notes in the auto-generated CHANGELOG entry. Hand-editing CHANGELOG.md would conflict with release-please's regeneration on the next release tag. -- alternatives: prepend an Unreleased section (rejected: not the repo's convention, release-please would overwrite); separate MIGRATION.md (rejected: scope creep, the commit-body content is sufficient).
+  - category: TradeOff
+    chose: "**Operator-grade /smoke gate documented but not executed in this commit.** The agent cannot itself spin up Docker/k8s for an end-to-end smoke. The spec's done criterion (\"/smoke green for fix-bug, security-scan, api-security-scan against monorepo + multi-repo\") is the operator's gate before tagging a release. Unit tests + the per-handler tests give us the static guarantees; the smoke is the operational guarantee that comes after merge. -- alternatives: gate the commit on a fake smoke (rejected: lies to the operator); skip the gate (rejected: spec explicitly named it as a done criterion"
+    reason: operator runs it before tag).

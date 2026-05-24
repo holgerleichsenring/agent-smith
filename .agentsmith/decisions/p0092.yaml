@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0092: K8s Config Cleanup
+phase: p0092
+decisions:
+  - category: Architecture
+    chose: Flat numbered YAMLs over Kustomize
+    reason: |
+      GitOps repos (ArgoCD) apply plain YAML directly; Kustomize/Helm can be derived from flat files if needed, not the other way around
+  - category: Architecture
+    chose: "Dev/prod differences as inline comments (e.g. `# prod: 2`) instead of overlay patches"
+    reason: this is a reference deployment, not a production GitOps repo
+  - category: Implementation
+    chose: Shell script over Makefile for ConfigMap regeneration
+    reason: project has no Makefile, standalone script in deploy/k8s/ is more discoverable
+  - category: Implementation
+    chose: Two placeholder projects (GitLab+Claude, AzureDevOps+AzureOpenAI)
+    reason: |
+      covers provider combos not already shown in agentsmith.example.yml (which defaults to GitHub+Claude)
+  - category: Implementation
+    chose: Pricing moved under agent block in example.yml
+    reason: |
+      matches current real config structure where pricing is provider-specific, not project-level
+  - category: Scope
+    chose: Config/infra only
+    reason: zero C# changes, zero build risk

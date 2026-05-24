@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0048: Swagger Context Compression
+phase: p0048
+decisions:
+  - category: Architecture
+    chose: Compression happens in handler (ApiSkillRoundHandler.BuildDomainSection) not as pipeline command
+    reason: formatting concern, not workflow step
+  - category: TradeOff
+    chose: Deduplication + schema reference strategy over raw swagger.json
+    reason: accepted 85% token reduction over complete fidelity

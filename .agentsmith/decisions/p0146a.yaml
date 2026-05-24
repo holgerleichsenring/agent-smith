@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0146a: Delete ApiCodeContext + regex extractors
+phase: p0146a
+decisions:
+  - category: Architecture
+    chose: "**`DotNetRouteExtractor.cs` deleted alongside `RouteMapper.cs` even though the spec's `delete:` list didn't enumerate it.** The recent commit (3e2fe76) that added class-level `[Route]` prefix combination was the immediate trigger for the regex-elimination cut named in the phase goal; keeping the extractor while removing its sole caller would leave dead code in tree. Same anti-pattern (per-framework regex semantics) the spec rules out. -- alternatives: keep DotNetRouteExtractor (rejected: dead after RouteMapper deletion, and the LLM-trust principle from the umbrella explicitly disallows reintroducing it later); ship without the recent fix-up commit (rejected: orthogonal"
+    reason: the regression was real, the fix was correct, the *layer* is what's wrong).
+  - category: Implementation
+    chose: "**Three dead model files (`SourceFileExcerpt.cs`, `FindingHandlerCorrelation.cs`, `CorrelateFindingsContext.cs`) deleted in addition to the spec's `delete:` list.** Each only had consumers that were on the spec's delete list (handlers + context-builders + ApiSkillRoundHandler's per-skill section). Removing them now keeps the tree clean instead of leaving orphaned records for a follow-up sweep."
+    reason: |
+      alternatives: keep them as "harmless empty types" (rejected: dead code by another name, principles forbid).
+  - category: Implementation
+    chose: "**Vocabulary cleanup dropped 3 concepts (`controller_handlers_mapped`, `upload_handlers_mapped`, `auth_bootstrap_files`), not the 2 the spec named.** Spec used approximate names (\"code_context_available\", \"upload_handlers_present\"); the actual vocabulary has three concepts whose descriptions explicitly say \"ApiCodeContext mapped …\" / \"Auth-bootstrap source excerpts\""
+    reason: |
+      every one of them was written by the deleted handlers/extractors. The principle from the spec ("pre-LLM gate concepts that no longer have a writer") covers all three. -- alternatives: drop only the two literally named (rejected: would leave one stale entry with the same shape and same dead-writer status as the others).
+  - category: Implementation
+    chose: "**`ApiSkillRoundHandler` now reads `project_language` via the injected `Func<PipelineContext, IRunStateConcepts>` factory rather than from a ContextKey.** Existing `BootstrapDispatchHandler` uses the same pattern; the typed concept is the canonical surface for this value. -- alternatives: add a new `ContextKeys.ProjectLanguage` shortcut (rejected: speculative"
+    reason: only this one caller, the concepts factory is right there).
+  - category: TradeOff
+    chose: "**Skill prompts call out `project_language` with NO framework cheat-sheet.** First edit pass added a parenthetical \"Program.cs / Startup.cs for ASP.NET, SecurityFilterChain for Spring, passport.initialize for Express, etc.\""
+    reason: |
+      that's exactly the cheat-sheet the spec forbids, removed before commit. The LLM's training covers every common framework; a hardcoded list drifts and condescends. -- alternatives: keep the cheat-sheet "for clarity" (rejected: literally the anti-pattern this phase is eliminating).
+  - category: Implementation
+    chose: "**Tests for the deleted services (`RouteMapperTests`, `AuthBootstrapExtractorTests`, `UploadHandlerExtractorTests`, `FindingHandlerCorrelatorTests`, `ApiCodeContextHandlerTests`) deleted outright.** They exercised classes that no longer exist. `ApiSecurityScanPresetTests.ApiSecurityScan_CorrelateFindingsBetweenCompressAndLoadSkills` rewritten to `LoadSkillsImmediatelyAfterCompress`"
+    reason: same ordering invariant minus the gone step.
