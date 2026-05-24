@@ -42,8 +42,8 @@ internal sealed class PipelineExecutorTestBuilder
             .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LifecycleMock.Object);
         SandboxLanguageResolverMock
-            .Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
         SandboxSpecBuilder = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
 
         var stepRunner = new PipelineStepRunner(

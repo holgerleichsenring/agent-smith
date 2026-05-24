@@ -11,13 +11,15 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Per-repo ISandbox lifecycle for one pipeline run (p0158e). Each configured
-/// repo gets its own sandbox with its own toolchain image, resolved via the
-/// p0135 layered chain applied to THAT repo (not aggregated across repos).
+/// Per-context ISandbox lifecycle for one pipeline run (p0158e + p0161a). Each
+/// discovered .agentsmith/contexts/&lt;name&gt; gets its own sandbox with its own
+/// toolchain image, resolved via the p0135 chain applied to THAT discovery's
+/// language. Sandboxes dictionary is keyed by SandboxKeyComposer's composite
+/// key. The parallel SandboxDiscoveries dictionary carries each sandbox's
+/// Workdir + Language for handlers iterating sandbox keys.
 ///
 /// Lifetime: transient / per-pipeline-run. Owns mutable state (the cached
-/// per-repo sandboxes), so the DI registration MUST be transient — singleton
-/// would share sandboxes across overlapping pipelines.
+/// per-key sandboxes + discoveries), so the DI registration MUST be transient.
 /// </summary>
 public sealed class PipelineSandboxCoordinator(
     ISandboxFactory sandboxFactory,
@@ -41,6 +43,7 @@ public sealed class PipelineSandboxCoordinator(
     };
 
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
     private bool _disposed;
 
     public bool IsSandboxRequiring(string commandName) =>
@@ -55,38 +58,41 @@ public sealed class PipelineSandboxCoordinator(
         var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         foreach (var repo in repos)
         {
-            if (_sandboxes.ContainsKey(repo.Name)) continue;
-            _sandboxes[repo.Name] = await CreateOneAsync(projectConfig, repo, context, cancellationToken);
+            var discoveries = await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken);
+            foreach (var discovery in discoveries)
+                await EnsureOneAsync(projectConfig, repo, discovery, repos.Count, discoveries.Count, context, cancellationToken);
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
-        context.Set(ContextKeys.Sandbox, _sandboxes[repos[0].Name]);
+        context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
+        context.Set(ContextKeys.Sandbox, _sandboxes[_sandboxes.Keys.First()]);
         return _sandboxes;
     }
 
-    private async Task<ISandbox> CreateOneAsync(
-        ResolvedProject projectConfig, RepoConnection repo, PipelineContext context, CancellationToken ct)
+    private async Task EnsureOneAsync(
+        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery discovery,
+        int repoCount, int perRepoDiscoveryCount, PipelineContext context, CancellationToken ct)
     {
-        var (language, layer) = await ResolveToolchainAsync(projectConfig, repo, ct);
-        var spec = sandboxSpecBuilder.Build(projectConfig, language);
+        var key = SandboxKeyComposer.Compose(repoCount, repo.Name, perRepoDiscoveryCount, discovery.ContextName);
+        if (_sandboxes.ContainsKey(key)) return;
+        _sandboxes[key] = await CreateOneAsync(projectConfig, repo, discovery, key, context, ct);
+        _discoveries[key] = discovery;
+    }
+
+    private async Task<ISandbox> CreateOneAsync(
+        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery discovery,
+        string key, PipelineContext context, CancellationToken ct)
+    {
+        var spec = sandboxSpecBuilder.Build(projectConfig, discovery.Language);
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
         logger.LogInformation(
-            "Sandbox for {Repo} toolchain via {Layer}: language={Language}, image={Image}",
-            repo.Name, layer, language ?? "<none>", spec.ToolchainImage);
+            "Sandbox {Key} for {Repo}/{Ctx} (workdir={Workdir}): language={Language}, image={Image}",
+            key, repo.Name, discovery.ContextName, discovery.Workdir,
+            discovery.Language ?? "<none>", spec.ToolchainImage);
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
-        logger.LogInformation("Sandbox for {Repo} published (image={Image})", repo.Name, spec.ToolchainImage);
+        logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
         return sandbox;
-    }
-
-    private async Task<(string? Language, SandboxToolchainResolutionLayer Layer)> ResolveToolchainAsync(
-        ResolvedProject projectConfig, RepoConnection repo, CancellationToken ct)
-    {
-        if (!string.IsNullOrEmpty(projectConfig.Sandbox?.ToolchainImage))
-            return (null, SandboxToolchainResolutionLayer.Override);
-
-        var result = await sandboxLanguageResolver.ResolveAsync(repo, ct);
-        return (result.Language, result.Layer);
     }
 
     public async ValueTask DisposeAsync()
@@ -99,5 +105,6 @@ public sealed class PipelineSandboxCoordinator(
             await sandbox.DisposeAsync();
         }
         _sandboxes.Clear();
+        _discoveries.Clear();
     }
 }

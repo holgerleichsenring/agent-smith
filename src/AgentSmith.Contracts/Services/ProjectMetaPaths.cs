@@ -19,4 +19,16 @@ public static class ProjectMetaPaths
     public const string Runs = Root + "/runs";
     public const string Wiki = Root + "/wiki";
     public const string Security = Root + "/security";
+
+    /// <summary>p0161a: per-context meta sub-tree under .agentsmith/contexts/.</summary>
+    public const string Contexts = Root + "/contexts";
+
+    public const string ContextYamlFile = "context.yaml";
+    public const string CodingPrinciplesFile = "coding-principles.md";
+
+    /// <summary>p0161a: absolute MetaDir inside the sandbox for one discovered
+    /// context. /work prefix matches Repository.SandboxWorkPath. Result is
+    /// /work/.agentsmith/contexts/&lt;contextName&gt;.</summary>
+    public static string MetaDirFor(string contextName) =>
+        $"/work/{Contexts}/{contextName}";
 }
