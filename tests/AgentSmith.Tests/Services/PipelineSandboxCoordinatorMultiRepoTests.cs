@@ -57,9 +57,9 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         await harness.Sut.EnsureSandboxesAsync(
             new ResolvedProject(), harness.Pipeline, CancellationToken.None);
 
-        // ISandboxLanguageResolver.ResolveAsync called once per repo (per-repo
-        // resolution, not a single aggregate call).
-        harness.LanguageResolverMock.Verify(r => r.ResolveAsync(
+        // ISandboxLanguageResolver.ResolveAllAsync called once per repo (per-repo
+        // discovery, not a single aggregate call).
+        harness.LanguageResolverMock.Verify(r => r.ResolveAllAsync(
             It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
     }
@@ -77,6 +77,92 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         sandboxes!.Should().HaveCount(2);
         harness.Pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var primary).Should().BeTrue();
         primary.Should().BeSameAs(sandboxes["primary"]);
+    }
+
+    [Fact]
+    public async Task Coordinator_SingleDefaultContext_SpawnsOneSandbox_KeyIsDefaultName()
+    {
+        var harness = new Harness().WithRepo("agent-smith");
+
+        await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
+        sandboxes!.Keys.Should().BeEquivalentTo(new[] { "default" });
+    }
+
+    [Fact]
+    public async Task Coordinator_UninitRepo_FallsBackToOneRootSandbox()
+    {
+        var harness = new Harness().WithRepo("uninit");
+        // Resolver's synthetic-default discovery already exercises this path:
+        // empty ListDirectoryAsync → one ("default", ".", null). Default mock
+        // returns the synthetic, so the coordinator should spawn one sandbox
+        // keyed "default" with no language → generic fallback image.
+        await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
+        sandboxes!.Should().ContainSingle().Which.Key.Should().Be("default");
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries, out var discoveries).Should().BeTrue();
+        discoveries!["default"].Language.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Coordinator_MonorepoThreeContexts_SpawnsThreeSandboxes_OneToolchainEach()
+    {
+        var harness = new Harness().WithRepo("monorepo")
+            .WithDiscoveries("monorepo",
+                new RemoteContextDiscovery("server", "src/Server", "csharp"),
+                new RemoteContextDiscovery("client", "src/Client", "typescript"),
+                new RemoteContextDiscovery("docs", "docs", "markdown"));
+
+        var captured = new List<SandboxSpec>();
+        harness.FactoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .Callback<SandboxSpec, CancellationToken>((spec, _) => captured.Add(spec))
+            .ReturnsAsync(() => new Mock<ISandbox>().Object);
+
+        await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
+        sandboxes!.Keys.Should().BeEquivalentTo(new[] { "server", "client", "docs" });
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries, out var discoveries).Should().BeTrue();
+        discoveries!["server"].Workdir.Should().Be("src/Server");
+        discoveries["client"].Workdir.Should().Be("src/Client");
+        discoveries["docs"].Workdir.Should().Be("docs");
+
+        captured.Select(s => s.ToolchainImage).Should().HaveCount(3)
+            .And.OnlyHaveUniqueItems("each context should map to its own toolchain image");
+    }
+
+    [Fact]
+    public async Task Coordinator_MultiRepoMonorepoMix_ComposesCompositeKeys()
+    {
+        var harness = new Harness().WithRepo("frontend").WithRepo("backend")
+            .WithDiscoveries("frontend",
+                new RemoteContextDiscovery("default", ".", "typescript"))
+            .WithDiscoveries("backend",
+                new RemoteContextDiscovery("api", "src/Api", "csharp"),
+                new RemoteContextDiscovery("worker", "src/Worker", "csharp"));
+
+        await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
+        sandboxes!.Keys.Should().BeEquivalentTo(new[]
+        {
+            "frontend",            // multi-repo single-context → bare repo name
+            "backend/api",         // multi-repo monorepo → composite
+            "backend/worker"
+        });
     }
 
     private sealed class Harness
@@ -98,9 +184,9 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
                     SandboxMocks.Add(sandbox);
                     return Task.FromResult(sandbox.Object);
                 });
-            LanguageResolverMock.Setup(r => r.ResolveAsync(
+            LanguageResolverMock.Setup(r => r.ResolveAllAsync(
                     It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
+                .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
 
             Sut = new PipelineSandboxCoordinator(
                 FactoryMock.Object,
@@ -116,6 +202,14 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         public Harness WithRepo(string name)
         {
             _repos.Add(new RepoConnection { Name = name });
+            return this;
+        }
+
+        public Harness WithDiscoveries(string repoName, params RemoteContextDiscovery[] discoveries)
+        {
+            LanguageResolverMock.Setup(r => r.ResolveAllAsync(
+                    It.Is<RepoConnection>(rc => rc.Name == repoName), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(discoveries);
             return this;
         }
 

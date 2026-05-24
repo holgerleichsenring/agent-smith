@@ -12,8 +12,8 @@ namespace AgentSmith.Tests.Handlers;
 
 public sealed class BootstrapCheckHandlerTests
 {
-    private const string ContextYamlPath = "/work/.agentsmith/context.yaml";
-    private const string PrinciplesPath = "/work/.agentsmith/coding-principles.md";
+    private const string ContextYamlPath = "/work/.agentsmith/contexts/default/context.yaml";
+    private const string PrinciplesPath = "/work/.agentsmith/contexts/default/coding-principles.md";
 
     private readonly Mock<ISandboxFileReaderFactory> _readerFactoryMock = new();
     private readonly Mock<ISandboxFileReader> _readerMock = new();
@@ -89,6 +89,15 @@ public sealed class BootstrapCheckHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["default"] = _sandboxMock.Object });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal)
+            {
+                ["default"] = new RemoteContextDiscovery("default", ".", "csharp")
+            });
         return pipeline;
     }
 

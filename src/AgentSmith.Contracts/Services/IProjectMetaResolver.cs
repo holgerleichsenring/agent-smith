@@ -3,17 +3,14 @@ using AgentSmith.Contracts.Sandbox;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Locates the .agentsmith/ metadata directory for a target project. Routes
-/// directory listings through ISandboxFileReader so the lookup happens against
-/// the sandbox filesystem (i.e. /work after p0117b). Repo-root first, then a
-/// depth-first lexical descent for monorepo layouts. First hit wins.
+/// Enumerates all .agentsmith/contexts/&lt;name&gt; sub-directories in the cloned
+/// repo (p0161). Routes directory listings through ISandboxFileReader so the
+/// lookup happens against the sandbox filesystem (/work). Returns one
+/// MetaDiscovery per context.yaml found; empty list for un-init / pre-v2
+/// repos.
 /// </summary>
 public interface IProjectMetaResolver
 {
-    /// <summary>
-    /// Returns the absolute path (under <paramref name="sourcePath"/>) of a
-    /// .agentsmith/ directory, or null if none is found.
-    /// </summary>
-    Task<string?> ResolveAsync(
-        ISandboxFileReader reader, string sourcePath, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MetaDiscovery>> ResolveAllAsync(
+        ISandboxFileReader reader, CancellationToken cancellationToken);
 }

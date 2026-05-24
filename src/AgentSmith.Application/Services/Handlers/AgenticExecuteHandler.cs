@@ -38,9 +38,8 @@ public sealed class AgenticExecuteHandler(
         logger.LogInformation("Executing plan with {Steps} steps...", context.Plan.Steps.Count);
 
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        var defaultRepo = repos[0].Name;
-        var fs = new FilesystemToolHost(sandboxes, defaultRepo, context.Repository.LocalPath);
+        var defaultKey = sandboxes.Keys.First();
+        var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
 
@@ -49,14 +48,14 @@ public sealed class AgenticExecuteHandler(
         // p0129a: VerifyRoundHandler sets ContextKeys.VerifyNotes when re-loop fires.
         // First-run: key absent → null → no Verify section in prompt.
         var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
-        var repoLanguages = context.Pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+        var perKeyLanguages = context.Pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps, out var maps) && maps is not null
             ? maps.ToDictionary(kv => kv.Key, kv => kv.Value.PrimaryLanguage, StringComparer.Ordinal)
             : null;
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(
             context.Plan, context.Repository, verifyNotes,
-            repoNames: repos.Select(r => r.Name).ToList(),
-            repoLanguages: repoLanguages);
+            contextKeys: sandboxes.Keys.ToList(),
+            perKeyLanguages: perKeyLanguages);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
