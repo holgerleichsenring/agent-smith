@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0046: CLI Refactor & LLM Intent Parsing
+phase: p0046
+decisions:
+  - category: Architecture
+    chose: CLI changed to explicit flags (agent-smith fix --ticket 42) instead of free-text parsing
+    reason: self-documenting and extensible
+  - category: Tooling
+    chose: Replaced regex-based intent parsing with Haiku LLM parsing for Slack
+    reason: handles natural language variations, eliminates pattern fragility
+  - category: Architecture
+    chose: Collapsed ExecuteTicketAsync/ExecuteTicketlessAsync/ExecuteInitAsync into ExecuteAsync(PipelineRequest)
+    reason: single code path regardless of source
+  - category: Implementation
+    chose: Program.cs split from 456 to <30 lines
+    reason: |
+      each command handler under 120 lines, extracted Banner and ServiceProviderFactory

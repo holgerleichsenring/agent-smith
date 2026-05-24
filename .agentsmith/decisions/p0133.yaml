@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0133: Init-project label-trigger onboarding
+phase: p0133
+decisions:
+  - category: Architecture
+    chose: "**Init-project triggered via existing pipeline_from_label across all four platforms"
+    reason: |
+      no new endpoint, no k8s-specific operator logic.** The label-trigger primitive is universal since p0083/p0084 (webhook) and p0108 (polling); `PipelineFromLabel` is a plain `Dictionary<string, string>` with no preset whitelist (PipelinePresets.cs already registers `init-project`). A separate onboarding mechanism would fragment the operator surface. -- alternatives: separate HTTP init endpoint (rejected: extra trigger path without operator benefit); CLI-only init (rejected: breaks for k8s operators without cluster shell); init-container in Helm chart (rejected: too invasive for what a pipeline already does).
+  - category: Architecture
+    chose: "**InitCommitHandler reads TicketId directly via `pipeline.TryGet`, no FetchTicket added to InitProject preset.** The spec originally proposed adding FetchTicket to the preset, but `FetchTicketContextBuilder.cs:14` does `pipeline.Get<TicketId>` which throws `KeyNotFoundException` when the key is missing"
+    reason: |
+      so a Slack-modal / CLI init (no TicketId) would crash the preset. Making FetchTicket null-tolerant would touch a handler used by 5 other presets and risk hiding bugs there. TicketId is already published by `ExecutePipelineUseCase.cs:84` when `WebhookResult.TicketId` is set; `DoneStatus` is published via `InitialContext`; `TicketConfig` is already in `InitCommitContext`. The id-only path is sufficient for `UpdateStatusAsync` + `TransitionToAsync` / `CloseTicketAsync`. -- alternatives: add FetchTicket to InitProject preset + make it null-tolerant (rejected: 5-preset blast radius); add a new conditional `LoadTicketIfPresent` step (rejected: 95% duplicate handler for a 5-line conditional).
+  - category: Architecture
+    chose: "**InitCommitHandler EXTENDED for ticket lifecycle, not REPLACED by CommitAndPRHandler.** InitProject needs commit message `chore: initialize .agentsmith/ directory` regardless of trigger source; CommitAndPRHandler hard-codes `fix: {Ticket.Title} (#{Ticket.Id})`. Forcing CommitAndPR into InitProject would either branch its commit-shape on pipeline name (conditional-handler smell that p0130a explicitly rejected for the BootstrapGate categorization) or surprise bug-fix operators with renamed PR semantics. Cleaner shape: one handler per commit-shape; both call the same finalize helper."
+    reason: |
+      alternatives: replace InitCommit with CommitAndPR + branch on pipeline name (rejected: conditional commit shape per pipeline = drift); duplicate the lifecycle code in both handlers (rejected: drift risk for a 15-line block).
+  - category: Implementation
+    chose: "**`TicketLifecycle.FinalizeAsync` is a static helper, not an injected service.** No state, no DI dependencies beyond what the callers already have (`ITicketProviderFactory`, `TicketConfig`, ids/strings). A static method on a public class keeps the call sites readable and unit-testable through the existing `Mock<ITicketProviderFactory>` plumbing."
+    reason: |
+      alternatives: `ITicketLifecycle` interface + DI registration (rejected: ceremony for a function with no state); inline-duplicate in both handlers (rejected: drift).
+  - category: Implementation
+    chose: "**`agent-smith:init` label string, parallel to `agent-smith:fix` / `agent-smith:feature` short forms.** Four labels for the operator to learn, not five. The string is configurable per project via `pipeline_from_label`"
+    reason: |
+      operators preferring `agent-smith:init-project` can override without code changes. -- alternatives: `agent-smith:init-project` (rejected: outlier in the short-form set); `agent-smith:bootstrap` (rejected: collides with the BootstrapGate's "bootstrap files" message — operator confusion).
+  - category: Implementation
+    chose: "**Smoke test covers all four platforms in one file.** Routing is config-driven and the four webhook resolvers (`GitHubIssueWebhookHandler.cs:107`, `GitLabIssueWebhookHandler.cs:109`, `AzureDevOpsWorkItemWebhookHandler.cs:110`, `JiraAssigneeWebhookHandler.cs:146`) share a structurally identical dict-lookup shape"
+    reason: |
+      one platform proves the routing primitive, but four platforms catch drift if any one resolver ever diverges. The maintenance cost is low (single test file, one helper per platform's payload shape). -- alternatives: one platform only (rejected: drift between resolvers would silently break onboarding for users who only deploy that platform); per-platform smoke files (rejected: scattered, harder to maintain in lockstep).
+  - category: TradeOff
+    chose: "**`agent-smith:init` placed FIRST in `pipeline_from_label` in the bundled examples.** Match order is dict-insertion order. Operators discovering the onboarding flow by reading the bundled config see init before fix / feature / scan"
+    reason: |
+      which is the order they need to run them in for a fresh repo. -- alternatives: alphabetical (rejected: hides the onboarding step); last (rejected: same problem); ordering ignored at runtime (rejected: that's a config-loader change).
+  - category: TradeOff
+    chose: "**p0029 Slack-modal / chat-text init path stays in place, unchanged.** Audit (`notes/init-trigger-audit.md`) confirmed it's still wired end-to-end: `ChatIntentParser` → `InitProjectIntent` → `InitProjectIntentHandler` → `JobRequest { PipelineOverride = \"init-project\" }`. No ticket is published from this path; `InitCommitHandler`'s lifecycle branch reads `TryGet<TicketId>` which simply returns false. Both trigger paths coexist (label = universal; Slack = ChatOps comfort) without conflicting code or duplicated logic."

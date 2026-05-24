@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0086: Typed Skill Observations
+phase: p0086
+decisions:
+  - category: Architecture
+    chose: SkillObservation as universal output contract
+    reason: replaces free-text DiscussionLog, pipeline-agnostic structured data.
+  - category: Architecture
+    chose: ID assigned by framework, not LLM
+    reason: prevents hallucinated or colliding IDs.
+  - category: Architecture
+    chose: ConvergenceResult replaces ConsolidatedPlan string
+    reason: mechanical plan generation from structured input.
+  - category: Architecture
+    chose: GeneratePlanHandler always runs
+    reason: ConsolidatedPlan is context for plan generation, not a replacement.
+  - category: Implementation
+    chose: Concern, Severity, Effort as enums with JsonStringEnumConverter
+    reason: type-safe, serialization-friendly.
+  - category: TradeOff
+    chose: Partial valid JSON accepted
+    reason: |
+      take valid observations, skip broken ones with warning. Robustness over strictness.

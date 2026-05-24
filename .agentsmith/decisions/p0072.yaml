@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0072: Jira Assignee Webhook Trigger
+phase: p0072
+decisions:
+  - category: Architecture
+    chose: Handler returns WebhookResult(TriggerInput, Pipeline) instead of enqueueing jobs directly
+    reason: |
+      follows existing dispatch pattern where WebhookListener calls ExecutePipelineUseCase. Phase doc proposed IJobEnqueuer; actual codebase delegates execution to the Listener.
+  - category: Architecture
+    chose: ServerContext record for config path DI
+    reason: |
+      handler needs config for assignee matching and label→pipeline resolution, but IWebhookHandler.HandleAsync has no configPath parameter. Introduced ServerContext(ConfigPath) registered at server startup, injected into handler. Minimal surface, no interface changes.
+  - category: Security
+    chose: Secret configured + signature header missing → reject
+    reason: |
+      phase doc originally returned true (skip), which would let attackers bypass verification by omitting the header. Fixed to return false.
+  - category: Implementation
+    chose: Config-order priority for label→pipeline resolution
+    reason: |
+      iterate PipelineFromLabel keys (user-defined order) instead of payload labels (Jira-side order is undocumented and non-deterministic). Gives users explicit control over priority.
+  - category: Implementation
+    chose: "WebhookListener extracts webhookEvent from Jira payload, strips \"jira:\" prefix → eventType for CanHandle"
+    reason: |
+      Jira has no event-type header unlike GitHub/GitLab. Listener parses once before dispatch.
+  - category: TradeOff
+    chose: Jira signature validation loads config per request instead of caching
+    reason: |
+      keeps validation consistent with runtime config changes. Acceptable cost for webhook traffic volume.
+  - category: Scope
+    chose: Unassign scenario (Agent Smith removed from ticket) explicitly out of scope
+    reason: |
+      handler returns Ignored correctly, but cancelling a running job requires Job Cancellation feature that doesn't exist yet.

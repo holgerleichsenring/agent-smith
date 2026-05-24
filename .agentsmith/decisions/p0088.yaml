@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0088: Configurable Defaults
+phase: p0088
+decisions:
+  - category: Architecture
+    chose: Config wins over hardcoded
+    reason: |
+      every value that depends on the user's environment must be readable from agentsmith.yml.
+  - category: Architecture
+    chose: Ticket states as whitelist (IN clause) instead of blacklist (<> exclusions)
+    reason: |
+      unknown states excluded by default. Blacklists in foreign systems are a bug machine.
+  - category: Architecture
+    chose: "PR target branch: repo API → config → \"main\" fallback chain. API result cached per run"
+    reason: one extra API call, not per PR.
+  - category: Architecture
+    chose: Missing ADO fields map to null, not errors
+    reason: AcceptanceCriteria may not exist in all process templates.
+  - category: Architecture
+    chose: GitLab base URL required for self-hosted
+    reason: no silent fallback to gitlab.com. Startup validation error with clear message.
+  - category: TradeOff
+    chose: ADO API version via env var (AZDO_API_VERSION) instead of config file
+    reason: |
+      env vars are standard for server-side overrides, config file would be over-engineering for a rarely changed value.

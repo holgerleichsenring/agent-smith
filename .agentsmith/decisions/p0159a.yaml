@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0159a: Design system + token pipeline
+phase: p0159a
+decisions:
+  - category: Architecture
+    chose: "**CSS custom properties as the consumption surface, not Tailwind tokens or a design-token tool like Style Dictionary.** Both sites already serve CSS; tokens ride straight in `:root { --color-primary: ...; }`. Zero runtime, zero build complexity beyond a ~120-line YAML-to-CSS transformer. Style Dictionary would solve the same problem with a 30-dep tree and a build-config layer."
+  - category: Architecture
+    chose: "**DESIGN.md at repo root, not under docs/.** Repo root is where ops files live (LICENSE, CHANGELOG, README, DESIGN). Docs sites consume DESIGN.md, they don't host it. The build script copies it into docs/ at build time so MkDocs nav still resolves `Design System: DESIGN.md`."
+  - category: Architecture
+    chose: "**Token NAMES are the swap-tomorrow contract; values are the variable.** The whole point of the YAML-frontmatter format is that DESIGN.md can be replaced wholesale (Notion, Stripe, Linear, any future design) and both sites pick up new values automatically"
+    reason: |
+      IF the token names (`colors.primary`, `typography.display-xl`, `rounded.md`, `components.button-primary`) stay stable. This is documented inside DESIGN.md's "Swapping the Design System" section as the operational contract.
+  - category: Implementation
+    chose: "**Hand-rolled YAML parser in scripts/build-tokens.mjs, no js-yaml dep.** The DESIGN.md frontmatter shape is under our control (we author both the format and the parser); a ~60-line state-machine handles top-level maps + nested 2/4-space-indented child maps + quoted/unquoted scalars. Adding js-yaml would have meant a root package.json with a single dep, or pulling it from website/node_modules via relative path"
+    reason: both more friction than the inline parser for this scope.
+  - category: Implementation
+    chose: "**docs/DESIGN.md becomes a generated copy, not a hand-edited duplicate.** The build script writes `docs/DESIGN.md` from the repo-root source on every run. Generated, gitignored, never edited by hand. The alternative"
+    reason: |
+      deleting docs/DESIGN.md entirely and changing the mkdocs nav to point at `../DESIGN.md` — would have broken MkDocs' docs-dir invariant and forced an extra nav rewrite.
+  - category: Implementation
+    chose: "**Inter `@font-face` lives in tokens.css, not in each site's HTML.** Sites get the font for free by linking tokens.css. Variable Inter (weight 100-900) via jsdelivr fontsource, woff2-variations format, font-display swap. IBM Plex Mono is NOT @font-face'd"
+    reason: |
+      referenced by name only, falls back through ui-monospace; widely pre-installed on dev machines and doesn't justify a separate CDN load.
+  - category: Implementation
+    chose: "**Smith-green (`#22c55e`) swaps in for Zapier-orange as `{colors.primary}`.** Existing logo is green, existing styles.css is green-coded"
+    reason: |
+      color change costs less than logo recolor. Structural Zapier system stays 1:1; only the one accent hex differs.
+  - category: Implementation
+    chose: "**`card-terminal-panel` is the only Smith-specific component the source pattern doesn't carry.** The source system (Zapier) doesn't carry a code/CLI panel because Zapier is no-code; Agent Smith's whole visual story is code-shaped output. Dark `{colors.terminal-bg}` background, mono `{typography.mono-code}` body, `{colors.terminal-accent}` green for prompt glyphs. Sits next to `card-feature-dark`, just with monospace typography constrained."
+  - category: TradeOff
+    chose: "**p0159a ships the pipeline only, not the site re-skins.** Both sites continue to render with their pre-existing styles after p0159a. The token CSS exists but isn't referenced yet"
+    reason: |
+      that's p0159b (Eleventy) and p0159c (MkDocs Material). Splitting this way keeps p0159a's blast radius minimal and reviewable before the visual changes land.

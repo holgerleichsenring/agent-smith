@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0005: CLI & Docker
+phase: p0005
+decisions:
+  - category: Tooling
+    chose: System.CommandLine instead of manual argument parsing
+    reason: provides --help, validation, version support "for free"
+  - category: TradeOff
+    chose: No sub-commands, no daemon modes, no interactive shell
+    reason: "\"Simple: Input in → PR out → Exit\""
+  - category: Architecture
+    chose: Multi-stage Docker build
+    reason: separates build (SDK) from runtime (slim), targets <200MB image size
+  - category: Implementation
+    chose: Config mounted as volume, not baked into image
+    reason: enables reuse without rebuild

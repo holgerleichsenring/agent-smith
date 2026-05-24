@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0107: Server Consolidation
+phase: p0107
+decisions:
+  - category: Architecture
+    chose: "Webhook handling, polling, queue consumer, lifecycle reconcilers all relocated from `AgentSmith.Cli` (`server` subcommand) into `AgentSmith.Server`. Server is now the single long-running deployment; CLI is a pure console-tool for one-shot pipeline runs and ad-hoc commands. Pre-phase: dual-container K8s pattern (Dispatcher + CLI-with-`server`) was historical drift from p0014 (webhook listener added to CLI when Dispatcher rename came later in p0069)"
+    reason: |
+      never had architectural justification. Post-phase: one process, one Kestrel, one DI tree.
+  - category: Architecture
+    chose: `WebhookListener` (raw `HttpListener` wrapping its own HTTP server) deleted. Webhook routes register directly on Server's existing `WebApplication` via a new `MapWebhookEndpoints` extension alongside `MapSlackEndpoints` / `MapTeamsEndpoints`. One Kestrel hosts three endpoint groups; behavior-preservation maintained by routing the same `(path, body, headers)` signature into the same `WebhookRequestProcessor.ProcessAsync` flow.
+  - category: Architecture
+    chose: "Three thin `BackgroundService` wrappers in `Server.Services.Hosting/` absorb the `Task.WhenAll` orchestration that previously lived in CLI's `ServerCommand`: `QueueConsumerHostedService` (PipelineQueueConsumer), `HousekeepingLeaderHostedService` (StaleJobDetector + EnqueuedReconciler under `agentsmith:leader:housekeeping`), `PollerLeaderHostedService` (PollerHostedService under `agentsmith:leader:poller`). Each exposes its `ISubsystemHealth` instance as a singleton for the `/health` endpoint. The Application-layer services themselves stayed put"
+    reason: only the *wiring* relocated.
+  - category: Architecture
+    chose: "DI consolidates: Server's `ServiceCollectionExtensions` gains `AddWebhookHandlers()` (registers all 13 `IWebhookHandler` implementations) and `AddLongRunningServices()` (registers the three hosted services + their healths + RedisConnectionHealth). `AddCoreDispatcherServices` calls `AddAgentSmithCommands` so the full Application pipeline-execution tree (ExecutePipelineUseCase, IPipelineConfigResolver, ITicketClaimService, all command handlers) is reachable from the WebhookRequestProcessor. The patchwork-fix from p0106's deployment hotfix collapses into a coherent extension-method chain in `Program.cs`."
+  - category: Implementation
+    chose: "CLI's `ServiceProviderFactory.Build` shrunk to two modes: interactive (Console-based dialogue + progress, default) and spawned-job (Redis-backed when both `jobId` and `redisUrl` are non-empty"
+    reason: |
+      the path used by K8s job containers spawned by the Dispatcher). The previous mode-switching factory `RegisterProgressReporter` and the Redis-or-Null fallback in `RegisterRedis` deleted; CLI no longer carries server-side concerns.
+  - category: Implementation
+    chose: Duplicate `src/AgentSmith.Server/Services/RedisProgressReporter.cs` (a 3-line `global using` shim) deleted; `src/AgentSmith.Infrastructure/Services/Bus/RedisProgressReporter.cs` is the canonical implementation. The shim was a leftover from a long-past rename
+    reason: invisible cruft caught by the move audit.
+  - category: Implementation
+    chose: `ILlmClient` registration added to `AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs` as a latent-gap fix exposed by the new `ServerDiLifetimeTests`. Several handlers (EvaluateSkillsHandler, CompileKnowledgeHandler, QueryKnowledgeHandler) take `ILlmClient` directly; pre-phase only `ILlmClientFactory` was registered. Test caught it because Server's full validate-on-build now exercises the path. Default `Claude` config used since these handlers are typically configured per-project at runtime
+    reason: same defaulting pattern as `LlmIntentParser`.
+  - category: Implementation
+    chose: New `ServerDiLifetimeTests` regression-guards Server's full DI tree by mirroring `Program.cs`'s registration order and calling `BuildServiceProvider(ValidateOnBuild=true, ValidateScopes=true)`. Uses existing `Null*` Application implementations + Moq for `IConnectionMultiplexer` / `IDialogueTransport` / `IJobSpawner` / `IProgressReporter`. The test caught both the pre-existing `ILlmClient` gap and verified that p0106's `IAgentProviderFactory→Scoped` fix sticks. Future Server-DI changes that introduce lifetime violations or missing services fail this test at build time.
+  - category: Implementation
+    chose: `Program.cs` declares `public partial class Program;` at the bottom. Enables `WebApplicationFactory<Program>` in future integration tests (deferred
+    reason: not in scope for this phase, but the marker is in place).
+  - category: Scope
+    chose: "Detailed user-facing webhook docs (curl examples, port references) NOT updated since URL routes (`/webhook`, `/webhook/{platform}`) and HTTP semantics are byte-for-byte identical. `docker-compose.yml` collapsed: deleted the `agentsmith-server` service (CLI with `server` cmd), updated header comment. `deploy/k8s/9-ingress.yaml` is unchanged"
+    reason: |
+      its `path: /` Prefix already routes webhook URLs to the Server service. No second deployment needed.
+  - category: Scope
+    chose: `ServiceProviderFactoryRedisGatingTests` deleted
+    reason: |
+      they tested CLI's Redis-or-null fallback, which is now Server's responsibility (the Server-side equivalent is `ServerDiLifetimeTests`). 1206 tests post-phase (was 1210; net -4 from the deleted CLI gating tests +4 from new resolver/server tests ≈ wash).

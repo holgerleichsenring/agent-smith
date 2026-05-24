@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p-meta-update
+
+decisions:
+  - category: Tooling
+    chose: "Migrated .agentsmith/ to spec-first methodology v2.0.1"
+    over: "Staying on v1.x (flat root context.yaml + append-only decisions.md)"
+    reason: |
+      v2.0 introduces a per-stack `contexts/<name>/` directory and a
+      one-YAML-per-phase decisions layout. Discovery shifts to globbing
+      `contexts/*/context.yaml`, enabling the monorepo fan-out specced
+      in p0161 (multiple contexts → multiple sandboxes in one git repo).
+      v2.0.1 corrects the decision-file shape to one file per phase
+      (not one per individual decision), avoiding the ~1000-file
+      filesystem flood the original v2.0 spec would have produced for
+      agent-smith.
+
+      Migration mode: v1-to-v2 big-bang (per skill spec, structural
+      only — no content rewrites). Mechanical changes:
+        - `.agentsmith/context.yaml` + `coding-principles.md` →
+          `contexts/default/` (added `meta.workdir: "."`,
+          `methodology.version: "2.0.1"`, fixed schema relative path)
+        - `.agentsmith/decisions.md` (497 KB, 1082 bullets across 185
+          phase headings) split into 186 per-phase YAMLs in
+          `decisions/`
+        - 22 pre-existing `decisions/*.md` files (~14 additional
+          decisions, mostly p0146d-p0151h) merged into their
+          respective phase YAMLs
+        - `notes/` + `concepts/` directories (8 markdown files
+          total) moved into `phases/done/` with `p{NN}-base-concept-*.md`
+          naming per operator decision (these were conceptual
+          exploration that preceded phases, not decisions)
+        - `.agentsmith/decision.schema.json` added from plugin
+          templates so editors validate the new decision YAMLs
+
+      One bug surfaced during migration: my parsing regex was
+      case-insensitive with `p[0-9a-z]+`, which matched a stray
+      `## PR: #93: ...` heading as a phase named "PR". Caught manually
+      — the 6 decisions in that block actually belonged to p0132c
+      (heading title was "post-p0132c follow-up"), so they were merged
+      into `decisions/p0132c.yaml` and the bogus `PR.yaml` deleted.
+      Fix to plugin migration script for the next operator's run:
+      tighten the regex to require a digit after `p` (`p[0-9][0-9a-z]*`).

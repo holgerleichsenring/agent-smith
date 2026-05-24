@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0082: Webhook & Trigger Docs
+phase: p0082
+decisions:
+  - category: Scope
+    chose: Per-platform setup guides under docs/setup/webhooks/
+    reason: |
+      each with prerequisites, step-by-step, config YAML, verification, troubleshooting.
+  - category: Scope
+    chose: Label-triggers overview documents current state per platform and p0084 roadmap for unified configuration.
+  - category: Implementation
+    chose: Guides link to each other and to configuration reference (webhooks.md)
+    reason: no duplication of config details.

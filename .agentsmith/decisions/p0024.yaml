@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0024: Code Map
+phase: p0024
+decisions:
+  - category: Architecture
+    chose: LLM-assisted extraction instead of custom parsers
+    reason: hand-written AST parsing is error-prone and language-specific
+  - category: TradeOff
+    chose: Code map generation only on bootstrap or request
+    reason: |
+      avoids cost on every run, requires explicit regeneration when architecture changes
+  - category: TradeOff
+    chose: 5,000 token cost per generation but saves 100k+ tokens in file reading
+    reason: break-even on first agent run

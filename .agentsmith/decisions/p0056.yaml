@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0056: Security Scan Polish
+phase: p0056
+decisions:
+  - category: Implementation
+    chose: Mandatory false-positive-filter always runs regardless of triage
+    reason: ensures consistency, prevents missed filtering
+  - category: Architecture
+    chose: ExtractFindingsCommand unifies security-scan and api-scan delivery paths via SARIF
+    reason: consistent output format across pipelines
+  - category: Tooling
+    chose: SecretProviderRegistry maps patterns to revoke URLs without live API probing
+    reason: actionable for developers without runtime risk

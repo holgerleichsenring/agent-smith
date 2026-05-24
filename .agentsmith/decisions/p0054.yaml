@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0054: Security Scan Expansion
+phase: p0054
+decisions:
+  - category: Architecture
+    chose: Deterministic tools (regex, git history, dependency auditing) precede LLM skills
+    reason: |
+      improves recall on pattern-based findings, reduces token cost while maintaining context awareness
+  - category: Tooling
+    chose: YAML pattern files are user-extensible without code changes
+    reason: enables users to add project-specific patterns without rebuilding
+  - category: Tooling
+    chose: Separate tool commands (StaticPatternScan, GitHistoryScan, DependencyAudit) over monolithic "scanner"
+    reason: each can be skipped independently based on repo type
+  - category: TradeOff
+    chose: Pattern-based pre-scanning accepted higher false positives over perfect recall
+    reason: LLM specialists later filter and contextualize

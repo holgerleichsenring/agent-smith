@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0062: Docs Site Update
+phase: p0062
+decisions:
+  - category: Implementation
+    chose: Docs updated after p0058–p0061 complete
+    reason: ensures documentation describes implemented features, not planned ones

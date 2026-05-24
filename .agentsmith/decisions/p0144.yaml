@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0144: Autonomous + skill-manager preset unfencing (cross-repo)
+phase: p0144
+decisions:
+  - category: Architecture
+    chose: "**Both presets unfenced in one cross-repo phase, not two.** Same shape across both (pipeline_name enum extension + 4 SKILL.md files + preset cleanup); shipping together amortises cross-repo coordination cost (one agent-smith-skills release, one pin bump on agent-smith side). -- alternatives: per-preset slices p0144a + p0144b (rejected: doubles the cross-repo merge dance; skill-manager preset has been broken since p0125c"
+    reason: |
+      leaving it broken until p0144a stabilises a known-good autonomous pattern is risk for zero benefit when the two work-streams are structurally identical).
+  - category: Architecture
+    chose: "**Skill-manager's bespoke 5-handler chain retires entirely** (DiscoverSkills/EvaluateSkills/DraftSkillFiles/ApproveSkills/InstallSkills"
+    reason: |
+      handlers + contexts + builders). Operators get the same capabilities through the standard SkillRound + GeneratePlan/Approve/AgenticExecute flow that fix-bug uses. Specifically: discover/evaluate semantics move into skill-manager-investigator's ReadFile/ListFiles/Grep against the catalog; draft semantics move into skill-manager-planner's plan emission; approve semantics use the standard Approval handler (the bespoke ApproveSkills was a duplicate of the standard Approve gate); install semantics use AgenticExecute's WriteFile gated by Bootstrap-phase ToolKit (writes restricted to .agentsmith/ subtree). -- alternatives: keep DiscoverSkills as a pre-Triage handler + use SkillRound for Evaluate/Approve/Install (rejected: half-migration that maintains bespoke discovery while losing it for evaluation — fully bespoke or fully standard); retire the preset (rejected per spec: low-barrier extension flow has operator-evidence value).
+  - category: Architecture
+    chose: "**4 skills per preset (planner, investigator, judge, filter), not 1 or 2.** Matches the canonical Discussion-pipeline shape that fix-bug + add-feature + security-scan use post-p0138. 1-skill presets lose the gate-retry safety net; 2-skill (planner + judge) skips Analyst observation-gathering."
+    reason: |
+      alternatives: 1 skill (rejected: no gate semantics); 2 skills (rejected: skips investigation phase); 8 skills (rejected: over-fitting).
+  - category: Implementation
+    chose: "**`autonomous-*` skills activate on `pipeline_name = \"autonomous\"` ONLY (no per-role concept gating).** Spec suggested `pipeline_name = \"autonomous\" AND has_<role-trigger>` so DeterministicTriageSelector picks different skills per future trigger specialisation. Skipped"
+    reason: |
+      there's no `has_pending_action` / `has_planned_action` concept in the vocab today, and adding them is speculative work for hypothetical future specialisation. Per-role specialisation can be a future vocab + skill bump. -- alternatives: ship the spec's expanded activates_when with new concepts (rejected: scope creep — adds vocab entries for future use); leave activates_when null (rejected: would activate on EVERY pipeline, breaking the fence).
+  - category: Implementation
+    chose: "**Cross-repo coordination: agent-smith-skills committed but not pushed; agent-smith pin NOT bumped in this phase.** The agent-smith-skills branch (`fix/api-security-judge-roles`) gets the vocab + 8 SKILL.md changes as a `feat:` commit so release-please will minor-bump on merge to main. agent-smith's `.agentsmith/skills.version` STAYS at `v2.1.0`"
+    reason: |
+      the actual `v2.2.0` tag doesn't exist until the agent-smith-skills PR merges and release-please runs. Bumping the pin to a non-existent tag would break operator builds. The pin bump is a follow-up after merge. -- alternatives: bump the pin to a development tag (rejected: pre-tag versions aren't fetchable); bump pin to `v2.2.0` speculatively (rejected: until tag exists, operators get a fetch failure); hold the agent-smith commit until v2.2.0 tags (rejected: blocks the cleanup value of the handler-retirement work, which is independent of the catalog availability).
+  - category: Implementation
+    chose: "**Tests for the 5 deleted handlers were never written**"
+    reason: |
+      search confirmed zero `*Tests` files reference DiscoverSkills/EvaluateSkills/DraftSkillFiles/ApproveSkills/InstallSkills. The deletion is purely additive (no test-pack adaptation needed) beyond the `PipelineNameInitializerHandlerTests` + `PipelinePresetSmokeTests` adjustments below. -- alternatives: write retroactive tests for the handlers about to be deleted (rejected: dead code).
+  - category: Implementation
+    chose: "**`PipelineNameInitializerHandlerTests.ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum` REWRITTEN to use a synthetic name** (`not-a-real-pipeline`) instead of `autonomous`. Two new positive-path tests (`ExecuteAsync_AutonomousPipeline_PublishesPipelineNameAutonomous` + `ExecuteAsync_SkillManagerPipeline_PublishesPipelineNameSkillManager`) cover the unfencing."
+    reason: |
+      alternatives: delete the throw-assertion entirely (rejected: defensive coverage for typo'd preset names is still valuable; just needs a non-real name).
+  - category: Implementation
+    chose: "**`PipelinePresetSmokeTests.PipelineNameInitializer_RejectsFencedPresets` DELETED.** The test asserted both 'autonomous' and 'skill-manager' threw. They no longer throw"
+    reason: |
+      agent-smith-skills v2.2.0 includes them in the pipeline_name enum. The defensive coverage for "fenced preset" rejection has no remaining preset to assert against (every preset name is now in the enum). -- alternatives: assert against a synthetic preset name (rejected: covered already by PipelineNameInitializerHandlerTests's `ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum` synthetic test).
+  - category: TradeOff
+    chose: "**Smoke tests (`AutonomousPresetSmokeTests`, `SkillManagerPresetSmokeTests`) + `PipelinePresetsCatalogConsistencyTests` SKIPPED.** Spec asked for end-to-end smoke tests against stubbed IChatClient + real DeterministicTriageSelector + real LoadSkills + a catalog-consistency test that loads the agent-smith-skills catalog. Skipped because: (1) catalog-consistency test would FAIL today because the pinned v2.1.0 catalog doesn't yet contain the new skills (it ships in v2.2.0 which doesn't exist as a tag yet); (2) smoke tests need real LLM-style canned responses for 4 skills each"
+    reason: |
+      significant test-fixture investment for a check that the existing `PipelinePresetsConsistencyTests` (LoadSkills-before-Triage / LoadSkills-before-SkillRound) already covers structurally. -- alternatives: write smoke tests against fixture catalog (rejected: would diverge from shipped catalog, masking real drift); ship as `[Skip]` placeholders (rejected: dead test files); add as follow-up after v2.2.0 tag (DEFERRED — write smoke tests in a small p0144-followup phase once the v2.2.0 pin lands).
+  - category: TradeOff
+    chose: "**`skills.version` pin stays at `v2.1.0`; pin bump lives in a follow-up commit AFTER agent-smith-skills v2.2.0 tags.** Two-step landing: (1) this PR ships the handler retirement + preset rewrite + new positive-path tests against the local agent-smith-skills checkout that has the v2.2.0 changes uncommitted; (2) agent-smith-skills PR merges → release-please tags v2.2.0 → operator-side `.agentsmith/skills.version` bump + `config/agentsmith.yml` + `config/agentsmith.example.yml` bump (3 single-line edits). Until step (2) completes, running autonomous / skill-manager presets locally still fails (the pinned v2.1.0 catalog has neither the vocab nor the skills)"
+    reason: |
+      which is the correct behaviour for a partial cross-repo landing. -- alternatives: bump in this PR (rejected: tag doesn't exist yet, breaks operator builds); hold this PR until v2.2.0 tags (rejected: blocks the cleanup value of the handler-retirement which is independent of the catalog availability).

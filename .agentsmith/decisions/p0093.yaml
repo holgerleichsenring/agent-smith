@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0093: LLM Output Error Handling
+phase: p0093
+decisions:
+  - category: Architecture
+    chose: Silent catch banned for LLM-output parsing
+    reason: |
+      every parse failure logs the response and returns Fail. Silent pass hid unreliable gates; a scan could report "647 raw → 647 extracted" while the gate had actually failed to parse.
+  - category: Architecture
+    chose: One corrective retry in the gate path (`GateRetryCoordinator`)
+    reason: |
+      cheap (one extra LLM call worst case), recovers most schema drift. Retry failure fails the pipeline rather than silently letting findings through, because an unfiltered scan masquerading as filtered is worse than an explicit failure.
+  - category: Architecture
+    chose: "Gate (output: list) must declare `input_categories` explicitly"
+    reason: |
+      `*` for wildcard or a concrete list. Empty/missing is rejected at skill load. Gate (output: verdict) is exempt because it doesn't filter findings.
+  - category: Architecture
+    chose: Validation throws at load time, skill-loader logs as Error
+    reason: |
+      invalid skills don't silently vanish from the role set; the error is visible before the pipeline runs.
+  - category: Scope
+    chose: LLM-output parsing only
+    reason: |
+      infrastructure cleanup catches (Docker, Process, file fallbacks) are legitimately best-effort and stayed unchanged. Non-gate parsers (Consolidation, Wiki) got logging on their existing fallbacks, not behavioral changes, because their fallback paths are semantically valid (degraded text, empty dict).

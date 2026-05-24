@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0063: Structured Finding Assessment
+phase: p0063
+decisions:
+  - category: Implementation
+    chose: All findings reach skills (remove Top-N cap), compression changes formatting not visibility
+    reason: every finding gets at least one-line assessment
+  - category: Architecture
+    chose: Finding record gains ReviewStatus (not_reviewed | confirmed | false_positive)
+    reason: tracks agent assessment, enables filtering
+  - category: Implementation
+    chose: Convergence produces JSON assessments alongside prose
+    reason: structured output that actually flows into DeliverFindings
+  - category: TradeOff
+    chose: Accepted ~3-4k token increase per skill call vs. hidden findings that skills never see
+    reason: visibility trumps compression

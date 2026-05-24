@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0129a: Verify-phase wiring + scope-verifier (D5 slice 1/3)
+phase: p0129a
+decisions:
+  - category: Architecture
+    chose: "**VerifyRoundHandler is a standalone command-handler, not a SkillRoundHandlerBase descendant.** The spec phrased it as \"descends from SkillRoundHandlerBase\"; in practice SkillRoundHandlerBase processes ONE skill per call (driven by `(skillName, round)`), while Verify needs to dispatch ALL active VerifyDiff investigators in a single command. Inverting the iteration onto the base class would mean refactoring its public surface for a single new caller. Cleaner: VerifyRoundHandler runs its own loop over active verifiers, calls `IChatClient.GetResponseAsync` via the same `IChatClientFactory` path, parses with the existing internal `ObservationParser.ParseWithoutIds`, and tracks cost via the existing `PipelineCostTracker`. The handler stays focused (~150 lines split across three files) and the base class is unchanged. -- alternatives: emit per-verifier SkillRound commands from a separate command (rejected: needs a coordinating \"VerifyConvergence\" handler to decide re-loop, plus a new ICommandHandler<SkillRoundContext> variant for verify_diff mode"
+    reason: three new types versus one).
+  - category: Architecture
+    chose: "**Re-loop runs `[AgenticExecute, RunVerifyPhase]`, NOT `[RunFinalPhase, RunVerifyPhase]` as the spec wrote.** In this codebase RunFinalPhase is the post-implementation discussion phase (driven by TriageOutput); the actual implementer is AgenticExecute. Re-running RunFinalPhase would produce more discussion observations but no new diff. AgenticExecute reads `ContextKeys.VerifyNotes` (added to the user prompt by `AgentPromptBuilder.BuildExecutionUserPrompt`) and re-implements with the verifier's notes in scope. Spec's intent was correct; the command name was a mismatch with this codebase's pipeline structure. -- alternatives: re-run [AgenticExecute, RunReviewPhase, RunFinalPhase, RunVerifyPhase] (rejected: too much re-work for first re-loop; the discussion phases run on the new diff anyway in normal pipeline flow if we re-enter from earlier"
+    reason: but here we want a focused re-implementation).
+  - category: Architecture
+    chose: "**Three classes for the verify-phase implementation: VerifyRoundHandler (orchestrator) + VerifierPromptBuilder (static prompt assembly) + VerifyNotesFormatter (static markdown rendering of notes for re-loop and writeback).** The handler stays at the public-method level; the two helpers contain the deterministic transforms each <120 lines. Same coding-principles split as p0126c's runtime collaborator extraction."
+    reason: |
+      alternatives: inline both helpers into the handler (rejected: pushes the handler past 120 lines and entangles three responsibilities).
+  - category: Architecture
+    chose: "**`PermissivePhaseDataFlow.Edges` made `virtual` so subclasses can override with explicit edges concatenated alongside the wildcard.** Original p0128c made `Edges` a non-virtual auto-property. Adding the Plan→Verify and Implementation→Verify edges to FixBug + AddFeature requires either `virtual` + override, `new` shadowing, or adding an `AdditionalEdges` virtual. `virtual` is the conventional choice; `new` shadowing would silently discard the wildcard if the subclass forgot to include it. The base now also exposes a `protected static readonly Wildcard` constant subclasses concatenate."
+  - category: Implementation
+    chose: "**scope-verifier SKILL.md uses `concern: Correctness`, not the spec's `Scope`.** ObservationConcern is a closed enum: `{Correctness, Architecture, Performance, Security, Legal, Compliance, Risk}`. \"Scope\" is not a valid value; emitting it triggers ObservationParser to reject the entry (Deserialize throws on the enum, observation skipped). Correctness fits scope-creep semantically (the wrong files were changed = correctness violation against the Plan). Specifying Correctness is also future-proof: if we later add `Scope` to the enum, the SKILL.md updates additively without breaking parser compat."
+  - category: Implementation
+    chose: "**VerifyRoundHandler increments `VerifyRoundCount` BEFORE dispatching verifiers (not after).** Round-1-vs-round-2 is the round we're CURRENTLY running, not the round we just finished. Pre-increment + comparison `roundCount >= 2` reads naturally and matches the user's mental model (\"first round, second round\")."
+  - category: Implementation
+    chose: "**`VerifyObservations` is a separate ContextKey from `SkillObservations`.** Verify-phase observations describe meta-properties of the diff (out-of-scope changes, build failures), not skill-domain findings. Mixing them into SkillObservations would surface them in delivery output (Markdown / SARIF) where they don't belong"
+    reason: |
+      they're internal pipeline state for the re-loop decision. Separate slot keeps ObservationSummary, OutputStrategies, and FilterRoundHandler unaffected.
+  - category: Implementation
+    chose: "**Confidence-threshold downgrade duplicated from SkillRoundHandlerBase, not extracted.** Both handlers apply the rule \"Blocking + Confidence < 70 → Blocking=false + log\". Three lines of code. Extracting to a shared static would couple two unrelated handler families through a tiny utility; copy-paste is cheaper here. If a third handler grows the same need, extract then."
+  - category: Implementation
+    chose: "**VerifyNotes for round 2 escalation = round-1-notes + round-2-notes concatenated, not deduplicated.** Round-2 verifiers typically re-emit round-1 findings plus possibly new ones. Operators see both rounds' notes side-by-side. Deduplication is an obvious next step but lands in p0129b/c when build/test verifiers add higher-volume note streams."
+  - category: TradeOff
+    chose: "**Plan→Verify and Implementation→Verify data-flow edges are documentation only, not enforcement.** PermissivePhaseDataFlow ships with `('*','*','*')` wildcard from p0128c. Adding explicit edges next to the wildcard records the intended flow but blocks nothing"
+    reason: |
+      the wildcard matches first regardless of Enforce setting. Per-spec decision: real enforcement (wildcard removal across all 10 presets + per-preset declared edges) is a dedicated post-D7 tightening phase. Documenting the intent now seeds that future work.
+  - category: TradeOff
+    chose: "**scope-verifier SKILL.md leaves test-file siblings to LLM judgment, no hardcoded regex.** A regex would be brittle across languages"
+    reason: |
+      `FooTests.cs` (C#) vs `Foo.test.ts` (TS) vs `test_foo.py` (Python) vs `FooTest.java` (Java) vs `foo_test.go` (Go), plus separate test-project layouts. SKILL.md body lists worked examples per language as a calibration set and ends with "when in doubt, allow the test file." False-negative on naming we didn't anticipate (operator noise) is preferable to false-positive on a legitimate test file (operator distrust of the verifier).
+  - category: TradeOff
+    chose: "**`PipelineCostTracker.Track(response)` called inline in InvokeVerifierAsync, not via SkillCallScope (p0126c's per-skill breakdown).** Wiring through SkillCallScope would require migrating VerifyRoundHandler to use the SkillCallRuntime"
+    reason: |
+      that's the deferred consumer migration phase noted in p0126c. For p0129a, verify-phase costs accumulate into the pipeline-total (existing behavior); per-verifier breakdown lights up when the consumer migration phase lands.

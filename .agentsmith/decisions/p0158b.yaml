@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0158b: Workdir layout + per-repo handler iteration
+phase: p0158b
+decisions:
+  - category: Architecture
+    chose: "**p0158b re-narrowed at execution time to workdir + handlers only; PR cross-link and CLI deferred to p0158c / p0158d.** The original p0158b spec bundled PR cross-link two-pass (three platform PATCH implementations) and CLI on eight commands with the handler-iteration core. Implementing all of this end-to-end proved to be a multi-conversation marathon that risked half-baked intermediate states. The re-narrowed slice ships a clean unified-run handler core with ~10 fixture updates and 6 new tests; p0158c and p0158d are purely additive (no handler edits) on top."
+    reason: |
+      alternatives: keep the wide spec (rejected: same risk as before); skip workdir layout and only do PR cross-link (rejected: cross-link is purely cosmetic without per-repo iteration, so workdir+handlers is logically first).
+  - category: Architecture
+    chose: "**Context records replace singular Config with list Configs and add a computed Config => Configs[0] property.** The computed property keeps every existing read-site of `.Config` compiling unchanged (handlers using only the primary repo can adopt the new shape incrementally). Test fixtures change once (singular → list construction) and never again. Applied to CheckoutSourceContext.Config, TryCheckoutSourceContext.Source, CommitAndPRContext.RepoConnection, InitCommitContext.RepoConnection, PersistWorkBranchContext.Source."
+    reason: |
+      alternatives: keep both fields (rejected: stale duplicate state, builders have to fill both); rename Config → PrimaryConfig (rejected: noisier churn for read-sites without a corresponding behaviour change).
+  - category: Architecture
+    chose: "**OpenedPullRequests is published as a new ContextKey by both CommitAndPR and InitCommit handlers; PullRequestUrl stays in place for single-PR runs.** p0158c's PATCH pass reads OpenedPullRequests directly. Keeping PullRequestUrl preserves backward compatibility with the existing pipeline-executor result adapter (which surfaces the PR URL on CommandResult.PrUrl) and with operator-doc references to a single primary URL."
+    reason: |
+      alternatives: only publish OpenedPullRequests and have the result adapter pick the first opened entry (rejected: ties result adapter to multi-repo semantics for a single-line ergonomic win); no marker in pass-1 body (rejected: p0158c would have to compose the whole body, fragile against operator edits).
+  - category: Implementation
+    chose: "**SandboxGitOperations.CommitAndPushAsync gains a required workingDirectory parameter (no default).** Making it required forces every caller to be explicit about which repo's tree is being committed. A default `/work` would silently re-introduce the single-repo assumption at the first caller that forgot to pass through; PersistWorkBranchHandler iterates Configs and would have crashed quietly if the default kicked in. Cascade touches: CommitAndPRHandler, InitCommitHandler, PersistWorkBranchHandler"
+    reason: |
+      each passes Repository.WorkPathFor(repo.Name) per repo. -- alternatives: default to SandboxWorkPath (rejected: trap waiting to bite a future handler); take a Repository parameter (rejected: tighter coupling, and p0158c's PATCH pass callers don't have a Repository in scope).
+  - category: Implementation
+    chose: "**Empty-changes detection uses the exception thrown by CommitAndPushAsync (catch `LooksLikeEmptyCommit`), not a separate `git status --porcelain` preflight.** Initial implementation did a porcelain preflight inside the handler; the test fixture's default mock returned `OutputContent: null` for every step which the preflight read as \"no changes\", silently skipping PR open in tests that meant to commit. Catching the exception matches the old single-repo handler's semantics for the success path and keeps existing handler tests passing without bespoke status-step mocking. SkippedNoChanges is now derived from the empty-commit catch arm instead of a preflight."
+    reason: |
+      alternatives: keep the preflight and rewrite ~10 test fixtures to mock status non-empty (rejected: high blast-radius for a check the old handler didn't need); use `git diff --quiet --exit-code HEAD` exit code instead of porcelain (rejected: same fixture-mocking issue, plus an extra round-trip per repo when the commit itself already reports the condition).
+  - category: Implementation
+    chose: "**PersistWorkBranchHandler aggregates per-repo outcomes by max() of failure kinds, with NoChanges-only as a special case.** When all repos return NoChanges, the aggregator returns RecordAndFail(NoChanges, \"...\")"
+    reason: |
+      matches the old single-repo semantics. When some repos succeed and others fail, the worst-case failure kind wins for ContextKeys.PersistFailureKind so the executor's wrapper routes logs to the right kind. The per-repo names of failing repos are interpolated into the error message for the operator. -- alternatives: first-failure-wins (rejected: silently hides multi-mode failures); aggregate to a new MultiRepoMixed kind (rejected: new enum value for a one-handler concern); fail-fast on first error (rejected: loses information about which other repos succeeded or are clean).
+  - category: Implementation
+    chose: "**CheckoutSourceHandler keeps under 120 LOC by extracting CheckoutStepFactory.** The static factory holds the four step builders (mkdir / clone / checkout / checkout -b) parameterised by target dir; pure functions, no I/O, no state. Without the extraction the handler would balloon past the limit with the new per-repo loop."
+    reason: |
+      alternatives: inline the step builders (rejected: violates the 120-LOC limit); split CheckoutSourceHandler into Per-Repo + Orchestrator (rejected: ceremonial for a 100-LOC orchestrator + 60-LOC factory pair).
+  - category: TradeOff
+    chose: "**TryCheckoutSourceHandler does NOT yet iterate Configs; stays on Configs[0] for the fail-soft api-scan path.** The handler's host-side clone path produces a Guid-keyed tempdir, not a /work/{name}/ subdir, so the layout principle doesn't apply directly. api-scan today consumes a single primary repo; multi-repo fail-soft (front-end + back-end correlation) is a real feature that needs its own design and lives beyond p0158d. p0158b documents the limitation in the handler's XML doc."
+    reason: |
+      alternatives: iterate now and aggregate paths (rejected: forces a design decision for multi-source SourcePath that isn't load-bearing yet); throw on multi-repo (rejected: breaks the fail-soft principle).
+  - category: TradeOff
+    chose: "**Workdir layout change is a documented breaking shift for existing single-repo projects.** Pre-p0158a runs had `/work/` as the repo root; post-p0158b runs have `/work/{repo-name}/`. Any skill or operator script that hard-coded `/work/...` paths must adapt. The principle \"monorepo is multi-repo with N=1\" justifies the uniformity, and the skill catalog itself consumes context objects rather than raw paths, so the blast radius is concentrated in the application layer. CHANGELOG (p0158d) documents the migration."
+    reason: |
+      alternatives: special-case N=1 to keep `/work/` as the repo root (rejected: re-introduces the two-code-path problem the unified-run design exists to remove).

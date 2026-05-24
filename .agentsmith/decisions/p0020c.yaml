@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0020c: Error UX
+phase: p0020c
+decisions:
+  - category: Architecture
+    chose: `ErrorFormatter` with regex pattern table
+    reason: maps raw errors to friendly messages, pure function fully testable
+  - category: Architecture
+    chose: `ErrorContext` carries step number + step name
+    reason: users see exactly where in the pipeline failure occurred
+  - category: TradeOff
+    chose: Contact button optional via env var
+    reason: graceful degradation when `OWNER_SLACK_USER_ID` not set

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0014: GitHub Action & Webhook
+phase: p0014
+decisions:
+  - category: Architecture
+    chose: Both GitHub Action (zero infrastructure) and webhook listener (self-hosted) variants
+    reason: choice for user deployment model
+  - category: Tooling
+    chose: HttpListener for webhook (no ASP.NET dependency)
+    reason: minimal overhead for simple HTTP requirements
+  - category: Implementation
+    chose: Each webhook request spawns async Task
+    reason: non-blocking, server returns 202 Accepted immediately
+  - category: TradeOff
+    chose: Trigger label configurable but defaults to "agent-smith"
+    reason: simplicity over ultra-flexibility

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0079: /p0080: Attacker-Perspective Security Skills
+phase: p0079
+decisions:
+  - category: Architecture
+    chose: Commodity tools (StaticPatternScan, GitHistoryScan, DependencyAudit) are passive layer
+    reason: unchanged. Intelligence layer (LLM attacker skills) is active layer on top.
+  - category: Architecture
+    chose: Attacker-perspective skills (recon-analyst, low-privilege-attacker, idor-prober, input-abuser, response-analyst) complement knowledge-domain skills
+    reason: both run together.
+  - category: Architecture
+    chose: chain-analyst is executor
+    reason: receives all commodity + skill findings and produces chained attack assessment.
+  - category: Scope
+    chose: No runtime, no user accounts, no HTTP probing
+    reason: code/diff analysis only.

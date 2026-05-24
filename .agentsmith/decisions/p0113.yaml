@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0113: Spawn Pipeline Jobs From Queue (SUPERSEDED — DO NOT IMPLEMENT)
+phase: p0113
+decisions:
+  - category: Architecture
+    chose: "**Conceptually wrong, abandoned before completion.** Original spec wanted to spawn `agentsmith-cli:latest` containers per queue ticket. Two fundamental errors: (1) the CLI is a developer-only console tool, never deployed to K8s; (2) running the entire pipeline inside the spawned container is the wrong granularity"
+    reason: LLM rounds and git ops belong to orchestration, not to a worker.
+  - category: Implementation
+    chose: "**MVP merged briefly as p0113a, reverted immediately.** Operationally would have broken every queue ticket: ImagePullBackOff on the missing CLI image, EnqueuedReconciler reverting tickets to Pending after 10 min in an infinite loop. See `revert(p0113a): roll back queue-dispatcher refactor` (commit 4ce6bf7)."
+  - category: Architecture
+    chose: "**Replaced by p0115 + p0116.** p0115 ships a standalone sandbox agent (worker binary, Redis-driven, language-specific carrier image"
+    reason: |
+      NOT the CLI). p0116 migrates the server-pod-side: toolchain steps delegate to sandbox pods instead of running in-process. Spec kept as historical document with `status: superseded, superseded_by: [p0115, p0116]`.

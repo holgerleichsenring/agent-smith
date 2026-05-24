@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0057b: Skill Manager Pipeline
+phase: p0057b
+decisions:
+  - category: Implementation
+    chose: Human approval mandatory before skill installation
+    reason: treats skills as code injection, no automated installation
+  - category: Architecture
+    chose: SKILL.md never modified, extensions in agentsmith.md only
+    reason: preserves upstream skill integrity, enables future updates
+  - category: TradeOff
+    chose: Pinned versions in source.md over automatic updates
+    reason: requires explicit review cycle for new skill versions

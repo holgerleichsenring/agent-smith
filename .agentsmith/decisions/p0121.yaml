@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0121: Pipeline output, cost, and source-context regressions
+phase: p0121
+decisions:
+  - category: Architecture
+    chose: "**Pricing lookup is provider-agnostic longest-prefix matching, not per-provider normalization.** `PipelineCostTracker.ResolvePricing` tries exact lookup first; on miss, walks `_pricing.Keys` ordered by length descending and accepts the first key the model id starts with (case-insensitive). Reason: every major provider dates their model ids"
+    reason: |
+      Azure OpenAI returns `gpt-4.1-2025-04-14`, OpenAI `gpt-4o-2024-08-06`, Anthropic appends `-YYYYMMDD`. A single fallback handles all of them; per-provider hardcoded mappings would rot. Longest-prefix wins so `gpt-4.1-mini-*` correctly hits `gpt-4.1-mini` rather than the shorter `gpt-4.1` key.
+  - category: Architecture
+    chose: "**`ConsoleOutputStrategy` short-circuits the `ConsolidatedPlan` dump for Structured pipelines.** Pipeline-type lookup is a one-line `pipeline.TryGet<PipelineType>(ContextKeys.PipelineTypeName, …)`"
+    reason: |
+      no plumbing through `OutputContext`. The data is already populated at run-start by `ExecutePipelineUseCase` and the same key is read by `ConvergenceCheckHandler`, `TriageHandler`, `SkillRoundHandlerBase`. For Structured pipelines (security-scan, api-security-scan), the consolidated discussion is supplementary; findings are the primary deliverable. For Discussion pipelines (mad-discussion, legal-analysis), the discussion IS the deliverable, so existing fall-through is preserved.
+  - category: Architecture
+    chose: "**`api-security-scan` gains `ExtractFindings` between `CompileFindings` and `DeliverFindings`, mirroring `security-scan`'s order.** Pre-fix, the pipeline ended at `CompileFindings → DeliverFindings`, so `ContextKeys.ExtractedFindings` was never populated; `DeliverFindingsHandler` got an empty list and `ConsoleOutputStrategy` fell through to the verbose `ConsolidatedPlan` dump. `ExtractFindingsHandler` already short-circuits when a gate has set findings (lines 25-33), so the insertion is safe whether the closing gate emits findings or not."
+  - category: Architecture
+    chose: "**`TryCheckoutSourceHandler` clones remote sources to a host tempdir via `IHostSourceCloner`, not into the sandbox `/work`.** Post-p0117b, `provider.CheckoutAsync` is metadata-only"
+    reason: |
+      it never actually clones — and the previous `pipeline.Set(ContextKeys.SourcePath, repo.LocalPath)` set `SourcePath` to the const `/work`, a sandbox path that fails `Directory.Exists` on the host. The api-scan code analyzers (`RouteMapper`, `AuthBootstrapExtractor`, `UploadHandlerExtractor`) deliberately read host disk via `System.IO` per `SourceFileEnumerator`'s documented dual-mode design. The new cloner shells out to `git clone --depth=1 --no-tags` into a fresh tempdir and returns the path; failure leaves `SourcePath` unset and continues in passive mode. This restores the design intent without migrating analyzers to `ISandboxFileReader` (a much larger change). API-scan never modifies the source — host-disk read is the right shape.
+  - category: TradeOff
+    chose: "**Bootstrap handlers (`LoadContext`/`LoadCodingPrinciples`/`LoadCodeMap`) in api-security-scan still read sandbox `/work`, which remains empty under this fix.** They are explicitly soft-fail per the preset comments, so absence of `.agentsmith/` for the target project is normal. If those handlers need cloned-source visibility in the future"
+    reason: |
+      for example, to load the target's `coding-principles.md` — that requires either dual-population (clone to both `/work` and host tempdir) or migrating the api-scan analyzers to `ISandboxFileReader`. Deferred as out-of-scope; not a regression because pre-p0117b the bootstrap handlers also failed-soft when no `.agentsmith/` existed on the target.
+  - category: Implementation
+    chose: "**`HostSourceCloner` resolves the git token from the platform-appropriate env var (`GITHUB_TOKEN` / `GITLAB_TOKEN` / `AZURE_DEVOPS_TOKEN`) and exports it as `GIT_TOKEN` in the subprocess env.** Mirrors the credential helper used by `CheckoutSourceHandler`'s sandbox-side clone (`credential.helper=!f() { echo username=x-access-token; echo password=$GIT_TOKEN; }; f`). Operators with the token already exported as `GIT_TOKEN` directly are unsupported"
+    reason: |
+      the cloner ignores it and looks at the platform-named var. Public repos work without a token at all (token is null → env var simply not added).
+  - category: Implementation
+    chose: "**Existing `TryCheckoutSourceHandlerTests` rewritten around `IHostSourceCloner` mock.** Drops the `ISourceProvider` + `ISourceProviderFactory` mocks since the handler no longer calls the provider for remote checkouts. Three new test cases cover the cloner happy path (returns host tempdir → `SourcePath` set, `Repository.RemoteUrl` populated), the cloner-returns-null path (passive mode), and the empty-URL guard (cloner never invoked)."

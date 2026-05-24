@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0155: LLM-owned project-language vocabulary
+phase: p0155
+decisions:
+  - category: Architecture
+    chose: "**`ConceptType.String` added as a first-class type, alongside Bool/Int/Enum.** The spec asked for `project_language` to relax from a closed enum to a free-form string. Two routes existed: (a) sentinel-encode it (\"Enum with empty enum_values means wildcard\"), or (b) introduce the type explicitly. (b) chosen"
+    reason: |
+      the closed-set discipline (typo-safety at SetEnum time) stays valuable for the other ~30 concepts; the few concepts whose vocabulary lives in the LLM (analyzer slugs, future LLM-owned outputs) get their own non-validated write path via SetString. -- alternatives: keep Enum and hack EnumValues semantics (rejected: cross-cutting confusion, two readers of EnumValues would disagree); make ALL concepts free strings (rejected: lose the typo-protection that catches `pipeline_name = \"fix-bug\"` vs `\"fixbug\"` at the call site, not at activation-evaluation time).
+  - category: Implementation
+    chose: "**`IRunStateConcepts.GetString` accepts BOTH `Enum` and `String` concepts; `SetString` is strict (String only).** Reads need to be transparent so activation expressions (`project_language = \\\"csharp\\\"`) work without the evaluator dispatching on the declared type"
+    reason: |
+      the evaluator just asks for a string. Writes stay strict so a Bool/Int producer can't accidentally publish a string. The asymmetry matches the principle: typo-protection on writes, not reads. -- alternatives: symmetric strict-only (rejected: every activation evaluator would have to introspect the vocabulary first).
+  - category: Implementation
+    chose: "**TestHandler tokenises Ci.TestCommand via `System.CommandLine.Parsing.CommandLineStringSplitter`, imported with a using-alias to dodge the `System.CommandLine.Parsing.CommandResult` ↔ `AgentSmith.Domain.Models.CommandResult` namespace collision.** Inline `using System.CommandLine.Parsing;` would have pulled the other `CommandResult` into scope and broken every handler. The `using CommandLineStringSplitter = ...;` alias narrows the import to the single class we use."
+    reason: |
+      alternatives: fully-qualify the call site (rejected: noisier); rename the project's CommandResult (rejected: massive churn for an unrelated reason); hand-roll a tokeniser (rejected by spec).
+  - category: Implementation
+    chose: "**TestHandler appends TRX flags to the analyzer-supplied command rather than replacing it.** When `ci.test_command = \\\"dotnet test --filter Category=Unit\\\"`, the runner appends `--logger trx --results-directory /work/test-results` so TRX parsing still works without dropping the operator-supplied filter."
+    reason: |
+      alternatives: overwrite (rejected: silently drops analyzer / operator intent); refuse TRX on commands with flags (rejected: would skip TRX for the common operator-customised case).
+  - category: TradeOff
+    chose: "**Skills pin in `config/agentsmith.yml` stays at v2.5.2; bump to v2.6.0 deferred to a follow-up commit AFTER agent-smith-skills v2.6.0 tags.** Same lifecycle constraint as past cross-repo work (e.g. p0144)"
+    reason: |
+      the agent-smith-skills changes commit landed locally on branch `p0155-project-language-string` but require merge + release-please to produce the v2.6.0 tag the operator's pull would resolve. Pin-bump as a one-line commit after the tag exists. -- alternatives: bump pin speculatively (rejected: operator builds break on missing tag); hold both commits until tag (rejected: blocks the C#-side cleanup which is independent of catalog availability).
+  - category: TradeOff
+    chose: "**PublishProjectLanguageHandler Fails on missing ProjectMap or empty PrimaryLanguage** (was: silently default to 'generic'). Per p0155 spec"
+    reason: |
+      the old default masked missing-analyzer bugs as successful 'generic' classification. Fail-loud surfaces the underlying problem at the producer step, where the error is actionable. -- alternatives: silent skip (rejected: makes downstream Fail messages less actionable); default to generic (rejected: that's the bug the phase exists to fix).

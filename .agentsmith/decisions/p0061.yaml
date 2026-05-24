@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0061: Project Knowledge Base
+phase: p0061
+decisions:
+  - category: Architecture
+    chose: wiki/ compiled incrementally by LLM from runs/ + security/
+    reason: "Karpathy pattern: no embeddings, no vectors, human-readable markdown"
+  - category: Implementation
+    chose: CompileKnowledge respects rate limiting (default 1x/hour)
+    reason: prevents token waste on frequent small runs
+  - category: Architecture
+    chose: QueryIntent requires @agent-smith prefix
+    reason: prevents collision with ticket descriptions that start with questions
+  - category: Implementation
+    chose: Wiki queries use sparse checkout of .agentsmith/wiki/ only
+    reason: 5-15 seconds instead of minutes, no container job needed
+  - category: TradeOff
+    chose: Decisions compiled from multiple runs, not just latest
+    reason: institutional memory accumulates; contradictions detected by WikiLint

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0010: Container Production-Ready
+phase: p0010
+decisions:
+  - category: Architecture
+    chose: `--headless` flag auto-approves plans
+    reason: enables container/CI usage without TTY or interactive prompts
+  - category: Implementation
+    chose: Non-root user in Docker
+    reason: security best practice
+  - category: Architecture
+    chose: SSH keys mounted read-only from host
+    reason: enables git operations without embedding credentials

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/holgerleichsenring/specification-first-agentic-development/decision.schema.json",
+  "title": "Phase Decisions",
+  "description": "All decisions attached to a single phase (or run). One YAML file per phase, decisions array inside. Filename = <phase-or-run-id>.yaml (e.g. p0042.yaml, r07.yaml).",
+  "type": "object",
+  "required": ["decisions"],
+  "additionalProperties": false,
+  "oneOf": [
+    { "required": ["phase"] },
+    { "required": ["run"] }
+  ],
+  "properties": {
+    "phase": {
+      "type": "string",
+      "description": "Phase identifier this file's decisions attach to (e.g. p0042). Must match the filename.",
+      "pattern": "^p[0-9a-z]+(?:-[a-z][a-z0-9-]*)?$"
+    },
+    "run": {
+      "type": "string",
+      "description": "Run identifier this file's decisions attach to (e.g. r07). Must match the filename.",
+      "pattern": "^r[0-9a-z]+$"
+    },
+    "decisions": {
+      "type": "array",
+      "description": "All decisions made within this phase or run, in chronological order of recording.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["category", "chose"],
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Decision category.",
+            "enum": ["Architecture", "Implementation", "TradeOff", "Tooling", "Security", "Scope"]
+          },
+          "chose": {
+            "type": "string",
+            "description": "One-line summary of what was picked."
+          },
+          "over": {
+            "type": "string",
+            "description": "Optional. One-line summary of the obvious alternative that was rejected."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Optional. Multi-line explanation of WHY. Use [[other-decision-slug]] to link related decisions."
+          },
+          "alternatives": {
+            "type": "array",
+            "description": "Optional. Other alternatives considered, each a one-line summary including why rejected.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

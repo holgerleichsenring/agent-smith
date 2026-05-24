@@ -1,8 +1,0 @@
-## p0146d: Observation Explicit Location Fields
-
-- [Architecture] Skills emit typed location fields (`file`, `start_line`, `end_line`, `api_path`, `schema_name`) directly as separate JSON properties — the C# parser no longer fishes locations out of `description` prose via regex.
-- [Implementation] Deleted `FileLineRegex`, `HttpEndpointRegex`, `SchemaNameRegex` and `ApplyLocationMigration` from `ObservationParser.cs`. Removed the legacy `Location` property from the private `RawObservation` DTO. JSON parses once; if the LLM omits the typed fields they stay null/0.
-- [Implementation] Set `JsonNamingPolicy.SnakeCaseLower` on the parser's `JsonSerializerOptions` so snake-cased JSON keys (`start_line`, `api_path`, `schema_name`, `evidence_mode`, `review_status`) bind to the PascalCase C# properties. Single-word fields keep working because `PropertyNameCaseInsensitive` was already on.
-- [TradeOff] Dropped backward compatibility with skills that still emit a legacy `"location"` string field. Per spec: skills are framework code, fix at the prompt level. The fallback hid under-specified prompts behind a regex that could mis-extract (paths with colons, multi-line descriptions). New explicit test `Parse_LegacyLocationStringIsIgnored_StructuredFieldsStayNull` documents the change.
-- [Fix] Cross-repo: updated `agent-smith-skills/skills/observation-schema.md` and ~11 SKILL.md prompts that instructed skills to embed `file:line` in `description` or use a `"location"` JSON field. They now instruct skills to populate the typed fields directly. Paired PR in `agent-smith-skills` repo.
-- [Implementation] Output strategies already read from the structured fields (`SkillObservation.DisplayLocation` + SARIF's `artifactLocation` from `obs.File`). No changes needed there.
