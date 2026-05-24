@@ -152,6 +152,35 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        var branch = await GetDefaultBranchAsync(cancellationToken);
+        // GitLab REST: /projects/:id/repository/tree?path=<dir>&ref=<branch>.
+        // Returns a JSON array of { id, name, type, path, mode }. We project name only.
+        // No pagination handling for now — the .agentsmith/contexts/ directory in
+        // realistic monorepos is small (sub-package count, dozens max).
+        var encodedProject = Uri.EscapeDataString(_projectPath);
+        var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/tree?path={Uri.EscapeDataString(path)}&ref={Uri.EscapeDataString(branch)}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return [];
+        response.EnsureSuccessStatusCode();
+
+        using var json = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken),
+            cancellationToken: cancellationToken);
+
+        var names = new List<string>();
+        foreach (var item in json.RootElement.EnumerateArray())
+        {
+            if (item.TryGetProperty("name", out var name) && name.GetString() is { } n)
+                names.Add(n);
+        }
+        return names;
+    }
+
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
         if (_configuredDefaultBranch is not null)

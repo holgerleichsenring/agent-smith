@@ -28,23 +28,57 @@ goal: |
 
 scope:
   in: |
-    (1) Discovery contract:
-        - IProjectMetaResolver.ResolveAllAsync(reader, sourcePath, ct)
-          returns IReadOnlyList<MetaDiscovery> where MetaDiscovery =
+    (0) ISourceProvider gains a ListDirectoryAsync(path, ct) method
+        returning IReadOnlyList<string> (immediate child names only,
+        files + sub-dirs, no recursion). Four implementations:
+        GitHubSourceProvider (GET /repos/{o}/{r}/contents/{path}),
+        GitLabSourceProvider (GET /projects/:id/repository/tree?path=),
+        AzureReposSourceProvider (GET /git/repositories/{id}/items?
+        scopePath=), LocalSourceProvider (Directory.EnumerateFileSystem
+        Entries). Used by SandboxLanguageResolver to discover
+        `.agentsmith/contexts/*/` sub-dirs REMOTELY before the sandbox
+        exists. Returns empty list (not exception) when the path does
+        not exist on the remote.
+
+    (1) Discovery contracts (two layers, same `contexts/*` shape):
+
+        Pre-sandbox (via ISourceProvider.ListDirectoryAsync):
+        - SandboxLanguageResolver gains a ResolveAllAsync(repo, ct)
+          method returning IReadOnlyList<RemoteContextDiscovery>
+          where RemoteContextDiscovery = (string ContextName,
+          string Workdir, string? Language). It lists
+          `.agentsmith/contexts/` via the source provider, then
+          per-sub-dir calls TryReadFileAsync(
+          `.agentsmith/contexts/<name>/context.yaml`) and projects
+          meta.workdir + stack.lang.
+        - Empty discovery (no contexts/ dir) → return a single
+          synthetic entry (ContextName="default", Workdir=".",
+          Language=null) so the un-init / fresh-clone fallback path
+          stays a one-sandbox-with-generic-image flow.
+
+        Post-sandbox (via ISandboxFileReader, inside /work):
+        - IProjectMetaResolver.ResolveAllAsync(reader, ct) returns
+          IReadOnlyList<MetaDiscovery> where MetaDiscovery =
           (string MetaDir, string ContextName, string Workdir).
-          Implementation: ListAsync on `.agentsmith/contexts/`,
-          enumerate immediate sub-directories, read each one's
-          context.yaml, project workdir from the yaml.
+          Implementation: list `.agentsmith/contexts/` immediate
+          sub-dirs via the reader, read each one's context.yaml,
+          project workdir.
         - Old ResolveAsync deleted in the same commit per
           [[feedback_no_wrapper_shims]]. Two existing callers
           (LoadContextHandler, LoadCodingPrinciplesHandler) migrate
           in this phase.
         - Delete depth-first descent, first-hit-wins ordering,
           skipped-segment filter, MaxSearchDepth constant — all dead
-          after the layout change.
+          after the v2 layout change.
+
+        Both layers use the same glob shape (`contexts/*`); the
+        difference is the I/O surface (remote HTTP vs in-sandbox FS).
+        Spec authoring missed this distinction in draft 1; reinstated
+        per operator clarification ("vor dem erstellen der sandboxes,
+        weg a").
 
     (2) context.yaml schema:
-        - New required field `workdir: <relative POSIX path>` —
+        - New required field `meta.workdir: <relative POSIX path>` —
           where the sub-stack lives inside the cloned repo. `.` for
           single-stack (contexts/default/). Sub-tree path for monorepo
           stacks. Loader rejects context.yaml without workdir (fail
@@ -53,8 +87,9 @@ scope:
         - context.schema.json updated.
 
     (3) PipelineSandboxCoordinator:
-        - Per configured RepoConnection: call ResolveAllAsync against
-          the cloned tree.
+        - Per configured RepoConnection: call
+          SandboxLanguageResolver.ResolveAllAsync(repo, ct) PRE-SANDBOX
+          (via the source provider — there is no cloned tree yet).
         - Per MetaDiscovery: build SandboxSpec via the p0135 layered
           chain pointed at THIS discovery's context.yaml. Create one
           sandbox per discovery; clone command runs at `cd <workdir>`
@@ -171,17 +206,41 @@ decisions:
       contexts manually; subsequent runs fan out automatically.
 
 steps:
-  - id: discovery-contract
+  - id: source-provider-list
     action: |
-      Introduce MetaDiscovery record (MetaDir, ContextName, Workdir).
+      Add ListDirectoryAsync(string path, CancellationToken ct) to
+      ISourceProvider returning IReadOnlyList<string> (immediate-child
+      names; empty list when the path does not exist on the remote).
+      Implement in all four providers: GitHub (contents API), GitLab
+      (tree API), AzureRepos (items API), Local (Directory enumerate).
+      Auth/transport failures propagate; absent-path is a graceful
+      empty.
+    modify:
+      - "src/AgentSmith.Contracts/Providers/ISourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs"
+
+  - id: discovery-contracts
+    action: |
+      Introduce two parallel discovery records (same `contexts/*`
+      shape, different I/O surfaces):
+        - RemoteContextDiscovery (ContextName, Workdir, Language?) —
+          pre-sandbox, populated by SandboxLanguageResolver via the
+          source provider.
+        - MetaDiscovery (MetaDir, ContextName, Workdir) — post-
+          sandbox, populated by ProjectMetaResolver via
+          ISandboxFileReader.
       IProjectMetaResolver becomes ResolveAllAsync only. Implement in
       ProjectMetaResolver via ListAsync on contexts/ + per-sub-dir
       context.yaml read + workdir projection. Delete depth-first
       descent, first-hit-wins ordering, IsSkippedSegment helper,
       MaxSearchDepth constant, old ResolveAsync method (in same
-      commit, after callsite migration in step handler-migration).
+      commit, after callsite migration).
     new:
       - "src/AgentSmith.Contracts/Sandbox/MetaDiscovery.cs (record)"
+      - "src/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs (record)"
     modify:
       - "src/AgentSmith.Contracts/Services/IProjectMetaResolver.cs"
       - "src/AgentSmith.Infrastructure/Services/ProjectMetaResolver.cs"
@@ -199,18 +258,31 @@ steps:
       - "src/AgentSmith.Contracts/Models/Configuration/ContextYaml.cs (or equivalent)"
       - "src/AgentSmith.Infrastructure/Services/ContextYamlLoader.cs (or equivalent)"
 
+  - id: language-resolver-fanout
+    action: |
+      SandboxLanguageResolver gains ResolveAllAsync(repo, ct) returning
+      IReadOnlyList<RemoteContextDiscovery>. Implementation: list
+      `.agentsmith/contexts/` via ISourceProvider.ListDirectoryAsync,
+      per sub-dir read `.agentsmith/contexts/<name>/context.yaml` via
+      TryReadFileAsync, project meta.workdir + stack.lang. Empty
+      discovery → single synthetic ("default", ".", null) entry so
+      un-init repos still get one root sandbox. Old single-result
+      ResolveAsync removed (no callers after coordinator-fanout).
+    modify:
+      - "src/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs"
+      - "src/AgentSmith.Application/Services/Sandbox/ISandboxLanguageResolver.cs"
+
   - id: coordinator-fanout
     action: |
       PipelineSandboxCoordinator: per RepoConnection call
-      ResolveAllAsync; per MetaDiscovery build SandboxSpec via the
-      p0135 chain against THAT context.yaml. Create N sandboxes
-      keyed by composite-or-bare context-key. Clone command runs at
+      SandboxLanguageResolver.ResolveAllAsync (pre-sandbox); per
+      RemoteContextDiscovery build SandboxSpec via the p0135 chain
+      using THAT discovery's language. Create N sandboxes keyed by
+      composite-or-bare context-key. Clone command runs at
       `cd <workdir>` so /work = sub-tree root inside each sandbox.
-      Un-init fallback: one root sandbox, generic-image chain.
       DisposeAsync iterates all cached sandboxes once.
     modify:
       - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
-      - "src/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs"
 
   - id: handler-migration
     action: |
