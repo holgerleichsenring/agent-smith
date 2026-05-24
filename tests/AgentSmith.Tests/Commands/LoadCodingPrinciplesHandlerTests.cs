@@ -4,7 +4,6 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -39,8 +38,6 @@ public class LoadCodingPrinciplesHandlerTests
     {
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<string>());
 
         var handler = MakeHandler(reader.Object);
         var repo = new Repository(new BranchName("main"), "https://example.com");
@@ -54,23 +51,15 @@ public class LoadCodingPrinciplesHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_DefaultPathInMonorepoSubdir_ResolvesViaProjectMetaResolver()
+    public async Task ExecuteAsync_DefaultPathInContextsSubdir_ResolvesViaDiscovery()
     {
         var defaultPath = "/work/.agentsmith/coding-principles.md";
-        var nestedDir = "/work/services/api-gateway/.agentsmith";
-        var nestedFile = "/work/services/api-gateway/.agentsmith/coding-principles.md";
+        var nestedFile = "/work/.agentsmith/contexts/default/coding-principles.md";
 
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(defaultPath, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         reader.Setup(r => r.ExistsAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         reader.Setup(r => r.ReadRequiredAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync("# Sub Rules");
-        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[]
-            {
-                "/work/services",
-                "/work/services/api-gateway",
-                nestedDir,
-            });
 
         var handler = MakeHandler(reader.Object);
         var repo = new Repository(new BranchName("main"), "https://example.com");
@@ -100,7 +89,6 @@ public class LoadCodingPrinciplesHandlerTests
 
         await handler.ExecuteAsync(context, CancellationToken.None);
 
-        // CodingPrinciples is an alias for DomainRules — both resolve to same key
         pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Rules");
     }
 
@@ -109,7 +97,6 @@ public class LoadCodingPrinciplesHandlerTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
         return new LoadCodingPrinciplesHandler(
-            new ProjectMetaResolver(),
             factory.Object,
             NullLogger<LoadCodingPrinciplesHandler>.Instance);
     }
@@ -117,7 +104,17 @@ public class LoadCodingPrinciplesHandlerTests
     private static PipelineContext MakePipeline()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        var sandbox = Mock.Of<ISandbox>();
+        pipeline.Set(ContextKeys.Sandbox, sandbox);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["default"] = sandbox });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal)
+            {
+                ["default"] = new RemoteContextDiscovery("default", ".", "csharp")
+            });
         return pipeline;
     }
 }

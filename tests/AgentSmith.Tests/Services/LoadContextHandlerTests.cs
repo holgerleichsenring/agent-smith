@@ -4,7 +4,6 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -31,8 +30,8 @@ public sealed class LoadContextHandlerTests
     public async Task ExecuteAsync_FileNotFound_ReturnsOk()
     {
         var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<string>());
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
         var sut = MakeHandler(reader.Object);
 
         var context = CreateContext();
@@ -59,8 +58,8 @@ public sealed class LoadContextHandlerTests
     public async Task ExecuteAsync_FileNotFound_DoesNotSetPipeline()
     {
         var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<string>());
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
         var sut = MakeHandler(reader.Object);
 
         var context = CreateContext();
@@ -72,9 +71,7 @@ public sealed class LoadContextHandlerTests
     private static Mock<ISandboxFileReader> NewReaderWithMeta(string contextYaml)
     {
         var reader = new Mock<ISandboxFileReader>();
-        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { "/work/.agentsmith" });
-        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/context.yaml", It.IsAny<CancellationToken>()))
+        reader.Setup(r => r.TryReadAsync("/work/.agentsmith/contexts/default/context.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync(contextYaml);
         return reader;
     }
@@ -83,15 +80,24 @@ public sealed class LoadContextHandlerTests
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
-        return new LoadContextHandler(
-            new ProjectMetaResolver(), factory.Object, NullLogger<LoadContextHandler>.Instance);
+        return new LoadContextHandler(factory.Object, NullLogger<LoadContextHandler>.Instance);
     }
 
     private LoadContextContext CreateContext()
     {
         var repo = new Repository(new BranchName("feature/test"), "https://github.com/test/test");
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+        var sandbox = Mock.Of<ISandbox>();
+        pipeline.Set(ContextKeys.Sandbox, sandbox);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["default"] = sandbox });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal)
+            {
+                ["default"] = new RemoteContextDiscovery("default", ".", "csharp")
+            });
         return new LoadContextContext(repo, pipeline);
     }
 }

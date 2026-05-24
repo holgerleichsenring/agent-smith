@@ -93,8 +93,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
     public string BuildExecutionUserPrompt(
         Plan plan, Repository repository, string? verifyNotes = null,
-        IReadOnlyList<string>? repoNames = null,
-        IReadOnlyDictionary<string, string>? repoLanguages = null)
+        IReadOnlyList<string>? contextKeys = null,
+        IReadOnlyDictionary<string, string>? perKeyLanguages = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -102,7 +102,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-            {BuildReposInScopeSection(repoNames, repoLanguages)}{BuildVerifyNotesSection(verifyNotes)}
+            {BuildContextsInScopeSection(contextKeys, perKeyLanguages)}{BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -114,30 +114,32 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     }
 
     /// <summary>
-    /// p0158e: when the run spans multiple repos, list them so the agent knows
-    /// to use repo-qualified paths in filesystem tool calls and pass `repo` to
-    /// run_command. p0158f: include per-repo PrimaryLanguage when available so
-    /// the agent picks the right test command per repo. Single-repo runs emit
-    /// nothing (back-compat).
+    /// p0158e + p0161a: when the run spans multiple discovered contexts
+    /// (composite sandbox keys after p0161a — "default" / "&lt;ctx&gt;" /
+    /// "&lt;repo&gt;" / "&lt;repo&gt;/&lt;ctx&gt;"), list them so the agent
+    /// uses context-qualified paths in filesystem tool calls and passes the
+    /// key to run_command. Per-key annotation is the context's
+    /// PrimaryLanguage from its ProjectMap. Single-context runs emit nothing
+    /// (back-compat).
     /// </summary>
-    internal static string BuildReposInScopeSection(
-        IReadOnlyList<string>? repoNames,
-        IReadOnlyDictionary<string, string>? repoLanguages = null)
+    internal static string BuildContextsInScopeSection(
+        IReadOnlyList<string>? contextKeys,
+        IReadOnlyDictionary<string, string>? perKeyLanguages = null)
     {
-        if (repoNames is null || repoNames.Count <= 1) return string.Empty;
-        var bullets = string.Join("\n", repoNames.Select(name =>
+        if (contextKeys is null || contextKeys.Count <= 1) return string.Empty;
+        var bullets = string.Join("\n", contextKeys.Select(key =>
         {
-            var lang = repoLanguages is not null && repoLanguages.TryGetValue(name, out var l) ? l : null;
-            return lang is null ? $"  - {name}" : $"  - {name} ({lang})";
+            var lang = perKeyLanguages is not null && perKeyLanguages.TryGetValue(key, out var l) ? l : null;
+            return lang is null ? $"  - {key}" : $"  - {key} ({lang})";
         }));
         return $"""
 
 
-            ## Repos in scope
-            This run spans {repoNames.Count} repos:
+            ## Contexts in scope
+            This run spans {contextKeys.Count} contexts:
             {bullets}
-            Use repo-qualified paths in filesystem tool calls (e.g. `{repoNames[0]}/src/Foo.cs`).
-            Pass `repo` to run_command (e.g. run_command(command="dotnet test", repo="{repoNames[0]}")).
+            Use context-qualified paths in filesystem tool calls (e.g. `{contextKeys[0]}/src/Foo.cs`).
+            Pass the context key to run_command (e.g. run_command(command="dotnet test", repo="{contextKeys[0]}")).
             """;
     }
 
