@@ -16,7 +16,7 @@ internal sealed class NewFormatSkillValidator
 
     private static readonly HashSet<string> AllowedOutputSchemas = new(StringComparer.Ordinal)
     {
-        "observation", "plan", "diff", "bootstrap",
+        "observation", "plan", "diff", "bootstrap", "discovery",
     };
 
     private static readonly HashSet<string> AllowedInvestigatorModes = new(StringComparer.Ordinal)
@@ -71,7 +71,7 @@ internal sealed class NewFormatSkillValidator
         if (!AllowedOutputSchemas.Contains(meta.OutputSchema))
             throw new SkillFormatException(
                 path,
-                $"output_schema must be one of {{observation, plan, diff, bootstrap}}; got '{meta.OutputSchema}'");
+                $"output_schema must be one of {{observation, plan, diff, bootstrap, discovery}}; got '{meta.OutputSchema}'");
     }
 
     private static void ValidateInvestigatorMode(SkillMdFrontmatter meta, string path)

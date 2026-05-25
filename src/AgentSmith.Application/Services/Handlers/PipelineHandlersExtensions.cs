@@ -84,6 +84,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<BootstrapGateContext>, BootstrapGateHandler>();
         AddConceptPublishingHandler<PublishProjectLanguageHandler, PublishProjectLanguageContext>(services);
         services.AddTransient<ICommandHandler<BootstrapDispatchContext>, BootstrapDispatchHandler>();
+        services.AddTransient<ICommandHandler<BootstrapDiscoverContext>, BootstrapDiscoverHandler>();
         services.AddSingleton<ConceptWriterRegistry>();
         services.AddTransient<ICommandHandler<LoadSwaggerContext>, LoadSwaggerHandler>();
         services.AddTransient<ICommandHandler<SpawnNucleiContext>, SpawnNucleiHandler>();

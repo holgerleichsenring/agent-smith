@@ -1,10 +1,10 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
-using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -19,6 +19,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// key when absent — no silent skip). Formatting is delegated to
 /// RunResultFormatter. RunId is generated once at pipeline start by
 /// ExecutePipelineUseCase and read from PipelineContext here.
+///
+/// p0161d: init-project runs fan out per <see cref="RepoConnection"/>: each
+/// repo's sandbox gets its own <c>runs/{runId}-init/{plan.md,result.md}</c>
+/// with that repo's slice of <see cref="ContextKeys.DiscoveredComponents"/>
+/// and <see cref="ContextKeys.BootstrapOutputs"/>. Same RunId across all
+/// repos. Ticket-driven runs keep the single-sandbox path.
 /// </summary>
 public sealed class WriteRunResultHandler(
     ISandboxFileReaderFactory readerFactory,
@@ -34,65 +40,157 @@ public sealed class WriteRunResultHandler(
     public async Task<CommandResult> ExecuteAsync(
         WriteRunResultContext context, CancellationToken cancellationToken)
     {
+        var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
+        if (IsInitMode(context))
+            return await WriteInitFanOutAsync(context, runId, cancellationToken);
+        return await WriteSingleAsync(context, runId, cancellationToken);
+    }
+
+    private static bool IsInitMode(WriteRunResultContext context) =>
+        context.Ticket is null && context.Plan is null;
+
+    private async Task<CommandResult> WriteSingleAsync(
+        WriteRunResultContext context, string runId, CancellationToken cancellationToken)
+    {
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
-
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
+        var slug = GenerateSlug(context.Ticket!.Title);
+        var runDir = Path.Combine(runsDir, $"{runId}-{slug}");
 
-        var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
-
-        // p0130c-followup: init-project routes through this handler but has
-        // no Ticket/Plan/Changes — use a static "init" slug + skip plan.md
-        // (no plan to render) + render result.md in init-mode.
-        var slug = context.Ticket is not null ? GenerateSlug(context.Ticket.Title) : "init";
-        var runDirName = $"{runId}-{slug}";
-        var runDir = Path.Combine(runsDir, runDirName);
-
-        if (context.Ticket is not null && context.Plan is not null)
-        {
-            var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
-            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
-        }
-
+        var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan!);
+        await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
 
-        // p0130c-followup: RunCostSummary was never published to ContextKeys by any
-        // handler in production — pull it from the live PipelineCostTracker
-        // instead so result.md gets the tokens/cost sections it advertises.
-        // Test fixtures still pre-seed ContextKeys.RunCostSummary, so that takes
-        // precedence when present. Wall-clock duration falls back to
-        // (now - RunStartedAt) when no handler stamped RunDurationSeconds (the
-        // case for init-project, which has no AgenticExecute step).
-        var costSummary = ResolveCostSummary(context.Pipeline);
-        var durationSeconds = ResolveDurationSeconds(context.Pipeline);
-        context.Pipeline.TryGet<List<ExecutionTrailEntry>>(ContextKeys.ExecutionTrail, out var trail);
-        context.Pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
-        context.Pipeline.TryGet<SecurityTrend>(ContextKeys.SecurityTrend, out var securityTrend);
+        var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
+        var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
+        var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
+        var trend = TryGet<SecurityTrend>(context.Pipeline, ContextKeys.SecurityTrend);
         var dialogueEntries = dialogueTrail.GetAll();
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
 
-        var resultMd = context.Ticket is not null && context.Plan is not null
-            ? RunResultFormatter.FormatResult(
-                context.Ticket, context.Plan, context.Changes,
-                runId, durationSeconds, costSummary, trail, decisions, securityTrend,
-                dialogueEntries.Count > 0 ? dialogueEntries : null,
-                perSkillBreakdown)
-            : RunResultFormatter.FormatInitResult(
-                runId, durationSeconds, costSummary, trail, decisions,
-                dialogueEntries.Count > 0 ? dialogueEntries : null,
-                perSkillBreakdown);
+        var resultMd = RunResultFormatter.FormatResult(
+            context.Ticket, context.Plan!, context.Changes,
+            runId, duration, cost, trail, decisions, trend,
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(
             reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, cancellationToken);
-
         logger.LogInformation(
-            "Written run result {RunId} to {Dir}",
-            RunIdGenerator.FormatForDisplay(runId), runDirName);
-
-        return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {runDirName}");
+            "Written run result {RunId} to {Dir}", RunIdGenerator.FormatForDisplay(runId), Path.GetFileName(runDir));
+        return CommandResult.Ok(
+            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
     }
+
+    private async Task<CommandResult> WriteInitFanOutAsync(
+        WriteRunResultContext context, string runId, CancellationToken cancellationToken)
+    {
+        var pipeline = context.Pipeline;
+        var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
+            && r is { Count: > 0 } ? r : null;
+        if (repos is null)
+            return await WriteInitSingleSandboxAsync(context, runId, cancellationToken);
+
+        var components = TryGet<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            pipeline, ContextKeys.DiscoveredComponents);
+        var outputs = TryGet<Dictionary<string, Dictionary<string, string>>>(
+            pipeline, ContextKeys.BootstrapOutputs);
+        var (cost, duration) = ResolveCostAndDuration(pipeline);
+        var trail = TryGet<List<ExecutionTrailEntry>>(pipeline, ContextKeys.ExecutionTrail);
+        var decisions = TryGet<List<PlanDecision>>(pipeline, ContextKeys.Decisions);
+        var dialogueEntries = dialogueTrail.GetAll();
+        var perSkillBreakdown = ResolvePerSkillBreakdown(pipeline);
+        var sharedNote = repos.Count > 1
+            ? $"Total run cost shared across {repos.Count} repos — Discover allocated to each repo equally; BootstrapRound calls already tagged per repo."
+            : null;
+
+        var written = 0;
+        foreach (var repo in repos)
+        {
+            var sandbox = ResolvePerRepoSandbox(pipeline, repo);
+            if (sandbox is null)
+            {
+                logger.LogWarning("WriteRunResult: no sandbox for repo '{Repo}' — skipping init run-doc", repo.Name);
+                continue;
+            }
+            var reader = readerFactory.Create(sandbox);
+            var repoComponents = components is not null && components.TryGetValue(repo.Name, out var rc) ? rc : null;
+            var repoOutputs = outputs is not null && outputs.TryGetValue(repo.Name, out var ro) ? ro : null;
+            var runDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir, RunsDir, $"{runId}-init");
+
+            var planMd = RunResultFormatter.FormatInitPlan(runId, repo.Name, repoComponents);
+            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+            await WriteOptionalArtifactsAsync(reader, runDir, pipeline, cancellationToken);
+            var resultMd = RunResultFormatter.FormatInitResult(
+                runId, duration, cost, trail, decisions,
+                dialogueEntries.Count > 0 ? dialogueEntries : null,
+                perSkillBreakdown,
+                repoName: repo.Name, components: repoComponents,
+                bootstrapOutputsByContext: repoOutputs,
+                sharedCostNote: sharedNote);
+            await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+
+            await AppendToContextYamlAsync(
+                reader,
+                Path.Combine(context.Repository.LocalPath, AgentSmithDir, ContextFileName),
+                runId, ticket: null, cancellationToken);
+            written++;
+            logger.LogInformation(
+                "WriteRunResult: repo {Repo} init run-doc written to {Dir}", repo.Name, Path.GetFileName(runDir));
+        }
+
+        return CommandResult.Ok(
+            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
+    }
+
+    private async Task<CommandResult> WriteInitSingleSandboxAsync(
+        WriteRunResultContext context, string runId, CancellationToken cancellationToken)
+    {
+        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        var reader = readerFactory.Create(sandbox);
+        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
+        var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-init");
+        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
+        var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
+        var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
+        var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
+        var dialogueEntries = dialogueTrail.GetAll();
+        var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
+        var resultMd = RunResultFormatter.FormatInitResult(
+            runId, duration, cost, trail, decisions,
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
+        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+        await AppendToContextYamlAsync(
+            reader, Path.Combine(agentDir, ContextFileName), runId, ticket: null, cancellationToken);
+        return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
+    }
+
+    private static ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
+    {
+        var matches = SandboxTargets.SandboxesForRepo(pipeline, repo);
+        if (matches.Count > 0) return matches[0].Value;
+        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
+    }
+
+    private static (RunCostSummary? Cost, int DurationSeconds) ResolveCostAndDuration(PipelineContext pipeline)
+    {
+        var cost = pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var explicitCost)
+            && explicitCost is not null
+            ? explicitCost
+            : PipelineCostTracker.GetOrCreate(pipeline).BuildSummary();
+        var duration = pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var explicitSeconds)
+            && explicitSeconds > 0
+            ? explicitSeconds
+            : pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt)
+                ? (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds)
+                : 0;
+        return (cost, duration);
+    }
+
+    private static T? TryGet<T>(PipelineContext pipeline, string key) where T : class
+        => pipeline.TryGet<T>(key, out var value) ? value : null;
 
     /// <summary>
     /// p0128a: persists the structured plan/diff/bootstrap artifacts alongside the
@@ -123,24 +221,6 @@ public sealed class WriteRunResultHandler(
         {
             return raw;
         }
-    }
-
-    private static RunCostSummary? ResolveCostSummary(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var explicitSummary)
-            && explicitSummary is not null)
-            return explicitSummary;
-        return PipelineCostTracker.GetOrCreate(pipeline).BuildSummary();
-    }
-
-    private static int ResolveDurationSeconds(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var explicitSeconds)
-            && explicitSeconds > 0)
-            return explicitSeconds;
-        if (pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt))
-            return (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
-        return 0;
     }
 
     private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)

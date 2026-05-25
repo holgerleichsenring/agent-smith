@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-smith.org/schemas/discovery/1.0.json",
+  "title": "Discovery",
+  "description": "Output contract for skills with output_schema=discovery. p0161d: lists independently-deployable / independently-callable components found in a repo, each evidenced by an entrypoint or deploy artefact. Drives BootstrapDispatch fan-out (one BootstrapRound per component).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "components"],
+  "properties": {
+    "status": { "type": "string", "enum": ["complete", "ambiguous"] },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "workdir", "language", "evidence"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Context-directory slug under .agentsmith/contexts/. Operator-readable, lowercase, no slashes." },
+          "workdir": { "type": "string", "minLength": 1, "description": "Repo-relative working directory. \".\" for single-component repos." },
+          "language": { "type": "string", "minLength": 1, "description": "Free-form language slug owned by the LLM (drives bootstrap-skill activation via project_language)." },
+          "evidence": { "type": "string", "minLength": 1, "description": "File path proving the component is deployable or callable (entrypoint or deploy artefact)." }
+        }
+      }
+    },
+    "ambiguity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message"],
+      "properties": {
+        "message": { "type": "string", "minLength": 1 },
+        "candidates": { "type": "array", "items": { "type": "string" } }
+      },
+      "description": "Populated when status=ambiguous. Names the conflicting candidates so the operator can re-run interactively for disambiguation."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "complete" } }, "required": ["status"] },
+      "then": { "properties": { "components": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "ambiguous" } }, "required": ["status"] },
+      "then": { "required": ["ambiguity"] }
+    }
+  ]
+}

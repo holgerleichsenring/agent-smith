@@ -15,8 +15,13 @@ public sealed class SkillOutputValidatorFactoryTests
             new DiffOutputValidator(loader),
             new BootstrapOutputValidator(loader),
             new ObservationOutputValidator(TolerantJsonParserFactory.CreateObservation()),
+            new DiscoveryOutputValidator(loader),
             new NoOpSkillOutputValidator());
     }
+
+    [Fact]
+    public void ForSchema_Discovery_ReturnsDiscoveryValidator()
+        => NewFactory().ForSchema("discovery").Should().BeOfType<DiscoveryOutputValidator>();
 
     [Fact]
     public void ForSchema_Plan_ReturnsPlanValidator()
