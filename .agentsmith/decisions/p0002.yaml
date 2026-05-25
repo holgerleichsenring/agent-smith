@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0002: Pipeline Handlers
+phase: p0002
+decisions:
+  - category: Architecture
+    chose: CommandExecutor uses `GetService<T>()` instead of `GetRequiredService<T>()`
+    reason: allows custom error messages instead of DI exceptions
+  - category: Implementation
+    chose: Handlers are sealed classes with primary constructors
+    reason: enforces immutability and modern .NET 8 conventions
+  - category: TradeOff
+    chose: LoadCodingPrinciplesHandler can be fully implemented in Phase 2 but intentionally stubbed
+    reason: accepted inconsistency to keep phases parallel
+  - category: Implementation
+    chose: ApprovalHandler auto-approved as stub
+    reason: establishes pattern for later headless mode

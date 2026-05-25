@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0074: CLI Source Overrides
+phase: p0074
+decisions:
+  - category: Architecture
+    chose: Three generic options (--source-type, --source-path, --source-url, --source-auth) replace --repo
+    reason: covers all provider types uniformly.
+  - category: Architecture
+    chose: Applied in ExecutePipelineUseCase (transparent to downstream)
+    reason: handlers don't need to know about CLI overrides.
+  - category: Implementation
+    chose: SecurityScanCommand drops --repo
+    reason: replaced by generic source options.

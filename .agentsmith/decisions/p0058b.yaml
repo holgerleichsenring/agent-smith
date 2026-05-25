@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0058b: Microsoft Teams Integration
+phase: p0058b
+decisions:
+  - category: Implementation
+    chose: Adaptive Cards for all 5 QuestionType variants
+    reason: Teams-native UI that preserves same dialogue model across all adapters
+  - category: TradeOff
+    chose: Removed old AskQuestion method entirely once all adapters migrated
+    reason: cleaner contract, forces consistency

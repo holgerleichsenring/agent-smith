@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0031: Orphan Detector Redis Scan
+phase: p0031
+decisions:
+  - category: Architecture
+    chose: "`ConversationStateManager.GetAllAsync()` scans `conversation:*:*` Redis keys"
+    reason: detects stale states from before dispatcher restart
+  - category: Implementation
+    chose: "Dual-path detection: in-memory tracked + full Redis scan"
+    reason: comprehensive coverage of all failure modes

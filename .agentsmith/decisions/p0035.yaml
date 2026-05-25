@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0035: Simplified Slack Commands
+phase: p0035
+decisions:
+  - category: Architecture
+    chose: "Split `FixTicket` into three commands: `FixBug`, `FixBugNoTests`, `AddFeature`"
+    reason: pipeline selection implicit in command type
+  - category: Implementation
+    chose: `ModalCommandType` enum routes to pipeline presets directly
+    reason: no separate pipeline dropdown

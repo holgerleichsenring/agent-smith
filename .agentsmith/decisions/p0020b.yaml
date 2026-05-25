@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0020b: Help Command
+phase: p0020b
+decisions:
+  - category: Architecture
+    chose: Greeting detection in Regex stage
+    reason: "\"hi\", \"hello\" cost zero AI tokens"
+  - category: Implementation
+    chose: `ClarificationStateManager` stores low-confidence suggestions in Redis with TTL
+    reason: avoids second AI call when user confirms

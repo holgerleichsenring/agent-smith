@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0043d: Ollama Local Model Support
+phase: p0043d
+decisions:
+  - category: Tooling
+    chose: OpenAiCompatibleClient shared between OpenAI and Ollama via composition not inheritance
+    reason: avoids class hierarchy complexity
+  - category: TradeOff
+    chose: Structured text fallback when tool calling unavailable
+    reason: preferred over forcing minimum model capability
+  - category: Implementation
+    chose: ModelAssignment extended with ProviderType and Endpoint (both nullable)
+    reason: backward compatible with existing single-provider configs
+  - category: Architecture
+    chose: Startup validation pings Ollama endpoint and detects tool calling capability
+    reason: fails fast with clear error messages

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0146c: Drop convergence/objection prose-regex fallback
+phase: p0146c
+decisions:
+  - category: Architecture
+    chose: "**Empty/missing `SkillObservations` is now a hard fail, not a silent fallback.** `ConvergenceCheckHandler` previously regex-fished `OBJECTION` / `AGREE` out of `DiscussionLog` content when observations were absent; that path silently absorbed contract violations (skill produced prose where the framework expected observations) behind a regex guess. After p0123 every discussion-pipeline skill emits `SkillObservation`s, so a missing-or-empty list now signals a real bug in the upstream skill"
+    reason: |
+      `CommandResult.Fail` surfaces it. -- alternatives: keep the regex fallback (rejected: hides upstream contract bugs); treat empty as 'consensus' (rejected: false positives, silent green pipelines on broken skills); soft-deprecate via `LogWarning` then delete next release (rejected: scope creep — the audit shows no production caller relies on the legacy path, so warning code added and removed in the same PR is churn).
+  - category: Implementation
+    chose: "**`DetectObjection` deleted outright; no structured-field replacement for `OBJECTION[target]` attribution.** Audit-time discovery: `DetectObjection` was being matched against `renderedText`"
+    reason: |
+      the output of `RenderObservationsAsText` — not raw LLM output. So the regex could only fire if the substring "OBJECTION" appeared in a structured observation's `Concern` / `Description` / `Suggestion` fields, which post-p0123 emits never produce. The path was double-dead (no caller AND would never match). The follow-up "extend observation schema with an objection_target field" sub-step of the spec is therefore unnecessary: any downstream consumer that ever depended on objection-target attribution already had to switch to the typed observation surface during p0123. -- alternatives: add a `TargetSkill` field to `SkillObservation` defensively (rejected: speculative — zero present consumer); keep the regex against raw LLM output instead of rendered text (rejected: doubles down on prose-fishing, exact anti-pattern p0146 is killing).
+  - category: TradeOff
+    chose: "**`docs/pipelines/mad-discussion.md` + `docs/concepts/multi-skill.md` + `docs/concepts/pipeline-system.md` + `docs/pipelines/index.md` still describe the AGREE/OBJECTION/SUGGESTION/SILENCE response shape and are now stale.** Not updated in this phase. The accurate replacement language depends on what mad-discussion personas actually emit through the post-p0123 observation surface (severity / blocking / suggestion fields), which warrants a coordinated content rewrite rather than a token-swap. FOLLOW-UP: dedicated docs-refresh phase covering mad-discussion mechanics + the multi-skill convergence section."
+    reason: |
+      alternatives: rewrite docs now (rejected: would require running a live mad-discussion to capture the new persona-output shape and rewrite four files, well beyond regex-deletion scope); add `[outdated]` banners (rejected: clutter that future sweep would have to remove anyway).

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0038: MAD Discussion Pipeline
+phase: p0038
+decisions:
+  - category: Architecture
+    chose: SkillsPath moved to ProjectConfig instead of hardcoded path
+    reason: enables loading from subdirectories for different discussion types
+  - category: Architecture
+    chose: CompileDiscussionCommand writes discussion transcript instead of executing code steps
+    reason: reuses existing ConvergenceCheck consolidation

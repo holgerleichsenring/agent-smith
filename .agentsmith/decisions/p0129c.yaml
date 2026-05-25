@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0129c: architecture-verifier + verify-notes dedup (D5 slice 3/3)
+phase: p0129c
+decisions:
+  - category: Architecture
+    chose: "**architecture-verifier extracts checkable rules from coding-principles.md at LLM-call time; no separate parser.** coding-principles.md is free-form Markdown by design (operator-extensible per p0026). A parser would force a schema. The skill body teaches the LLM to distinguish checkable rules (hard limits, naming conventions, forbidden patterns, required patterns"
+    reason: |
+      quotable from the principles + verifiable in diff text) from subjective ones ("readable code", "follow SOLID" — skip). Trade-off: prompt grows by ~5-10k tokens; for verify-phase budget (max 20 tool calls per verifier, 200k input tokens), this is comfortable. -- alternatives: pre-parse principles into a checkable rule set (rejected: forces schema on free-form content); skip architecture-verifier entirely (rejected: leaves gap in spec-listed verifier set).
+  - category: Architecture
+    chose: "**VerifierPromptBuilder gains an optional `codingPrinciples` parameter rather than a separate prompt-builder per verifier.** All four verifier prompts share the shape: system=skill body, user=Plan + Diff + (optional) coding principles. Per-verifier prompt-builders would mean four near-identical classes. The optional parameter keeps the surface flat; verifiers that don't read coding principles (scope, build, test) ignore the section appropriately because their bodies don't reference it."
+  - category: Implementation
+    chose: "**Verify-notes dedup operates on the cumulative VerifyObservations list at Escalate time, not on string concatenation.** Round-1 invocation calls AppendObservations (cumulative slot); round-2 invocation appends. At Escalate time, BuildCombinedDedupedNotes reads the full list, applies VerifyNotesFormatter.Dedup (groups by (file, concern, description-prefix-100), keeps last per group), filters to blocking, and re-formats as a single round-2 notes block. This deviates from the prior \"concat round-1 string + round-2 string\" semantic (which the original failing test asserted)"
+    reason: |
+      the new shape is cleaner: operators see one entry per unique unfixed concern, with the round-2 rationale (most recent) preserved. The temporal "X persisted from round 1" signal is sacrificed for noise reduction; if it's needed later, format the deduped result with `[round-1+round-2]` markers per duplicate-group.
+  - category: Implementation
+    chose: "**Description-prefix-100 is the dedup key's third axis.** Round-2 verifiers tend to LLM-paraphrase round-1 findings slightly. Exact-equality on Description would let paraphrases slip through. 100 chars captures the headline without false-merging two distinct observations that happen to start similarly but diverge later. Empirical pick"
+    reason: |
+      a tighter cutoff would over-merge legitimate distinct findings; looser would let LLM-paraphrase variants persist as duplicates.
+  - category: Implementation
+    chose: "**Existing VerifyRoundHandlerTests.ExecuteAsync_BlockingSecondRound test rewritten for the new dedup semantic.** The old test seeded VerifyNotes (a string) without seeding VerifyObservations and asserted both \"round 1\" and \"round 2\" headers in the combined output. The new flow needs VerifyObservations seeded (matching real round-1 → round-2 progression where AppendObservations runs in round 1). The test now asserts: failure on second blocking, deduped output ('still out' appears once not twice across rounds), new findings (y.cs) preserved. Cleaner alignment with production behavior."

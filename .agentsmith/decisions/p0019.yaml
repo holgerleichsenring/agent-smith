@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0019: K8s Deployment
+phase: p0019
+decisions:
+  - category: Architecture
+    chose: Multi-stage Dispatcher Dockerfile (build → runtime with non-root user)
+    reason: separates compile from runtime, reduces image size, hardens security
+  - category: TradeOff
+    chose: Redis without PersistentVolume initially
+    reason: |
+      ephemeral streams only live during job execution, simplifies local testing, upgrade path exists
+  - category: Architecture
+    chose: Kustomize base + dev/prod overlays
+    reason: reusable structure, environment-specific patches avoid duplication

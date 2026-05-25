@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0034: Multi-Skill Architecture
+phase: p0034
+decisions:
+  - category: Architecture
+    chose: Commands insert follow-up commands into flat LinkedList pipeline
+    reason: no tree structures, fully transparent in logs
+  - category: Architecture
+    chose: Role-based skills with separate YAML files
+    reason: pluggable roles, new roles added without code changes
+  - category: Architecture
+    chose: `ConvergenceCheckCommand` evaluates consensus
+    reason: prevents infinite discussion loops
+  - category: Implementation
+    chose: Max 100 command executions limit in PipelineExecutor
+    reason: prevents accidental infinite loops

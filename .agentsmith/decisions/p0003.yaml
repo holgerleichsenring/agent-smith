@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0003: Providers
+phase: p0003
+decisions:
+  - category: Architecture
+    chose: Separate provider for each source control system (GitHub, Local, GitLab later)
+    reason: each has different API, no shared abstraction
+  - category: Tooling
+    chose: ClaudeAgentProvider chosen as primary agent
+    reason: Anthropic API, agentic loop pattern established as reference
+  - category: Architecture
+    chose: ToolExecutor separated from agent loop
+    reason: allows code reuse across provider implementations
+  - category: TradeOff
+    chose: Scout phase (file discovery) designed but deferred to Phase 9
+    reason: accepted complexity later to unblock core provider work
+  - category: Security
+    chose: Path validation in tools (no `..`, no absolute paths)
+    reason: prevents directory traversal attacks from agentic code execution

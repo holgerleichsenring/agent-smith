@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0067: API Scan Compression & ZAP Fix
+phase: p0067
+decisions:
+  - category: Architecture
+    chose: Category slicing (auth/design/runtime) instead of finding compression
+    reason: |
+      findings are already compact at ~90 chars/piece, compression would lose information. Slicing routes findings to the right skill without data loss.
+  - category: Tooling
+    chose: WorkDir as optional ToolRunRequest parameter instead of Docker volume mounts
+    reason: |
+      volume mounts would add complexity to DockerToolRunner. WorkDir + tar extraction to / is simpler and backward compatible (Nuclei/Spectral unaffected).
+  - category: Implementation
+    chose: Inject target URL into swagger servers[] instead of pinning ZAP version
+    reason: |
+      ZAP needs absolute URLs, many OpenAPI specs only have relative "/". Patching the spec before copy is non-invasive.
+  - category: TradeOff
+    chose: Remove --auto flag entirely instead of finding replacement
+    reason: |
+      --auto was never a valid option on ZAP's Python wrapper scripts. The scripts are non-interactive by default in Docker containers.
+  - category: Implementation
+    chose: Skip DAST skills on ZAP failure via ZapFailed flag
+    reason: |
+      avoids wasting 2 LLM calls on empty input. Flag is checked in ApiSecurityTriageHandler before building the skill graph.

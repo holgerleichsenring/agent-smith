@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0087: Ticket Image Attachments
+phase: p0087
+decisions:
+  - category: Architecture
+    chose: IAttachmentLoader per platform
+    reason: |
+      keeps TicketProvider focused on ticket CRUD, image downloading is separate concern.
+  - category: Implementation
+    chose: Only image MIME types (png, jpeg, gif, webp)
+    reason: skip PDFs, ZIPs. Max 5MB per image, skip larger with warning.
+  - category: Implementation
+    chose: Images stored as base64 in PipelineContext via ContextKeys.Attachments
+    reason: passed as vision input to LLM during plan generation.
+  - category: TradeOff
+    chose: Markdown parsing for GitHub/GitLab (![](url) patterns) over API-based attachment listing
+    reason: issues embed images inline, not as separate attachments.

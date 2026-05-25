@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0096: Event Pollers
+phase: p0096
+decisions:
+  - category: Architecture
+    chose: "Two independent Redis leases: `agentsmith:leader:poller` and `agentsmith:leader:housekeeping`. A single replica can hold both; having them separate means polling can go leader-elected without disturbing housekeeping timing, and vice versa. Same `LeaderElectedHostedService` runs both with different keys."
+  - category: Architecture
+    chose: "LeaderElectedHostedService loop: TryAcquire → while leader { work, renew, check } → on renewal failure cancel work, release, back to try-acquire with 5s idle backoff. Ensures exactly-one-leader under Redis's TTL+CAS semantics."
+  - category: Architecture
+    chose: RedisLeaderLease uses CAS Lua for both RENEW (PEXPIRE only if stored value matches token) and RELEASE (DEL only on match). Prevents a GC-paused or network-partitioned leader from extending or deleting a lease the new holder acquired after the TTL elapsed
+    reason: the classic "Redlock lite" pattern.
+  - category: Architecture
+    chose: Housekeeping services (StaleJobDetector + EnqueuedReconciler from p0095c) migrated from unconditional-per-replica to leader-only. Reduces N-fold API calls; correctness was already there via atomic transitions, but the extra calls were wasteful. ServerCommand's RunHousekeepingAsync runs both services in one Task.WhenAll under the housekeeping leader.
+  - category: Architecture
+    chose: PollerHostedService fan-outs pollers via Task.WhenAll with a 20s per-poller timeout. One slow platform does not block the others. Exceptions caught per poller and logged; one failure does not poison the cycle. Claims from all pollers are then processed sequentially
+    reason: |
+      ClaimAsync is fast (few hundred ms worst case), and sequential processing keeps Redis lock contention predictable.
+  - category: Architecture
+    chose: IEventPoller reads via ITicketProvider.ListByLifecycleStatusAsync(Pending)
+    reason: |
+      same dependency the reconciler uses. p0096 ships the GitHub poller only; other platforms follow when their ListByLifecycleStatus implementations land (same incremental pattern as p0095c).
+  - category: Architecture
+    chose: Polling opt-in per project via PollingConfig (default Enabled=false). Webhook-only deployments see no behaviour change. Disabled projects are skipped at BuildPollers time in ServerCommand
+    reason: no null pollers flow into PollerHostedService.
+  - category: Scope
+    chose: Parallel-across-platforms, sequential-across-claims. Parallelism knob for ClaimAsync dispatch was considered but rejected
+    reason: |
+      claim is O(ms) unless a platform API is slow, and semaphore complexity here is not worth a few hundred ms.
+  - category: Scope
+    chose: Jitter is per-cycle (±10%) applied after Task.WhenAll. Per-project jitter (spec option) was simpler at this scope
+    reason: |
+      one randomised sleep at the end of each cycle, minimum across configured intervals.
+  - category: Scope
+    chose: Leader lease renewal interval 10s, TTL 30s. 3x safety margin matches the p0095c heartbeat pattern; if the process GC-pauses or clock-skews for up to 20s we still renew before the TTL hits.

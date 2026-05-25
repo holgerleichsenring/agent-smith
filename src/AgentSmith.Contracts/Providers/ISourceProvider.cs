@@ -35,6 +35,18 @@ public interface ISourceProvider : ITypedProvider
     Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists immediate children (files + sub-directories, no recursion) at the
+    /// given repo-relative path on the default branch, without a full clone.
+    /// Returns names only — caller composes full paths. Returns empty list
+    /// when the path does not exist on the remote; auth + transport errors
+    /// propagate. Used by SandboxLanguageResolver (p0161) to discover
+    /// .agentsmith/contexts/* sub-dirs before the sandbox is created so the
+    /// orchestrator can spawn one sandbox per discovered context with the
+    /// right toolchain image per context.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Updates the body / description of an already-opened pull request. Used by
     /// PrCrossLinkHandler in p0158c's pass-2 to replace the sibling-PRs marker
     /// with the actual sibling URL list once every per-repo PR has been opened.

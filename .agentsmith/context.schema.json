@@ -20,7 +20,8 @@
         "project",
         "version",
         "type",
-        "purpose"
+        "purpose",
+        "workdir"
       ],
       "additionalProperties": false,
       "properties": {
@@ -31,6 +32,11 @@
             "agent-smith",
             "order-service"
           ]
+        },
+        "workdir": {
+          "type": "string",
+          "description": "Sub-tree this context applies to, relative to the repo root. '.' = repo root (single-stack default, contexts/default/). Monorepo example: 'src/Server', 'client', 'docs'. Required per p0161 — sandbox coordinator clones at this path so /work = sub-tree root inside the sandbox.",
+          "examples": [".", "src/Server", "client", "docs"]
         },
         "version": {
           "type": "string",

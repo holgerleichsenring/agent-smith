@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0043e: Webhook Expansion
+phase: p0043e
+decisions:
+  - category: Architecture
+    chose: Replaced monolithic WebhookListener with IWebhookHandler dispatch pattern
+    reason: eliminates large switch statement, enables platform handlers in isolation
+  - category: Architecture
+    chose: SecurityScanRequest as common mapping target across all platforms
+    reason: decouples platform-specific payloads from execution logic

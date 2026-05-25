@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0136: Per-project sandbox container resources via IOptions
+phase: p0136
+decisions:
+  - category: Architecture
+    chose: "**Target the Sandbox path (ISandboxFactory / PodSpecBuilder / DockerContainerSpecBuilder) only"
+    reason: |
+      not the legacy IJobSpawner / KubernetesJobSpawner CLI-image path.** The CLI-image spawn path runs `agentsmith-cli:latest` jobs and is dev-tool-only; production spawns toolchain containers via ISandboxFactory (p0115/p0116/p0135). Configurability work on a path being phased out is wasted; the JobSpawner path keeps its current hardcoded values until it is removed or repurposed. -- alternatives: configure both paths in parallel (rejected: doubles surface area for a path that is going away); configure only KubernetesJobSpawner (rejected: opposite of the target architecture).
+  - category: Architecture
+    chose: "**Resource override location: `projects.<name>.sandbox.resources` in agentsmith.yml.** SandboxConfig already exists under `projects.<name>.sandbox` with ToolchainImage; resources are semantically a peer concern (override behaviour of the same container) and live where operators already look for sandbox tuning."
+    reason: |
+      alternatives: `projects.<name>.resources` top-level (rejected: implies scope beyond the sandbox container, e.g. the server pod); `projects.<name>.runtime.resources` (rejected: introduces a 'runtime' block with only one inhabitant).
+  - category: Architecture
+    chose: "**Per-project resolution returns a fully-populated `ResourceLimits`, never partial overrides.** An operator setting only `memory_limit` and leaving `cpu_limit` unset is ambiguous"
+    reason: |
+      does it inherit global `cpu_limit`, or fall back to the type default? Forcing the resolver to materialise all four fields makes the spawn-time value predictable: per-project block wins wholesale → otherwise global SandboxOptions defaults apply → otherwise `ResourceLimits.Default`. -- alternatives: per-field override-with-fallback (rejected: each field independently inherits, producing combinations operators don't expect); reject partial blocks at config load (rejected: harsher than needed — global defaults already make 'partial' a non-problem).
+  - category: Architecture
+    chose: "**SandboxOptions lives in `AgentSmith.Application/Models/`, not in Server.** The resolver (`SandboxResourceResolver`) lives in Application/Services/Sandbox/ next to its peer `SandboxLanguageResolver`, and it injects `IOptions<SandboxOptions>`. Putting the options class in Server would invert the dependency direction (Server → Application is the rule; Application → Server is forbidden). The Server side wires the binding (`services.Configure<SandboxOptions>(config.GetSection(\"Sandbox\"))`) but the type itself belongs in the layer that consumes it."
+    reason: |
+      alternatives: SandboxOptions in `AgentSmith.Server/Models/` (rejected: layering violation); SandboxOptions in `AgentSmith.Contracts/Models/Configuration/` (rejected: Contracts holds agentsmith.yml-derived schema; appsettings-derived IOptions belongs with the consumer).
+  - category: Implementation
+    chose: "**`ResourceLimits` is a record with mutable properties + a parameterless ctor + a 4-arg ctor, NOT a positional record.** A positional record (`public sealed record ResourceLimits(string CpuRequest, ...)`) generates `init`-only properties and no parameterless ctor"
+    reason: |
+      YamlDotNet can't deserialize the `projects.<name>.sandbox.resources` block into one. Mutable `get; set;` properties with both ctors let YamlDotNet construct + populate AND let callers do `new ResourceLimits("250m", "1000m", "512Mi", "2Gi")` in code. Record-derived value-equality is preserved for test assertions like `.Should().Be(ResourceLimits.Default)`. -- alternatives: positional record + custom YamlDotNet INodeDeserializer (rejected: bespoke deserializer for one type when the convention works); plain class with overridden Equals/GetHashCode (rejected: re-implements record-equality boilerplate by hand).
+  - category: Implementation
+    chose: "**Adopt `IOptions<T>` in this phase (first IOptions touchpoint in Server).** The existing `AddJobSpawnerOptions` read each env-var manually with `??` fallbacks"
+    reason: |
+      no appsettings binding, no validation. `services.Configure<T>` gives appsettings + env-vars (with `Section__Key` convention) + CLI binding for free, plus `IValidateOptions<T>` hooks. Sets the precedent for future Options classes. -- alternatives: keep the manual env-var pattern for consistency (rejected: consistency with the worse pattern is not a virtue); convert every Options POCO in Server first (rejected: scope creep across RedisOptions/SlackOptions/etc.).
+  - category: Implementation
+    chose: "**Two Options classes"
+    reason: |
+      `SandboxOptions` (new) and `JobSpawnerOptions` (existing, converted in-place).** SandboxOptions belongs to the Sandbox path this phase actually configures; JobSpawnerOptions belongs to the legacy IJobSpawner path. Converting JobSpawnerOptions to IOptions<T> ships under the same umbrella as a pattern-cleanup — no functional change beyond binding semantics. `AddJobSpawnerOptions` keeps the legacy env-vars (K8S_NAMESPACE etc.) as `services.Configure<T>(opts => { ... })` defaults; a second `services.Configure<T>(config.GetSection("JobSpawner"))` runs after and wins for any key set in appsettings. -- alternatives: merge both into one Options class (rejected: bundles two different concerns); skip JobSpawnerOptions conversion (rejected: leaves the codebase with two competing Options patterns).
+  - category: Implementation
+    chose: "**`SandboxSpec.Resources` is positional-required, no longer nullable with a `?? new ResourceLimits()` fallback.** `SandboxSpec` carries the resolver-output across the Application→Server seam; making Resources required forces every construction site (`SandboxSpecBuilder.Build`, test fixtures) to either go through the resolver or pass an explicit value. PodSpecBuilder and DockerContainerSpecBuilder both lose their null-coalescing fallback"
+    reason: |
+      if a future caller bypasses the resolver they get a compile error, not silent default behaviour. -- alternatives: keep `ResourceLimits?` and have the consumers fall back to Default (rejected: hides the bypass, exactly the situation the resolver is meant to prevent).
+  - category: Implementation
+    chose: "**`PodSpecBuilder.BuildToolchainContainer` now emits BOTH Requests and Limits.** Pre-p0136 the toolchain container only had Limits set"
+    reason: |
+      meaning in K8s namespaces with a ResourceQuota that mandates `requests.cpu` / `requests.memory`, pod creation failed before the workload started. The new code emits the four explicit quantities from `ResourceLimits`. The `agent-loader` initContainer keeps its hardcoded values (p0135 follow-up rationale: loader extracts the bundled .NET single-file binary, not operator-tunable). -- alternatives: infer requests = limits at PodSpecBuilder level (rejected: collapses Burstable QoS, removes operator control over headroom).
+  - category: Implementation
+    chose: "**`DockerContainerSpecBuilder` maps K8s quantities onto Docker HostConfig via `NanoCPUs`/`Memory`/`MemoryReservation`.** CpuLimit → NanoCPUs (hard CPU cap), MemoryLimit → Memory (hard memory cap), MemoryRequest → MemoryReservation (soft floor). Docker has no first-class request/limit split for CPU"
+    reason: |
+      `CpuShares` is a weight, not a request, so CpuRequest is intentionally not mapped (a `MemoryRequest`-equivalent for CPU does not exist in the Docker API). The two existing helpers were renamed (`ParseMemory` → `ParseMemoryToBytes`, new `ParseCpuToNanoCpus`) and the latter handles both bare-number-cores (`"2"`, `"1.5"`) and millicore (`"500m"`) inputs. -- alternatives: pull in cgroup-v2 CPU.weight as a CpuRequest equivalent (rejected: Docker DotNet doesn't surface it cleanly); skip Docker entirely (rejected: scope creep — Docker is a first-class sandbox backend).
+  - category: Tooling
+    chose: "**`JobSpawnerOptions` extracted to its own file in Server/Models/.** Pre-phase it lived at the bottom of `KubernetesJobSpawner.cs`"
+    reason: |
+      a violation of the project's "one type per file" coding-principles rule that was overdue. Since this phase reworks the consumers of the class anyway, splitting it now is a one-file-add zero-risk cleanup that brings the layout in line with `SandboxOptions` (and every other Options-style class). -- alternatives: leave it where it was (rejected: coding-principles violation called out in CLAUDE.md is non-negotiable); split as a separate cleanup phase (rejected: ceremony for a five-line move that costs nothing to do under the same commit).

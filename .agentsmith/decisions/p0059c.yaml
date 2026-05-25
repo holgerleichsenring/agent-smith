@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0059c: Azure DevOps PR Comments
+phase: p0059c
+decisions:
+  - category: Implementation
+    chose: AzDO webhook handler added, CommentIntentRouter reused
+    reason: demonstrates platform extension pattern scales

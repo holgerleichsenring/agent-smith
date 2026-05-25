@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0047: API Contract & Schema Analysis
+phase: p0047
+decisions:
+  - category: Architecture
+    chose: Spectral runs as second static analyzer alongside Nuclei
+    reason: complements mechanical scan with structural validation
+  - category: Tooling
+    chose: api-design-auditor rewritten with full schema analysis
+    reason: |
+      semantic layer that tools cannot reach (sensitive data bundling, enum opacity, REST semantics)
+  - category: Implementation
+    chose: Spectral findings feed same skill pipeline as Nuclei
+    reason: unified analysis despite different scanner types

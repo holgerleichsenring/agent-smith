@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0139: Named catalogs for agents/repos/trackers/pipeline_triggers
+phase: p0139
+decisions:
+  - category: Architecture
+    chose: "**Four top-level catalogs, not three"
+    reason: |
+      trackers carry their own connection metadata.** `trackers:` is the third extracted block alongside `agents:` and `repos:`. Pre-p0139 every project re-inlined the same tracker org/url/auth/open_states/done_status. Extracting it removes that duplication symmetrically with agents+repos; doing trackers inconsistently (agents+repos extracted, trackers inlined) would have re-introduced the duplication problem we set out to solve. The fourth catalog `pipeline_triggers:` (label→pipeline) lives at top level because the same 4-5 entries were repeated on every project's trigger block. -- alternatives: agents+repos only with trackers staying inline (rejected: inconsistent and reintroduces the same duplication problem); per-project pipeline_triggers override (rejected for v1 — global only until a real cross-cutting need shows up).
+  - category: Architecture
+    chose: "**Projects reference catalog entries BY NAME only"
+    reason: |
+      inline definitions explicitly not supported.** A dual-mode loader (name OR inline) would double the validation surface and let duplication creep back in unnoticed. The catalog IS the entry point; a project that wants a 'unique agent for just this project' adds a one-off entry to `agents:` and references it by name. -- alternatives: dual-mode loader (rejected: scope creep + validation pain); inline-only with a `shared:` aliasing layer (rejected: aliases are a worse spelling of catalog references).
+  - category: Architecture
+    chose: "**`AgentSmithConfig.Projects` exposes `IReadOnlyDictionary<string, ResolvedProject>`"
+    reason: |
+      raw YAML DTOs stay loader-internal.** Consumers always see fully-bound records (Repo, Tracker, Agent already resolved by the time anything outside the loader sees the config). The Raw* DTOs (`RawAgentSmithConfig`, `RawRepoEntry`, `RawTrackerEntry`, `RawProjectEntry`) live in `AgentSmith.Infrastructure.Core/Services/Configuration/` and are only used during the YamlDotNet deserialize step. -- alternatives: expose raw config + a separate `ResolveProject(name)` method (rejected: every consumer would have to call resolve; smallest call-site diff is to expose the resolved view directly); single bidirectional ProjectConfig with optional name-string AND optional inline blocks (rejected: dual-mode complexity).
+  - category: Architecture
+    chose: "**Resolver lives in Infrastructure.Core, not Application (spec called for Application).** ConfigCatalogResolver consumes raw infrastructure DTOs (`RawRepoEntry` etc.). Putting it in Application would either invert the layer dependency (Application → Infrastructure.Core is forbidden) or force the Raw* DTOs into Contracts (where they don't belong"
+    reason: |
+      they're a YAML-binding implementation detail). The resolver naturally lives next to the loader. AgentSmithConfigValidator stays in Application — it operates on the already-resolved public types in Contracts. -- alternatives: move Raw* to Contracts (rejected: pollutes Contracts with YAML-shape internals); have the resolver take dictionaries piecemeal (rejected: arg-list explosion).
+  - category: Architecture
+    chose: "**Catalog dicts on `AgentSmithConfig` are `Dictionary<string, X>`, not `IReadOnlyDictionary<string, X>`.** Pragmatic relaxation: test setups frequently mutate `config.Projects[\"x\"] = ...` post-construction. Making them concrete dictionaries cuts ~500 lines of test-helper churn. Production code paths construct AgentSmithConfig once (via the resolver) and don't mutate the catalogs afterwards"
+    reason: |
+      the relaxation is purely an in-test ergonomic. The immutability invariant lives in convention, not in the type system. -- alternatives: IReadOnlyDictionary + test-only mutable wrapper (rejected: doubles the type surface for tests); strict immutability + builder pattern (rejected: every test would need a 5-line builder dance).
+  - category: Architecture
+    chose: "**`ResolvedProject` (and other new records) have init-only properties with default values, not `required` modifiers.** Initially used `required`; backed off because tests construct ResolvedProject with just the fields each test cares about (e.g. only a Pipeline + Polling for the Normalizer tests). The resolver always populates everything; tests bypass the resolver and need the cheap default-construction path. The `Repo` accessor (transitional single-repo shim) has both a getter (asserts Count==1) and an `init` setter (initializes `Repos = new[] { value }`) so test code reads `Repo = ...` naturally."
+    reason: |
+      alternatives: required fields + test factory helpers (rejected: 50+ test files would need migration to a factory pattern); positional records (rejected: 14-property positional ctor is unreadable at the call site).
+  - category: Architecture
+    chose: "**Webhook handlers retain their per-handler pipeline_from_label iteration; only the polling path's `PipelineResolver` consults the global fallback.** Refactoring all five webhook handlers (GitHub Issue / GitLab Issue / AzureDevOps WorkItem / Jira Assignee / GitHub Comment etc.) to route through `PipelineResolver` would have added ~40 more call sites to migrate. For p0139 the polling path proves the design; webhook handlers fall back to `trigger.DefaultPipeline` per their existing logic"
+    reason: |
+      which is the pre-p0139 behavior. Documented as a known follow-up; closes when a project actually needs label routing via the global map on webhook events. -- alternatives: refactor webhooks too (rejected: scope blow-up); make pipeline_triggers a no-op until webhooks honor it (rejected: polling is a first-class trigger surface and benefits today).
+  - category: Implementation
+    chose: "**`RepoType` enum has 4 values including `Local`, not 3 as the spec said.** Spec's 3-value enum (GitHub/GitLab/AzureDevOps) dropped Local. But the CLI uses `LocalSourceProvider` to operate against `--source-path /tmp/foo` and the api-security passive-mode flow uses `type: Local`. Dropping Local would break those flows. Adding Local to the enum is a one-row addition with no downstream cost; the catalog accepts `type: Local, path: ./repo`."
+    reason: |
+      alternatives: keep enum at 3 + special-case Local outside the catalog (rejected: forces CLI code to construct a synthetic non-catalog RepoConnection); drop LocalSourceProvider entirely (rejected: breaks dev workflows).
+  - category: Implementation
+    chose: "**`AzureRepos` → `AzureDevOps` is a hard rename.** Pre-p0139 SourceConfig.Type allowed the string `\"AzureRepos\"` to select AzureReposSourceProvider. The new enum has `AzureDevOps` for both repos and trackers. The dogfood and example YAML are rewritten; operators migrating old configs by hand must change the string. No legacy-alias fallback in the enum parser. -- alternatives: accept `AzureRepos` as alias (rejected: prolongs naming inconsistency for no real cost"
+    reason: migration is one-time).
+  - category: Implementation
+    chose: "**`WebhookTriggerConfig.PipelineFromLabel` is now nullable (`Dictionary<string, string>?`).** A null map means \"use global pipeline_triggers\"; a non-null populated map means \"use my entries\"; a non-null empty map is equivalent to null (uses global). Loaders that previously accessed `.Count` need null-safe patterns (`?.Count ?? 0`). All call sites were updated."
+    reason: |
+      alternatives: keep non-nullable and use Count==0 as the "use global" signal (rejected: empty map and "not set" should be distinguishable in YAML; null is the natural representation of "not set").
+  - category: Implementation
+    chose: "**`ProjectConfigNormalizer` operates on `RawProjectEntry`, not on the public `ResolvedProject`.** The normalizer applies the legacy single-pipeline → Pipelines-list shim BEFORE the resolver runs. Operating on raw entries keeps the shim contained to the loader path; the resolver consumes already-normalized raw and produces ResolvedProject with the final Pipelines list."
+    reason: |
+      alternatives: normalize after resolution (rejected: ResolvedProject is init-only; mutation post-construction is forbidden); duplicate the shim in resolver (rejected: doubles the legacy-handling code path).
+  - category: Implementation
+    chose: "**Resolver splits into 4 small classes (`RepoCatalogBuilder`, `TrackerCatalogBuilder`, `ResolvedProjectBuilder`, `ConfigCatalogResolver` as orchestrator).** Each stays well under the 120-line class limit. The orchestrator builds catalogs first, then projects (so project resolution can see the materialized catalogs). Errors are collected into a `List<string>` passed through; only the orchestrator throws (aggregated `ConfigurationException`)."
+    reason: |
+      alternatives: one fat resolver class (rejected: violates the 120-line limit); per-project resolver as a static helper (rejected: harder to substitute in tests).
+  - category: Implementation
+    chose: "**`SourceConfigOverrider` returns `ResolvedProject` instead of mutating.** Pre-p0139 the overrider mutated `project.Source.Type = ...` on a mutable SourceConfig. RepoConnection is an immutable record; the rewrite uses `repo with { ... }` to build a modified copy and returns `project with { Repos = new[] { modified } }`. The interface signature changed accordingly (was `void Apply(ProjectConfig, PipelineContext)`, now `ResolvedProject Apply(ResolvedProject, PipelineContext)`)."
+    reason: |
+      alternatives: keep RepoConnection mutable (rejected: contradicts the "records with init properties" coding principle); use `ref` parameters (rejected: not idiomatic C#).
+  - category: Implementation
+    chose: "**`AgentSmithConfig.Empty()` static factory replaces the inline empty-config initialization.** The DI default registration uses `AgentSmithConfig.Empty()` rather than spelling out all five catalog dicts. Default values on the record's init properties make this a literal one-line factory."
+    reason: |
+      alternatives: inline expansion at the DI registration site (rejected: 5 lines of empty-dict gymnastics every time); accept null catalogs (rejected: every consumer would need null-checks).
+  - category: TradeOff
+    chose: "**Validator implements only 2 of the 4 spec-listed checks.** The spec listed: (a) unresolved references, (b) duplicate keys, (c) pipeline_triggers values → known pipelines, (d) trigger-block kind vs tracker type. (a) is already done by the resolver"
+    reason: |
+      defense-in-depth in the validator would be dead code. (b) is a no-op because YAML dictionaries can't have duplicate keys (YamlDotNet rejects them at parse time). Validator implements (c) and (d) — the genuine cross-cutting checks the resolver can't see. -- alternatives: implement (a)+(b) anyway for completeness (rejected: dead code is worse than absent code).
+  - category: TradeOff
+    chose: "**Validator wired into Server startup only"
+    reason: |
+      CLI runs the resolver but not the validator.** CLI invocations are interactive and short-lived; an invalid config fails fast at the resolver step with the same precise error message. Server is long-running and benefits from the broader sanity checks (trigger/tracker type alignment) at startup before requests start arriving. Adding validator to CLI is one more line if a user case shows up. -- alternatives: validator runs in both composition roots (rejected: marginal CLI benefit for an extra line of wiring); validator runs lazily on first config-read (rejected: defeats fail-fast).
+  - category: Tooling
+    chose: "**Bulk-migration of ~70 consumer call sites done via `perl -i -pe` regex pass + targeted Edit fixups.** Type-name renames (`SourceConfig` → `RepoConnection`, `TicketConfig` → `TrackerConnection`, `ProjectConfig` → `ResolvedProject`) and property renames (`.Source` → `.Repo`, `.Tickets` → `.Tracker`) were almost all mechanical. Two perl passes plus ~10 manual Edits drove the production-code error count from 450 to 0. Test fixtures (10-15 files) needed similar treatment plus type-string-to-enum migrations (`Type = \"GitHub\"` → `Type = RepoType.GitHub`) which the perl handled via case-insensitive non-greedy matching inside `new RepoConnection { ... }` blocks."
+    reason: |
+      alternatives: hand-edit every call site (rejected: time-cost without quality gain); rely entirely on a subagent (rejected: dispatched once and stalled at 600s without progress; bulk-perl is faster and more predictable).

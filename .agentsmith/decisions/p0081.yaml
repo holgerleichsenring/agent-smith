@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0081: Integration Setup Docs
+phase: p0081
+decisions:
+  - category: Scope
+    chose: All guides in English, under docs/setup/ as dedicated section.
+  - category: Scope
+    chose: Slack guide review/update, Teams guide is new (Azure Bot registration, ngrok, manifest, docker-compose env vars).
+  - category: Scope
+    chose: Webhook and label-trigger docs split to p0082.
+  - category: Implementation
+    chose: Manifest template under docs/setup/teams/ (not deploy/).
+  - category: Implementation
+    chose: Teams status marked 'beta' in chat-gateway.md.
+  - category: Implementation
+    chose: No placeholder PNGs
+    reason: document icon requirements in text instead.

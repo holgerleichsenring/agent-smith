@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0052: Single Executable Release
+phase: p0052
+decisions:
+  - category: Tooling
+    chose: PublishSingleFile + SelfContained without trimming
+    reason: ~70-80MB binaries acceptable, avoids reflection breakage
+  - category: Architecture
+    chose: Config file discovery chain (.agentsmith/, ./config/, ~/.agentsmith/)
+    reason: no hardcoded paths, works across deployment contexts
+  - category: Implementation
+    chose: Docker entrypoint script fixes mount permissions and drops to agentsmith user
+    reason: eliminates permission issues without requiring consumer setup

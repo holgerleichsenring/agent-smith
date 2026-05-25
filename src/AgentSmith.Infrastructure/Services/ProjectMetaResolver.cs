@@ -4,67 +4,50 @@ using AgentSmith.Contracts.Services;
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// Finds .agentsmith/ under a source path via ISandboxFileReader. Repo-root
-/// first, then the depth-first lexical descent (mono-repos with .agentsmith/
-/// in a sub-package). One ListAsync call covers the whole search tree —
-/// per-candidate ExistsAsync probes are avoided to minimise round trips.
+/// Lists .agentsmith/contexts/ immediate sub-directories via ISandboxFileReader,
+/// reads each context.yaml via IContextYamlParser, and projects one MetaDiscovery
+/// per discovered context. Empty list for repos missing .agentsmith/contexts/
+/// (un-init / pre-v2 layouts) — coordinator's synthetic-default discovery covers
+/// those upstream (p0161).
 /// </summary>
-public sealed class ProjectMetaResolver : IProjectMetaResolver
+public sealed class ProjectMetaResolver(IContextYamlParser contextYamlParser) : IProjectMetaResolver
 {
-    private const string MetaDirName = ".agentsmith";
-    private const int MaxSearchDepth = 4;
+    private const string ContextsRoot = "/work/.agentsmith/contexts";
 
-    public async Task<string?> ResolveAsync(
-        ISandboxFileReader reader, string sourcePath, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MetaDiscovery>> ResolveAllAsync(
+        ISandboxFileReader reader, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(sourcePath)) return null;
+        var entries = await reader.ListAsync(ContextsRoot, maxDepth: 1, cancellationToken);
+        if (entries.Count == 0) return [];
 
-        var entries = await reader.ListAsync(sourcePath, MaxSearchDepth, cancellationToken);
-        if (entries.Count == 0) return null;
-
-        var rootCandidate = NormaliseRoot(sourcePath) + MetaDirName;
-        var rootHit = entries.FirstOrDefault(p => p.Equals(rootCandidate, StringComparison.Ordinal));
-        if (rootHit is not null) return rootHit;
-
-        return entries
-            .Where(p => GetFileName(p).Equals(MetaDirName, StringComparison.Ordinal))
-            .Where(p => !ContainsSkippedSegment(p, sourcePath))
-            .OrderBy(p => GetDepth(p, sourcePath))
-            .ThenBy(p => p, StringComparer.Ordinal)
-            .FirstOrDefault();
+        var discoveries = new List<MetaDiscovery>();
+        foreach (var subDir in EnumerateImmediateSubDirs(entries))
+        {
+            var contextName = LastSegment(subDir);
+            var yamlPath = subDir + "/context.yaml";
+            var yaml = await reader.TryReadAsync(yamlPath, cancellationToken);
+            if (yaml is null) continue;
+            var summary = contextYamlParser.TryParse(yaml);
+            if (summary is null) continue;
+            discoveries.Add(new MetaDiscovery(subDir, contextName, summary.Workdir));
+        }
+        return discoveries;
     }
 
-    private static string NormaliseRoot(string path) =>
-        path.EndsWith('/') ? path : path + "/";
+    private static IEnumerable<string> EnumerateImmediateSubDirs(IReadOnlyList<string> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!entry.StartsWith(ContextsRoot + "/", StringComparison.Ordinal)) continue;
+            var rel = entry[(ContextsRoot.Length + 1)..];
+            if (rel.Contains('/')) continue;
+            yield return entry;
+        }
+    }
 
-    private static string GetFileName(string path)
+    private static string LastSegment(string path)
     {
         var idx = path.LastIndexOf('/');
         return idx < 0 ? path : path[(idx + 1)..];
     }
-
-    private static int GetDepth(string entry, string root)
-    {
-        var rel = entry.Length > root.Length ? entry[root.Length..] : string.Empty;
-        return rel.Count(c => c == '/');
-    }
-
-    private static bool ContainsSkippedSegment(string entry, string root)
-    {
-        var rel = entry.Length > root.Length ? entry[root.Length..].TrimStart('/') : entry;
-        var segments = rel.Split('/');
-        for (var i = 0; i < segments.Length - 1; i++)
-            if (IsSkippedSegment(segments[i])) return true;
-        return false;
-    }
-
-    private static bool IsSkippedSegment(string name) =>
-        name.StartsWith('.')
-        || name.Equals("node_modules", StringComparison.Ordinal)
-        || name.Equals("bin", StringComparison.Ordinal)
-        || name.Equals("obj", StringComparison.Ordinal)
-        || name.Equals("dist", StringComparison.Ordinal)
-        || name.Equals("target", StringComparison.Ordinal)
-        || name.Equals("build", StringComparison.Ordinal)
-        || name.Equals("vendor", StringComparison.Ordinal);
 }

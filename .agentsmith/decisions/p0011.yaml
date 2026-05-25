@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0011: Multi-Provider
+phase: p0011
+decisions:
+  - category: Architecture
+    chose: Each provider self-contained with own agentic loop
+    reason: APIs too different (tool format, caching, streaming) to abstract
+  - category: Architecture
+    chose: IAgentProvider interface stable across all providers
+    reason: GeneratePlanAsync, ExecutePlanAsync only methods exposed
+  - category: Tooling
+    chose: No shared "LLM abstraction layer"
+    reason: accepted code duplication to gain provider-specific optimization freedom
+  - category: TradeOff
+    chose: Scout and caching Claude-only for now
+    reason: other providers do direct execution, accepted feature parity gap
