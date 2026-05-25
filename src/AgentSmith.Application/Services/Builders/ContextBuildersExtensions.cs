@@ -73,6 +73,7 @@ public static class ContextBuildersExtensions
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
         AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);
         AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
+        AddBuilder<BootstrapDiscoverContextBuilder>(services, CommandNames.BootstrapDiscover);
         AddBuilder<BootstrapRoundContextBuilder>(services, CommandNames.BootstrapRound);
         return services;
     }

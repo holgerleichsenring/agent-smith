@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0161d
+
+decisions:
+  - category: Architecture
+    chose: "Discovery is a separate skill (project-discovery, output_schema=discovery) — not a mode on project-bootstrap"
+    over: "One project-bootstrap skill with a discover|write mode flag toggled by the user prompt"
+    reason: |
+      Clean role split: project-discovery is read-only producer with
+      output_schema=discovery; project-bootstrap is write-only producer
+      with output_schema=bootstrap. Two narrow purposes are easier to
+      reason about than one skill with branching internal logic, and the
+      tool surface gating via SkillExecutionPhase.BootstrapDiscover (read-
+      only fs + ask_human; no write_file / run_command / http_request) is
+      enforceable at the handler boundary rather than via skill-body
+      discipline.
+
+  - category: Implementation
+    chose: "BootstrapDiscoverHandler runs one chat call per RepoConnection with read-only filesystem + ask_human"
+    over: "One chat call across the whole multi-repo workspace, with the LLM enumerating components per repo from a combined tool surface"
+    reason: |
+      Per-repo dispatch mirrors the p0158g BootstrapRound pattern and
+      keeps the sandbox-per-repo invariant clean: each Discover call sees
+      only its repo's /work mount via the single-sandbox FilesystemToolHost,
+      so component evidence paths are unambiguously repo-relative. The
+      combined-surface alternative requires the multi-repo FilesystemToolHost
+      with leading-repo-name path routing — extra cognitive load on the
+      LLM and an additional reason for tool-call failures. Discover output
+      lands in ContextKeys.DiscoveredComponents = Dict<repoName, List<Component>>,
+      ready for BootstrapDispatchHandler's existing per-repo fan-out shape.
+
+  - category: Implementation
+    chose: "Re-init short-circuit: BootstrapDiscoverHandler projects existing SandboxDiscoveries into DiscoveredComponents without calling the LLM"
+    over: "Always run Discover; reconcile against existing contexts/ in a follow-up drift step"
+    reason: |
+      The synthetic-default predicate (ContextName='default' AND
+      Workdir='.' AND Language=null) cleanly distinguishes "fresh clone,
+      no contexts/" from "real .agentsmith/contexts/<name>/ on remote".
+      When any non-synthetic entry exists, the existing directories are
+      authoritative; running a fresh LLM call risks the model proposing
+      a different decomposition than what the operator already committed.
+      Drift detection on re-init is explicitly listed as scope.out for
+      a follow-up if a real drift case appears.
+
+  - category: TradeOff
+    chose: "Ambiguity in headless mode is fail-loud (set ContextKeys.DiscoveryAmbiguous; BootstrapDispatch refuses to emit rounds)"
+    over: "Block-and-wait over Redis/Slack for a human reply in headless runs"
+    reason: |
+      Block-and-wait ties a webhook-triggered run to a human reply that
+      may never come — Redis queue grows, sandbox lease expires, ticket
+      gets stuck mid-pipeline. Fail-loud with the structured ambiguity
+      message ("ambiguous: X, Y — re-run via CLI") puts the disambiguation
+      where it belongs: a CLI run with an interactive transport gives
+      ask_human a working path. Best-guess was rejected up front per
+      the "never invent" discipline that motivated the whole p0155 →
+      p0161d arc.
+
+  - category: Implementation
+    chose: "PathWriteGuard takes an optional contextName and builds its allowed-paths list at construction time"
+    over: "Per-call resolution of allowed paths inside AssertWritable"
+    reason: |
+      Construction-time resolution makes the guard's behaviour
+      inspectable (the [allowed-files] list shows up verbatim in the
+      reject-message error) and lets BootstrapToolHostFactory pass the
+      round's ContextName once. Empty contextName falls back to the
+      legacy flat layout (.agentsmith/{context.yaml,coding-principles.md})
+      so pre-p0161d test fixtures and the single-context back-compat
+      path keep working without conditional logic inside the guard.
+
+  - category: Implementation
+    chose: "PipelineCommand SkillRound gains ContextName + Workdir as optional named params (default null/\".\")"
+    over: "Replace PipelineCommand.SkillRound signature with a positional ContextDescriptor record"
+    reason: |
+      Optional named params keep every existing call site green
+      (BootstrapDispatch from p0158g had repoName-only; pre-p0161d
+      callers still build the command without thinking about contexts).
+      A positional ContextDescriptor would have rippled through every
+      factory/builder for the same wrap/unwrap step the p0161a
+      SandboxBundle alternative also paid — same pattern, same blast
+      radius. The forward-only ContextName + Workdir on SkillRoundContext
+      (mirroring the p0158g RepoName precedent) lets a future
+      per-context SkillRound flow land without another contract change.
+
+  - category: Scope
+    chose: "Init-mode run-doc fan-out only for runs with multiple RepoConnections; single-sandbox init-mode keeps the legacy path"
+    over: "Unconditional per-RepoConnection fan-out regardless of run shape"
+    reason: |
+      WriteInitFanOutAsync routes per RepoConnection when Repos is
+      populated (the typical init flow after p0158f), and falls back
+      to WriteInitSingleSandboxAsync for the legacy fixture pattern
+      that only seeds ContextKeys.Sandbox. This preserves the existing
+      WriteRunResultHandlerTests assertions without forcing every
+      pre-p0161d fixture to migrate to the new shape. The shared-cost
+      note ("shared across N repos") renders only when N > 1, so
+      single-repo runs stay quiet.
+
+  - category: Architecture
+    chose: "BootstrapOutputs as a new ContextKey (Dict<repoName, Dict<contextName, output>>) alongside the legacy skill-name-keyed SkillOutputs"
+    over: "Restructure SkillOutputs to nest by (skill, context) so all skill outputs share one shape"
+    reason: |
+      Multiple BootstrapRound calls in one init-project run all use
+      the same skill (project-bootstrap), so the legacy SkillOutputs
+      dict — keyed by skillName — would collide N-into-1. Adding a
+      parallel BootstrapOutputs dict keyed by (repoName, contextName)
+      avoids restructuring the legacy SkillOutputs shape (consumed by
+      DeliverOutput / CompileDiscussion across every pipeline) while
+      letting WriteRunResultHandler render per-component result.md
+      sections. SkillOutputs still records the most-recent output for
+      observation-style consumers; BootstrapOutputs records the full
+      per-(repo,context) trail for run-doc rendering.
+
+  - category: Implementation
+    chose: "Discovery schema validation goes through the existing SkillOutputValidatorFactory + JsonSchemaLoader pipeline"
+    over: "Bespoke discovery-output JSON parser inside BootstrapDiscoverHandler with no schema validator"
+    reason: |
+      Adding SkillOutputSchema.Discovery + DiscoveryOutputValidator +
+      discovery.schema.json (embedded via the same csproj pattern as
+      bootstrap/plan/diff/observation) keeps the closed-enum contract
+      consistent at the boot-time gate (NewFormatSkillValidator
+      AllowedOutputSchemas). project-discovery's frontmatter passes
+      that gate, and the catalog-loaded YAML stays valid. The handler
+      uses a tolerant JSON parser inline (DiscoveryOutputParser) for
+      runtime parsing — strict schema enforcement remains available
+      via the validator for future cross-pipeline reuse, but the
+      Discover handler doesn't go through SkillCallRuntime.

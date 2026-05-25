@@ -52,10 +52,15 @@ public sealed class AgenticExecuteHandler(
             ContextKeys.RepoProjectMaps, out var maps) && maps is not null
             ? maps.ToDictionary(kv => kv.Key, kv => kv.Value.PrimaryLanguage, StringComparer.Ordinal)
             : null;
+        var appliesTo = context.Pipeline.TryGet<string>(ContextKeys.PhaseAppliesTo, out var phaseAppliesTo)
+            && !string.IsNullOrWhiteSpace(phaseAppliesTo)
+            ? phaseAppliesTo
+            : null;
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(
             context.Plan, context.Repository, verifyNotes,
             contextKeys: sandboxes.Keys.ToList(),
-            perKeyLanguages: perKeyLanguages);
+            perKeyLanguages: perKeyLanguages,
+            appliesTo: appliesTo);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);

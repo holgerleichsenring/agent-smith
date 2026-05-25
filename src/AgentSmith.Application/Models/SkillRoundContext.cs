@@ -12,10 +12,18 @@ namespace AgentSmith.Application.Models;
 /// pipelines that don't fan out per repo yet). Forward plumbing — the
 /// handler doesn't consume it today; it lets future per-repo SkillRound
 /// flows mirror BootstrapRound without another contract change.
+///
+/// p0161d: <see cref="ContextName"/> + <see cref="Workdir"/> mirror the same
+/// per-component scoping shipped on <see cref="BootstrapRoundContext"/>.
+/// Forward plumbing only — SkillRoundHandler does not consume them today;
+/// the builder propagates whatever the PipelineCommand carried so a future
+/// per-context SkillRound flow lands without another contract change.
 /// </remarks>
 public sealed record SkillRoundContext(
     string SkillName,
     int Round,
     AgentConfig AgentConfig,
     PipelineContext Pipeline,
-    string RepoName = "") : ICommandContext;
+    string RepoName = "",
+    string ContextName = "",
+    string Workdir = ".") : ICommandContext;
