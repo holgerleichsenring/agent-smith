@@ -45,13 +45,16 @@ public sealed class CommitAndPRHandler(
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
         {
-            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
+            if (matches.Count == 0)
             {
                 opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed));
                 logger.LogWarning("{Repo}: no sandbox available", repo.Name);
                 continue;
             }
-            var (result, body) = await OpenOneAsync(context, sandbox, repo, cancellationToken);
+            // Multi-context monorepo: PR from the first sandbox of the repo. Per-context
+            // commit aggregation is a follow-up if multi-context edits land in one repo.
+            var (result, body) = await OpenOneAsync(context, matches[0].Value, repo, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;
         }

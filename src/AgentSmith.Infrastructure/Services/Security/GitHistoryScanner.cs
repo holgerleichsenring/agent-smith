@@ -93,9 +93,14 @@ public sealed class GitHistoryScanner(
             Args: args,
             WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: 120);
+        // Progress<T> dispatches callbacks on the ThreadPool with no
+        // serialization, so concurrent stdout events can corrupt the
+        // StringBuilder. Lock per append — appends are short and the
+        // contention window is small.
         var progress = new Progress<StepEvent>(ev =>
         {
-            if (ev.Kind == StepEventKind.Stdout) sb.AppendLine(ev.Line);
+            if (ev.Kind != StepEventKind.Stdout) return;
+            lock (sb) sb.AppendLine(ev.Line);
         });
         var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
         return result.ExitCode == 0 ? sb.ToString() : null;

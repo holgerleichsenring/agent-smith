@@ -37,22 +37,23 @@ public sealed class InitCommitHandler(
             "Committing .agentsmith/ files across {Repos} repo(s)...",
             context.Configs.Count);
 
-        if (!context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
-            return CommandResult.Fail("InitCommit requires Sandboxes published by PipelineSandboxCoordinator.");
-
         context.Pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId);
 
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
         {
-            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
+            if (matches.Count == 0)
             {
                 opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed));
                 logger.LogWarning("{Repo}: no sandbox available", repo.Name);
                 continue;
             }
+            if (matches.Count > 1)
+                logger.LogWarning("{Repo}: multi-context monorepo — committing from sandbox '{Key}' only; per-context commit aggregation is a follow-up.",
+                    repo.Name, matches[0].Key);
+            var sandbox = matches[0].Value;
             var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;

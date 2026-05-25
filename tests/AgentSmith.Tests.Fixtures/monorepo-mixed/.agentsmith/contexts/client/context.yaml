@@ -1,0 +1,11 @@
+meta:
+  project: monorepo-mixed-client
+  workdir: src/Client
+stack:
+  lang: typescript
+  runtime: node20
+  testing: [jest]
+arch:
+  layers: [ui, api-client]
+ci:
+  test_command: "npm test --silent"

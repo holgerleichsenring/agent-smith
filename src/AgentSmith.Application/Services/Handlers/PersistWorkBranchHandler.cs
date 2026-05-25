@@ -29,24 +29,22 @@ public sealed class PersistWorkBranchHandler(
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var primaryRepo) || primaryRepo is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
                 "PersistWorkBranch: no Repository in pipeline context");
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
-            return RecordAndFail(pipeline, PersistFailureKind.Unknown,
-                "PersistWorkBranch: no Sandboxes in pipeline context");
-
         var commitMessage = BuildCommitMessage(pipeline);
         var branch = primaryRepo.CurrentBranch.Value;
 
         var outcomes = new List<PerRepoPersistResult>(context.Configs.Count);
         foreach (var repo in context.Configs)
         {
-            if (!sandboxes.TryGetValue(repo.Name, out var sandbox))
+            var matches = SandboxTargets.SandboxesForRepo(pipeline, repo);
+            if (matches.Count == 0)
             {
                 outcomes.Add(new PerRepoPersistResult(
                     repo.Name, PersistFailureKind.Unknown, "no sandbox available"));
                 continue;
             }
-            outcomes.Add(await PersistOneAsync(sandbox, repo, branch, commitMessage, cancellationToken));
+            // Multi-context monorepo: persist from the first sandbox of the repo.
+            // Per-context branch aggregation is a follow-up if monorepo edits land.
+            outcomes.Add(await PersistOneAsync(matches[0].Value, repo, branch, commitMessage, cancellationToken));
         }
 
         return Aggregate(pipeline, outcomes);

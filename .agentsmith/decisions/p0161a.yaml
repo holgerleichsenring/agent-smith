@@ -113,3 +113,46 @@ decisions:
       semantic-update there fulfils the spec intent. Plumbing the block
       through PromptComposer + SkillPromptBuilder is a follow-up if
       operators want skill rounds to see the context list too.
+
+  - category: Implementation
+    chose: "Add SandboxTargets.SandboxesForRepo helper that decodes SandboxKeyComposer's key scheme back to (repo → matching-sandboxes)"
+    over: "Add a parallel ContextKeys.SandboxRepos dict mapping sandbox-key → repo-name"
+    reason: |
+      Caught by p0161b smoke (security-scan): CheckoutSourceHandler,
+      InitCommitHandler, PersistWorkBranchHandler, and CommitAndPRHandler
+      all do per-repo dispatch via sandboxes[repo.Name], which broke
+      after the composer renamed single-repo single-context to
+      "default" instead of repo.Name. The key scheme is fully
+      reversible from (sandbox-key, Repos.Count) — single-repo means
+      every sandbox serves the repo; multi-repo uses exact-match or
+      "<repo>/..." prefix. One helper, no new state to publish, no
+      coordinator change. SandboxRepos dict was rejected because it
+      duplicates info the key scheme already encodes.
+
+  - category: Implementation
+    chose: "Per-repo single-sandbox fallback in InitCommit/Persist/CommitAndPR for multi-context monorepo"
+    over: "Aggregate edits across all per-context sandboxes for one commit"
+    reason: |
+      Each per-context sandbox holds an independent /work clone. After
+      agentic-execute edits, the clones diverge: a multi-context
+      monorepo could end up with 3 different commit/push intents (one
+      per sandbox). True aggregation needs a sandbox-edit-merge story
+      that p0161a's scope did not include. For p0161b's smoke target
+      (agent-smith single-context) the FIRST-matching-sandbox path is
+      indistinguishable from correct behaviour. Logged as a warning
+      so a future multi-context-monorepo phase has a visible TODO.
+
+  - category: Implementation
+    chose: "Lock-around-StringBuilder in GitHistoryScanner.RunGitAsync progress callback"
+    over: "Leave the Progress<T> dispatch unsynchronized"
+    reason: |
+      Caught by p0161b smoke (security-scan crashed mid-run):
+      Progress<T> dispatches callbacks on the ThreadPool with no
+      serialization between events. When the sandbox emits stdout in
+      bursts, multiple AppendLine calls race against the
+      StringBuilder's internal buffer expansion and throw
+      "ArgumentException: Destination is too short." Pre-existing bug
+      unrelated to p0161a but blocking p0161b's smoke gate — fixed
+      here so smoke can complete green. A future cleanup could replace
+      with Channel<string> for higher throughput; lock-on-append is
+      fine for the git-log volume we see in practice.
