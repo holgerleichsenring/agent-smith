@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Domain.Models;
@@ -58,19 +59,17 @@ public sealed class BootstrapDispatchHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().HaveCount(1);
         var emitted = result.InsertNext[0];
-        // p0130c-followup: dispatch now emits BootstrapRoundCommand (tool-bearing
-        // producer loop) instead of SkillRoundCommand (observation-only).
         emitted.Name.Should().Be(CommandNames.BootstrapRound);
         emitted.SkillName.Should().Be("csharp-bootstrap");
         emitted.Round.Should().Be(1);
+        // p0161d: each emitted round carries ContextName + Workdir
+        emitted.ContextName.Should().Be("default");
+        emitted.Workdir.Should().Be(".");
     }
 
     [Fact]
     public async Task ExecuteAsync_NoMatch_FailMessage_IncludesObservedLanguageAndAvailableSkillNames()
     {
-        // Catalog contains node + generic bootstrap; project_language=python → no match.
-        // p0155: failure must surface both the observed slug AND the available skill
-        // names so the operator can diagnose missing skill vs typo'd analyzer output.
         var pipeline = PipelineFor("init-project", "python",
             new RoleSkillDefinition
             {
@@ -95,7 +94,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_AmbiguousMatch_FailsWithSkillNamesInMessage()
     {
-        // Two skills both matching csharp — catalog misconfiguration
         var pipeline = PipelineFor("init-project", "csharp",
             new RoleSkillDefinition
             {
@@ -120,8 +118,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_ActivatesWhenExcludesPipelineName_NoMatch()
     {
-        // The csharp-bootstrap skill requires init-project; pipeline_name=fix-bug
-        // means the activates_when conjunction fails → no match → fail.
         var pipeline = PipelineFor("fix-bug", "csharp",
             new RoleSkillDefinition
             {
@@ -153,10 +149,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_MultipleReposDifferentLanguages_EmitsOneRoundPerRepo()
     {
-        // p0158g: per-repo dispatch — RepoProjectMaps drives iteration; each
-        // repo's PrimaryLanguage selects ONE matching bootstrap skill, and the
-        // emitted BootstrapRound carries RepoName so BootstrapRoundHandler can
-        // pick the right per-repo sandbox.
         var pipeline = MultiRepoPipelineFor("init-project",
             new[]
             {
@@ -196,9 +188,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_MultiRepo_OneRepoUnmatched_FailsWithRepoNameAndKnownSkills()
     {
-        // Two repos; the second has a language with no matching bootstrap skill.
-        // The error must name the unmatched repo + the observed slug + the
-        // available skills so the operator can pinpoint which repo needs a skill.
         var pipeline = MultiRepoPipelineFor("init-project",
             new[]
             {
@@ -229,9 +218,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_PreservesProjectLanguageConceptAfterIterations()
     {
-        // p0158g decision: per-iteration concept mutation is reverted in a
-        // finally so the post-dispatch concept state matches the pre-dispatch
-        // state. Guards against later steps reading a stale per-repo language.
         var pipeline = MultiRepoPipelineFor("init-project",
             new[]
             {
@@ -248,7 +234,6 @@ public sealed class BootstrapDispatchHandlerTests
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
             });
-        // Seed an explicit pre-dispatch concept value so we can detect the revert.
         var concepts = _conceptsFactory(pipeline);
         concepts.SetString("project_language", "scala");
 
@@ -262,11 +247,6 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_FiveRepos_QueuesFiveBootstrapRounds()
     {
-        // Smoke for the InitProject_FiveRepos_ProducesFivePullRequests done
-        // criterion: at the dispatch boundary, 5 repos with 5 distinct
-        // languages produce 5 BootstrapRound commands (one per repo), each
-        // tagged with the right RepoName. Downstream CommitAndPR (p0158c)
-        // already turns one per-repo round into one PR.
         var pipeline = MultiRepoPipelineFor("init-project",
             new[]
             {
@@ -311,6 +291,94 @@ public sealed class BootstrapDispatchHandlerTests
             .BeEquivalentTo(new[] { "api", "web", "docs", "infra", "scripts" });
     }
 
+    [Fact]
+    public async Task ExecuteAsync_AmbiguityFromDiscover_RefusesToEmitRounds()
+    {
+        // p0161d: when BootstrapDiscoverHandler marked discovery ambiguous,
+        // BootstrapDispatchHandler must refuse to emit any round and propagate
+        // the structured fail-loud message so the operator re-runs via CLI.
+        var pipeline = PipelineFor("init-project", "csharp",
+            new RoleSkillDefinition
+            {
+                Name = "csharp-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+            });
+        pipeline.Set(ContextKeys.DiscoveryAmbiguous,
+            "BootstrapDiscover: repo 'api' is ambiguous — Server vs API. Candidates: [Server, API]. Re-run via CLI.");
+
+        var result = await Handler().ExecuteAsync(
+            new BootstrapDispatchContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("ambiguous");
+        result.Message.Should().Contain("Re-run via CLI");
+        result.InsertNext.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MultipleContexts_EmitsOneRoundPerContext()
+    {
+        // p0161d: monorepo with N components → N BootstrapRound commands per repo,
+        // each carrying ContextName + Workdir + language-matched skill.
+        var pipeline = MultiContextPipelineFor("init-project", "monorepo",
+            new[]
+            {
+                ("server", ".", "csharp", "src/server/Program.cs"),
+                ("client", "client", "typescript", "client/package.json"),
+                ("docs", "docs", "markdown", "docs/index.md"),
+            },
+            new RoleSkillDefinition
+            {
+                Name = "csharp-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+            },
+            new RoleSkillDefinition
+            {
+                Name = "typescript-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+            },
+            new RoleSkillDefinition
+            {
+                Name = "markdown-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"markdown\"",
+            });
+
+        var result = await Handler().ExecuteAsync(
+            new BootstrapDispatchContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.InsertNext.Should().HaveCount(3);
+        var byContext = result.InsertNext.ToDictionary(c => c.ContextName!, c => c);
+        byContext["server"].Workdir.Should().Be(".");
+        byContext["server"].SkillName.Should().Be("csharp-bootstrap");
+        byContext["client"].Workdir.Should().Be("client");
+        byContext["client"].SkillName.Should().Be("typescript-bootstrap");
+        byContext["docs"].Workdir.Should().Be("docs");
+        byContext["docs"].SkillName.Should().Be("markdown-bootstrap");
+        result.InsertNext.Should().OnlyContain(c => c.RepoName == "monorepo");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SingleDefaultContext_OneRound()
+    {
+        // p0161d: legitimately single-component repo gets exactly one
+        // BootstrapRound with ContextName="default", Workdir=".".
+        var pipeline = PipelineFor("init-project", "csharp",
+            new RoleSkillDefinition
+            {
+                Name = "csharp-bootstrap",
+                ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+            });
+
+        var result = await Handler().ExecuteAsync(
+            new BootstrapDispatchContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.InsertNext.Should().HaveCount(1);
+        result.InsertNext[0].ContextName.Should().Be("default");
+        result.InsertNext[0].Workdir.Should().Be(".");
+    }
+
     private PipelineContext MultiRepoPipelineFor(
         string pipelineName,
         (string Repo, string Language)[] repos,
@@ -320,19 +388,14 @@ public sealed class BootstrapDispatchHandlerTests
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
             pipelineName, new AgentConfig(), "skills/coding", null));
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
-        var maps = repos.ToDictionary(
+        // p0161d: seed DiscoveredComponents with one synthetic-default entry per repo.
+        var components = repos.ToDictionary(
             r => r.Repo,
-            r => new AgentSmith.Domain.Models.ProjectMap(
-                PrimaryLanguage: r.Language,
-                Frameworks: Array.Empty<string>(),
-                Modules: Array.Empty<AgentSmith.Domain.Models.Module>(),
-                TestProjects: Array.Empty<AgentSmith.Domain.Models.TestProject>(),
-                EntryPoints: Array.Empty<string>(),
-                Conventions: new AgentSmith.Domain.Models.Conventions(null, null, null),
-                Ci: new AgentSmith.Domain.Models.CiConfig(false, null, null, null)),
+            r => (IReadOnlyList<DiscoveredComponent>)
+                new[] { new DiscoveredComponent("default", ".", r.Language, $"{r.Repo}/.agentsmith/context.yaml") },
             StringComparer.Ordinal);
-        pipeline.Set<IReadOnlyDictionary<string, AgentSmith.Domain.Models.ProjectMap>>(
-            ContextKeys.RepoProjectMaps, maps);
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents, components);
 
         var concepts = _conceptsFactory(pipeline);
         concepts.SetEnum("pipeline_name", pipelineName);
@@ -346,21 +409,42 @@ public sealed class BootstrapDispatchHandlerTests
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
             pipelineName, new AgentConfig(), "skills/coding", null));
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
-        // p0158g: BootstrapDispatch iterates ProjectMaps (per-repo); single-repo
-        // back-compat reads ContextKeys.ProjectMap, so tests seed that with the
-        // language slug.
-        pipeline.Set(ContextKeys.ProjectMap, new AgentSmith.Domain.Models.ProjectMap(
-            PrimaryLanguage: projectLanguage,
-            Frameworks: Array.Empty<string>(),
-            Modules: Array.Empty<AgentSmith.Domain.Models.Module>(),
-            TestProjects: Array.Empty<AgentSmith.Domain.Models.TestProject>(),
-            EntryPoints: Array.Empty<string>(),
-            Conventions: new AgentSmith.Domain.Models.Conventions(null, null, null),
-            Ci: new AgentSmith.Domain.Models.CiConfig(false, null, null, null)));
+        // p0161d: dispatch reads DiscoveredComponents — seed one synthetic default.
+        var components = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(StringComparer.Ordinal)
+        {
+            ["primary"] = new[]
+            {
+                new DiscoveredComponent("default", ".", projectLanguage, ".agentsmith/context.yaml"),
+            },
+        };
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents, components);
 
         var concepts = _conceptsFactory(pipeline);
         concepts.SetEnum("pipeline_name", pipelineName);
         concepts.SetString("project_language", projectLanguage);
+        return pipeline;
+    }
+
+    private PipelineContext MultiContextPipelineFor(
+        string pipelineName, string repoName,
+        (string ContextName, string Workdir, string Language, string Evidence)[] contexts,
+        params RoleSkillDefinition[] skills)
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
+            pipelineName, new AgentConfig(), "skills/coding", null));
+        pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
+        var components = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(StringComparer.Ordinal)
+        {
+            [repoName] = contexts.Select(c =>
+                new DiscoveredComponent(c.ContextName, c.Workdir, c.Language, c.Evidence)).ToList(),
+        };
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents, components);
+
+        var concepts = _conceptsFactory(pipeline);
+        concepts.SetEnum("pipeline_name", pipelineName);
         return pipeline;
     }
 }

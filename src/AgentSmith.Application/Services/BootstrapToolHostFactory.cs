@@ -10,17 +10,23 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Builds the bootstrap-round tool surface (writes limited to .agentsmith/*
-/// via the Bootstrap-phase PathWriteGuard) and produces the AITool list the
-/// chat client sees. Returns a <see cref="BootstrapToolBundle"/> exposing the
-/// tools plus accessors for the writes / decisions the hosts accumulated.
+/// Builds the bootstrap-round tool surface (writes limited to the round's
+/// per-context MetaDir via the Bootstrap-phase PathWriteGuard) and produces the
+/// AITool list the chat client sees. Returns a <see cref="BootstrapToolBundle"/>
+/// exposing the tools plus accessors for the writes / decisions the hosts
+/// accumulated.
+///
+/// p0161d: <c>contextName</c> scopes the write guard to
+/// <c>.agentsmith/contexts/&lt;contextName&gt;/{context.yaml,coding-principles.md}</c>
+/// — never the flat root path, never a foreign context's path. Empty string
+/// falls back to the legacy flat layout for pre-p0161d test fixtures.
 /// </summary>
 public sealed class BootstrapToolHostFactory(IDecisionLogger decisionLogger)
 {
-    public BootstrapToolBundle Create(ISandbox sandbox, string repoLocalPath)
+    public BootstrapToolBundle Create(ISandbox sandbox, string repoLocalPath, string contextName = "")
     {
         var readGuard = new PathReadGuard(NullGitIgnoreResolver.Instance, () => repoLocalPath);
-        var writeGuard = new PathWriteGuard(readGuard, SkillExecutionPhase.Bootstrap);
+        var writeGuard = new PathWriteGuard(readGuard, SkillExecutionPhase.Bootstrap, contextName);
         var fs = new FilesystemToolHost(sandbox, repoLocalPath, readGuard, writeGuard);
         var log = new LogDecisionToolHost(decisionLogger, repoLocalPath);
         var tools = AgenticToolSurface.Bootstrap(fs, log);

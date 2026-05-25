@@ -1,0 +1,457 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0161d
+requires: ["p0161a", "p0161b"]
+applies_to: "Application (BootstrapDiscoverHandler new, BootstrapDispatch/RoundHandler, BootstrapPromptFactory, BootstrapToolHostFactory) + Contracts (BootstrapDiscoverContext new, BootstrapRoundContext, PipelineCommand, SkillExecutionPhase enum) + Application (prompt builders, applies_to wiring) + cross-repo agent-smith-skills"
+goal: |
+  Pick up the items p0161b explicitly deferred, plus close the cold-init
+  multi-component gap that the synthetic-default fallback would otherwise
+  paper over.
+
+  p0161a migrated the READ side of `.agentsmith/contexts/<name>/`
+  (BootstrapCheck, LoadContext, LoadCodingPrinciples); the WRITE side
+  (BootstrapDispatch → BootstrapRound → BootstrapPromptFactory →
+  tool-write-guard) still targets the legacy flat `.agentsmith/context.yaml`
+  at repo root and fans out per RepoConnection, not per discovered context.
+  applies_to is read from phase YAMLs but never reaches the prompt builder.
+
+  Cold-init compounds both: contexts/*/ does not yet exist, discovery
+  returns a single synthetic default per repo, and the dispatcher writes
+  one context.yaml regardless of how many independently-deployable
+  components live in the monorepo. A two-round split (read-only Discover
+  produces the component list → Dispatch fans out write Rounds onto it)
+  lets init learn its own contexts/ shape without operator pre-staging.
+
+scope:
+  in: |
+    (0) Cold-init multi-component discovery (read-only first pass):
+        - New SkillExecutionPhase.BootstrapDiscover enum value. Tool
+          surface: read-only filesystem (read_file, list_directory,
+          directory_tree, grep_in_tree, find_files) + ask_human in
+          interactive transports. No write_file, no run_command, no
+          http_request.
+        - New project-discovery SKILL.md (cross-repo, separate skill
+          from project-bootstrap). Role: read-only producer. Output
+          schema: discovery — structured list of components, each entry
+          { name, workdir, language, evidence } where evidence names the
+          file/artefact that demonstrates the component (entrypoint or
+          deploy artefact, at least one). Activates on
+          `pipeline_name = "init-project"`.
+        - Component definition (in the SKILL.md body, not in C# code):
+          a component is independently deployable or independently
+          callable, demonstrated by an entrypoint or deploy artefact.
+          A consumed library without either is NOT a component. Language
+          comes out of the same Read pass that proved the component.
+          No language cookbook in the skill body. The "3–4 read calls
+          is plenty" cap from project-bootstrap v3.0.1 is dropped here —
+          discovery needs depth, not speed.
+        - Ambiguity resolution: ask_human is the interactive path (CLI).
+          Headless runs (webhook, polling) fail loud with a structured
+          message naming the ambiguous component candidates and the
+          conflicting evidence — operator re-runs via CLI for
+          disambiguation. NEVER best-guess.
+        - New BootstrapDiscoverHandler + BootstrapDiscoverContext:
+          one Discover round per RepoConnection. Output projected into
+          ContextKeys.DiscoveredComponents (Dict<repoName, List<Component>>).
+        - BootstrapDiscoverPromptFactory: read-only user prompt that
+          embeds the repo-level ProjectMap (from AnalyzeCode), names
+          the repo root, and asks for the component list with evidence.
+
+    (1) Two-pass dispatch (Discover before Round):
+        - InitProject pipeline preset gains a BootstrapDiscover step
+          immediately before BootstrapDispatch. Cold-init runs Discover
+          → Dispatch reads ContextKeys.DiscoveredComponents → fan-out
+          BootstrapRound per (RepoName, ContextName, Workdir, Language).
+        - Discovery skip on re-init: if SandboxDiscoveries already
+          surfaces at least one non-synthetic context (i.e. real
+          `.agentsmith/contexts/<name>/` dirs exist on the remote / in
+          the sandbox), BootstrapDiscoverHandler short-circuits and the
+          existing list flows directly into Dispatch. Drift detection
+          against discovered components stays a later phase.
+        - Fail-loud: BootstrapDiscover output marked ambiguous (operator
+          must re-run via CLI) → BootstrapDispatchHandler refuses to
+          emit any BootstrapRound and fails the pipeline with the
+          structured ambiguity message.
+
+    (2) Bootstrap fan-out per discovered context (not per repo):
+        - BootstrapDispatchHandler iterates DiscoveredComponents (cold-
+          init) or SandboxDiscoveries (re-init). Emits one BootstrapRound
+          per (RepoName, ContextName, Workdir, Language) tuple.
+        - PipelineCommand.SkillRound factory gains ContextName + Workdir
+          alongside the existing RepoName.
+        - BootstrapRoundContext + BootstrapRoundContextBuilder carry
+          ContextName + Workdir.
+
+    (3) BootstrapPromptFactory writes per-context paths:
+        - The user-prompt's `WriteFile` targets are built from
+          ProjectMetaPaths.MetaDirFor(ContextName), not the flat
+          `.agentsmith/context.yaml`. Resulting strings:
+          `.agentsmith/contexts/<name>/context.yaml` +
+          `.agentsmith/contexts/<name>/coding-principles.md`.
+        - User prompt embeds the repo-level ProjectMap (from
+          AnalyzeCode, 1× per repo — NOT N× per component) plus the
+          Discovery entry for THIS component (workdir, language slug,
+          evidence). LLM reconstructs per-component detail from the
+          shared sandbox's read access — same /work, same Read-tools
+          as Discover, so directory_tree / read_file on the component's
+          workdir stays cheap and consistent.
+
+    (4) BootstrapToolHostFactory path-write-guard scopes per-context:
+        - The PathWriteGuard for SkillExecutionPhase.Bootstrap accepts
+          MetaDirFor(ContextName)/{context.yaml,coding-principles.md} for
+          the round's ContextName only — not the flat root paths, not
+          other contexts' paths. The agent cannot accidentally write
+          server/'s coding-principles into client/'s context dir.
+
+    (5) applies_to plumbing into prompt builder annotation:
+        - Phase-spec YAML's `applies_to` (free-form string) flows
+          through PipelineContext to AgentPromptBuilder.
+          BuildExecutionUserPrompt (and the Bootstrap variant) as an
+          optional "Applies to: ..." line in the prefix, when present.
+        - PrimaryLanguage fallback from p0161a D4 stays as-is.
+
+    (6) Init-project is a first-class run with Plan + Cost + Result:
+        Today WriteRunResultHandler skips plan.md for init-project
+        ("init-project has no Plan") and writes only to the primary
+        repo's `.agentsmith/runs/`. In a 5-repo init that leaves the
+        4 sibling repos without a run-doc and gives the primary repo
+        a plan-less run summary. Fix:
+        - plan.md content for init-project = the Discovery output:
+          a Markdown table of (Component, Workdir, Language, Evidence,
+          Bootstrap-Skill) per discovered component, plus a one-line
+          "planned writes: contexts/<ctx>/{context.yaml,coding-
+          principles.md}" per component.
+        - WriteRunResultHandler fans out per RepoConnection (mirrors
+          the p0158b CommitAndPR / InitCommit fan-out). Each repo's
+          sandbox gets its own `runs/{runId}-init/{plan.md,result.md}`.
+          Same RunId across all repos. Per-repo plan.md contains only
+          THAT repo's components; per-repo result.md describes only
+          THAT repo's bootstrap output.
+        - Cost: total run cost is captured by PipelineCostTracker as
+          today. For init-project the total is dominated by Discover
+          (per-repo) + N×bootstrap rounds. Per-repo result.md reports
+          per-repo allocation when PipelineCostTracker tags calls by
+          repo (already true for BootstrapRound, p0158g RepoName);
+          otherwise reports the aggregate with an honest "shared init
+          cost across N repos" note.
+        - RunResultFormatter.FormatInitResult is brought to parity
+          with FormatResult: Plan section (Discovery table), Result
+          section (bootstrap output listing per component), Cost +
+          Duration, ExecutionTrail, Decisions, DialogueEntries. Same
+          shape readers can expect from a fix-bug run-doc.
+
+    (7) Skill-catalog changes (cross-repo, agent-smith-skills):
+        - New project-discovery SKILL.md (read-only, output schema
+          discovery). Body defines component criteria, ambiguity →
+          ask_human (CLI) or fail-loud (headless), depth-over-speed.
+        - project-bootstrap SKILL.md: drops hardcoded path strings
+          entirely (the user prompt is canonical for WHERE), drops the
+          3–4-read-calls cap, narrows scope to "given the component
+          entry + repo ProjectMap, write the two files at the paths
+          the user prompt names".
+        - Catalog minor bump (3.1.0) — new skill = minor.
+
+    (8) Tests (~18 new):
+        - BootstrapDiscover_ColdInitMultiComponentMonorepo_ListsAllComponents
+        - BootstrapDiscover_SingleComponentRepo_ReturnsOneEntry
+        - BootstrapDiscover_NoEntrypointOrDeployArtefact_NotAComponent
+        - BootstrapDiscover_AmbiguousComponents_FailsLoudInHeadlessMode
+        - BootstrapDiscover_AmbiguousComponents_AsksHumanInInteractiveMode
+        - BootstrapDispatch_ColdInit_RunsDiscoveryThenFansOutRounds
+        - BootstrapDispatch_ReInitWithExistingContexts_SkipsDiscovery
+        - BootstrapDispatch_MultipleContexts_EmitsOneRoundPerContext
+        - BootstrapDispatch_SingleDefaultContext_OneRound
+        - BootstrapRoundContext_CarriesContextNameAndWorkdir
+        - BootstrapPromptFactory_PathsUsePerContextMetaDir
+        - BootstrapPathWriteGuard_RejectsForeignContextPath
+        - BootstrapPathWriteGuard_RejectsFlatRootPath
+        - AppliesToFlowsIntoExecutionPrompt_WhenSet
+        - WriteRunResult_InitProject_PlanMdContainsDiscoveryTable
+        - WriteRunResult_InitProject_FansOutPerRepo
+        - WriteRunResult_InitProject_ResultMdHasParityWithFixBug
+        - WriteRunResult_InitProject_CostAggregatedAndPerRepoAttributed
+
+  out: |
+    - Changing the clone mechanics to literally make /work = sub-tree
+      (sparse-checkout / bind-mount). Still deferred per p0161a D1.
+      Revisit only if the logical-path-prefix approach hits a real-world
+      limit during smoke. p0161d's writes target paths relative to /work
+      with the contexts/ prefix; no clone change needed.
+    - agentsmith.yml schema additions for explicit context selection.
+      Discovery stays auto.
+    - Drift detection on re-init (DiscoveredComponents vs existing
+      contexts/*/). Separate later phase if a real drift case appears.
+    - Per-component AnalyzeCode (N× LLM calls per repo). The Discover
+      round already proved each component's language and workdir from
+      direct Read access; the BootstrapRound shares the same sandbox
+      and can re-read the component sub-tree on demand. Adding a
+      structured per-component ProjectMap is speculative cost.
+    - Block-and-wait `ask_human` over Redis/Slack in headless runs.
+      Headless ambiguity is fail-loud (operator re-runs via CLI for
+      interactive disambiguation). Chaining a webhook-triggered run to
+      a human reply that may never come is rejected.
+    - Operator-configured slug→image mapping (separate p0158e follow-up).
+    - Multi-toolchain composite-image sandbox (separate p0158e/p0161a
+      follow-up).
+
+decisions:
+  - key: |
+      Supersedes p0161 ("un-init / fresh-clone → single synthetic
+      default context, operator splits manually") — Init now discovers
+      its own component shape via the read-only BootstrapDiscover
+      round, evidenced by entrypoint or deploy artefact per component.
+      The speculation that motivated the synthetic-default fallback
+      ("we can't know what the operator wants without asking") no
+      longer holds: the LLM has Read access to the tree and a clear
+      "deployable / callable + evidence" criterion. Synthetic default
+      stays only as the fail-loud landing pad when Discover ran but
+      found exactly one component (legitimately single-component repo).
+  - key: |
+      Discover + Bootstrap-write share the per-repo sandbox for the
+      duration of the pipeline run. PipelineSandboxCoordinator caches
+      sandboxes in a Dict<repoName, ISandbox> and disposes all at
+      pipeline end, so the read-only Discover pass and the N
+      subsequent write Rounds run inside the same container with the
+      same /work mount. PathReadGuard stays open for all bootstrap-
+      family phases; only PathWriteGuard narrows per round.
+  - key: |
+      Discover is a separate SKILL.md (project-discovery), not a mode
+      on project-bootstrap. Clean role separation (read-only producer
+      vs write-only producer), separate output_schema, separate tool
+      surface gating via SkillExecutionPhase enum. Two skills, two
+      narrow purposes — easier to reason about than one skill with a
+      mode flag.
+  - key: |
+      Ambiguity in headless mode is fail-loud, not block-and-wait or
+      best-guess. Block-and-wait ties a webhook-triggered run to a
+      human reply that may never come (Redis/Slack queue grows, lease
+      expires, ticket stuck). Best-guess violates the "never invent"
+      discipline that motivated the whole p0155 → p0161d arc.
+      Fail-loud with the structured ambiguity message ("ambiguous: X,
+      Y — re-run via CLI") is the only honest option.
+  - key: |
+      No follow-up phase planned. p0158g deferred per-context
+      Bootstrap-dispatch to "later"; p0161a deferred BootstrapPromptFactory
+      per-context targeting + applies_to plumbing to "later"; p0161b
+      deferred them again to "later". This is what dropped a production
+      run on AuthPort. p0161d closes the loop — every item that survived
+      those three deferral rounds lands in this phase, end-to-end. The
+      acceptance criterion is operator smoke against a multi-component
+      monorepo, not unit-test green. If a step turns out to be larger
+      than estimated during implementation, the step is completed in
+      this phase — not split into a p0161e. The only legitimate scope.out
+      remains items that are TRUE orthogonal classes of problem
+      (sparse-checkout for XL-monorepo perf; drift detection on re-init
+      as a new feature).
+  - key: |
+      Anti-defer checklist (pre-Step 9): walk every deferred item from
+      p0158g, p0161, p0161a, p0161b scope.out — for each one, document
+      either "implemented in p0161d step X" or "rejected with reason Y".
+      No "deferred to p0161e" disposition is allowed in this phase.
+
+steps:
+  - id: command-shape
+    action: |
+      PipelineCommand SkillRound factory: add ContextName + Workdir
+      parameters. BootstrapRoundContext + BootstrapRoundContextBuilder:
+      gain ContextName + Workdir. SkillRoundContext keeps forward-only
+      plumbing identical to the p0158g RepoName precedent. New
+      BootstrapDiscoverContext + BootstrapDiscoverContextBuilder for
+      the read-only round.
+    modify:
+      - "src/AgentSmith.Domain/Models/PipelineCommand.cs"
+      - "src/AgentSmith.Application/Models/BootstrapRoundContext.cs"
+      - "src/AgentSmith.Application/Models/BootstrapDiscoverContext.cs (new)"
+      - "src/AgentSmith.Application/Models/SkillRoundContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/SkillContextBuilders.cs"
+
+  - id: phase-enum
+    action: |
+      Add SkillExecutionPhase.BootstrapDiscover. FilesystemToolHost
+      gains a BootstrapDiscoverSet() returning read-only filesystem +
+      ask_human, no write_file / edit / run_command / http_request.
+      AgenticToolSurface.BootstrapDiscover composes it.
+    modify:
+      - "src/AgentSmith.Application/Models/SkillExecutionPhase.cs"
+      - "src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+      - "src/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs"
+
+  - id: discover-handler
+    action: |
+      New BootstrapDiscoverHandler: one Discover round per
+      RepoConnection. Builds prompt via new BootstrapDiscoverPromptFactory
+      (embeds repo-level ProjectMap + repo root + component criteria
+      anchor in user message). Parses LLM output (output_schema:
+      discovery) into List<DiscoveredComponent>. Detects ambiguity →
+      fails loud with structured message. Publishes
+      ContextKeys.DiscoveredComponents = Dict<repoName, List<Component>>.
+      Skips when SandboxDiscoveries already has a non-synthetic entry.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs (new)"
+      - "src/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs (new)"
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+      - "src/AgentSmith.Contracts/Models/DiscoveredComponent.cs (new)"
+
+  - id: dispatch
+    action: |
+      BootstrapDispatchHandler reads DiscoveredComponents (cold-init) or
+      SandboxDiscoveries (re-init). Per (repo, component): set
+      project_language to the component's slug, run filter, emit one
+      BootstrapRound with RepoName + ContextName + Workdir + Language.
+      Restore concept state in finally. Refuses to emit any Round when
+      DiscoverHandler signalled ambiguity → forwards the fail-loud
+      message.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+
+  - id: preset
+    action: |
+      InitProject pipeline preset gains a BootstrapDiscover step
+      immediately before BootstrapDispatch. Discover skip on re-init
+      is handled inside the handler, not the preset (preset shape is
+      static; conditional skip lives in the handler).
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.InitProject.cs"
+
+  - id: prompt-factory
+    action: |
+      BootstrapPromptFactory.Build takes ContextName (+ Workdir);
+      WriteFile targets in the user prompt use MetaDirFor(ContextName).
+      ProjectMap defaults to per-context when available, falls back to
+      legacy ProjectMap for the synthetic default context.
+    modify:
+      - "src/AgentSmith.Application/Services/BootstrapPromptFactory.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs"
+
+  - id: write-guard
+    action: |
+      BootstrapToolHostFactory takes ContextName; PathWriteGuard for
+      SkillExecutionPhase.Bootstrap accepts MetaDirFor(ContextName)/* and
+      nothing else. Tests cover the foreign-context + flat-root reject
+      paths.
+    modify:
+      - "src/AgentSmith.Application/Services/BootstrapToolHostFactory.cs"
+      - "src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs (if needed)"
+
+  - id: applies-to
+    action: |
+      Pipe phase-spec applies_to into PipelineContext (operator-facing
+      key, optional). AgentPromptBuilder.BuildExecutionUserPrompt renders
+      an `Applies to: {value}` line when present. Same path for the
+      Bootstrap user prompt.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+      - "src/AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs"
+      - "src/AgentSmith.Application/Services/BootstrapPromptFactory.cs"
+
+  - id: run-result-init-plan
+    action: |
+      RunResultFormatter.FormatInitResult brought to parity with
+      FormatResult: plan section (Discovery table — Component, Workdir,
+      Language, Evidence, Bootstrap-Skill), result section (per-
+      component bootstrap output listing), cost + duration,
+      ExecutionTrail, Decisions, DialogueEntries. WriteRunResultHandler
+      no longer skips plan.md for init-project; builds plan.md content
+      from ContextKeys.DiscoveredComponents instead.
+    modify:
+      - "src/AgentSmith.Application/Services/Output/RunResultFormatter.cs"
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+
+  - id: run-result-fan-out
+    action: |
+      WriteRunResultHandler fans out per RepoConnection (mirrors p0158b
+      CommitAndPR / InitCommit). Each repo's sandbox gets its own
+      runs/{runId}-init/{plan.md,result.md}. Same RunId across repos.
+      Per-repo plan.md contains that repo's components only; per-repo
+      result.md describes that repo's bootstrap output only. Cost
+      allocation: PipelineCostTracker already tags BootstrapRound
+      calls by RepoName (p0158g) — surface that in the per-repo
+      result.md, with the aggregate Discover cost noted as shared.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+
+  - id: skill-catalog
+    action: |
+      Cross-repo (agent-smith-skills):
+      - NEW skills/coding/project-discovery/SKILL.md: read-only role,
+        output_schema=discovery, activates_when='pipeline_name =
+        "init-project"'. Body defines component criteria (deployable
+        OR callable + entrypoint OR deploy-artefact evidence), drops
+        the 3–4 read-calls cap, names ask_human as the CLI
+        disambiguation path and structured fail-loud as the headless
+        path.
+      - project-bootstrap SKILL.md: drops the hardcoded path strings
+        (user prompt is canonical), drops the 3–4 read-calls cap,
+        narrows scope to "given the component entry + repo ProjectMap,
+        write the two files at the paths the user prompt names".
+      - Catalog minor bump 3.1.0 (new skill = minor per release-please).
+      - Pin bump in operator config out-of-tree.
+    modify:
+      - "agent-smith-skills:skills/coding/project-discovery/SKILL.md (new)"
+      - "agent-smith-skills:skills/coding/project-bootstrap/SKILL.md"
+      - "agent-smith-skills:version.txt"
+
+  - id: tests
+    action: |
+      Add the ~14 spec-driven tests in scope.in (7). Update existing
+      Bootstrap test fixtures that seed flat ProjectMap to seed
+      DiscoveredComponents with a single synthetic entry; multi-
+      component tests seed N entries.
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/ (BootstrapDiscoverHandlerTests new, BootstrapDispatchHandlerTests, BootstrapRoundHandlerMultiRepoTests, BootstrapPerContextTests new)"
+      - "tests/AgentSmith.Tests/Prompts/ (AgentPromptBuilder applies_to tests)"
+
+tests:
+  - "BootstrapDiscover_ColdInitMultiComponentMonorepo_ListsAllComponents"
+  - "BootstrapDiscover_SingleComponentRepo_ReturnsOneEntry"
+  - "BootstrapDiscover_NoEntrypointOrDeployArtefact_NotAComponent"
+  - "BootstrapDiscover_AmbiguousComponents_FailsLoudInHeadlessMode"
+  - "BootstrapDiscover_AmbiguousComponents_AsksHumanInInteractiveMode"
+  - "BootstrapDispatch_ColdInit_RunsDiscoveryThenFansOutRounds"
+  - "BootstrapDispatch_ReInitWithExistingContexts_SkipsDiscovery"
+  - "BootstrapDispatch_AmbiguityFromDiscover_RefusesToEmitRounds"
+  - "BootstrapDispatch_MultipleContexts_EmitsOneRoundPerContext"
+  - "BootstrapDispatch_SingleDefaultContext_OneRound"
+  - "BootstrapRoundContext_CarriesContextNameAndWorkdir"
+  - "BootstrapPromptFactory_PathsUsePerContextMetaDir"
+  - "BootstrapPathWriteGuard_RejectsForeignContextPath"
+  - "BootstrapPathWriteGuard_RejectsFlatRootPath"
+  - "AppliesToFlowsIntoExecutionPrompt_WhenSet"
+
+done:
+  # Code-level criteria
+  - "SkillExecutionPhase.BootstrapDiscover enum + read-only tool surface."
+  - "BootstrapDiscoverHandler emits one read-only round per repo on
+     cold-init, skips on re-init with existing contexts/."
+  - "BootstrapDiscover output (DiscoveredComponents) drives the
+     dispatch fan-out: one BootstrapRound per (repo, component)."
+  - "Ambiguity from Discover is fail-loud in headless mode; ask_human
+     resolves in interactive (CLI) mode."
+  - "BootstrapRound emits one write round per discovered component."
+  - "BootstrapPromptFactory writes per-context paths via MetaDirFor."
+  - "PathWriteGuard rejects flat-root + foreign-context writes."
+  - "applies_to renders in execution + bootstrap prompts when set."
+  - "project-discovery SKILL.md (new) + project-bootstrap SKILL.md
+     (path strings + read-calls cap removed). Catalog 3.1.0."
+  - "Init-project run-doc has parity with fix-bug/security-scan
+     runs: plan.md (Discovery table), result.md (cost + duration +
+     trail + decisions + per-component bootstrap output), per repo."
+  - "Full unit test suite green; ~18 new spec-driven tests passing."
+
+  # Anti-defer checklist (binding gate — walk before declaring done)
+  - "Walked the scope.out of p0158g, p0161, p0161a, p0161b — every
+     item is either (a) implemented in p0161d with the implementing
+     step named, or (b) explicitly rejected with reason (not
+     'deferred to a later phase')."
+  - "No new TODO comments / FIXME / 'follow-up phase' markers
+     introduced in the code by this phase."
+  - "No new phase YAML in `planned/` that exists solely to pick up
+     something p0161d left undone."
+
+  # End-to-end acceptance (binding gate — operator smoke)
+  - "Operator-driven init-project smoke against a multi-component
+     monorepo: every component's `.agentsmith/contexts/<ctx>/
+     context.yaml` + `coding-principles.md` is produced at the
+     correct path, populated correctly, and BootstrapCheck on the
+     next fix-bug / security-scan run finds them all. This is the
+     binding acceptance — unit-test green alone does NOT close the
+     phase."

@@ -34,6 +34,7 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<DiffOutputValidator>();
         services.AddSingleton<BootstrapOutputValidator>();
         services.AddTransient<ObservationOutputValidator>();
+        services.AddSingleton<DiscoveryOutputValidator>();
         services.AddSingleton<SkillOutputValidatorFactory>();
         services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
         return services;
