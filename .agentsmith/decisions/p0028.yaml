@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0028: .agentsmith/ Directory
+phase: p0028
+decisions:
+  - category: Architecture
+    chose: Unified `.agentsmith/` replaces scattered config files
+    reason: single source of truth for project meta-files
+  - category: Architecture
+    chose: Run tracking as immutable records (`r{NN}-{slug}/`)
+    reason: auditable changelog of all agent decisions
+  - category: TradeOff
+    chose: Failed runs recorded only in runs/ (not state.done)
+    reason: state.done tracks project state changes, not execution history

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0106: Multi-Pipeline Projects
+phase: p0106
+decisions:
+  - category: Architecture
+    chose: "`ProjectConfig.Pipelines: List<PipelineDefinition>` + `ProjectConfig.DefaultPipeline: string?` joined the existing `Pipeline` / `SkillsPath` fields (which stay as legacy shims, not a breaking change). Each `PipelineDefinition` carries a name plus optional overrides for `Agent`, `SkillsPath`, `CodingPrinciplesPath`. Eliminates duplicated project blocks"
+    reason: |
+      `config/agentsmith.yml` still has four `agent-smith-*` projects on the same repo, but new configs can collapse them into a single multi-pipeline project.
+  - category: Architecture
+    chose: Single resolver `IPipelineConfigResolver.Resolve(project, pipelineName) → ResolvedPipelineConfig`. ExecutePipelineUseCase resolves once at the top of every run and stashes the merged view under `ContextKeys.ResolvedPipeline`; downstream builders/handlers read it via the `pipeline.Resolved()` extension method
+    reason: |
+      never directly from `ProjectConfig`. ~30 read sites for `project.Agent` / `project.SkillsPath` / `project.CodingPrinciplesPath` migrated; the resolver is the single merge function rather than 30 inline `?? project.X` fallbacks.
+  - category: Architecture
+    chose: Resolver tolerates undeclared pipeline names
+    reason: |
+      returns a definition synthesized from project defaults. Reason: `init-project` (CLI bootstrap) and other "free-form" pipeline names that aren't in `pipelines:` still need to work. Strict "throw if not declared" was rejected because it broke `init` and made test ergonomics painful for `new ProjectConfig { Pipeline = "fix-bug" }`. Validation that *trigger* references resolve happens at config load instead — that's where misspelled names get caught.
+  - category: Architecture
+    chose: "Skills-path fallback chain: `pipelineDef.SkillsPath` → `PipelinePresets.GetDefaultSkillsPath(pipelineName)` (`security-scan` → `skills/security`, `api-security-scan` → `skills/api-security`, `legal-analysis` → `skills/legal`, `mad-discussion` → `skills/mad`, fall-through `skills/coding`). Fixes the pre-phase asymmetry where 5 CLI subcommands set `SkillsPathOverride` from the pipeline name but webhook/polling paths fell back to `project.SkillsPath` (default `\"skills/coding\"`). The directory-naming convention is the binding; explicit `pipelines[].skills_path` is opt-in for non-standard paths."
+  - category: Architecture
+    chose: `ContextKeys.SkillsPathOverride` deleted. The 5 CLI subcommands (Autonomous/ApiScan/Mad/SecurityScan/Legal) no longer set it; the 4 context builders (EvaluateSkills/Discover/Install/LoadSkills under ApiSecurity) read from `ResolvedPipelineConfig.SkillsPath` only. The override was a workaround for the asymmetry above; resolver subsumes it. Two truth sources collapsed to one.
+  - category: Architecture
+    chose: `pipeline.Resolved()` extension method on `PipelineContext` (in `Contracts.Commands`) over per-site `pipeline.Get<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline)`. Reads the same well-known key but compresses the call site. Static extension method is one of the two patterns coding-principles allows (alongside `Map()` helpers).
+  - category: TradeOff
+    chose: "Backward-compat via `ProjectConfigNormalizer` invoked from `YamlConfigurationLoader`, not a breaking change. Legacy `pipeline:` + `skills_path:` fields populate a synthetic single-element `Pipelines` list and `DefaultPipeline` at load time. Existing configs run unchanged. Forcing migration in the same phase that introduces the mechanism would have doubled blast radius and review surface"
+    reason: |
+      the migration of `config/agentsmith.yml`'s four `agent-smith-*` projects to a single multi-pipeline project is deferred to follow-up `p0106a`.
+  - category: Architecture
+    chose: "`pipelines:` is a **sparse override list, not a strict allowlist** (revised after first deployment). Each entry declares per-pipeline overrides; pipelines without entries inherit project defaults. Labels in `pipeline_from_label` may route to ANY system pipeline (defined by `PipelinePresets`), not just declared ones. Original strict-allowlist design (introduced and then revised in the p0106 fix) broke legacy configs whose `pipeline_from_label` routed to multiple pipelines while only one was synthesized from `pipeline:`. The sparse-override semantics matches the user's mental model: declare overrides where you need them, leave the rest implicit."
+  - category: Implementation
+    chose: "Legacy-shim merges instead of skip-if-non-empty. If `pipeline:` (legacy) is set AND `pipelines:` already has entries, the legacy entry is added (deduplicated by name) and `DefaultPipeline` is set from `pipeline:`. Lets users mix both forms: declare overrides for specific pipelines while keeping `pipeline: fix-bug` as the default. Resolver also synthesizes-on-the-fly when `Pipelines` is empty but legacy `Pipeline` is set, so direct `new ProjectConfig { Pipeline = \"fix-bug\" }` test setups don't need to call the normalizer manually."
+  - category: Implementation
+    chose: "Load-time validation is narrow: only `ProjectConfig.DefaultPipeline` must reference a declared pipeline. `pipeline_from_label` values and trigger-level `default_pipeline` are NOT validated against the declared list"
+    reason: |
+      they may route to any system pipeline. Catching typos in those is the responsibility of `PipelinePresets.TryResolve` at runtime (returns null for unknown names). Earlier strict trigger validation was removed after a real-world config (`config/agentsmith.yml` `azuredevops_trigger`) failed to load.
+  - category: Scope
+    chose: `Parallelism` stays inside `AgentConfig`, not lifted to `PipelineDefinition`. Per-pipeline parallelism is achievable today by overriding the whole Agent block. Premature extraction violates YAGNI; if usage shows users want different parallelism with the same Agent, extract it then.
+  - category: Implementation
+    chose: "Pipeline-selection chain when no explicit name is supplied: `--pipeline` flag (CLI only) → `ProjectConfig.DefaultPipeline` → single-element shortcut (`Pipelines.Count == 1`) → throw `InvalidOperationException` listing declared pipelines. Loader-shim sets `DefaultPipeline = legacy.Pipeline` when migrating, so single-pipeline configs preserve ergonomics. Distinct from `WebhookTriggerConfig.DefaultPipeline`"
+    reason: |
+      same idea, different scope (webhook label-routing fallback). `ExecutePipelineUseCase`, `EnqueuedReconciler`, `AzureDevOpsWorkItemPoller`, and `WebhookRequestProcessor` route through this chain; the previous hardcoded `"fix-bug"` fallback in the AzDO poller is gone.
+  - category: Implementation
+    chose: "Behavior-preservation gate: `MultiPipelineBehaviorPreservationTests` loads an inline copy of the four `agent-smith-*` projects from `config/agentsmith.yml` through the full loader+normalizer+resolver pipeline and asserts the 16 baseline tuples (pipelineName, Agent.Type, SkillsPath, CodingPrinciplesPath) match byte-for-byte. Same shape as p0094b's `Baseline:` key. Any drift is a regression detectable at PR time."
+  - category: Implementation
+    chose: Server DI was missing `IPromptCatalog`, `IRedisClaimLock`, `IRedisJobQueue`, `IRedisLeaderLease`, `IJobHeartbeatService`, `IConversationLookup`, `IDialogueTransport` (latent bug pre-dating p0106
+    reason: |
+      uncovered by `ASPNETCORE_ENVIRONMENT=Development` enabling `ValidateOnBuild`). `Server.Extensions.ServiceCollectionExtensions.AddRedis` extended to register all Redis-gated services; `AddCoreDispatcherServices` registers `IPromptCatalog` + `IPromptOverrideSource` directly (not via `AddAgentSmithCommands` — that pulls in the entire Application layer's pipeline handlers, over-eager for the dispatcher's needs).
+  - category: Implementation
+    chose: `IAgentProviderFactory` registration changed from Singleton to Scoped to fix lifetime violation against Scoped `IDialogueTrail`. Factory is a stateless dispatch over a creator-dictionary; per-scope allocation is cheap and matches the natural per-conversation/per-pipeline-run scope. Pre-existing latent bug, also uncovered by `ValidateOnBuild`.

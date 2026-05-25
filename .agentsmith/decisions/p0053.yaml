@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0053: Documentation Site
+phase: p0053
+decisions:
+  - category: Architecture
+    chose: MkDocs + Material theme over custom solution
+    reason: reduces maintenance burden, leverages community defaults
+  - category: Architecture
+    chose: README trimmed to landing page, docs site as authoritative source
+    reason: solves discoverability and information architecture split
+  - category: Architecture
+    chose: GitHub Pages deployment over managed hosting
+    reason: free, version-controlled docs that stay with the code

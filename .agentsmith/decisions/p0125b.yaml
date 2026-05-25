@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0125b: Boolean Expression Evaluator + Run-State (D1 slice 2/4)
+phase: p0125b
+decisions:
+  - category: Architecture
+    chose: "**AST records are pure data; evaluation lives in a separate ActivationEvaluator service.** Putting `Evaluate(state)` on each AST record means a virtual base method and behavior on data"
+    reason: |
+      small inheritance, but still inheritance. A switch-expression in `ActivationEvaluator` keeps records as immutable values, centralizes evaluation logic for one-glance review, and makes "add a new node type" a build-error-driven update. Trade-off: one indirection at the call site, worth it to satisfy the composition-over-inheritance principle. -- alternatives: virtual `Evaluate(state)` on each AST record (rejected: behavior on records, breaks records-for-DTOs).
+  - category: Architecture
+    chose: "**Parser split into three ≤120-line classes: ActivationExpressionTokenizer + ActivationExpressionParser + ActivationEvaluator.** A single class covering tokenize+parse+evaluate would be ~250 lines. Splitting along the natural seams (lex → parse-to-AST → evaluate-AST) gives three single-responsibility classes that test independently. Within Parser, per-precedence helpers (ParseOr → ParseAnd → ParseNot → ParseComparison → ParseAtom) are private methods of 5-15 lines each."
+  - category: Architecture
+    chose: "**Comparisons (`=`, `>`, `>=`, `<`, `<=`) bind tighter than NOT.** Matches conventional boolean-algebra reading: `findings_count > 0 AND NOT api_internal_only` parses as `((findings_count > 0) AND (NOT api_internal_only))`. This is also Python/SQL convention."
+    reason: |
+      alternatives: NOT tighter than comparison (rejected: would force redundant parens around every `findings_count > 0` in skill activates_when fields).
+  - category: Architecture
+    chose: "**Evaluator infers the comparison type from a literal operand, not the vocabulary.** `findings_count > 0` → IntLit on the right → call `state.GetInt(\"findings_count\")`. `pipeline_name = \"fix-bug\"` → StringLit on the right → call `state.GetEnum`. The runstate impl validates the type against the vocabulary internally, throwing `ConceptTypeMismatchException` if the identifier's declared type clashes. The evaluator stays vocabulary-agnostic, which keeps the IRunStateConcepts contract narrow (no `GetType(name)` method needed)."
+    reason: |
+      alternatives: pass `ConceptVocabulary` into the evaluator so it can dispatch on declared type (rejected: pushes vocabulary lookup into a service that already has a state surface; doubles the responsibility).
+  - category: Implementation
+    chose: "**String comparisons are equality-only; ordered string comparison throws at evaluation time.** Ordered string comparison is locale-sensitive and surprising in activation expressions (`'apple'` > `'banana'` depends on culture). Equality is unambiguous. If lexicographic comparison is ever needed, the type system can grow a dedicated comparison operator; until then this stays banned. Same rule for bools."
+  - category: Implementation
+    chose: "**`ActivationExpressionParseException` carries `Offset` + `OffendingToken`, not just a message.** Parse errors on hand-written skill frontmatter are operator-debuggable; a \"parse failed\" string with no location wastes their time. Position is byte-offset into the original input (column-style); offending token is the raw source slice. The CLI verb in p0125d will format these into per-skill error messages."
+  - category: Implementation
+    chose: "**`IRunStateConcepts.SetX` throws on type-mismatch at the call site, not on the next read.** Writers fail loud. Silent coercion would let a handler accidentally publish a bool-shaped value to an int concept and have triage downstream make a wrong activation decision with no signal in the call chain. `ConceptTypeMismatchException` carries (concept name, declared type, attempted type) so the error message points at the bug."
+  - category: Implementation
+    chose: "**ConceptValues storage is one `Dict<string, object>` under a single `ContextKeys.ConceptValues` key, not per-type dictionaries.** Per-type dicts (Dict<string,bool>, Dict<string,int>, Dict<string,string>) split the read/write surface across three lookups and force `PipelineContextRunStateConcepts` to know which dict each concept lives in via the vocabulary. Single dict with `object` values is one lookup; the typed cast happens in the Getter against the vocabulary-declared type. Boxing cost is negligible (concept reads happen at triage time, not in hot loops)."
+  - category: Implementation
+    chose: "**`PipelineContextRunStateConcepts` registered via a `Func<PipelineContext, IRunStateConcepts>` factory delegate, not as a direct DI binding.** PipelineContext is created `new` per pipeline run by `ExecutePipelineUseCase`; it's not in the DI container. Direct registration would fail at resolution time. The factory delegate is registered as a singleton in Infrastructure DI; it pulls the vocabulary from the context's ConceptVocabulary slot (falling back to `ConceptVocabulary.Empty` for test fixtures and dev environments without a loaded skills set) and constructs the impl. Future handlers (p0125c) inject `Func<PipelineContext, IRunStateConcepts>` and call it in their command handler."
+    reason: |
+      alternatives: register the type with PipelineContext as a constructor dep (rejected: PipelineContext isn't a DI service).
+  - category: TradeOff
+    chose: "**Parser has no caching, no instance state.** `ActivationExpressionParser.Parse(string)` is a pure function; the class only exists for DI registration consistency. Parsing happens at boot (CLI validate-concepts) or at skill-load (when p0127 lands). No request-path parsing, no cache invalidation problem. If parsing ever shows up in a hot path, a memoizing decorator wraps the parser without changing the contract."
+  - category: TradeOff
+    chose: "**Identifier-to-identifier comparison is rejected at evaluation time.** No skill activates_when uses it today (every example pairs an identifier with a literal). Implementing it would require either adding `GetType(name)` to `IRunStateConcepts` or threading vocabulary into the evaluator; both expand the surface for a hypothetical caller. If the need surfaces, the evaluator can grow this case alongside a `GetType` lookup, additively."
+    reason: |
+      alternatives: support it now via vocabulary lookup in the evaluator (rejected: premature, doubles evaluator responsibility).

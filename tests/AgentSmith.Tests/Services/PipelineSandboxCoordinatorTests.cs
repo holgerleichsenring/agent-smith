@@ -27,8 +27,8 @@ public sealed class PipelineSandboxCoordinatorTests
 
     public PipelineSandboxCoordinatorTests()
     {
-        _resolverMock.Setup(r => r.ResolveAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolchainResolutionResult(null, SandboxToolchainResolutionLayer.GenericFallback));
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
     }
 
     [Fact]

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0045: API Security Scan Pipeline
+phase: p0045
+decisions:
+  - category: Architecture
+    chose: Reused TriageHandlerBase and SkillRoundHandlerBase from p0043b instead of duplicating
+    reason: established pattern for cascading commands
+  - category: Tooling
+    chose: Chose Nuclei over manual HTTP scanning
+    reason: |
+      handles authentication, redirects, and HTTP semantics that would require custom crawling

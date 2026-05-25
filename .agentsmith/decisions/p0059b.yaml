@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0059b: GitLab MR Comments
+phase: p0059b
+decisions:
+  - category: Implementation
+    chose: GitLab webhook handler added, CommentIntentRouter reused
+    reason: confirms separation of platform-specific handling from intent logic

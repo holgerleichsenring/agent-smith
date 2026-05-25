@@ -1,14 +1,15 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// Resolves the project's primary language before the sandbox is created so
-/// PipelineExecutor can pick a language-specific toolchain image instead of
-/// the generic fallback. Wraps the host-cache and remote-context-yaml layers;
-/// Override + InMemoryProjectMap are handled inline by PipelineExecutor.
+/// Discovers contexts on a remote repo (pre-sandbox) so PipelineSandboxCoordinator
+/// can fan out one sandbox per context with the right toolchain image per
+/// discovery (p0161).
 /// </summary>
 public interface ISandboxLanguageResolver
 {
-    Task<ToolchainResolutionResult> ResolveAsync(RepoConnection source, CancellationToken cancellationToken);
+    Task<IReadOnlyList<RemoteContextDiscovery>> ResolveAllAsync(
+        RepoConnection source, CancellationToken cancellationToken);
 }

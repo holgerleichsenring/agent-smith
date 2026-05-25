@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0159b: Eleventy landing re-skin
+phase: p0159b
+decisions:
+  - category: Architecture
+    chose: "**Lifecycle SVG embedded as `<img src=lifecycle.svg>` even on the landing, not inlined.** Inlining was the original plan to allow CSS chip controls to drive the SVG DOM; in practice the self-contained SVG with internal `<style>` keyframes auto-cycles through the five stages without any external control, which is enough for the hero impression. `<img>` keeps the same source file usable from MkDocs (where Material sanitises inline `<style>`/`<script>`) without forking two copies."
+  - category: Architecture
+    chose: "**Pipeline-tint mapping lives in the Nunjucks partial as a literal `tintMap`, not as a `tint` field on each pipeline data record.** The mapping (fix=cream, security=dark, etc.) is documented in DESIGN.md and is a design decision, not a per-pipeline data attribute. Putting it on the data records would invite drift between the table in DESIGN.md and the JSON; keeping it in the partial keeps both sources of truth aligned and lets the JSON stay pure content."
+  - category: Implementation
+    chose: "**Two new terminal-accent tokens (`terminal-link`, `terminal-string`) added to DESIGN.md.** Both were referenced by hex in the rewritten styles.css (URL color in CLI output panels, YAML string-value color in agentsmith.yml mockup). Adding them to DESIGN.md keeps the \"zero hardcoded brand hex\" property of styles.css true and gives the swap-tomorrow contract one more token to honour. macOS-style traffic-light dots (`#ef4444`, `#eab308`) stay inline"
+    reason: |
+      they're terminal-window chrome metaphors, not brand colors, and don't belong in DESIGN.md.
+  - category: Implementation
+    chose: "**`styles.css` rewritten end-to-end, not merge-patched.** The pre-existing Linear/Geist/green-on-dark rules and the new Zapier-cream/Inter rules don't share a cascade"
+    reason: |
+      mixing them was guaranteed cascade conflicts. Old rules live in git history if needed.
+  - category: Implementation
+    chose: "**Geist CDN font preconnect + stylesheet dropped from `index.njk`.** Inter is loaded via the `@font-face` block in tokens.css; one font, one source. IBM Plex Mono stays referenced by name only (pre-installed on most dev machines, ui-monospace fallback handles the rest)."
+  - category: Implementation
+    chose: "**Existing `hero-demo.njk` (terminal step-list demo) kept as part of `how-it-works.njk`'s section, not relocated.** The demo is now the \"second viewport\" naturally via section ordering"
+    reason: |
+      pipelines → how-it-works (demo) → skills → providers → deploy → principles → CTA. Skipping a structural move keeps the diff minimal and preserves the data-driven tab logic that drives the demo. The visual demotion is achieved by the new hero being more prominent, not by physical relocation.
+  - category: TradeOff
+    chose: "**`_data/pipelines.json` step counts / demo-line bodies left as-is for now.** They drift relative to current `PipelinePresets.FixBug` etc. (likely off by 1-2 steps per pipeline). The drift fix belongs to p0159c's content-drift audit pass; touching it in p0159b would dilute the visual re-skin commit with content edits."
+  - category: TradeOff
+    chose: "**Old `skills.njk` discussion-box terminology (`OBJECT`, `AGREE`, `r1/r2`) NOT updated here.** That's drift from p0146c's retired regex-discussion path. Belongs to p0159c content audit; updating it now would scope-creep the visual re-skin."

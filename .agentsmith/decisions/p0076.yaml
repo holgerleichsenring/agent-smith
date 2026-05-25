@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0076: Azure OpenAI Provider
+phase: p0076
+decisions:
+  - category: Architecture
+    chose: Inheritance over composition
+    reason: only CreateChatClient differs from OpenAiAgentProvider.
+  - category: Tooling
+    chose: Only 'deployment' and 'api_version' added to AgentConfig
+    reason: api_version defaults to 2025-01-01-preview.
+  - category: Tooling
+    chose: Azure.AI.OpenAI NuGet (official Microsoft package).

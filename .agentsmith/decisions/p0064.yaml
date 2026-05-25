@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0064: Typed Skill Orchestration
+phase: p0064
+decisions:
+  - category: Architecture
+    chose: Pipeline type declared (discussion | structured | hierarchical) → determines orchestration model
+    reason: one model doesn't fit all
+  - category: Implementation
+    chose: SkillGraphBuilder replaces LLM-based Triage for structured/hierarchical
+    reason: deterministic execution graph from skill metadata, no LLM call needed
+  - category: Architecture
+    chose: Contributors receive only their input_categories slice, run in parallel independently
+    reason: 80% token reduction vs. free-form discussion
+  - category: Implementation
+    chose: Gate role produces structured JSON (confirmed | rejected) instead of free-text discussion
+    reason: enables filtering to actually affect output
+  - category: TradeOff
+    chose: Fallback to discussion model (contributor role) for skills without orchestration block
+    reason: backward compatible, new pipelines get defaults

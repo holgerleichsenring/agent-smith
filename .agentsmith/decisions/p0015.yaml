@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0015: Azure Repos
+phase: p0015
+decisions:
+  - category: Architecture
+    chose: Reuses LibGit2Sharp pattern from GitHub provider
+    reason: shared git operations, different PR API
+  - category: Implementation
+    chose: Clone URL embeds PAT for HTTPS auth
+    reason: consistent with GitHub provider pattern
+  - category: Architecture
+    chose: PR URL constructed from org/project/repo structure
+    reason: matches Azure DevOps URL format

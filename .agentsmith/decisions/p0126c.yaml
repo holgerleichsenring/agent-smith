@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0126c: skill-call runtime + scope guards + tool-kit + cost tracking (slice 3/3)
+phase: p0126c
+decisions:
+  - category: Architecture
+    chose: "**`IGitIgnoreResolver` extracted to Contracts; the existing `GitIgnoreResolver` flips from internal to public and implements it.** PathReadGuard lives in Application, depends on the contract, and stays free of Infrastructure references. The wrapper-not-replacement decision from the original p0126 spec holds"
+    reason: Ignore-NuGet-package logic is unchanged.
+  - category: Architecture
+    chose: "**`ToolGuardInvoker` extracted as a small adapter.** Inlining the AssertReadable/AssertWritable null-check + error-format logic would push SandboxToolHost over the 120-line cap. The invoker is ~15 lines, single-responsibility (translate guard `Result` → tool-result string for the LLM loop), and SandboxToolHost holds one instance instead of two field references plus two helper methods."
+  - category: Architecture
+    chose: "**`SkillCostScopeManager` extracted from `PipelineCostTracker`.** Per the original p0126 spec's prediction: \"Class size grows ~40 lines"
+    reason: |
+      verify it stays ≤120; if it exceeds, extract a SkillCostScopeManager helper and inject it." Did. PipelineCostTracker still grows by ~11 lines for the public BeginCall/EndCall/PerSkillBreakdown surface; the scope-manager owns the active-scope state, the records list, and the lock on both. PipelineCostTracker remains over the 120-line cap from before this phase (138→149) — splitting the pricing/formatting concerns is a separate refactor (logged as follow-up). -- alternatives: leave PipelineCostTracker monolithic (rejected: nested-call-detection logic + records list inflate the file beyond reason).
+  - category: Implementation
+    chose: "**`ToolKit` returns a fresh AITool list per call, no caching.** AITool construction via `AIFunctionFactory.Create` reflects on host method signatures"
+    reason: |
+      fast enough for per-call use, no cache invalidation problem. A future cache only adds value if profiling shows tool-list construction is hot.
+  - category: Implementation
+    chose: "**`SkillCallScope.BuildRecord` reads counters from the LimitEnforcer when it's been finalized, fallbacks to its own elapsed time when not.** Dispose runs on every code path; in tests we may dispose a scope without a runtime ever calling Finalize(enforcer). The fallback elapsed (DateTimeOffset.UtcNow - StartedAt) gives a reasonable duration for test-only paths; tool/LLM counts are zero when no enforcer was attached."
+  - category: Implementation
+    chose: "**Bootstrap-files restriction matches by `EndsWith` of the normalized path.** The path the LLM passes is repository-relative (\"/work/\" prefix optional). Suffix-match on the normalized form catches both `.agentsmith/context.yaml` and `/work/.agentsmith/context.yaml` without a separate path-resolution step."
+  - category: TradeOff
+    chose: "**No DI registration for `IPathReadGuard` / `IPathWriteGuard`.** Both guards take per-skill-call data (the SkillExecutionPhase for write, the live IGitIgnoreResolver loaded from the run's /work for read). The runtime constructs them in `ExecuteAsync`; passing them via factory delegates would add plumbing for no observability gain. Tests construct them directly."
+  - category: TradeOff
+    chose: "**`SandboxToolHost` constructor grows two optional parameters; legacy callers see no change.** The alternative"
+    reason: |
+      a dedicated `GuardedSandboxToolHost` subclass — would duplicate the seven tool methods plus the `[Description]` attributes. Optional null parameters keep the surface flat and the legacy path identical (existing call sites need no edits).
+  - category: TradeOff
+    chose: "**Verb requires `--skills-path` explicitly, doesn't auto-discover from config.** Build-time tooling tends to run in CI where the skills path is provided as an argument, and operators running locally know which directory to point at. Auto-discovery via the existing config-loader chain is a follow-up if operators ask for it. The verb still accepts `--config` and `--verbose` for consistency with the other CLI verbs but doesn't consume them in this slice."
+  - category: TradeOff
+    chose: "**Test fixtures use nested private writer classes (TestWriterA / TestWriterB).** \"One type per file\" applies to production code; test fixtures get an exemption to keep the test setup local and obvious. Two distinct classes are needed because `ConceptWriterRegistry` keys on `writer.GetType().Name`, and the multi-writer-same-concept test asserts grouping under different handler-class names."

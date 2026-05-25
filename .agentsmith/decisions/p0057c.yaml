@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0057c: Autonomous Pipeline
+phase: p0057c
+decisions:
+  - category: Architecture
+    chose: Agent writes tickets, human decides whether to act
+    reason: |
+      inverts control: agent prioritizes, human validates rather than human tasking agent
+  - category: Implementation
+    chose: Three-part ranking from convergence (not exhaustive list)
+    reason: avoids ticket spam, forces prioritization through multi-skill agreement
+  - category: TradeOff
+    chose: project-vision.md must exist before autonomous runs
+    reason: human knowledge about what matters cannot be inferred from code alone

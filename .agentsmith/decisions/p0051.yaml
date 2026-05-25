@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0051: ToolRunner Clean Architecture
+phase: p0051
+decisions:
+  - category: Architecture
+    chose: ToolRunRequest uses {input}/{output} placeholders resolved per-runner
+    reason: logical I/O decoupled from execution model paths
+  - category: Implementation
+    chose: Each runner translates placeholders to its model (/work for Docker, tempdir for Process, /work for K8s)
+    reason: clean separation of concerns
+  - category: TradeOff
+    chose: No trimming for single executable
+    reason: reflection-heavy dependencies (YamlDotNet, Docker.DotNet) make trimming unstable

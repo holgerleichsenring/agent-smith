@@ -1,0 +1,375 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0161
+requires:
+  - "p0158e"
+  - "p0158f"
+  - "spec-first plugin v2.0 layout applied via update-project (decisions/, contexts/default/)"
+supersedes: []
+applies_to: "Application + Infrastructure (ProjectMetaResolver, PipelineSandboxCoordinator, bootstrap + load handlers, FilesystemToolHost prompt-prefix)"
+goal: |
+  Adopt the spec-first v2.0 contexts/ layout end-to-end and turn it
+  into the per-stack sandbox-fanout mechanism for monorepos.
+
+  After plugin v2.0 migration the repo holds
+  `.agentsmith/contexts/<name>/context.yaml` (+ coding-principles.md)
+  instead of flat `.agentsmith/context.yaml`. Each context.yaml gains
+  a `workdir:` field naming the sub-tree the sandbox should treat as
+  /work (single-stack: `.`; monorepo: `src/Server`, `client`, etc).
+
+  Discovery becomes trivial: glob `contexts/*/context.yaml`. The
+  outgoing depth-first descent + first-hit-wins + skipped-segment
+  filter in IProjectMetaResolver is deleted entirely. The sandbox
+  coordinator spawns one sandbox per discovered context, each with
+  its own toolchain image and its own workdir as /work. p0158e's
+  tool-routing (path prefix in FilesystemToolHost, repo arg in
+  RunCommandToolHost, "Repos in scope" prompt prefix) keeps working
+  unchanged — the context-name takes the place of the repo-name as
+  the routing key.
+
+scope:
+  in: |
+    (0) ISourceProvider gains a ListDirectoryAsync(path, ct) method
+        returning IReadOnlyList<string> (immediate child names only,
+        files + sub-dirs, no recursion). Four implementations:
+        GitHubSourceProvider (GET /repos/{o}/{r}/contents/{path}),
+        GitLabSourceProvider (GET /projects/:id/repository/tree?path=),
+        AzureReposSourceProvider (GET /git/repositories/{id}/items?
+        scopePath=), LocalSourceProvider (Directory.EnumerateFileSystem
+        Entries). Used by SandboxLanguageResolver to discover
+        `.agentsmith/contexts/*/` sub-dirs REMOTELY before the sandbox
+        exists. Returns empty list (not exception) when the path does
+        not exist on the remote.
+
+    (1) Discovery contracts (two layers, same `contexts/*` shape):
+
+        Pre-sandbox (via ISourceProvider.ListDirectoryAsync):
+        - SandboxLanguageResolver gains a ResolveAllAsync(repo, ct)
+          method returning IReadOnlyList<RemoteContextDiscovery>
+          where RemoteContextDiscovery = (string ContextName,
+          string Workdir, string? Language). It lists
+          `.agentsmith/contexts/` via the source provider, then
+          per-sub-dir calls TryReadFileAsync(
+          `.agentsmith/contexts/<name>/context.yaml`) and projects
+          meta.workdir + stack.lang.
+        - Empty discovery (no contexts/ dir) → return a single
+          synthetic entry (ContextName="default", Workdir=".",
+          Language=null) so the un-init / fresh-clone fallback path
+          stays a one-sandbox-with-generic-image flow.
+
+        Post-sandbox (via ISandboxFileReader, inside /work):
+        - IProjectMetaResolver.ResolveAllAsync(reader, ct) returns
+          IReadOnlyList<MetaDiscovery> where MetaDiscovery =
+          (string MetaDir, string ContextName, string Workdir).
+          Implementation: list `.agentsmith/contexts/` immediate
+          sub-dirs via the reader, read each one's context.yaml,
+          project workdir.
+        - Old ResolveAsync deleted in the same commit per
+          [[feedback_no_wrapper_shims]]. Two existing callers
+          (LoadContextHandler, LoadCodingPrinciplesHandler) migrate
+          in this phase.
+        - Delete depth-first descent, first-hit-wins ordering,
+          skipped-segment filter, MaxSearchDepth constant — all dead
+          after the v2 layout change.
+
+        Both layers use the same glob shape (`contexts/*`); the
+        difference is the I/O surface (remote HTTP vs in-sandbox FS).
+        Spec authoring missed this distinction in draft 1; reinstated
+        per operator clarification ("vor dem erstellen der sandboxes,
+        weg a").
+
+    (2) context.yaml schema:
+        - New required field `meta.workdir: <relative POSIX path>` —
+          where the sub-stack lives inside the cloned repo. `.` for
+          single-stack (contexts/default/). Sub-tree path for monorepo
+          stacks. Loader rejects context.yaml without workdir (fail
+          loud — operator instruction: no silent defaults that hide
+          mis-config).
+        - context.schema.json updated.
+
+    (3) PipelineSandboxCoordinator:
+        - Per configured RepoConnection: call
+          SandboxLanguageResolver.ResolveAllAsync(repo, ct) PRE-SANDBOX
+          (via the source provider — there is no cloned tree yet).
+        - Per MetaDiscovery: build SandboxSpec via the p0135 layered
+          chain pointed at THIS discovery's context.yaml. Create one
+          sandbox per discovery; clone command runs at `cd <workdir>`
+          inside that sandbox so /work effectively is the sub-tree
+          root.
+        - Sandbox key = `<contextName>` for single-repo runs;
+          `<repoName>/<contextName>` for multi-repo runs where one or
+          more repos carry sub-contexts. Composite key only appears
+          when needed (same pattern as p0158e).
+        - Repo with zero `contexts/` directory (un-initialised):
+          fallback path creates ONE sandbox at the repo root using
+          the p0135 generic-image chain. Bootstrap then writes
+          `contexts/default/{context.yaml,coding-principles.md}` so
+          subsequent runs flow through the normal discovery path.
+        - DisposeAsync disposes every sub-unit sandbox once.
+
+    (4) p0158f handlers — switch iteration source from
+        ContextKeys.Repos to ContextKeys.Sandboxes keys, read each
+        sub-unit's discovered MetaDir (not a hardcoded
+        /work/.agentsmith/):
+        - BootstrapCheckHandler, BootstrapGateHandler,
+          LoadContextHandler, LoadCodingPrinciplesHandler,
+          AnalyzeProjectHandler, PublishProjectLanguageHandler,
+          BootstrapDispatchHandler, BootstrapRoundHandler,
+          TestHandler.
+        - TestHandler: per-context ci.test_command runs at
+          WorkingDirectory = workdir inside that context's sandbox.
+
+    (5) Tool routing (no code change, prompt change only):
+        - FilesystemToolHost + RunCommandToolHost path/repo routing
+          from p0158e works unchanged — composite-or-bare sandbox
+          keys are already supported.
+        - PromptPrefixBuilder "Repos in scope" entries become the
+          context keys with their `applies_to:` from context.yaml
+          (or PrimaryLanguage fallback when applies_to is empty).
+
+    (6) Tests (~10 new + fixture updates):
+        - ProjectMetaResolver_ResolveAllAsync_MultipleContexts_ReturnsAll
+        - ProjectMetaResolver_ResolveAllAsync_SingleDefaultContext_OneEntry
+        - ProjectMetaResolver_ResolveAllAsync_NoContextsDir_ReturnsEmpty
+        - ContextYamlLoader_MissingWorkdir_ThrowsConfigError
+        - Coordinator_MonorepoThreeContexts_SpawnsThreeSandboxes_OneToolchainEach
+        - Coordinator_MonorepoContext_ClonesAtWorkdir_SoSlashWorkIsSubTree
+        - Coordinator_SingleDefaultContext_SpawnsOneSandbox_KeyIsContextName
+        - Coordinator_UninitRepo_FallsBackToOneRootSandbox
+        - BootstrapCheck_MultipleContexts_AggregatesAcrossContexts
+        - PromptPrefix_ListsContextKeys_WithAppliesTo
+
+  out: |
+    - The spec-first plugin v2.0 layout migration itself (handled
+      by update-project skill in a separate operator-driven step;
+      this phase assumes the migration has already happened on
+      `.agentsmith/`).
+    - agentsmith.yml schema changes. Discovery is purely runtime;
+      no new yaml keys for the operator config side.
+    - Configuring sub-context discovery from agentsmith.yml
+      (explicit include/exclude lists). Auto-discovery only — every
+      contexts/<name>/ counts.
+    - Cross-context composite run_command (cross-stack scripts
+      remain operator responsibility per p0158e).
+    - Host-side source cache for large monorepos.
+    - Concept-vocabulary changes in agent-smith-skills (p0158f's
+      `project_languages` aggregate already accommodates N entries
+      regardless of whether N comes from multi-repo or
+      multi-context).
+    - Nested context inheritance (a sub-context inheriting from a
+      parent context.yaml). Rejected per p0158f — each context.yaml
+      is self-contained.
+    - Cleanup of .agentsmith/notes/ and .agentsmith/concepts/ —
+      operator-driven per spec-first v2.0 migration warning, not
+      this phase.
+
+decisions:
+  - key: |
+      contexts/ as the only discovery surface — Reason: after
+      spec-first v2.0, every project (single-stack OR monorepo) holds
+      `.agentsmith/contexts/<name>/context.yaml`. Single discovery
+      mechanism replaces the v1 special case (root context.yaml +
+      depth-first descent). Code paths shrink rather than fork.
+      Alternative — keep depth-first scan as a fallback for un-
+      migrated repos — rejected per [[feedback_no_wrapper_shims]];
+      migration is mandatory, no parallel paths.
+  - key: |
+      `workdir:` is a required field, not optional with a default
+      — Reason: a silent default (e.g. `.` when missing) hides
+      mis-configuration. Single-stack projects explicitly set
+      `workdir: .` in `contexts/default/context.yaml` — the bootstrap
+      skill writes it; manual contexts must set it too. Loader fail-
+      loud is consistent with p0158e's "no silent mistargeting" rule.
+  - key: |
+      Sandbox key = bare context-name in the common case, composite
+      `<repo>/<context>` only when actually needed — Reason: the key
+      namespace is shared with p0158e's multi-repo keys. A single-
+      repo project with three contexts produces keys `server`,
+      `client`, `docs` (repo name implicit). A multi-repo project
+      where one repo is itself a monorepo produces `serverRepo`,
+      `clientRepo/web`, `clientRepo/mobile`. Composite form appears
+      only when disambiguation requires it.
+  - key: |
+      Clone runs at `cd <workdir>` so /work inside the sandbox is the
+      sub-tree root, NOT the whole repo — Reason: skills run
+      `dotnet build` or `npm test` expecting /work to be the package
+      root. Cloning the whole repo and then `cd src/Server` for every
+      command stutters every skill prompt. p0158e established
+      "inside each sandbox, /work = that repo's root"; this phase
+      extends it: /work = that CONTEXT's root.
+  - key: |
+      Un-initialised repo falls back to ONE root sandbox; bootstrap
+      writes ONE contexts/default/ — Reason: the LLM cannot
+      speculate a monorepo's sub-package layout on a cold init.
+      Writing N speculative contexts would either be wrong or
+      require pre-analysis that belongs in a separate "monorepo
+      init" skill. Operator splits later by adding sub-folder
+      contexts manually; subsequent runs fan out automatically.
+
+steps:
+  - id: source-provider-list
+    action: |
+      Add ListDirectoryAsync(string path, CancellationToken ct) to
+      ISourceProvider returning IReadOnlyList<string> (immediate-child
+      names; empty list when the path does not exist on the remote).
+      Implement in all four providers: GitHub (contents API), GitLab
+      (tree API), AzureRepos (items API), Local (Directory enumerate).
+      Auth/transport failures propagate; absent-path is a graceful
+      empty.
+    modify:
+      - "src/AgentSmith.Contracts/Providers/ISourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs"
+
+  - id: discovery-contracts
+    action: |
+      Introduce two parallel discovery records (same `contexts/*`
+      shape, different I/O surfaces):
+        - RemoteContextDiscovery (ContextName, Workdir, Language?) —
+          pre-sandbox, populated by SandboxLanguageResolver via the
+          source provider.
+        - MetaDiscovery (MetaDir, ContextName, Workdir) — post-
+          sandbox, populated by ProjectMetaResolver via
+          ISandboxFileReader.
+      IProjectMetaResolver becomes ResolveAllAsync only. Implement in
+      ProjectMetaResolver via ListAsync on contexts/ + per-sub-dir
+      context.yaml read + workdir projection. Delete depth-first
+      descent, first-hit-wins ordering, IsSkippedSegment helper,
+      MaxSearchDepth constant, old ResolveAsync method (in same
+      commit, after callsite migration).
+    new:
+      - "src/AgentSmith.Contracts/Sandbox/MetaDiscovery.cs (record)"
+      - "src/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs (record)"
+    modify:
+      - "src/AgentSmith.Contracts/Services/IProjectMetaResolver.cs"
+      - "src/AgentSmith.Infrastructure/Services/ProjectMetaResolver.cs"
+
+  - id: context-yaml-shape
+    action: |
+      Add required `workdir:` field to the context.yaml schema and
+      to the parsed ContextYaml model. Loader fails with a clear
+      error message when the field is absent. Update bootstrap skill
+      prompts (in agent-smith-skills) to always emit workdir; this
+      phase only fixes the consuming side — the writing side moves
+      via the skill catalog.
+    modify:
+      - ".agentsmith/context.schema.json (workdir required)"
+      - "src/AgentSmith.Contracts/Models/Configuration/ContextYaml.cs (or equivalent)"
+      - "src/AgentSmith.Infrastructure/Services/ContextYamlLoader.cs (or equivalent)"
+
+  - id: language-resolver-fanout
+    action: |
+      SandboxLanguageResolver gains ResolveAllAsync(repo, ct) returning
+      IReadOnlyList<RemoteContextDiscovery>. Implementation: list
+      `.agentsmith/contexts/` via ISourceProvider.ListDirectoryAsync,
+      per sub-dir read `.agentsmith/contexts/<name>/context.yaml` via
+      TryReadFileAsync, project meta.workdir + stack.lang. Empty
+      discovery → single synthetic ("default", ".", null) entry so
+      un-init repos still get one root sandbox. Old single-result
+      ResolveAsync removed (no callers after coordinator-fanout).
+    modify:
+      - "src/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs"
+      - "src/AgentSmith.Application/Services/Sandbox/ISandboxLanguageResolver.cs"
+
+  - id: coordinator-fanout
+    action: |
+      PipelineSandboxCoordinator: per RepoConnection call
+      SandboxLanguageResolver.ResolveAllAsync (pre-sandbox); per
+      RemoteContextDiscovery build SandboxSpec via the p0135 chain
+      using THAT discovery's language. Create N sandboxes keyed by
+      composite-or-bare context-key. Clone command runs at
+      `cd <workdir>` so /work = sub-tree root inside each sandbox.
+      DisposeAsync iterates all cached sandboxes once.
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+
+  - id: handler-migration
+    action: |
+      Switch the eight p0158f handlers from per-RepoConnection
+      iteration to per-Sandboxes-key iteration; each iteration
+      reads its sub-unit's discovered MetaDir for `.agentsmith/`
+      reads + writes (BootstrapRound writes the produced
+      context.yaml/coding-principles.md under that MetaDir).
+      TestHandler runs ci.test_command at WorkingDirectory =
+      workdir inside the context's sandbox; TRX aggregation keyed
+      by composite sandbox key.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/LoadContextHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PublishProjectLanguageHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/TestHandler.cs"
+
+  - id: prompt-prefix
+    action: |
+      PromptPrefixBuilder: "Repos in scope" entries become sandbox
+      keys; per-entry annotation uses applies_to from context.yaml
+      (or PrimaryLanguage as fallback when applies_to is empty).
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PromptPrefixBuilder.cs"
+
+  - id: tests
+    action: |
+      Add the ~10 spec-driven tests in scope.in (6). Update fixtures
+      across coordinator + bootstrap handler tests that today seed
+      a single .agentsmith/ path or single-entry
+      ContextKeys.Sandboxes — add a multi-context fixture variant
+      per affected test class. Delete now-dead tests for first-hit-
+      wins, skipped-segment, depth-first behaviour.
+    modify:
+      - "tests/AgentSmith.Tests/Services/ProjectMetaResolverTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineSandboxCoordinatorTests.cs"
+      - "tests/AgentSmith.Tests/Commands/ (bootstrap + load handler tests)"
+      - "tests/AgentSmith.Tests/Tools/FilesystemToolHostTests.cs"
+
+  - id: docs
+    action: |
+      Short section under docs/configuration/multi-repo.md (or
+      wherever monorepo behaviour is documented today): single git
+      repo with multiple `.agentsmith/contexts/<name>/` directories
+      auto-fans out into one sandbox per context; context-name is
+      the routing key; `workdir:` field in each context.yaml names
+      the sub-tree.
+    modify:
+      - "docs/configuration/multi-repo.md (or equivalent)"
+
+tests:
+  - "ProjectMetaResolver_ResolveAllAsync_MultipleContexts_ReturnsAll"
+  - "ProjectMetaResolver_ResolveAllAsync_SingleDefaultContext_OneEntry"
+  - "ProjectMetaResolver_ResolveAllAsync_NoContextsDir_ReturnsEmpty"
+  - "ContextYamlLoader_MissingWorkdir_ThrowsConfigError"
+  - "Coordinator_MonorepoThreeContexts_SpawnsThreeSandboxes_OneToolchainEach"
+  - "Coordinator_MonorepoContext_ClonesAtWorkdir_SoSlashWorkIsSubTree"
+  - "Coordinator_SingleDefaultContext_SpawnsOneSandbox_KeyIsContextName"
+  - "Coordinator_UninitRepo_FallsBackToOneRootSandbox"
+  - "BootstrapCheck_MultipleContexts_AggregatesAcrossContexts"
+  - "PromptPrefix_ListsContextKeys_WithAppliesTo"
+
+done:
+  - "IProjectMetaResolver.ResolveAllAsync globs contexts/*/ + reads
+     each context.yaml; old ResolveAsync + depth-first descent +
+     first-hit-wins + skipped-segment filter deleted in the same
+     commit."
+  - "context.yaml schema requires `workdir:`; loader fails loud on
+     absence."
+  - "PipelineSandboxCoordinator spawns one sandbox per discovered
+     context, clones at `cd <workdir>` so /work = sub-tree root;
+     un-init repos fall back to one root sandbox; key composition
+     matches p0158e (bare context-name in common case,
+     `<repo>/<context>` only when needed)."
+  - "Nine p0158f handlers iterate over ContextKeys.Sandboxes keys
+     with per-discovery MetaDir + workdir."
+  - "PromptPrefixBuilder lists context keys with applies_to (or
+     PrimaryLanguage fallback)."
+  - "Build + full test suite green; ~10 new spec-driven tests
+     passing; obsolete depth-first/first-hit-wins tests deleted."
+  - "Smoke (api-scan / security-scan / fix-bug) green on a mixed-
+     stack monorepo fixture: single git repo with
+     contexts/server/ (csharp), contexts/client/ (typescript),
+     contexts/docs/ (markdown) — three sandboxes, three toolchains,
+     three test runs. Per [[feedback_finish_what_you_start]]."

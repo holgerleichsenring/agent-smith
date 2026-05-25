@@ -42,6 +42,19 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         return await File.ReadAllTextAsync(full, cancellationToken);
     }
 
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        var full = Path.Combine(basePath, path);
+        if (!Directory.Exists(full))
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        IReadOnlyList<string> names = Directory.EnumerateFileSystemEntries(full)
+            .Select(Path.GetFileName)
+            .Where(n => n is not null)
+            .Select(n => n!)
+            .ToList();
+        return Task.FromResult(names);
+    }
+
     public Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0123: SkillObservation as Universal Pipeline Output (Finding retired)
+phase: p0123
+decisions:
+  - category: Architecture
+    chose: "**`SkillObservation` absorbs every Finding-shaped field that has a real consumer (File, StartLine, EndLine, ApiPath, SchemaName, EvidenceMode, ReviewStatus, Category)"
+    reason: |
+      no wrapper / adapter / DTO indirection.** Pipeline-internal types should carry their full information density. Adapter shims between SkillObservation and Finding would just postpone the unification and reintroduce drift. Per the no-shim principle.
+  - category: Architecture
+    chose: "**Inner scanner records (PatternFinding, HistoryFinding, DependencyFinding) stay; scanner handlers emit BOTH the structured Result AND a SkillObservation list.** The inner records carry scanner-specific metadata (PatternId, RevokeUrl, Cwe, MatchedText, CommitHash, FixVersion, Ecosystem) used by SecurityFindingsCompressor for prompt input"
+    reason: |
+      kept. The SkillObservation is the universal output carrier — added. Dual-write is honest: Result is scanner-internal context, Observation is universal output.
+  - category: Architecture
+    chose: "**Free-text Location string deleted in favor of structured fields (File / StartLine / EndLine / ApiPath / SchemaName).** Two parallel ways to express location would be exactly the drift this phase exists to kill. ObservationParser absorbs the migration cost: legacy `\"location\": \"src/Program.cs:42\"` is split into File + StartLine; `\"GET /api/users\"` → ApiPath; bare PascalCase → SchemaName."
+  - category: Architecture
+    chose: "**`EvidenceMode` and `ReviewStatus` become typed fields on SkillObservation, not soft conventions.** p0122 introduced a rationale-prefix convention (`\"evidence: confirmed\"`) because Finding had typed EvidenceMode but SkillObservation didn't"
+    reason: |
+      a framing accident. Now that SkillObservation absorbs Finding's role, the typed fields are correct. p0122 per-SKILL hints get a single-pass update.
+  - category: Architecture
+    chose: "**`ObservationConcern` stays; `Category` field added separately.** Concern is a coarse structural axis (security/correctness/etc.) driving skill orchestration. Category is the free-form domain tag (`secrets` / `injection` / `auth` / `dependencies`) for SARIF rule grouping and Markdown section headers. Both serve different consumers; collapsing would lose information. Concern mandatory; Category optional."
+  - category: Architecture
+    chose: "**Confidence migration is ACTIVE, not passive"
+    reason: |
+      the parser auto-upgrades 1-10 emissions to 0-100 with a once-per-(skill,run) warning.** Passive ("skill emits 1-10 → confidence 8 looks like ~0% under 0-100 calibration, eventually noticed") means weeks of broken reports while migration plays out. Active multiplies values in [1,10] by 10 and warns. Skill authors get fast feedback (warning in run logs) without users seeing broken reports. Confidence==1 is the only ambiguous value (could mean 1% or 10%); we project to 10% — the lower-risk error since 1% effectively suppresses the observation downstream.
+  - category: Architecture
+    chose: "**Concern/Category drift detection in ObservationParser.** When Category is set and lowercase-equal to Concern.ToString().ToLowerInvariant() (e.g. concern=Security + category=`\"security\"`), the parser drops Category to null and emits a once-per-(skill, value) warning. Prevents the obvious drift where a skill author types the same word in both fields and ends up with redundant data."
+  - category: Architecture
+    chose: "**Severity-mapping table in ScannerObservationFactory is explicit, not Info-fallback-by-default.** External tools (Nuclei, ZAP, static-pattern-scanner) emit varied severity strings (`critical` / `crit` / `error` / `warning` / `warn` / `note` / `informational`). Explicit map: critical/crit/error → High; medium/med/warning/warn → Medium; low/note → Low; info/informational/none → Info. Unknown values warn once-per-process and default to Info."
+  - category: Architecture
+    chose: "**`Finding` record deleted entirely, not retained as a private SARIF DTO.** SARIF needs ~6 fields (file, line, severity, ruleId, region, logical location)"
+    reason: |
+      small enough to assemble inline as a JsonObject from a SkillObservation. A private intermediate type would just be a bag of the same fields with a different constructor.
+  - category: Architecture
+    chose: "**`FindingAssessment` deleted, replaced by SkillObservation.ReviewStatus.** Under unification, scanner findings ARE SkillObservations from the start; an LLM skill that wants to mark one false-positive sets ReviewStatus on the existing observation in-place via FilterRound (false-positive-filter already does this). ConsolidationResponseParser's assessments-parsing path is dead code, removed."
+  - category: Architecture
+    chose: "**`ExtractFindingsHandler` + `ExtractFindings` command deleted.** Under unification there's no extraction step needed"
+    reason: |
+      scanners emit SkillObservations at scan time, gates emit them at gate time, contributors emit them at round time. ContextKeys.SkillObservations is canonical from the start. Both ApiSecurityScan and SecurityScan presets get the ExtractFindings step removed.
+  - category: Architecture
+    chose: "**Output strategies bifurcate by structural need: SARIF + SpawnFix do their own conversion at the boundary; Console + Markdown + Summary + Snapshot consume SkillObservation directly.** Only SARIF (file/line/region required by spec) and SpawnFix (file/line required to patch code) have hard structural needs. The other four render text fields that map 1:1 from SkillObservation. Forcing a uniform pre-conversion would create exactly the wasted indirection this phase is killing."
+  - category: Architecture
+    chose: "**Gate path migrates fully"
+    reason: |
+      `structured-output-gate-list.md` prompt rewritten, `GateFindingParser` → `GateObservationParser`, `GateFindingMerger` → `GateObservationMerger`.** Gates are skill-driven LLM rounds returning JSON; under unification their JSON is observation-shaped, not finding-shaped. Result: gate skills follow the same observation-schema.md as analyst skills, with the only difference being the {confirmed, rejected} wrapping for triage roles.
+  - category: Implementation
+    chose: "**Retired commands carry a migration hint at resolve-fail.** `CommandNames.RetiredCommands` dictionary maps retired-command-name → migration message. `CommandContextFactory.Create` checks the retired map on miss and throws with the helpful message: \"ExtractFindings was retired in p0123. Observations are now produced directly by scanners and gates. Remove the step from your pipeline preset; see .agentsmith/decisions.md p0123 for context.\" Three lines of code, one Dictionary, plus the lookup hook."
+  - category: TradeOff
+    chose: "**Observation-schema.md ships with the agent-smith binary as an embedded resource, NOT in agent-smith-skills.** The schema is the contract the parser enforces; binding it to the parser code (same repo, same version) is the only way to keep them in lockstep. agent-smith-skills carries SKILL.md content (per-skill domain guidance) but no framework schema. Skill authors writing per-skill output hints reference the schema doc by path; framework upgrades that change the schema land in the same release as the parser change."

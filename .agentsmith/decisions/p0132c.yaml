@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0132c: Verifier tool access (slice 3/3 of p0132)
+phase: p0132c
+decisions:
+  - category: Architecture
+    chose: "**ResolveVerifyTools degrades to empty list when no sandbox is in context.** VerifyRoundHandler is consumed by RunVerifyPhase which runs only in FixBug + AddFeature today"
+    reason: |
+      both preset paths have a sandbox after CheckoutSource. The test suite exercises the handler with sandbox-less PipelineContexts; failing-loud there would force every existing test to seed a sandbox. Graceful degradation matches p0129a/b's design — verifiers can do both static and live work depending on what they're given. -- alternatives: fail-loud when sandbox missing (rejected: too rigid; static-mode verifiers are still valuable); inject sandbox factory + create one inline (rejected: sandbox lifecycle is the pipeline's job).
+  - category: Architecture
+    chose: "**Tool-enabled chat-client reused across verifiers in a single RunVerifyPhase invocation.** Chat-client creation is cheap, but creating one per verifier would mean N FunctionInvokingChatClient wraps when one suffices"
+    reason: |
+      the underlying connection + function-invocation loop is stateless across calls. Same pattern the non-tool path already uses (per-round, not per-verifier).
+  - category: TradeOff
+    chose: "**ProjectBuildCommandResolver deferred.** SKILL.md bodies instruct the LLM to discover the build/test command from `.agentsmith/context.yaml` (`stack.testing` etc) directly. The LLM has read_file in its read-only toolset, so it can resolve the command without a dedicated resolver service. Building one prematurely risks shaping it around assumptions that haven't been validated against operator runs."
+    reason: |
+      alternatives: ship ProjectBuildCommandResolver now (rejected: speculative design); hardcode commands per project_language (rejected: bypasses operator-config in agentsmith.yml).
+  - category: TradeOff
+    chose: "**Post-verify Test command in FixBug preset stays.** During the rollout window, the dedicated Test command still runs after Verify so live-mode false-negatives in the verifier path (LLM decides not to invoke RunCommand, or RunCommand fails for an unrelated reason) get caught by the real test run. Operator-evidence-driven follow-up can drop the explicit Test step once verifiers prove they cover the case reliably."
+  - category: Architecture
+    chose: "**`IAgentSmithPaths` for host-side paths, `ProjectMetaPaths` for repo-relative ones.** Two distinct domains needed centralisation: cache locations outside any project (skill catalog, project-map cache) and the `.agentsmith/X` convention inside a project's working tree. They live in separate types because their lifecycles are different"
+    reason: |
+      host paths resolve once at process start and never change; project-meta paths are textual constants that travel into PR diffs. Bundling them would obscure that distinction. -- alternatives: one `IPaths` umbrella interface (rejected: mixes runtime-resolved values with compile-time constants); leave .agentsmith/X as scattered string literals (rejected: 8 sites, future rename = 8-file change instead of 1).
+  - category: Architecture
+    chose: "**`DefaultPaths` (static in Contracts) is the single source of cache-root resolution.** Both `AgentSmithPaths` (DI-friendly impl in Infrastructure.Core) and the YAML loader's pre-DI defaulting need the same XDG resolution rules. Putting them in a shared static helper in Contracts (which neither layer dominates) makes drift between the call sites impossible."
+    reason: |
+      alternatives: duplicate the logic with a consistency test (rejected: tests catch drift after the fact, the right shape prevents it); make `SkillsConfig.CacheDir` lazy-resolved through DI (rejected: deserialiser eagerness + every test fixture would need DI plumbing).
+  - category: Implementation
+    chose: "**SkillsConfig becomes pure data; YAML loader fills `CacheDir` from `IAgentSmithPaths.SkillsCatalogRoot` post-deserialise.** The earlier shape (`CacheDir { get; set; } = ResolveDefaultCacheDir();` calling a static method on its own class) mixed static + instance members on one type and ran a side-effecting initialiser at construction time. Pure-data + loader-fills cleanly separates \"what the operator said\" from \"what the runtime resolved\", and keeps the type single-responsibility."
+  - category: Implementation
+    chose: "**`ProjectCacheDir` keys by 8-byte SHA-256 of the remote URL.** Short enough to be tab-completable; wide enough that a single operator's repo set will never collide. The repo identity is `RemoteUrl` (not local path) so two checkouts of the same upstream share a cache entry"
+    reason: matches the "did the dep manifests change?" cache invalidation model.
+  - category: TradeOff
+    chose: "**`AgentSmith.Contracts` gains a small amount of static utility code (`DefaultPaths`, `ProjectMetaPaths`).** Contracts is conventionally interfaces-only, but these two are pure data + pure path math"
+    reason: |
+      no I/O, no allocations, no providers. Moving them into Infrastructure would force every consumer (including the SkillsConfig YAML default) to take a runtime dependency on Infrastructure, which violates the layering. Keeping them in Contracts is the lesser of two evils. -- alternatives: dedicate a new `AgentSmith.Paths` project (rejected: one-class projects bloat the solution); inline both back into `AgentSmithPaths` and live with the duplication for SkillsConfig (rejected: that's what we just had).
+  - category: TradeOff
+    chose: "**Tmp-path usages NOT centralised in this pass.** Eight call sites use `Path.Combine(Path.GetTempPath(), \"agentsmith-...-{guid}\")` for one-shot scratch dirs (sandbox workdir, tool runners, ZAP swagger handoff, draft skill staging). Each has its own lifetime + naming convention; an `IAgentSmithPaths.NewTempDir(prefix)` helper would save little while adding indirection."
+    reason: |
+      alternatives: add a TempDir method to IAgentSmithPaths (rejected: thin wrapper around `Path.GetTempPath()`, no shared invariant to enforce).

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0111d: Per-Provider SKILL.md Overrides
+phase: p0111d
+decisions:
+  - category: Architecture
+    chose: "**`SKILL.<provider>.md` overrides resolved at parse time, not at body-render time.** ProviderOverrideResolver returns a {EffectivePath, BasePath?} pair: when an override exists in the skill directory, EffectivePath = override path and BasePath = base path; otherwise EffectivePath = base path and BasePath = null. SkillMdParser branches on whether BasePath is set"
+    reason: |
+      single-file path (no override) versus override+merge path. Reason: making the resolver path-only keeps SkillBodyResolver / ISkillPromptBuilder / SkillRoundHandlerBase blissfully unaware of providers — they receive a fully-merged RoleSkillDefinition and don't care whether it came from one file or two.
+  - category: Architecture
+    chose: "**Active provider read from `AgentSmithConfig.PrimaryProvider` (top-level scalar), not nested `llm.primary.provider` as the spec suggested.** Reason: the existing AgentSmithConfig has no `Llm` section"
+    reason: |
+      adding a three-level nested structure (`Llm.Primary.Provider`) for one string would force an awkward shape and break operators' YAML for no benefit. A single `primary_provider:` at the root maps cleanly and keeps the YAML diff minimal. Documented in skills.md.
+  - category: Architecture
+    chose: "**AgentSmithConfig registered as a singleton with a default empty instance in `AddAgentSmithCore`.** ActiveProviderResolver injects this singleton. Reason: AgentSmithConfig isn't currently DI-registered anywhere"
+    reason: |
+      most consumers receive it as a method parameter. The default empty instance keeps the DI graph valid for tests and existing composition roots while leaving `PrimaryProvider = null`, which makes the override resolver a no-op (base SKILL.md always wins). Operators who want overrides register a populated AgentSmithConfig in their composition root before `AddAgentSmithCore` to win the last-binding race — wire-up not done in this phase per the spec's "zero overrides ship" decision.
+  - category: Implementation
+    chose: "**Frontmatter merge is shallow on top-level keys** per spec. `MergeFrontmatter` produces a new SkillMdFrontmatter where each top-level field takes the override's value if non-null, else base's. `activation`, `role_assignment`, `output_contract`, `references` are atomic"
+    reason: |
+      declared in override means override wins entirely; omitted means inherit. The body is always taken from the override file (over.Body, not merged with base.Body). Reason: a deep merge inside `activation.positive[]` would silently double-list keys when both sides declare overlapping ones, and operators authoring an override are explicitly opting into a complete-declaration mental model.
+  - category: Implementation
+    chose: "**`name` and `roles_supported` validation runs before the merge.** Override must declare both"
+    reason: |
+      Name explicitly (non-empty), RolesSupported as a non-null list — and both must match base exactly (Name byte-equality, RolesSupported set-equality). Mismatch throws `InvalidOperationException` with a clear message at parse time. Reason: a "sibling skill that happens to be a different skill" is not what an override is for — those should live in different skill directories. Failing loud at boot prevents accidental identity drift.
+  - category: Implementation
+    chose: "**INFO-level log when an override loads** (\"Provider override loaded for skill '{Name}' from {Path}\"); default behavior (no override matched) is silent. Operators see at boot which skills have provider-specific tuning without grep'ing files."
+  - category: TradeOff
+    chose: "**8 tests instead of 7.** ProviderOverrideResolverTests adds a fourth case (`Resolve_NoActiveProvider_ReturnsBaseRegardlessOfOverrides`) beyond the spec's three"
+    reason: |
+      guards the empty-string branch in ProviderOverrideResolver, which is the default behavior most operators experience. SkillMdParser tests deliver all 4 spec-named cases.
+  - category: TradeOff
+    chose: "**Composition-root wireup deferred.** No CLI/Server entry point yet replaces the default empty AgentSmithConfig with the loaded one, so `primary_provider:` set in agentsmith.yml has no effect today. Reason: per spec, \"Zero overrides ship in this phase. Provider-tuning is opt-in per skill, opt-in per operator.\" The mechanism is the deliverable; runtime wireup is a follow-up that lands when the first operator-authored override exists. ServerDi tests pass because the default empty config makes the resolver a no-op."

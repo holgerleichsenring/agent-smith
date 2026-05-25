@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0128b: open_questions round-trip (D4 slice 2/3)
+phase: p0128b
+decisions:
+  - category: Architecture
+    chose: "**Two markdown variants"
+    reason: |
+      HTML-comment anchors for GitHub/GitLab/AzDO, visible bracket anchors for Jira.** Spec assumed an existing JiraAdfBuilder that doesn't exist; JiraTicketProvider posts comments as a single ADF text node (no markup preservation). HTML-comment markers `<!--Q1-->` would render as literal text in Jira. The Jira-specific template uses visible `[Q1]` brackets and `[agent-smith open questions]` as a leading marker; markdown platforms keep the invisible HTML-comment style. Both forms are accepted by `OpenQuestionsCommentMarkers.IsOpenQuestionsComment`. -- alternatives: build a markdown→ADF marshaller (rejected: scope creep — multi-paragraph ADF authoring needs more than this slice deserves); skip Jira (rejected: spec calls for cross-platform).
+  - category: Architecture
+    chose: "**`IRunArtifactStore` and `ITicketCommentTemplate` both live in `AgentSmith.Contracts/`, not Application.** Same reason as p0128a's IRunArtifactStore move"
+    reason: |
+      Infrastructure houses the per-platform implementations and can't reference Application. The Application-side `IPlanOpenQuestionsPoster` resolves keyed singletons via `IServiceProvider.GetKeyedService<ITicketCommentTemplate>(platform)`. -- alternatives: register all four templates by enum-key in Application (rejected: implementations need StackExchange-related dependencies on Infrastructure side); make Infrastructure reference Application (rejected: violates layered architecture).
+  - category: Implementation
+    chose: "**`PlanAnswerParser.Parse` exposes two overloads"
+    reason: |
+      `(parent, reply)` and `(commentBody)`.** True parent-comment fetching is platform-specific glue (each comment-webhook payload has a different shape for the parent reference). The single-body overload covers the "operator clicked Quote-reply" path where the marker quotes into the reply body — the dominant UX path on GitHub/GitLab. Webhook handlers call the single-body overload to keep the wiring uniform; a follow-up phase can add per-platform parent-fetch if the data shows operators frequently reply without quoting. -- alternatives: require parent-fetch everywhere (rejected: invasive across 4 platform-specific webhook flows); detect by Q-line heuristic alone (rejected: false positives on unrelated comments that happen to contain a `Q1:` line).
+  - category: Implementation
+    chose: "**`AnswerLineRegex` uses `[ \\t]*` between colon and answer rather than `\\s*`.** First version had `\\s*`"
+    reason: |
+      `\s` matches `\n` so `.*` greedily consumed the next line. The horizontal-only whitespace class keeps each Q-line self-contained. Caught by the malformed-answer test on the first run. -- alternatives: anchored on `\n` instead (rejected: same trap, just shifted); switch to `(?:^|\n)` start anchor with explicit `(?=\n|$)` end (rejected: harder to read).
+  - category: Implementation
+    chose: "**Webhook handlers detect PlanAnswers as a SECOND trigger, sibling to the existing keyword check.** GitHub-issue / GitLab-issue / Azure-DevOps-work-item / Jira-comment handlers all branch: keyword OR plan-answers fires the webhook (Jira falls back to \"first project with jira_trigger configured\" when answers are present without keyword"
+    reason: |
+      most deployments have one Jira project per agent-smith project). Operators don't have to remember the keyword in the answer reply — the marker in the parent comment plus `Q1:` lines are enough. PR-comment handlers (GitHubPrCommentWebhookHandler etc.) skip this — Plan questions land on tickets, not PRs. -- alternatives: require keyword always (rejected: clunky UX — operators have to copy the trigger phrase into every answer reply); branch on platform (rejected: asymmetry without justification).
+  - category: Implementation
+    chose: "**`GeneratePlanHandler` tries strict-parse first, falls back to lax on validation failure.** The strict path produces a Plan with `Status` + `OpenQuestions` populated; the lax path is unchanged. Existing prompts that emit unstructured plans still work because the schema rejection triggers the legacy parse. When the prompt does emit structured JSON, the new fields populate end-to-end and `PlanOpenQuestionsHandler` gets a real `Status=NeedsUserInput` to act on. PlanJson context-key is set when the strict path succeeded"
+    reason: |
+      feeds p0128a's persistence sidecar. -- alternatives: hard-cutover to strict (rejected: would require coordinating prompt changes across all Plan-emitting paths); keep lax-only and never see open_questions (rejected: defeats the round-trip purpose).
+  - category: TradeOff
+    chose: "**`PipelineExecutor` halts on `OpenQuestionsAwaitingAnswer`, returns `CommandResult.Ok(\"Pipeline parked: awaiting_user_input\")`.** Park is success, not failure"
+    reason: |
+      the run isn't broken; the operator's next reply re-triggers a fresh pipeline run. Lifecycle coordinator marks the ticket as Done from the parked state today; a richer model where parked is its own ticket-lifecycle status is a follow-up. -- alternatives: return Fail (rejected: treats parking as an error, which alarms operators and may trigger retry logic); return a special parked-result subtype (rejected: spec creep on CommandResult).
+  - category: TradeOff
+    chose: "**No JiraAdfBuilder built in this slice.** The spec assumed one; there isn't. The Jira template emits plain text with line breaks rather than multi-paragraph ADF. Jira renders the comment as a single text node"
+    reason: |
+      usable but visually flat. Building proper multi-paragraph ADF is a follow-up phase if operator feedback shows the visual flatness is a problem. -- alternatives: build a minimal ADF marshaller now (rejected: scope creep — proper ADF authoring with marks/marks/text nodes is its own design problem); skip Jira (rejected: spec calls for all four platforms).

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0130a: BootstrapCheck gate + csharp-bootstrap (D6 slice 1/2)
+phase: p0130a
+decisions:
+  - category: Architecture
+    chose: "**BootstrapGateHandler is a separate handler from BootstrapCheckHandler, not a combined publish-and-decide step.** BootstrapCheckHandler is an `IConceptWriter` (publishes `context_yaml_present` + `coding_principles_present`); BootstrapGateHandler reads those concepts and decides whether to abort. Mirrors the p0125c rule that publishing handlers don't make pipeline-level decisions. Two short handlers beats one tangled one."
+    reason: |
+      alternatives: extend BootstrapCheckHandler with abort logic (rejected: blends two concerns); push gate logic into PipelineExecutor (rejected: preset-specific policy in a preset-agnostic component).
+  - category: Architecture
+    chose: "**BootstrapGateHandler reads concepts via `Func<PipelineContext, IRunStateConcepts>` factory, not raw `ContextKeys.context_yaml_present` lookup.** The parent spec text suggested raw ContextKeys"
+    reason: |
+      that would bypass the typed concept layer p0125b stood up and re-introduce a parallel state-bag. The handler depends on the same factory delegate every other concept consumer takes. -- alternatives: raw `pipeline.Get<bool>(ContextKeys.context_yaml_present)` (rejected: there is no such ContextKey — concepts live in `ContextKeys.ConceptValues` dictionary, IRunStateConcepts is the typed view).
+  - category: Architecture
+    chose: "**Three-way preset categorization (Strict / Conditional / None) per parent-spec.** Strict"
+    reason: |
+      FixBug, FixNoTest, AddFeature, SecurityScan, Autonomous (gate always active). Conditional — ApiSecurityScan only (gate active when source_available=true; passive-mode runs per p0102a skip cleanly). None — MadDiscussion, LegalAnalysis, InitProject, SkillManager (no gate). Insertion location is directly after the source-checkout step (CheckoutSource for the strict five; TryCheckoutSource for ApiSecurityScan), BEFORE Load* / BootstrapProject so missing-files aborts with the structured "run init-project first" message instead of failing somewhere downstream in a less-actionable way.
+  - category: Implementation
+    chose: "**ApiSecurityScan conditional logic is hardcoded inline in BootstrapGateHandler, not lifted to a registry.** Single conditional preset today; an `IPresetGatePrecondition` registry abstraction is premature for one consumer per the codebase's coding-principles. Inline check reads `pipeline.Resolved().PipelineName == \"api-security-scan\"` + `concepts.GetBool(\"source_available\")`; comment quotes p0102a so a future second-conditional preset triggers either a switch-extension or the registry refactor"
+    reason: |
+      both mechanical. -- alternatives: registry abstraction now (rejected: YAGNI); switch on preset name (rejected: same hardcoding without the inline rationale).
+  - category: Implementation
+    chose: "**BootstrapCheckContextBuilder exists alongside BootstrapGateContextBuilder.** BootstrapCheckHandler shipped in p0125c but its context builder was never registered (no preset referenced it). Wiring it now closes the loophole. The existing `BootstrapCheckContext(PipelineContext Pipeline)` record needed no change."
+  - category: TradeOff
+    chose: "**InitProject preset NOT gated.** Init-project's whole purpose is to produce the bootstrap files; gating it would create a chicken-and-egg lock for first-time onboarding. Operator runs init-project precisely to fix the missing-files state. The InitProject preset's Bootstrap step is the producer (csharp-bootstrap shipping in this slice; node/python/generic in p0130b)."
+    reason: |
+      alternatives: gate init-project too (rejected: kills first-run UX); gate but auto-skip for init (rejected: same as not gating, just spelled twice).
+  - category: TradeOff
+    chose: "**csharp-bootstrap is the demonstrator + path-validator for the BootstrapCheck integration; the other three languages ride in p0130b.** Slice a + slice b share scaffolding (SKILL.md template + activates_when pattern + project_language enum)"
+    reason: |
+      splitting languages across more slices would multiply scaffolding for no gain. Slicing the C# skill in alone is enough to exercise the full bootstrap path end-to-end against agent-smith's own repo. Cross-repo: agent-smith-skills 2.4.0 with `project_language` enum addition; agentsmith.yml pin synced.

@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0101: CLI server graceful degradation + per-subsystem health
+phase: p0101
+decisions:
+  - category: Architecture
+    chose: "Resilience strategy split: webhook listener always up, Redis-dependent subsystems (queue_consumer, housekeeping, poller) degrade. Server boots with REDIS_URL unset OR Redis temporarily down. Webhook POSTs that hit ITicketClaimService while Redis is down respond 503 with body `redis_unavailable` instead of throwing. Operators see /health/ready=503 immediately"
+    reason: no silent-no-op state.
+  - category: Architecture
+    chose: ConnectionMultiplexer built with `AbortOnConnectFail=false`, `ConnectRetry=3`, `ConnectTimeout=5000ms`. Multiplexer reconnects automatically when Redis comes up. Single-line change vs old `ConnectionMultiplexer.Connect(url)`; no behaviour change in the happy path. Verified by `Build_RedisUnreachable_StillBuildsServiceProvider` test (asserts no throw within 15s for non-routable URL).
+  - category: Architecture
+    chose: "Redis-dependent service registrations (`IRedisJobQueue`, `IRedisClaimLock`, `IRedisLeaderLease`, `IJobHeartbeatService`, `IConversationLookup`, `IMessageBus`, `IDialogueTransport→RedisDialogueTransport`) moved out of `AgentSmith.Infrastructure.ServiceCollectionExtensions` into `AgentSmith.Cli.ServiceProviderFactory.RegisterRedis`, gated on whether `IConnectionMultiplexer` was registered. Rationale: the existing `if (queue is null) return Task.CompletedTask` graceful-skip pattern in ServerCommand only works if those services are NOT in the container when Redis isn't available. Spec called for an `AddAgentSmithCommands(bool redisAvailable)` overload but `services.Replace(ServiceDescriptor.Scoped<ITicketClaimService, NullTicketClaimService>())` keeps Application clean and is less invasive."
+  - category: Architecture
+    chose: /health is liveness
+    reason: |
+      HTTP 200 as long as the listener is alive (status field reflects degradation in the body). /health/ready is readiness with a strict loud-fail rule: ANY subsystem in non-Up state (Down, Degraded, Disabled) returns 503. Liveness vs readiness split keeps Kubernetes/Docker restart loops sane (don't kill the pod just because Redis is briefly down) while still surfacing the issue to readiness gates and alerting. Body lists every subsystem with name/state/reason/last_changed_utc so operators see WHY at a glance.
+  - category: Architecture
+    chose: "ISubsystemHealth contract surface stays tiny: `Name`, `State` (Up/Degraded/Down/Disabled), `Reason`, `LastChangedUtc`. Each long-running subsystem owns a `SubsystemHealth` instance (mutable thread-safe impl in `AgentSmith.Application/Services/Health/SubsystemHealth.cs`). WebhookListener iterates the injected `IReadOnlyList<ISubsystemHealth>` to build the report. No reflection, no central registry"
+    reason: just DI plus an explicit list passed to the listener constructor.
+  - category: Implementation
+    chose: `SubsystemHealth` lives in `AgentSmith.Application/Services/Health/`, not `Contracts/Services/` as the spec sketched. Coding-principles say `Contracts/` is for interfaces only
+    reason: |
+      placing the mutable impl in Application keeps Contracts pure. Spec deviation logged here.
+  - category: Architecture
+    chose: "Subsystem retry loop (`SubsystemTask.RunRedisGatedAsync`): if `TService` is unregistered → SetDisabled, return (no point looping for a config that will never become true"
+    reason: |
+      distinguishes Disabled from Down/Degraded). If registered but multiplexer disconnected → SetDegraded("waiting for Redis"), poll IsConnected every `RedisRetryIntervalSeconds`. Once connected → SetUp, run inner work. On work error → SetDegraded("task error: {msg}"), re-enter retry loop. ct cancellation exits cleanly without retrying.
+  - category: Implementation
+    chose: NullTicketClaimService returns `ClaimResult.Failed("redis_unavailable")` rather than `ClaimResult.Rejected(...)`. The existing `ClaimRejectionReason` enum carries semantics "rejected claims will never succeed as-is
+    reason: |
+      operator must fix config", which technically fits "operator must set REDIS_URL", but Failed-with-string-error is closer to "transient" and avoids growing the enum. `MapClaim` in WebhookRequestProcessor pattern-matches on `Failed when Error == "redis_unavailable"` → 503; everything else stays 500.
+  - category: Implementation
+    chose: WebhookRequestProcessor pre-checks `IsRedisAvailable()` (looks up the `redis` ISubsystemHealth from DI) before structured-claim dispatch and dialogue routing. Returns 503 + `redis_unavailable` immediately if redis state is not Up. Cheaper than try/catch on DispatchAsync and catches the case where Redis is configured but disconnected at the moment of webhook arrival.
+  - category: Implementation
+    chose: "ServerCommand.BuildPollers extracted to `Cli/Services/PollerFactory.cs`. Reason: ServerCommand was already at the upper class-size limit; adding subsystem-health plumbing pushed it over. Extraction also models BuildPollers as a real responsibility (platform-switch poller construction) rather than a private detail of the command. Tests updated to call `PollerFactory.Build` directly."
+  - category: Implementation
+    chose: "LeaderSubsystemRunner extracted (`Cli/Services/LeaderSubsystemRunner.cs`) to collapse the identical plumbing for `housekeeping` and `poller` subsystems (both: redis-gated → leader-elected → run inner work). ServerCommand orchestration shrinks from a duplicated pair of `StartXxxLeaderAsync` methods to a single `LeaderSubsystemRunner.RunAsync` call per subsystem."
+  - category: Scope
+    chose: "`AgentSmith.Server` (Slack/Teams gateway) keeps its current strict `depends_on:redis` setup. It is a different deployment unit with stronger Redis coupling (Slack signing secrets, conversation state, dispatcher queue). Making it resilient is a follow-up phase. p0101 is strictly about the CLI `server` command."
+  - category: Scope
+    chose: WebhookListener integration tests via real HttpListener not written. The HTTP endpoint behaviour is covered by `HealthResponseBuilderTests` (JSON shape + status codes for all /health and /health/ready cases) plus the listener constructor wiring is verified by `ServiceProviderFactoryRedisGatingTests`. Manual smoke test documented in done criteria. End-to-end HttpListener tests would buy little extra confidence at significant complexity cost.
+  - category: Scope
+    chose: `WebhookRequestProcessor_StructuredWebhookRedisDown_Returns503` end-to-end test not written for the same reason
+    reason: |
+      would require constructing a valid platform-specific webhook payload that survives WebhookPlatformDetector + signature verifier. The 503 mapping is unit-tested via `NullTicketClaimServiceTests` (returns Failed("redis_unavailable")) plus the static `MapClaim` mapping in WebhookRequestProcessor is straightforward. Trade-off documented; full-stack coverage available via the manual smoke test in done criteria.
+  - category: Implementation
+    chose: "Logging cadence: INFO on subsystem state transitions (started, disabled, waiting for Redis, restored). WARN on task error. Goal: operator's tail always shows the last-event-state without flooding during outages."
+  - category: Architecture
+    chose: "Null-Redis implementations (`AgentSmith.Application/Services/RedisDisabled/`) for `IRedisJobQueue`, `IRedisClaimLock`, `IRedisLeaderLease`, `IJobHeartbeatService`, `IConversationLookup`. Registered by ServiceProviderFactory in the no-REDIS_URL branch alongside NullTicketClaimService. Reason: p0101's initial pass only fixed the `server` command"
+    reason: |
+      `security-scan`, `fix`, `mad`, etc. crashed at DI resolution time because TicketStatusTransitionerFactory (constructor) and PipelineExecutor (LifecycleScope) inject Redis services transitively. With null impls, every CLI command resolves cleanly without Redis. Methods that genuinely need Redis (claim acquisition, queue enqueue, heartbeat start) throw `RedisUnavailableException` with an actionable message ("set REDIS_URL"). Methods with safe defaults (queue depth, heartbeat aliveness, conversation lookup) return 0/false/null. Verified by smoke-running `security-scan --project agent-smith` to skill-round stage without Redis configured.
+  - category: Implementation
+    chose: SubsystemTask gating switched from `GetService<T>() is null` to `redis ISubsystemHealth.State == Disabled`. Null impls always resolve to non-null instances, so the old null-check would never fire. The redis subsystem health (registered by RegisterRedis as Disabled when REDIS_URL is unset) is now the single source of truth for "Redis configured?". Test `RunRedisGatedAsync_RedisHealthDisabled_SetsDisabledAndReturns` updated accordingly.
+  - category: TradeOff
+    chose: "NullRedisLeaderLease.TryAcquireAsync returns null silently (lease not acquired) rather than throwing. Reason: leader election is server-only"
+    reason: |
+      CLI commands inject the dep transitively but never invoke it. A throwing impl would be loud-fail in dead code paths. The server uses the redis ISubsystemHealth check via SubsystemTask before leader election even starts, so the null lease is never invoked in server mode either when REDIS_URL is unset.

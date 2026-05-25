@@ -22,6 +22,7 @@ public static class ProjectMetaExtensions
         services.AddSingleton<IProjectMetaResolver, ProjectMetaResolver>();
         services.AddSingleton<IProjectBriefBuilder, ProjectBriefBuilder>();
         services.AddSingleton<IBaselineLoader, BaselineLoader>();
+        services.AddSingleton<IContextYamlParser, ContextYamlParser>();
         services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
         return services;
     }

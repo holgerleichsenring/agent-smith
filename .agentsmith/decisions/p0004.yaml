@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0004: Pipeline Execution
+phase: p0004
+decisions:
+  - category: Architecture
+    chose: Regex-based intent parser instead of LLM call
+    reason: chosen for determinism, cost, and Phase 4 speed
+  - category: Architecture
+    chose: CommandContextFactory maps command names to contexts
+    reason: avoids massive switch statement in PipelineExecutor
+  - category: Implementation
+    chose: ProjectConfig passed as parameter to PipelineExecutor, not injected
+    reason: enables per-run configuration variation
+  - category: TradeOff
+    chose: Intent parser intentionally simple
+    reason: can be swapped for Claude-based parser later without interface changes

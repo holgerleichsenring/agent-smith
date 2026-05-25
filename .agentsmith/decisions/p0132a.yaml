@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0132a: per-skill cost attribution (slice 1/3 of p0132)
+phase: p0132a
+decisions:
+  - category: Architecture
+    chose: "**Wrap-in-scope instead of full SkillCallRuntime migration.** Headline goal (PerSkillBreakdown surfaces in result.md) is achieved by BeginCall/EndCall alone; the runtime's additional machinery (LimitEnforcer / RetryCoordinator / LoopTraceCollector / OutcomeClassifier / PipelineConcurrencyGate) is valuable but orthogonal to per-skill cost visibility. The 441-line base class has two distinct paths (Discussion / Structured / Gate) that don't fit cleanly through the runtime's single-shot ExecuteAsync shape without a major restructure. Scope wrap is the minimal change that delivers operator value while keeping the runtime as a known-good future migration target."
+    reason: |
+      alternatives: full runtime migration in one slice (rejected: scope/risk for one-shot delivery); separate cost-tracker layer (rejected: BeginCall already provides this surface).
+  - category: Implementation
+    chose: "**Phase mapping: PipelinePhase.Final → SkillExecutionPhase.Synthesize.** SkillExecutionPhase doesn't have a Final value; Synthesize is the closest semantic match (the Final phase IS where reviewers synthesize outputs). When PipelinePhase isn't set (legacy discussion-mode), default to Discuss."
+    reason: |
+      alternatives: add Final to SkillExecutionPhase (rejected: the enum is shaped around per-skill execution context, not pipeline lifecycle position); default to Investigate (rejected: Discuss fits mad/legal-style runs better).
+  - category: TradeOff
+    chose: "**No LimitEnforcer attached to the scope.** SkillCallScope.BuildRecord falls back to elapsed-ms from StartedAt when no enforcer is attached. Cost record carries tokens (always populated via Track) + duration; ToolCallCount and LlmCallCount stay at 0 because no LimitEnforcer counts them in this path. When the full runtime migration lands, those counts populate; until then they read 0, which is honest about what the scope observed."
+  - category: TradeOff
+    chose: "**Gate-path NOT wrapped in this slice.** gateRetryCoordinator.ExecuteAsync owns its own chat-loop with multiple GetResponseAsync calls in retry sequences. Wrapping it cleanly requires a coordinator-side hook (e.g. an `onResponse` callback like the RetryCoordinator already has in the runtime). Deferred"
+    reason: |
+      the Gate-path is shared across SecuritySkillRound + ApiSecuritySkillRound but the cost-tracker integration is the same shape as the non-Gate paths once the hook lands. p0132b can absorb this.

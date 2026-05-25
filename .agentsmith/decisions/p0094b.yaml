@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0094b: Security-Scan Skill Reduction (15 → 9)
+phase: p0094b
+decisions:
+  - category: Architecture
+    chose: Attacker-perspective skills (vuln-analyst, recon-analyst, response-analyst, low-privilege-attacker, input-abuser, idor-prober) deleted from `config/skills/security/`
+    reason: |
+      in a code-audit context without HTTP probing, their prompt output overlapped with the knowledge-domain skills (auth-reviewer, injection-checker, config-auditor, compliance-checker). The same skills remain in `config/skills/api-security/` where HTTP probing and persona-based testing give them genuinely distinct capabilities.
+  - category: Architecture
+    chose: "idor-prober replaced by two independent mechanisms: (1) auth-reviewer's SKILL.md scope extended to explicitly cover IDOR/BOLA (sequential IDs, ownership predicates, cross-tenant, bulk-ops); (2) new `config/patterns/auth.yaml` with 4 static patterns (ASP.NET int route constraint, EF Find-by-id, LINQ single-predicate ID lookup, raw SQL where-id-only). LLM covers nuance, static patterns catch deterministic signals cheaply."
+  - category: Architecture
+    chose: Legacy `SkillCategories` dictionary in `SecurityFindingsCompressor` removed
+    reason: |
+      since p0093 made `orchestration.InputCategories` authoritative, the fallback branch was unread code for every skill with proper input_categories. With the dict gone, an undeclared Contributor skill now returns an empty slice, which is the correct behaviour (gets the overall findings summary instead).
+  - category: Architecture
+    chose: `GetSliceForSkill` gained explicit wildcard handling
+    reason: |
+      `input_categories: ["*"]` now concatenates every category slice, matching the documented p0093 semantics. Before this change the gate reached for `categorySlices["*"]` (never present) and silently returned empty; the overall summary was a hidden fallback that masked the bug.
+  - category: Scope
+    chose: "Baseline and comparison numbers recorded in the phase spec as decision keys: 15-skill baseline wallclock=4m15s, post-gate=14 findings; 9-skill run wallclock=3m (29% faster, target ≥25% met), post-gate=10. Severity-weighted variance is -18% (outside the ±15% done criterion), attributable to LLM gate-judgement variance on pattern-definition files rather than real coverage loss"
+    reason: |
+      both runs mostly filter `config/patterns/*.yaml` regex samples, and each run keeps a different subset. Follow-up candidate: exclude `config/patterns/*.yaml` from self-scans.
+  - category: TradeOff
+    chose: ±15% severity-weighted tolerance was documented as a hard done criterion but proved tighter than single-run LLM determinism supports. Rather than re-run until we hit the target, the variance is recorded honestly with root-cause analysis; future coverage criteria should either average over multiple runs or set a wider tolerance.

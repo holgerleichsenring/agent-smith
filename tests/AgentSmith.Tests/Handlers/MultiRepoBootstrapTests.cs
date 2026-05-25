@@ -77,9 +77,9 @@ public sealed class MultiRepoBootstrapTests
     }
 
     [Fact]
-    public void PromptPrefix_ListsAvailableRepos_WithLanguages()
+    public void PromptPrefix_ListsContextKeys_WithLanguages()
     {
-        var section = AgentPromptBuilder.BuildReposInScopeSection(
+        var section = AgentPromptBuilder.BuildContextsInScopeSection(
             new[] { "server", "client", "docs" },
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -91,15 +91,15 @@ public sealed class MultiRepoBootstrapTests
         section.Should().Contain("server (csharp)");
         section.Should().Contain("client (typescript)");
         section.Should().Contain("docs (markdown)");
-        section.Should().Contain("repo-qualified paths");
+        section.Should().Contain("context-qualified paths");
         section.Should().Contain("run_command");
     }
 
     [Fact]
-    public void PromptPrefix_SingleRepo_EmptySection()
+    public void PromptPrefix_SingleContext_EmptySection()
     {
-        AgentPromptBuilder.BuildReposInScopeSection(new[] { "solo" }).Should().BeEmpty();
-        AgentPromptBuilder.BuildReposInScopeSection(null).Should().BeEmpty();
+        AgentPromptBuilder.BuildContextsInScopeSection(new[] { "solo" }).Should().BeEmpty();
+        AgentPromptBuilder.BuildContextsInScopeSection(null).Should().BeEmpty();
     }
 
     [Fact]
@@ -177,8 +177,10 @@ public sealed class MultiRepoBootstrapTests
         {
             _repos.Add(new RepoConnection { Name = name, Type = RepoType.GitHub, Url = $"https://x/{name}.git" });
             _sandboxes[name] = new Mock<ISandbox>();
-            _exists[(name, $"{Repository.SandboxWorkPath}/{ProjectMetaPaths.ContextYaml}")] = contextYaml;
-            _exists[(name, $"{Repository.SandboxWorkPath}/{ProjectMetaPaths.CodingPrinciples}")] = principles;
+            // After p0161a each sandbox is keyed by sandbox-key (= repo name in
+            // multi-repo single-context). Bootstrap probes the per-context MetaDir.
+            _exists[(name, $"/work/.agentsmith/contexts/default/context.yaml")] = contextYaml;
+            _exists[(name, $"/work/.agentsmith/contexts/default/coding-principles.md")] = principles;
             return this;
         }
 
@@ -188,6 +190,12 @@ public sealed class MultiRepoBootstrapTests
             Pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
                 ContextKeys.Sandboxes,
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
+            Pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+                ContextKeys.SandboxDiscoveries,
+                _sandboxes.ToDictionary(
+                    kv => kv.Key,
+                    kv => new RemoteContextDiscovery("default", ".", null),
+                    StringComparer.Ordinal));
             var handler = new BootstrapCheckHandler(
                 _readerFactoryMock.Object,
                 RunStateConceptsTestFactory.Default,

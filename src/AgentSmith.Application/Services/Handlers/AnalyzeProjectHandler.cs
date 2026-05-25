@@ -1,7 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -11,14 +10,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Runs the agentic ProjectAnalyzer when no cached project-map.json exists
-/// for the current dependency-manifest hash, otherwise loads the cached map.
-/// The cache is host-side, keyed by the repo's remote URL via
-/// <see cref="IAgentSmithPaths"/>, so it never lands inside the project's
-/// <c>.agentsmith/</c> directory where blanket <c>git add -A</c> would commit
-/// it. ContextKeys.CodeMap holds a YAML-ish text rendering for prompt-builders
-/// that consume the map as a single string (separate from ContextKeys.ProjectMap
-/// which is the structured representation).
+/// Runs the agentic ProjectAnalyzer per discovered context (p0161a).
+/// Iterates ContextKeys.Sandboxes keys; per key analyzes the sub-tree at
+/// `/work/{discovery.Workdir}` (which is /work for single-stack repos and a
+/// sub-folder for monorepo contexts). Populates ContextKeys.RepoProjectMaps
+/// (now keyed by sandbox key) and legacy single-slot ContextKeys.ProjectMap
+/// / ContextKeys.CodeMap from the first sandbox key. The host-side cache is
+/// keyed by (repo-URL + workdir-suffix) so monorepo sub-trees do not
+/// stomp each other's project-map.json.
 /// </summary>
 public sealed class AnalyzeProjectHandler(
     IProjectAnalyzer analyzer,
@@ -32,51 +31,59 @@ public sealed class AnalyzeProjectHandler(
     public async Task<CommandResult> ExecuteAsync(
         AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
-        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+            return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
-        var perRepo = new Dictionary<string, ProjectMap>(StringComparer.Ordinal);
-        foreach (var repo in repos)
+        var perKey = new Dictionary<string, ProjectMap>(StringComparer.Ordinal);
+        foreach (var (key, sandbox) in sandboxes)
         {
-            if (!sandboxes.TryGetValue(repo.Name, out var sandbox)) continue;
-            var map = await AnalyzeOneAsync(context, sandbox, repo, cancellationToken);
-            perRepo[repo.Name] = map;
+            if (!discoveries.TryGetValue(key, out var discovery)) continue;
+            var map = await AnalyzeOneAsync(context, sandbox, key, discovery, cancellationToken);
+            perKey[key] = map;
         }
 
-        context.Pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps, perRepo);
-        if (perRepo.TryGetValue(repos[0].Name, out var primary))
+        context.Pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps, perKey);
+        var primaryKey = sandboxes.Keys.First();
+        if (perKey.TryGetValue(primaryKey, out var primary))
         {
             context.Pipeline.Set(ContextKeys.ProjectMap, primary);
             context.Pipeline.Set(ContextKeys.CodeMap, ToCodeMapText(primary));
         }
-        return CommandResult.Ok($"Analyzed {perRepo.Count} repo(s)");
+        return CommandResult.Ok($"Analyzed {perKey.Count} context(s)");
     }
 
     private async Task<ProjectMap> AnalyzeOneAsync(
-        AnalyzeCodeContext context, ISandbox sandbox, RepoConnection repo, CancellationToken ct)
+        AnalyzeCodeContext context, ISandbox sandbox, string key,
+        RemoteContextDiscovery discovery, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        var repoPath = Repository.SandboxWorkPath;
-        var cacheDir = paths.ProjectCacheDir(repo.Url ?? repo.Name);
-        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, repoPath, ct);
+        var subTreePath = SubTreePath(discovery.Workdir);
+        var cacheDir = paths.ProjectCacheDir(CacheKeyForDiscovery(key, discovery));
+        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, subTreePath, ct);
         var map = await TryLoadCachedAsync(cacheDir, cacheKey, ct);
         if (map is null)
         {
-            logger.LogInformation("{Repo}: ProjectMap cache miss — running analyzer", repo.Name);
+            logger.LogInformation("{Key}: ProjectMap cache miss — running analyzer at {Path}", key, subTreePath);
             var agent = context.Pipeline.Resolved().Agent;
-            map = await analyzer.AnalyzeAsync(repoPath, agent, sandbox, ct);
+            map = await analyzer.AnalyzeAsync(subTreePath, agent, sandbox, ct);
             await PersistCacheAsync(cacheDir, map, cacheKey, ct);
             logger.LogInformation(
-                "{Repo}: analyzed lang={Lang}, modules={Modules}, test_projects={Tests}",
-                repo.Name, map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
+                "{Key}: analyzed lang={Lang}, modules={Modules}, test_projects={Tests}",
+                key, map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
         }
         else
         {
             logger.LogInformation(
-                "{Repo}: ProjectMap cache hit ({Tests} test project(s))", repo.Name, map.TestProjects.Count);
+                "{Key}: ProjectMap cache hit ({Tests} test project(s))", key, map.TestProjects.Count);
         }
         return map;
     }
+
+    private static string SubTreePath(string workdir) =>
+        workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
+
+    private static string CacheKeyForDiscovery(string key, RemoteContextDiscovery discovery) =>
+        discovery.Workdir == "." ? key : $"{key}@{discovery.Workdir}";
 
     private static string ToCodeMapText(ProjectMap map) =>
         $"primary_language: {map.PrimaryLanguage}\n" +

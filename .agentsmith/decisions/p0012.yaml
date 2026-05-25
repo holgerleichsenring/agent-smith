@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0012: Cost Tracking
+phase: p0012
+decisions:
+  - category: Architecture
+    chose: Prices in config, not hardcoded
+    reason: providers change pricing frequently, enables user updates without code change
+  - category: Implementation
+    chose: Phase-aware token tracking (scout, planning, primary, compaction)
+    reason: enables cost breakdown, not just total
+  - category: TradeOff
+    chose: Missing model pricing defaults to zero with warning
+    reason: no error thrown, helps with incomplete configs
