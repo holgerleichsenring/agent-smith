@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0130b: language bootstrap skills (D6 slice 2/2)
+phase: p0130b
+decisions:
+  - category: Architecture
+    chose: "**Three skills together in one slice, not three separate slices.** Same SKILL.md template + activates_when shape across all three; only the body specializes. Splitting per language would multiply scaffolding work for content that's structurally identical. Cross-repo PR pairs synchronously; no agent-smith code change in this slice"
+    reason: p0130a's gate plumbing is sufficient.
+  - category: TradeOff
+    chose: "**generic-bootstrap is a deliberate fallback that flags itself.** ProjectAnalyzer-side detection might surface project_language='generic' for stacks outside the enum (Java, Go, Rust, Kotlin, Ruby, Elixir, Swift, ...). The skill produces a minimal but technically-correct context.yaml + a coding-principles.md that opens with an explicit operator-note that this run used the fallback and operator extension is needed for verifier feedback to land. Better than failing to produce files when the gate downstream needs them; better than pretending to have language-specific guidance the skill doesn't have."
+    reason: |
+      alternatives: omit generic-bootstrap entirely (rejected: BootstrapGateHandler aborts pipelines that don't have producer coverage); produce nothing and let the gate fail (rejected: forces operator into a bootstrap loop with no signal); ship a Java/Go/Rust trio (rejected: enum stays narrow per p0125c discipline; adding all of them is endless).
+  - category: Implementation
+    chose: "**node-bootstrap detects TypeScript-vs-JavaScript by `tsconfig.json` presence, not by file extensions.** Some Node repos have a few stray .ts files in tooling but are otherwise plain JS; calling them \"TypeScript projects\" misleads downstream verifiers. Configuration presence is the authoritative signal."
+  - category: Implementation
+    chose: "**python-bootstrap detects pytest vs unittest by config + import shape.** `pyproject.toml [tool.pytest.ini_options]` or `pytest.ini` → pytest is configured. Tests inheriting from `unittest.TestCase` without pytest config → unittest. Both signals present → document both. Inferring purely from filename pattern (`test_*.py`) is unsafe"
+    reason: pytest uses the same pattern unittest does.
+  - category: Implementation
+    chose: "**No agent-smith C# code change.** p0130a shipped the gate, the preset wiring, and the agentsmith.yml pin format. p0130b touches only agent-smith-skills 2.5.0 + the skills.version pin string. No new tests; existing p0130a test pack covers the gate + the activation routing."

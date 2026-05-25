@@ -152,6 +152,25 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         }
     }
 
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        var client = CreateGitHubClient();
+        var branch = await GetDefaultBranchAsync(client);
+        try
+        {
+            // GetAllContentsByRef on a directory returns one entry per child;
+            // each has Name. For a file path the list is one element with that
+            // file's name — caller can filter by sub-dir if needed.
+            var contents = await client.Repository.Content.GetAllContentsByRef(
+                _owner, _repo, path, branch);
+            return contents.Select(c => c.Name).ToList();
+        }
+        catch (NotFoundException)
+        {
+            return [];
+        }
+    }
+
     private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_token);
 
     private static (string owner, string repo) ParseGitHubUrl(string url)

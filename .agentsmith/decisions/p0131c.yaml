@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0131c: LegacyTriageStrategy removal (D7 slice 3/4)
+phase: p0131c
+decisions:
+  - category: Architecture
+    chose: "**autonomous routes to StructuredTriage now, not retained on Legacy.** autonomous is `pipeline_name`-fenced (the enum doesn't include \"autonomous\", so PipelineNameInitializer throws ArgumentException at the head of every chain). End-to-end autonomous runs are already broken; the Legacy \"no roles → Ok\" branch was a silent no-op hiding the gap. StructuredTriage's HasLoadedSkills Fail-loud surfaces the gap explicitly."
+    reason: |
+      alternatives: NoopTriageStrategy for autonomous (rejected: special-casing one preset for behavior that's wrong upstream); leave Legacy in for autonomous (rejected: keeps a 135-line strategy alive for one consumer whose pipeline doesn't work today anyway).
+  - category: Architecture
+    chose: "**ITriageStrategy interface kept in a one-strategy world.** Future routing decisions (provider-specific variants, replay-from-trace, different prompts per pipeline shape) will plug in via this seam without re-wiring TriageHandler / TriageStrategySelector. Removing the interface and inlining StructuredTriage saves ~10 lines today and re-creates the interface tomorrow when the first variant lands."
+    reason: "alternatives: inline (rejected: short-term win, long-term churn)."
+  - category: Implementation
+    chose: "**TriageResponseParser deleted with LegacyTriageStrategy.** The parser was an internal helper for the legacy-discussion-prompt JSON shape (Lead + Participants + Reasoning). StructuredTriage uses ParseJson + TriageOutputDto in TriageOutputProducer with a different grammar (Phases dict, Confidence, Rationale). The parser had no other consumers."
+    reason: "alternatives: keep as dead code (rejected: rot)."

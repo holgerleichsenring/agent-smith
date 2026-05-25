@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0001: Core Infrastructure
+phase: p0001
+decisions:
+  - category: Architecture
+    chose: Command Pattern (MediatR-style) as central pattern
+    reason: strict separation of "What" (context) from "How" (handler)
+  - category: Architecture
+    chose: Single generic handler interface `ICommandHandler<TContext>` instead of multiple handler types
+    reason: enables DI-based dispatch
+  - category: Tooling
+    chose: YamlDotNet for configuration
+    reason: |
+      chosen for simplicity, avoids overengineering (no JSON schema validation at this stage)
+  - category: Implementation
+    chose: Lazy environment variable resolution in config loader
+    reason: unset vars aren't errors during loading, only at usage time
+  - category: TradeOff
+    chose: No validation of all environment variables upfront
+    reason: accepted incomplete config to gain flexibility

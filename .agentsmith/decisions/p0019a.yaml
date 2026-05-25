@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0019a: Docker Spawner
+phase: p0019a
+decisions:
+  - category: Architecture
+    chose: Extract `IJobSpawner` interface with Docker and K8s implementations
+    reason: single abstraction enables local docker-compose mode without K8s
+  - category: TradeOff
+    chose: Auto-detect Docker network from dispatcher container metadata
+    reason: avoids explicit config in most cases, fallback to `bridge`
+  - category: Architecture
+    chose: `AutoRemove=true` on Docker containers
+    reason: self-cleanup, no orphan accumulation

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0016: Jira Provider
+phase: p0016
+decisions:
+  - category: Tooling
+    chose: No Jira SDK
+    reason: pure HttpClient with JSON, Jira REST API is straightforward
+  - category: Implementation
+    chose: ADF (Atlassian Document Format) for comments
+    reason: required by Jira v3 API, wraps plain text in minimal structure
+  - category: TradeOff
+    chose: Transition names searched flexibly (contains "Done" or "Closed")
+    reason: accepts incomplete workflow support over strict matching
+  - category: Implementation
+    chose: "Basic Auth with email:apiToken"
+    reason: standard Jira Cloud authentication method

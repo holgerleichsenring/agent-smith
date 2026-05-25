@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0083: Jira Webhook Status Lifecycle
+phase: p0083
+decisions:
+  - category: Architecture
+    chose: "Trigger requires all three: assignee match + label match + status in whitelist"
+    reason: prevents accidental runs on resolved/closed tickets.
+  - category: Architecture
+    chose: Comment trigger (comment_created) is a separate handler, not a mode in JiraAssigneeWebhookHandler
+    reason: separate event type, cleaner routing.
+  - category: Architecture
+    chose: Comment trigger also checks status whitelist
+    reason: prevents triggering on closed tickets.
+  - category: Architecture
+    chose: done_status resolved via transition name, not status ID
+    reason: names are human-readable and portable across Jira projects.
+  - category: Architecture
+    chose: All pipelines are valid trigger targets
+    reason: pipeline_from_label maps to any pipeline name, no hardcoded restrictions.
+  - category: Implementation
+    chose: Status transition after PR extracts TransitionToAsync from JiraTicketProvider.CloseTicketAsync
+    reason: reusable for any target status.
+  - category: Architecture
+    chose: DoneStatus flows via WebhookResult.InitialContext → PipelineContext → CommitAndPRHandler
+    reason: no coupling between webhook handler and pipeline handler.
+  - category: Implementation
+    chose: PipelineFromLabel uses Dictionary<string,string>
+    reason: |
+      insertion order preserved by YamlDotNet but not spec-guaranteed. Migrate to OrderedDictionary<TKey,TValue> when moving to .NET 9.

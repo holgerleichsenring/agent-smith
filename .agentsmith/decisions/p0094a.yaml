@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0094a: Gitignore-Aware Source Enumeration
+phase: p0094a
+decisions:
+  - category: Architecture
+    chose: LibGit2Sharp's `Repository.Ignore.IsPathIgnored` is the ignore source of truth when scanning a git repo
+    reason: |
+      nested `.gitignore`, `.git/info/exclude`, and global excludes all covered without a hand-rolled gitignore parser.
+  - category: Architecture
+    chose: Hardcoded `ExcludedDirectories` list shrunk but kept as a non-git fallback
+    reason: |
+      `.git/`, `node_modules/`, `bin/`, `obj/`, `__pycache__/`, `.vs/`, `.idea/` stay for CLI scans of arbitrary local paths; `dist/`, `build/`, `vendor/`, `packages/` removed because real repos gitignore them anyway.
+  - category: Architecture
+    chose: Binary-extension filter stays orthogonal to gitignore
+    reason: |
+      `.gitignore` doesn't mark `.png` as binary, and many repos correctly track binary assets. Two independent reasons to skip a file.
+  - category: Implementation
+    chose: macOS `/var` → `/private/var` symlink fallback in `GitIgnoreResolver.ToRelative`
+    reason: |
+      realpath canonicalization inside LibGit2Sharp vs. caller-supplied `/var/...` paths breaks direct `Path.GetRelativePath`; a targeted `/private/` prefix strip handles the common test/scratch case without introducing a P/Invoke dependency.
+  - category: Scope
+    chose: Enumeration only
+    reason: |
+      no changes to pattern definitions, scanner, or findings model. Observable effect limited to fewer files reaching the scanner for repos that gitignore their build output.

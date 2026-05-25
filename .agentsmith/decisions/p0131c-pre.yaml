@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0131c-pre: Discussion-triage migration prerequisite
+phase: p0131c-pre
+decisions:
+  - category: Architecture
+    chose: "**Output-side phase collapse via SinglePhaseCollapser instead of prompt-side adaptation.** mad-discussion + legal-analysis presets have no RunReviewPhase / RunFinalPhase steps, but the structured-triage prompt asks the LLM to assign skills to all three phases. Output-side collapse is one small helper invoked conditionally; prompt-side adaptation would require cross-repo prompt-template changes and a producer flag for prompt variants."
+    reason: |
+      alternatives: emit a single-phase prompt variant (rejected: cross-repo coordination cost); duplicate the strategy into DiscussionStructuredTriage (rejected: parallel-class drift over time).
+  - category: Architecture
+    chose: "**`PipelinePresets.IsSinglePhase` derived from the preset's command list, not declared as separate metadata.** Adding a new preset automatically gets the right classification by inspecting whether RunReviewPhase / RunFinalPhase are part of its step list. The classification IS the structural property"
+    reason: |
+      keeping it where the structure lives prevents drift. -- alternatives: explicit single-phase pipeline-name list (rejected: parallel knowledge); pipeline-type enum value SinglePhase (rejected: semantic overlap with Discussion that creates ambiguity).
+  - category: Implementation
+    chose: "**Selector signature extended `(PipelineType, string pipelineName)`.** Per-name routing is the actual decision in this slice (Discussion mad/legal → Structured vs Discussion autonomous → Legacy). One parameter is cheaper than wrapping or strategy-of-strategies. TriageHandler reads `ResolvedPipelineConfig.PipelineName` (already in context) and passes both."
+    reason: |
+      alternatives: type-only signature with name-routing inside StructuredTriage (rejected: blends strategy-selection with strategy-execution).
+  - category: Implementation
+    chose: "**Collapser dedup is first-write-wins, not last-wins.** Spec sketched last-wins; implementation reversed it because Plan-phase Lead is the strongest commitment from the LLM and shouldn't be overridden by a Review/Final reappearance of the same skill. Plan-phase Analysts come first, then Review's Analysts, then Review's Reviewers (now Analysts), then Final's positions. The HashSet seed ensures each skill name appears at most once in the merged Analysts list."
+    reason: |
+      alternatives: error on duplicate (rejected: edge case); concatenate role tags (rejected: makes no sense for Lead/Filter slots).
+  - category: Implementation
+    chose: "**Filter slot fallback chain Plan → Review → Final.** When the LLM puts a Filter on Review (and not Plan), the collapsed output should still get a filter. First non-null wins; a Plan-phase Filter beats a Review-phase one even if both are declared. Mirrors the Plan-Lead-first principle."
+  - category: TradeOff
+    chose: "**autonomous stays on LegacyTriage despite being Discussion-type.** Catalog gap (no `pipeline_name = \"autonomous\"` skills shipping) means StructuredTriage's HasLoadedSkills check would Fail-loud on autonomous runs. Legacy returns Ok(\"no roles needed\") and lets the pipeline continue past Triage to ConvergenceCheck → CompileDiscussion (still produces a no-op result for the operator, but no hard failure). When autonomous-* skills land, the selector adds autonomous to the structured-allowed set. The fence on `pipeline_name` enum stays in place for autonomous as a parallel signal that this preset isn't fully wired."
+    reason: |
+      alternatives: migrate autonomous now and let it Fail-loud (rejected: behavior regression); delete autonomous preset (rejected: out of scope).
+  - category: TradeOff
+    chose: "**TriageHandlerSnapshotTests adapted to the new selector signature.** One existing test seeded the selector mock with `Select(It.IsAny<PipelineType>())`; now uses `Select(It.IsAny<PipelineType>(), It.IsAny<string>())`. Single-line change; no semantic shift. The test's snapshot-rendering coverage stays unchanged."

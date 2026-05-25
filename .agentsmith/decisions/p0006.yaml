@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0006: Retry & Resilience
+phase: p0006
+decisions:
+  - category: Tooling
+    chose: Polly via `Microsoft.Extensions.Http.Resilience` chosen over custom retry logic
+    reason: standard, battle-tested, reduces code
+  - category: Architecture
+    chose: Retry config as typed class, not raw numbers
+    reason: enables configuration without code changes
+  - category: TradeOff
+    chose: Conservative defaults (5 retries, 2sec initial, 2.0x backoff)
+    reason: balances safety against cost overruns from excessive retries
+  - category: Implementation
+    chose: Exponential backoff with jitter
+    reason: prevents thundering herd on rate limit recovery

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0085: Webhook Structured Dispatch
+phase: p0085
+decisions:
+  - category: Architecture
+    chose: Webhook handlers return ProjectName + TicketId instead of free-text TriggerInput
+    reason: |
+      WebhookRequestProcessor builds PipelineRequest directly, bypassing RegexIntentParser.
+  - category: Architecture
+    chose: PR comment handlers still use TriggerInput string (free-form arguments)
+    reason: legacy path preserved as fallback.
+  - category: Implementation
+    chose: ConsolidatedPlan is input for GeneratePlanHandler, not a replacement
+    reason: |
+      multi-skill discussion provides analysis context, GeneratePlanHandler distills concrete PlanSteps. Previously the handler short-circuited with 0 steps, causing the agent to spend 32 iterations guessing what to do.
+  - category: Implementation
+    chose: Jira Cloud system webhooks don't send signature headers
+    reason: |
+      signature validation now skips when no header present, even if secret is configured.

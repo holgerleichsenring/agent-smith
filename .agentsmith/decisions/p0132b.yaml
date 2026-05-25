@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0132b: FilterRound + VerifyRound cost attribution (slice 2/3 of p0132)
+phase: p0132b
+decisions:
+  - category: Implementation
+    chose: "**Filter batches each get their own scope, not a single rolled-up filter-skill scope.** When a filter skill receives N observations exceeding the token-budget, TokenBudgetBatcher splits them and FilterBatchAsync is invoked per batch. Per-batch attribution surfaces the actual cost distribution (sometimes one batch dominates because its observations are verbose) instead of hiding it behind a rolled-up entry."
+    reason: |
+      alternatives: aggregate into one scope per filter call (rejected: hides per-batch cost variance).
+  - category: Implementation
+    chose: "**Artifact-mode filter uses SkillExecutionPhase.Synthesize, not Filter.** Artifact-mode consolidates observations into a single output document"
+    reason: |
+      the closest enum match is Synthesize. List-mode (which actually filters) uses Filter. Same enum-mapping discipline as p0132a's MapPhase helper. -- alternatives: both modes use Filter (rejected: loses semantic distinction in PerSkillBreakdown).
+  - category: TradeOff
+    chose: "**Gate-path scope still deferred.** gateRetryCoordinator owns its own chat-loop with retry semantics; cleanly wrapping requires a coordinator-side onResponse hook similar to the runtime's RetryCoordinator. The two scopes already in p0132a + the three added here cover the high-volume non-Gate paths."

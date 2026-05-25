@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0049: Tool Runner Abstraction
+phase: p0049
+decisions:
+  - category: Architecture
+    chose: IToolRunner abstraction with multiple implementations (Docker/Podman/K8s/Process)
+    reason: single interface handles all deployment modes
+  - category: TradeOff
+    chose: Spawners hardcode container paths (currently hardcoded, improved in p0051)
+    reason: simplifies path handling despite DockerToolRunner complexity

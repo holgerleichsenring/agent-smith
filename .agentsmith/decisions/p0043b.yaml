@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0043b: Security Pipeline
+phase: p0043b
+decisions:
+  - category: Architecture
+    chose: Chosen IPrDiffProvider interface over PR-specific methods
+    reason: enables diff-only scan without full checkout
+  - category: Tooling
+    chose: SecurityScan pipeline preset reuses Triage + ConvergenceCheck from discussion pattern
+    reason: no duplicated state management
+  - category: Architecture
+    chose: DeliverOutputCommand with IOutputStrategy keyed services (.NET 8)
+    reason: pluggable output backends without factory methods

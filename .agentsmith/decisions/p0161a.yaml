@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0161a
+
+decisions:
+  - category: Architecture
+    chose: "Clone full repo to /work; per-context commands run at WorkingDirectory = /work/{discovery.Workdir}"
+    over: "Sparse-checkout so /work literally equals the sub-tree contents"
+    reason: |
+      The spec says "/work = sub-tree root" but a literal reading requires
+      either sparse-checkout (git ≥2.25 in toolchain images — already true
+      but adds 3 commands to CheckoutStepFactory) or bind-mount/symlink
+      mechanics (sandbox-surface change, out of scope). Operative
+      interpretation — /work is the full repo, every per-context command
+      cds into discovery.Workdir — keeps CheckoutStepFactory untouched,
+      preserves the invariant that .agentsmith/ lives at /work/.agentsmith
+      (which is what every handler already assumes today), and the
+      single-stack case (workdir=".") is a strict no-op. The disk cost
+      of N×full-repo in multi-context monorepos is acknowledged; if a
+      large-monorepo operator hits it, sparse-checkout is a clean
+      follow-up that doesn't break this design.
+    alternatives:
+      - "Sparse-checkout (Option B) — rejected: more invasive for the same observable behaviour at the handler layer."
+      - "Bind-mount /sandbox/repo/<workdir> → /work (Option C) — rejected: sandbox-surface change, out of scope for p0161a."
+
+  - category: Architecture
+    chose: "Surface per-sandbox RemoteContextDiscovery via a parallel ContextKeys.SandboxDiscoveries dict (same keys as ContextKeys.Sandboxes)"
+    over: "Replace ContextKeys.Sandboxes value type with a SandboxBundle(Key, Sandbox, Discovery) record"
+    reason: |
+      Additive change — no consumer-side type churn. Every handler that
+      reads Sandboxes today keeps its type. New consumers that need the
+      Workdir + Language pull SandboxDiscoveries[key]. SandboxBundle
+      would have rippled through ~15 callsites for one wrap/unwrap step
+      each. The parallel-dict shape mirrors RepoProjectMaps /
+      RepoContextYamls / RepoCodingPrinciples (all keyed by repo name
+      today, sandbox key after p0161a) — same pattern, same blast
+      radius.
+
+  - category: Implementation
+    chose: "Delete MultiRepoTargets.Resolve back-compat shim in the same commit"
+    over: "Keep the shim and let single-entry fixtures stay un-migrated"
+    reason: |
+      Per [[feedback_no_wrapper_shims]] — migrate callers directly,
+      delete the bridge in the same commit. The synthetic-'default'
+      discovery (empty contexts/ dir → one RemoteContextDiscovery
+      ("default", ".", null)) means ContextKeys.Sandboxes is ALWAYS
+      seeded with ≥1 entry, so no single-entry-fallback is needed at
+      runtime. Test fixtures get rewritten to seed Sandboxes +
+      SandboxDiscoveries explicitly (~30 fixture updates, already
+      committed to in scope.in (6)).
+
+  - category: Scope
+    chose: "PromptPrefixBuilder annotation uses ProjectMap.PrimaryLanguage only; applies_to plumbing deferred"
+    over: "Load applies_to from the phase spec into PipelineContext and prefer it over PrimaryLanguage"
+    reason: |
+      applies_to lives in phase-spec YAML and is never loaded into
+      runtime today. Plumbing it through (load → publish → read at
+      prompt build time) is a cross-cutting concern that deserves its
+      own phase. The spec's "applies_to OR PrimaryLanguage fallback"
+      wording allows defaulting to the fallback when applies_to is
+      unavailable. Single-line follow-up note: when applies_to is
+      plumbed, PromptPrefixBuilder.BuildContextsBlock takes both and
+      prefers applies_to.
+
+  - category: Implementation
+    chose: "Legacy repos with .agentsmith/context.yaml (pre-v2 single-file layout) get the synthetic ('default', '.', null) discovery"
+    over: "Special-case the legacy path by reading the root-level context.yaml directly"
+    reason: |
+      The agent-smith repo migrated to v2 in c79f32a; remote target
+      repos that have not yet migrated should run the bootstrap
+      pipeline to land .agentsmith/contexts/default/context.yaml. Until
+      then they get the synthetic default + generic-image fallback —
+      same behaviour as a fresh-clone un-init repo. Adding a legacy
+      fast-path would entrench the pre-v2 layout indefinitely.
+
+  - category: Implementation
+    chose: "Spec key-naming scheme: 'default' / '<ctx>' / '<repo>' / '<repo>/<ctx>' via a SandboxKeyComposer helper"
+    over: "Always '<repo>/<ctx>' for uniform behaviour without a helper"
+    reason: |
+      The ~10-LOC helper buys operator-facing ergonomics: runs/default/
+      and runs/server/ are shorter and more readable than
+      runs/agent-smith/default/ in the dominant single-repo case. The
+      runtime data model is identical either way (same dict shape,
+      same iteration); the helper is a single-purpose string formatter
+      with no branching downstream.
+
+  - category: Scope
+    chose: "Smoke gates + mixed-stack monorepo fixture deferred to p0161b"
+    over: "Bundle smoke + fixture into the chunk-2 PR"
+    reason: |
+      p0161a's spec scope spans handler migration AND smoke validation.
+      Chunk 2/N (handler migration + prompt builder + tests) is shipped
+      with build + 1999/1999 unit tests green. The smoke list (api-scan,
+      security-scan, fix-bug on agent-smith) needs a live docker runtime
+      + Anthropic key for fix-bug, and the mixed-stack monorepo fixture
+      is a NEW fixture repo to build from scratch (csharp + typescript +
+      markdown contexts with per-context ci.test_command). Per
+      [[feedback_finish_what_you_start]] those are real verification
+      work that deserves its own phase rather than blocking chunk-2
+      delivery on infrastructure access the implementer may not have at
+      PR time. p0161b inherits the deferred done criteria.
+
+  - category: Implementation
+    chose: "AgentPromptBuilder.BuildContextsInScopeSection (renamed from BuildReposInScopeSection) carries the prompt-builder responsibility for p0161a's 'PromptPrefixBuilder' spec item"
+    over: "Add a new contexts-block to PromptPrefixBuilder (skill-round prompts)"
+    reason: |
+      The existing 'Repos in scope' block lived in AgentPromptBuilder,
+      which feeds AgenticExecuteHandler's user prompt — the actual
+      tool-using flow where multi-context information matters. Skill-
+      round prompts (PromptPrefixBuilder via PromptComposer) are
+      domain-specific triage / observation / plan passes where context
+      keys add noise. The spec text said "PromptPrefixBuilder" but the
+      operative location is the agentic-execute prompt; rename +
+      semantic-update there fulfils the spec intent. Plumbing the block
+      through PromptComposer + SkillPromptBuilder is a follow-up if
+      operators want skill rounds to see the context list too.

@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0161b
+requires: ["p0161a"]
+applies_to: "Infrastructure smoke + new mixed-stack monorepo fixture"
+goal: |
+  Close out p0161a's done criteria by running the smoke gates against the
+  shipped migration and adding the missing mixed-stack monorepo fixture.
+  p0161a chunk 2 (commit landing handler migration + prompt builder) ships
+  green build + 1999/1999 unit tests but defers the docker / docker-compose
+  / k8s validation per [[feedback_finish_what_you_start]] — smoke needs a
+  live runtime + LLM key + a NEW fixture repo, both of which warrant their
+  own phase so the chunk-2 PR is testable on its own.
+
+scope:
+  in: |
+    (1) Smoke gates on agent-smith itself:
+        - api-scan green on agent-smith (single-stack, contexts/default/)
+        - security-scan green on agent-smith
+        - fix-bug green on agent-smith (requires Anthropic API key in env)
+        All three exercise the single-context happy path through the new
+        coordinator + handler migration end-to-end.
+
+    (2) Mixed-stack monorepo fixture:
+        - New repo (e.g. test/fixtures/monorepo-mixed/ or a separate
+          private GitHub repo) with three discovered contexts:
+            .agentsmith/contexts/server/   workdir: src/Server   lang: csharp
+            .agentsmith/contexts/client/   workdir: src/Client   lang: typescript
+            .agentsmith/contexts/docs/     workdir: docs         lang: markdown
+        - Minimal Program.cs / index.ts / README.md content at each workdir
+          so the per-context test command has something to run.
+        - per-context ci.test_command set (eg. `dotnet test`, `npm test`,
+          `markdownlint .`) so TestHandler's per-context dispatch is
+          exercised against three different toolchains.
+
+    (3) End-to-end coordinator behaviour test on the fixture:
+        - Three sandboxes spawn (server/client/docs).
+        - Each sandbox uses its language's toolchain image (csharp →
+          dotnet:8.0, typescript → node:20-bookworm-slim, markdown →
+          buildpack-deps:bookworm-scm fallback).
+        - TestHandler runs each context's ci.test_command at
+          WorkingDirectory = /work/&lt;discovery.Workdir&gt;.
+        - TRX aggregation across the three test runs preserves per-key
+          failure attribution.
+
+    (4) Coordinator_MonorepoContext_RunsAtWorkdir (renamed from the spec's
+        _ClonesAtWorkdir_SoSlashWorkIsSubTree per [[p0161a decisions D1]]):
+        end-to-end assertion that per-context commands' WorkingDirectory
+        equals /work/&lt;workdir&gt;, not /work.
+
+  out: |
+    - Changing the clone mechanics to literally make /work = sub-tree
+      (sparse-checkout / bind-mount) — explicitly deferred per p0161a D1.
+      A future phase can revisit if the operative interpretation hits a
+      real-world limit.
+    - Bootstrap-pipeline per-context targeting (BootstrapPromptFactory
+      currently tells the skill to write to .agentsmith/coding-principles.md
+      at repo root; in monorepo mode the target should be
+      .agentsmith/contexts/&lt;name&gt;/coding-principles.md). Out of scope
+      because init-project is not on the smoke list.
+    - applies_to plumbing from phase-spec YAML into PipelineContext for the
+      prompt-builder annotation. PrimaryLanguage fallback is in place per
+      p0161a D4.
+
+decisions:
+  - key: |
+      Smoke + fixture split off from p0161a — Reason: p0161a delivered
+      the spec's code-change scope (Steps 1-5 of the spec, handler
+      migration, prompt builder, unit tests). Smoke gates need a live
+      docker runtime + Anthropic API key for fix-bug + a new mixed-stack
+      fixture repo to build from scratch. Bundling those into the chunk-2
+      PR would block green-on-green delivery on infrastructure access
+      that the implementer may not have at the moment of PR. Per
+      [[feedback_finish_what_you_start]] the verification step is real
+      work that deserves its own phase.
+
+steps:
+  - id: monorepo-fixture
+    action: |
+      Build the mixed-stack monorepo fixture. Either a local test/
+      fixture or a small private GitHub repo agent-smith-fixture-monorepo
+      with three contexts (server csharp, client typescript, docs
+      markdown) and minimal compilable / lintable content at each
+      workdir.
+    new:
+      - "test/fixtures/monorepo-mixed/ (or remote fixture repo)"
+
+  - id: coordinator-monorepo-e2e
+    action: |
+      End-to-end test that points the coordinator at the fixture and
+      asserts three sandboxes spawn with three toolchains. May run as
+      an [Trait("category", "integration")] xUnit test gated on docker
+      availability OR as a CLI smoke script in scripts/.
+    new:
+      - "tests/AgentSmith.Tests.Integration/MixedStackMonorepoTests.cs (or scripts/smoke-monorepo.sh)"
+
+  - id: api-scan-smoke
+    action: |
+      Run `agent-smith api-scan` on agent-smith via docker-compose; PR or
+      console output of OWASP findings. Capture the run-id and confirm
+      green.
+
+  - id: security-scan-smoke
+    action: |
+      Run `agent-smith security-scan` on agent-smith via docker-compose.
+
+  - id: fix-bug-smoke
+    action: |
+      Run `agent-smith fix-bug` on a small reproducible issue in
+      agent-smith (operator picks). Requires Anthropic key.
+
+tests:
+  - "MixedStack_ThreeContexts_SpawnsThreeSandboxes_E2E"
+  - "MixedStack_PerContextTestCommand_RunsAtWorkdir"
+  - "Smoke_ApiScan_AgentSmith_Green"
+  - "Smoke_SecurityScan_AgentSmith_Green"
+  - "Smoke_FixBug_AgentSmith_Green"
+
+done:
+  - "Mixed-stack monorepo fixture exists and is referenced by the
+     coordinator end-to-end test."
+  - "Coordinator end-to-end on the fixture: three sandboxes, three
+     toolchains, three TestHandler runs at the correct per-context
+     WorkingDirectory, TRX aggregation green."
+  - "api-scan + security-scan + fix-bug on agent-smith are green in
+     CI / on operator's box (per [[feedback_finish_what_you_start]])."
+  - "p0161a's deferred done criteria (chunk 2/3 smoke list + mixed-stack
+     fixture) are fulfilled; p0161a + p0161b both move to phases/done/."

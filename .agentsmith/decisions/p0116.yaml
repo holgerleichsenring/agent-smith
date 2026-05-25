@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0116: Sandbox Creator (Wire Extraction + ISandbox + K8s Backend)
+phase: p0116
+decisions:
+  - category: Architecture
+    chose: "**Wire records extracted to a new `AgentSmith.Sandbox.Wire` project. Step gains optional file-op fields + `Validate()`; StepKind extended with `ReadFile / WriteFile / ListFiles`; StepResult gains `OutputContent`.** p0115 shipped these inside `AgentSmith.Sandbox.Agent/Models/`. p0116 retroactively extracts them so the Server can reference Wire without referencing the Agent. Honest framing: p0115 was the first runnable Agent; p0116 = wire refactor + ISandbox + handler migration. Together they deliver the working sandbox architecture; neither alone does."
+  - category: Architecture
+    chose: "**`InProcessSandbox` lives in `AgentSmith.Infrastructure`, NOT `AgentSmith.Server` as the original spec listed.** CLI does not (and must not) reference Server. Putting the in-process implementation in Infrastructure lets both CLI and Server pull it. K8s sandbox stays in Server (it's the only place that needs the `KubernetesClient` package and Redis-multiplexer wiring for the channel)."
+  - category: Architecture
+    chose: "**`SandboxRedisChannel` is pipeline-scoped, not step-scoped.** A single channel instance per pipeline holds `_lastSeenXid` (initialized to `0-0`). XREAD BLOCK starts from the persisted cursor on every `WaitForResultAsync` so each event fires `IProgress` exactly once across the pipeline lifetime. Step-scoped channels would replay every prior event through `IProgress` on each subsequent step."
+  - category: Architecture
+    chose: "**`PipelineExecutor` creates the sandbox conditionally"
+    reason: |
+      only when the pipeline contains `CheckoutSource / AgenticExecute / Test / GenerateTests / GenerateDocs`.** Discussion-only flows (mad-discussion no-source) leave `ContextKeys.Sandbox` unset; handlers that pull it short-circuit to a clean skip.
+  - category: Architecture
+    chose: "**`ISandbox` threaded through `IAgentProvider.ExecutePlanAsync` as an optional 8th parameter, NOT injected into the provider via DI.** Per-pipeline sandbox lifetime ≠ provider lifetime. The default-interface 7-arg overload exists for source compatibility but is NOT what the migrated `AgenticExecuteHandler` calls"
+    reason: |
+      it explicitly passes the sandbox from `PipelineContext`. All 4 providers (Claude / OpenAI / Azure-OpenAI / Gemini / Ollama) implement the 8-arg signature; `AzureOpenAiAgentProvider` inherits from OpenAI so doesn't need its own override.
+  - category: Architecture
+    chose: "**`ToolExecutor` keeps a dual-mode constructor: optional `ISandbox?` argument routes file/list/run tools through `SandboxToolHandler` when set, falls back to direct repository-path access (legacy `FileToolHandler` + `CommandRunner`) when null.** Reason: `ScoutAgent` and other non-pipeline callers continue to operate on the server filesystem during the migration. Once every caller threads a sandbox the legacy fallback becomes dead code (a follow-up phase removes it)."
+  - category: Architecture
+    chose: "**`run_command` tool wraps the LLM-supplied command in `Step{Command='/bin/sh', Args=['-c', commandLine]}`.** The LLM tool-schema continues to accept a single command STRING with shell pipes/redirects/quoting; without `sh -c`, `ProcessStartInfo.ArgumentList` would silently break any pipe like `cat foo | grep bar`. The wrap preserves existing skill prompts unchanged."
+  - category: TradeOff
+    chose: "**`CheckoutSourceHandler` is hybrid for V1, NOT pure-Step as the spec described.** Server-side LibGit2Sharp clones the repo (keeping `Repository.LocalPath` populated for downstream `CommitAndPRHandler` which still operates server-side); `git clone` Step additionally pushes into the sandbox so `/work` is populated for `AgenticExecute / Test`. Hideous but demo-able. Branch / commit / push migration to Step-based git is deferred to p0117"
+    reason: at which point the server-side clone disappears.
+  - category: TradeOff
+    chose: "**Docker sandbox backend deferred to p0117** along with `GenerateTestsHandler` / `GenerateDocsHandler` migration, TRX result-file parsing, and full Helm chart updates. Per the explicit Option C scoping: minimum-viable demo path is K8s + InProcess + Wire + the three core handlers. Everything else is post-demo polish."
+  - category: TradeOff
+    chose: "**`TestHandler` resolves test command from `ProjectMap.PrimaryLanguage` rather than `Directory.GetFiles` scans.** The old fallback chain (looking for `.csproj` files with `Microsoft.NET.Test.Sdk`) doesn't make sense against a sandbox `/work` that lives inside another container. ProjectMap is the canonical source after p0110b; no-ProjectMap → skip with a clear log line."
+  - category: Implementation
+    chose: "**`SandboxBackendInfo` record wraps the `SandboxBackend` enum for DI registration.** `services.AddSingleton(backend)` failed because `AddSingleton<TService>(TService)` requires a reference type"
+    reason: |
+      enums are value types. Wrapping in a record keeps the registration straightforward and exposes the chosen backend to startup logging.
+  - category: Implementation
+    chose: "**`KubernetesPodWatcher` polls `Pod.Status` every 2 s rather than using the streaming Watch API.** Streaming would give faster feedback but adds a long-running connection per pipeline; polling is good enough for the 5–60 s pod-startup window and matches the simplicity of the rest of the K8s wiring."
+  - category: Implementation
+    chose: "**Pod-level `securityContext.fsGroup=1000` defaults via `SandboxSecurityContext`.** Most upstream toolchain images (`node:20`, Debian-based) run as UID 1000; that lines up with the initContainer-written `/shared/agent` being group-readable+executable. Operators with unusual UIDs override via `SandboxSpec.SecurityContext`."
+  - category: Tooling
+    chose: "**CLI's `ServiceProviderFactory.Build` calls `AddInProcessSandbox()` directly.** Server's `Program.cs` calls `AddSandbox()` (auto-detect)"
+    reason: |
+      they share no Sandbox-DI extension because they live in different assemblies and CLI must not reference Server. Two registration paths, but each is two lines, so the duplication is cheap.

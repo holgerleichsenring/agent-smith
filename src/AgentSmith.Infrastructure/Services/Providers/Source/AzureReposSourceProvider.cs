@@ -226,4 +226,39 @@ public sealed class AzureReposSourceProvider(
             return null;
         }
     }
+
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        var client = CreateGitClient();
+        var branch = await GetDefaultBranchAsync(cancellationToken);
+        var descriptor = new GitVersionDescriptor
+        {
+            Version = branch,
+            VersionType = GitVersionType.Branch
+        };
+        try
+        {
+            // GetItemsAsync with scopePath + recursionLevel=OneLevel returns the
+            // directory itself plus immediate children. Filter out the directory
+            // itself; keep only the leaf names (last path segment).
+            var items = await client.GetItemsAsync(
+                project: project,
+                repositoryId: repoName,
+                scopePath: path,
+                recursionLevel: VersionControlRecursionType.OneLevel,
+                versionDescriptor: descriptor,
+                cancellationToken: cancellationToken);
+            var prefix = path.TrimEnd('/') + "/";
+            return items
+                .Where(i => i.Path != null && i.Path.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(i => i.Path[prefix.Length..])
+                .Where(n => !string.IsNullOrEmpty(n) && !n.Contains('/'))
+                .ToList();
+        }
+        catch (VssServiceException ex) when (ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
+                                          || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+    }
 }

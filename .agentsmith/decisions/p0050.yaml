@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0050: Multi-Output Strategy
+phase: p0050
+decisions:
+  - category: Architecture
+    chose: --output accepts comma-separated values, multiple IOutputStrategy implementations run once
+    reason: avoids duplication but enables customized output
+  - category: Implementation
+    chose: SummaryOutputStrategy for clean findings view
+    reason: filters skill discussion noise, shows only retained findings grouped by severity
+  - category: Implementation
+    chose: OutputDir resolved once in handler not per-strategy
+    reason: eliminates per-strategy fallback chains

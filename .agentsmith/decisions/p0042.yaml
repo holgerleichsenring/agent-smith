@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0042: Legal Analysis Pipeline Handlers
+phase: p0042
+decisions:
+  - category: TradeOff
+    chose: InboxPollingService uses copy-then-delete not move
+    reason: idempotent on crash, file remains in inbox for retry on next poll
+  - category: Implementation
+    chose: Contract type detected via Scout (cheap Haiku call) to select correct legal skill subset

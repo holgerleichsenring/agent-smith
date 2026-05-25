@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0039: Legal Analysis Pipeline
+phase: p0039
+decisions:
+  - category: TradeOff
+    chose: MarkItDown preprocessing over direct PDF to Claude
+    reason: |
+      accepted token overhead for searchability and consistency across document formats
+  - category: TradeOff
+    chose: Inbox polling over FileSystemWatcher
+    reason: chose polling (more stable on Docker bind mounts) over event-based complexity
+  - category: Architecture
+    chose: LocalFolderSourceProvider and LocalFileOutputStrategy as Pro-only implementations
+    reason: OSS receives only strategy interfaces

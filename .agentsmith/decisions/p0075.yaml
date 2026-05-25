@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0075: Phase Docs to YAML
+phase: p0075
+decisions:
+  - category: Architecture
+    chose: YAML over markdown
+    reason: |
+      structured input yields structured output, ~10x token reduction (96k → 19k words).
+  - category: Scope
+    chose: No code examples in phase specs
+    reason: agent reads codebase directly, examples become stale.
+  - category: Scope
+    chose: Type signatures kept, action field supports single value or list.
+  - category: Scope
+    chose: Delete original markdown files
+    reason: git history is the archive.

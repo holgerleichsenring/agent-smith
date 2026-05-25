@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0095a: Ticket-Claim Spine (GitHub only)
+phase: p0095a
+decisions:
+  - category: Architecture
+    chose: "Split the original p0095 \"ticket-claim-lifecycle\" phase into p0095a (this), p0095b (all-platform transitioners), and p0095c (heartbeat + reconciler + full config). Reason: the original p0095 bundled ~27 new prod files + 4 heterogeneous platform API integrations + hosted services + config schema into one phase"
+    reason: |
+      too large to commit incrementally. Splitting gives each sub-phase a testable, committable increment. Documented in the three phase YAMLs; p0096 (poller) now `requires: [p0095a, p0095b, p0095c]`.
+  - category: Architecture
+    chose: "Introduced IRedisJobQueue (RPUSH/LPOP FIFO on `agentsmith:queue:jobs`) as the durable handoff between webhook receiver and worker. Webhook no longer runs pipelines fire-and-forget in-process. Before p0095a this path didn't exist"
+    reason: |
+      the existing ServerMode invoked `ExecutePipelineUseCase` directly from the webhook handler, which had no backpressure and no crash recovery. The queue is ephemeral (ticket status is the truth); recovery lands in p0095c.
+  - category: Architecture
+    chose: IRedisClaimLock uses SETNX for acquisition and a CAS Lua script for release (returns the acquirer token; release only deletes if the stored value matches). Prevents a caller whose lock TTL expired from deleting a lock subsequently re-acquired by another process. Simple Redis DEL without CAS was considered and rejected
+    reason: |
+      the failure mode it enables (releasing a foreign lock during clock skew or GC pause) is subtle enough to warrant the Lua.
+  - category: Implementation
+    chose: "ConsumeAsync polls via LPOP + 1s delay instead of BRPOP. StackExchange.Redis's IDatabase doesn't expose BRPOP directly; raw ExecuteAsync would work but adds complexity. Polling matches the pattern already used by RedisMessageBus and keeps the queue code under 80 lines. Latency impact: ~500ms worst case on queue entry → visible to consumer, acceptable given pipeline wall time dominates."
+  - category: Architecture
+    chose: PipelineQueueConsumer is a plain class with RunAsync(CancellationToken), not a `BackgroundService`. The Cli `server` command isn't built on `IHost` (it uses a direct ServiceProvider), so BackgroundService would require introducing IHost just for this consumer. Matches WebhookListener's pattern; both are awaited via Task.WhenAll inside ServerCommand. When/if Cli migrates to IHost in the future, this becomes a BackgroundService with one line of DI.
+  - category: Architecture
+    chose: QueueConfig lives on the root AgentSmithConfig (not per-project ProjectConfig.Agent), because the queue key is process-wide and max_parallel_jobs caps pipelines across all projects on one pod. Per-project tuning would give wrong semantics (a busy project would unfairly hog slots).
+  - category: Architecture
+    chose: Platform-specific routing of webhooks-to-ClaimService is a string check `result.Platform == "GitHub"` in WebhookRequestProcessor. For p0095a, GitLab/AzDO/Jira keep their in-process ExecuteStructuredAsync fire-and-forget path. p0095b will flip them over once their transitioners exist. Documented explicitly in the WebhookRequestProcessor class summary so the legacy branch isn't mistaken for dead code.
+  - category: TradeOff
+    chose: PipelineRequest moved from AgentSmith.Application/Models to AgentSmith.Contracts/Models. The queue interface lives in Contracts (infrastructure implements; application consumes), and accepting PipelineRequest forces it into the Contracts layer. Touched ~14 files' `using` directives
+    reason: small one-time churn, correct layering.
+  - category: Architecture
+    chose: GitHub transitioner uses If-Match ETag on PATCH /issues/{n} with a full labels-array replacement. GitHub's actual ETag enforcement on issue PATCH is documented but not guaranteed to 412 consistently in practice; the code handles 412 correctly if it comes, otherwise accepts last-write-wins semantics. p0095c's full lifecycle config + reconciler limits the blast radius of a lost transition.
+  - category: Scope
+    chose: ITicketClaimService interface takes AgentSmithConfig as a method parameter (not via DI). The caller (WebhookRequestProcessor) already loads config each request for other reasons; forcing the service to load it adds ConfigPathHolder plumbing without benefit. Keeps the service stateless and easy to unit-test.
+  - category: Scope
+    chose: PR-comment webhook path (TriggerInput, dialogue answers) is explicitly untouched in p0095a. Spec calls it out. Those flows don't own ticket lifecycle and don't benefit from claim semantics. Migrating them is a separate concern, not a sub-phase of p0095.

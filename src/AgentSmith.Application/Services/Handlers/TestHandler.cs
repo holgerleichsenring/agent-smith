@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
@@ -13,12 +14,13 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Runs per-repo tests against the code changes (p0158f). Iterates
-/// ContextKeys.RepoProjectMaps; each repo with a non-empty ci.test_command
-/// runs in its OWN per-repo sandbox (Sandboxes[repo.Name]) where /work is
-/// the repo root. Repos with empty test_command are skipped (docs/markdown
-/// repos shouldn't fail the test gate). Aggregates TrxSummary via
-/// Combine; overall pass/fail is logical-AND.
+/// Runs per-context tests against the code changes (p0158f + p0161a).
+/// Iterates ContextKeys.Sandboxes keys; each key with a non-empty
+/// ci.test_command runs in its OWN sandbox at
+/// WorkingDirectory = /work/{discovery.Workdir} (operative root for monorepo
+/// sub-trees; /work for single-stack repos). Contexts with empty
+/// test_command are skipped. TrxSummary aggregation is across all per-key
+/// runs.
 /// </summary>
 public sealed class TestHandler(
     TrxResultParser trxParser,
@@ -33,32 +35,35 @@ public sealed class TestHandler(
     {
         logger.LogInformation("Running tests for {Changes} changes...", context.Changes.Count);
 
-        var perRepo = ResolvePerRepoMaps(context.Pipeline);
-        if (perRepo is null || perRepo.Count == 0)
+        var perKey = ResolvePerKeyMaps(context.Pipeline);
+        if (perKey is null || perKey.Count == 0)
         {
             context.Pipeline.Set(ContextKeys.TestResults, TrxSummary.Empty);
             return CommandResult.Ok("Skipping tests: ProjectMap missing — AnalyzeProject did not run.");
         }
-        var (sandboxes, _) = MultiRepoTargets.Resolve(context.Pipeline);
-        if (sandboxes is null) return SkipWithoutSandbox(context);
+        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+            return SkipWithoutSandbox(context);
 
-        var outcomes = new List<RepoTestOutcome>(perRepo.Count);
+        var outcomes = new List<TestOutcome>(perKey.Count);
         var aggregate = TrxSummary.Empty;
-        foreach (var (repoName, map) in perRepo)
+        foreach (var (key, map) in perKey)
         {
             var resolved = ResolveTestCommand(map);
             if (resolved.Command is null)
             {
-                logger.LogInformation("{Repo}: skip — {Reason}", repoName, resolved.SkipReason);
-                outcomes.Add(new RepoTestOutcome(repoName, ExitCode: 0, Summary: TrxSummary.Empty, Skipped: true));
+                logger.LogInformation("{Key}: skip — {Reason}", key, resolved.SkipReason);
+                outcomes.Add(new TestOutcome(key, ExitCode: 0, Summary: TrxSummary.Empty, Skipped: true));
                 continue;
             }
-            if (!sandboxes.TryGetValue(repoName, out var sandbox))
+            if (!sandboxes.TryGetValue(key, out var sandbox))
             {
-                logger.LogWarning("{Repo}: no sandbox available; skipping", repoName);
+                logger.LogWarning("{Key}: no sandbox available; skipping", key);
                 continue;
             }
-            var outcome = await RunOneAsync(repoName, sandbox, resolved, cancellationToken);
+            var workdir = discoveries.TryGetValue(key, out var discovery)
+                ? SubTreeWorkdir(discovery.Workdir)
+                : Repository.SandboxWorkPath;
+            var outcome = await RunOneAsync(key, sandbox, workdir, resolved, cancellationToken);
             outcomes.Add(outcome);
             aggregate = aggregate.Combine(outcome.Summary);
         }
@@ -77,9 +82,10 @@ public sealed class TestHandler(
             "or local Docker socket). Check the Server-Pod's startup logs for sandbox-creation errors.");
     }
 
-    // Multi-repo path uses ContextKeys.RepoProjectMaps; single-repo back-compat
-    // synthesizes a one-entry dict from ContextKeys.ProjectMap.
-    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerRepoMaps(PipelineContext pipeline)
+    private static string SubTreeWorkdir(string workdir) =>
+        workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
+
+    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerKeyMaps(PipelineContext pipeline)
     {
         if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
                 ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
@@ -115,21 +121,22 @@ public sealed class TestHandler(
         return new TestCommand(head, tokens.Skip(1).ToArray(), IsTrxCapable: isDotnet, SkipReason: null);
     }
 
-    private async Task<RepoTestOutcome> RunOneAsync(
-        string repoName, ISandbox sandbox, TestCommand cmd, CancellationToken ct)
+    private async Task<TestOutcome> RunOneAsync(
+        string key, ISandbox sandbox, string workingDirectory, TestCommand cmd, CancellationToken ct)
     {
-        logger.LogInformation("{Repo}: running {Command} {Args}",
-            repoName, cmd.Command, string.Join(' ', cmd.Args ?? Array.Empty<string>()));
+        logger.LogInformation("{Key}: running {Command} {Args} at {Cwd}",
+            key, cmd.Command, string.Join(' ', cmd.Args ?? Array.Empty<string>()), workingDirectory);
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: cmd.Command, Args: cmd.Args, TimeoutSeconds: TestTimeoutSeconds);
+            Command: cmd.Command, Args: cmd.Args, WorkingDirectory: workingDirectory,
+            TimeoutSeconds: TestTimeoutSeconds);
         var result = await sandbox.RunStepAsync(step, progress: null, ct);
 
         if (!cmd.IsTrxCapable)
-            return new RepoTestOutcome(repoName, result.ExitCode, TrxSummary.Empty, Skipped: false);
+            return new TestOutcome(key, result.ExitCode, TrxSummary.Empty, Skipped: false);
 
         var summary = await CollectTrxAsync(sandbox, ct);
-        return new RepoTestOutcome(repoName, result.ExitCode, summary, Skipped: false);
+        return new TestOutcome(key, result.ExitCode, summary, Skipped: false);
     }
 
     private async Task<TrxSummary> CollectTrxAsync(ISandbox sandbox, CancellationToken ct)
@@ -176,19 +183,19 @@ public sealed class TestHandler(
     }
 
     private static CommandResult BuildAggregateResult(
-        IReadOnlyList<RepoTestOutcome> outcomes, TrxSummary aggregate)
+        IReadOnlyList<TestOutcome> outcomes, TrxSummary aggregate)
     {
         var ran = outcomes.Where(o => !o.Skipped).ToList();
-        if (ran.Count == 0) return CommandResult.Ok("No repos had a test command; skipped all.");
+        if (ran.Count == 0) return CommandResult.Ok("No contexts had a test command; skipped all.");
 
-        var failedRepos = ran.Where(o => o.ExitCode != 0 || o.Summary.FailedCount > 0).ToList();
+        var failedKeys = ran.Where(o => o.ExitCode != 0 || o.Summary.FailedCount > 0).ToList();
         var counters = $"{aggregate.PassedCount}/{aggregate.TotalCount} passed, {aggregate.FailedCount} failed";
-        if (failedRepos.Count == 0)
+        if (failedKeys.Count == 0)
             return CommandResult.Ok($"Tests passed ({counters})");
 
         var failureLines = aggregate.Failures.Select(f => $"  - {f.TestName}: {f.ErrorMessage}");
         var detail = string.Join('\n', failureLines);
-        var exitSummary = failedRepos[0].ExitCode;
+        var exitSummary = failedKeys[0].ExitCode;
         return CommandResult.Fail($"Tests failed ({counters}, exit {exitSummary}):\n{detail}");
     }
 
@@ -197,5 +204,5 @@ public sealed class TestHandler(
         public static TestCommand Skip(string reason) => new(null, null, false, reason);
     }
 
-    private sealed record RepoTestOutcome(string RepoName, int ExitCode, TrxSummary Summary, bool Skipped);
+    private sealed record TestOutcome(string Key, int ExitCode, TrxSummary Summary, bool Skipped);
 }

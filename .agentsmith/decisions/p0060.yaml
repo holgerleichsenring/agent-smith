@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0060: Security Pipeline Enhancements
+phase: p0060
+decisions:
+  - category: Architecture
+    chose: DAST via ZAP after static tools, not integrated into static
+    reason: runtime testing reveals issues invisible in code, separate tool appropriate
+  - category: Implementation
+    chose: Auto-fix spawns separate K8s jobs, doesn't block security scan
+    reason: security findings delivered immediately, fixes continue asynchronously
+  - category: TradeOff
+    chose: Git-based trend analysis over external database
+    reason: leverages YAML frontmatter + git history, no persistence layer
+  - category: Implementation
+    chose: Trend committed to default branch, not PR branch
+    reason: accumulated knowledge stays project-wide, avoids merge conflicts

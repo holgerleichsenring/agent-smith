@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0114: OpenAI / Azure-OpenAI Context Compactor
+phase: p0114
+decisions:
+  - category: Architecture
+    chose: "**Same conceptual algorithm as p0008's ClaudeContextCompactor, different SDK + caching semantics.** Anthropic exposes `cache_control: ephemeral` for verifiable prefix-caching; OpenAI/Azure use opaque automatic prompt caching above the 4096-token threshold without operator control. Compactor I/O shape is identical (message list in, summarized message list out); SDK glue + summarization-prompt tuning differ. New OpenAiContextCompactor handles `type=openai` + `type=azure-openai` (Azure delegates via the same composition pattern AzureOpenAiAgenticAnalyzer uses); `type=gemini` + `type=ollama` get NoOpContextCompactor as an EXPLICIT placeholder, NOT a denial that they need it"
+    reason: those deserve their own implementations in follow-up phases.
+  - category: Architecture
+    chose: "**Trigger is boolean OR**, written as a Boolean expression to remove ambiguity: `compactor.ShouldFire = (currentIterations >= ThresholdIterations) || (estimatedAccumulatedInputTokens >= MaxContextTokens)`. Either alone fires. Defaults from existing CompactionConfig: `ThresholdIterations=8, MaxContextTokens=80000`. Operators set them once per project; both compactors honor the same knobs."
+  - category: Architecture
+    chose: "**Compaction point fires AFTER an assistant turn produces no further tool_calls**"
+    reason: |
+      between rounds, never mid-round. Inline comment in OpenAiAgenticLoop + OpenAiAgenticAnalyzer at the call site documents this so future parallelization of the loop has to explicitly handle the constraint. Cheap insurance against subtle breakage.
+  - category: Architecture
+    chose: "**Scoped to agentic loops only**, not the simple CompleteAsync paths (TriageHandler, GeneratePlan first call, ContextGenerator). Single-shot calls don't accumulate history; the agentic loop is where the message list grows turn-on-turn."
+  - category: Implementation
+    chose: "**Pre-compaction token count is an ESTIMATE (tiktoken-equivalent, ±5%), used only for the trigger threshold.** Post-compaction reports VERIFIED `usage.prompt_tokens` from the next response"
+    reason: |
+      the API's authoritative count. CompactionEvent records both: `tokens_saved = previous_response.prompt_tokens - next_response.prompt_tokens` once both are known. Trigger uses estimate; reporting uses ground truth.
+  - category: Implementation
+    chose: "**Tail-boundary respects tool-call pairs.** OpenAI rejects requests where a `tool` message references a `tool_call_id` without the matching prior `assistant(tool_calls=[...])` in the same array. Definition: tail = last N COMPLETE rounds (assistant.tool_calls + matching tool messages); compactor walks backward identifying boundaries, never splits mid-pair. Default `N=2`. Bare assistant text reply (no tool_calls) counts as one degenerate round with no tool tail."
+  - category: Implementation
+    chose: "**Summarization prompt via IPromptCatalog (p0103c)**"
+    reason: |
+      consistent with all other prompt resources. New resource `src/AgentSmith.Application/Prompts/Resources/openai-context-compactor-system.md`. CompactionEvent logs SHA-256 prefix (8 hex chars) of the resolved prompt for drift detection between runs without dumping the prompt itself.
+  - category: Implementation
+    chose: "**`CompactionConfig.DeploymentName` (string?, default null) routes summarization to a cheaper deployment** (e.g. `gpt-4o-mini-deployment`). Compaction is summarization"
+    reason: |
+      running it on the project's gpt-4.1 Primary deployment burns the same per-token rate as the actual work. Default behavior unchanged when unset; no breaking config migration.
+  - category: TradeOff
+    chose: "**Compactor failure (rate-limit, error, garbage summary) is non-fatal**"
+    reason: |
+      falls back to original messages with WARN log + `CompactionEvent.Failed=true`. Agentic loop continues with un-compacted history. Pretending compaction succeeded with a broken summary is worse than running on the full history.
+  - category: TradeOff
+    chose: "**Compaction itself costs tokens**"
+    reason: |
+      one extra LLM call per event, charged against the configured deployment. Net win when conversation > ~50k tokens; below that the trigger doesn't fire (`CompactionConfig.IsEnabled` gate plus the threshold). Operators can disable per project for traceability in regulated environments.

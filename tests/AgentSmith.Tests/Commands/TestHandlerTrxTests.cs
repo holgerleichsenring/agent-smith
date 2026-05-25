@@ -97,16 +97,27 @@ public sealed class TestHandlerTrxTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, sandbox);
-        // p0155: ci.test_command drives the runner now. "dotnet test" prefix
-        // makes the command TRX-capable; PrimaryLanguage is just metadata.
-        pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["default"] = sandbox });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal)
+            {
+                ["default"] = new RemoteContextDiscovery("default", ".", "csharp")
+            });
+        var map = new ProjectMap(
             PrimaryLanguage: "csharp",
             Frameworks: ["xunit"],
             Modules: [],
             TestProjects: [],
             EntryPoints: [],
             Conventions: new Conventions(null, null, null),
-            Ci: new CiConfig(HasCi: true, BuildCommand: null, TestCommand: "dotnet test --verbosity minimal", CiSystem: null)));
+            Ci: new CiConfig(HasCi: true, BuildCommand: null, TestCommand: "dotnet test --verbosity minimal", CiSystem: null));
+        pipeline.Set(ContextKeys.ProjectMap, map);
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { ["default"] = map });
         var repo = new Repository(new BranchName("main"), "https://github.com/o/r.git");
         return new TestContext(repo, new List<CodeChange>(), pipeline);
     }

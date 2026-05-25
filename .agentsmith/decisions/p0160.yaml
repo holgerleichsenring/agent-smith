@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0160: Docs restructure + rewrite
+phase: p0160
+decisions:
+  - category: Architecture
+    chose: "**Task-oriented nav over feature-oriented catalogue.** Pre-p0160 nav had 12 sections + 50+ pages organised around what Agent Smith *contains* (Pipelines, Concepts, Configuration, Providers, …). New nav has six sections organised around the reader's verbs (Get / Connect / Trigger / Host / Understand / Reference). The pre-existing catalogue moves to Reference unchanged; it's still there for the curious, just demoted from the first-click surface."
+  - category: Architecture
+    chose: "**TodoList as the anchor sample across every Connect page.** Catalog keys `todolist-api`, `todolist-worker`, `todolist-web`, `todolist-docs`; org `acme-org`; Azure DevOps project `Platform`. Same identifiers everywhere so the reader sees the pattern once and recognises it on every page. No customer / employer names anywhere in the docs (per [[feedback_no_customer_names]] and the operator's explicit request)."
+  - category: Architecture
+    chose: "**Per-tracker Connect pages instead of a combined config reference.** Four pages (Azure DevOps, Jira, GitHub Issues, GitLab Issues), each with the full copy-pasteable `agentsmith.yml` block for that tracker family. The combined reference page hides per-system specifics in a parameter table; per-tracker pages show one full sample sequence per system, which is what the \"get running today\" reader wants. The combined schema reference lives in `reference/configuration/agentsmith-yml-schema.md` for completeness."
+  - category: Architecture
+    chose: "**`skills-catalog.md` as load-bearing How-it-works page.** Where skills live (separate versioned `agent-smith-skills` repo) is a conceptual decision about how the system extends, not a tunable knob. Pre-p0160 docs treated this as buried trivia under `configuration/skills.md`"
+    reason: the new page is at the same nav level as Methodology and Lifecycle.
+  - category: Architecture
+    chose: "**Concept pages with no get-running value get demoted, not deleted.** Branch-Persistence, Self-Documentation, Decision-Logging, Knowledge-Base, Context-Compaction, Interactive-Dialogue, Sandbox-Architecture, Sandbox-Agent, Phases-and-Runs describe Agent-Smith-internal implementation. Useful for contributors and curious operators, low value for the \"I-want-to-ship-today\" reader. Reference is the right home. Same content, different nav position."
+  - category: Implementation
+    chose: "**Holger-voice blog-mode applied uniformly to the new content, hero-mode reserved for the landing.** Per the writing-skill's two-modes section. The docs are a story the reader has agreed to read"
+    reason: |
+      full voice, in-medias-res starts, "I built it this way because…" admissible. The eleventy landing hero stays hook-plus-delivery.
+  - category: Implementation
+    chose: "**Landing hero rewritten to `From ticket to PR` + `Every run shows its cost. Every change comes with the reasoning the agent followed.`** The previous headline `Agent Smith ships pull requests, not suggestions.` and the sub-line about SaaS-in-between used negation as definition (writing-skill Rule 9). New version follows the skill's gold-standard hero example: hook + two concrete delivery sentences in parallel."
+  - category: Implementation
+    chose: "**Existing concepts/multi-repo-pipelines.md content used as the basis for how-it-works/multi-repo.md.** The page had useful structure from p0159c; copy + voice-pass rather than rewriting from scratch. Original deleted (it was at concepts/multi-repo-pipelines.md, which doesn't fit the new nav anyway)."
+  - category: Implementation
+    chose: "**No drift sweep on the demoted Reference pages.** Movement-only for this phase. The drift content audit on those pages is a follow-up; if anything still references retired terminology (OBJECT/AGREE, r{NN} run numbering before p0156, in-tree skills), it's tagged for the next docs pass. Most of those pages were audited in p0159c"
+    reason: see `.agentsmith/notes/p0159c-doc-drift-audit.md` for what was checked.
+  - category: Implementation
+    chose: "**`docs/concepts/multi-repo-pipelines.md` deleted, not moved.** Its content lives on under `how-it-works/multi-repo.md` (the canonical page) with the voice pass and the lifecycle SVG link. Keeping the old file as a redirect or moved-to-reference would have created a third nav entry pointing at duplicate content."
+  - category: TradeOff
+    chose: "**`docs/configuration/agentsmith-yml.md` not rewritten"
+    reason: |
+      only moved to reference.** The page was already flagged in p0159c as needing a full rewrite against the post-p0139 catalog-based schema. That rewrite stays a follow-up phase; in p0160 the page is reachable from Reference for the deep-dive reader while every "get running today" reader sees the catalog-first shape on the new Connect-your-stuff pages.
+  - category: TradeOff
+    chose: "**No `mkdocs build --strict` run locally.** Python / mkdocs-material aren't in the dev environment. The CI workflow (docs.yml, gates on `--strict`) validates the full link graph on the next push. The risk surface: a typo in a new page's link that mkdocs catches but I didn't."
+  - category: TradeOff
+    chose: "**Per-pipeline Reference pages kept as-is.** The new structure leaves the existing per-pipeline pages (api-scan, fix-and-feature, legal-analysis, mad-discussion, security-scan, skill-manager, autonomous) untouched under `reference/pipelines/`. Voice-pass and content refresh on those is a follow-up; the priority for p0160 was the \"get running today\" path."

@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0029: Init Project Command
+phase: p0029
+decisions:
+  - category: Architecture
+    chose: Generalize `IJobSpawner.SpawnAsync` from `FixTicketIntent` to generic `JobRequest`
+    reason: init-project becomes first-class command

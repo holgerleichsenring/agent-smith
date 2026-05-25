@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0055: Security Findings Compression
+phase: p0055
+decisions:
+  - category: Implementation
+    chose: Top-N detail + remainder summary per category
+    reason: reduces token cost 70%+ while keeping findings accessible to relevant skills
+  - category: Architecture
+    chose: Category-based slicing to skills instead of full findings dump
+    reason: each skill only receives data it can act on
+  - category: TradeOff
+    chose: Compressed threshold (≤15 findings = full detail) over uniform compression
+    reason: small categories skip compression to preserve context

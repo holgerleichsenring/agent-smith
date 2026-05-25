@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0017: GitLab Provider
+phase: p0017
+decisions:
+  - category: Architecture
+    chose: Extract `ISourceProvider` and `ITicketProvider` implementations
+    reason: |
+      GitLab MRs use same semantic model as GitHub PRs, REST API v4 is straightforward JSON
+  - category: Implementation
+    chose: `LibGit2Sharp` for git operations and GitLab REST API v4 for merge requests
+    reason: consistent with existing GitHub provider

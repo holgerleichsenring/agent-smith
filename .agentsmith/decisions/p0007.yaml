@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0007: Prompt Caching
+phase: p0007
+decisions:
+  - category: Architecture
+    chose: `PromptCaching = AutomaticToolsAndSystem` for all API calls
+    reason: caches system prompt, tool definitions, coding principles
+  - category: Implementation
+    chose: Coding Principles positioned first in system messages
+    reason: maximizes cache prefix (longest stable content cached)
+  - category: TradeOff
+    chose: 5-minute ephemeral cache (API default) accepted
+    reason: balance between cost savings and context freshness
+  - category: Architecture
+    chose: TokenUsageTracker separates cache metrics tracking
+    reason: enables observability without coupling to loop logic

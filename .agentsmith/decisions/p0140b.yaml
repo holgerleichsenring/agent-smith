@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0140b: Webhook migration + spawner (multi-repo fan-out at the enqueue layer)
+phase: p0140b
+decisions:
+  - category: Architecture
+    chose: "**Pre-implementation spec audit refined every gap before code touched.** The original p0140b spec had at least seven internal contradictions (e.g., \"11 handlers\" while only 8 ticket-event handlers exist; \"Enqueue via IRedisJobQueue\" while ClaimSpawnAsync is needed for dedup; \"ResolveAsync\" on a synchronous resolver; multi-repo end-to-end claim while consumer side still throws on project.Repo). The audit produced a coherent spec, then implementation followed. Without the audit, each gap would have surfaced mid-implementation as a context-thrashing question."
+    reason: |
+      alternatives: implement spec-literal and accept the regressions / open questions (rejected: spec-first methodology demands the spec be the contract; gaps surface design problems, not implementation problems).
+  - category: Architecture
+    chose: "**`ClaimSpawnAsync` is the new claim-region method; `ClaimAsync(single)` becomes a 1-element wrapper.** The naive \"loop ClaimAsync N times\" approach silently degrades multi-repo to single-repo because the ticket lifecycle transition (Pending → Enqueued) is ticket-level. The second repo sees lifecycle=Enqueued and returns AlreadyClaimed. ClaimSpawnAsync does one pre-check, acquires one lock on `agentsmith:claim-lock:{platform}:{ticket-id}`, transitions lifecycle once, and enqueues N PipelineRequests inside the locked region. All dedup protections survive multi-repo fan-out. -- alternatives: direct `IRedisJobQueue.EnqueueAsync` per spec text (rejected: loses Redis claim-lock + ClaimPreChecker + lifecycle transition); per-(platform, ticket, repo) lifecycle (rejected: ticket-level state on the tracker can't carry per-repo status without modeling work in the tracker"
+    reason: out of scope).
+  - category: Architecture
+    chose: "**`SpawnRegionExecutor` extracted from `TicketClaimService` to honor the 120-line class limit.** Adding ClaimSpawnAsync inline blew TicketClaimService to 148 lines; the post-lock work (lifecycle read + transition + N enqueues + per-request logging) factored cleanly into its own ~75-line helper. TicketClaimService now owns pre-check + lock orchestration + scope-logging; SpawnRegionExecutor owns the inside-the-lock sequence. Both classes stay under the limit."
+    reason: |
+      alternatives: split ClaimSpawnAsync logic across multiple helpers in TicketClaimService (rejected: arbitrary cuts, each still over the method-line limit); inline everything (rejected: violates the 120-line class limit).
+  - category: Architecture
+    chose: "**New interface `IEnvelopeProjectResolver` rather than renaming the existing Server-side `IProjectResolver`.** The Server's existing IProjectResolver (ticket-existence API lookup, used by IntentEngine for slack-intent disambiguation) has an unrelated responsibility and a different return shape. Reusing the name would require renaming the old one"
+    reason: |
+      touches IntentEngine + tests + DI for no real benefit. The "Envelope" prefix makes the two visibly separate at the call site. -- alternatives: rename old IProjectResolver to ITicketProjectLookup (rejected: scope creep into IntentEngine surface); skip the interface and inject concrete ProjectResolver (rejected: breaks the SOLID DI rule that every injected service has an interface).
+  - category: Architecture
+    chose: "**`WebhookSpawnDispatcher` concentrates per-match-loop + zero-match handling.** Eight migrated ticket-event handlers all need the same post-resolver work: select trigger by Kind, apply status filter, call spawn use case OR (zero match) emit structured log + opt-in tracker comment. Duplicating this in 8 handlers would: (a) blow each handler past the 50-line target; (b) make the zero-match policy drift across platforms. The dispatcher is a sealed instance class (not static) so the ITicketProviderFactory + ILogger injection is clean. -- alternatives: helper static methods on each handler (rejected: 8 copies of the same loop; one platform changes and the others silently diverge); base class (rejected: violates \"composition over inheritance"
+    reason: base classes max 30 lines, no business logic").
+  - category: Architecture
+    chose: "**`WebhookRequestProcessor.RouteToClaimServiceAsync` deleted, not deprecated.** After the 8 ticket-event handlers migrate, no handler returns ProjectName/TicketId on its WebhookResult"
+    reason: |
+      the structured-ticket routing branch is fully dead code. Deprecation invites confusion ("which path actually runs?"). The DialogueAnswer branch (PR /approve|/reject) and TriggerInput legacy branch stay untouched — they serve different webhook shapes. -- alternatives: keep with `[Obsolete]` (rejected: nothing to migrate from since all callers are deleted); leave as untested dead code (rejected: dead code rots and confuses readers).
+  - category: Architecture
+    chose: "**Multi-repo is enqueue-only in p0140b; consumer-side multi-repo is p0140d.** The 12 builder/handler sites that still read `project.Repo` would throw on a multi-repo project (Repos.Count > 1). Migrating all 12 in p0140b would re-litigate the `.Repo` shim removal"
+    reason: |
+      the entire purpose of p0140d. The multi-repo smoke test asserts only enqueue count (3 PipelineRequests for a 3-repo project), not full execution. Today's deployed projects are all single-repo, so consumer-side behavior is invisible in the wild. -- alternatives: do both in one slice (rejected: PR explodes to ~50 files; reviewability dies); leave multi-repo broken end-to-end and assert nothing (rejected: enqueue-level multi-repo is the core deliverable of p0140b).
+  - category: Implementation
+    chose: "**Backward-compat default-trigger-label fallbacks deleted (GitHub `agent-smith`, ADO `security-review`).** p0140a's validator now requires `project_resolution` on every declared trigger. A project without a trigger block won't match through the resolver, so the old \"no trigger → fall back to hardcoded default label\" branch is unreachable. Deleting it shrinks the handlers by ~15 lines each and removes the silent-magic that hid misconfigurations. Dogfood + example configs use explicit triggers everywhere; no real-world flow relies on the fallback."
+    reason: |
+      alternatives: keep with a deprecation log (rejected: it's already unreachable post-p0140a); fail loud at config-load if a trigger block is absent (deferred: p0140a's validator already requires project_resolution; a missing trigger block is the operator's explicit "no triggering on this platform" choice).
+  - category: Implementation
+    chose: "**`ITicketClaimService` registered as Singleton (was Scoped).** WebhookSpawnDispatcher → ISpawnPipelineRunsUseCase (Transient) → ITicketClaimService (was Scoped) failed `ValidateScopes` because a Singleton can't consume a Scoped service. TicketClaimService is stateless (its deps IRedisClaimLock + ITicketStatusTransitionerFactory + IRedisJobQueue are all singletons); making it Singleton keeps the dependency chain valid without changing behaviour. Caught by `ServerDi_BuildUnderDevelopmentEnvWithValidateOnBuild_AllSingletonsResolve_NoLifetimeViolations`. -- alternatives: Scope the dispatcher + all 8 handlers (rejected: cascading lifetime change for one wiring fix); keep dispatcher Scoped (rejected: handlers resolved as IEnumerable<IWebhookHandler> at request time means we'd build the dispatcher per request despite being stateless"
+    reason: unnecessary work).
+  - category: Implementation
+    chose: "**PR/MR-dialogue handlers (5 handlers) stay out of scope.** GitHubPrCommentWebhookHandler, GitHubPrLabelWebhookHandler, AzureDevOpsPrCommentWebhookHandler, GitLabMrCommentWebhookHandler, GitLabMrLabelWebhookHandler route `/approve` and `/reject` answers to in-flight pipelines via WebhookDialogueRouter. They don't start new pipelines and have no project-resolution to perform. The original spec's \"11 handlers\" count came from including some of these; the audit corrected it to 8 ticket-event handlers."
+    reason: |
+      alternatives: migrate them too for uniformity (rejected: scope creep; they have no resolver to call); rename the dialogue path (rejected: not what p0140 is about).
+  - category: TradeOff
+    chose: "**Writeback comment reads `RepoConnection` from the per-handler context record, not from `PipelineContext.CurrentRepo`.** The CommitAndPRContext + InitCommitContext already carry RepoConnection (the builders pass `project.Repo`). The header text change is a one-line edit per handler. Moving the read to `PipelineContext.CurrentRepo` would couple this to p0140d."
+    reason: |
+      alternatives: add ContextKeys.CurrentRepo in p0140b just for the writeback (rejected: would either need to half-migrate the 12 sites or have two ways to read the run's repo).

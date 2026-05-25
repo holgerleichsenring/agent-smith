@@ -23,12 +23,23 @@ public static partial class ContextKeys
     /// Set by the CLI when `--repo NAME` is provided; absent in queue-driven (K8s/Compose) runs.</summary>
     public const string SourceOverrideRepo = "SourceOverrideRepo";
 
-    /// <summary>p0158e: dictionary keyed by repo name holding one ISandbox per configured
-    /// repo (each with its own toolchain image). Published by PipelineSandboxCoordinator
-    /// on first sandbox-requiring command. Handlers iterating Repos dispatch git ops and
-    /// other per-repo work to Sandboxes[repo.Name]. Legacy ContextKeys.Sandbox (singular)
-    /// is populated from Sandboxes[Repos[0].Name] for back-compat callers.</summary>
+    /// <summary>p0158e + p0161a: dictionary keyed by composite sandbox key holding
+    /// one ISandbox per discovered context (each with its own toolchain image).
+    /// Published by PipelineSandboxCoordinator on first sandbox-requiring command.
+    /// Key shape (p0161a): "default" for single-repo single-default-context, the
+    /// bare context name for single-repo monorepos, the bare repo name for
+    /// multi-repo single-context, "&lt;repo&gt;/&lt;ctx&gt;" for multi-repo
+    /// monorepos. Legacy ContextKeys.Sandbox (singular) is populated from the
+    /// primary repo's first sandbox for back-compat callers.</summary>
     public const string Sandboxes = "Sandboxes";
+
+    /// <summary>p0161a: dictionary keyed by the same sandbox key as
+    /// ContextKeys.Sandboxes, holding the RemoteContextDiscovery (ContextName,
+    /// Workdir, Language) that produced each sandbox. Handlers iterate this
+    /// dict to look up per-sandbox Workdir (operative working directory for
+    /// per-context commands like ci.test_command) and Language (toolchain
+    /// annotation for PromptPrefix).</summary>
+    public const string SandboxDiscoveries = "SandboxDiscoveries";
 
     /// <summary>p0158f: dictionary keyed by repo name with each repo's analyzed
     /// ProjectMap. Populated by AnalyzeProjectHandler iterating per-repo sandboxes.

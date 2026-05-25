@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0059: PR Comment as Input
+phase: p0059
+decisions:
+  - category: Architecture
+    chose: Unified webhook dispatch pattern (IWebhookHandler) handles both GitHub Issues and PR Comments
+    reason: one entry point scales to multiple event types
+  - category: Implementation
+    chose: CommentIntentRouter distinguishes new job vs. dialogue answer at parse time
+    reason: same Redis infrastructure serves both scenarios
+  - category: Architecture
+    chose: Platform-agnostic CommentIntent model, platform-specific webhook handlers
+    reason: enables p0059b/p0059c without changing routing logic
+  - category: TradeOff
+    chose: Sparse checkout + no container job for PR context vs. full agent container
+    reason: trade implementation simplicity for PR-specific context loading

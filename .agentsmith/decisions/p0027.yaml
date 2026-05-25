@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0027: Structured Command UI
+phase: p0027
+decisions:
+  - category: Architecture
+    chose: Slack modals with dropdowns replace free-text parsing
+    reason: no typos, structured data needs no IntentEngine
+  - category: TradeOff
+    chose: Free-text input kept as fallback
+    reason: backward compatibility for power users

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0089a: Skill Content Improvements
+phase: p0089a
+decisions:
+  - category: Architecture
+    chose: Confidence calibration defined once in observation-schema.md
+    reason: Low (0-30), Medium (31-69), High (70-100). Referenced by all skills.
+  - category: Architecture
+    chose: Framework-specific false-positive rules derived from Anthropic's claude-code-security-review
+    reason: 12 precedents battle-tested across thousands of reviews.
+  - category: Architecture
+    chose: Phase 1 repo context exploration before analysis
+    reason: |
+      skills must understand existing security patterns before flagging findings. Deviations from established patterns are more likely real findings.
+  - category: Scope
+    chose: Content only
+    reason: zero C# changes, zero build risk.

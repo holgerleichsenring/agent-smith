@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0021: Code Quality
+phase: p0021
+decisions:
+  - category: Architecture
+    chose: Consistent folder structure (Contracts/, Models/, Services/) across all projects
+    reason: eliminates sprawl
+  - category: Tooling
+    chose: `IHttpClientFactory` instead of `new HttpClient()`
+    reason: proper lifetime management, connection pooling
+  - category: Implementation
+    chose: Magic numbers → named constants
+    reason: single source of truth for configuration values

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0068: API Finding Location
+phase: p0068
+decisions:
+  - category: Architecture
+    chose: DisplayLocation as computed property on Finding record
+    reason: |
+      no new field in serialization, just display logic. Fallback chain: ApiPath > SchemaName > File:StartLine.
+  - category: TradeOff
+    chose: Nullable fields instead of separate ApiFinding subtype
+    reason: |
+      keeps one Finding type across all pipelines. Security-scan findings simply leave ApiPath/SchemaName null.
+  - category: Implementation
+    chose: NullIfEmpty normalization in ParseGateFindings
+    reason: |
+      LLMs return empty strings instead of omitting fields. Normalize at parse time and defend in DisplayLocation with IsNullOrWhiteSpace.

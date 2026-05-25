@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0084: Unified Webhook Lifecycle
+phase: p0084
+decisions:
+  - category: Architecture
+    chose: WebhookTriggerConfig as shared base for all platforms
+    reason: |
+      status gate, pipeline-from-label, done_status, comment re-trigger unified across GitHub, GitLab, Azure DevOps, Jira.
+  - category: Architecture
+    chose: Hardcoded trigger labels/tags replaced by config with backward-compatible defaults
+    reason: existing setups work without changes.
+  - category: Architecture
+    chose: All platforms support pipeline_from_label
+    reason: any pipeline is a valid trigger target, no hardcoded restrictions.

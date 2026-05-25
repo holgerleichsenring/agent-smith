@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0018: Chat Gateway
+phase: p0018
+decisions:
+  - category: Architecture
+    chose: Redis Streams as message bus (progress/question/done/error) with persistent consumer groups
+    reason: decouples agent execution from dispatcher, enables multi-platform routing
+  - category: Architecture
+    chose: "Separate `IProgressReporter` implementations: Console for CLI, Redis for K8s"
+    reason: single interface, pluggable output strategy
+  - category: Implementation
+    chose: K8s Job per request with ephemeral agent containers
+    reason: isolation, resource limits, TTL cleanup, each fix runs independently

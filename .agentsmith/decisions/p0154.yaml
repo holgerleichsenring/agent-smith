@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0154: web_fetch + skills rename + alias removal
+phase: p0154
+decisions:
+  - category: Implementation
+    chose: "**WebToolHost takes `HttpClient` directly rather than `IHttpClientFactory`.** Construction sites manually instantiate the tool hosts (FilesystemToolHost / HumanToolHost / LogDecisionToolHost via `new` at use sites like VerifyRoundCoordinator + BootstrapToolHostFactory), so threading IHttpClientFactory would require new ctor params on those existing sites without changing the construction shape. HttpClient-direct keeps the per-host construction pattern symmetric; sites can resolve an HttpClient from IHttpClientFactory at their level without WebToolHost knowing about the factory."
+    reason: |
+      alternatives: IHttpClientFactory injection (rejected: scope-creep on construction sites for symmetry's sake); singleton HttpClient (rejected: leaks DNS resolution lifetimes, well-known footgun).
+  - category: Implementation
+    chose: "**Optional `WebToolHost? web = null` parameter on AgenticToolSurface, not a required slot.** Existing call sites can adopt incrementally; tool-policy ordering stays unchanged. Bootstrap surface deliberately stays web-less"
+    reason: |
+      bootstrap producers should ground in repo content, not external docs. -- alternatives: required parameter (rejected: every call site has to thread a pointless null today); separate surface method `WithWeb()` (rejected: two signatures to maintain for one optional dep).
+  - category: TradeOff
+    chose: "**Construction-site wiring of WebToolHost DEFERRED.** No production call site instantiates WebToolHost in this commit"
+    reason: |
+      getting an HttpClient at sites like VerifyRoundCoordinator + BootstrapToolHostFactory requires plumbing IHttpClientFactory through several DI seams that the test surface doesn't currently exercise. The host + tests + surface + policy are shipped; activation is a small follow-up. -- alternatives: ship with wiring everywhere (rejected: cross-cutting integration risk that would have failed smoke in unrelated places); strict-require WebToolHost on the surface (rejected: forces wiring before it's safe).
+  - category: TradeOff
+    chose: "**Skills catalog sweep is targeted, not exhaustive.** 12 SKILL.md files got the safe ``glob \"...\"`` → ``find_files \"...\"`` / ``list_files`` → ``list_directory`` replacements. The harder cases (bare ``grep`` that means the tool vs. `grep` as a shell command; web_fetch adoption in supply-chain-auditor / compliance-checker / false-positive-filter that the spec called out) deferred to a follow-up because they need per-call-site context to do right"
+    reason: |
+      wrong-tool replacement is worse than no replacement. -- alternatives: aggressive sed sweep (rejected: would replace ``grep -rnE`` shell invocations with broken ``grep_in_tree -rnE``); leave skills untouched (rejected: published catalogue references aliases that no longer exist on the binary surface).
+  - category: TradeOff
+    chose: "**Skills pin in `config/agentsmith.yml` STAYS at v2.5.2** while the agent-smith-skills branch carries v2.6.0. Same constraint as p0155: bump waits for the tag. Until then the published v2.5.2 catalogue has the deprecated aliases and the binary doesn't"
+    reason: |
+      operators running against v2.5.2 will see tool-not-found errors for any skill that still uses `grep`/`glob`/`list_files`. That's the deliberate cutover signal: the next operator pull either gets v2.6.0 with the renamed surface OR keeps v2.5.2 and the binary stays at the previous tag. -- alternatives: pin bump speculative (rejected: tag doesn't exist); restore the aliases (rejected: defeats p0154's purpose).
