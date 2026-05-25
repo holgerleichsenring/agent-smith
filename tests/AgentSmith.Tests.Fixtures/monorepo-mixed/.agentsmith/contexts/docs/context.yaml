@@ -1,0 +1,9 @@
+meta:
+  project: monorepo-mixed-docs
+  workdir: docs
+stack:
+  lang: markdown
+arch:
+  layers: [docs]
+ci:
+  test_command: ""
