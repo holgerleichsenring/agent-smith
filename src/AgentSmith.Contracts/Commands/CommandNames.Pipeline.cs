@@ -79,6 +79,13 @@ public static partial class CommandNames
     public const string PublishProjectLanguage = "PublishProjectLanguageCommand";
     public const string BootstrapDispatch = "BootstrapDispatchCommand";
 
+    /// <summary>p0161d: read-only first pass of cold-init. One round per repo;
+    /// the project-discovery skill produces the component list with evidence;
+    /// BootstrapDispatch then fans out one BootstrapRound per (repo, component).
+    /// Re-init (existing <c>.agentsmith/contexts/&lt;name&gt;/</c> on remote)
+    /// short-circuits this round.</summary>
+    public const string BootstrapDiscover = "BootstrapDiscoverCommand";
+
     // p0130c-followup: producer-loop runtime for bootstrap skills (csharp/node/python/
     // generic-bootstrap). Distinct from SkillRound because the producer needs a
     // tool-bearing chat call (WriteFile to emit context.yaml + coding-principles.md),

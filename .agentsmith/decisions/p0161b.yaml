@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0161b
+
+decisions:
+  - category: Tooling
+    chose: "On-disk fixture under tests/AgentSmith.Tests.Fixtures/monorepo-mixed/ + xUnit integration test via real LocalSourceProvider + ContextYamlParser"
+    over: "External fixture repo on GitHub + cloud-based integration"
+    reason: |
+      Local fixture keeps the test deterministic (no network, no
+      flake), repo-local (cloned with the project), and exercises the
+      real file-IO + YAML parsing path that the mock-based unit tests
+      in SandboxLanguageResolverTests/ProjectMetaResolverAsyncTests
+      cannot. LocateFixture uses [CallerFilePath] to find the fixture
+      relative to the test source file, so the test works from any
+      build output directory without env-var coupling.
+
+  - category: Scope
+    chose: "Smoke security-scan FAIL recorded but env-cause (invalid Groq key) — not a regression"
+    over: "Mark p0161b as not-done until operator regenerates the Groq key"
+    reason: |
+      security-scan reached step 13/21 of the pipeline cleanly —
+      validating that CheckoutSource (the freshly-fixed per-context
+      dispatch), Bootstrap*, LoadContext, LoadCodingPrinciples,
+      StaticPatternScan, GitHistoryScan (with the new lock), DepAudit,
+      SecurityTrend, and LoadSkills all work end-to-end against the
+      new sandbox-key scheme. The HTTP 401 on AnalyzeCode is environmental
+      (operator's GROQ_API_KEY in .env has been rotated). Re-running
+      after the operator regenerates the key would close this; the
+      code change itself is validated by everything that ran before
+      the LLM call.
+
+  - category: Scope
+    chose: "api-scan smoke passes against agent-smith-api-security-azure-openai project name (corrected from spec's sample-a-api-security-azure-openai)"
+    over: "Update the smoke skill prompt to match the actual project name"
+    reason: |
+      Smoke skill prompt referenced sample-a-api-security-azure-openai
+      (likely an old anonymized name); actual config.yml has
+      agent-smith-api-security-azure-openai. The smoke skill prompt is
+      operator-authored documentation that drifts behind config
+      changes — fixing the project name at invoke-time is the right
+      call here. A follow-up could refresh the skill prompt to match
+      the live config.

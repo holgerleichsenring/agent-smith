@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -27,5 +28,33 @@ internal static class SandboxTargets
         sandboxes = s;
         discoveries = d;
         return true;
+    }
+
+    /// <summary>
+    /// p0161a/b: given a RepoConnection, returns the (sandbox-key, ISandbox)
+    /// pairs that serve that repo's discovered contexts. Decodes the
+    /// SandboxKeyComposer scheme:
+    ///   single-repo (Repos.Count == 1)  → every sandbox belongs to this repo
+    ///   multi-repo single-context (key == repo.Name)     → exact match
+    ///   multi-repo monorepo (key starts with repo.Name + "/")  → prefix match
+    /// </summary>
+    public static IReadOnlyList<KeyValuePair<string, ISandbox>> SandboxesForRepo(
+        PipelineContext pipeline, RepoConnection repo)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
+            return [];
+        var repoCount = pipeline.TryGet<IReadOnlyList<RepoConnection>>(
+            ContextKeys.Repos, out var repos) && repos is not null ? repos.Count : 1;
+
+        // Single-repo: every sandbox serves this repo.
+        if (repoCount <= 1)
+            return sandboxes.ToList();
+
+        // Multi-repo: exact match (single-context) or "<repo>/..." prefix (monorepo).
+        var prefix = repo.Name + "/";
+        return sandboxes
+            .Where(kv => kv.Key == repo.Name || kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .ToList();
     }
 }

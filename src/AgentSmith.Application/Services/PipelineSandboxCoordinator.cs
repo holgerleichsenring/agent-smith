@@ -34,6 +34,7 @@ public sealed class PipelineSandboxCoordinator(
         CommandNames.GenerateTests, CommandNames.GenerateDocs,
         CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
         CommandNames.BootstrapProject, CommandNames.BootstrapDocument, CommandNames.BootstrapCheck,
+        CommandNames.BootstrapDiscover, // p0161d: read-only LLM round reads via the per-repo sandbox
         CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
         CommandNames.LoadRuns, CommandNames.AnalyzeCode,
         CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,

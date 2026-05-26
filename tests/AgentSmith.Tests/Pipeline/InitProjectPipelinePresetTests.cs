@@ -23,11 +23,24 @@ public sealed class InitProjectPipelinePresetTests
             CommandNames.AnalyzeCode,
             CommandNames.PublishProjectLanguage,
             CommandNames.LoadSkills,
+            CommandNames.BootstrapDiscover, // p0161d: read-only component discovery
             CommandNames.BootstrapDispatch,
             CommandNames.WriteRunResult,
             CommandNames.InitCommit,
             CommandNames.PrCrossLink, // p0158c
         }, options => options.WithStrictOrdering());
+    }
+
+    [Fact]
+    public void InitProject_BootstrapDiscoverRunsBeforeBootstrapDispatch()
+    {
+        // p0161d: Discover produces DiscoveredComponents that Dispatch fans out on.
+        var list = PipelinePresets.InitProject.ToList();
+        var discoverIdx = list.IndexOf(CommandNames.BootstrapDiscover);
+        var dispatchIdx = list.IndexOf(CommandNames.BootstrapDispatch);
+
+        discoverIdx.Should().BeGreaterThan(0);
+        dispatchIdx.Should().BeGreaterThan(discoverIdx);
     }
 
     [Fact]

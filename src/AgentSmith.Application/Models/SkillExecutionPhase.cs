@@ -15,5 +15,11 @@ public enum SkillExecutionPhase
     Investigate,
     Filter,
     Synthesize,
-    Bootstrap
+    Bootstrap,
+
+    /// <summary>p0161d: read-only first pass of cold-init. The LLM enumerates
+    /// the repo's independently-deployable / independently-callable components
+    /// with evidence. Tool surface: read-only filesystem + ask_human in
+    /// interactive transports; no write_file, no run_command, no http_request.</summary>
+    BootstrapDiscover,
 }

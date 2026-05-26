@@ -29,7 +29,10 @@ public sealed class SkillRoundContextBuilder : IContextBuilder
         var skillName = command.SkillName ?? string.Empty;
         var round = command.Round ?? 1;
         var repoName = command.RepoName ?? string.Empty;
-        return new SkillRoundContext(skillName, round, pipeline.Resolved().Agent, pipeline, repoName);
+        var contextName = command.ContextName ?? string.Empty;
+        var workdir = command.Workdir ?? ".";
+        return new SkillRoundContext(
+            skillName, round, pipeline.Resolved().Agent, pipeline, repoName, contextName, workdir);
     }
 }
 
@@ -55,7 +58,19 @@ public sealed class BootstrapRoundContextBuilder : IContextBuilder
     {
         var skillName = command.SkillName ?? string.Empty;
         var repoName = command.RepoName ?? string.Empty;
-        return new BootstrapRoundContext(skillName, repoName, pipeline.Resolved().Agent, pipeline);
+        var contextName = command.ContextName ?? string.Empty;
+        var workdir = command.Workdir ?? ".";
+        return new BootstrapRoundContext(
+            skillName, repoName, pipeline.Resolved().Agent, pipeline, contextName, workdir);
+    }
+}
+
+public sealed class BootstrapDiscoverContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var repoName = command.RepoName ?? string.Empty;
+        return new BootstrapDiscoverContext(repoName, pipeline.Resolved().Agent, pipeline);
     }
 }
 
