@@ -1,0 +1,148 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169d
+goal: |
+  OPTIONAL — closes 60% of the remaining gap to Devin 2.2's "screen
+  recording of self-verify" feature. Captures terminal-session
+  recordings (asciinema cast format) of the sandbox process during
+  self-verify (p0165) execution, plays them back in the Run-Viewer UI.
+  Browser-driving / GUI-screenshotting is explicitly out — terminal
+  recordings are the 80/20 of "show me what the agent saw".
+
+requires: ["p0169c", "p0165c"]
+
+scope:
+  in: |
+    (1) ScriptRecorder service in the sandbox agent: wraps process
+        execution in `script -q -O cast.txt` (BSD script with
+        asciinema-compatible output). Recording happens only during
+        BuildLaunch + SmokeProbe steps (per p0165). Recording file
+        sealed at step end; uploaded as a run artifact
+        (cast/buildlaunch.cast, cast/smokeprobe.cast).
+
+    (2) Asciinema cast file format (v2 JSON-lines, text-only). No
+        binary streams. Sized at typical 100-500 KB per session.
+
+    (3) Run-Viewer integration: trail-tab nodes for BuildLaunch +
+        SmokeProbe steps get a "▶ play recording" button. Click opens
+        a modal with the asciinema-player.js component (vendored,
+        single file, ~30 KB).
+
+    (4) Privacy: recording omits stdin (no operator typing —
+        BuildLaunch / SmokeProbe are non-interactive anyway).
+        Secrets-scrubbing: tokens / env vars matching
+        config/patterns/secrets-output.yaml are redacted at
+        recording-end (regex-replace in place).
+
+    (5) Cost / size guard: total recording size capped at 5 MB per
+        run; oversize recordings truncated with a marker. Total
+        sandbox disk usage observable via existing telemetry.
+
+  out: |
+    GUI / X-server / browser recordings. Out — terminal only.
+    Cost-of-doing-this metric. Operators evaluate via record size +
+    storage cost; no dedicated telemetry.
+    Replay-as-input (re-running the recorded commands). Out —
+    playback is observation only.
+    Recording during AgenticExecute. Out — that step does many
+    things; recording would be huge + low signal. Targeted on
+    verify steps only.
+
+decisions:
+  - key: |
+      Optional slice — Reason: stuck between "demo-impressive" and
+      "production-useful". Operators who want it gain a clear UX
+      win; those who don't gain nothing from forcing the dependency.
+      Marked optional so the rest of p0169 can ship without it.
+      alternatives: skip entirely (rejected: the Devin-2.2 gap is
+      real); make mandatory (rejected: deployment complexity for a
+      subset of users).
+
+  - key: |
+      asciinema cast format, not video — Reason: text-based, diffable,
+      tiny, no codec dep, no GPU. Browsers play via asciinema-player.js
+      (3.x is current). alternatives: MP4 via ffmpeg (rejected: 100x
+      size + binary blobs + codec dep); SVG-anim (rejected: niche).
+
+  - key: |
+      Secrets-scrubbing at recording end, not in stream — Reason:
+      streaming-redaction risks partial-match misses (token split
+      across writes). End-of-step pass is safer + simpler.
+      alternatives: streaming (rejected: see above); no scrubbing
+      (rejected: regulator-hostile).
+
+steps:
+  - id: recorder
+    action: |
+      ScriptRecorder wraps Process.Start with `script` invocation
+      when AGENTSMITH_RECORD_SESSIONS=true. Output to
+      /work/.agentsmith/cast/{step}.cast.
+    new:
+      - "src/AgentSmith.Sandbox.Agent/Services/ScriptRecorder.cs"
+    modify:
+      - "src/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs"
+
+  - id: handler-integration
+    action: |
+      BuildLaunchHandler + SmokeProbeHandler invoke recorder when
+      env-var set. Cast files added to run-artifact list.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/BuildLaunchHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/SmokeProbeHandler.cs"
+
+  - id: scrubber
+    action: |
+      SecretScrubber pass over cast files; reads
+      config/patterns/secrets-output.yaml, redacts matches.
+    new:
+      - "src/AgentSmith.Sandbox.Agent/Services/CastFileSecretScrubber.cs"
+      - "config/patterns/secrets-output.yaml"
+
+  - id: viewer
+    action: |
+      Run-Viewer trail tab + node detail. asciinema-player vendored
+      as a single JS file (no NPM dep — fetch + commit verbatim).
+    new:
+      - "src/AgentSmith.Server/wwwroot/js/asciinema-player.min.js"
+      - "src/AgentSmith.Server/wwwroot/css/asciinema-player.min.css"
+      - "src/AgentSmith.Server/Ui/Streaming/CastFileEndpoint.cs"
+    modify:
+      - "src/AgentSmith.Server/Ui/Pages/_TrailTab.cshtml"
+      - "src/AgentSmith.Server/wwwroot/js/trail-timeline.js"
+
+  - id: size-guard
+    action: |
+      RecorderSizeGuard checks recording size at flush; truncates
+      with marker when over 5 MB.
+    new:
+      - "src/AgentSmith.Sandbox.Agent/Services/RecorderSizeGuard.cs"
+
+  - id: env-flag
+    action: |
+      AGENTSMITH_RECORD_SESSIONS env-flag (default false). Documented.
+    modify:
+      - "deploy/docker-compose.example.yml"
+      - "docs/configuration/sandbox.md"
+
+  - id: tests
+    action: |
+      Cast file generation + scrub + truncation behaviour.
+    new:
+      - "tests/AgentSmith.Sandbox.Agent.Tests/ScriptRecorderTests.cs"
+      - "tests/AgentSmith.Sandbox.Agent.Tests/CastFileSecretScrubberTests.cs"
+      - "tests/AgentSmith.Tests/Ui/CastFileEndpointTests.cs"
+
+tests:
+  - "ScriptRecorder_RecordEnabled_ProducesValidAsciinemaV2"
+  - "ScriptRecorder_RecordDisabled_NoCastFileGenerated"
+  - "SecretScrubber_TokenInOutput_ReplacedWithRedactedMarker"
+  - "RecorderSizeGuard_Beyond5Mb_TruncatesWithMarker"
+  - "CastFileEndpoint_KnownCast_ReturnsContent"
+  - "CastFileEndpoint_PathTraversal_Returns400"
+
+done:
+  - "ScriptRecorder shipped + invoked from BuildLaunch + SmokeProbe."
+  - "Cast files survive secrets-scrubbing."
+  - "Run-Viewer plays back recordings via vendored asciinema-player."
+  - "Size guard caps at 5 MB."
+  - "Env flag gates the entire feature."
+  - "Smoke: enable env var, run a fix-bug pipeline; click ▶ on the SmokeProbe trail node and watch the live recording."

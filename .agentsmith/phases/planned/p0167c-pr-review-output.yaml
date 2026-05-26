@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0167c
+goal: |
+  Render pr-review observations as actual PR comments via the existing
+  IPrCommentProvider abstraction. Implements CompilePrReviewFindings +
+  PostPrComments handlers, plus the comment-marker overwrite semantics
+  for re-review on push.
+
+requires: ["p0167a", "p0167b"]
+
+scope:
+  in: |
+    (1) CompilePrReviewFindingsHandler reads ContextKeys.SkillObservations,
+        filters to the four pr-review skill outputs, groups by file +
+        line_range, sorts by severity. Output: PrReviewSummary record
+        (TopLevelComment + InlineComments list, where each inline carries
+        file/line/severity/category/body).
+
+    (2) PostPrCommentsHandler dispatches via IPrCommentProvider.
+        Provider gets one PR-comment-batch call per provider type
+        (GitHub: review-comments API; GitLab: per-line MR-notes; AzDO:
+        per-line PR-comment-threads). Existing provider impls extended
+        to accept the typed PrReviewSummary not just raw text.
+
+    (3) Marker-based overwrite: every comment body starts with
+        `<!-- agentsmith:pr-review:{file}:{line} -->` (HTML comment,
+        invisible to readers). On a re-review run, PostPrCommentsHandler
+        first fetches existing review comments, deletes ones with the
+        marker, then posts new ones. Idempotent per file+line.
+
+    (4) Top-level summary comment renders count by severity + link to
+        full result.md via the resource URI (agentsmith://run/<id>/result.md
+        — accessible via p0166c if MCP enabled, otherwise via Web-Observer
+        in p0169 — graceful fallback to absolute path on disk).
+
+    (5) Render budget: max 25 inline comments + 1 summary per PR. Excess
+        observations fold into the summary as a 'remaining N findings'
+        section pointing at result.md.
+
+  out: |
+    PR-approval / PR-block based on severity. Out — review is advisory;
+    operators can wire branch-protection rules separately.
+    Code-suggestion blocks (auto-fix snippets in the comment). Out —
+    requires LLM call per suggestion; cost not justified for this slice.
+    Multi-repo PR linking. Out — single PR per run for pr-review preset.
+
+decisions:
+  - key: |
+      Cap at 25 inline comments — Reason: review noise inverse-correlates
+      with adoption. CodeRabbit's published reviewer feedback rates a 20-
+      30 inline comment review as the upper acceptable bound; beyond that
+      reviewers ignore the bot. The fold-into-summary preserves the
+      observability without the spam. alternatives: no cap (rejected:
+      noise); much lower cap (rejected: misses real findings on large PRs).
+
+  - key: |
+      Marker-based overwrite, not stack — Reason: matches p0158c cross-link
+      replace-marker convention and Greptile's published behaviour.
+      Operators can audit the marker existence in PR HTML source.
+      alternatives: stack (rejected: see [[p0167a]] decision).
+
+  - key: |
+      Top-level summary links to result.md, not embeds — Reason: keep PR
+      comments small + scannable. Operators who want the audit trail
+      follow the link. alternatives: embed full plan/observations
+      (rejected: PR-comment-body length quotas + noise).
+
+steps:
+  - id: types
+    action: |
+      PrReviewSummary + PrReviewInlineComment records.
+    new:
+      - "src/AgentSmith.Domain/Models/PrReviewSummary.cs"
+      - "src/AgentSmith.Domain/Models/PrReviewInlineComment.cs"
+
+  - id: compile-handler
+    action: |
+      CompilePrReviewFindingsHandler.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/CompilePrReviewFindingsHandler.cs"
+      - "src/AgentSmith.Application/Models/CompilePrReviewFindingsContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/CompilePrReviewFindingsContextBuilder.cs"
+
+  - id: post-handler
+    action: |
+      PostPrCommentsHandler.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/PostPrCommentsHandler.cs"
+      - "src/AgentSmith.Application/Models/PostPrCommentsContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/PostPrCommentsContextBuilder.cs"
+
+  - id: provider-extensions
+    action: |
+      Extend IPrCommentProvider with PostReviewBatchAsync(PrReviewSummary).
+      Implement for GitHub / GitLab / AzDO. Existing per-comment APIs
+      remain for backward compat (used by dialogue trail).
+    modify:
+      - "src/AgentSmith.Contracts/Services/IPrCommentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrCommentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrCommentProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrCommentProvider.cs"
+
+  - id: command-names
+    action: |
+      CommandNames.CompilePrReviewFindings + PostPrComments. DI wire-up.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+
+  - id: tests
+    action: |
+      Cover: comment cap fold-into-summary, marker overwrite delete-then-
+      post, per-provider batch shape, empty-observations case (post nothing).
+    new:
+      - "tests/AgentSmith.Tests/Handlers/CompilePrReviewFindingsHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/PostPrCommentsHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Providers/PrCommentProviderBatchTests.cs"
+
+tests:
+  - "CompilePrReviewFindings_GroupsByFileLineAndSortsBySeverity"
+  - "CompilePrReviewFindings_FortyObservations_TwentyFiveInlinePlusSummary"
+  - "PostPrComments_FirstRun_PostsAllWithMarker"
+  - "PostPrComments_SecondRun_DeletesMarkedThenPosts"
+  - "PostPrComments_ZeroFindings_PostsOnlySummaryWithCleanResult"
+  - "GitHubPrCommentProvider_PostReviewBatch_OneApiCallPerBatch"
+
+done:
+  - "PrReviewSummary + PrReviewInlineComment records shipped."
+  - "CompilePrReviewFindings + PostPrComments handlers green."
+  - "GitHub / GitLab / AzDO providers implement PostReviewBatchAsync."
+  - "25-inline cap + summary-fold for excess."
+  - "Re-run on PR-synchronize overwrites marked comments."
+  - "Build smoke: open test PR, observe pr-review preset run end-to-end, inline + summary comments appear on the PR."

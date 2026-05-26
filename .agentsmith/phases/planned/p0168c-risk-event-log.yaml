@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0168c
+goal: |
+  Add a structured Risk-Event Log capturing every decision-relevant event
+  during a run: approval gate hit, gate decision (approved / rejected /
+  timeout), tool-call denied by policy, skill observation with severity
+  >= high, plan revision, dispatch-skipped, verify-fail.
+
+  Article 12 of the EU AI Act mandates "logging of events… enabling
+  identification of situations resulting in… risk… or substantial
+  modification". This phase is the logging surface plus a read-only
+  HTTP endpoint regulators / operators can pull from.
+
+requires: ["p0168b"]
+
+scope:
+  in: |
+    (1) IRiskEventLogger contract. Default impl RedisRiskEventLogger writes
+        to a per-run Redis list `agentsmith:risk-events:{runId}` and to a
+        long-lived sorted set keyed by timestamp for cross-run queries.
+        Test impl in-memory.
+
+    (2) RiskEvent record fields:
+        - event_id (ulid)
+        - timestamp (iso8601 utc)
+        - run_id, pipeline_name
+        - event_type (enum: ApprovalGateOpened / ApprovalGateDecided /
+          ToolCallDenied / HighSeverityObservation / PlanRevised /
+          DispatchSkipped / VerifyFailed / SignatureViolation)
+        - severity (info / warn / high / critical)
+        - actor (human-operator-email / agent-model-name / system)
+        - intervention_available (bool — true if an operator could have
+          intervened at this decision point)
+        - decision_path (free-form JSON, event-type-specific)
+        - parent_event_id (optional, for follow-ups)
+
+    (3) Emit sites:
+        - AskCommandHandler: opens ApprovalGateOpened + emits
+          ApprovalGateDecided when answer lands
+        - ToolExecutor: ToolCallDenied when WebToolHost rejects
+          (allowlist), SandboxToolHandler rejects, etc.
+        - ObservationParser: HighSeverityObservation when
+          observation.severity in [high, critical]
+        - PlanRevisionHandler (p0164b): PlanRevised
+        - DispatchCoordinator (if p0151i lands): DispatchSkipped
+        - SmokeProbeHandler (p0165b): VerifyFailed (enforce mode)
+        - SkillTarballVerifier (p0166d): SignatureViolation
+
+    (4) HTTP endpoint GET /risk-events on the Server.
+        Query params: run=<id>, since=<iso8601>, severity=<level>+,
+        type=<enum>+. Paginated (page-size 100, cursor token).
+        Returns JSON array conforming to the RiskEvent schema.
+
+    (5) Compliance-bundle plug-in: RiskEventArtifactCollector adds
+        the run's full event list to the bundle as risk-events.json.
+
+    (6) Architecture test: every IRiskEventLogger.LogAsync call site
+        passes a non-null actor + event_type from the typed enum
+        (no string-literal events).
+
+  out: |
+    Long-term storage / archival policy. Operators may need 6-year
+    retention for some sectors; the Redis sorted set is suited for
+    weeks/months. Long-term archival is a separate operator concern.
+    PII redaction. Risk events carry actor identifiers; operators
+    decide via config which fields to redact at log-time.
+    Realtime push (webhook to operator SIEM). Out — pull endpoint
+    only. Push is a follow-up phase.
+
+decisions:
+  - key: |
+      Typed event_type enum, not free-form strings — Reason: regulators
+      audit by event class. Enum constrains the vocabulary so queries
+      and analytics stay tractable. Adding a new event type is a code
+      change (visible). alternatives: free-form (rejected: tag drift);
+      ontology-based (rejected: over-engineering for an MVP).
+
+  - key: |
+      Redis for storage — Reason: existing infra; same pub/sub mechanism
+      we already use for bus messages; sorted set enables time-range
+      queries. alternatives: dedicated DB (rejected: deployment
+      complexity); filesystem (rejected: not query-able).
+
+  - key: |
+      intervention_available as a first-class field — Reason: EU AI Act
+      Article 14 (Human Oversight) requires showing where humans CAN
+      intervene. The field lets a compliance report show
+      'N gates available, K used' per period. alternatives: derive at
+      query time (rejected: depends on stable event-type→intervention
+      mapping over time; flag in event is durable).
+
+steps:
+  - id: contract
+    action: |
+      IRiskEventLogger + RiskEvent + RiskEventType enum + RiskSeverity enum.
+    new:
+      - "src/AgentSmith.Contracts/Services/IRiskEventLogger.cs"
+      - "src/AgentSmith.Contracts/Models/RiskEvent.cs"
+      - "src/AgentSmith.Contracts/Models/RiskEventType.cs"
+      - "src/AgentSmith.Contracts/Models/RiskSeverity.cs"
+
+  - id: redis-impl
+    action: |
+      RedisRiskEventLogger writes per-run list + cross-run sorted set
+      with timestamp score.
+    new:
+      - "src/AgentSmith.Infrastructure/Services/Compliance/RedisRiskEventLogger.cs"
+    modify:
+      - "src/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: emit-sites
+    action: |
+      Add LogAsync calls at every named emit site.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/AskCommandHandler.cs"
+      - "src/AgentSmith.Application/Services/Tools/WebToolHost.cs"
+      - "src/AgentSmith.Application/Services/Tools/SandboxToolHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationParser.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PlanRevisionHandler.cs"
+      - "src/AgentSmith.Application/Services/Handlers/SmokeProbeHandler.cs"
+      - "src/AgentSmith.Application/Services/Skills/SkillTarballVerifier.cs"
+
+  - id: http-endpoint
+    action: |
+      MapRiskEventEndpoints in AgentSmith.Server. Query parser,
+      pagination, JSON serialization with snake_case.
+    new:
+      - "src/AgentSmith.Server/Extensions/RiskEventEndpoints.cs"
+      - "src/AgentSmith.Server/Models/RiskEventQuery.cs"
+    modify:
+      - "src/AgentSmith.Server/Program.cs"
+
+  - id: bundle-collector
+    action: |
+      RiskEventArtifactCollector implements IComplianceArtifactCollector.
+    new:
+      - "src/AgentSmith.Application/Services/Compliance/RiskEventArtifactCollector.cs"
+
+  - id: arch-test
+    action: |
+      Architecture test ensures no LogAsync call uses string-literal
+      event types.
+    new:
+      - "tests/AgentSmith.Tests/Architecture/RiskEventLoggerCallSiteTests.cs"
+
+  - id: tests
+    action: |
+      Cover: log + read round-trip, query by severity/type/since,
+      cross-run sorted-set query, bundle inclusion.
+    new:
+      - "tests/AgentSmith.Tests/Compliance/RedisRiskEventLoggerTests.cs"
+      - "tests/AgentSmith.Tests/Integration/RiskEventsEndpointTests.cs"
+
+tests:
+  - "RiskEventLogger_LogApprovalGateOpened_PersistsToRedisList"
+  - "RiskEventLogger_LogApprovalGateDecided_ParentLinksToOpened"
+  - "RiskEventsEndpoint_QueryByRun_ReturnsAllEventsOrdered"
+  - "RiskEventsEndpoint_QueryBySeverityHigh_FiltersOutInfoEvents"
+  - "RiskEventsEndpoint_PaginationCursor_NextPageHasNoOverlap"
+  - "RiskEventArtifactCollector_AddsRiskEventsJsonToBundle"
+  - "Architecture_NoStringLiteralEventType"
+
+done:
+  - "RiskEvent type + 8 enum members + IRiskEventLogger + Redis impl shipped."
+  - "All 7 emit sites call LogAsync with typed event_type."
+  - "GET /risk-events supports run + since + severity + type filters with pagination."
+  - "Compliance bundle includes risk-events.json."
+  - "Architecture test green; no string-literal event types."
+  - "Smoke: trigger a fix-bug run that hits the approval gate, then `curl /risk-events?run=<id> | jq` returns 2 events (open + decided)."

@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0164b
+goal: |
+  Add per-step plan-edit buttons to the dialogue approval flow. Closes the
+  GitHub-Copilot-Workspace-style gap: today a reviewer can approve or reject
+  but cannot redirect ("step 3 looks wrong, try a different approach there").
+  Workspace's killer feature in early 2026 was exactly this interactive plan
+  iteration before execution.
+
+  New QuestionType.PlanReview emits structured choices [approve, reject,
+  edit_step:N] where N enumerates the plan steps. Selecting edit_step:N
+  re-prompts the Plan-skill with the operator's feedback for step N and
+  asks for approval again. Bounded to 3 iterations.
+
+requires: ["p0164a"]
+
+scope:
+  in: |
+    (1) New QuestionType.PlanReview enum value alongside Approval / Confirmation
+        / Choice / FreeText / Info. Routes through the same DialogQuestion +
+        DialogAnswer types — the renderer-side block-builder shapes the UI.
+
+    (2) SlackTypedQuestionBlockBuilder.BuildPlanReview emits Block Kit with:
+        - top-level summary + collapsed step list (numbered, 1..N)
+        - top-row buttons: [Approve] [Reject]
+        - per-step row: each row has the step description + an [Edit] button
+          carrying value `edit_step:N`
+        - free-text input field 'Feedback' (optional) — submitted along
+          with edit_step choice.
+
+    (3) TeamsQuestionCardBuilder.BuildPlanReview emits Adaptive Card with
+        the same layout (step list as a Container with action set).
+
+    (4) DialogAnswer gains optional FreeText field — already a property?
+        verify; if not, additive. Carries operator feedback when an edit_step
+        button is clicked alongside the textbox.
+
+    (5) Pipeline-side: when answer.Answer matches edit_step:N regex, a new
+        PlanRevisionHandler is dispatched. It re-runs GeneratePlan with an
+        augmented prompt section ("Operator wants step N revised. Their
+        feedback: <text>") and loops back to the same Ask step. A
+        PlanRevisionCount concept (int, vocabulary update) caps the loop
+        at 3 — past which the answer falls through as reject with a
+        diagnostic message.
+
+    (6) Pre-p0164b headless behaviour preserved by virtue of headless mode
+        short-circuiting to DefaultAnswer="approve" at AskCommandHandler.
+
+  out: |
+    Drag-to-reorder steps or split-step UX. Out — the only edit affordance
+    is per-step feedback to the planner.
+    Per-step approve (approve N, reject M) as separate decisions. Out —
+    decision is binary at the plan level; edits are partial undo + redo.
+    Web-UI approval (the future MCP / Web-Observer path may add this).
+
+decisions:
+  - key: |
+      Re-run GeneratePlan, do not splice — Reason: a partial plan-edit
+      (replace step 3 in place) tempts inconsistency. Letting the planner
+      regenerate the full plan with feedback in the prompt preserves
+      coherence at the cost of more tokens per edit cycle. The 3-iteration
+      cap bounds cost. alternatives: edit-in-place (rejected: skill graph
+      coherence breaks); fork into N candidate plans (rejected: UX
+      complexity not justified for an MVP slice).
+
+  - key: |
+      PlanRevisionCount as a Concept (cross-repo vocabulary update) —
+      Reason: the loop bound is observable in result.md and trackable
+      across runs. alternatives: handler-private counter (rejected:
+      invisible to operators).
+
+  - key: |
+      DialogAnswer.FreeText additive, not new type — Reason: every
+      existing handler/test compiles unchanged when an optional string
+      field is added with default null. alternatives: new
+      DialogAnswerWithFeedback record (rejected: per
+      [[feedback_no_wrapper_shims]]).
+
+steps:
+  - id: types
+    action: |
+      Add PlanReview enum value + optional FreeText field on DialogAnswer.
+    modify:
+      - "src/AgentSmith.Contracts/Dialogue/QuestionType.cs"
+      - "src/AgentSmith.Contracts/Dialogue/DialogAnswer.cs"
+
+  - id: builders
+    action: |
+      Question builder picks PlanReview when in dialogue mode. Block-kit
+      and Adaptive-Card builders render the layout.
+    modify:
+      - "src/AgentSmith.Application/Services/Builders/PlanApprovalQuestionBuilder.cs"
+      - "src/AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs"
+      - "src/AgentSmith.Server/Services/Adapters/TeamsQuestionCardBuilder.cs"
+
+  - id: revision-handler
+    action: |
+      PlanRevisionHandler re-dispatches GeneratePlan with operator feedback
+      injected into the prompt. Increments PlanRevisionCount. Loop bound = 3.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/PlanRevisionHandler.cs"
+      - "src/AgentSmith.Application/Models/PlanRevisionContext.cs"
+
+  - id: preset-wiring
+    action: |
+      FixBug / AddFeature / FixNoTest presets: the Ask step now references
+      PlanRevisionHandler in its on-answer-edit branch.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
+
+  - id: concept-vocabulary
+    action: |
+      Cross-repo agent-smith-skills concept-vocabulary.yaml: add
+      plan_revision_count int concept (range 0..3).
+    modify:
+      - "(cross-repo agent-smith-skills) skills/concept-vocabulary.yaml"
+
+  - id: tests
+    action: |
+      Cover: approve path, reject path, single edit cycle, 3-edit cap,
+      block-kit JSON snapshot, adaptive-card JSON snapshot.
+    new:
+      - "tests/AgentSmith.Tests/Handlers/PlanRevisionHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Dispatcher/SlackPlanReviewBlocksTests.cs"
+      - "tests/AgentSmith.Tests/Dispatcher/TeamsPlanReviewCardTests.cs"
+
+tests:
+  - "PlanReview_AnswerApprove_PipelineContinues"
+  - "PlanReview_AnswerReject_PipelineFails"
+  - "PlanReview_AnswerEditStepWithFeedback_RegeneratesPlanAndRePrompts"
+  - "PlanReview_ThreeRevisions_FourthAnswerForcesRejectWithDiagnostic"
+  - "SlackPlanReviewBlocks_RendersPerStepEditButtonWithValueEditStepN"
+  - "TeamsPlanReviewCard_RendersPerStepEditActionWithValueEditStepN"
+
+done:
+  - "QuestionType.PlanReview shipped; SlackTypedQuestionBlockBuilder + TeamsQuestionCardBuilder render the layout."
+  - "PlanRevisionHandler loops up to 3 times; 4th cycle falls through as reject with diagnostic."
+  - "FixBug / AddFeature / FixNoTest presets wire the revision path."
+  - "Operator feedback (free-text) flows into the planner prompt."
+  - "Snapshot tests green for Block Kit + Adaptive Card JSON shapes."
+  - "Smoke: agent-smith fix --ticket X via Slack receives a plan card with [Edit] buttons; clicking Edit-Step-2 with feedback 'avoid Redis' regenerates a plan that does not use Redis."
