@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0166c
+goal: |
+  Add SSE notification streaming so MCP consumers receive live progress for
+  long-running pipeline runs triggered via p0166b's tools/call. Also expose
+  run artifacts (result.md, decisions, observations) as MCP resources so a
+  calling agent can read the verification evidence without out-of-band
+  filesystem access.
+
+requires: ["p0166b"]
+
+scope:
+  in: |
+    (1) GET /mcp/events?run=<runId> opens an SSE stream. Subscribes the
+        connection to the existing Redis pub/sub channel for that run
+        (already populated by RedisProgressReporter from the sandbox
+        side). Each progress / done / error event becomes one SSE event
+        formatted per MCP notifications spec.
+
+    (2) Event types streamed:
+        - progress (notifications/progress): step, total, commandName
+        - tool_call (notifications/message with kind=tool): tool name +
+          truncated args
+        - skill_observation (notifications/message with kind=observation)
+        - done (notifications/done): runId, result-summary, prUrl
+        - error (notifications/error): runId, errorContext
+
+    (3) Subscription cleanup: connection close releases the pub/sub
+        subscription. Server-side enforces 30-minute idle timeout per
+        stream.
+
+    (4) Resources endpoint: GET /mcp/resources/list returns the runs/
+        directory layout as MCP resources. resources/read?uri=
+        agentsmith://run/<id>/result.md returns the file content.
+
+    (5) Resource URIs follow `agentsmith://` scheme. Supported paths:
+        /run/<id>/result.md, /run/<id>/decisions.md, /run/<id>/observations.json,
+        /run/<id>/verify.json (when p0165b VerifyReport persisted).
+
+  out: |
+    Bi-directional streaming (consumer pushing intermediate input to a
+    running pipeline). Future feature, ties into ask_human MCP variant.
+    Resource caching / ETags. Out — simple read-through to disk.
+    Quality-bar manifest — slice [[p0166d]].
+
+decisions:
+  - key: |
+      Reuse Redis pub/sub channel — Reason: BusMessageRouter already
+      consumes it for Slack/Teams. Adding MCP as a third consumer is a
+      new subscriber on the same channel; no new event source. Zero
+      drift between chat-visible and MCP-visible event streams.
+      alternatives: new MCP-specific channel (rejected: duplicates the
+      bus state machine); poll runs/ directory (rejected: latency +
+      filesystem race conditions).
+
+  - key: |
+      30-minute idle timeout — Reason: SSE connections that go idle
+      mid-pipeline indicate consumer detach; the run continues regardless.
+      Holding a socket indefinitely leaks file descriptors. Operators
+      whose runs exceed 30min reconnect (idempotent — same events
+      replay from current state via /mcp/resources/read).
+      alternatives: indefinite (rejected: leak); shorter (rejected:
+      legitimate long-running pipelines).
+
+  - key: |
+      `agentsmith://` URI scheme — Reason: MCP resources need a URI
+      scheme; using a custom one signals 'this is local to the
+      Agent Smith server'. Matches the file:// scheme convention used
+      elsewhere in MCP. alternatives: file:// (rejected: leaks host
+      filesystem paths); http:// (rejected: ambiguous w/ MCP transport).
+
+steps:
+  - id: sse-endpoint
+    action: |
+      McpEventsEndpoint maps GET /mcp/events; reads runId query param;
+      asserts AGENTSMITH_MCP_ENABLED.
+    new:
+      - "src/AgentSmith.McpServer/Transport/McpEventsEndpoint.cs"
+      - "src/AgentSmith.McpServer/Services/SseEventWriter.cs"
+
+  - id: bus-subscriber
+    action: |
+      McpBusSubscriber subscribes to the per-run Redis channel,
+      translates BusMessage → MCP notification JSON, writes to SSE.
+      Manages timeout + disposal.
+    new:
+      - "src/AgentSmith.McpServer/Services/McpBusSubscriber.cs"
+
+  - id: resources
+    action: |
+      ResourcesListHandler + ResourcesReadHandler. URI parsing for
+      `agentsmith://run/<id>/<filename>`. Reads from
+      .agentsmith/runs/<id>/.
+    new:
+      - "src/AgentSmith.McpServer/Handlers/ResourcesListHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/ResourcesReadHandler.cs"
+      - "src/AgentSmith.McpServer/Services/RunResourceResolver.cs"
+
+  - id: dispatcher
+    action: |
+      Register resources/list, resources/read in the method dispatcher.
+    modify:
+      - "src/AgentSmith.McpServer/Transport/McpMethodDispatcher.cs"
+
+  - id: tests
+    action: |
+      Cover: SSE event flow (synthetic Redis messages → SSE output),
+      timeout, reconnect-after-close. Resource read happy path + 404
+      for missing runs.
+    new:
+      - "tests/AgentSmith.McpServer.Tests/Services/McpBusSubscriberTests.cs"
+      - "tests/AgentSmith.McpServer.Tests/Handlers/ResourcesReadHandlerTests.cs"
+      - "tests/AgentSmith.McpServer.Tests/Integration/McpSseStreamTests.cs"
+
+tests:
+  - "McpEvents_PublishedProgressMessage_FormattedAsNotificationsProgress"
+  - "McpEvents_PublishedDoneMessage_FormattedAsNotificationsDone"
+  - "McpEvents_IdleConnection30Minutes_ServerClosesWithTimeoutCode"
+  - "McpEvents_ConnectionClose_UnsubscribesFromRedisChannel"
+  - "ResourcesList_ReturnsFourResourcesPerRun"
+  - "ResourcesRead_KnownRunReadsResultMd_ReturnsContent"
+  - "ResourcesRead_UnknownRun_ReturnsResourceNotFoundError"
+
+done:
+  - "GET /mcp/events streams progress + done + error from Redis pub/sub."
+  - "resources/list + resources/read expose 4 artifacts per run."
+  - "agentsmith:// URI scheme parsed correctly; out-of-tree paths rejected."
+  - "30-min idle timeout enforced."
+  - "Full McpServer test suite green."
+  - "Smoke: `curl --no-buffer http://localhost:8081/mcp/events?run=<id>` streams events live during a pipeline run."

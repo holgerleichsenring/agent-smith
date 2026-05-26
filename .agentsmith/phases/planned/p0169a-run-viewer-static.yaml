@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169a
+goal: |
+  Add a read-only Web-Observer UI for run inspection. Serves the
+  contents of `.agentsmith/runs/<id>/` over HTTP from the existing
+  AgentSmith.Server WebApplication. No live streaming yet (that's
+  p0169b) — just a clean directory listing + file viewer that
+  closes the "operator can't see what's happening / what happened"
+  gap that competitors (Devin's Spaces, OpenHands GUI) already
+  solved.
+
+requires: ["p0156"]
+
+scope:
+  in: |
+    (1) GET /ui/runs → HTML page listing all runs in
+        .agentsmith/runs/, sorted newest-first (per p0156 ISO-8601
+        run-id format the sort is lexicographic). Columns: run-id,
+        pipeline, start time, duration, status (read from
+        result.md frontmatter).
+
+    (2) GET /ui/runs/<id> → run detail page. Renders result.md
+        as HTML. Sidebar lists every file in the run dir; click to
+        view raw (markdown rendered, JSON pretty-printed).
+
+    (3) GET /ui/runs/<id>/files/<path> → raw file content with
+        correct content-type (text/markdown, application/json,
+        text/plain).
+
+    (4) Styling: reuses DESIGN.md tokens via the existing
+        docs/stylesheets/tokens.css (copied to wwwroot at build).
+        Card-terminal-panel style for the file viewer matches the
+        rest of the docs site visually.
+
+    (5) Server-side rendering. No JavaScript framework. Single
+        small Razor Pages module under AgentSmith.Server/Ui/.
+        Markdown rendering via Markdig (NuGet, in-box-ish).
+
+    (6) Path-traversal guard: every <path> is canonicalized and
+        verified to live under .agentsmith/runs/<id>/. Reject
+        with 400 otherwise.
+
+    (7) AGENTSMITH_UI_ENABLED env-gate so deployments that don't
+        want a browsable UI can disable. Default: enabled.
+
+  out: |
+    Live tailing of in-progress runs — slice [[p0169b]].
+    Tool-call trail visualization — slice [[p0169c]].
+    Screen recording capture — optional slice [[p0169d]].
+    Authentication. The endpoint is unauthenticated. Operators
+    front it with a reverse proxy (nginx basic-auth, OIDC, etc).
+    Search across runs. Out — directory listing is the navigation
+    affordance.
+
+decisions:
+  - key: |
+      Server-side rendering, no SPA — Reason: Agent Smith's audience
+      is operators/engineers. A heavy JS bundle for what is fundamentally
+      file listings would invert effort vs value. Razor Pages + Markdig
+      is small + maintainable. alternatives: React SPA (rejected:
+      build tooling weight); pure JSON API + curl (rejected: defeats
+      the "human can look at it" point).
+
+  - key: |
+      DESIGN.md tokens via build-tokens.mjs output — Reason: the doc
+      site + landing already consume the tokens. Reusing them keeps
+      the UI on-brand without per-surface CSS rewrites. alternatives:
+      separate stylesheet (rejected: drift); inline styles
+      (rejected: same).
+
+  - key: |
+      Path traversal guard — Reason: serving filesystem from an HTTP
+      endpoint is the classic CVE pattern. Canonicalization +
+      whitelist check is the single hardening that prevents it.
+      alternatives: trust query params (rejected: security
+      regression).
+
+  - key: |
+      AGENTSMITH_UI_ENABLED default enabled — Reason: an inert UI
+      endpoint protected behind a proxy is the safe path; a default-
+      off would mean nobody discovers it. alternatives: default off
+      (rejected: discoverability).
+
+steps:
+  - id: razor-module
+    action: |
+      Server/Ui/Pages with Index.cshtml + RunDetail.cshtml + raw-file
+      endpoint. Add Microsoft.AspNetCore.Mvc.RazorPages registration.
+    new:
+      - "src/AgentSmith.Server/Ui/Pages/Index.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Index.cshtml.cs"
+      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml.cs"
+      - "src/AgentSmith.Server/Ui/Pages/_Layout.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/_ViewStart.cshtml"
+      - "src/AgentSmith.Server/Ui/Services/RunDirectoryBrowser.cs"
+      - "src/AgentSmith.Server/Ui/Services/MarkdownRenderer.cs"
+
+  - id: raw-file-endpoint
+    action: |
+      Minimal-API mapped GET /ui/runs/{id}/files/{*path}. Path
+      canonicalization + guard.
+    new:
+      - "src/AgentSmith.Server/Extensions/UiRawFileEndpoint.cs"
+
+  - id: assets
+    action: |
+      wwwroot/css/tokens.css symlink-copied from docs/stylesheets/
+      at build. wwwroot/css/ui.css for layout-specific styles.
+    new:
+      - "src/AgentSmith.Server/wwwroot/css/ui.css"
+      - "src/AgentSmith.Server/wwwroot/favicon.ico"
+
+  - id: di-gate
+    action: |
+      AddRunObserverUi extension; Program.cs reads
+      AGENTSMITH_UI_ENABLED.
+    new:
+      - "src/AgentSmith.Server/Extensions/UiExtensions.cs"
+    modify:
+      - "src/AgentSmith.Server/Program.cs"
+
+  - id: package
+    action: |
+      Add Markdig + Microsoft.AspNetCore.Mvc.RazorPages.
+    packages:
+      - "Markdig 0.x"
+      - "Microsoft.AspNetCore.Mvc.RazorPages 8.x"
+
+  - id: tests
+    action: |
+      WebApplicationFactory tests for routes + path-traversal
+      rejection.
+    new:
+      - "tests/AgentSmith.Tests/Ui/RunListPageTests.cs"
+      - "tests/AgentSmith.Tests/Ui/RunDetailPageTests.cs"
+      - "tests/AgentSmith.Tests/Ui/PathTraversalGuardTests.cs"
+
+tests:
+  - "RunList_Endpoint200_SortsRunsByIdDescending"
+  - "RunDetail_KnownRun_RendersResultMdAsHtml"
+  - "RawFile_RelativeOutsideRunDir_Returns400"
+  - "RawFile_AbsolutePathInQuery_Returns400"
+  - "RawFile_KnownFile_ContentTypeMatchesExtension"
+  - "UiDisabled_Endpoint404_WhenEnvVarFalse"
+
+done:
+  - "GET /ui/runs lists all runs."
+  - "GET /ui/runs/<id> renders result.md + file sidebar."
+  - "Path traversal guard rejects relative + absolute escapes."
+  - "Razor Pages styled via DESIGN.md tokens."
+  - "AGENTSMITH_UI_ENABLED gate works."
+  - "Smoke: browse http://localhost:8081/ui/runs in a real browser after a fix-bug run; click into the run, see result.md rendered."

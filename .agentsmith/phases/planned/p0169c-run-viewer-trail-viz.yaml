@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169c
+goal: |
+  Render the tool-call trail + skill-round timeline as a structured tree
+  visualization in the Run-Viewer UI. Operators see the agent's actual
+  sequence of decisions (which skills fired, which tools they invoked,
+  what each cost) as a navigable tree instead of as a JSON blob.
+
+  Closes the "I can inspect the decision graph after the fact" gap that
+  observability tools (Langfuse / LangSmith) sell as a stand-alone
+  product.
+
+requires: ["p0169b"]
+
+scope:
+  in: |
+    (1) Tool-call trail tree: hierarchical view of
+        skill-round → skill-call → tool-call → tool-result. Collapsible
+        nodes; expanded nodes show args + result preview. Cost per
+        node from cost-summary.json. Severity badge for any node
+        that produced a high/critical observation.
+
+    (2) Source data: existing tool-call-trail.json + cost-summary.json
+        + observations.json (all already written per p0151d/p0150b).
+        Page-side rendering only — no new data emission.
+
+    (3) Two-pane layout: tree on the left (~30% width), node detail
+        on the right (~70%). Click a node to load its detail
+        (truncated tool-call args, full result, linked observations).
+
+    (4) "Replay timeline" mode: slider control that scrubs forward in
+        time; nodes that fired before the slider position are visible,
+        rest dimmed. Helps reconstruct cause/effect when many parallel
+        skill rounds ran.
+
+    (5) Same UI page (RunDetail.cshtml) — adds a new tab "Trail"
+        alongside the existing "Summary" + "Files" + "Live Log"
+        sections. Tab routing client-side (hash anchors, no JS
+        framework).
+
+    (6) Performance: trail JSON >5 MB falls back to summary-only view
+        with a download link. The detail-pane lazy-loads node
+        content for >500-node trails.
+
+  out: |
+    Screen recording capture — optional slice [[p0169d]].
+    Cross-run comparison view. Out — single-run focus.
+    Editable trail (replay-with-edits). Out — read-only.
+    Custom trail filters. Out — tree expansion + slider is the
+    navigation affordance.
+
+decisions:
+  - key: |
+      Render entirely from existing JSON, no schema additions —
+      Reason: every artifact this view needs is already in
+      .agentsmith/runs/<id>/. Adding new emission code would mean
+      reprocessing old runs lacks the field, which then needs a
+      compatibility shim. alternatives: dedicated trail-emission
+      handler (rejected: per [[feedback_no_wrapper_shims]] +
+      duplicates existing).
+
+  - key: |
+      Two-pane left-tree right-detail layout — Reason: matches how
+      ops people read IDE debugger views + Langfuse + Anthropic's
+      Console traces. Familiar pattern. alternatives: top-down
+      timeline (rejected: hard to scan deep nests); flat list
+      (rejected: loses parent/child context).
+
+  - key: |
+      5MB + 500-node thresholds — Reason: a run that produces a
+      trail beyond these is unusual (one or two orders above
+      typical). The fallback ensures the UI doesn't lock up. The
+      numbers are empirical defaults; operators can tune via
+      AGENTSMITH_UI_TRAIL_MAX_MB and _MAX_NODES env vars.
+      alternatives: no limit (rejected: browser lock-ups);
+      hardcoded (rejected: no tuning path).
+
+steps:
+  - id: data-loader
+    action: |
+      TrailDataLoader reads + parses the three JSON artifacts; emits
+      a unified TreeNode list scoped to the run.
+    new:
+      - "src/AgentSmith.Server/Ui/Services/TrailDataLoader.cs"
+      - "src/AgentSmith.Server/Ui/Models/TrailTreeNode.cs"
+
+  - id: trail-page
+    action: |
+      Trail tab in RunDetail.cshtml. Server-side renders the tree
+      skeleton; node-detail loaded on demand via fetch + JSON
+      fragment endpoint.
+    modify:
+      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
+    new:
+      - "src/AgentSmith.Server/Ui/Pages/_TrailTab.cshtml"
+      - "src/AgentSmith.Server/Ui/Streaming/TrailNodeDetailEndpoint.cs"
+
+  - id: slider-js
+    action: |
+      Vanilla-JS timeline slider. Reads node timestamps from
+      data attributes; toggles "before"/"after" CSS class on each
+      node based on slider position.
+    new:
+      - "src/AgentSmith.Server/wwwroot/js/trail-timeline.js"
+      - "src/AgentSmith.Server/wwwroot/css/trail.css"
+
+  - id: fallback
+    action: |
+      Threshold-detection in TrailDataLoader; large-trail summary
+      view rendering only top-level skill rounds + a download link.
+    modify:
+      - "src/AgentSmith.Server/Ui/Services/TrailDataLoader.cs"
+
+  - id: env-knobs
+    action: |
+      AGENTSMITH_UI_TRAIL_MAX_MB + AGENTSMITH_UI_TRAIL_MAX_NODES env
+      vars wired into TrailDataLoader.
+    modify:
+      - "src/AgentSmith.Server/Extensions/UiExtensions.cs"
+
+  - id: tests
+    action: |
+      Snapshot tests for known-good run JSONs → expected tree
+      shape. Threshold tests for fallback path.
+    new:
+      - "tests/AgentSmith.Tests/Ui/Services/TrailDataLoaderTests.cs"
+      - "tests/AgentSmith.Tests/Ui/TrailTabSnapshotTests.cs"
+
+tests:
+  - "TrailDataLoader_KnownRunWithToolCalls_BuildsExpectedTreeShape"
+  - "TrailDataLoader_TrailBeyond5Mb_FallbackToSummaryView"
+  - "TrailDataLoader_NodeCountBeyond500_FallbackToSummaryView"
+  - "TrailNodeDetail_KnownNodeId_ReturnsArgsAndResult"
+  - "TrailTab_HtmlRenderedWithExpectedNodes"
+
+done:
+  - "Trail tab renders tree from existing JSON artifacts."
+  - "Detail-pane click-to-load works."
+  - "Slider scrubs node visibility by timestamp."
+  - "Fallback to summary-view triggers above 5MB / 500 nodes."
+  - "Env knobs override defaults."
+  - "Smoke: load /ui/runs/<id>#trail in browser; expand a skill-round → tool-call; see cost + args + result."
