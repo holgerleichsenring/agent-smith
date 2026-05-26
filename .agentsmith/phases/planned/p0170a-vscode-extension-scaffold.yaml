@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0170a
+goal: |
+  Ship a thin VS Code extension that triggers Agent Smith pipelines
+  against the currently-open workspace. Extension is a launcher, not a
+  re-implementation — it POSTs to the MCP-server endpoint (p0166b) of
+  a locally-running Agent Smith server and surfaces run status / link
+  to PR.
+
+  Cline / Cursor / Continue have soaked up the in-IDE agent mindshare;
+  Agent Smith needs IDE presence to be in the daily-driver consideration
+  set. Thin-trigger model means we don't compete with the IDE-native
+  agents (Cline et al.) — operators keep those for line-level edits +
+  use Agent Smith for ticket-scoped, audit-tracked, multi-repo runs.
+
+requires: ["p0166b"]
+
+scope:
+  in: |
+    (1) New repo `vscode-agent-smith` (separate from agent-smith core).
+        TypeScript, vsce-built, published to VS Code Marketplace under
+        `holgerleichsenring` publisher id.
+
+    (2) Commands surfaced in command palette:
+        - Agent Smith: Fix Bug (prompts for ticket id)
+        - Agent Smith: Add Feature (prompts for description)
+        - Agent Smith: Security Scan This Repo
+        - Agent Smith: API Scan (prompts for swagger URL)
+        - Agent Smith: PR Review (prompts for PR URL)
+        - Agent Smith: Open Run Viewer (opens the most recent run
+          in webview)
+        - Agent Smith: Configure (opens settings)
+
+    (3) Each command serializes its inputs to a tools/call payload
+        and POSTs to the configured MCP endpoint
+        (default http://localhost:8081/mcp). Asynchronous: extension
+        receives runId, polls status via /mcp/resources/read or
+        subscribes via SSE (where the runtime supports it).
+
+    (4) Status bar item shows current run state ("AS: fix #42 →
+        step 5/13") with click-to-open behaviour.
+
+    (5) Settings:
+        - agentSmith.mcpUrl (default http://localhost:8081/mcp)
+        - agentSmith.projectName (default workspace folder name)
+        - agentSmith.headless (default true; non-headless surfaces
+          questions via input boxes)
+
+    (6) CI: tests run via @vscode/test-cli headless. Tests cover
+        command registration + setting parsing + MCP-payload shape.
+
+  out: |
+    Diff viewer / inline PR result — slice [[p0170b]].
+    Authentication. Default localhost; remote setup is operator-side
+    (SSH tunnel, reverse proxy).
+    Slack/Teams parity. Extension is dev-only; chat is collaboration.
+    Multi-workspace / multi-project. Single workspace folder per
+    invocation.
+
+decisions:
+  - key: |
+      Trigger-only extension, not agent re-implementation — Reason: the
+      IDE-native agent space (Cline, Continue, Cursor) is crowded.
+      Building yet another in-IDE agent dilutes positioning. Pure
+      trigger keeps Agent Smith differentiated as "the workflow tool
+      you call from your IDE, not the assistant you chat with in your
+      IDE". alternatives: full agent (rejected: positioning conflict);
+      no extension (rejected: distribution gap).
+
+  - key: |
+      MCP endpoint over a custom RPC — Reason: p0166b ships exactly
+      the surface needed (tools/call + run-status). Building a parallel
+      protocol would duplicate auth + schema + maintenance. alternatives:
+      custom HTTP API (rejected: drift); CLI invocation via shell
+      (rejected: hostile on Windows, ties to filesystem locations).
+
+  - key: |
+      Separate repo, not in-tree — Reason: VS Code extension build
+      tooling (TypeScript, vsce, @vscode/test-cli) differs from .NET
+      CI; separate repo keeps CI lanes clean + lets the extension
+      version independently of agent-smith server releases.
+      alternatives: in-tree under tools/vscode (rejected: CI noise);
+      bundled with binaries (rejected: VS Code Marketplace prefers
+      separate repos).
+
+steps:
+  - id: repo-scaffold
+    action: |
+      Create vscode-agent-smith repo. package.json, tsconfig.json,
+      .eslintrc, src/, README.
+    new:
+      - "(separate repo) vscode-agent-smith/package.json"
+      - "(separate repo) vscode-agent-smith/tsconfig.json"
+      - "(separate repo) vscode-agent-smith/src/extension.ts"
+      - "(separate repo) vscode-agent-smith/README.md"
+      - "(separate repo) vscode-agent-smith/LICENSE"
+
+  - id: commands
+    action: |
+      Seven commands registered + their handler implementations.
+      Each handler builds the MCP payload, POSTs, surfaces result
+      via vscode.window APIs.
+    new:
+      - "(separate repo) vscode-agent-smith/src/commands/fixBug.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/addFeature.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/securityScan.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/apiScan.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/prReview.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/openRunViewer.ts"
+      - "(separate repo) vscode-agent-smith/src/commands/configure.ts"
+
+  - id: mcp-client
+    action: |
+      Minimal MCP client: tools/call POST + resources/read + SSE
+      subscribe. No external dep beyond axios + eventsource.
+    new:
+      - "(separate repo) vscode-agent-smith/src/mcp/McpClient.ts"
+      - "(separate repo) vscode-agent-smith/src/mcp/JsonRpcRequest.ts"
+
+  - id: status-bar
+    action: |
+      Status-bar item updates on run-state events.
+    new:
+      - "(separate repo) vscode-agent-smith/src/ui/StatusBarRunIndicator.ts"
+
+  - id: tests
+    action: |
+      @vscode/test-cli runs headless tests covering command registration,
+      payload shape, settings parsing.
+    new:
+      - "(separate repo) vscode-agent-smith/src/test/commands.test.ts"
+      - "(separate repo) vscode-agent-smith/src/test/mcpClient.test.ts"
+
+  - id: ci-publish
+    action: |
+      GitHub Actions: lint + test on push; publish to Marketplace on
+      tagged release via vsce CLI.
+    new:
+      - "(separate repo) vscode-agent-smith/.github/workflows/test.yml"
+      - "(separate repo) vscode-agent-smith/.github/workflows/publish.yml"
+
+  - id: agent-smith-link
+    action: |
+      Cross-link from agent-smith docs: docs/integrations/vscode.md.
+    new:
+      - "docs/integrations/vscode.md"
+    modify:
+      - "mkdocs.yml"
+
+tests:
+  - "Extension_Activate_RegistersSevenCommands"
+  - "FixBugCommand_PromptsForTicketAndPostsToolsCall"
+  - "McpClient_ToolsCallPayload_MatchesMcpSpec"
+  - "SettingsParser_DefaultsApplyWhenUnset"
+  - "StatusBar_RunInProgress_DisplaysCommandNameAndStep"
+
+done:
+  - "vscode-agent-smith repo published, 1.0.0 tagged on Marketplace."
+  - "Seven commands work end-to-end against a localhost agent-smith server."
+  - "MCP client correctly serializes payloads + parses responses."
+  - "Headless tests green in CI."
+  - "docs/integrations/vscode.md links to Marketplace listing."
+  - "Smoke: install extension from VSIX in local VS Code, run 'Agent Smith: Fix Bug' against a real agent-smith server, see status bar update + PR link."

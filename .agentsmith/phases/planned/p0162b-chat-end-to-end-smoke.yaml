@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0162b
+goal: |
+  Add the end-to-end smoke test for the chat round-trip that today has no
+  coverage. The 5 existing test files (SlackErrorBlockBuilderTests,
+  SlackTypedQuestionTests, SlackModalSubmissionHandlerTests, SlackModalBuilderTests,
+  TeamsCardBuilderTests) only test block / card builders in isolation. There is
+  no test that exercises a Slack-webhook payload → IntentEngine → dispatcher →
+  adapter → outbound HTTP call.
+
+  This phase wires WebApplicationFactory-based smokes for both platforms and
+  hooks them into the `/smoke` skill so regressions surface during release prep
+  instead of in production.
+
+requires: ["p0162a"]
+
+scope:
+  in: |
+    (1) Two new test classes using `WebApplicationFactory<Program>` with a mock
+        HTTP server stand-in for Slack/Teams outbound APIs:
+        - SlackEndToEndSmokeTests: POST a synthetic Slack `app_mention` event →
+          assert SlackApiClient receives a chat.postMessage call with sensible
+          shape.
+        - TeamsEndToEndSmokeTests: POST a synthetic Bot Framework activity →
+          assert TeamsApiClient receives a SendActivity call.
+
+    (2) MockHttpHandler test infrastructure: thin recording delegating-handler
+        that captures (method, uri, body) tuples for assertion. Reused for both
+        platforms. Lives in tests/AgentSmith.Tests/TestInfra/.
+
+    (3) IntentEngine mocked at this layer (real LLM is over-scope — the smoke
+        proves wiring, not intent quality). Returns a canned FixTicketIntent.
+
+    (4) `scripts/smoke-chat.sh` runs `dotnet test --filter EndToEndSmoke` and
+        is added as a gate to the existing `/smoke` skill so the chat path is
+        covered alongside the api-scan / security-scan / fix-bug gates.
+
+  out: |
+    Real Slack/Teams API calls. The smoke uses MockHttpHandler at the
+    HttpClient boundary; live wire calls require a credentialed test workspace
+    and are an operator-side concern.
+    Modal flow + interaction callbacks (Block Kit Action.Submit / Teams
+    Action.Submit). The dispatch round-trip covers the highest-value defect;
+    modal interactions are a separate test bed.
+    Multi-turn conversations + dialogue trail across runs. Single-message
+    round-trip only.
+
+decisions:
+  - key: |
+      WebApplicationFactory<Program> not Testcontainers — Reason: the existing
+      ServerDiLifetimeTests already use WebApplicationFactory under
+      ASPNETCORE_ENVIRONMENT=Development; matching that pattern keeps the
+      smoke fast (no container start-up cost). alternatives: Testcontainers
+      with Redis (rejected: this smoke is about adapter wiring, not the
+      claim/queue path); manual integration script (rejected: not gateable
+      from /smoke).
+
+  - key: |
+      IntentEngine mocked, MockHttpHandler real path — Reason: the bug being
+      guarded against is in the HTTP-out direction (cross-wiring + missing
+      conditional registration). The intent path is well-tested elsewhere.
+      Keep the test boundary at the outbound HTTP edge. alternatives: mock
+      the platform adapter entirely (rejected: that's what the existing 5
+      block-builder tests already do); end-to-end real LLM (rejected: cost +
+      flakiness).
+
+steps:
+  - id: mock-handler
+    action: |
+      MockHttpHandler delegating handler records every outbound call and
+      returns canned success responses keyed by (method, host, path).
+    new:
+      - "tests/AgentSmith.Tests/TestInfra/MockHttpHandler.cs"
+      - "tests/AgentSmith.Tests/TestInfra/RecordedHttpCall.cs"
+
+  - id: slack-smoke
+    action: |
+      Slack end-to-end smoke. Wires MockHttpHandler into SlackApiClient via
+      IHttpClientFactory override; POSTs a synthetic app_mention payload to
+      /slack/events; asserts the recorded outbound call has the expected
+      channel + text shape.
+    new:
+      - "tests/AgentSmith.Tests/Integration/SlackEndToEndSmokeTests.cs"
+
+  - id: teams-smoke
+    action: |
+      Teams end-to-end smoke. MockHttpHandler intercepts TeamsApiClient +
+      BotFrameworkTokenProvider; POST a synthetic Bot Framework activity to
+      /teams/messages; assert SendActivity call has expected card or text.
+    new:
+      - "tests/AgentSmith.Tests/Integration/TeamsEndToEndSmokeTests.cs"
+
+  - id: smoke-script
+    action: |
+      Add scripts/smoke-chat.sh that runs the new test class filter. Wire
+      it into the /smoke skill alongside the existing CLI / compose gates.
+    new:
+      - "scripts/smoke-chat.sh"
+
+tests:
+  - "SlackAppMention_RoutesToFixIntentAndPostsChatMessage"
+  - "SlackUnparseableMessage_PostsErrorViaSlackApiNotTeams"
+  - "TeamsActivityWithMention_RoutesToFixIntentAndSendsActivity"
+  - "TeamsUnparseableMessage_PostsErrorViaTeamsApiNotSlack"
+  - "ChatMessageDispatcher_ErrorPath_RespectsOriginPlatform"
+
+done:
+  - "SlackEndToEndSmokeTests + TeamsEndToEndSmokeTests green."
+  - "MockHttpHandler captures every outbound HTTP call to slack.com / *.botframework.com / smba.trafficmanager.net hosts."
+  - "scripts/smoke-chat.sh exits 0 on green run."
+  - "/smoke skill picks up scripts/smoke-chat.sh."
+  - "No real network call leaves the test process (verified by MockHttpHandler being the terminal handler on every HttpClient used in chat code)."

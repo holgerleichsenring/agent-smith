@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0165b
+goal: |
+  Add the SmokeProbeHandler that actually exercises the launched app
+  (from p0165a). For each declared endpoint, fire an HTTP request, record
+  status / latency / body-snippet, and emit a typed VerifyReport. This is
+  the verifier-as-output asset: the pipeline does not just ship a PR,
+  it ships a PR plus evidence that the changed surface still responds.
+
+requires: ["p0165a"]
+
+scope:
+  in: |
+    (1) New SmokeProbeHandler. Reads ContextKeys.RunningAppUrl(s) and an
+        endpoint list. Endpoint list resolution order:
+        - api-scan pipelines: parse from swagger.json (already loaded by
+          LoadSwagger step) — each GET endpoint, no auth, no params, sampled
+          deterministically (first 10 unless overridden).
+        - other pipelines: ProjectMap.Ci.SmokeEndpoints (operator-declared)
+          OR fallback to single GET / (root path).
+
+    (2) Probe execution: HttpClient with 10s per-request timeout, 3
+        retries with exponential backoff for transient (network / 5xx)
+        responses, no retry for 4xx. Records (path, method, status,
+        latency_ms, body_length, body_snippet) per probe.
+
+    (3) VerifyReport record published to ContextKeys.VerifyReport. Fields:
+        EndpointsProbed (count), Passed (count), Failed (count), Probes
+        (IReadOnlyList<EndpointProbeResult>), DurationMs. Pass = status in
+        [200, 299] OR explicit allow-list (4xx may be expected for some
+        flows but the default treats 4xx as fail).
+
+    (4) WriteRunResultHandler renders the VerifyReport as a new
+        'Verification' section in result.md (numbered list + per-probe
+        pass/fail indicator + status code). Section omitted when
+        VerifyReport is absent.
+
+    (5) VerifyReport emitted to the existing dialogue trail as a non-
+        interactive Info event so the chat channel sees the verification
+        outcome before the PR is opened.
+
+  out: |
+    Smart endpoint discovery for non-api-scan pipelines. Fix-bug + add-
+    feature still rely on operator-declared SmokeEndpoints — heuristic
+    discovery is over-scope for this slice.
+    Auth-requiring probes (token injection, OAuth flow). Out — unauth
+    GETs only.
+    Request-body construction for POST endpoints. Out — GET-only.
+    POST / PUT / DELETE probing is the next slice's concern.
+    Preset wiring — slice [[p0165c]].
+
+decisions:
+  - key: |
+      Deterministic endpoint sampling (first 10), not all + not random —
+      Reason: probing all endpoints turns into a load test; random picks
+      make CI runs non-reproducible. The deterministic-first-10 contract
+      is reviewable in result.md. Operators can override via
+      Ci.SmokeEndpoints. alternatives: probe all (rejected: cost +
+      collateral side effects); random with seed (rejected: harder to
+      reason about than 'first N').
+
+  - key: |
+      4xx as fail by default — Reason: most app fix-bug regressions
+      surface as a route returning 404 (missing handler) or 400 (broken
+      validation). Treating those as pass would defeat the purpose.
+      Operators can declare per-endpoint expected-status overrides via
+      SmokeEndpoints config. alternatives: 4xx as pass (rejected: silent
+      regression class).
+
+  - key: |
+      VerifyReport renders into result.md, not its own file — Reason:
+      result.md is the canonical run artifact; one file is easier to
+      ship into the PR description, into compliance bundles (p0168a),
+      and into the Knowledge Base than two. alternatives: standalone
+      verify.md (rejected: scatters the audit trail).
+
+steps:
+  - id: types
+    action: |
+      VerifyReport + EndpointProbeResult records.
+    new:
+      - "src/AgentSmith.Domain/Models/VerifyReport.cs"
+      - "src/AgentSmith.Domain/Models/EndpointProbeResult.cs"
+
+  - id: context-keys
+    action: |
+      ContextKeys.VerifyReport entry.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: handler
+    action: |
+      SmokeProbeHandler implementation. Endpoint resolution, parallel
+      probe execution (capped at 3 concurrent), retry + timeout, report
+      assembly.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/SmokeProbeHandler.cs"
+      - "src/AgentSmith.Application/Models/SmokeProbeContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/SmokeProbeContextBuilder.cs"
+
+  - id: command-name
+    action: |
+      New CommandNames.SmokeProbe. Wire DI.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+
+  - id: result-rendering
+    action: |
+      WriteRunResultHandler renders VerifyReport section + dialogue
+      trail Info event.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+
+  - id: tests
+    action: |
+      Unit tests + a single integration test against a stub HTTP server.
+    new:
+      - "tests/AgentSmith.Tests/Handlers/SmokeProbeHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Integration/SmokeProbeAgainstStubServerTests.cs"
+
+tests:
+  - "SmokeProbe_AllEndpoints200_ReportPassEqualsCount"
+  - "SmokeProbe_SomeEndpoints4xx_ReportFailCountAndStatusInProbeList"
+  - "SmokeProbe_Endpoint5xxOnceThen200_RetrySucceedsAndPasses"
+  - "SmokeProbe_TimeoutOnEndpoint_RecordsFailWithTimeoutMarker"
+  - "SmokeProbe_ApiScanWith20EndpointsInSwagger_DeterministicFirstTenProbed"
+  - "WriteRunResult_VerifyReportPresent_RendersVerificationSection"
+
+done:
+  - "VerifyReport + EndpointProbeResult records shipped."
+  - "SmokeProbeHandler probes endpoints, respects retry + timeout, emits typed report."
+  - "result.md renders Verification section."
+  - "Dialogue trail receives a non-interactive Info event with the verify summary."
+  - "Unit + integration tests green."
+  - "Build smoke: end-to-end test with stub server returning mixed 200/404/500 confirms report shape."
