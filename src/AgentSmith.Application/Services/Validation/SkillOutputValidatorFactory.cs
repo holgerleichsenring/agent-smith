@@ -18,6 +18,7 @@ public sealed class SkillOutputValidatorFactory
         DiffOutputValidator diff,
         BootstrapOutputValidator bootstrap,
         ObservationOutputValidator observation,
+        DiscoveryOutputValidator discovery,
         NoOpSkillOutputValidator noOp)
     {
         _validators = new Dictionary<SkillOutputSchema, ISkillOutputValidator>
@@ -25,13 +26,14 @@ public sealed class SkillOutputValidatorFactory
             [SkillOutputSchema.Plan] = plan,
             [SkillOutputSchema.Diff] = diff,
             [SkillOutputSchema.Bootstrap] = bootstrap,
-            [SkillOutputSchema.Observation] = observation
+            [SkillOutputSchema.Observation] = observation,
+            [SkillOutputSchema.Discovery] = discovery,
         };
         _noOp = noOp;
     }
 
     /// <summary>Test-only ctor: every schema resolves to the same validator. Lets test
-    /// fixtures avoid constructing the four real validators when they only care about
+    /// fixtures avoid constructing the real validators when they only care about
     /// the runtime composition path.</summary>
     internal SkillOutputValidatorFactory(ISkillOutputValidator @default, NoOpSkillOutputValidator noOp)
     {
@@ -40,7 +42,8 @@ public sealed class SkillOutputValidatorFactory
             [SkillOutputSchema.Plan] = @default,
             [SkillOutputSchema.Diff] = @default,
             [SkillOutputSchema.Bootstrap] = @default,
-            [SkillOutputSchema.Observation] = @default
+            [SkillOutputSchema.Observation] = @default,
+            [SkillOutputSchema.Discovery] = @default,
         };
         _noOp = noOp;
     }
@@ -57,8 +60,9 @@ public sealed class SkillOutputValidatorFactory
         "diff" => SkillOutputSchema.Diff,
         "bootstrap" => SkillOutputSchema.Bootstrap,
         "observation" => SkillOutputSchema.Observation,
+        "discovery" => SkillOutputSchema.Discovery,
         _ => throw new ArgumentException(
-            $"unknown output_schema '{raw}' (expected plan/diff/bootstrap/observation)",
+            $"unknown output_schema '{raw}' (expected plan/diff/bootstrap/observation/discovery)",
             nameof(raw))
     };
 }

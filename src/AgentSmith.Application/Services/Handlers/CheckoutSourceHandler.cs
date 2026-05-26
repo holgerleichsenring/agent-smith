@@ -59,7 +59,7 @@ public sealed class CheckoutSourceHandler(
     private async Task<Repository?> CheckoutOneAsync(
         CheckoutSourceContext context, RepoConnection config, CancellationToken ct)
     {
-        logger.LogInformation("Checking out {Repo} into its sandbox at /work...", config.Name);
+        logger.LogInformation("Checking out {Repo} into its sandbox(es) at /work...", config.Name);
 
         var provider = factory.Create(config);
         var resolved = await provider.CheckoutAsync(context.Branch, ct);
@@ -68,18 +68,19 @@ public sealed class CheckoutSourceHandler(
         if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
             return repo;
 
-        if (!context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null
-            || !sandboxes.TryGetValue(config.Name, out var sandbox))
+        var matchingSandboxes = SandboxTargets.SandboxesForRepo(context.Pipeline, config);
+        if (matchingSandboxes.Count == 0)
             return FailWith($"No sandbox for repo '{config.Name}'.", config);
         if (string.IsNullOrEmpty(config.Url))
             return FailWith("CheckoutSource requires a non-empty source URL for non-local providers.", config);
 
-        var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
-        if (clone.ExitCode != 0)
-            return FailWith($"git clone failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
-
-        await MaybeSwitchBranchAsync(sandbox, context.Branch, resolved.CurrentBranch, ct);
+        foreach (var (key, sandbox) in matchingSandboxes)
+        {
+            var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
+            if (clone.ExitCode != 0)
+                return FailWith($"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
+            await MaybeSwitchBranchAsync(sandbox, context.Branch, resolved.CurrentBranch, ct);
+        }
         return repo;
     }
 
