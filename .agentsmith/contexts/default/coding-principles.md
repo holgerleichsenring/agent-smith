@@ -158,6 +158,29 @@ Rules:
 - Every injectable service has an interface in `Contracts/`.
 - Registration is explicit — no assembly scanning magic.
 
+### Config injection — canonical pattern
+
+Inject `*Config` / `*Options` classes **directly** by their concrete type
+(`AgentSmithConfig config`, `LoopLimitsConfig limits`, `SlackAdapterOptions
+opts`). Register each as a singleton (or scoped where the config's lifetime
+matches a request scope). Do not wrap in `IOptions<T>` unless the type is
+edited at runtime via `IConfiguration` reload — none of our configs do that.
+
+The direct-injection pattern is the project's canonical idiom because:
+1. The config object IS the load-bearing graph node (`AgentSmithConfig` holds
+   the parsed YAML graph; the runtime never reloads).
+2. `IOptions<T>` adds an indirection without benefit when there's no
+   `IConfiguration`-source binding behind it.
+3. Architectural test `NonDiCtorRuleTests` (see [[p0157d]]) treats a
+   ctor parameter whose type is registered in `IServiceCollection` as
+   legitimate DI — `IOptions<T>` and direct `T` are both allowed.
+
+Factory products (cost trackers, providers, transitioners — anything built
+inside a `*Factory.Create(...)` call site, never resolved from
+`IServiceProvider`) may take positional values in their ctor including
+configs. The architectural test exempts them by ignoring types that are
+**not** in `IServiceCollection`.
+
 ## Error Handling
 
 - Domain exceptions for business logic errors.
