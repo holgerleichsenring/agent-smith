@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0157d
+goal: |
+  Architectural guard test that backs up the rule from the original p0157
+  ("function classes are DI-only") with build-time teeth. The original spec
+  wrote the rule as "any class in Application/Infrastructure/Server/Sandbox
+  declares a public ctor whose parameter list contains a non-interface
+  non-record non-IOptions parameter must fail" — re-baselining showed this
+  trips on:
+    * TimeProvider (abstract class, DI-standard)
+    * HttpClient (concrete, injected from IHttpClientFactory)
+    * Private ctors used by static-factory patterns (HostGitIgnore /
+      GitIgnoreResolver / RedisJobBus / TicketProviderHttpClient)
+    * Per-tenant factory products (every *Provider built by *Factory)
+    * Per-pipeline value-y types (RepoConnection, TicketId, BranchName, …)
+    * Exceptions (string message ctors)
+    * Records (positional ctor by definition)
+
+  This phase replaces the type-shape heuristic with a **registration-based**
+  rule: every type registered in `IServiceCollection` must resolve cleanly
+  from a representative DI graph (`ServiceProviderOptions.ValidateOnBuild =
+  true` already partially covers this for required services; this test
+  extends to optional / multi-registered services). Types NOT in DI are
+  out of scope — they're factory products or value objects, both of which
+  may legally take positional state.
+
+  Successor to p0157 (replaces the brittle reflection-over-ctor-types rule
+  with a registration-grounded one).
+
+requires: []
+
+scope:
+  in: |
+    A single xUnit test class in tests/AgentSmith.Tests/ (no new test
+    project — the existing one already runs the full DI graph in
+    ServerDiLifetimeTests / CliShapedDiTests).
+
+    The test:
+      1. Builds the full CLI and Server DI graphs with
+         ValidateOnBuild = true + ValidateScopes = true.
+      2. Iterates the resulting IServiceCollection for every
+         ServiceDescriptor whose ImplementationType is in
+         AgentSmith.Application | Infrastructure | Server | Sandbox.Agent.
+      3. For each, asserts that its single public ctor (or its primary
+         ctor) takes only:
+           - interfaces (any I-prefix or Microsoft.Extensions.* interfaces)
+           - `IOptions<T>` / `IOptionsMonitor<T>` / `IOptionsSnapshot<T>`
+           - `ILogger` / `ILogger<T>`
+           - `IServiceProvider` / `IServiceScopeFactory`
+           - `HttpClient` (DI-injected from IHttpClientFactory)
+           - `TimeProvider` (DI-injected abstract)
+           - `IConfiguration`
+           - Other concrete types that ARE themselves DI-registered in the
+             same collection (whitelist-by-registration — closes the gap
+             for things like `JsonSchemaLoader` that aren't interfaces but
+             are legitimately injected services).
+         Anything else → test fails with a clear "{ClassName}'s ctor takes
+         {ParamType} which is neither an interface nor a registered service.
+         Move it to IOptions<T>, a factory product, or DI-register the type."
+
+    The test is opt-in for new violations: a small allowlist file
+    (tests/AgentSmith.Tests/Architecture/NonDiCtor.allowlist.txt) holds the
+    known violators at this phase's commit time. The test fails on:
+       - any ctor signature that isn't on the allowlist
+    The allowlist shrinks over time as [[p0157a]]/[[p0157b]]/[[p0157c]]
+    land — eventually empty.
+
+  out: |
+    (1) Reflection scan over the entire src/ tree without going through DI.
+        That was the original p0157 approach; it produces false positives
+        on every record + every exception + every factory product.
+    (2) Auto-fix mode. The test reports, the operator fixes. No code-mod.
+    (3) Style checks (sealed-by-default, primary ctor, file-scoped
+        namespace) — those are coding-principles concerns, handled
+        separately.
+
+decisions:
+  - key: |
+      Registration-based rule, not type-shape rule — Reason: the only
+      classes the project actually cares about for the "DI-only ctor" rule
+      are the ones it actually DI-registers. Records, exceptions, factory
+      products, per-call state all legitimately take positional values
+      and have nothing to do with the rule. Filtering by
+      "is this in IServiceCollection?" is the bright line that matches
+      intent.
+  - key: |
+      Whitelist-by-registration for concrete types — Reason: the codebase
+      has legitimate concrete-class services (JsonSchemaLoader,
+      DockerContainerSpecBuilder, PodSpecBuilder, …) registered without
+      an interface. Requiring an I-prefix everywhere is overreach.
+      Whether a type is DI-injected is the operative question.
+  - key: |
+      Allowlist for known violators at landing time — Reason: a single
+      commit landing all conversions plus the guard is high-risk. The
+      allowlist lets the guard land green; subsequent successor commits
+      shrink the allowlist as they fix individual classes.
+  - key: |
+      No new test project — Reason: per coding-principles.md "No loose
+      files at project root". The existing tests/AgentSmith.Tests/Architecture/
+      subfolder already hosts the ServerDiLifetimeTests / CliShapedDiTests
+      regression-guards. New test goes there.
+
+steps:
+  - id: test-harness
+    action: |
+      Add NonDiCtorRuleTests under tests/AgentSmith.Tests/Architecture/.
+      Reuse the existing test fixtures that compose the CLI + Server DI
+      graphs (CliShapedDiTests, ServerDiLifetimeTests).
+    new:
+      - "tests/AgentSmith.Tests/Architecture/NonDiCtorRuleTests.cs"
+      - "tests/AgentSmith.Tests/Architecture/NonDiCtor.allowlist.txt"
+
+  - id: baseline-allowlist
+    action: |
+      Run the test once locally; capture every violation into
+      NonDiCtor.allowlist.txt (one line per violator, format
+      `{FullTypeName}: {ParamType} {ParamName}`). Commit the populated
+      allowlist as the starting point.
+
+  - id: docs
+    action: |
+      One short paragraph in docs/architecture/ explaining the rule + the
+      allowlist mechanic + that the four legal escape hatches (Pattern
+      O/F/S/V) match successor phases p0157a/b/c.
+
+tests:
+  - "NonDiCtorRuleTests_AllServiceClasses_HaveDiOnlyCtors_OrAllowlisted"
+  - "NonDiCtorRuleTests_AddingNewViolator_FailsBuild"
+  - "Existing test suite green (count unchanged, all green pre + post)."
+
+done:
+  - "The xUnit test passes on main with the populated allowlist."
+  - "Adding a new positional non-DI ctor to a registered service fails the
+    test (verified by adding then reverting a synthetic violator locally)."
+  - "Allowlist file committed."
+  - "Full main test suite green."
+  - "Smoke (api-scan / security-scan / fix-bug) green — per
+    [[feedback_finish_what_you_start]]."

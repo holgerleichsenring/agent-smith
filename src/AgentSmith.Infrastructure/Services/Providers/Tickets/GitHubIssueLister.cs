@@ -1,5 +1,7 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
@@ -12,15 +14,29 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// fan-out + in-memory dedupe) and maps each <see cref="Issue"/> via the
 /// injected <see cref="ITicketFieldMapper{TRaw}"/>.
 /// </summary>
-internal sealed class GitHubIssueLister(
-    GitHubClient client, string owner, string repo,
-    ITicketFieldMapper<Issue> mapper, ILogger logger)
+internal sealed class GitHubIssueLister
 {
+    private readonly GitHubClient _client;
+    private readonly string _owner;
+    private readonly string _repo;
+    private readonly ITicketFieldMapper<Issue> _mapper;
+    private readonly ILogger _logger;
+
+    public GitHubIssueLister(
+        GitHubClient client, GitHubTicketConnection connection,
+        ITicketFieldMapper<Issue> mapper, ILogger logger)
+    {
+        _client = client;
+        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        _mapper = mapper;
+        _logger = logger;
+    }
+
     public async Task<IReadOnlyList<Ticket>> ListByLabelsAsync(
         IReadOnlyCollection<string> labels, ItemStateFilter state,
         string descriptor, CancellationToken cancellationToken)
     {
-        logger.LogInformation("GitHub List: repo={Owner}/{Repo} {Descriptor}", owner, repo, descriptor);
+        _logger.LogInformation("GitHub List: repo={Owner}/{Repo} {Descriptor}", _owner, _repo, descriptor);
         try
         {
             var deduped = new Dictionary<int, Ticket>();
@@ -28,17 +44,24 @@ internal sealed class GitHubIssueLister(
             {
                 var req = new RepositoryIssueRequest { State = state };
                 req.Labels.Add(label);
-                var issues = await client.Issue.GetAllForRepository(owner, repo, req);
+                var issues = await _client.Issue.GetAllForRepository(_owner, _repo, req);
                 foreach (var issue in issues)
-                    deduped[issue.Number] = mapper.Map(new TicketId(issue.Number.ToString()), issue);
+                    deduped[issue.Number] = _mapper.Map(new TicketId(issue.Number.ToString()), issue);
             }
-            logger.LogInformation("GitHub List: returned {Count} ticket(s)", deduped.Count);
+            _logger.LogInformation("GitHub List: returned {Count} ticket(s)", deduped.Count);
             return [.. deduped.Values];
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "GitHub List failed for {Owner}/{Repo} {Descriptor}", owner, repo, descriptor);
+            _logger.LogWarning(ex, "GitHub List failed for {Owner}/{Repo} {Descriptor}", _owner, _repo, descriptor);
             return [];
         }
+    }
+
+    private static (string owner, string repo) ParseGitHubUrl(string url)
+    {
+        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
+        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
+        return (segments[0], segments[1]);
     }
 }
