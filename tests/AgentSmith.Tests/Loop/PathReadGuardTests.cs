@@ -12,7 +12,7 @@ public sealed class PathReadGuardTests
     private static PathReadGuard Build(IGitIgnoreResolver? gitIgnore = null)
     {
         var resolver = gitIgnore ?? CreateNoIgnoreResolver();
-        return new PathReadGuard(resolver, () => RepoRoot);
+        return new PathReadGuard(resolver);
     }
 
     private static IGitIgnoreResolver CreateNoIgnoreResolver()
@@ -27,7 +27,7 @@ public sealed class PathReadGuardTests
     {
         var guard = Build();
 
-        var result = guard.AssertReadable("/work/src/main.cs");
+        var result = guard.AssertReadable("/work/src/main.cs", RepoRoot);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -37,7 +37,7 @@ public sealed class PathReadGuardTests
     {
         var guard = Build();
 
-        var result = guard.AssertReadable("/etc/passwd");
+        var result = guard.AssertReadable("/etc/passwd", RepoRoot);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.OutsideRepo);
@@ -50,7 +50,7 @@ public sealed class PathReadGuardTests
         gitIgnore.Setup(g => g.IsIgnored("/work/node_modules/foo", RepoRoot)).Returns(true);
         var guard = Build(gitIgnore.Object);
 
-        var result = guard.AssertReadable("/work/node_modules/foo");
+        var result = guard.AssertReadable("/work/node_modules/foo", RepoRoot);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.GitIgnored);
@@ -61,7 +61,7 @@ public sealed class PathReadGuardTests
     {
         var guard = Build();
 
-        var result = guard.AssertReadable("/work/.git/HEAD");
+        var result = guard.AssertReadable("/work/.git/HEAD", RepoRoot);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.InDotGit);
@@ -72,7 +72,7 @@ public sealed class PathReadGuardTests
     {
         var guard = Build();
 
-        var result = guard.AssertReadable("src/main.cs");
+        var result = guard.AssertReadable("src/main.cs", RepoRoot);
 
         result.IsSuccess.Should().BeTrue();
     }

@@ -50,6 +50,9 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
         services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
+        services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
+            (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);
+        services.AddScoped<DataFlowReadGate>();
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
