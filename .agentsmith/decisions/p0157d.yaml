@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0157d
+
+decisions:
+  - category: Architecture
+    chose: "Registration-based rule: a ctor parameter is DI-legal if its type appears in IServiceCollection (as ServiceType OR ImplementationType)"
+    over: "Type-shape rule (interface || record || IOptions<T> only)"
+    reason: |
+      The type-shape rule the original p0157 proposed would have produced
+      a long false-positive list: TimeProvider (abstract not interface),
+      HttpClient (concrete framework type), every legitimately-registered
+      concrete service (JsonSchemaLoader, DockerContainerSpecBuilder, the
+      various *Builder / *Compactor / *Resolver concrete singletons we use
+      without an interface), every record-based ctor param (RepoConnection,
+      TrackerConnection, the seven Connection records from p0157a). The
+      registration-based rule answers the actually-load-bearing question:
+      "is this type known to the DI container?" — and treats both
+      direct concrete registrations and IOptions<T> registrations as
+      legitimate, matching the canonical pattern documented in
+      coding-principles.md after [[p0157c]].
+
+  - category: Implementation
+    chose: "Three Facts: main rule, sanity (scope non-empty), teeth (synthetic violator)"
+    over: "Single main rule"
+    reason: |
+      The sanity test prevents the silent-pass mode where the rule
+      iterates an empty scope (e.g. if the assembly filter excludes
+      everything by mistake). The teeth test proves the rule actually
+      catches violators — without it, the main rule passing is
+      indistinguishable from "no scan happened". Three tests of total
+      ~300ms is cheap insurance.
+
+  - category: Implementation
+    chose: "Allowlist baseline is empty"
+    over: "Pre-populate with current Pattern-O classes per the spec's allowlist plan"
+    reason: |
+      The first run produces zero violations: every existing service's
+      ctor params resolve to either an interface, an IOptions<T>, a
+      framework well-known, or a DI-registered concrete type. The
+      allowlist was a hedge for the case where current code violated the
+      rule; the actual outcome is no allowlist entries needed. Keeps
+      the rule strict from day one.
+
+  - category: TradeOff
+    chose: "BuildServerLikeServices duplicated from ServerDiLifetimeTests"
+    over: "Extract into a shared test fixture / TestProjectInternals helper"
+    reason: |
+      Two copies is two copies; extracting a third location for a
+      ~25-line helper is over-engineering at this scope. If a third
+      consumer appears, the right move is a TestHelpers/DiTreeBuilder.cs
+      utility. Until then, the duplication is honest.
+
+  - category: Scope
+    chose: "Scan only Server-shape DI tree, not CLI-shape"
+    over: "Scan both CLI and Server graphs separately"
+    reason: |
+      The Server graph is a strict superset of the CLI graph (Server
+      adds hosted services, polling, webhook handlers, leader election
+      decorators on top of the same Application+Infrastructure core).
+      Any service that's CLI-only would still be in the Server graph
+      via AddCoreDispatcherServices. Double-scanning costs ~200ms with
+      no extra signal.
