@@ -1,0 +1,216 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0162-pre-monorepo-restructure
+goal: |
+  Prepare the repo to host the upcoming Next.js dashboard (p0169-pre + p0169a-d)
+  by separating the .NET backend stack into a dedicated subfolder. Today src/
+  is implicitly backend-only — that's asymmetric the moment a UI lives next to
+  it. After this phase: src/backend/ holds every .NET project; src/dashboard/
+  will hold the Next.js app (created in p0169-pre).
+
+  Pure move + rename phase. Zero behavioural change. Namespaces stay
+  AgentSmith.* — the C# convention is global namespace uniqueness, not
+  redundant against the repo name. Phase IDs and the AgentSmith.sln are
+  updated to reflect the new paths; everything else compiles + runs
+  identically.
+
+  Also pulls a few stale items: scripts/ → tools/ (more accurate name),
+  reports/ removed (stale security-scan output), site/ tracked artefacts
+  cleaned (already in .gitignore).
+
+requires: []
+
+scope:
+  in: |
+    (1) Backend move. All 8 .NET projects relocate from src/AgentSmith.X/
+        to src/backend/AgentSmith.X/:
+        - AgentSmith.Application
+        - AgentSmith.Cli
+        - AgentSmith.Contracts
+        - AgentSmith.Domain
+        - AgentSmith.Infrastructure
+        - AgentSmith.Sandbox.Agent
+        - AgentSmith.Server
+        - (any future projects added before this phase ships)
+
+    (2) AgentSmith.sln rewritten with the new project paths. Tests under
+        tests/ stay where they are (only src/ is reorganised).
+
+    (3) Three Dockerfiles relocate with their projects but their build
+        contexts shift one level up:
+        - src/AgentSmith.Cli/Dockerfile → src/backend/AgentSmith.Cli/Dockerfile
+        - src/AgentSmith.Server/Dockerfile → src/backend/AgentSmith.Server/Dockerfile
+        - src/AgentSmith.Sandbox.Agent/Dockerfile → src/backend/AgentSmith.Sandbox.Agent/Dockerfile
+        Each Dockerfile's internal COPY paths updated. docker-compose.yml +
+        docker-compose.example.yml dockerfile: lines updated.
+
+    (4) Three GitHub Actions workflows updated for the new paths:
+        - .github/workflows/agent-smith.yml (build + test)
+        - .github/workflows/docker-publish.yml (image build matrix)
+        - .github/workflows/release-please.yml (artefact paths)
+
+    (5) scripts/ folder renamed to tools/. Three files inside:
+        - audit-phases.py
+        - build-tokens.mjs
+        - fetch-skills.sh
+        Any internal references to scripts/ updated (.github/workflows/docs.yml
+        runs build-tokens.mjs; verify path).
+
+    (6) Cleanup of stale items:
+        - reports/dry-run-summary.md + reports/findings.md DELETED
+          (orphan security-scan output, predates current pipeline architecture).
+        - site/ tracked artefacts (CNAME, *.png, DESIGN folder) removed from
+          git (they're already in .gitignore; cleanup removes the historical
+          tracking accidents).
+        - agentsmith-output/ folder removed (empty + gitignored).
+
+    (7) Documentation cross-references updated. Any doc that names
+        src/AgentSmith.X/ paths shifts to src/backend/AgentSmith.X/. Includes
+        docs/ + README.md + DESIGN.md + CHANGELOG.md (only path strings).
+
+  out: |
+    Any namespace, class, or csproj name rename. AgentSmith.* convention
+    stays — per [[feedback_no_wrapper_shims]] but more importantly because
+    namespace uniqueness is a .NET convention not a redundancy.
+    Dashboard project creation — that's [[p0169-pre-dashboard-bootstrap]].
+    Test project relocation. tests/ structure stays exactly as today.
+    Re-versioning. Pure move; no behaviour shift to surface to users.
+    Conventional-commit policy change. Existing commit-message convention
+    holds — this phase ships as a `chore(monorepo): ...` commit.
+
+decisions:
+  - key: |
+      src/backend/ + src/dashboard/, not apps/ + packages/ — Reason: the
+      Turborepo apps/packages convention is overkill for a 2-app monorepo
+      with no shared TypeScript packages today. src/backend/ + src/dashboard/
+      is one folder of depth less + matches the existing .NET convention.
+      alternatives: apps/ + packages/ (rejected: over-engineered for current
+      scope, can be adopted later if multiple shared packages emerge);
+      backend/ + dashboard/ at root (rejected: leaves src/ ambiguously
+      empty + breaks convention that "src is where code lives").
+
+  - key: |
+      AgentSmith.* namespaces preserved — Reason: .NET convention is
+      globally unique namespaces. Strip the prefix and you collide with
+      hypothetical other "Server" or "Cli" packages in the operator's
+      assembly graph. Renaming would touch ~500 .cs files via using
+      directives for purely cosmetic gain. alternatives: drop prefix
+      (rejected: massive refactor for aesthetic, .NET-ecosystem-hostile).
+
+  - key: |
+      Tests stay flat, only src/ reorganises — Reason: tests/ already
+      mirrors src/ project structure 1:1; the test projects don't need
+      a backend/ subfolder unless a dashboard/ test folder appears
+      alongside them. dashboard tests live colocated inside the Next.js
+      project per Vitest convention. alternatives: tests/backend/ +
+      tests/dashboard/ (rejected: redundant for the Vitest convention).
+
+  - key: |
+      scripts/ → tools/ — Reason: the folder name "scripts" implies shell
+      scripts; today it holds .py + .mjs + .sh. "tools" is the standard
+      OSS convention for repo-internal tooling (e.g. .NET Roslyn, golang,
+      kubernetes). alternatives: keep scripts/ (rejected: name lies about
+      contents).
+
+  - key: |
+      reports/ deleted, not migrated — Reason: contents are stale
+      one-off artefacts from an old security-scan run. No automated
+      process writes there today; nothing reads from there. If
+      historical findings are needed, they live in git history.
+      alternatives: move to .agentsmith/notes/ (rejected: notes are for
+      active phase context, not historical run output).
+
+steps:
+  - id: backend-move
+    action: |
+      git mv each AgentSmith.X folder under src/ to src/backend/AgentSmith.X/.
+      One mv per project, atomic per project. AgentSmith.sln rewritten via
+      `dotnet sln remove ... && dotnet sln add ...` (or hand-edit the .sln
+      file's project paths — file is a stable INI-like format).
+    rename:
+      - "src/AgentSmith.Application → src/backend/AgentSmith.Application"
+      - "src/AgentSmith.Cli → src/backend/AgentSmith.Cli"
+      - "src/AgentSmith.Contracts → src/backend/AgentSmith.Contracts"
+      - "src/AgentSmith.Domain → src/backend/AgentSmith.Domain"
+      - "src/AgentSmith.Infrastructure → src/backend/AgentSmith.Infrastructure"
+      - "src/AgentSmith.Sandbox.Agent → src/backend/AgentSmith.Sandbox.Agent"
+      - "src/AgentSmith.Server → src/backend/AgentSmith.Server"
+    modify:
+      - "AgentSmith.sln"
+
+  - id: dockerfile-updates
+    action: |
+      Update each Dockerfile's internal COPY paths to reflect the new
+      relative location. Verify build context in docker-compose still
+      resolves (build context is usually repo root; only `dockerfile:`
+      path needs updating).
+    modify:
+      - "src/backend/AgentSmith.Cli/Dockerfile"
+      - "src/backend/AgentSmith.Server/Dockerfile"
+      - "src/backend/AgentSmith.Sandbox.Agent/Dockerfile"
+      - "deploy/docker-compose.yml"
+      - "deploy/docker-compose.example.yml"
+
+  - id: workflow-updates
+    action: |
+      Update three GitHub Actions workflows' path references.
+    modify:
+      - ".github/workflows/agent-smith.yml"
+      - ".github/workflows/docker-publish.yml"
+      - ".github/workflows/release-please.yml"
+
+  - id: scripts-to-tools
+    action: |
+      git mv scripts/ → tools/. Update any reference (notably
+      docs.yml workflow which runs build-tokens.mjs).
+    rename:
+      - "scripts → tools"
+    modify:
+      - ".github/workflows/docs.yml"
+
+  - id: cleanup
+    action: |
+      Delete stale folders + artefacts.
+    delete:
+      - "reports/"
+      - "agentsmith-output/"
+      - "site/CNAME"
+      - "site/*.png (any tracked files)"
+      - "site/DESIGN (folder if tracked)"
+
+  - id: docs-cross-refs
+    action: |
+      grep -r 'src/AgentSmith\.' docs/ README.md DESIGN.md CHANGELOG.md
+      and substitute src/backend/AgentSmith. Verify nothing in docs/
+      links to scripts/ (rename to tools/ if so).
+    modify:
+      - "docs/**/*.md (only files with path references)"
+      - "README.md"
+      - "DESIGN.md"
+
+  - id: verify
+    action: |
+      Per [[feedback_finish_what_you_start]]:
+      - dotnet restore && dotnet build green
+      - dotnet test green (full suite)
+      - docker compose -f deploy/docker-compose.yml build green
+      - scripts/smoke-chat.sh (if it exists from p0162b) + /smoke skill
+        gates green
+      - audit-phases.py runs from tools/ without path errors
+
+tests:
+  - "Dotnet_Build_FromBackendFolders_Succeeds"
+  - "DotnetTest_FullSuite_PasswordsAfterRestructure"
+  - "DockerCompose_Build_ResolvesNewDockerfilePaths"
+  - "GhActions_Workflows_ReferenceBackendPaths_NotSrcRoot"
+  - "ToolsAuditPhasesPy_RunsFromToolsFolder_Succeeds"
+
+done:
+  - "All 8 .NET projects live under src/backend/AgentSmith.X/."
+  - "AgentSmith.sln paths updated; dotnet build + test green."
+  - "Three Dockerfiles + 2 docker-compose files reference new paths; image builds green."
+  - "GitHub Actions workflows updated; agent-smith.yml + docker-publish.yml + release-please.yml green on push."
+  - "scripts/ renamed to tools/; docs.yml workflow finds build-tokens.mjs at the new path."
+  - "reports/ + agentsmith-output/ + site-tracked artefacts removed from git."
+  - "Documentation path references updated."
+  - "Smoke (CLI run + docker compose up + api-scan dry-run) green per [[feedback_finish_what_you_start]]."
+  - "Branch can carry the follow-up dashboard bootstrap (p0169-pre) without further structural change."
