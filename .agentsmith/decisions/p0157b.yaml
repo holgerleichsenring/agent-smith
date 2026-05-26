@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0157b
+
+decisions:
+  - category: Architecture
+    chose: "DataFlowReadGate becomes a scoped DI service with a nested private StepGate"
+    over: "Singleton gate with thread-local activeStep/flow"
+    reason: |
+      The IPipelineContextReadGate contract is OnRead(string key) — the gate
+      itself must already know activeStep + flow when read happens. A nested
+      private StepGate created by AttachToStep cleanly carries the per-step
+      values (activeStep, flow, enforce, logger, _alreadyWarned) for the
+      step's lifetime; the outer service holds only injected dependencies.
+      Per-pipeline-run state (_alreadyWarned) stays scoped to the step,
+      avoiding cross-run warning-log leak.
+
+  - category: Scope
+    chose: "SkillCallScope stays a class, not a record"
+    over: "Pattern V collapse to `sealed record SkillCallScope(...)` per the spec"
+    reason: |
+      The spec characterised SkillCallScope from its ctor surface ("strings +
+      enum + tracker + timestamp") but the actual class has IDisposable
+      semantics, mutator methods (AddTokens, Finalize), a private _disposed
+      lifecycle flag, and BuildRecord business logic. Records express value
+      equality; SkillCallScope carries identity-bound lifecycle. Collapsing
+      to a record would lose all of that. Pattern V doesn't apply — per
+      [[feedback_challenge_premises]] the spec's premise is wrong here.
+
+  - category: Implementation
+    chose: "PathReadGuard.AssertReadable(path, repoRoot) — repo root as method arg"
+    over: "Inject IGitIgnoreResolver + cache repo root at ctor"
+    reason: |
+      The guard now has no per-instance state. ToolGuardInvoker (which lives
+      inside the per-bootstrap FilesystemToolHost) carries the repo root
+      once and passes it on each call. The guard itself is a DI singleton
+      sharing zero state across calls.
+
+  - category: Implementation
+    chose: "PathWriteGuard.AssertWritable(path, repoRoot, phase, contextName) — all per-call values as method args"
+    over: "Bake phase+contextName at ctor, expose as singleton-per-phase factory"
+    reason: |
+      Same rationale as PathReadGuard: the guard is stateless, the caller
+      (ToolGuardInvoker via FilesystemToolHost) carries the per-bootstrap
+      context. Avoids needing a guard-factory for each (phase, contextName)
+      combination at the DI layer.
+
+  - category: Implementation
+    chose: "ToolGuardInvoker ctor gains (repoRoot, writePhase, contextName); FilesystemToolHost ctor gains writePhase + contextName"
+    reason: |
+      The only consumer that needs the guards' new method-arg shape is
+      ToolGuardInvoker. Extending its ctor by three values pushes the
+      per-bootstrap state where it already lives (the FilesystemToolHost
+      built by BootstrapToolHostFactory). FilesystemToolHost's ctor
+      defaults (writePhase=Implementation, contextName=null) keep
+      existing non-bootstrap call sites compiling unchanged.
+
+  - category: Implementation
+    chose: "NullGitIgnoreResolver promoted to a top-level Application/Services/Tools type, registered as the default IGitIgnoreResolver singleton"
+    over: "Inline private fallback in BootstrapToolHostFactory"
+    reason: |
+      With PathReadGuard moving to DI, IGitIgnoreResolver needs a registered
+      default. The Infrastructure.GitIgnoreResolver uses an async factory
+      (LoadAsync) and isn't a singleton candidate. Promoting the previously-
+      inline NullGitIgnoreResolver as the default singleton matches the
+      previous behaviour (bootstrap never checked gitignore) and gives a
+      clear extension point for Implementation-phase wiring later.
+
+  - category: Architecture
+    chose: "IOptions<PipelineDataFlowConfig> bound via Configure<AgentSmithConfig> rather than a direct AddSingleton(PipelineDataFlow)"
+    reason: |
+      AgentSmithConfig is the in-memory singleton; PipelineDataFlow is a
+      sub-property. Binding via `.Configure<AgentSmithConfig>((opts, cfg) =>
+      opts.Enforce = cfg.PipelineDataFlow.Enforce)` keeps a single source
+      of truth (operator edits AgentSmithConfig) without duplicating the
+      sub-config in DI.
+
+  - category: Scope
+    chose: "PipelineStepRunner.AttachReadGate stays as a private method (1 line shorter, but still present)"
+    over: "Inline the call to dataFlowReadGate.AttachToStep at the using-statement"
+    reason: |
+      The method still encapsulates the ResolvedPipelineConfig lookup, which
+      isn't trivial enough to inline in the step-execution body. Keeping it
+      as a private helper preserves readability.
