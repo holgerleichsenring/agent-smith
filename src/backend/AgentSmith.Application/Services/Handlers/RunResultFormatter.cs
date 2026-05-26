@@ -40,7 +40,8 @@ public static class RunResultFormatter
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
         SecurityTrend? securityTrend = null,
         IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
-        IReadOnlyList<CallCostRecord>? perSkillBreakdown = null)
+        IReadOnlyList<CallCostRecord>? perSkillBreakdown = null,
+        RunMetaTopology? topology = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -49,7 +50,7 @@ public static class RunResultFormatter
         sb.AppendLine($"# Run {RunIdGenerator.FormatForDisplay(runId)}: {ticket.Title}");
         sb.AppendLine();
 
-        RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary);
+        RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary, topology);
 
         sb.AppendLine("## Changed Files");
         foreach (var change in changes)

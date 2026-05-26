@@ -69,11 +69,13 @@ public sealed class WriteRunResultHandler(
         var trend = TryGet<SecurityTrend>(context.Pipeline, ContextKeys.SecurityTrend);
         var dialogueEntries = dialogueTrail.GetAll();
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
+        var topology = ResolveTopology(context.Pipeline, runId);
 
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket, context.Plan!, context.Changes,
             runId, duration, cost, trail, decisions, trend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown,
+            topology);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(
@@ -191,6 +193,38 @@ public sealed class WriteRunResultHandler(
 
     private static T? TryGet<T>(PipelineContext pipeline, string key) where T : class
         => pipeline.TryGet<T>(key, out var value) ? value : null;
+
+    /// <summary>
+    /// p0169a: harvest repos / repo_mode / sandbox_count / pipeline_name /
+    /// status / started_at from <see cref="PipelineContext"/> so the dashboard
+    /// can render topology badges without re-deriving from execution-trail.
+    /// </summary>
+    private static RunMetaTopology ResolveTopology(PipelineContext pipeline, string runId)
+    {
+        var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var rs) && rs is not null
+            ? rs.Select(r => r.Name).ToList()
+            : null;
+        var repoMode = repos is { Count: > 1 } ? "multi" : "mono";
+
+        int sandboxCount = 0;
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var sandboxes) && sandboxes is not null)
+            sandboxCount = sandboxes.Count;
+        else if (pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out _))
+            sandboxCount = 1;
+
+        var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
+        var startedAt = pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var st)
+            ? (DateTimeOffset?)st : null;
+
+        return new RunMetaTopology(
+            RunId: runId,
+            PipelineName: pipelineName,
+            Status: "done",
+            StartedAt: startedAt,
+            RepoMode: repoMode,
+            SandboxCount: sandboxCount,
+            Repos: repos);
+    }
 
     /// <summary>
     /// p0128a: persists the structured plan/diff/bootstrap artifacts alongside the

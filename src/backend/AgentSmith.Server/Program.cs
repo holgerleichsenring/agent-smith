@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Api;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Logging;
 using AgentSmith.Server.Extensions;
@@ -60,6 +61,35 @@ builder.Services
     .AddWebhookHandlers()
     .AddLongRunningServices();
 
+// p0169a: dashboard API. Gated by AGENTSMITH_UI_API_ENABLED env (default on);
+// operators that ship without the dashboard can flip it off via env-var.
+var uiApiEnabled = !string.Equals(
+    Environment.GetEnvironmentVariable("AGENTSMITH_UI_API_ENABLED"), "false",
+    StringComparison.OrdinalIgnoreCase);
+
+if (uiApiEnabled)
+{
+    builder.Services.AddSingleton<IRunsRootResolver, EnvRunsRootResolver>();
+    builder.Services.AddSingleton<RunMetaReader>();
+    builder.Services.AddSingleton<RunArtefactLister>();
+
+    var dashboardOrigin = Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
+        ?? "http://localhost:3000";
+    builder.Services.AddCors(o => o.AddPolicy(JobsEndpoints.CorsPolicy, p => p
+        .WithOrigins(dashboardOrigin)
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(o =>
+    {
+        o.SwaggerDoc("v1", new() { Title = "agent-smith", Version = "v1" });
+        // Hide Slack / Teams / Webhook endpoints from the dashboard contract.
+        o.DocInclusionPredicate((_, api) =>
+            api.RelativePath?.StartsWith("api/", StringComparison.OrdinalIgnoreCase) == true);
+    });
+}
+
 await builder.Services.AddJobSpawnerAsync(
     builder.Configuration,
     LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
@@ -70,6 +100,17 @@ app.MapHealthEndpoints()
    .MapSlackEndpoints()
    .MapTeamsEndpoints()
    .MapWebhookEndpoints();
+
+if (uiApiEnabled)
+{
+    app.UseCors(JobsEndpoints.CorsPolicy);
+    app.MapJobsEndpoints();
+    app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
+    // Convenience alias matching the spec: /api/openapi.json -> /api/openapi/v1.json
+    app.MapGet("/api/openapi.json", (HttpContext ctx) =>
+        Results.Redirect("/api/openapi/v1.json", permanent: false))
+       .ExcludeFromDescription();
+}
 
 var startupConfig = app.Services.GetRequiredService<IConfigurationLoader>()
     .LoadConfig(configPath);

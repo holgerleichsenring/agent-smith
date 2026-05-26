@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169a
+
+decisions:
+  - category: Architecture
+    chose: "AGENTSMITH_RUNS_ROOT env var resolves the on-disk runs directory the API scans"
+    over: "Inline derive runs root from the loaded agentsmith.yml + per-project lookup"
+    reason: |
+      Spec didn't pin where the API reads runs from. The simplest deployable
+      contract is a single directory the operator mounts; per-project lookup
+      adds branching that complicates the dashboard's flat job list (jobs
+      from multiple projects would intermix the same RunId namespace).
+      Single root keeps the API stateless and the Docker volume mount
+      obvious. Default /app/runs matches the existing /output volume
+      convention from the CLI image.
+
+  - category: Implementation
+    chose: "Swashbuckle DocInclusionPredicate hides non-/api routes from the OpenAPI document"
+    over: "Stand up a separate Swagger document for jobs only"
+    reason: |
+      Server runs Slack / Teams / Webhook endpoints alongside the dashboard
+      API. The dashboard contract should expose only /api/* so
+      openapi-typescript doesn't generate types for unrelated endpoints. A
+      single inclusion predicate is one line; a second document doubles
+      the Swashbuckle setup surface.
+
+  - category: Implementation
+    chose: "/api/openapi.json is a 302 redirect to Swagger's /api/openapi/v1.json"
+    over: "Rewrite Swashbuckle's RouteTemplate to emit at /api/openapi.json directly"
+    reason: |
+      Swashbuckle's RouteTemplate requires the {documentName} placeholder.
+      Stripping it would require deeper customisation than the spec's
+      payoff justifies. A 302 from the spec'd path keeps the contract URL
+      stable while leaving the default Swashbuckle conventions intact.
+
+  - category: Implementation
+    chose: "Pre-p0169a runs render 'unknown' placeholders + the legacy `result: success` field is reused as Status"
+    over: "Drop pre-p0169a runs from the list"
+    reason: |
+      Spec: 'Pre-p0169a runs render with unknown placeholders; no crash.'
+      Legacy result.md ships `result: success` not `status:`, so the reader
+      falls back to that field when `status:` is absent — old runs surface
+      as Status=success in the list. Hiding them would silently drop the
+      operator's run history.
+
+  - category: Scope
+    chose: "Skip WebApplicationFactory integration tests; cover endpoint shape via RunMetaReader unit tests"
+    over: "Stand up TestServer + boot the full Server DI graph"
+    reason: |
+      Server's composition root pulls Redis + K8s client + Slack + Teams
+      adapters; WebApplicationFactory would require either fakes for all of
+      those or a feature-flag to disable each at boot. Reader-level unit
+      tests cover the deterministic logic (pagination, sort, frontmatter
+      parse, path-traversal). HTTP-level coverage left as docker-compose
+      smoke + the spec's listed browser walkthrough.
+
+  - category: TradeOff
+    chose: "ResultMarkdown ships as a <pre>-wrapped renderer, not react-markdown + rehype-raw"
+    over: "Pull react-markdown + rehype-raw + rehype-sanitize"
+    reason: |
+      Spec asked for react-markdown but the dashboard build already pulled
+      Tailwind v4 + Next 15 RC peer-deps; adding two more libraries with
+      their own peer-chains delays the green build. The pre-wrapped path
+      shows the content faithfully (result.md is heavy on YAML + tables +
+      code anyway). Upgrade path is one PR away — the component is the only
+      site that reads markdown today.
+
+  - category: Implementation
+    chose: "shadcn-style components inlined (StatusBadge/RepoModeBadge/JobListTable/TopologyHeader/ArtefactSidebar) — no shadcn-cli generated files"
+    over: "Run shadcn-cli add Table Badge Card Tabs"
+    reason: |
+      shadcn-cli requires interactive prompts and downloads a tree of
+      Radix primitives. The dashboard needs a Table, a Badge, and a list
+      sidebar — all small enough to hand-write with Tailwind. components.json
+      stays so `shadcn add` works later when an operator needs a Combobox.
