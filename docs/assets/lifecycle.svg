@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 580" role="img" aria-labelledby="lc-title lc-desc">
   <title id="lc-title">A ticket becomes pull requests — Agent Smith</title>
-  <desc id="lc-desc">A ticket comes in from your tracker. Agent Smith spawns one sandbox per repository, clones each repo, then drives a tool-calling loop with every sandbox while the code is written. When the work is done the orchestrator opens one pull request per repo against your git host and sets the ticket back to resolved.</desc>
+  <desc id="lc-desc">A ticket comes in from your source system (Azure DevOps, Jira, GitHub or GitLab). Agent Smith spawns one sandbox per repository, clones each repo, then drives a tool-calling loop with every sandbox while the code is written. When the work is done the orchestrator opens one pull request per repo against your git host (Azure DevOps, GitHub or GitLab — Jira has no repos) and writes the ticket update back to wherever it came from.</desc>
 
   <defs>
     <marker id="lc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -27,18 +27,12 @@
     .lc-stroke-accent { stroke: #22c55e; }
     .lc-label     { fill: #939084; font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.6px; }
 
-    /* Stage timing — 14s loop:
-       0–14   stage 1  (ticket flies from tracker into orchestrator)
-       14–28  stage 2  (sandboxes spawn, git-clone packets fly out)
-       28–60  stage 3  (orchestrator ↔ sandbox tool-call loop; work bars pulse)
-       60–85  stage 4  (commits flow up to orchestrator; orchestrator opens PRs in git host)
-       85–100 stage 5  (orchestrator marks ticket resolved in the tracker) */
-
+    /* 14s loop */
     @keyframes lc-ticket-flow {
       0%        { opacity: 0; transform: translate(0, 0); }
       2%        { opacity: 1; transform: translate(0, 0); }
-      12%       { opacity: 1; transform: translate(140px, 65px); }
-      14%, 100% { opacity: 0; transform: translate(140px, 65px); }
+      12%       { opacity: 1; transform: translate(140px, 59px); }
+      14%, 100% { opacity: 0; transform: translate(140px, 59px); }
     }
     @keyframes lc-sandbox-grow {
       0%, 18%   { opacity: 0; transform: scaleY(0.05); }
@@ -58,7 +52,6 @@
       26%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
       28%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
     }
-    /* Bidirectional loop packets — bounce between orchestrator and sandbox during work stage */
     @keyframes lc-loop-bounce {
       0%, 28%   { opacity: 0; transform: translate(0, 0); }
       30%       { opacity: 1; transform: translate(0, 0); }
@@ -80,33 +73,23 @@
       31%, 58%  { opacity: 1; }
       62%, 100% { opacity: 0; }
     }
-    /* Commit packets fly UP from each sandbox to the orchestrator */
     @keyframes lc-commit-up {
       0%, 60%   { opacity: 0; transform: translate(0, 0); }
       62%       { opacity: 1; transform: translate(0, 0); }
       68%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
       71%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
     }
-    /* PR-egress wires (orchestrator → git host) fade in for stage 4 */
     @keyframes lc-pr-wire-show {
       0%, 62%   { opacity: 0; }
       66%, 84%  { opacity: 0.7; }
       87%, 100% { opacity: 0; }
     }
-    /* PR packets fly FROM orchestrator TO git host */
     @keyframes lc-pr-out {
       0%, 67%   { opacity: 0; transform: translate(0, 0); }
       69%       { opacity: 1; transform: translate(0, 0); }
       77%       { opacity: 1; transform: translate(var(--tx), var(--ty)); }
       79%, 100% { opacity: 0; transform: translate(var(--tx), var(--ty)); }
     }
-    /* PR badges land inside the git host boxes */
-    @keyframes lc-pr-badge {
-      0%, 76%   { opacity: 0; transform: translateY(4px); }
-      80%, 94%  { opacity: 1; transform: translateY(0); }
-      97%, 100% { opacity: 0; }
-    }
-    /* Ticket update flies from orchestrator back to the tracker */
     @keyframes lc-ticket-return {
       0%, 84%   { opacity: 0; transform: translate(0, 0); }
       86%       { opacity: 1; transform: translate(0, 0); }
@@ -133,64 +116,44 @@
     .lc-commit      { transform-box: fill-box; animation: lc-commit-up 14s ease-in-out infinite; }
     .lc-pr-wire-a   { animation: lc-pr-wire-show 14s ease-in-out infinite; }
     .lc-pr-fly      { transform-box: fill-box; animation: lc-pr-out 14s ease-in-out infinite; color: #22c55e; }
-    .lc-pr-badge    { transform-box: fill-box; animation: lc-pr-badge 14s ease-in-out infinite; }
     .lc-ticket-back { transform-box: fill-box; animation: lc-ticket-return 14s ease-in-out infinite; }
     .lc-resolved    { animation: lc-resolved-show 14s ease-in-out infinite; }
     .lc-wire        { stroke: #22c55e; stroke-dasharray: 4 6; animation: lc-wire-flow 1.4s linear infinite; }
     .lc-wire-soft   { stroke: #c5c0b1; stroke-dasharray: 4 6;
                       animation: lc-wire-flow 1.4s linear infinite; }
 
-    /* Per-sandbox stagger */
     .lc-sb-1 { animation-delay: 0s; }
     .lc-sb-2 { animation-delay: 0.45s; }
     .lc-sb-3 { animation-delay: 0.9s; }
-    /* Up-packet runs out of phase with its down-packet partner so they look like
-       two separate conversations on the same wire rather than one bouncing dot. */
     .lc-loop-rev.lc-sb-1 { animation-delay: -1.05s; }
     .lc-loop-rev.lc-sb-2 { animation-delay: -0.6s; }
     .lc-loop-rev.lc-sb-3 { animation-delay: -0.15s; }
-    /* Stage-4 PR stagger */
     .lc-pr-1 { animation-delay: 0s; }
     .lc-pr-2 { animation-delay: 0.3s; }
     .lc-pr-3 { animation-delay: 0.6s; }
   </style>
 
-  <!-- Page background (light) -->
   <rect width="920" height="580" rx="14" class="lc-bg"/>
 
-  <!-- SOURCE COLUMN — tracker (top) + git host (bottom) -->
+  <!-- SOURCE COLUMN — all four platforms, equal size. Each can be tracker;
+       PRs flow back to all except Jira. -->
   <g>
-    <text x="40" y="22" class="lc-label lc-mono" font-size="10" font-weight="500">YOUR TRACKER</text>
+    <text x="40" y="22" class="lc-label lc-mono" font-size="10" font-weight="500">YOUR SOURCES</text>
     <rect x="40" y="32" width="150" height="38" rx="7" class="lc-surface-2"/>
     <text x="58" y="56" class="lc-text" font-size="13">Azure DevOps</text>
     <rect x="40" y="76" width="150" height="38" rx="7" class="lc-surface-2"/>
     <text x="58" y="100" class="lc-text" font-size="13">Jira</text>
-
-    <text x="40" y="130" class="lc-label lc-mono" font-size="10" font-weight="500">YOUR GIT HOST</text>
-    <rect x="40" y="140" width="150" height="58" rx="7" class="lc-surface-2"/>
-    <text x="58" y="160" class="lc-text" font-size="13">GitHub</text>
-    <g class="lc-pr-badge lc-mono">
-      <rect x="50" y="166" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
-      <text x="56" y="176" class="lc-accent" font-size="10">PR · server  ✓</text>
-    </g>
-    <g class="lc-pr-badge lc-mono lc-sb-2">
-      <rect x="50" y="181" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
-      <text x="56" y="191" class="lc-accent" font-size="10">PR · client  ✓</text>
-    </g>
-
-    <rect x="40" y="204" width="150" height="42" rx="7" class="lc-surface-2"/>
-    <text x="58" y="224" class="lc-text" font-size="13">GitLab</text>
-    <g class="lc-pr-badge lc-mono lc-sb-3">
-      <rect x="50" y="230" width="130" height="13" rx="3" fill="#22c55e" opacity="0.12"/>
-      <text x="56" y="240" class="lc-accent" font-size="10">PR · worker  ✓</text>
-    </g>
+    <rect x="40" y="120" width="150" height="38" rx="7" class="lc-surface-2"/>
+    <text x="58" y="144" class="lc-text" font-size="13">GitHub</text>
+    <rect x="40" y="164" width="150" height="38" rx="7" class="lc-surface-2"/>
+    <text x="58" y="188" class="lc-text" font-size="13">GitLab</text>
   </g>
 
-  <!-- Feeder lines into orchestrator -->
-  <path d="M190 51  C 240 51,  252 80,  320 90"  fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
-  <path d="M190 95  C 240 95,  252 105, 320 108" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
-  <path d="M190 160 C 240 160, 252 132, 320 128" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
-  <path d="M190 224 C 250 224, 252 160, 320 148" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <!-- Feeder lines: all four sources → orchestrator -->
+  <path d="M190 51  C 240 51,  260 92,  320 100" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 95  C 240 95,  260 112, 320 115" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 139 C 240 139, 260 128, 320 128" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
+  <path d="M190 183 C 250 183, 260 148, 320 143" fill="none" class="lc-wire-soft" marker-end="url(#lc-arrow)"/>
 
   <!-- STAGE 1: ticket flying from Azure DevOps into orchestrator -->
   <g class="lc-ticket">
@@ -216,7 +179,6 @@
     <path d="M380 172 L 188 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
     <path d="M430 172 L 430 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
     <path d="M484 172 L 672 254" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
-    <text x="430" y="200" class="lc-accent lc-mono" font-size="11" text-anchor="middle">git clone — one repo per sandbox</text>
   </g>
 
   <!-- STAGE 2: repo packets fly from orchestrator to each sandbox -->
@@ -233,7 +195,7 @@
     <use href="#lc-folder" x="425" y="167" width="10" height="10" color="#fffefb"/>
   </g>
 
-  <!-- STAGE 3: bidirectional tool-call loop — packets bounce between orchestrator and each sandbox while work bars pulse -->
+  <!-- STAGE 3: bidirectional tool-call loop — packets bounce between orchestrator and each sandbox -->
   <g class="lc-loop lc-sb-1" style="--tx: -192px; --ty: 82px">
     <circle cx="380" cy="172" r="3.5" fill="#22c55e"/>
   </g>
@@ -267,7 +229,7 @@
     </g>
     <text x="134" y="360" class="lc-on-code" font-size="10.5">Auth.cs</text>
     <text x="134" y="374" class="lc-on-code" font-size="10.5">LoginController.cs</text>
-    <text x="122" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+    <text x="122" y="402" class="lc-mute lc-mono" font-size="10.5">acme-org/auth-server</text>
   </g>
   <g class="lc-sandbox lc-sb-2">
     <rect x="335" y="256" width="190" height="160" rx="9" class="lc-surface-2"/>
@@ -282,7 +244,7 @@
     </g>
     <text x="363" y="360" class="lc-on-code" font-size="10.5">authClient.ts</text>
     <text x="363" y="374" class="lc-on-code" font-size="10.5">session.ts</text>
-    <text x="351" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+    <text x="351" y="402" class="lc-mute lc-mono" font-size="10.5">acme-org/auth-client</text>
   </g>
   <g class="lc-sandbox lc-sb-3">
     <rect x="564" y="256" width="190" height="160" rx="9" class="lc-surface-2"/>
@@ -297,7 +259,7 @@
     </g>
     <text x="592" y="360" class="lc-on-code" font-size="10.5">token_queue.py</text>
     <text x="592" y="374" class="lc-on-code" font-size="10.5">refresh_job.py</text>
-    <text x="580" y="402" class="lc-mute" font-size="11">git checkout -b agentsmith/ticket-4471</text>
+    <text x="580" y="402" class="lc-mute lc-mono" font-size="10.5">acme-org/auth-worker</text>
   </g>
 
   <!-- STAGE 4a: commit packets fly UP from each sandbox to the orchestrator -->
@@ -314,35 +276,34 @@
     <use href="#lc-branch" x="655" y="251" width="8" height="8" color="#fffefb"/>
   </g>
 
-  <!-- STAGE 4b: PR egress wires (orchestrator → git host) -->
+  <!-- STAGE 4b: PR egress wires (orchestrator → git hosts; Jira excluded) -->
   <g class="lc-pr-wire-a">
-    <path d="M 326 130 C 280 130, 240 168, 195 168" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
-    <path d="M 326 150 C 280 150, 240 218, 195 224" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
-    <text x="262" y="125" class="lc-accent lc-mono" font-size="11" text-anchor="middle">open pull request</text>
+    <path d="M 326 130 C 280 130, 260 60,  195 51"  fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <path d="M 326 140 C 280 140, 260 140, 195 139" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
+    <path d="M 326 155 C 280 155, 260 184, 195 183" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
   </g>
 
-  <!-- STAGE 4b: PR packets fly FROM orchestrator TO git host -->
-  <g class="lc-pr-fly lc-pr-1" style="--tx: -126px; --ty: 38px">
+  <!-- STAGE 4b: PR packets fly FROM orchestrator TO each git host (server→AzDO, client→GitHub, worker→GitLab) -->
+  <g class="lc-pr-fly lc-pr-1" style="--tx: -127px; --ty: -79px">
     <rect x="322" y="124" width="14" height="14" rx="2" fill="#22c55e"/>
     <use href="#lc-branch" x="324" y="125" width="10" height="10" color="#fffefb"/>
   </g>
-  <g class="lc-pr-fly lc-pr-2" style="--tx: -126px; --ty: 50px">
-    <rect x="322" y="138" width="14" height="14" rx="2" fill="#22c55e"/>
-    <use href="#lc-branch" x="324" y="139" width="10" height="10" color="#fffefb"/>
+  <g class="lc-pr-fly lc-pr-2" style="--tx: -127px; --ty: 5px">
+    <rect x="322" y="134" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="324" y="135" width="10" height="10" color="#fffefb"/>
   </g>
-  <g class="lc-pr-fly lc-pr-3" style="--tx: -126px; --ty: 76px">
-    <rect x="322" y="148" width="14" height="14" rx="2" fill="#22c55e"/>
-    <use href="#lc-branch" x="324" y="149" width="10" height="10" color="#fffefb"/>
+  <g class="lc-pr-fly lc-pr-3" style="--tx: -127px; --ty: 33px">
+    <rect x="322" y="150" width="14" height="14" rx="2" fill="#22c55e"/>
+    <use href="#lc-branch" x="324" y="151" width="10" height="10" color="#fffefb"/>
   </g>
 
-  <!-- STAGE 5: ticket update — orchestrator writes back to the tracker -->
+  <!-- STAGE 5: ticket update — orchestrator writes back to the tracker the ticket came from (Azure DevOps in this example) -->
   <g class="lc-resolved">
-    <path d="M 320 90 C 260 90, 240 60, 195 51" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
-    <text x="262" y="80" class="lc-accent lc-mono" font-size="11" text-anchor="middle">ticket update</text>
+    <path d="M 320 100 C 260 100, 240 60, 195 51" fill="none" class="lc-wire" marker-end="url(#lc-arrow)"/>
   </g>
-  <g class="lc-ticket-back" style="--tx: -125px; --ty: -39px">
-    <circle cx="320" cy="90" r="6" class="lc-accent"/>
-    <path d="M317 90 l2 2 l4 -4" stroke="#fffefb" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="lc-ticket-back" style="--tx: -125px; --ty: -49px">
+    <circle cx="320" cy="100" r="6" class="lc-accent"/>
+    <path d="M317 100 l2 2 l4 -4" stroke="#fffefb" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 
   <!-- STAGE 5: resolved banner -->
@@ -351,6 +312,6 @@
     <circle cx="66" cy="472" r="9" class="lc-accent"/>
     <path d="M61.5 472 l3 3 l6 -7" stroke="#fffefb" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="86" y="469" class="lc-text" font-size="14" font-weight="600">ticket #4471 — resolved</text>
-    <text x="86" y="486" class="lc-mute" font-size="12">3 pull requests open, all on branch agentsmith/ticket-4471, links commented on the ticket</text>
+    <text x="86" y="486" class="lc-mute" font-size="12">3 pull requests open (server · client · worker), all on branch agentsmith/ticket-4471, links commented on the ticket</text>
   </g>
 </svg>
