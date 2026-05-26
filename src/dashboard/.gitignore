@@ -1,0 +1,18 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# generated
+src/types/api.ts
+src/styles/tokens.json
+
+# env
+.env*.local
+
+# misc
+*.log
+.DS_Store
+.turbo
+.vercel

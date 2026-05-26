@@ -14,6 +14,10 @@ const outputs = [
   resolve(repoRoot, "docs/stylesheets/tokens.css"),
 ];
 const designCopyForDocs = resolve(repoRoot, "docs/DESIGN.md");
+const dashboardTokensJson = resolve(repoRoot, "src/dashboard/src/styles/tokens.json");
+
+const args = process.argv.slice(2);
+const target = args.includes("--target") ? args[args.indexOf("--target") + 1] : "all";
 
 const source = readFileSync(designPath, "utf8");
 const frontmatter = extractFrontmatter(source);
@@ -21,16 +25,24 @@ const tree = parseYaml(frontmatter);
 
 assertRequired(tree, ["colors.primary", "typography.display-xl.fontSize", "rounded.md", "spacing.xl"]);
 
-const css = emitCss(tree);
-
-for (const out of outputs) {
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, css);
-  console.log(`wrote ${out} (${css.length} bytes)`);
+if (target === "all" || target === "css") {
+  const css = emitCss(tree);
+  for (const out of outputs) {
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, css);
+    console.log(`wrote ${out} (${css.length} bytes)`);
+  }
+  copyFileSync(designPath, designCopyForDocs);
+  console.log(`copied DESIGN.md -> ${designCopyForDocs}`);
 }
 
-copyFileSync(designPath, designCopyForDocs);
-console.log(`copied DESIGN.md -> ${designCopyForDocs}`);
+if (target === "all" || target === "tailwind") {
+  const tokens = emitTailwindTokens(tree);
+  const json = JSON.stringify(tokens, null, 2);
+  mkdirSync(dirname(dashboardTokensJson), { recursive: true });
+  writeFileSync(dashboardTokensJson, json);
+  console.log(`wrote ${dashboardTokensJson} (${json.length} bytes)`);
+}
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -156,4 +168,28 @@ function emitCss(tree) {
 
 function kebab(s) {
   return String(s).replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+// Emit Tailwind v4 token JSON for the dashboard.
+// Shape: { colors: {...}, fontFamily: {...}, borderRadius: {...}, spacing: {...} }
+function emitTailwindTokens(tree) {
+  const colors = {};
+  for (const [k, v] of Object.entries(tree.colors || {})) colors[kebab(k)] = v;
+
+  const fontFamily = {};
+  for (const [role, fields] of Object.entries(tree.typography || {})) {
+    if (fields.fontFamily) {
+      fontFamily[kebab(role)] = fields.fontFamily
+        .split(",")
+        .map((s) => s.trim().replace(/^['"]|['"]$/g, ""));
+    }
+  }
+
+  const borderRadius = {};
+  for (const [k, v] of Object.entries(tree.rounded || {})) borderRadius[kebab(k)] = v;
+
+  const spacing = {};
+  for (const [k, v] of Object.entries(tree.spacing || {})) spacing[kebab(k)] = v;
+
+  return { colors, fontFamily, borderRadius, spacing };
 }
