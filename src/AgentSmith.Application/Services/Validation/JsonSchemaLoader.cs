@@ -22,7 +22,8 @@ public sealed class JsonSchemaLoader
             [SkillOutputSchema.Plan] = LoadFromResource("plan.schema.json"),
             [SkillOutputSchema.Diff] = LoadFromResource("diff.schema.json"),
             [SkillOutputSchema.Bootstrap] = LoadFromResource("bootstrap.schema.json"),
-            [SkillOutputSchema.Observation] = LoadFromResource("observation.schema.json")
+            [SkillOutputSchema.Observation] = LoadFromResource("observation.schema.json"),
+            [SkillOutputSchema.Discovery] = LoadFromResource("discovery.schema.json"),
         };
     }
 

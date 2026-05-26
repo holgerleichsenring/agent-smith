@@ -44,12 +44,14 @@ public sealed class BootstrapRoundHandler(
                 $"BootstrapRound: no ProjectMap available for repo '{context.RepoName}' " +
                 "(checked RepoProjectMaps[RepoName] and legacy ContextKeys.ProjectMap)");
 
-        var bundle = toolHostFactory.Create(sandbox, repo.LocalPath);
-        var (system, user) = BootstrapPromptFactory.Build(role, repo, projectMap);
+        var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.ContextName);
+        var appliesTo = ResolveAppliesTo(pipeline);
+        var (system, user) = BootstrapPromptFactory.Build(
+            role, repo, projectMap, context.ContextName, context.Workdir, appliesTo);
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);
 
-        PersistOutput(pipeline, context.SkillName, role, responseText);
+        PersistOutput(context, context.SkillName, role, responseText);
         var changes = bundle.GetChanges();
         var decisions = bundle.GetDecisions();
         if (decisions.Count > 0) pipeline.AppendDecisions(decisions);
@@ -114,16 +116,48 @@ public sealed class BootstrapRoundHandler(
         return pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var legacy) ? legacy : null;
     }
 
+    // p0161d: per-phase applies_to wins if present; otherwise the prompt
+    // factory falls back to its per-context PrimaryLanguage line (p0161a D4).
+    private static string? ResolveAppliesTo(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.PhaseAppliesTo, out var appliesTo)
+            && !string.IsNullOrWhiteSpace(appliesTo)
+            ? appliesTo
+            : null;
+
     private static void PersistOutput(
-        PipelineContext pipeline, string skillName, RoleSkillDefinition role, string responseText)
+        BootstrapRoundContext context, string skillName,
+        RoleSkillDefinition role, string responseText)
     {
+        var pipeline = context.Pipeline;
         if (!pipeline.TryGet<Dictionary<string, string>>(ContextKeys.SkillOutputs, out var outputs) || outputs is null)
             outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         outputs[skillName] = responseText;
         pipeline.Set(ContextKeys.SkillOutputs, outputs);
+
+        AppendBootstrapOutput(pipeline, context.RepoName, context.ContextName, responseText);
+
         if (!pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussion) || discussion is null)
             discussion = [];
         discussion.Add(new DiscussionEntry(skillName, role.DisplayName, role.Emoji, Round: 1, responseText));
         pipeline.Set(ContextKeys.DiscussionLog, discussion);
+    }
+
+    // p0161d: writes the (repo, context) → markdown output trail used by
+    // WriteRunResultHandler's init-mode fan-out. Empty contextName uses
+    // "default" so legacy single-context runs land in a predictable slot.
+    private static void AppendBootstrapOutput(
+        PipelineContext pipeline, string repoName, string contextName, string output)
+    {
+        if (!pipeline.TryGet<Dictionary<string, Dictionary<string, string>>>(
+                ContextKeys.BootstrapOutputs, out var byRepo) || byRepo is null)
+            byRepo = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+        if (!byRepo.TryGetValue(repoName, out var byContext))
+        {
+            byContext = new Dictionary<string, string>(StringComparer.Ordinal);
+            byRepo[repoName] = byContext;
+        }
+        var key = string.IsNullOrEmpty(contextName) ? "default" : contextName;
+        byContext[key] = output;
+        pipeline.Set(ContextKeys.BootstrapOutputs, byRepo);
     }
 }

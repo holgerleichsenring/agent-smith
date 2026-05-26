@@ -94,7 +94,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     public string BuildExecutionUserPrompt(
         Plan plan, Repository repository, string? verifyNotes = null,
         IReadOnlyList<string>? contextKeys = null,
-        IReadOnlyDictionary<string, string>? perKeyLanguages = null)
+        IReadOnlyDictionary<string, string>? perKeyLanguages = null,
+        string? appliesTo = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
@@ -102,7 +103,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         return $"""
             Execute the following implementation plan in repository at: {repository.LocalPath}
             Branch: {repository.CurrentBranch}
-            {BuildContextsInScopeSection(contextKeys, perKeyLanguages)}{BuildVerifyNotesSection(verifyNotes)}
+            {BuildAppliesToSection(appliesTo)}{BuildContextsInScopeSection(contextKeys, perKeyLanguages)}{BuildVerifyNotesSection(verifyNotes)}
             ## Plan
             **Summary:** {plan.Summary}
 
@@ -111,6 +112,18 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
             Start by listing the relevant files, then implement each step.
             """;
+    }
+
+    /// <summary>
+    /// p0161d: phase-spec applies_to renders as a single "Applies to: ..." line
+    /// near the top of the user prompt so the LLM knows which stack(s) the
+    /// active phase targets. Empty/missing value emits nothing — back-compat
+    /// for pipelines that don't carry a phase spec.
+    /// </summary>
+    internal static string BuildAppliesToSection(string? appliesTo)
+    {
+        if (string.IsNullOrWhiteSpace(appliesTo)) return string.Empty;
+        return $"Applies to: {appliesTo}\n";
     }
 
     /// <summary>

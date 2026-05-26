@@ -113,6 +113,7 @@ public sealed class FilesystemToolHost : IToolHost
             null => All(),
             SkillExecutionPhase.Implementation => All(),
             SkillExecutionPhase.Bootstrap => BootstrapSet(),
+            SkillExecutionPhase.BootstrapDiscover => BootstrapDiscoverSet(),
             SkillExecutionPhase.Plan or SkillExecutionPhase.Verify or SkillExecutionPhase.Investigate => InvestigatorSet(),
             _ => ReadOnlySet()
         };
@@ -461,6 +462,21 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
+    ];
+
+    // p0161d: BootstrapDiscover gets read-only filesystem only. No write_file,
+    // no edit / multi_edit, no run_command, no http_request — Discover is a
+    // read pass that produces the component list; writes happen in the
+    // subsequent BootstrapRound rounds. ask_human is composed at the
+    // AgenticToolSurface layer (HumanToolHost), not here.
+    private IEnumerable<AIFunction> BootstrapDiscoverSet() =>
+    [
+        Tool(ReadFile, "read_file"),
+        Tool(GrepInFile, "grep_in_file"),
+        Tool(GrepInTree, "grep_in_tree"),
+        Tool(FindFiles, "find_files"),
+        Tool(ListDirectory, "list_directory"),
+        Tool(DirectoryTree, "directory_tree"),
     ];
 
     private IEnumerable<AIFunction> All() => BootstrapSet();

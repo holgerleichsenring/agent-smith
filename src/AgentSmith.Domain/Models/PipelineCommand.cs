@@ -15,6 +15,18 @@ public sealed record PipelineCommand
     /// sandbox). null on single-repo or repo-agnostic rounds.</summary>
     public string? RepoName { get; init; }
 
+    /// <summary>p0161d: names which discovered context (sub-tree under
+    /// <c>.agentsmith/contexts/</c>) this round writes into. Set by
+    /// BootstrapDispatch when fanning out per (repo, component). null on
+    /// pre-p0161d single-context rounds.</summary>
+    public string? ContextName { get; init; }
+
+    /// <summary>p0161d: repo-relative workdir for the component this round
+    /// operates on. Mirrors RemoteContextDiscovery.Workdir. "." for
+    /// single-component repos; sub-tree path (e.g. "server/") for
+    /// monorepo components.</summary>
+    public string? Workdir { get; init; }
+
     public PipelineCommand(string name)
     {
         Name = name;
@@ -22,11 +34,21 @@ public sealed record PipelineCommand
 
     /// <summary>
     /// Creates a parameterized skill round command. Optional repoName scopes
-    /// the round to one configured repo (p0158g multi-repo dispatch).
+    /// the round to one configured repo (p0158g multi-repo dispatch). p0161d:
+    /// optional contextName + workdir scope the round to one discovered
+    /// component within that repo.
     /// </summary>
     public static PipelineCommand SkillRound(
-        string commandName, string skillName, int round, string? repoName = null) =>
-        new(commandName) { SkillName = skillName, Round = round, RepoName = repoName };
+        string commandName, string skillName, int round,
+        string? repoName = null, string? contextName = null, string? workdir = null) =>
+        new(commandName)
+        {
+            SkillName = skillName,
+            Round = round,
+            RepoName = repoName,
+            ContextName = contextName,
+            Workdir = workdir,
+        };
 
     /// <summary>
     /// Creates a simple command without parameters.

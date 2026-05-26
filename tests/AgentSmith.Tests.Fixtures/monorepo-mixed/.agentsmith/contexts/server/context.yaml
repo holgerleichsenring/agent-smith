@@ -1,0 +1,11 @@
+meta:
+  project: monorepo-mixed-server
+  workdir: src/Server
+stack:
+  lang: csharp
+  runtime: .NET 8
+  testing: [xunit]
+arch:
+  layers: [Domain, Application]
+ci:
+  test_command: "dotnet test --verbosity minimal"

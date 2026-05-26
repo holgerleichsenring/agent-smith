@@ -34,4 +34,18 @@ public static class AgenticToolSurface
             .Concat(log.GetTools(phase: null, investigatorMode: null))
             .Cast<AITool>()
             .ToList();
+
+    /// <summary>
+    /// p0161d: BootstrapDiscover surface: read-only filesystem (read_file,
+    /// list_directory, directory_tree, grep_in_*, find_files) + ask_human
+    /// (interactive transports only; HumanToolHost returns the ask_human
+    /// tool, but it answers with a transport-not-configured error on
+    /// headless runs so the LLM has to fail loud rather than guess).
+    /// Explicitly no write_file, no run_command, no http_request.
+    /// </summary>
+    public static IList<AITool> BootstrapDiscover(FilesystemToolHost fs, HumanToolHost human) =>
+        fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
+            .Concat(human.GetTools(phase: null, investigatorMode: null))
+            .Cast<AITool>()
+            .ToList();
 }
