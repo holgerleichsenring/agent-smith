@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169-pre
+
+decisions:
+  - category: Tooling
+    chose: "Hand-scaffold all files instead of running pnpm create next-app"
+    over: "Run the interactive create-next-app generator"
+    reason: |
+      create-next-app is interactive; the spec's deliverables list exactly
+      which files to ship. Hand-writing the small set is deterministic and
+      keeps the diff legible. The boilerplate that create-next-app would
+      emit was going to be stripped to a minimal placeholder anyway.
+
+  - category: Architecture
+    chose: "Tailwind v4 with @theme CSS-first variables AND tailwind.config.ts importing tokens.json"
+    over: "Tailwind v4 with CSS-only @theme block"
+    reason: |
+      Spec asks for both: tokens flow from DESIGN.md via build-tokens.mjs
+      into tokens.json, then tailwind.config.ts feeds them to Tailwind.
+      But Tailwind v4's preferred path is @theme in CSS. Shipping both
+      surfaces the tokens in the CSS layer (so plain CSS like
+      `var(--color-primary)` works for non-utility uses) and in the
+      Tailwind utility layer (so `bg-primary` works). Two paths, same
+      single source of truth (DESIGN.md). Cost is one extra step in the
+      build chain — already present anyway.
+
+  - category: Tooling
+    chose: "shadcn/ui declared in components.json + cn() util written by hand; no shadcn-cli init step run"
+    over: "Run pnpm dlx shadcn@latest init"
+    reason: |
+      `shadcn init` is interactive and writes a small set of files
+      (components.json + lib/utils.ts + globals.css edits). The exact
+      output is documented and small enough to hand-write. Future
+      `shadcn add <component>` calls work the same against a manually
+      seeded components.json.
+
+  - category: Implementation
+    chose: "Moved docs/setup/dashboard.md to docs/reference/setup/dashboard.md"
+    over: "Keep at docs/setup/dashboard.md as spec specified"
+    reason: |
+      Existing mkdocs convention has every setup page under
+      docs/reference/setup/; the spec was written against an earlier
+      docs layout. Following the existing convention avoids a stray
+      top-level setup/ folder that mkdocs.yml does not reference. The
+      spec called for an mkdocs nav entry — adding one for an
+      inconsistent path would have been worse than relocating.
+
+  - category: Implementation
+    chose: "Dashboard Docker image mirrors the repo path layout (/repo/src/dashboard, /repo/tools, /repo/DESIGN.md)"
+    over: "Flat /app working dir with rewritten token-script path"
+    reason: |
+      The dashboard's `pnpm gen:tokens` runs `node ../../tools/build-tokens.mjs`.
+      Inside the container, the same relative path needs to land on the
+      same tool. Mirroring the repo layout in the build stage keeps a
+      single command working both locally and in Docker without a
+      container-specific script path.
+
+  - category: TradeOff
+    chose: "openapi-typescript falls back to ./openapi.stub.json when OPENAPI_SOURCE unset, via shell parameter expansion"
+    over: "Always require OPENAPI_SOURCE env var or always read the stub"
+    reason: |
+      The bootstrap phase needs a usable codegen step before p0169a
+      ships the live spec. Defaulting to the stub keeps `pnpm build`
+      hermetic; setting OPENAPI_SOURCE points at the live spec. One
+      script handles both modes; ${OPENAPI_SOURCE:-./openapi.stub.json}
+      is the standard POSIX expansion and works on macOS + Linux CI.

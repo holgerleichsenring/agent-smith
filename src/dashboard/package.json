@@ -1,0 +1,44 @@
+{
+  "name": "agentsmith-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm gen:tokens && pnpm gen:types && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:types": "openapi-typescript ${OPENAPI_SOURCE:-./openapi.stub.json} -o src/types/api.ts",
+    "gen:tokens": "node ../../tools/build-tokens.mjs --target tailwind"
+  },
+  "dependencies": {
+    "next": "15.0.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "lucide-react": "^0.460.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@tailwindcss/postcss": "^4.0.0-beta.4",
+    "tailwindcss": "^4.0.0-beta.4",
+    "postcss": "^8.4.49",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "15.0.3",
+    "@eslint/eslintrc": "^3.2.0",
+    "prettier": "^3.3.3",
+    "vitest": "^2.1.5",
+    "@vitejs/plugin-react": "^4.3.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/dom": "^10.4.0",
+    "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.4.4"
+  }
+}

@@ -94,6 +94,29 @@ services:
       retries: 3
       start_period: 15s
 
+  # Operator opt-in dashboard (p0169-pre).
+  # Run with: docker compose --profile dashboard up
+  dashboard:
+    build:
+      context: ..
+      dockerfile: src/dashboard/Dockerfile
+    image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.60.1}
+    profiles: [dashboard]
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - AGENT_SMITH_API_URL=http://server:8081
+    depends_on:
+      - server
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
   ollama:
     image: ollama/ollama
     profiles: [local-models]
