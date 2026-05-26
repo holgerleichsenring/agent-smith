@@ -72,6 +72,7 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<IRunsRootResolver, EnvRunsRootResolver>();
     builder.Services.AddSingleton<RunMetaReader>();
     builder.Services.AddSingleton<RunArtefactLister>();
+    builder.Services.AddSingleton<IJobBusSubscriber, JobBusSubscriber>();
 
     var dashboardOrigin = Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
         ?? "http://localhost:3000";
@@ -105,6 +106,7 @@ if (uiApiEnabled)
 {
     app.UseCors(JobsEndpoints.CorsPolicy);
     app.MapJobsEndpoints();
+    app.MapJobStreamEndpoint();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     // Convenience alias matching the spec: /api/openapi.json -> /api/openapi/v1.json
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
