@@ -1,14 +1,21 @@
 import { render, screen } from "@testing-library/react";
-import LandingPage from "../page";
+import { vi } from "vitest";
+import JobsPage from "../page";
 
-describe("LandingPage", () => {
-  it("renders the agent-smith brand heading", () => {
-    render(<LandingPage />);
+vi.mock("@/lib/api", () => ({
+  listJobs: vi.fn().mockResolvedValue({ jobs: [], total: 0, page: 1, pageSize: 50 }),
+}));
+
+describe("JobsPage (root /)", () => {
+  it("renders the agent-smith heading", async () => {
+    const ui = await JobsPage();
+    render(ui);
     expect(screen.getByRole("heading", { name: /agent-smith/i })).toBeInTheDocument();
   });
 
-  it("notes that the Job-Viewer ships in p0169a", () => {
-    render(<LandingPage />);
-    expect(screen.getByText(/p0169a/i)).toBeInTheDocument();
+  it("renders empty-state when there are no jobs", async () => {
+    const ui = await JobsPage();
+    render(ui);
+    expect(screen.getByTestId("empty-state")).toBeInTheDocument();
   });
 });

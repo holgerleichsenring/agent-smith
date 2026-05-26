@@ -1,17 +1,17 @@
-export default function LandingPage() {
+import { listJobs } from "@/lib/api";
+import { JobListTable } from "@/components/jobs/JobListTable";
+
+export default async function JobsPage() {
+  const { jobs, total } = await listJobs();
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <section className="text-center">
-        <h1 className="text-5xl font-medium tracking-tight" style={{ color: "var(--color-primary)" }}>
-          agent-smith
-        </h1>
-        <p className="mt-4 text-lg" style={{ color: "var(--color-body)" }}>
-          Dashboard bootstrap — toolchain online.
+    <main className="mx-auto max-w-6xl space-y-6 p-8">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-medium tracking-tight">agent-smith</h1>
+        <p className="text-sm text-stone-500">
+          {total === 0 ? "No runs recorded yet." : `${total} run${total === 1 ? "" : "s"}`}
         </p>
-        <p className="mt-2 text-sm" style={{ color: "var(--color-body-mid)" }}>
-          Job-Viewer ships in p0169a.
-        </p>
-      </section>
+      </header>
+      <JobListTable jobs={jobs} />
     </main>
   );
 }
