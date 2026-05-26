@@ -1,0 +1,209 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169b
+goal: |
+  Live tailing: in-progress jobs stream progress + sandbox stdout +
+  skill observations into the dashboard detail page as they happen,
+  without a page refresh.
+
+  Deliberately after p0169a's static viewer is demo-stable. Live
+  streams break mid-demo in ways static rendering does not — first
+  customer demo runs against pre-recorded jobs; live-trigger is the
+  second-demo move once the static path has run reliably ten times.
+
+  Reuses the same Redis pub/sub channel BusMessageRouter (chat) and
+  McpBusSubscriber (p0166c, MCP clients) already consume — the
+  in-process subscriber pattern is established.
+
+requires: ["p0169a"]
+
+scope:
+  in: |
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (1) GET /api/jobs/{id}/stream — SSE endpoint streaming the same
+        bus messages as p0166c's /mcp/events but formatted as plain
+        JSON event objects (not JSON-RPC notifications). One SSE
+        event per BusMessage with explicit event name + JSON data.
+
+    (2) Event shapes (event name in SSE event: field; payload JSON in
+        data: field):
+        - progress: { step, total, command_name }
+        - tool_call: { tool_name, args_preview }   (args truncated to 200 chars)
+        - skill_observation: { severity, category, body_preview, source_ref }
+        - done: { run_id, summary, pr_url }
+        - error: { run_id, error_context }
+
+    (3) Subscription cleanup: connection close releases the pub/sub
+        subscription. 30-minute idle timeout server-side.
+
+    (4) Backlog replay: GET /api/jobs/{id}/stream?from_beginning=true
+        replays the buffered backlog from the per-run Redis channel
+        (5-min TTL — verify + set if absent). Default behaviour without
+        the flag is live-from-now.
+
+    (5) CORS for SSE: same dashboard-origin allowlist as p0169a's
+        /api/jobs.
+
+    DASHBOARD (src/dashboard):
+
+    (6) useJobStream hook subscribes to the SSE endpoint via the
+        EventSource API. Returns { events, status, reconnecting }.
+        Native EventSource reconnect handles transient drops; the
+        hook surfaces a reconnecting flag for UI affordance.
+
+    (7) Job detail page detects in-progress jobs (status not in
+        done/failed at fetch) and mounts a LiveLogPanel component
+        that consumes useJobStream. Each event appends a typed log
+        line; the page's status badge flips when the done/error event
+        lands.
+
+    (8) Progress bar updates from the progress events
+        (step/total reading). Tool-call + skill-observation events
+        render as collapsible Card entries with severity badge for
+        observations.
+
+    (9) Replay button on completed jobs that fall within the 5-min
+        backlog window fetches the buffered stream via
+        ?from_beginning=true.
+
+    (10) Reconnect indicator: shadcn Alert with a subtle pulse when
+         useJobStream is in the reconnecting state. Disappears on
+         next event received.
+
+  out: |
+    Two-way interaction (clicking "answer" on an approval card in the
+    dashboard). Dashboard stays read-only for this slice; approvals
+    continue via chat / PR per p0164.
+    Server-side history beyond the 5-min Redis backlog. Older jobs
+    are static (p0169a covers them).
+    Trail-tree visualization — slice [[p0169c]].
+
+decisions:
+  - key: |
+      Plain JSON events over SSE, not JSON-RPC — Reason: p0166c's MCP
+      endpoint uses JSON-RPC notifications because MCP is a protocol.
+      The dashboard is a UI; plain JSON events parse cleanly with
+      EventSource's native handling. Two consumers, two contracts on
+      the same Redis source, both readable. alternatives: JSON-RPC
+      shape (rejected: ceremony for the dashboard, doesn't gain
+      anything); WebSocket (rejected: SSE is simpler + sufficient for
+      one-way streaming).
+
+  - key: |
+      EventSource API, not Server-Sent Events polyfill — Reason: every
+      evergreen browser has native EventSource since IE-out-of-support
+      era. Auto-reconnect, last-event-id, all built in. alternatives:
+      polyfill (rejected: 4KB for unsupported-browser cases that don't
+      exist).
+
+  - key: |
+      Backlog replay opt-in via query param, not default — Reason:
+      default behaviour for an EventSource subscription is "live from
+      now" — that matches the operator expectation when opening an
+      in-progress run. Replay is a power-user feature for "I just
+      missed the run" cases. alternatives: default replay (rejected:
+      doubles the bandwidth + confuses live-view expectations);
+      always-live-only (rejected: kills the just-missed-it use case).
+
+  - key: |
+      Reconnect via native EventSource retry, no exponential backoff
+      logic — Reason: EventSource native retry is 3-5s default,
+      configurable via retry: field from server. That's adequate for
+      our scale. Hand-rolled backoff is one of those features that
+      sounds reasonable + turns into a multi-week tuning project.
+      alternatives: custom backoff (rejected: complexity); WebSocket
+      with reconnect logic (rejected: rebuilding what EventSource
+      gives for free).
+
+steps:
+  - id: sse-endpoint
+    action: |
+      JobStreamEndpoint maps GET /api/jobs/{id}/stream. Subscribes to
+      Redis bus channel; converts BusMessage → SSE event with typed
+      name + JSON data. Backlog replay via from_beginning query param.
+    new:
+      - "src/backend/AgentSmith.Server/Api/JobStreamEndpoint.cs"
+      - "src/backend/AgentSmith.Server/Services/SseEventWriter.cs"
+      - "src/backend/AgentSmith.Server/Services/JobBusSubscriber.cs"
+
+  - id: bus-channel-ttl
+    action: |
+      Verify the per-run Redis bus channel has a 5-min TTL set; set if
+      absent. Inline comment cites this slice.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Bus/RedisMessageBus.cs"
+
+  - id: openapi-events
+    action: |
+      Document the SSE endpoint in OpenAPI as a streaming response
+      with the typed event shapes. (Swashbuckle handles SSE via
+      response content-type text/event-stream.)
+    modify:
+      - "src/backend/AgentSmith.Server/Api/JobsEndpoints.cs"
+
+  - id: dashboard-hook
+    action: |
+      useJobStream React hook wrapping EventSource. Returns typed
+      events stream + status enum + reconnecting flag.
+    new:
+      - "src/dashboard/src/hooks/useJobStream.ts"
+      - "src/dashboard/src/types/job-stream-events.ts"
+
+  - id: dashboard-live-panel
+    action: |
+      LiveLogPanel renders incoming events with type-specific styling
+      (progress bar, tool-call collapsibles, observation cards with
+      severity badges, terminal Done / Error final cards).
+    new:
+      - "src/dashboard/src/components/jobs/LiveLogPanel.tsx"
+      - "src/dashboard/src/components/jobs/ProgressBar.tsx"
+      - "src/dashboard/src/components/jobs/ToolCallEntry.tsx"
+      - "src/dashboard/src/components/jobs/ObservationCard.tsx"
+
+  - id: dashboard-integration
+    action: |
+      Detail page wires LiveLogPanel for in-progress jobs. Replay
+      button on completed jobs within the backlog window.
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: backend-tests
+    action: |
+      Integration tests via WebApplicationFactory + Redis emulator
+      (existing testcontainer pattern). Synthetic bus messages
+      published; SSE output asserted. Idle timeout + reconnect-after-
+      close coverage.
+    new:
+      - "tests/AgentSmith.Tests/Api/JobStreamEndpointTests.cs"
+      - "tests/AgentSmith.Tests/Services/JobBusSubscriberTests.cs"
+
+  - id: dashboard-tests
+    action: |
+      Vitest tests for useJobStream hook (mock EventSource), LiveLogPanel
+      rendering different event types.
+    new:
+      - "src/dashboard/src/hooks/__tests__/useJobStream.test.ts"
+      - "src/dashboard/src/components/jobs/__tests__/LiveLogPanel.test.tsx"
+
+tests:
+  - "JobStreamEndpoint_PublishedProgressMessage_EmittedAsProgressEvent"
+  - "JobStreamEndpoint_PublishedDoneMessage_EmittedAsDoneEventWithPrUrl"
+  - "JobStreamEndpoint_IdleConnectionThirtyMinutes_ServerClosesGracefully"
+  - "JobStreamEndpoint_ConnectionClose_UnsubscribesFromRedisChannel"
+  - "JobStreamEndpoint_FromBeginningTrue_ReplaysBufferedBacklog"
+  - "RedisBusChannel_TtlSetToFiveMinutes"
+  - "UseJobStream_EventSourceEmitsProgress_ReturnsParsedEvent"
+  - "UseJobStream_ConnectionDrop_SetsReconnectingFlag"
+  - "LiveLogPanel_RendersProgressEvent_UpdatesProgressBar"
+  - "LiveLogPanel_RendersObservationEvent_DisplaysSeverityBadge"
+  - "JobDetailPage_CompletedJob_DoesNotMountLivePanel"
+
+done:
+  - "GET /api/jobs/{id}/stream emits typed SSE events for progress, tool_call, skill_observation, done, error."
+  - "Backlog replay via from_beginning=true returns the buffered backlog."
+  - "30-min idle timeout enforced server-side."
+  - "useJobStream hook surfaces events + reconnecting flag in the dashboard."
+  - "LiveLogPanel renders typed events with shadcn primitives."
+  - "Dashboard detail page mounts LiveLogPanel for in-progress jobs only."
+  - "Backend + dashboard tests green."
+  - "Smoke: trigger a fix-bug run via CLI; open the run's detail page in the dashboard while the run is in-flight; watch progress bar advance + tool-call entries appear + done card render — no page refresh."
