@@ -3,15 +3,15 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy project files for restore (layer caching)
-COPY src/AgentSmith.Domain/AgentSmith.Domain.csproj                   src/AgentSmith.Domain/
-COPY src/AgentSmith.Contracts/AgentSmith.Contracts.csproj             src/AgentSmith.Contracts/
-COPY src/AgentSmith.Application/AgentSmith.Application.csproj         src/AgentSmith.Application/
-COPY src/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/AgentSmith.Infrastructure.Core/
-COPY src/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   src/AgentSmith.Infrastructure/
-COPY src/AgentSmith.Server/AgentSmith.Server.csproj                   src/AgentSmith.Server/
-COPY src/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       src/AgentSmith.Sandbox.Wire/
+COPY src/backend/AgentSmith.Domain/AgentSmith.Domain.csproj                   src/backend/AgentSmith.Domain/
+COPY src/backend/AgentSmith.Contracts/AgentSmith.Contracts.csproj             src/backend/AgentSmith.Contracts/
+COPY src/backend/AgentSmith.Application/AgentSmith.Application.csproj         src/backend/AgentSmith.Application/
+COPY src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/backend/AgentSmith.Infrastructure.Core/
+COPY src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   src/backend/AgentSmith.Infrastructure/
+COPY src/backend/AgentSmith.Server/AgentSmith.Server.csproj                   src/backend/AgentSmith.Server/
+COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       src/backend/AgentSmith.Sandbox.Wire/
 
-RUN dotnet restore src/AgentSmith.Server/AgentSmith.Server.csproj
+RUN dotnet restore src/backend/AgentSmith.Server/AgentSmith.Server.csproj
 
 # Schemas embedded into AgentSmith.Application via Link (p0128a).
 # csproj references ../../.agentsmith/schemas/*.json relative to the project dir.
@@ -19,7 +19,7 @@ COPY .agentsmith/schemas/ .agentsmith/schemas/
 
 # Copy all source and publish
 COPY src/ src/
-RUN dotnet publish src/AgentSmith.Server -c Release -o /app/publish --no-restore
+RUN dotnet publish src/backend/AgentSmith.Server -c Release -o /app/publish --no-restore
 
 # ---
 

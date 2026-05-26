@@ -10,14 +10,14 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG TARGETARCH
 WORKDIR src
 
-COPY src/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj src/AgentSmith.Sandbox.Agent/
-COPY src/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/AgentSmith.Sandbox.Wire/
-RUN dotnet restore src/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj \
+COPY src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj src/backend/AgentSmith.Sandbox.Agent/
+COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/backend/AgentSmith.Sandbox.Wire/
+RUN dotnet restore src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj \
     -r linux-${TARGETARCH:-x64}
 
-COPY src/AgentSmith.Sandbox.Agent/ src/AgentSmith.Sandbox.Agent/
-COPY src/AgentSmith.Sandbox.Wire/ src/AgentSmith.Sandbox.Wire/
-RUN dotnet publish src/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj \
+COPY src/backend/AgentSmith.Sandbox.Agent/ src/backend/AgentSmith.Sandbox.Agent/
+COPY src/backend/AgentSmith.Sandbox.Wire/ src/backend/AgentSmith.Sandbox.Wire/
+RUN dotnet publish src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj \
     -c Release \
     -r linux-${TARGETARCH:-x64} \
     --self-contained true \

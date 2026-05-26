@@ -31,8 +31,8 @@ jobs:
         env:
           SKILLS_VERSION: ${{ vars.SKILLS_VERSION || 'v2.1.2' }}
         run: |
-          chmod +x scripts/fetch-skills.sh
-          scripts/fetch-skills.sh ./test-skills
+          chmod +x tools/fetch-skills.sh
+          tools/fetch-skills.sh ./test-skills
 
       - name: Test
         env:
@@ -49,10 +49,10 @@ jobs:
       matrix:
         include:
           - image: agent-smith-cli
-            dockerfile: src/AgentSmith.Cli/Dockerfile
+            dockerfile: src/backend/AgentSmith.Cli/Dockerfile
             publish: always
           - image: agent-smith-server
-            dockerfile: src/AgentSmith.Server/Dockerfile
+            dockerfile: src/backend/AgentSmith.Server/Dockerfile
             publish: always
           # Sandbox carrier image consumed by the server's spawner as an init-
           # container. Was originally gated to v* tags only (p0115) under the
@@ -63,7 +63,7 @@ jobs:
           # rhythm as cli + server, so every release-please squash-merge pushes
           # the matching sandbox-agent build to Docker Hub.
           - image: agent-smith-sandbox-agent
-            dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
+            dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
             publish: always
     permissions:
       contents: read
