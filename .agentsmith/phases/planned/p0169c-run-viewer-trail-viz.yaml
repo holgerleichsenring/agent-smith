@@ -33,7 +33,7 @@ scope:
         rest dimmed. Helps reconstruct cause/effect when many parallel
         skill rounds ran.
 
-    (5) Same UI page (RunDetail.cshtml) — adds a new tab "Trail"
+    (5) Same UI page (Jobs/Detail.cshtml) — adds a new tab "Trail"
         alongside the existing "Summary" + "Files" + "Live Log"
         sections. Tab routing client-side (hash anchors, no JS
         framework).
@@ -86,11 +86,11 @@ steps:
 
   - id: trail-page
     action: |
-      Trail tab in RunDetail.cshtml. Server-side renders the tree
+      Trail tab in Jobs/Detail.cshtml. Server-side renders the tree
       skeleton; node-detail loaded on demand via fetch + JSON
       fragment endpoint.
     modify:
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml"
     new:
       - "src/AgentSmith.Server/Ui/Pages/_TrailTab.cshtml"
       - "src/AgentSmith.Server/Ui/Streaming/TrailNodeDetailEndpoint.cs"
@@ -139,4 +139,4 @@ done:
   - "Slider scrubs node visibility by timestamp."
   - "Fallback to summary-view triggers above 5MB / 500 nodes."
   - "Env knobs override defaults."
-  - "Smoke: load /ui/runs/<id>#trail in browser; expand a skill-round → tool-call; see cost + args + result."
+  - "Smoke: load /ui/jobs/<id>#trail in browser; expand a skill-round → tool-call; see cost + args + result."

@@ -3,9 +3,16 @@ phase: p0168a
 goal: |
   Ship the ComplianceBundleExporter: a CLI command that, given a run-id,
   packages every artifact required for EU AI Act Article 12 (record-keeping)
-  + Article 13 (transparency) audit into a single ZIP. The Act enters full
-  application on 2 August 2026; high-risk autonomous-agent operators need
-  a per-run audit trail they can hand to a regulator.
+  + Article 13 (transparency) audit into a single ZIP.
+
+  Timing note (May 2026 reprioritization): the original spec assumed
+  full application by 2 August 2026. The Digital Omnibus political
+  agreement of 7 May 2026 pushed the high-risk start date to
+  approximately December 2027, gated on standards availability. Phase
+  retained because the Act still arrives extra-territorially with real
+  fines, and EU customers anticipate it. Priority lowered — execute
+  only when a customer actively requests a compliance bundle or after
+  the Track 1 / Track 2 / Track 3 work above is complete.
 
   Bundle contents derived entirely from existing files — no new data
   generation, only collection + manifest assembly. This slice is the
