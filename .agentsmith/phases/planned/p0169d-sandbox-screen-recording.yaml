@@ -4,7 +4,7 @@ goal: |
   OPTIONAL — closes 60% of the remaining gap to Devin 2.2's "screen
   recording of self-verify" feature. Captures terminal-session
   recordings (asciinema cast format) of the sandbox process during
-  self-verify (p0165) execution, plays them back in the Run-Viewer UI.
+  self-verify (p0165) execution, plays them back in the Job-Viewer UI.
   Browser-driving / GUI-screenshotting is explicitly out — terminal
   recordings are the 80/20 of "show me what the agent saw".
 
@@ -22,7 +22,7 @@ scope:
     (2) Asciinema cast file format (v2 JSON-lines, text-only). No
         binary streams. Sized at typical 100-500 KB per session.
 
-    (3) Run-Viewer integration: trail-tab nodes for BuildLaunch +
+    (3) Job-Viewer integration: trail-tab nodes for BuildLaunch +
         SmokeProbe steps get a "▶ play recording" button. Click opens
         a modal with the asciinema-player.js component (vendored,
         single file, ~30 KB).
@@ -99,7 +99,7 @@ steps:
 
   - id: viewer
     action: |
-      Run-Viewer trail tab + node detail. asciinema-player vendored
+      Job-Viewer trail tab + node detail. asciinema-player vendored
       as a single JS file (no NPM dep — fetch + commit verbatim).
     new:
       - "src/AgentSmith.Server/wwwroot/js/asciinema-player.min.js"
@@ -142,7 +142,7 @@ tests:
 done:
   - "ScriptRecorder shipped + invoked from BuildLaunch + SmokeProbe."
   - "Cast files survive secrets-scrubbing."
-  - "Run-Viewer plays back recordings via vendored asciinema-player."
+  - "Job-Viewer plays back recordings via vendored asciinema-player."
   - "Size guard caps at 5 MB."
   - "Env flag gates the entire feature."
   - "Smoke: enable env var, run a fix-bug pipeline; click ▶ on the SmokeProbe trail node and watch the live recording."

@@ -1,120 +1,180 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0169a
 goal: |
-  Add a read-only Web-Observer UI for run inspection. Serves the
-  contents of `.agentsmith/runs/<id>/` over HTTP from the existing
-  AgentSmith.Server WebApplication. No live streaming yet (that's
-  p0169b) — just a clean directory listing + file viewer that
-  closes the "operator can't see what's happening / what happened"
-  gap that competitors (Devin's Spaces, OpenHands GUI) already
-  solved.
+  Topology-aware Job-Viewer: the demo-ready surface that lets a customer
+  understand at-a-glance what kind of work Agent Smith just did. Each job
+  shows its topology (mono- vs. multi-repo, sandbox count, pipeline,
+  status) in a prominent header — not a flat file listing.
 
-requires: ["p0156"]
+  Track 1 of the May 2026 plan. The wager: visible capability beats
+  invisible infrastructure for the positioning audience. This is the
+  single most demo-able artifact in the backlog.
+
+  The non-obvious part: the topology data is NOT persisted today. It
+  lives at runtime in ContextKeys.Repos + p0161a's discovery list and
+  evaporates when the pipeline ends. So the FIRST step of this slice is
+  run-meta persistence — without it the UI has nothing to show.
+
+requires: ["p0156", "p0158a", "p0161a"]
 
 scope:
   in: |
-    (1) GET /ui/runs → HTML page listing all runs in
-        .agentsmith/runs/, sorted newest-first (per p0156 ISO-8601
-        run-id format the sort is lexicographic). Columns: run-id,
-        pipeline, start time, duration, status (read from
-        result.md frontmatter).
+    (1) Run-meta persistence — done FIRST, before any UI work.
+        WriteRunResultHandler extends result.md frontmatter (or writes
+        a sibling run-meta.json) with topology fields harvested at
+        run-end from the live pipeline context:
+        - repos: [name, ...]            (from ContextKeys.Repos)
+        - repo_mode: "mono" | "multi"   (from Repos.Count)
+        - sandbox_count: int            (from the p0161a discovery list)
+        - pipeline_name: string
+        - status: enum                  (already in frontmatter as 'result')
+        - run_id, started_at, duration_seconds (some exist; verify + fill gaps)
+        Backward compat: runs missing these fields render with "unknown"
+        placeholders, no crash.
 
-    (2) GET /ui/runs/<id> → run detail page. Renders result.md
-        as HTML. Sidebar lists every file in the run dir; click to
-        view raw (markdown rendered, JSON pretty-printed).
+    (2) GET /ui/jobs — job list page.
+        HTML table, newest first (lexicographic sort on the p0156 run-id
+        format). Columns: run-id, pipeline, repo-mode badge + repo names
+        (e.g. "multi · api+web+infra"), sandbox count, started_at,
+        duration, status badge.
 
-    (3) GET /ui/runs/<id>/files/<path> → raw file content with
-        correct content-type (text/markdown, application/json,
-        text/plain).
+    (3) GET /ui/jobs/<id> — job detail page.
+        Header is the headline of the page: large status badge +
+        one-line summary "<repo-mode> · <N> sandboxes · <pipeline> ·
+        <status>". Below the header: result.md rendered as HTML
+        (Markdig). Right sidebar lists the run's artifact files
+        (decisions.md, observations.json, cost-summary.json,
+        tool-call-trail.json, verify.json if present) — click to view
+        rendered/pretty.
 
-    (4) Styling: reuses DESIGN.md tokens via the existing
-        docs/stylesheets/tokens.css (copied to wwwroot at build).
-        Card-terminal-panel style for the file viewer matches the
-        rest of the docs site visually.
+    (4) GET /ui/jobs/<id>/files/<path> — raw file content.
+        Path canonicalization + whitelist check under the run dir;
+        reject with 400 otherwise. Content-type by extension
+        (text/markdown, application/json, text/plain).
 
-    (5) Server-side rendering. No JavaScript framework. Single
-        small Razor Pages module under AgentSmith.Server/Ui/.
-        Markdown rendering via Markdig (NuGet, in-box-ish).
+    (5) Styling: DESIGN.md tokens reused via
+        docs/stylesheets/tokens.css copied to wwwroot at build.
+        Server-side rendering only. Razor Pages. No JS framework.
+        Markdig for markdown.
 
-    (6) Path-traversal guard: every <path> is canonicalized and
-        verified to live under .agentsmith/runs/<id>/. Reject
-        with 400 otherwise.
-
-    (7) AGENTSMITH_UI_ENABLED env-gate so deployments that don't
-        want a browsable UI can disable. Default: enabled.
+    (6) AGENTSMITH_UI_ENABLED env gate, default enabled. Endpoint
+        unauthenticated — operator fronts with auth proxy.
 
   out: |
-    Live tailing of in-progress runs — slice [[p0169b]].
-    Tool-call trail visualization — slice [[p0169c]].
-    Screen recording capture — optional slice [[p0169d]].
-    Authentication. The endpoint is unauthenticated. Operators
-    front it with a reverse proxy (nginx basic-auth, OIDC, etc).
-    Search across runs. Out — directory listing is the navigation
-    affordance.
+    Live-tail of in-progress runs — slice [[p0169b]].
+    Trail-tree visualization — slice [[p0169c]].
+    Authentication. Operator's reverse proxy concern.
+    Search across runs. Sortable listing is the navigation surface.
+    Two-way interaction (approve / reject from the UI). Read-only;
+    interaction stays on chat/PR through p0164.
 
 decisions:
   - key: |
-      Server-side rendering, no SPA — Reason: Agent Smith's audience
-      is operators/engineers. A heavy JS bundle for what is fundamentally
-      file listings would invert effort vs value. Razor Pages + Markdig
-      is small + maintainable. alternatives: React SPA (rejected:
-      build tooling weight); pure JSON API + curl (rejected: defeats
-      the "human can look at it" point).
+      Run-meta persistence is step 1, not a side effect — Reason: today
+      the topology data lives only at runtime. ContextKeys.Repos
+      disappears at pipeline end; the p0161a discovery list is in-memory.
+      Without persistence the UI would have to reconstruct the run by
+      replaying log files — slow + fragile + ambiguous. Persisting at
+      write-result time is one new emit site + every consumer reads
+      cheap structured data. alternatives: parse result.md narrative
+      at UI render time (rejected: regex over prose); add to
+      context.yaml's runs block (rejected: project-scoped file is wrong
+      home for per-run topology); separate metadata DB (rejected:
+      complexity not justified for filesystem-native data).
 
   - key: |
-      DESIGN.md tokens via build-tokens.mjs output — Reason: the doc
-      site + landing already consume the tokens. Reusing them keeps
-      the UI on-brand without per-surface CSS rewrites. alternatives:
-      separate stylesheet (rejected: drift); inline styles
-      (rejected: same).
+      /ui/jobs route, not /ui/runs — Reason: the demo-able artifact is
+      the job (the work that was done — pipeline + topology + outcome).
+      The run is the directory of files supporting that work. Calling
+      the surface "jobs" matches what a customer sees on screen.
+      alternatives: /ui/runs (rejected: implies file-explorer mental
+      model — exactly the wrong frame for a demo).
 
   - key: |
-      Path traversal guard — Reason: serving filesystem from an HTTP
-      endpoint is the classic CVE pattern. Canonicalization +
-      whitelist check is the single hardening that prevents it.
-      alternatives: trust query params (rejected: security
-      regression).
+      Topology in the page header, not in a metadata table — Reason:
+      a customer demo lands on a job detail page; the first two seconds
+      must answer "what kind of job was this". One-line header
+      ("multi-repo · 3 sandboxes · fix-bug · done") does that. Detail
+      tables live below. alternatives: structured table only
+      (rejected: kills demo value); narrative paragraph (rejected:
+      slower to parse).
 
   - key: |
-      AGENTSMITH_UI_ENABLED default enabled — Reason: an inert UI
-      endpoint protected behind a proxy is the safe path; a default-
-      off would mean nobody discovers it. alternatives: default off
-      (rejected: discoverability).
+      Frontmatter extension, not sidecar file (for v1) — Reason: one
+      file is simpler. result.md already carries token + cost + result
+      fields per p0033. Adding repos / repo_mode / sandbox_count is
+      additive YAML frontmatter. Operators who use a markdown viewer
+      see the metadata block; UI parses it. Sidecar (run-meta.json)
+      becomes the fallback if YAML parsing of result.md headers starts
+      hurting. alternatives: sidecar from day one (rejected: two
+      files for one concept, both need to stay in sync).
+
+  - key: |
+      Server-side rendering, no SPA — Reason: target audience is
+      operators/engineers. A heavy JS bundle for what is fundamentally
+      a list + detail navigation would invert effort vs value. Razor
+      Pages + Markdig is small + maintainable. alternatives: React
+      SPA (rejected: build tooling weight); HTMX (rejected: one-feature
+      dep).
 
 steps:
-  - id: razor-module
+  - id: run-meta-persistence
     action: |
-      Server/Ui/Pages with Index.cshtml + RunDetail.cshtml + raw-file
-      endpoint. Add Microsoft.AspNetCore.Mvc.RazorPages registration.
+      WriteRunResultHandler extends frontmatter with topology fields.
+      Pure write path; no read path changes in this step. Verify which
+      fields already exist (p0033 added some) and only add the missing
+      ones. Use existing ContextKeys.Repos + the p0161a discovery
+      service for sandbox_count.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+      - "src/AgentSmith.Application/Models/RunResultFrontmatter.cs"
+
+  - id: run-meta-reader
+    action: |
+      RunMetaReader parses the frontmatter into a typed RunMeta record;
+      handles missing fields via Unknown sentinel. Single read path
+      used by both list + detail pages.
     new:
-      - "src/AgentSmith.Server/Ui/Pages/Index.cshtml"
-      - "src/AgentSmith.Server/Ui/Pages/Index.cshtml.cs"
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml.cs"
+      - "src/AgentSmith.Server/Ui/Services/RunMetaReader.cs"
+      - "src/AgentSmith.Server/Ui/Models/RunMeta.cs"
+
+  - id: job-list-page
+    action: |
+      Razor page rendering all jobs with the topology columns.
+    new:
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Index.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Index.cshtml.cs"
       - "src/AgentSmith.Server/Ui/Pages/_Layout.cshtml"
       - "src/AgentSmith.Server/Ui/Pages/_ViewStart.cshtml"
-      - "src/AgentSmith.Server/Ui/Services/RunDirectoryBrowser.cs"
+
+  - id: job-detail-page
+    action: |
+      Razor page with topology header + result.md HTML + artifact
+      sidebar.
+    new:
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml.cs"
       - "src/AgentSmith.Server/Ui/Services/MarkdownRenderer.cs"
+      - "src/AgentSmith.Server/Ui/Services/RunArtifactLister.cs"
 
   - id: raw-file-endpoint
     action: |
-      Minimal-API mapped GET /ui/runs/{id}/files/{*path}. Path
-      canonicalization + guard.
+      Minimal-API mapped GET /ui/jobs/{id}/files/{*path}. Path
+      canonicalization + whitelist check + content-type detection.
     new:
       - "src/AgentSmith.Server/Extensions/UiRawFileEndpoint.cs"
 
   - id: assets
     action: |
-      wwwroot/css/tokens.css symlink-copied from docs/stylesheets/
-      at build. wwwroot/css/ui.css for layout-specific styles.
+      tokens.css symlink-copied from docs/stylesheets/ at build;
+      ui.css for layout-specific styles.
     new:
       - "src/AgentSmith.Server/wwwroot/css/ui.css"
       - "src/AgentSmith.Server/wwwroot/favicon.ico"
 
   - id: di-gate
     action: |
-      AddRunObserverUi extension; Program.cs reads
-      AGENTSMITH_UI_ENABLED.
+      AddJobViewer extension + AGENTSMITH_UI_ENABLED check in Program.cs.
     new:
       - "src/AgentSmith.Server/Extensions/UiExtensions.cs"
     modify:
@@ -129,25 +189,35 @@ steps:
 
   - id: tests
     action: |
-      WebApplicationFactory tests for routes + path-traversal
-      rejection.
+      Cover: frontmatter write (mono + multi shapes), backward-compat
+      read (missing fields → Unknown), list sorting, detail header,
+      path-traversal rejection, env-gate.
     new:
-      - "tests/AgentSmith.Tests/Ui/RunListPageTests.cs"
-      - "tests/AgentSmith.Tests/Ui/RunDetailPageTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/WriteRunResultTopologyTests.cs"
+      - "tests/AgentSmith.Tests/Ui/RunMetaReaderTests.cs"
+      - "tests/AgentSmith.Tests/Ui/JobListPageTests.cs"
+      - "tests/AgentSmith.Tests/Ui/JobDetailPageTests.cs"
       - "tests/AgentSmith.Tests/Ui/PathTraversalGuardTests.cs"
 
 tests:
-  - "RunList_Endpoint200_SortsRunsByIdDescending"
-  - "RunDetail_KnownRun_RendersResultMdAsHtml"
-  - "RawFile_RelativeOutsideRunDir_Returns400"
+  - "WriteRunResult_SingleRepo_PersistsRepoModeMono"
+  - "WriteRunResult_ThreeRepos_PersistsRepoModeMultiAndAllRepoNames"
+  - "WriteRunResult_FiveSandboxes_PersistsSandboxCountFive"
+  - "RunMetaReader_FrontmatterMissingTopology_ReturnsUnknownPlaceholders"
+  - "JobList_SortsByRunIdDescending"
+  - "JobList_MultiRepoJob_RendersRepoModeBadgeAndRepoNames"
+  - "JobDetail_HeaderShowsRepoModeSandboxCountPipelineStatus"
+  - "JobDetail_OldRunWithoutTopology_RendersUnknownWithoutCrash"
+  - "RawFile_RelativeEscapeAttempt_Returns400"
   - "RawFile_AbsolutePathInQuery_Returns400"
-  - "RawFile_KnownFile_ContentTypeMatchesExtension"
   - "UiDisabled_Endpoint404_WhenEnvVarFalse"
 
 done:
-  - "GET /ui/runs lists all runs."
-  - "GET /ui/runs/<id> renders result.md + file sidebar."
-  - "Path traversal guard rejects relative + absolute escapes."
-  - "Razor Pages styled via DESIGN.md tokens."
-  - "AGENTSMITH_UI_ENABLED gate works."
-  - "Smoke: browse http://localhost:8081/ui/runs in a real browser after a fix-bug run; click into the run, see result.md rendered."
+  - "result.md frontmatter (or run-meta.json fallback) carries repos / repo_mode / sandbox_count / pipeline_name / status / started_at / duration_seconds for every new run."
+  - "Backward compat: pre-p0169a runs render with 'unknown' placeholders, no crash, no missing-data exception."
+  - "GET /ui/jobs lists every job with topology columns at-a-glance."
+  - "GET /ui/jobs/<id> renders topology header prominently + result.md as HTML + artifact sidebar."
+  - "Path-traversal guard rejects relative + absolute escape attempts."
+  - "AGENTSMITH_UI_ENABLED env gate works (default on)."
+  - "DESIGN.md tokens reused for styling; UI looks on-brand without per-surface CSS rewrites."
+  - "Smoke: run a mono fix-bug + a multi-repo fix-bug; open http://localhost:8081/ui/jobs in a browser; see two entries with correct topology badges; click into the multi-repo job; header reads 'multi-repo · N sandboxes · fix-bug · done'."
