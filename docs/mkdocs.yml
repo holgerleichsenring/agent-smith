@@ -184,6 +184,7 @@ nav:
       - Polling vs Webhooks:    reference/setup/polling-vs-webhooks.md
       - Label triggers:         reference/setup/label-triggers.md
       - Onboarding:             reference/setup/onboarding.md
+      - Dashboard:              reference/setup/dashboard.md
       - 'Webhooks: Azure DevOps': reference/setup/webhooks/azure-devops.md
       - 'Webhooks: GitHub':     reference/setup/webhooks/github.md
       - 'Webhooks: GitLab':     reference/setup/webhooks/gitlab.md
