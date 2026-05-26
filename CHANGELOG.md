@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.63.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.62.1...v0.63.0) (2026-05-26)
+
+
+### Features
+
+* cold-init component discovery + per-context bootstrap writes + applies_to (p0161d) ([b63d9d9](https://github.com/holgerleichsenring/agent-smith/commit/b63d9d9f5cb8d5776e78c0a67a8b8f09dc8330f8))
+* **landing:** lifecycle SVG — bidirectional agent loop + orchestrator-driven PRs ([98f4db9](https://github.com/holgerleichsenring/agent-smith/commit/98f4db959d5a51731bfb6e56476b4eec3c95a0de))
+* spec first v2 migration ([b78b760](https://github.com/holgerleichsenring/agent-smith/commit/b78b760c58447270cf60a090134f5fa0a4196c7b))
+
 ## [0.62.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.62.0...v0.62.1) (2026-05-23)
 
 
