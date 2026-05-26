@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -11,12 +12,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Resolves relative /uploads/ paths to absolute URLs and downloads with Private-Token.
 /// </summary>
 public sealed class GitLabAttachmentLoader(
-    string baseUrl,
-    string projectPath,
-    string privateToken,
+    GitLabTicketConnection connection,
     HttpClient httpClient,
     ILogger logger) : IAttachmentLoader
 {
+    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
+    private readonly string _projectPath = connection.ProjectPath;
+    private readonly string _privateToken = connection.PrivateToken;
+
     private static readonly Regex MarkdownImagePattern = new(
         @"!\[[^\]]*\]\((?<url>[^)\s]+)\)",
         RegexOptions.Compiled);
@@ -41,7 +44,7 @@ public sealed class GitLabAttachmentLoader(
 
             // Resolve relative GitLab upload URLs
             if (url.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-                url = $"{baseUrl.TrimEnd('/')}/{projectPath}{url}";
+                url = $"{_baseUrl}/{_projectPath}{url}";
 
             if (!IsImageUrl(url)) continue;
 
@@ -59,7 +62,7 @@ public sealed class GitLabAttachmentLoader(
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, attachment.Uri);
-            request.Headers.Add("PRIVATE-TOKEN", privateToken);
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
 
             var response = await httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)

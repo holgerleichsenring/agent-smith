@@ -15,15 +15,15 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// resolution via DevOps REST stays (it is metadata, not git plumbing).
 /// </summary>
 public sealed class AzureReposSourceProvider(
-    string organizationUrl,
-    string project,
-    string repoName,
-    string personalAccessToken,
+    AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
     ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider
 {
-    private readonly string _organizationUrl = organizationUrl.TrimEnd('/');
-    private readonly string _cloneUrl = $"{organizationUrl.TrimEnd('/')}/{project}/_git/{repoName}";
+    private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
+    private readonly string _project = connection.Project;
+    private readonly string _repoName = connection.RepoName;
+    private readonly string _personalAccessToken = connection.PersonalAccessToken;
+    private readonly string _cloneUrl = $"{connection.OrganizationUrl.TrimEnd('/')}/{connection.Project}/_git/{connection.RepoName}";
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "AzureRepos";
@@ -53,7 +53,7 @@ public sealed class AzureReposSourceProvider(
         try
         {
             var created = await client.CreatePullRequestAsync(
-                pr, project, repoName, cancellationToken: cancellationToken);
+                pr, _project, _repoName, cancellationToken: cancellationToken);
             logger.LogInformation("Pull request created: {Url}", BuildPrUrl(created.PullRequestId));
 
             // Native AzDO work-item-to-PR link via WorkItem relations. Done after
@@ -79,15 +79,15 @@ public sealed class AzureReposSourceProvider(
         {
             // AzDO relation between a Work Item and a Pull Request uses the
             // `ArtifactLink` rel with a `vstfs:///Git/PullRequestId/...` artifact uri.
-            // The uri encodes project-guid / repo-guid / pr-id; resolve the GUIDs
+            // The uri encodes _project-guid / repo-guid / pr-id; resolve the GUIDs
             // first so the relation lands on the right artifact.
             var gitClient = CreateGitClient();
-            var repo = await gitClient.GetRepositoryAsync(project, repoName, cancellationToken: ct);
+            var repo = await gitClient.GetRepositoryAsync(_project, _repoName, cancellationToken: ct);
             var projectId = repo.ProjectReference.Id;
             var repoId = repo.Id;
             var artifactUri = $"vstfs:///Git/PullRequestId/{projectId}%2F{repoId}%2F{pullRequestId}";
 
-            var witClient = clientFactory.CreateWorkItemClient(_organizationUrl, personalAccessToken);
+            var witClient = clientFactory.CreateWorkItemClient(_organizationUrl, _personalAccessToken);
             var patch = new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchDocument
             {
                 new Microsoft.VisualStudio.Services.WebApi.Patch.Json.JsonPatchOperation
@@ -124,7 +124,7 @@ public sealed class AzureReposSourceProvider(
             Comments = [new Comment { Content = markdown, CommentType = CommentType.Text }],
             Status = CommentThreadStatus.Active
         };
-        await gitClient.CreateThreadAsync(thread, project, repoName, prId, cancellationToken: cancellationToken);
+        await gitClient.CreateThreadAsync(thread, _project, _repoName, prId, cancellationToken: cancellationToken);
         logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
@@ -137,7 +137,7 @@ public sealed class AzureReposSourceProvider(
         {
             var client = CreateGitClient();
             var repo = await client.GetRepositoryAsync(
-                project, repoName, cancellationToken: cancellationToken);
+                _project, _repoName, cancellationToken: cancellationToken);
             var raw = repo.DefaultBranch ?? "refs/heads/main";
             _cachedDefaultBranch = raw.StartsWith("refs/heads/", StringComparison.Ordinal)
                 ? raw["refs/heads/".Length..] : raw;
@@ -158,20 +158,20 @@ public sealed class AzureReposSourceProvider(
         var criteria = new GitPullRequestSearchCriteria
             { SourceRefName = src, TargetRefName = tgt, Status = PullRequestStatus.Active };
         var existing = (await client.GetPullRequestsAsync(
-            project, repoName, criteria, cancellationToken: cancellationToken)).FirstOrDefault()
+            _project, _repoName, criteria, cancellationToken: cancellationToken)).FirstOrDefault()
             ?? throw new ProviderException(ProviderType, "PR already exists but could not be found.");
         logger.LogInformation("Found existing pull request: {Url}", BuildPrUrl(existing.PullRequestId));
         return BuildPrUrl(existing.PullRequestId);
     }
 
     private string BuildPrUrl(int prId) =>
-        $"{_organizationUrl}/{project}/_git/{repoName}/pullrequest/{prId}";
+        $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{prId}";
 
     private GitHttpClient CreateGitClient() =>
-        clientFactory.CreateGitClient(_organizationUrl, personalAccessToken);
+        clientFactory.CreateGitClient(_organizationUrl, _personalAccessToken);
 
     private Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken) =>
-        clientFactory.CreateGitClientAsync(_organizationUrl, personalAccessToken, cancellationToken);
+        clientFactory.CreateGitClientAsync(_organizationUrl, _personalAccessToken, cancellationToken);
 
     public async Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
@@ -182,7 +182,7 @@ public sealed class AzureReposSourceProvider(
             var client = CreateGitClient();
             await client.UpdatePullRequestAsync(
                 new GitPullRequest { Description = newBody },
-                project, repoName, prId, cancellationToken: cancellationToken);
+                _project, _repoName, prId, cancellationToken: cancellationToken);
             logger.LogInformation("Updated PR body for !{PrId}", prId);
             return true;
         }
@@ -212,8 +212,8 @@ public sealed class AzureReposSourceProvider(
         try
         {
             using var stream = await client.GetItemContentAsync(
-                project: project,
-                repositoryId: repoName,
+                project: _project,
+                repositoryId: _repoName,
                 path: path,
                 versionDescriptor: descriptor,
                 cancellationToken: cancellationToken);
@@ -242,8 +242,8 @@ public sealed class AzureReposSourceProvider(
             // directory itself plus immediate children. Filter out the directory
             // itself; keep only the leaf names (last path segment).
             var items = await client.GetItemsAsync(
-                project: project,
-                repositoryId: repoName,
+                project: _project,
+                repositoryId: _repoName,
                 scopePath: path,
                 recursionLevel: VersionControlRecursionType.OneLevel,
                 versionDescriptor: descriptor,

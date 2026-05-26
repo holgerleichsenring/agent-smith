@@ -1,5 +1,6 @@
 using System.Net;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
@@ -124,7 +125,7 @@ public sealed class GitHubTicketStatusTransitionerTests
     {
         var client = new HttpClient(handler);
         return new GitHubTicketStatusTransitioner(
-            "https://github.com/org/repo", "token",
+            new GitHubTicketConnection("https://github.com/org/repo", "token"),
             client, NullLogger<GitHubTicketStatusTransitioner>.Instance);
     }
 

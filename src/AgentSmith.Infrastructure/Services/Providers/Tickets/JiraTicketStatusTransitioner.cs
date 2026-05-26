@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
@@ -20,14 +21,16 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// only attaches in the multi-pod Server composition.
 /// </summary>
 public sealed class JiraTicketStatusTransitioner(
-    string baseUrl,
-    string email,
-    string apiToken,
-    string projectKey,
+    JiraTicketConnection connection,
     JiraWorkflowCatalog catalog,
     HttpClient httpClient,
     ILogger<JiraTicketStatusTransitioner> logger) : ITicketStatusTransitioner
 {
+    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
+    private readonly string _email = connection.Email;
+    private readonly string _apiToken = connection.ApiToken;
+    private readonly string _projectKey = connection.ProjectKey ?? "default";
+
     public string ProviderType => "Jira";
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
@@ -46,7 +49,7 @@ public sealed class JiraTicketStatusTransitioner(
         logger.LogInformation(
             "Jira Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 
-        var mode = catalog.GetModeForProject(projectKey);
+        var mode = catalog.GetModeForProject(_projectKey);
         if (mode == JiraLifecycleMode.Native)
         {
             logger.LogWarning(
@@ -86,7 +89,7 @@ public sealed class JiraTicketStatusTransitioner(
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)
     {
-        var url = $"{baseUrl.TrimEnd('/')}/rest/api/3/issue/{ticketId.Value}?fields=labels";
+        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=labels";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         SetAuth(req);
         using var resp = await httpClient.SendAsync(req, ct);
@@ -105,7 +108,7 @@ public sealed class JiraTicketStatusTransitioner(
     {
         var newLabels = BuildLabels(current, to);
         var body = new { update = new { labels = BuildLabelOps(current, to) } };
-        var url = $"{baseUrl.TrimEnd('/')}/rest/api/3/issue/{ticketId.Value}";
+        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}";
 
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
         SetAuth(req);
@@ -152,7 +155,7 @@ public sealed class JiraTicketStatusTransitioner(
 
     private void SetAuth(HttpRequestMessage request)
     {
-        var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{apiToken}"));
+        var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_email}:{_apiToken}"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", creds);
     }
 }
