@@ -30,18 +30,18 @@ public sealed class GitLabTicketProvider : ITicketProvider
     public string ProviderType => "GitLab";
 
     public GitLabTicketProvider(
-        string baseUrl, string projectPath, string privateToken,
+        GitLabTicketConnection connection,
         HttpClient httpClient, GitLabAttachmentLoader attachmentLoader,
         GitLabFieldMapper mapper, ILogger<GitLabTicketProvider> logger)
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _projectPath = projectPath;
-        _privateToken = privateToken;
+        _baseUrl = connection.BaseUrl.TrimEnd('/');
+        _projectPath = connection.ProjectPath;
+        _privateToken = connection.PrivateToken;
         _httpClient = httpClient;
-        _http = TicketProviderHttpClient.WithPrivateToken(httpClient, privateToken);
+        _http = TicketProviderHttpClient.WithPrivateToken(httpClient, connection.PrivateToken);
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
-        _lister = new GitLabIssueLister(_http, mapper, _baseUrl, projectPath, logger);
+        _lister = new GitLabIssueLister(_http, mapper, connection, logger);
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
@@ -68,7 +68,8 @@ public sealed class GitLabTicketProvider : ITicketProvider
         {
             var ticket = await GetTicketAsync(ticketId, cancellationToken);
             var loader = new GitLabAttachmentLoader(
-                _baseUrl, _projectPath, _privateToken, _httpClient, NullLogger.Instance);
+                new GitLabTicketConnection(_baseUrl, _projectPath, _privateToken),
+                _httpClient, NullLogger.Instance);
             return loader.ParseRefs(ticket.Description);
         }
         catch { return []; }

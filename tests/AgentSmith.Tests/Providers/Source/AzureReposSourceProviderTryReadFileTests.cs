@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -137,7 +138,7 @@ public sealed class AzureReposSourceProviderTryReadFileTests
         // branch via the private field — alternative is mocking GetRepositoryAsync
         // with its full GitRepository return shape, which buys nothing here.
         var sut = new AzureReposSourceProvider(
-            OrgUrl, Project, Repo, Pat,
+            new AzureReposSourceConnection(OrgUrl, Project, Repo, Pat),
             factoryMock.Object,
             NullLogger<AzureReposSourceProvider>.Instance);
         var field = typeof(AzureReposSourceProvider)

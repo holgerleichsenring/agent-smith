@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Headers;
 using System.Text;
@@ -16,12 +17,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Lifecycle is carried in System.Tags (semicolon-separated tag list).
 /// </summary>
 public sealed class AzureDevOpsTicketStatusTransitioner(
-    string orgUrl,
-    string project,
-    string personalAccessToken,
+    AzureDevOpsTicketConnection connection,
     HttpClient httpClient,
     ILogger<AzureDevOpsTicketStatusTransitioner> logger) : ITicketStatusTransitioner
 {
+    private readonly string _orgUrl = connection.OrganizationUrl.TrimEnd('/');
+    private readonly string _project = connection.Project;
+    private readonly string _personalAccessToken = connection.PersonalAccessToken;
+
     public string ProviderType => "AzureDevOps";
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
@@ -83,7 +86,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
 
     private async Task<(string[]?, int)> FetchTagsAsync(TicketId ticketId, CancellationToken ct)
     {
-        var url = $"{orgUrl.TrimEnd('/')}/{project}/_apis/wit/workitems/{ticketId.Value}?fields=System.Tags,System.Rev&api-version=7.0";
+        var url = $"{_orgUrl}/{_project}/_apis/wit/workitems/{ticketId.Value}?fields=System.Tags,System.Rev&api-version=7.0";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         SetAuth(req);
         using var resp = await httpClient.SendAsync(req, ct);
@@ -101,7 +104,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
     private async Task<TransitionResult> PatchTagsAsync(
         TicketId ticketId, string[] newTags, int rev, CancellationToken ct)
     {
-        var url = $"{orgUrl.TrimEnd('/')}/{project}/_apis/wit/workitems/{ticketId.Value}?api-version=7.0";
+        var url = $"{_orgUrl}/{_project}/_apis/wit/workitems/{ticketId.Value}?api-version=7.0";
         // op:replace, not op:add — AzDO treats op:add on System.Tags as merge-into-existing-list,
         // so the previous lifecycle tag would survive alongside the new one. p0108 bug.
         var patch = new object[]
@@ -149,7 +152,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
 
     private void SetAuth(HttpRequestMessage request)
     {
-        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{personalAccessToken}"));
+        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{_personalAccessToken}"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", token);
     }
 }

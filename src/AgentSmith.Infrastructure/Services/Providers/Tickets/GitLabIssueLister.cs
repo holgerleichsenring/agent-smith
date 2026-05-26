@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -10,16 +11,19 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// </summary>
 internal sealed class GitLabIssueLister(
     TicketProviderHttpClient http, GitLabFieldMapper mapper,
-    string baseUrl, string projectPath, ILogger logger)
+    GitLabTicketConnection connection, ILogger logger)
 {
+    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
+    private readonly string _projectPath = connection.ProjectPath;
+
     public async Task<IReadOnlyList<Ticket>> SearchAsync(
         IReadOnlyCollection<string> labels, string descriptor, CancellationToken cancellationToken)
     {
-        logger.LogInformation("GitLab List: project={Project} {Descriptor}", projectPath, descriptor);
+        logger.LogInformation("GitLab List: project={Project} {Descriptor}", _projectPath, descriptor);
         var deduped = new Dictionary<string, Ticket>();
         foreach (var rawLabel in labels)
         {
-            var url = $"{baseUrl}/api/v4/projects/{projectPath}/issues"
+            var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues"
                 + $"?labels={Uri.EscapeDataString(rawLabel)}&state=opened&per_page=100";
             try
             {
@@ -30,7 +34,7 @@ internal sealed class GitLabIssueLister(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "GitLab List failed for project={Project} label={Label}",
-                    projectPath, rawLabel);
+                    _projectPath, rawLabel);
             }
         }
         logger.LogInformation("GitLab List: returned {Count} ticket(s)", deduped.Count);

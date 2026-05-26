@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -10,21 +11,24 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// </summary>
 internal sealed class JiraIssueSearcher(
     TicketProviderHttpClient http, JiraFieldMapper mapper,
-    string baseUrl, string? projectKey, ILogger logger)
+    JiraTicketConnection connection, ILogger logger)
 {
     private static readonly string[] StandardFields =
         ["summary", "description", "status", "labels"];
 
+    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
+    private readonly string? _projectKey = connection.ProjectKey;
+
     public async Task<IReadOnlyList<Ticket>> SearchAsync(
         string jqlBody, string descriptor, CancellationToken cancellationToken)
     {
-        var jql = projectKey is null ? jqlBody : $"project = \"{projectKey}\" AND {jqlBody}";
-        var project = projectKey ?? "<all>";
+        var jql = _projectKey is null ? jqlBody : $"project = \"{_projectKey}\" AND {jqlBody}";
+        var project = _projectKey ?? "<all>";
         logger.LogInformation("Jira Search: project={Project} {Descriptor}", project, descriptor);
         try
         {
             using var doc = await http.TrySendForJsonAsync(
-                HttpMethod.Post, $"{baseUrl}/rest/api/3/search",
+                HttpMethod.Post, $"{_baseUrl}/rest/api/3/search",
                 new { jql, fields = StandardFields, maxResults = 100 }, cancellationToken);
             if (doc is null)
             {

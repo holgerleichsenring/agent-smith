@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -16,12 +17,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// GitLab level; the TicketClaimService's SETNX claim-lock is the primary race guard.
 /// </summary>
 public sealed class GitLabTicketStatusTransitioner(
-    string baseUrl,
-    string projectPath,
-    string privateToken,
+    GitLabTicketConnection connection,
     HttpClient httpClient,
     ILogger<GitLabTicketStatusTransitioner> logger) : ITicketStatusTransitioner
 {
+    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
+    private readonly string _projectPath = connection.ProjectPath;
+    private readonly string _privateToken = connection.PrivateToken;
+
     public string ProviderType => "GitLab";
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
@@ -65,9 +68,9 @@ public sealed class GitLabTicketStatusTransitioner(
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)
     {
-        var url = $"{baseUrl.TrimEnd('/')}/api/v4/projects/{projectPath}/issues/{ticketId.Value}";
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("PRIVATE-TOKEN", privateToken);
+        req.Headers.Add("PRIVATE-TOKEN", _privateToken);
 
         using var resp = await httpClient.SendAsync(req, ct);
         if (resp.StatusCode == HttpStatusCode.NotFound) return null;
@@ -82,9 +85,9 @@ public sealed class GitLabTicketStatusTransitioner(
     private async Task<TransitionResult> UpdateLabelsAsync(
         TicketId ticketId, TicketLifecycleStatus? current, TicketLifecycleStatus to, CancellationToken ct)
     {
-        var url = $"{baseUrl.TrimEnd('/')}/api/v4/projects/{projectPath}/issues/{ticketId.Value}";
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
-        req.Headers.Add("PRIVATE-TOKEN", privateToken);
+        req.Headers.Add("PRIVATE-TOKEN", _privateToken);
         req.Content = JsonContent.Create(new
         {
             add_labels = LifecycleLabels.For(to),

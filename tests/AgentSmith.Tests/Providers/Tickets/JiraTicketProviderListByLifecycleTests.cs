@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -123,13 +124,14 @@ public sealed class JiraTicketProviderListByLifecycleTests
     {
         var httpClient = new HttpClient(handler);
         return new JiraTicketProvider(
-            "https://jira.example.com",
-            "user@example.com",
-            "token",
+            new JiraTicketConnection(
+                "https://jira.example.com",
+                "user@example.com",
+                "token",
+                projectKey),
             httpClient,
             new JiraFieldMapper(),
-            NullLogger<JiraTicketProvider>.Instance,
-            projectKey: projectKey);
+            NullLogger<JiraTicketProvider>.Instance);
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)

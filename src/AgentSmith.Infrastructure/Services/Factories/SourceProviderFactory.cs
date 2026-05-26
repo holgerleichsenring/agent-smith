@@ -38,10 +38,10 @@ public sealed class SourceProviderFactory(
     private GitHubSourceProvider CreateGitHub(RepoConnection config)
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
+        var connection = new GitHubSourceConnection(config.Url!, token, config.DefaultBranch);
         return new GitHubSourceProvider(
-            config.Url!, token, gitHubClientFactory,
-            loggerFactory.CreateLogger<GitHubSourceProvider>(),
-            defaultBranch: config.DefaultBranch);
+            connection, gitHubClientFactory,
+            loggerFactory.CreateLogger<GitHubSourceProvider>());
     }
 
     private GitLabSourceProvider CreateGitLab(RepoConnection config)
@@ -50,18 +50,20 @@ public sealed class SourceProviderFactory(
         var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
         var projectPath = ExtractGitLabProjectPath(config.Url!);
         var cloneUrl = $"{baseUrl}/{projectPath}.git";
+        var connection = new GitLabSourceConnection(
+            baseUrl, Uri.EscapeDataString(projectPath), cloneUrl, token, config.DefaultBranch);
         return new GitLabSourceProvider(
-            baseUrl, Uri.EscapeDataString(projectPath), cloneUrl, token,
-            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabSourceProvider>(),
-            defaultBranch: config.DefaultBranch);
+            connection,
+            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabSourceProvider>());
     }
 
     private AzureReposSourceProvider CreateAzureRepos(RepoConnection config)
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);
+        var connection = new AzureReposSourceConnection(orgUrl, project, repoName, token);
         return new AzureReposSourceProvider(
-            orgUrl, project, repoName, token,
+            connection,
             azDoClientFactory,
             loggerFactory.CreateLogger<AzureReposSourceProvider>());
     }

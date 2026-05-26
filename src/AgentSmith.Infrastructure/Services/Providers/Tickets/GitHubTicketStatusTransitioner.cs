@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -26,13 +27,13 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
     public string ProviderType => "GitHub";
 
     public GitHubTicketStatusTransitioner(
-        string repoUrl, string token, HttpClient httpClient,
+        GitHubTicketConnection connection, HttpClient httpClient,
         ILogger<GitHubTicketStatusTransitioner> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(repoUrl);
+        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
         _http = httpClient;
         _logger = logger;
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", connection.Token);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("AgentSmith/1.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
