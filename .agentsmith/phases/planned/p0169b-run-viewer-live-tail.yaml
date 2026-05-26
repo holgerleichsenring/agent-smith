@@ -1,11 +1,16 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0169b
 goal: |
-  Add live tailing to the Run-Viewer UI: in-progress runs show streaming
-  progress + sandbox stdout + skill observations as they happen, without
-  refreshing the page. Closes the "watch the agent work" experience gap
-  that Devin 2.2 + Windsurf 2.0 Agent Command Center turned into a 2026
-  expectation.
+  Add live tailing to the Job-Viewer UI (p0169a): in-progress jobs show
+  streaming progress + sandbox stdout + skill observations as they
+  happen, without refreshing the page. Closes the "watch the agent work"
+  experience gap that Devin 2.2 + Windsurf 2.0 Agent Command Center
+  turned into a 2026 expectation.
+
+  Deliberately AFTER p0169a's static viewer is demo-stable. Live streams
+  can break mid-demo in ways static rendering cannot. First customer
+  demo runs against pre-recorded jobs; live-trigger is the second-demo
+  move once the static path has run reliably ten times.
 
   Reuses the same Redis pub/sub channel BusMessageRouter (for chat) and
   McpBusSubscriber (p0166c, for MCP clients) already consume — so the
@@ -15,11 +20,11 @@ requires: ["p0169a", "p0166c"]
 
 scope:
   in: |
-    (1) GET /ui/runs/<id>/stream → SSE endpoint streaming the same
+    (1) GET /ui/jobs/<id>/stream → SSE endpoint streaming the same
         bus messages as p0166c's /mcp/events but formatted for the UI
         renderer (HTML-fragment events, not JSON-RPC notifications).
 
-    (2) Run-detail page (from p0169a) detects "in-progress" status
+    (2) Job-detail page (from p0169a) detects "in-progress" status
         (result.md frontmatter status field not in done/failed),
         opens an EventSource via vanilla JS (no framework), appends
         formatted fragments to a live-log panel + updates the progress
@@ -78,21 +83,21 @@ decisions:
 steps:
   - id: sse-endpoint
     action: |
-      UiStreamEndpoint maps GET /ui/runs/{id}/stream. Subscribes to
+      UiStreamEndpoint maps GET /ui/jobs/{id}/stream. Subscribes to
       Redis bus channel; renders fragments via existing renderers.
     new:
       - "src/AgentSmith.Server/Ui/Streaming/UiStreamEndpoint.cs"
       - "src/AgentSmith.Server/Ui/Streaming/UiBusFragmentRenderer.cs"
 
-  - id: run-detail-js
+  - id: job-detail-js
     action: |
-      Page-level JS in run-detail.cshtml. EventSource + DOM-append +
+      Page-level JS in Jobs/Detail.cshtml. EventSource + DOM-append +
       reconnect indicator + replay button.
     modify:
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml.cs"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml.cs"
     new:
-      - "src/AgentSmith.Server/wwwroot/js/run-detail-live.js"
+      - "src/AgentSmith.Server/wwwroot/js/job-detail-live.js"
 
   - id: status-detect
     action: |
@@ -107,7 +112,7 @@ steps:
       Run-detail page renders cost-summary + tool-call-trail JSON in
       collapsible <details> sections (browser-native, no JS needed).
     modify:
-      - "src/AgentSmith.Server/Ui/Pages/RunDetail.cshtml"
+      - "src/AgentSmith.Server/Ui/Pages/Jobs/Detail.cshtml"
 
   - id: ttl-on-bus
     action: |
@@ -131,11 +136,11 @@ tests:
   - "UiStream_PublishedDoneMessage_EmittedAsDoneFragmentWithPrUrl"
   - "UiStream_ConnectionClose_UnsubscribesAndCleansUp"
   - "RunStatusReader_ResultMdWithStatusRunning_ReturnsRunningEnum"
-  - "RunDetail_CompletedRun_NoSseConnectionRequested"
+  - "JobDetail_CompletedRun_NoSseConnectionRequested"
   - "RedisBusChannel_TtlSetToFiveMinutes"
 
 done:
-  - "GET /ui/runs/<id>/stream streams HTML fragments per bus message."
+  - "GET /ui/jobs/<id>/stream streams HTML fragments per bus message."
   - "Run-detail page live-updates for in-progress runs; static for completed."
   - "Reconnect-on-disconnect indicator works (verified manually)."
   - "Replay button works for runs within the 5-min backlog window."
