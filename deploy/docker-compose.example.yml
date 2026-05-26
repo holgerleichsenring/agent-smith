@@ -23,7 +23,7 @@ services:
   agentsmith:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Cli/Dockerfile
+      dockerfile: src/backend/AgentSmith.Cli/Dockerfile
     image: agentsmith-cli:${AGENTSMITH_VERSION:-0.50.0}
     restart: "no"
     env_file:
@@ -46,7 +46,7 @@ services:
   sandbox-agent:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
+      dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
     image: agent-smith-sandbox-agent:${AGENT_VERSION:-0.50.0}
     profiles: [build-only]
 
@@ -66,7 +66,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Server/Dockerfile
+      dockerfile: src/backend/AgentSmith.Server/Dockerfile
     restart: unless-stopped
     user: root  # docker socket access for SPAWNER_TYPE=docker (local dev)
     extra_hosts:

@@ -6,7 +6,7 @@ on:
     paths:
       - 'docs/**'
       - 'DESIGN.md'
-      - 'scripts/build-tokens.mjs'
+      - 'tools/build-tokens.mjs'
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '20'
 
-      - run: node scripts/build-tokens.mjs
+      - run: node tools/build-tokens.mjs
 
       - uses: actions/setup-python@v5
         with:
