@@ -615,11 +615,11 @@ This is the operational contract.
 To swap to a different design tomorrow:
 
 1. Replace the YAML frontmatter of this file. Keep token names (`colors.primary`, `typography.display-xl`, `rounded.md`, `spacing.xl`, `components.button-primary`, etc.) identical.
-2. Run `node scripts/build-tokens.mjs` from the repo root. The script regenerates `website/src/static/tokens.css` and `docs/stylesheets/tokens.css`.
+2. Run `node tools/build-tokens.mjs` from the repo root. The script regenerates `website/src/static/tokens.css` and `docs/stylesheets/tokens.css`.
 3. Both sites pick up the new values automatically; no markup changes needed.
 
 If you need a NEW token (e.g. an accent color the previous system didn't have), add it to the frontmatter, regenerate, and use it via `var(--your-token)` in the sites that need it. Keep deprecated tokens as aliases for one minor version before removing them — that's the swap-back path.
 
 The Components section above documents the *role* of each component using token references. A swap that changes only colors / typography stays compatible with this whole document; a swap that changes *components* (new component family, renamed roles) requires updating the prose too.
 
-This file is the only Agent-Smith design contract. `website/` and `docs/` consume it via `tokens.css`. The CI test for the design system is: `node scripts/build-tokens.mjs` exits 0, both sites build green.
+This file is the only Agent-Smith design contract. `website/` and `docs/` consume it via `tokens.css`. The CI test for the design system is: `node tools/build-tokens.mjs` exits 0, both sites build green.

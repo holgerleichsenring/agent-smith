@@ -42,12 +42,12 @@
     <!-- p0128a: schemas live under .agentsmith/schemas/ as the source-of-truth visible
          to skill authors and operators; embedded into the binary via Link so the runtime
          loader (JsonSchemaLoader) can resolve them without filesystem dependence. -->
-    <EmbeddedResource Include="..\..\.agentsmith\schemas\plan.schema.json" Link="Services\Validation\Schemas\plan.schema.json" />
-    <EmbeddedResource Include="..\..\.agentsmith\schemas\diff.schema.json" Link="Services\Validation\Schemas\diff.schema.json" />
-    <EmbeddedResource Include="..\..\.agentsmith\schemas\bootstrap.schema.json" Link="Services\Validation\Schemas\bootstrap.schema.json" />
-    <EmbeddedResource Include="..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\plan.schema.json" Link="Services\Validation\Schemas\plan.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\diff.schema.json" Link="Services\Validation\Schemas\diff.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\bootstrap.schema.json" Link="Services\Validation\Schemas\bootstrap.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
     <!-- p0161d: discovery output schema for the BootstrapDiscover read-only round. -->
-    <EmbeddedResource Include="..\..\.agentsmith\schemas\discovery.schema.json" Link="Services\Validation\Schemas\discovery.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\discovery.schema.json" Link="Services\Validation\Schemas\discovery.schema.json" />
   </ItemGroup>
 
 </Project>

@@ -37,7 +37,7 @@ SKILL.md on your host and have the container pick up the change immediately.
 
 ## Test runs
 
-The test suite uses `./test-skills/` populated by `scripts/fetch-skills.sh`.
+The test suite uses `./test-skills/` populated by `tools/fetch-skills.sh`.
 For local-iteration tests, point at your working copy instead:
 
 ```bash

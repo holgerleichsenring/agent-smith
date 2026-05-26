@@ -143,10 +143,10 @@ The `AgentSmith.sln` contains 8 projects:
 
 | File | Purpose |
 |------|---------|
-| `src/AgentSmith.Cli/Program.cs` | CLI command definitions (18 lines after refactor) |
-| `src/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` | Top-level orchestrator |
-| `src/AgentSmith.Application/Services/PipelineExecutor.cs` | Runs ordered command sequence |
-| `src/AgentSmith.Contracts/Commands/PipelinePresets.cs` | Pipeline step definitions |
-| `src/AgentSmith.Cli/ConfigDiscovery.cs` | Config file resolution logic |
+| `src/backend/AgentSmith.Cli/Program.cs` | CLI command definitions (18 lines after refactor) |
+| `src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` | Top-level orchestrator |
+| `src/backend/AgentSmith.Application/Services/PipelineExecutor.cs` | Runs ordered command sequence |
+| `src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs` | Pipeline step definitions |
+| `src/backend/AgentSmith.Cli/ConfigDiscovery.cs` | Config file resolution logic |
 | `docker-entrypoint.sh` | Volume permission handling with gosu |
 | `k8s/base/kustomization.yaml` | Kubernetes base configuration |

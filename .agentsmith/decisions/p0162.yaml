@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0162
+
+decisions:
+  - category: Implementation
+    chose: "Moved 9 projects, not the 8 listed in the spec"
+    over: "Strictly follow the spec's enumerated 8-project list"
+    reason: |
+      Spec enumerated 8 projects but added "(any future projects added before
+      this phase ships)" as a hedge. Today src/ holds 9: the 8 listed plus
+      AgentSmith.Infrastructure.Core and AgentSmith.Sandbox.Wire (the
+      enumeration in the spec listed Sandbox.Agent but not Sandbox.Wire,
+      and didn't mention Infrastructure.Core). Moving only 8 would have
+      left two projects orphaned under src/ root — the whole point was
+      to clear src/ for src/dashboard/. Moved all 9.
+
+  - category: Implementation
+    chose: "Bumped AgentSmith.Application's EmbeddedResource link paths from ..\\..\\.agentsmith\\schemas\\ to ..\\..\\..\\.agentsmith\\schemas\\"
+    reason: |
+      The Application csproj uses Link= EmbeddedResource entries that
+      escape the project root to reach .agentsmith/schemas/*.json. Old
+      project location src/AgentSmith.Application/ → repo root was two
+      levels up. New location src/backend/AgentSmith.Application/ → repo
+      root is three levels up. Spec mentioned only the Dockerfile COPY
+      path fix-up; this csproj fix-up was implicit. Without it the
+      JSON-schema embedded resources fail to resolve at build time.
+
+  - category: Scope
+    chose: "Did not modify .agentsmith/phases/done/*.yaml or .agentsmith/decisions/*.yaml even where they mention scripts/ or src/AgentSmith. paths"
+    reason: |
+      Per [[feedback_phase_versioning]] phase specs are immutable
+      historical records. The spec scope listed docs/ + README.md +
+      DESIGN.md + CHANGELOG.md for cross-ref updates — not
+      .agentsmith/. Historical references to scripts/ inside done
+      phase YAMLs accurately describe the world at the time those
+      phases shipped; rewriting them would falsify history.
+
+  - category: Scope
+    chose: "Left site/ local untracked content in place"
+    over: "Delete site/ folder from disk"
+    reason: |
+      Spec called out "site/ tracked artefacts removed from git"; the
+      tracked count was already 0 (long since gitignored). The local
+      folder is a mkdocs build artefact regenerated on each docs
+      workflow run — no reason to delete user-local files.
