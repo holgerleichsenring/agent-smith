@@ -12,11 +12,17 @@ public sealed class InProcessSandboxFactory(ILoggerFactory loggerFactory) : ISan
         // via TryCheckoutSourceHandler), reuse that directory as workDir so handlers
         // reading from /work see the cloned files. Otherwise fall back to a fresh
         // empty temp dir (legacy behaviour for pipelines that produce content in-sandbox).
-        var workDir = !string.IsNullOrEmpty(spec.InitialSourcePath) && Directory.Exists(spec.InitialSourcePath)
-            ? spec.InitialSourcePath
+        //
+        // ownsWorkDir tracks who is responsible for cleanup: we own (and must delete on
+        // dispose) only the fallback temp dir we created. Reused InitialSourcePath is
+        // the operator's working tree — DisposeAsync must never recursive-delete that.
+        var reuseSource = !string.IsNullOrEmpty(spec.InitialSourcePath) && Directory.Exists(spec.InitialSourcePath);
+        var workDir = reuseSource
+            ? spec.InitialSourcePath!
             : Path.Combine(Path.GetTempPath(), $"agentsmith-{jobId[..12]}");
         Directory.CreateDirectory(workDir);
-        var sandbox = new InProcessSandbox(jobId, workDir, loggerFactory.CreateLogger<InProcessSandbox>());
+        var sandbox = new InProcessSandbox(jobId, workDir, ownsWorkDir: !reuseSource,
+            loggerFactory.CreateLogger<InProcessSandbox>());
         return Task.FromResult<ISandbox>(sandbox);
     }
 }

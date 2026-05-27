@@ -69,10 +69,7 @@ internal static class CompileWikiCommand
 
             var jobId = Guid.NewGuid().ToString("N");
             var sandboxLogger = provider.GetService<ILogger<InProcessSandbox>>() ?? NullLogger<InProcessSandbox>.Instance;
-            // No `await using` here: InProcessSandbox.DisposeAsync deletes workDir, but
-            // workDir IS the user's project directory. The sandbox is one-shot for the
-            // duration of this CLI command — process exit cleans up.
-            var sandbox = new InProcessSandbox(jobId, projectPath, sandboxLogger);
+            var sandbox = new InProcessSandbox(jobId, projectPath, ownsWorkDir: false, sandboxLogger);
 
             var pipeline = new PipelineContext();
             pipeline.Set(ContextKeys.Sandbox, (ISandbox)sandbox);
