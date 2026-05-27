@@ -11,7 +11,13 @@ export function ToolCallRow({ event }: Props) {
     <div className="flex items-center gap-2 text-xs text-stone-300" data-testid="tool-call-row">
       <span className="text-stone-500">→</span>
       <span className="font-mono text-amber-300">{event.tool}</span>
-      <span className="text-stone-500">({event.argsLength}B args)</span>
+      {event.summary ? (
+        <span className="truncate font-mono text-stone-300" title={event.summary}>
+          {event.summary}
+        </span>
+      ) : (
+        <span className="text-stone-500">({event.argsLength}B args)</span>
+      )}
       <MetadataTooltip />
     </div>
   );

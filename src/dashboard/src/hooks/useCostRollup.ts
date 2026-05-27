@@ -1,15 +1,12 @@
 import { useMemo } from "react";
-import {
-  EventType,
-  type LlmCallFinishedEvent,
-  type RunEvent,
-} from "@/types/hub-events";
+import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
-// p0173d: aggregate LLM cost over a rolling 24h / 7d window.
-// Source data comes from the RUN event channel (LlmCallFinished.costUsd)
-// because cost is a per-run-step concept; the system stream doesn't carry it.
-// Pure derivation against the recent run-event window the broadcaster
-// already holds — operators see "what did we spend today".
+// p0175-fix: aggregate LLM cost over a rolling 24h / 7d window from the
+// broadcaster's run snapshots. Previously the hook walked a runEvents
+// array that /system never subscribed to (cost was always $0). Now we
+// read `RunSnapshot.costUsd` — the broadcaster rolls up LlmCallFinished
+// into the per-run snapshot, so the /system overview gets cost live via
+// the JobUpserted SignalR fanout.
 
 export interface CostRollup {
   today: number;
@@ -20,29 +17,41 @@ export interface CostRollup {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
-export function useCostRollup(events: readonly RunEvent[], now: Date = new Date()): CostRollup {
-  return useMemo(() => deriveCostRollup(events, now.getTime()), [events, now.getTime()]);
+export function useCostRollup(
+  overview: OverviewSnapshot | null,
+  now: Date = new Date(),
+): CostRollup {
+  return useMemo(
+    () => deriveCostRollup(overview, now.getTime()),
+    [overview, now.getTime()],
+  );
 }
 
 export function deriveCostRollup(
-  events: readonly RunEvent[],
+  overview: OverviewSnapshot | null,
   nowMs: number,
 ): CostRollup {
+  if (overview === null) return { today: 0, week: 0, llmCalls: 0 };
+
   let today = 0;
   let week = 0;
   let llmCalls = 0;
   const dayCutoff = nowMs - DAY_MS;
   const weekCutoff = nowMs - WEEK_MS;
 
-  for (const e of events) {
-    if (e.type !== EventType.LlmCallFinished) continue;
-    const ev = e as LlmCallFinishedEvent;
-    const ts = Date.parse(ev.timestamp);
-    if (ts < weekCutoff) continue;
-    week += ev.costUsd;
-    llmCalls++;
-    if (ts >= dayCutoff) today += ev.costUsd;
-  }
+  const accumulate = (run: RunSnapshot) => {
+    const tsMs = run.finishedAt
+      ? Date.parse(run.finishedAt)
+      : Date.parse(run.startedAt);
+    if (Number.isNaN(tsMs)) return;
+    if (tsMs < weekCutoff) return;
+    week += run.costUsd;
+    llmCalls += run.llmCalls;
+    if (tsMs >= dayCutoff) today += run.costUsd;
+  };
+
+  for (const run of overview.active) accumulate(run);
+  for (const run of overview.recent) accumulate(run);
 
   return { today, week, llmCalls };
 }

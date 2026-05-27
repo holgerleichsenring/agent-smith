@@ -1,14 +1,26 @@
 "use client";
 
-import { useChannelBreakdown } from "@/hooks/useChannelBreakdown";
-import type { SystemEvent } from "@/types/system-events";
+import type { SystemActivitySnapshot } from "@/types/hub-events";
 
 interface Props {
-  events: readonly SystemEvent[];
+  activity: SystemActivitySnapshot | null;
 }
 
-export function ChannelBreakdown({ events }: Props) {
-  const rows = useChannelBreakdown(events);
+interface Row {
+  source: string;
+  count: number;
+}
+
+// p0175-fix: reads per-source counts from the server-computed 24h rollup.
+// Old client-derived useChannelBreakdown path counted every event in the
+// local ring buffer (no time window, capped at 500 events).
+
+export function ChannelBreakdown({ activity }: Props) {
+  const rows: Row[] = activity
+    ? Object.entries(activity.eventsPerSource)
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source))
+    : [];
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (

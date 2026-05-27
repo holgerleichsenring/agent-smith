@@ -116,6 +116,8 @@ export interface SandboxCommandEvent extends RunEventBase {
   repo: string;
   command: string;
   argsLength: number;
+  /** p0175-fix: producer-curated one-liner (≤120 chars), null when unsafe to surface. */
+  summary: string | null;
 }
 
 export interface SandboxOutputEvent extends RunEventBase {
@@ -138,6 +140,8 @@ export interface ToolCallEvent extends RunEventBase {
   type: EventType.ToolCall;
   tool: string;
   argsLength: number;
+  /** p0175-fix: producer-curated one-liner (≤120 chars), null when unsafe to surface. */
+  summary: string | null;
 }
 
 export interface ToolResultEvent extends RunEventBase {
@@ -190,9 +194,35 @@ export interface RunSnapshot {
   stepName: string | null;
   totalSteps: number;
   lastEventType: string | null;
+  /** p0175-fix: rolled-up LLM cost from LlmCallFinished events. */
+  costUsd: number;
+  llmCalls: number;
 }
 
 export interface OverviewSnapshot {
   active: RunSnapshot[];
   recent: RunSnapshot[];
+  /**
+   * p0175-fix: server-computed 24h rollup. Null when the snapshot was
+   * produced before the field existed (defensive — should always be
+   * present from a current backend).
+   */
+  systemActivity: SystemActivitySnapshot | null;
+}
+
+/**
+ * p0175-fix: server-truth 24h KPI rollup pushed alongside the overview
+ * snapshot + live via SystemActivityUpdated. Replaces the
+ * client-derived useActivityKpis + useChannelBreakdown which drifted
+ * once the 500-event client buffer overflowed.
+ */
+export interface SystemActivitySnapshot {
+  ticketsScanned: number;
+  ticketsTriggered: number;
+  ticketsSkipped: number;
+  webhooksReceived: number;
+  webhooksActioned: number;
+  pollCyclesStarted: number;
+  pollCyclesFinished: number;
+  eventsPerSource: Record<string, number>;
 }

@@ -14,6 +14,7 @@ function call(tool: string, atMs: number, argsLength = 4): ToolCallEvent {
     timestamp: new Date(atMs).toISOString(),
     tool,
     argsLength,
+    summary: null,
   };
 }
 
@@ -25,6 +26,7 @@ function result(tool: string, atMs: number, ok = true, resultLength = 8): ToolRe
     tool,
     ok,
     resultLength,
+    errorMessage: null,
   };
 }
 
