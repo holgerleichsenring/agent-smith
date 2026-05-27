@@ -11,6 +11,7 @@ import { FilterRail } from "@/components/jobs/FilterRail";
 import { TopologyCard } from "@/components/jobs/TopologyCard";
 import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
 import { SandboxList } from "@/components/jobs/SandboxList";
+import { TrailTab } from "@/components/jobs/TrailTab";
 import { EventType } from "@/types/hub-events";
 
 interface PageProps {
@@ -84,6 +85,15 @@ function RunDetail({ runId }: { runId: string }) {
     updateUrl(new Set());
   }, [updateUrl]);
 
+  const activeTab = searchParams.get("tab") === "trail" ? "trail" : "topology";
+  const setActiveTab = useCallback((tab: "topology" | "trail") => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "trail") params.set("tab", "trail");
+    else params.delete("tab");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [pathname, router, searchParams]);
+
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-8">
       <header className="flex items-start justify-between gap-4">
@@ -93,6 +103,23 @@ function RunDetail({ runId }: { runId: string }) {
         </div>
         <ConnectionState state={connectionState} />
       </header>
+      <nav className="flex gap-4 border-b border-stone-200 text-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab("topology")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "topology" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-topology"
+        >Topology</button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("trail")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-trail"
+        >Trail</button>
+      </nav>
+      {activeTab === "trail" ? (
+        <TrailTab runId={runId} />
+      ) : (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
         <FilterRail />
         <div className="space-y-6">
@@ -108,6 +135,7 @@ function RunDetail({ runId }: { runId: string }) {
           <RunToolsPanel events={events} />
         </div>
       </div>
+      )}
     </main>
   );
 }
