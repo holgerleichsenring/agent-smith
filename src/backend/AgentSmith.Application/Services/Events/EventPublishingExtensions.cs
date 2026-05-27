@@ -16,6 +16,10 @@ public static class EventPublishingExtensions
     {
         services.TryAddSingleton<IEventPublisher, NoOpEventPublisher>();
         services.TryAddSingleton<IRunContextAccessor, AsyncLocalRunContextAccessor>();
+        // p0173a: parallel system-event channel. NoOp is the safe default;
+        // Server's AddRedis swaps in RedisSystemEventPublisher via last-write-
+        // wins over TryAddSingleton.
+        services.TryAddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
         return services;
     }
 }

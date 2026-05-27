@@ -19,4 +19,7 @@ public sealed class JobsHubFanout(IHubContext<JobsHub> hub) : IRunEventFanout
 
     public Task ToSandboxAsync(string runId, string repo, RunEvent runEvent, CancellationToken cancellationToken) =>
         hub.Clients.Group(HubGroups.Sandbox(runId, repo)).SendAsync("SandboxEvent", runEvent, cancellationToken);
+
+    public Task ToSystemAsync(SystemEvent systemEvent, CancellationToken cancellationToken) =>
+        hub.Clients.Group(HubGroups.System).SendAsync("SystemEvent", systemEvent, cancellationToken);
 }

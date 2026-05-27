@@ -31,6 +31,32 @@ public sealed class JobsHub(
         await Clients.Caller.SendAsync("OverviewSnapshot", snapshot);
     }
 
+    /// <summary>
+    /// p0173a: subscribes the caller to the system-level event group +
+    /// replays the retained system stream window before live tail starts.
+    /// The replay is XRANGE-based (full retained window, bounded by the
+    /// stream's MAXLEN), matching SubscribeRun's mid-connect contract so
+    /// clients see the oldest retained event as the start of their visible
+    /// history. Slice a ships the pipe — producers wire up in b + c.
+    /// </summary>
+    public async Task SubscribeSystem()
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.System);
+        var db = redis.GetDatabase();
+        var entries = await db.StreamRangeAsync(SystemEventStreamKeys.Stream, "-", "+");
+        foreach (var entry in entries)
+        {
+            foreach (var pair in entry.Values)
+            {
+                var payload = pair.Value.ToString();
+                if (string.IsNullOrEmpty(payload)) continue;
+                var systemEvent = EventEnvelopeSerializer.DeserializeSystem(payload);
+                if (systemEvent is null) continue;
+                await Clients.Caller.SendAsync("SystemEvent", systemEvent);
+            }
+        }
+    }
+
     public async Task SubscribeRun(string runId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Run(runId));

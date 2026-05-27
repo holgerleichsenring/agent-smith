@@ -34,6 +34,36 @@ public static class EventEnvelopeSerializer
         return (RunEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
     }
 
+    // p0173a: parallel envelope path for SystemEvent. Same JSON shape
+    // ({"t":<code>,"p":<payload>}) — a separate top-level method keeps the
+    // run-event path type-narrow at the call sites and lets ResolveType
+    // stay focused on each hierarchy.
+    public static string SerializeSystem(SystemEvent systemEvent)
+    {
+        var payload = JsonSerializer.Serialize((object)systemEvent, systemEvent.GetType(), Options);
+        return $"{{\"t\":{(int)systemEvent.Type},\"p\":{payload}}}";
+    }
+
+    public static SystemEvent? DeserializeSystem(string envelope)
+    {
+        using var doc = JsonDocument.Parse(envelope);
+        var root = doc.RootElement;
+        var typeCode = root.GetProperty("t").GetInt32();
+        var payload = root.GetProperty("p").GetRawText();
+        var concrete = ResolveSystemType((SystemEventType)typeCode);
+        if (concrete is null) return null;
+        return (SystemEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
+    }
+
+    // Slice a defines only the enum codes; concrete records ship in
+    // slices b + c next to their producers. Until then, ResolveSystemType
+    // always returns null — DeserializeSystem yields null for every
+    // payload, which is exactly what an empty stream produces anyway.
+    private static Type? ResolveSystemType(SystemEventType type) => type switch
+    {
+        _ => null
+    };
+
     private static Type? ResolveType(EventType type) => type switch
     {
         EventType.RunStarted => typeof(RunStartedEvent),

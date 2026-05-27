@@ -29,32 +29,57 @@ if (!existsSync(eventsDir)) {
   process.exit(2);
 }
 
-const csharpEnumFile = join(eventsDir, "EventType.cs");
-const enumSource = readFileSync(csharpEnumFile, "utf8");
-const csharpEventTypes = [...enumSource.matchAll(/^\s*(\w+)\s*=\s*\d+,?\s*$/gm)]
-  .map((m) => m[1])
-  .filter((n) => n !== "EventType");
+// p0173a: scan both RunEvent (EventType) and SystemEvent (SystemEventType)
+// hierarchies. Each is mirrored in its own dashboard file.
+const channels = [
+  {
+    label: "hub-events.ts",
+    enumName: "EventType",
+    csharpFile: join(eventsDir, "EventType.cs"),
+    tsFile: join(repoRoot, "src/dashboard/src/types/hub-events.ts"),
+  },
+  {
+    label: "system-events.ts",
+    enumName: "SystemEventType",
+    csharpFile: join(eventsDir, "SystemEventType.cs"),
+    tsFile: join(repoRoot, "src/dashboard/src/types/system-events.ts"),
+  },
+];
 
-const tsSource = readFileSync(tsTarget, "utf8");
-const tsEventTypes = [...tsSource.matchAll(/^\s*(\w+)\s*=\s*\d+,\s*$/gm)]
-  .map((m) => m[1])
-  .filter((n) => n !== "EventType");
+let anyDrift = false;
+for (const channel of channels) {
+  if (!existsSync(channel.csharpFile)) {
+    console.warn(`skipping ${channel.label}: ${channel.csharpFile} not present`);
+    continue;
+  }
+  if (!existsSync(channel.tsFile)) {
+    console.warn(`drift in ${channel.label}: TS mirror missing at ${channel.tsFile}`);
+    anyDrift = true;
+    continue;
+  }
+  const enumSource = readFileSync(channel.csharpFile, "utf8");
+  const csharpTypes = [...enumSource.matchAll(/^\s*(\w+)\s*=\s*\d+,?\s*$/gm)]
+    .map((m) => m[1])
+    .filter((n) => n !== channel.enumName);
+  const tsSource = readFileSync(channel.tsFile, "utf8");
+  const tsTypes = [...tsSource.matchAll(/^\s*(\w+)\s*=\s*\d+,\s*$/gm)]
+    .map((m) => m[1])
+    .filter((n) => n !== channel.enumName);
 
-const missing = csharpEventTypes.filter((t) => !tsEventTypes.includes(t));
-const stale = tsEventTypes.filter((t) => !csharpEventTypes.includes(t));
+  const missing = csharpTypes.filter((t) => !tsTypes.includes(t));
+  const stale = tsTypes.filter((t) => !csharpTypes.includes(t));
 
-if (missing.length === 0 && stale.length === 0) {
-  console.log(`hub-events.ts: ${csharpEventTypes.length} event types — no drift`);
-  process.exit(0);
+  if (missing.length === 0 && stale.length === 0) {
+    console.log(`${channel.label}: ${csharpTypes.length} event types — no drift`);
+    continue;
+  }
+  anyDrift = true;
+  console.warn(`${channel.label} drift detected:`);
+  if (missing.length > 0) console.warn(`  missing in TS: ${missing.join(", ")}`);
+  if (stale.length > 0) console.warn(`  stale in TS:   ${stale.join(", ")}`);
 }
 
-console.warn("hub-events.ts drift detected:");
-if (missing.length > 0) console.warn(`  missing in TS: ${missing.join(", ")}`);
-if (stale.length > 0) console.warn(`  stale in TS:   ${stale.join(", ")}`);
-if (checkOnly) {
-  console.warn("(check mode — not modifying the TS file)");
-  process.exit(0);
+if (anyDrift && !checkOnly) {
+  console.warn("Curated files kept as-is — edit the TS mirror manually.");
 }
-
-console.warn("Curated file kept as-is — edit src/dashboard/src/types/hub-events.ts manually.");
 process.exit(0);

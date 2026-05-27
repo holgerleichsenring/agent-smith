@@ -35,6 +35,7 @@ internal static class RedisExtensions
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
         services.AddSingleton<IEventPublisher, RedisEventPublisher>();
+        services.AddSingleton<ISystemEventPublisher, RedisSystemEventPublisher>();
         return services;
     }
 }

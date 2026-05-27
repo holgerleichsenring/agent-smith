@@ -22,16 +22,20 @@ public sealed class JobsBroadcaster(
     ILogger<JobsBroadcaster> logger) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
+    private const int SystemRecentCapacity = 500;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
 
     private readonly ConcurrentDictionary<string, RunSnapshot> _active = new(StringComparer.Ordinal);
     private readonly RecentRunsRingBuffer _recent = new(RecentCapacity);
+    private readonly SystemRecentRingBuffer _systemRecent = new(SystemRecentCapacity);
     private readonly ConcurrentDictionary<string, string> _streamCursors = new(StringComparer.Ordinal);
+    private string _systemCursor = "0-0";
     private CancellationTokenSource? _cts;
     private Task? _loop;
 
     public IReadOnlyDictionary<string, RunSnapshot> Active => _active;
     public IReadOnlyList<RunSnapshot> Recent => _recent.Snapshot();
+    public IReadOnlyList<SystemEvent> SystemRecent => _systemRecent.Snapshot();
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -61,6 +65,28 @@ public sealed class JobsBroadcaster(
         var db = redis.GetDatabase();
         await RehydrateActiveAsync(db, ct);
         await RehydrateRecentAsync(db, ct);
+        await RehydrateSystemRecentAsync(db, ct);
+    }
+
+    // p0173a: cold-start populates the system ring buffer from the newest
+    // SystemRecentCapacity entries of the stream so the dashboard /system
+    // view is immediately useful after a server restart.
+    private async Task RehydrateSystemRecentAsync(IDatabase db, CancellationToken ct)
+    {
+        if (!await db.KeyExistsAsync(SystemEventStreamKeys.Stream)) return;
+        var entries = await db.StreamRangeAsync(
+            SystemEventStreamKeys.Stream, "-", "+", SystemRecentCapacity, Order.Descending);
+        // Order.Descending returns newest-first; reverse to append chronologically.
+        for (var i = entries.Length - 1; i >= 0; i--)
+        {
+            ct.ThrowIfCancellationRequested();
+            var systemEvent = DeserializeSystemEntry(entries[i]);
+            if (systemEvent is null) continue;
+            _systemRecent.Append(systemEvent);
+        }
+        // After cold-start, live drain reads from `$` so we don't replay
+        // the same entries through the fanout.
+        _systemCursor = "$";
     }
 
     private async Task RehydrateActiveAsync(IDatabase db, CancellationToken ct)
@@ -117,6 +143,7 @@ public sealed class JobsBroadcaster(
             {
                 await DiscoverNewRunsAsync(db, ct);
                 await DrainAsync(db, ct);
+                await DrainSystemAsync(db, ct);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
@@ -191,6 +218,34 @@ public sealed class JobsBroadcaster(
             var payload = pair.Value.ToString();
             if (string.IsNullOrEmpty(payload)) continue;
             try { return EventEnvelopeSerializer.Deserialize(payload); }
+            catch { return null; }
+        }
+        return null;
+    }
+
+    private async Task DrainSystemAsync(IDatabase db, CancellationToken ct)
+    {
+        var fromCursor = _systemCursor == "$" ? "0-0" : _systemCursor;
+        var entries = await db.StreamReadAsync(SystemEventStreamKeys.Stream, fromCursor, count: 100);
+        if (entries.Length == 0) return;
+        foreach (var entry in entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            var systemEvent = DeserializeSystemEntry(entry);
+            if (systemEvent is null) continue;
+            _systemRecent.Append(systemEvent);
+            await fanout.ToSystemAsync(systemEvent, ct);
+        }
+        _systemCursor = entries[^1].Id.ToString();
+    }
+
+    private static SystemEvent? DeserializeSystemEntry(StreamEntry entry)
+    {
+        foreach (var pair in entry.Values)
+        {
+            var payload = pair.Value.ToString();
+            if (string.IsNullOrEmpty(payload)) continue;
+            try { return EventEnvelopeSerializer.DeserializeSystem(payload); }
             catch { return null; }
         }
         return null;
