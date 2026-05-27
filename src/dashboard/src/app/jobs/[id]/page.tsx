@@ -12,6 +12,7 @@ import { TopologyCard } from "@/components/jobs/TopologyCard";
 import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
 import { SandboxList } from "@/components/jobs/SandboxList";
 import { TrailTab } from "@/components/jobs/TrailTab";
+import { ActivityTab } from "@/components/jobs/ActivityTab";
 import { EventType } from "@/types/hub-events";
 
 interface PageProps {
@@ -85,11 +86,13 @@ function RunDetail({ runId }: { runId: string }) {
     updateUrl(new Set());
   }, [updateUrl]);
 
-  const activeTab = searchParams.get("tab") === "trail" ? "trail" : "topology";
-  const setActiveTab = useCallback((tab: "topology" | "trail") => {
+  const tabParam = searchParams.get("tab");
+  const activeTab: "topology" | "trail" | "activity" =
+    tabParam === "trail" ? "trail" : tabParam === "activity" ? "activity" : "topology";
+  const setActiveTab = useCallback((tab: "topology" | "trail" | "activity") => {
     const params = new URLSearchParams(searchParams.toString());
-    if (tab === "trail") params.set("tab", "trail");
-    else params.delete("tab");
+    if (tab === "topology") params.delete("tab");
+    else params.set("tab", tab);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, router, searchParams]);
@@ -112,6 +115,12 @@ function RunDetail({ runId }: { runId: string }) {
         >Topology</button>
         <button
           type="button"
+          onClick={() => setActiveTab("activity")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "activity" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-activity"
+        >Activity</button>
+        <button
+          type="button"
           onClick={() => setActiveTab("trail")}
           className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-trail"
@@ -119,6 +128,8 @@ function RunDetail({ runId }: { runId: string }) {
       </nav>
       {activeTab === "trail" ? (
         <TrailTab runId={runId} />
+      ) : activeTab === "activity" ? (
+        <ActivityTab runId={runId} />
       ) : (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
         <FilterRail />
