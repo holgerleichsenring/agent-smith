@@ -1,0 +1,251 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-b1-failure-reason-events
+goal: |
+  Failing producers emit their reason as a typed event field. Today
+  StepFinished carries status=failed without a reason; ToolResult
+  carries ok=false without an errorMessage; skill-validator drops
+  (YamlSkillLoader's FAIL lines for description-too-long, missing
+  frontmatter, etc.) never become events at all — they exist only
+  in server logs.
+
+  This is the backend prerequisite for p0169j-b. Without it, the
+  Activity tab can only display "step failed" without the why and
+  has to fall back to "(see server logs)" — exactly the dev-debug
+  diversion the slice was meant to remove. The heuristic-pairer
+  approach (originally drafted in p0169j-b) was working around the
+  missing field; the field is the fix.
+
+requires:
+  - p0169e-event-backbone
+
+scope:
+  in: |
+    EVENT CONTRACTS (src/backend/AgentSmith.Contracts/Events):
+
+    (1) StepFinishedEvent gains an optional Reason field:
+        - record StepFinishedEvent(string RunId, int StepIndex,
+          string Status, long DurationMs, string? Reason,
+          DateTimeOffset Timestamp)
+        Populated from CommandResult.Message when Status="failed";
+        null when Status="success".
+
+    (2) ToolResultEvent gains an optional ErrorMessage field:
+        - record ToolResultEvent(string RunId, string Tool, bool Ok,
+          int ResultLength, string? ErrorMessage, DateTimeOffset Timestamp)
+        Populated from the inner exception's Message when Ok=false;
+        null when Ok=true.
+
+    (3) New CatalogIssueEvent (EventType code in the 30-range,
+        catalog/loader category):
+        - record CatalogIssueEvent(string RunId, string Severity,
+          string Source, string Category, string Message,
+          DateTimeOffset Timestamp)
+        Emitted when a SKILL.md validation rule rejects a skill
+        (YamlSkillLoader → NewFormatSkillValidator throws
+        SkillFormatException), when the concept-vocabulary fails to
+        parse, or when the skill catalog tarball checksum mismatches.
+        Severity is "warning" for skip-and-continue cases (e.g. one
+        skill dropped, catalog still loads), "error" for fail-loud
+        cases (e.g. vocabulary parse failure that aborts the pipeline).
+
+    PRODUCERS (src/backend/AgentSmith.Application):
+
+    (4) PipelineStepRunner.PublishStepFinishedAsync threads the
+        CommandResult.Message through when Status="failed"; passes
+        null on success. Existing emit-on-success path unchanged.
+
+    (5) SandboxToolHost / EventPublishingAIFunction passes the
+        exception message through to ToolResultEvent.ErrorMessage
+        when AIFunction.InvokeAsync throws. Catches happen at the
+        decorator boundary; the wrapped exception still propagates.
+
+    (6) YamlSkillLoader catches SkillFormatException (already thrown
+        by NewFormatSkillValidator), emits CatalogIssueEvent with
+        severity="warning", source=offending SKILL.md path, category=
+        "skill-validation", message=exception.RuleDescription, then
+        continues the catalog load. Behaviour today is "log FAIL +
+        silently skip"; new behaviour is "emit event + still skip".
+
+    (7) ConceptVocabularyLoader emits CatalogIssueEvent with
+        severity="error" when vocabulary parsing throws — that's
+        a hard-fail today, but the event makes the failure visible
+        to the dashboard, not just to server logs.
+
+    SEQUENCE-COMPLETENESS TEST (tests/AgentSmith.Tests/Events):
+
+    (8) EventSequenceCompletenessTests gains a failed-run companion
+        Theory: each producer-drop row asserts that for a failure
+        scenario, the corresponding event carries a non-null reason
+        field (or for CatalogIssue, that the event is emitted at
+        all). Mirrors p0169e's silent-producer = red gate, but for
+        failure paths.
+
+    DASHBOARD (src/dashboard/src/types):
+
+    (9) hub-events.ts mirror updated to match the new optional
+        fields + the new CatalogIssueEvent record + EventType enum
+        entry. Drift detector (tools/build-hub-event-types.mjs)
+        sees the new C# fields and prints a no-drift line after the
+        TS file is updated by hand.
+
+  out: |
+    Full LLM call failure reasons. LlmCallFinishedEvent already
+    carries duration + tokens; transient errors (rate limits, 5xx)
+    surface via the RetryCoordinator path which doesn't emit through
+    the EventPublishingChatClient on the failing attempt. Separate
+    phase if operators want them.
+    Sandbox crash reasons beyond ExitCode. SandboxResultEvent already
+    carries ExitCode; the agent-side StepResult.ErrorMessage already
+    flows through the projector. No change needed.
+    Retroactive backfill of pre-p0169j-b1 events. Out — new runs only.
+    JSON-schema enforcement of the reason fields via the dashboard.
+    Out — typescript optionality is good enough.
+
+decisions:
+  - key: |
+      Reason on the event, not a heuristic pairer in the UI — Reason:
+      the p0169j-b drafted an ActivityErrorPairer that folded
+      StepFinished status=failed with a nearby DecisionLogged/
+      GateChecked into a composite ErrorRow. The motivating case for
+      the slice was skill-validator FAIL — which isn't even emitted
+      as an event. The pairer would have missed exactly the bug it
+      was built for. Adding Reason to StepFinishedEvent + emitting
+      CatalogIssueEvent for the skill-validator drop fixes the
+      diagnostic surface at the source; the UI consumer becomes
+      "render event.reason" instead of "guess via temporal
+      proximity". alternatives: heuristic pairer (rejected — papers
+      over missing data, drifts under edge cases, fails on
+      non-pairable cases like skill-validator); a separate
+      /api/run-failures REST endpoint (rejected — second contract
+      surface, breaks the SignalR-only data plane).
+
+  - key: |
+      New CatalogIssueEvent type, not piggybacking on DecisionLogged
+      — Reason: DecisionLogged is operator-recorded design choices
+      (Architecture / Tooling / Implementation / TradeOff). Skill-
+      validator drops are infrastructure observations, not decisions.
+      Conflating them muddies both surfaces. CatalogIssue gets its
+      own EventType code (30-range, "catalog/loader" category) so
+      the dashboard can colour-code and filter them separately.
+      alternatives: piggyback on DecisionLogged with category=
+      "Validation" (rejected — semantic drift); piggyback on a new
+      EventLevel (rejected — invents a fourth level).
+
+  - key: |
+      Failed-run completeness Theory mirrors the success Theory —
+      Reason: p0169e's silent-producer Theory asserts that every
+      producer DOES emit on the happy path. p0169j-b1 needs the
+      complement: every failing producer emits a reason. Without
+      both, the gap that motivated the slice can recur in a new
+      shape (e.g. a future producer drops silently on a different
+      validation rule). The test is the regression gate; the spec
+      is the contract.
+      alternatives: rely on per-producer unit tests (rejected — same
+      gap as before, can't catch silent removal of a publisher call
+      from a producer's failure path).
+
+  - key: |
+      YamlSkillLoader continues to skip on validation failure, but
+      now emits — Reason: the skip-and-continue behaviour is correct
+      (one malformed skill shouldn't kill a 27-skill catalog load).
+      What was wrong was the FAIL-log-only visibility. Adding the
+      event makes the skip visible without changing the runtime
+      behaviour. Operators see the offending file + rule in the
+      dashboard; the run proceeds; if the skipped skill was
+      load-bearing for the pipeline, the downstream step fails with
+      its own Reason populated.
+      alternatives: hard-fail on any skill validation error
+      (rejected — too aggressive, one typo blocks the catalog);
+      silent skip (rejected — what we had).
+
+steps:
+  - id: event-contract-extensions
+    action: |
+      Extend StepFinishedEvent + ToolResultEvent records with
+      optional Reason / ErrorMessage. Add CatalogIssueEvent record +
+      EventType.CatalogIssue enum value. Update EventEnvelopeSerializer
+      with the new ResolveType branch.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/CatalogIssueEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/L1StepEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L3ToolEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/EventType.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+
+  - id: step-runner-reason-emit
+    action: |
+      PipelineStepRunner.PublishStepFinishedAsync threads
+      CommandResult.Message through when Status="failed". Existing
+      success path unchanged.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs"
+
+  - id: tool-error-emit
+    action: |
+      EventPublishingAIFunction catches exception from InvokeAsync,
+      passes exception.Message into ToolResultEvent.ErrorMessage,
+      re-throws.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs"
+
+  - id: catalog-issue-emit
+    action: |
+      YamlSkillLoader catches SkillFormatException, emits
+      CatalogIssueEvent (warning), continues. ConceptVocabularyLoader
+      emits CatalogIssueEvent (error) on parse failure, re-throws.
+      Both consume IEventPublisher via DI (already registered).
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs"
+      - "src/backend/AgentSmith.Application/Services/ConceptVocabularyLoader.cs"
+
+  - id: failed-run-completeness-test
+    action: |
+      Failed-run Theory in EventSequenceCompletenessTests. Each row:
+      drive a producer into a failure path, assert the corresponding
+      event carries a non-null reason / errorMessage / is emitted.
+      Rows: StepFinished+Reason, ToolResult+ErrorMessage,
+      CatalogIssue (skill-validation), CatalogIssue (vocabulary parse).
+    new:
+      - "tests/AgentSmith.Tests/Events/EventFailureReasonCompletenessTests.cs"
+
+  - id: dashboard-types-mirror
+    action: |
+      hub-events.ts mirror: add optional fields, add CatalogIssueEvent
+      type, extend EventType enum. Drift detector runs green.
+    modify:
+      - "src/dashboard/src/types/hub-events.ts"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green (incl. new failure-reason
+      completeness suite). pnpm build + pnpm test green. Manual
+      smoke: trigger a run with a known-too-long SKILL.md
+      description; verify the dashboard receives CatalogIssueEvent
+      via SubscribeRun + a StepFinishedEvent with Reason populated
+      when the pipeline aborts downstream.
+
+tests:
+  - "StepFinishedEvent_StatusSuccess_ReasonIsNull"
+  - "StepFinishedEvent_StatusFailed_ReasonCarriesCommandResultMessage"
+  - "ToolResultEvent_OkTrue_ErrorMessageIsNull"
+  - "ToolResultEvent_OkFalse_ErrorMessageCarriesException"
+  - "CatalogIssueEvent_SkillValidationFailure_EmitsWarningSeverity"
+  - "CatalogIssueEvent_VocabularyParseFailure_EmitsErrorSeverity"
+  - "EventEnvelopeSerializer_CatalogIssueRoundTrips"
+  - "EventEnvelopeSerializer_StepFinishedReasonRoundTrips"
+  - "FailureReasonCompleteness_StepFailure_AssertsReasonPopulated"
+  - "FailureReasonCompleteness_ToolFailure_AssertsErrorMessagePopulated"
+  - "FailureReasonCompleteness_SkillValidatorFailure_AssertsCatalogIssueEmitted"
+  - "FailureReasonCompleteness_VocabularyParseFailure_AssertsCatalogIssueEmitted"
+  - "BuildHubEventTypesScript_NoDriftAfterMirrorUpdate"
+
+done:
+  - "StepFinishedEvent carries Reason when Status='failed'."
+  - "ToolResultEvent carries ErrorMessage when Ok=false."
+  - "CatalogIssueEvent ships; YamlSkillLoader + ConceptVocabularyLoader emit it on validation failures."
+  - "EventEnvelopeSerializer handles all updated + new event records round-trip."
+  - "EventFailureReasonCompletenessTests Theory rows cover the four failure surfaces; silent failure path = red."
+  - "hub-events.ts mirror updated; drift detector green."
+  - "Backend + dashboard tests green."
+  - "Manual smoke: a known-too-long-description SKILL.md surfaces as CatalogIssueEvent in the dashboard event stream; a step that fails downstream of it carries the propagated Reason."
