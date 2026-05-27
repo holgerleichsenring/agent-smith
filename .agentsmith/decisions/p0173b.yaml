@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173b
+
+decisions:
+  - category: Architecture
+    chose: "TicketTriggeredEvent ships without RunId; uses Outcome string instead"
+    over: "Threading RunId from SpawnPipelineRunsUseCase through to ExecutePipelineUseCase"
+    reason: |
+      RunId is generated in ExecutePipelineUseCase.cs:44 AFTER the
+      ClaimRequest dequeues. SpawnPipelineRunsUseCase only enqueues —
+      no RunId exists at trigger time. The spec assumed they were
+      adjacent; the architecture is async via queue. Threading the
+      RunId pre-generation through ClaimRequest + queue payload +
+      every consumer would be invasive (every enqueue site needs to
+      generate one). Pragmatic ship: emit TicketTriggeredEvent with
+      ClaimOutcome ("Claimed" / "AlreadyClaimed" / "Rejected" /
+      "Failed") + (Platform, TicketId). Slice d joins to
+      RunStartedEvent via (Platform, TicketId) heuristic OR a future
+      RunStartedEvent enrichment carries TicketId. See PARKED.md
+      item 5.
+
+  - category: Implementation
+    chose: "Emit one WebhookReceivedEvent per HTTP delivery from WebhookRequestProcessor"
+    over: "Per-handler emission across 14 IWebhookHandler implementations"
+    reason: |
+      ProcessAsync is the single funnel for all 14 handlers. Emitting
+      once from the processor covers all platforms uniformly + avoids
+      14 copies of the same wiring (would drift the first time a new
+      handler ships without its event call). The trade — slightly
+      coarser granularity (no "GitHubPrLabelWebhookHandler matched"
+      detail) — is paid back by Path + EventType already carrying
+      that information in a queryable form.
+
+  - category: Implementation
+    chose: "WebhookResult gains nullable SkipReason field; handlers opt-in via NotHandled(reason)"
+    over: "Forcing all 30+ NotHandled() call sites to populate a reason"
+    reason: |
+      Additive change — existing NotHandled() returns SkipReason=null,
+      and the dashboard shows "skipped (no reason given)" for those.
+      The processor populates four meaningful reasons itself
+      (unknown-platform, signature-invalid, no-handler-matched,
+      redis-unavailable) which cover the most diagnostically useful
+      cases. Individual handlers opt-in over time when operators
+      ask for specific reasons. Slice scope cut — 14-file blast
+      radius is not worth it for "skipped (handler-internal)" labels
+      we can iterate on later.
+
+  - category: Implementation
+    chose: "ISystemEventPublisher resolved via GetService inside the processor, not via constructor"
+    reason: |
+      WebhookRequestProcessor is constructed per-request with
+      IServiceProvider + configPath + logger. Adding ISystemEventPublisher
+      to the ctor would require updating every construction site;
+      pulling it from the existing services provider is a one-line
+      change with the same effect. The GetService (vs GetRequiredService)
+      flavour means a missing registration logs at Debug and skips
+      the publish — preserves the contract "webhook delivery never
+      fails because of a missing publisher."
+
+  - category: Implementation
+    chose: "Fire-and-warn publish semantics in both poller and webhook paths"
+    reason: |
+      Polling loop must not break on a Redis hiccup. Webhook HTTP
+      response must not depend on a publish succeeding. Both paths
+      try { await publish } catch { log at Debug }. The system stream
+      is a diagnostic surface; the operator's pipeline must work
+      whether or not the dashboard is watching.
+
+  - category: Implementation
+    chose: "TrackerPoller emits TicketScanned for every ticket seen, even before matching"
+    reason: |
+      The dashboard's "tickets-polled-today" KPI needs to count every
+      ticket the poller LOOKED AT, not just those that produced
+      actionable events. TicketScanned at the top of DispatchTicketAsync
+      gives a clean source-of-truth. The follow-up events (Skipped /
+      Triggered) are emitted only when a final disposition is reached;
+      together they sum to the scanned count.
+
+  - category: Implementation
+    chose: "Completeness Theory uses InlineData per SystemEventType, asserting round-trip through RecordingSystemEventPublisher"
+    over: "Per-producer rows (one row per IEventPoller / IWebhookHandler invocation)"
+    reason: |
+      Producer-side completeness is covered by each producer's own
+      unit tests (TrackerPoller has its existing TrackerPollerTests).
+      The system-completeness gate's job is contract-completeness:
+      every populated SystemEventType has a concrete record + a
+      serializer branch + reaches a recording publisher unchanged.
+      One InlineData row per enum value catches "added an enum value
+      without a record" — the analog of the silent-producer drift
+      class that p0169e was protecting against on the run channel.
