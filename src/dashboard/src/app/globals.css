@@ -42,3 +42,15 @@
     }
   }
 }
+
+/* p0169j-d: subtle pulse for "running" sandbox nodes in the topology
+   graph. motion-safe: variant gates the animation behind
+   prefers-reduced-motion so accessibility-conscious operators don't
+   get the animation. */
+@keyframes topology-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+@utility animate-topology-pulse {
+  animation: topology-pulse 2s ease-in-out infinite;
+}
