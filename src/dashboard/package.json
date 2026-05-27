@@ -10,7 +10,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:types": "openapi-typescript ${OPENAPI_SOURCE:-./openapi.stub.json} -o src/types/api.ts && pnpm gen:hub-events",
+    "gen:types": "openapi-typescript ${OPENAPI_SOURCE:-./openapi.stub.json} -o src/types/api.ts",
     "gen:hub-events": "node ../../tools/build-hub-event-types.mjs --check",
     "gen:tokens": "node ../../tools/build-tokens.mjs --target tailwind"
   },
