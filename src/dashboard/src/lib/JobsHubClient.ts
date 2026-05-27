@@ -118,6 +118,16 @@ export class JobsHubClient {
     return this.connection!.invoke<RunEvent[]>("GetTrail", runId);
   }
 
+  /**
+   * p0169j-c: fetches the rendered result.md from the server artifact store
+   * cache (24h TTL). Returns null when the run is unknown, the cache has
+   * expired, or WriteRunResult hasn't fired yet for an in-flight run.
+   */
+  async getResultMarkdown(runId: string): Promise<string | null> {
+    await this.ensureStarted();
+    return this.connection!.invoke<string | null>("GetResultMarkdown", runId);
+  }
+
   async stop(): Promise<void> {
     this.groups.reset();
     if (this.connection) {

@@ -1,0 +1,334 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173c-channel-and-config-instrumentation
+goal: |
+  Round out the system-event producer set: chat-channel ingestion
+  (Slack + Teams), config-file reads (agentsmith.yml, per-context
+  context.yaml, coding-principles.md), and skill-catalog loads
+  (YamlSkillLoader + ConceptVocabularyLoader). Closes the visibility
+  gap for "did Agent Smith see the Slack message", "which agentsmith.yml
+  did this run actually read", and "how many skills loaded vs were
+  dropped" (the drops already surface via p0169j-b1's CatalogIssueEvent
+  inside a run scope — this slice adds the system-level
+  SkillCatalogLoaded counterpart so the operator sees the loads too,
+  not only the failures).
+
+  No chat message content leaves the hub — metadata only (channel +
+  was-actioned + skip-reason if any), matching p0169e's promptHash
+  security boundary.
+
+requires:
+  - p0173a-system-event-backbone
+  - p0173b-poller-and-webhook-instrumentation
+
+scope:
+  in: |
+    EVENT RECORDS (src/backend/AgentSmith.Contracts/Events):
+
+    (1) Concrete SystemEvent records:
+        - ChatMessageReceivedEvent  { Source (e.g. "chat:slack"),
+                                       Channel, MessageType (e.g.
+                                       "app_mention", "slash_command",
+                                       "modal_action"), Actioned,
+                                       SkipReason? }
+          NO message content. The channel is operator-visible
+          (e.g. "#agent-smith"), the MessageType is the platform's
+          event taxonomy. SkipReason for non-actioned cases
+          ("not-allowed-channel", "intent-unrecognised", etc.).
+        - ConfigFileReadEvent       { Source (e.g. "config-loader"),
+                                       Path, Kind, SizeBytes,
+                                       RunId? }
+          Kind enum: agentsmith-yml, context-yaml,
+          coding-principles-md, skill-yaml, concept-vocabulary.
+          RunId is non-null when the read happens inside a run
+          scope (e.g. per-context context.yaml load mid-pipeline);
+          null when the read is process-startup (agentsmith.yml).
+          The dashboard can correlate "which configs this run
+          actually read" via RunId.
+        - SkillCatalogLoadedEvent   { Source ("skill-catalog"),
+                                       CatalogVersion, SkillsLoaded,
+                                       SkillsDropped, DurationMs }
+          Companion to p0169j-b1's CatalogIssueEvent which covers
+          the dropped-skill detail. This event answers "the catalog
+          loaded successfully with N skills, M dropped"; the
+          per-drop CatalogIssueEvent (already in p0169j-b1) carries
+          the WHY of each drop. The two together give the operator
+          both the headline and the receipts.
+        - ConceptVocabularyLoadedEvent { Source ("concept-vocabulary"),
+                                          ConceptCount, DurationMs }
+          Counterpart for the vocabulary loader. Failure path already
+          covered by p0169j-b1's CatalogIssueEvent (error severity).
+
+    (2) SystemEventType enum extended; EventEnvelopeSerializer
+        branches added.
+
+    CHAT INSTRUMENTATION (src/backend/AgentSmith.Server):
+
+    (3) SlackEventEndpointHandler + SlackInteractionHandler +
+        SlackModalActionHandler emit ChatMessageReceivedEvent at the
+        request entry point. Source = "chat:slack". The handlers
+        already know channel + MessageType + the
+        allowed-channel / allowed-pipelines guard outcome
+        (Actioned + SkipReason).
+
+    (4) TeamsEndpoints + TeamsInteractionHandler emit
+        ChatMessageReceivedEvent. Source = "chat:teams". Same
+        metadata shape.
+
+    (5) Slack-channel polling (if any non-webhook path exists) is
+        out of scope here — verified by grep in research; today Slack
+        is event-driven via the Events API, not polled. If a polled
+        path lands later, it instruments here.
+
+    CONFIG-FILE INSTRUMENTATION:
+
+    (6) YamlConfigurationLoader.LoadConfig emits ConfigFileReadEvent
+        with Kind=agentsmith-yml. Process-startup read; RunId is
+        null (no run scope at that point).
+
+    (7) LoadContextHandler emits ConfigFileReadEvent per per-context
+        context.yaml load with Kind=context-yaml + RunId populated
+        from the active run scope (IRunContextAccessor, already
+        wired by p0169e).
+
+    (8) LoadCodingPrinciplesHandler emits ConfigFileReadEvent with
+        Kind=coding-principles-md + RunId populated.
+
+    (9) Skill YAML reads (SKILL.md + agentsmith.md) inside
+        YamlSkillLoader emit Kind=skill-yaml events per file read.
+        Per-file emission would be noisy (~30 files per catalog); the
+        slice emits ONE ConfigFileReadEvent per skill *successfully
+        accepted by the catalog*, NOT per raw file read. Drops are
+        already surfaced by p0169j-b1's CatalogIssueEvent. Aligns
+        with the operator's diagnostic question ("which skills did
+        the catalog actually load") rather than file-system noise.
+
+    SKILL CATALOG INSTRUMENTATION
+    (src/backend/AgentSmith.Infrastructure.Core):
+
+    (10) YamlSkillLoader.LoadAllAsync emits SkillCatalogLoadedEvent
+         after the catalog load completes with SkillsLoaded /
+         SkillsDropped tallied from the existing FAIL-vs-OK
+         branches. CatalogVersion threaded from the skill-catalog
+         package version (already read elsewhere in the loader for
+         logging).
+
+    (11) ConceptVocabularyLoader emits ConceptVocabularyLoadedEvent
+         on success (ConceptCount from the loaded result). Failure
+         path stays p0169j-b1's CatalogIssueEvent territory; this
+         event is success-only.
+
+    SEQUENCE-COMPLETENESS TEST EXTENSION
+    (tests/AgentSmith.Tests/Events):
+
+    (12) SystemEventSequenceCompletenessTests gains four more Theory
+         rows — one per record type. Dropping any producer surfaces
+         as a failed assertion. Total Theory rows after slices b + c:
+         10.
+
+    DASHBOARD CONTRACT MIRROR (src/dashboard/src/types):
+
+    (13) system-events.ts + system-event-kind enums extended. Drift
+         detector green.
+
+  out: |
+    Chat message content / threading detail. Out by design — security
+    boundary, see decisions.
+    LLM-provider connectivity events (e.g. "OpenAI returned 5xx").
+    Different concern from "what is the pre-run watch loop doing";
+    a separate phase if operators ask for it (likely a slice within
+    the eventual on-prem-reference-stack work, p0171).
+    Per-skill-file ConfigFileReadEvents (one per SKILL.md). Out — one
+    event per *successfully loaded skill* is the diagnostic surface;
+    drops have their own event in p0169j-b1.
+    Coding-principles cache hits. Out — the read event covers the
+    happy-path; cache logic is dashboard-irrelevant.
+    Git-host connectivity / clone events. Tracked at run level
+    (CheckoutSource emits L1 run events already); duplicating them
+    on the system stream would double-publish without operator value.
+
+decisions:
+  - key: |
+      Chat metadata only, no message content — Reason: same security
+      boundary as p0169e's promptHash decision. Message text in a
+      dashboard event stream means operator-readable chat content in
+      whatever the SignalR client logs / inspects / reflects. The
+      operator's question is "did Agent Smith see this channel
+      message", which channel + actioned + skip-reason answers
+      completely. Content stays in the existing chat-history /
+      run-prompt path, gated by Slack/Teams workspace permissions —
+      adding a hub channel to it would invert that boundary.
+      alternatives: include first-N-chars preview (rejected — same
+      class of leak, just smaller); separate auth-gated /api/chat-
+      messages endpoint (rejected — premature surface, leaks content
+      to anyone with the hub URL once auth is misconfigured); full
+      content (rejected — straight no).
+
+  - key: |
+      ConfigFileReadEvent carries optional RunId — Reason: some reads
+      happen at startup (no run scope, RunId=null); others happen
+      mid-pipeline inside an active run scope (LoadContextHandler,
+      LoadCodingPrinciplesHandler — both already inside
+      IRunContextAccessor.Current). The dashboard wants both: "which
+      configs did agent-smith read on boot" (system-startup audit)
+      and "which configs did this run read" (run-level audit cross-
+      reference). Threading RunId through optionally lets one event
+      type serve both surfaces.
+      alternatives: separate StartupConfigRead + RunConfigRead
+      records (rejected — duplicate type for one concept); always-
+      null RunId (rejected — loses the cross-reference value);
+      always-required RunId (rejected — startup reads have no run).
+
+  - key: |
+      SkillCatalogLoadedEvent is success-only; drops use p0169j-b1's
+      CatalogIssueEvent — Reason: success has aggregate counters
+      (loaded / dropped); drops have per-skill detail (which rule
+      failed, which file). One event type for both would either
+      bloat the success case with empty-array-of-drops, or rebuild
+      what p0169j-b1 already ships. Keeping them separate aligns
+      with the slice-a Source-field convention: SkillCatalogLoaded
+      with Source="skill-catalog" is a system-level audit;
+      CatalogIssueEvent (run-scoped) is per-drop diagnostics.
+      alternatives: one combined event with drops[] array
+      (rejected — duplicates p0169j-b1, two emitters for the same
+      drop info); shipping drops as system events too (rejected
+      — see p0169j-b1's decision tree, drops are run-scoped).
+
+  - key: |
+      One ConfigFileReadEvent per *successfully accepted* skill,
+      not per raw file read — Reason: a catalog has ~30 skills and
+      each ships with SKILL.md + agentsmith.md + possibly extras.
+      Per-file emission inflates the stream by 30-90 events for
+      one logical operation (catalog load). One event per accepted
+      skill aligns with the operator's diagnostic question ("which
+      skills did this catalog actually load"); drops have their
+      own event already (p0169j-b1).
+      alternatives: per-raw-file emit (rejected — stream noise,
+      operator does not care about agentsmith.md vs SKILL.md);
+      no per-skill emit (rejected — loses the per-skill audit);
+      summary count on SkillCatalogLoaded only (rejected — the
+      summary covers "how many" but not "which", and slice d
+      wants the list for the TodayActivityCard cross-reference).
+
+  - key: |
+      Source field strings for chat/config/catalog producers —
+      "chat:slack", "chat:teams", "config-loader",
+      "skill-catalog", "concept-vocabulary" — Reason: keeps the
+      dashboard filter predicate symmetric with slice b ("show me
+      all chat:* events", "show me all config-loader events").
+      No namespace-prefix gymnastics; matches slice b's StartsWith
+      filter convention.
+
+steps:
+  - id: concrete-event-records
+    action: |
+      Add the four SystemEvent records + enum entries + serializer
+      branches. ConfigFileKind enum colocated with
+      ConfigFileReadEvent.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/ChatMessageReceivedEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/ConfigFileReadEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/ConfigFileKind.cs"
+      - "src/backend/AgentSmith.Contracts/Events/SkillCatalogLoadedEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/ConceptVocabularyLoadedEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/SystemEventType.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+
+  - id: slack-instrumentation
+    action: |
+      SlackEventEndpointHandler / SlackInteractionHandler /
+      SlackModalActionHandler emit ChatMessageReceivedEvent at
+      request entry. Existing allowed-channel + allowed-pipelines
+      guards already produce the Actioned + SkipReason answers; the
+      slice wires the publish call without changing the guard
+      logic.
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/SlackEventEndpointHandler.cs"
+      - "src/backend/AgentSmith.Server/Extensions/SlackModalActionHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs"
+
+  - id: teams-instrumentation
+    action: |
+      TeamsEndpoints + TeamsInteractionHandler emit
+      ChatMessageReceivedEvent. Same shape as Slack with
+      Source="chat:teams".
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/TeamsEndpoints.cs"
+      - "src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs"
+
+  - id: config-loader-instrumentation
+    action: |
+      YamlConfigurationLoader.LoadConfig emits ConfigFileReadEvent
+      (Kind=agentsmith-yml, RunId=null). LoadContextHandler emits
+      one per context.yaml load (RunId from
+      IRunContextAccessor.Current). LoadCodingPrinciplesHandler
+      emits Kind=coding-principles-md (RunId populated).
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/LoadContextHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs"
+
+  - id: skill-catalog-instrumentation
+    action: |
+      YamlSkillLoader.LoadAllAsync emits one ConfigFileReadEvent
+      per accepted skill (Kind=skill-yaml; Path = SKILL.md path)
+      AND one SkillCatalogLoadedEvent after the catalog completes
+      with loaded / dropped totals + CatalogVersion + DurationMs.
+      Drops already emit CatalogIssueEvent via p0169j-b1 — no
+      duplicate emission here. ConceptVocabularyLoader emits
+      ConceptVocabularyLoadedEvent on success.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs"
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs"
+
+  - id: completeness-test-rows
+    action: |
+      SystemEventSequenceCompletenessTests gains four Theory rows
+      (one per record introduced in this slice). Dropping any of
+      the new producers surfaces as a failed assertion.
+    modify:
+      - "tests/AgentSmith.Tests/Events/SystemEventSequenceCompletenessTests.cs"
+
+  - id: dashboard-types-mirror
+    action: |
+      system-events.ts + ConfigFileKind enum mirror extended; drift
+      detector green.
+    modify:
+      - "src/dashboard/src/types/system-events.ts"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Manual smoke: send a Slack
+      @mention to the bot and verify ChatMessageReceived appears
+      on XRANGE system:events with Actioned=true + no message
+      content present in the JSON payload. Send to a non-allowed
+      channel and verify ChatMessageReceived with SkipReason=
+      "not-allowed-channel". Restart server and verify
+      ConfigFileRead (agentsmith-yml) + SkillCatalogLoaded with
+      the expected counts.
+
+tests:
+  - "ChatMessageReceivedEvent_Payload_DoesNotContainMessageText"
+  - "SlackEventEndpointHandler_AppMention_EmitsChatMessageReceived"
+  - "SlackEventEndpointHandler_DisallowedChannel_EmitsWithSkipReasonNotAllowedChannel"
+  - "TeamsEndpoints_BotMessage_EmitsChatMessageReceived"
+  - "YamlConfigurationLoader_LoadConfig_EmitsConfigFileReadAgentSmithYml"
+  - "LoadContextHandler_LoadsThreeContexts_EmitsThreeConfigFileReadEventsWithRunId"
+  - "LoadCodingPrinciplesHandler_Loaded_EmitsConfigFileReadCodingPrinciplesWithRunId"
+  - "YamlSkillLoader_LoadAllAsync_AcceptedSkill_EmitsConfigFileReadSkillYaml"
+  - "YamlSkillLoader_LoadAllAsync_Completes_EmitsSkillCatalogLoadedWithCounts"
+  - "ConceptVocabularyLoader_Loaded_EmitsConceptVocabularyLoaded"
+  - "SystemEventSequenceCompleteness_ChatMessageReceived_DroppedProducerSurfacesAsFailure"
+  - "SystemEventSequenceCompleteness_ConfigFileRead_DroppedProducerSurfacesAsFailure"
+  - "SystemEventSequenceCompleteness_SkillCatalogLoaded_DroppedProducerSurfacesAsFailure"
+  - "SystemEventSequenceCompleteness_ConceptVocabularyLoaded_DroppedProducerSurfacesAsFailure"
+  - "BuildHubEventTypesScript_NoDriftAfterChannelConfigCatalogMirror"
+
+done:
+  - "Four SystemEvent records ship (ChatMessageReceived, ConfigFileRead, SkillCatalogLoaded, ConceptVocabularyLoaded) with SystemEventType + serializer branches."
+  - "Slack + Teams entry-points emit ChatMessageReceived; no message content present in payload (asserted by ChatMessageReceivedEvent_Payload_DoesNotContainMessageText)."
+  - "Config-file reads (agentsmith.yml, context.yaml, coding-principles.md) emit ConfigFileRead with optional RunId for run-scoped reads."
+  - "YamlSkillLoader emits one ConfigFileRead per accepted skill + one SkillCatalogLoaded summary; ConceptVocabularyLoader emits ConceptVocabularyLoaded on success; drops continue to surface via p0169j-b1's CatalogIssueEvent."
+  - "SystemEventSequenceCompletenessTests now has 10 Theory rows total (6 from slice b + 4 from slice c); silent producer = red gate covers all chat + config + catalog producers."
+  - "system-events.ts mirror updated; drift detector green."
+  - "Manual smoke: chat / config / skill-catalog events flow through redis-cli XRANGE system:events with expected metadata + no content leakage."

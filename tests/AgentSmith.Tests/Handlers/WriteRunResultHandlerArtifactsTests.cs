@@ -11,6 +11,7 @@ using AgentSmith.Infrastructure.Services.Dialogue;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Persistence;
 
 namespace AgentSmith.Tests.Handlers;
 
@@ -39,8 +40,7 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         _initial["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
 
-        _sut = new WriteRunResultHandler(
-            factory.Object, new InMemoryDialogueTrail(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]

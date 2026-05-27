@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Output;
 
+[Collection("ConsoleOut")]
 public sealed class ChannelSplitTests
 {
     [Fact]

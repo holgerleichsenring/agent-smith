@@ -7,11 +7,13 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { EventFilterProvider } from "@/lib/EventFilterContext";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
-import { FilterRail } from "@/components/jobs/FilterRail";
 import { TopologyCard } from "@/components/jobs/TopologyCard";
 import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
-import { SandboxList } from "@/components/jobs/SandboxList";
 import { TrailTab } from "@/components/jobs/TrailTab";
+import { ActivityTab } from "@/components/jobs/ActivityTab";
+import { ResultTab } from "@/components/jobs/ResultTab";
+import { TopologyGraph } from "@/components/jobs/TopologyGraph";
+import { TopologyDetail } from "@/components/jobs/TopologyDetail";
 import { EventType } from "@/types/hub-events";
 
 interface PageProps {
@@ -49,47 +51,46 @@ function RunDetail({ runId }: { runId: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const expandedFromUrl = useMemo(() => parseExpandParam(searchParams.get("expand")), [searchParams]);
-  const [expanded, setExpanded] = useState<Set<string>>(expandedFromUrl);
+  // p0169j-d: single-select selection for the Topology graph + detail
+  // pane. URL ?expand=a,b,c keeps backwards-compat — last value wins
+  // (the multi-expand semantic is gone with the SVG topology view).
+  const selectedFromUrl = useMemo(
+    () => lastExpandParam(searchParams.get("expand")),
+    [searchParams],
+  );
+  const [selectedTopologyRepo, setSelectedTopologyRepo] = useState<string | null>(selectedFromUrl);
 
   useEffect(() => {
-    setExpanded(expandedFromUrl);
-  }, [expandedFromUrl]);
+    setSelectedTopologyRepo(selectedFromUrl);
+  }, [selectedFromUrl]);
 
-  const updateUrl = useCallback((next: Set<string>) => {
+  const updateUrl = useCallback((next: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.size === 0) params.delete("expand");
-    else params.set("expand", [...next].join(","));
+    if (next === null) params.delete("expand");
+    else params.set("expand", next);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, router, searchParams]);
 
-  const toggle = useCallback((repo: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(repo)) next.delete(repo);
-      else next.add(repo);
+  const selectTopologyRepo = useCallback((repo: string) => {
+    setSelectedTopologyRepo((prev) => {
+      const next = prev === repo ? null : repo;
       updateUrl(next);
       return next;
     });
   }, [updateUrl]);
+  void repoNames;
 
-  const expandAll = useCallback(() => {
-    const next = new Set(repoNames);
-    setExpanded(next);
-    updateUrl(next);
-  }, [repoNames, updateUrl]);
-
-  const collapseAll = useCallback(() => {
-    setExpanded(new Set());
-    updateUrl(new Set());
-  }, [updateUrl]);
-
-  const activeTab = searchParams.get("tab") === "trail" ? "trail" : "topology";
-  const setActiveTab = useCallback((tab: "topology" | "trail") => {
+  const tabParam = searchParams.get("tab");
+  const activeTab: "topology" | "trail" | "activity" | "result" =
+    tabParam === "trail" ? "trail"
+      : tabParam === "activity" ? "activity"
+      : tabParam === "result" ? "result"
+      : "topology";
+  const setActiveTab = useCallback((tab: "topology" | "trail" | "activity" | "result") => {
     const params = new URLSearchParams(searchParams.toString());
-    if (tab === "trail") params.set("tab", "trail");
-    else params.delete("tab");
+    if (tab === "topology") params.delete("tab");
+    else params.set("tab", tab);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, router, searchParams]);
@@ -112,35 +113,53 @@ function RunDetail({ runId }: { runId: string }) {
         >Topology</button>
         <button
           type="button"
+          onClick={() => setActiveTab("activity")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "activity" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-activity"
+        >Activity</button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("result")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "result" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-result"
+        >Result</button>
+        <button
+          type="button"
           onClick={() => setActiveTab("trail")}
           className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-trail"
         >Trail</button>
       </nav>
       {activeTab === "trail" ? (
-        <TrailTab runId={runId} />
+        <TrailTab
+          runId={runId}
+          isFinished={snapshot?.finishedAt !== null && snapshot?.finishedAt !== undefined}
+          prUrl={snapshot?.prUrl ?? null}
+        />
+      ) : activeTab === "activity" ? (
+        <ActivityTab runId={runId} />
+      ) : activeTab === "result" ? (
+        <ResultTab runId={runId} prUrl={snapshot?.prUrl ?? null} />
       ) : (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <FilterRail />
-        <div className="space-y-6">
-          <TopologyCard runId={runId} snapshot={snapshot} events={events} />
-          <SandboxList
-            runId={runId}
-            events={events}
-            expanded={expanded}
-            onToggle={toggle}
-            onExpandAll={expandAll}
-            onCollapseAll={collapseAll}
-          />
-          <RunToolsPanel events={events} />
-        </div>
+      <div className="space-y-6">
+        <TopologyCard runId={runId} snapshot={snapshot} events={events} />
+        <TopologyGraph
+          pipeline={snapshot?.pipeline ?? null}
+          runId={runId}
+          events={events}
+          selected={selectedTopologyRepo}
+          onSelect={selectTopologyRepo}
+        />
+        <TopologyDetail runId={runId} selected={selectedTopologyRepo} />
+        <RunToolsPanel events={events} />
       </div>
       )}
     </main>
   );
 }
 
-function parseExpandParam(raw: string | null): Set<string> {
-  if (!raw) return new Set();
-  return new Set(raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0));
+function lastExpandParam(raw: string | null): string | null {
+  if (!raw) return null;
+  const tokens = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  return tokens.length === 0 ? null : tokens[tokens.length - 1];
 }

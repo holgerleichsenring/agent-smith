@@ -10,6 +10,7 @@ using AgentSmith.Infrastructure.Services.Dialogue;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Persistence;
 
 namespace AgentSmith.Tests.Handlers;
 
@@ -50,8 +51,7 @@ public sealed class WriteRunResultInitProjectTests
                     .Returns(Task.CompletedTask);
                 return reader.Object;
             });
-        _sut = new WriteRunResultHandler(
-            factory.Object, _dialogueTrail, NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
