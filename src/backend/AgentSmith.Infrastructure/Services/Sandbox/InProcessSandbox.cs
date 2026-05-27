@@ -11,8 +11,15 @@ namespace AgentSmith.Infrastructure.Services.Sandbox;
 /// CLI-mode ISandbox: executes Steps directly in the calling process against a temp dir.
 /// Replaces the legacy Process.Start path so the entire codebase goes through ISandbox.
 /// Single-tenant; no container isolation — documented as a known property of CLI mode.
+///
+/// <paramref name="ownsWorkDir"/> declares whether this sandbox is responsible for
+/// recursive deletion of <paramref name="workDir"/> on dispose. Pass <c>true</c> only
+/// when the caller created the directory exclusively for this sandbox (e.g. a fresh
+/// per-job tempdir). Pass <c>false</c> when reusing an existing operator-owned path
+/// such as a CLI <c>--source-path</c> argument or a previously host-cloned source —
+/// disposing must not <c>rm -rf</c> the operator's working tree.
 /// </summary>
-public sealed class InProcessSandbox(string jobId, string workDir, ILogger logger) : ISandbox
+public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWorkDir, ILogger logger) : ISandbox
 {
     public string JobId => jobId;
     public string WorkDir => workDir;
@@ -87,6 +94,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, ILogger logge
 
     public ValueTask DisposeAsync()
     {
+        if (!ownsWorkDir) return ValueTask.CompletedTask;
         try
         {
             if (Directory.Exists(workDir))
