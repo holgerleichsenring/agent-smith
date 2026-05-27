@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.65.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.64.0...v0.65.0) (2026-05-27)
+
+
+### Features
+
+* **dashboard:** /system route with operator-info cards (p0173d) ([88a5cfc](https://github.com/holgerleichsenring/agent-smith/commit/88a5cfc5ad89183a916af36f62972db36aa21dfb))
+* **dashboard:** Activity tab + operator-vocabulary pills (p0169j-b) ([8197852](https://github.com/holgerleichsenring/agent-smith/commit/81978527118f7bd48efc5217caae352be6b91fee))
+* **dashboard:** ArgoCD-style SVG topology graph (p0169j-d) ([877d673](https://github.com/holgerleichsenring/agent-smith/commit/877d6732ba3a9b902337c8dcfbf69d798ae7f306))
+* **dashboard:** pull-cycle aggregation + DESIGN.md tokens (p0174) ([3375042](https://github.com/holgerleichsenring/agent-smith/commit/3375042af010e223d6c87ce68727b25303fb58ae))
+* **dashboard:** pull-cycle aggregation + DESIGN.md tokens (p0174) ([3ad90ee](https://github.com/holgerleichsenring/agent-smith/commit/3ad90ee511168e4c3f2c16b1436147cfcd2c3afe))
+* **dashboard:** Result tab via IRunArtifactStore 4th slot (p0169j-c) ([f4adb68](https://github.com/holgerleichsenring/agent-smith/commit/f4adb685f4cc4f187e53a868d8ac2e8d067df26b))
+* **dashboard:** trail TTL 24h + expired empty-state (p0169j-a) ([bd3d02a](https://github.com/holgerleichsenring/agent-smith/commit/bd3d02ac0e3e7e321ef34a9a7b956c7b76a4c6de))
+* **events:** chat + config + skill-catalog instrumentation (p0173c) ([f73dbc6](https://github.com/holgerleichsenring/agent-smith/commit/f73dbc6b24049afc992232f8c184c28d5a9bbffc))
+* **events:** failure reasons as typed event fields (p0169j-b1) ([93ee372](https://github.com/holgerleichsenring/agent-smith/commit/93ee372b3b8d243ee8c8f4797b35e361d0ea76c7))
+* **events:** poller + webhook system-event instrumentation (p0173b) ([7cadc55](https://github.com/holgerleichsenring/agent-smith/commit/7cadc5594cd82137cfff332f240d57796dfd3090))
+* **events:** system event backbone (p0173a) ([cd6c518](https://github.com/holgerleichsenring/agent-smith/commit/cd6c5180d4c3ebf2fbb8c39e269f1495b7fd4144))
+* p0162 p0171 phase plan ([7f29791](https://github.com/holgerleichsenring/agent-smith/commit/7f2979138cca756182c42657f05df1264fb14437))
+* p0169j dashboard polish — Activity / Result / 24h trail / topology graph ([9008cf8](https://github.com/holgerleichsenring/agent-smith/commit/9008cf8cba1e8c7eba0c621ae3aa2becd510badc))
+* p0173 operator info substrate — system events + /system dashboard ([add3e90](https://github.com/holgerleichsenring/agent-smith/commit/add3e9002c031b8c25c89cd1ad8ff060d5c44df5))
+
+
+### Bug Fixes
+
+* close PARKED items 3 + 4 (p0169j cleanup) ([8c13d77](https://github.com/holgerleichsenring/agent-smith/commit/8c13d77c22492eb6672dc93e47043411eb1c2a49))
+* **config:** per_pipeline cost cap override now reaches the resolver ([fbd63d3](https://github.com/holgerleichsenring/agent-smith/commit/fbd63d3ffd6d1c33ec202fd85e513ceb367503ba))
+
 ## [0.64.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.63.0...v0.64.0) (2026-05-26)
 
 
