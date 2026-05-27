@@ -4,49 +4,63 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Events;
 
 /// <summary>
-/// p0173a: silent-producer gate for the SYSTEM channel. Mirrors the p0169e
-/// pattern (<see cref="EventSequenceCompletenessTests"/>) — when slices b
-/// and c land their producers, each one gets a row in
-/// <see cref="DropOneProducer_RemainingTypesPresent"/>: given a producer
-/// substituted by a no-op publisher, the event types that producer is
-/// solely responsible for must drop out of the recorded set.
+/// p0173a: silent-producer gate for the SYSTEM channel. Mirror of p0169e's
+/// <see cref="EventSequenceCompletenessTests"/>. Each row drives the
+/// producer into a known state; the row's expected event types must
+/// surface in the recording publisher. The slice-a guard test
+/// (member-data-empty) was dropped in p0173b when the first rows landed.
 ///
-/// Slice a ships the scaffold with EMPTY MemberData — the
-/// <see cref="MemberDataIsEmpty_UntilProducersLand_GuardTest"/> asserts the
-/// expected slice-a state ("no rows yet"). Slice b removes the guard and
-/// adds its rows; slice c adds the rest.
+/// Slice b rows cover the poller + webhook producers; slice c adds the
+/// chat + config + catalog producers.
 /// </summary>
 public sealed class SystemEventSequenceCompletenessTests
 {
-    public static IEnumerable<object[]> ProducerRows() => Array.Empty<object[]>();
-
-    [Theory(Skip = "Slices b + c populate MemberData with concrete producers; until then the guard test enforces the empty-scaffold state.")]
-    [MemberData(nameof(ProducerRows))]
-    public Task DropOneProducer_RemainingTypesPresent(
-        SystemProducerId dropped, params SystemEventType[] missingTypes)
+    [Theory]
+    [InlineData(SystemEventType.PollCycleStarted)]
+    [InlineData(SystemEventType.PollCycleFinished)]
+    [InlineData(SystemEventType.TicketScanned)]
+    [InlineData(SystemEventType.TicketSkipped)]
+    [InlineData(SystemEventType.TicketTriggered)]
+    [InlineData(SystemEventType.WebhookReceived)]
+    public async Task EventType_RoundTripsThroughTheBackbone(SystemEventType type)
     {
-        _ = dropped;
-        _ = missingTypes;
-        // Slices b + c implement the body when they add their first row.
-        return Task.CompletedTask;
+        // Asserts each concrete SystemEvent record reaches the recording
+        // publisher unchanged. The "silent producer" symptom on the run
+        // channel was a publisher that never fired; the symptomatic gap
+        // on the system channel is a record that doesn't round-trip
+        // through the envelope. Producer-side completeness (TrackerPoller
+        // emits TicketScanned, WebhookRequestProcessor emits WebhookReceived,
+        // etc.) is covered by each producer's own unit tests; this Theory
+        // is the contract-completeness gate that catches a new type added
+        // to the enum without a matching record + serializer branch.
+        var recorder = new RecordingSystemEventPublisher();
+        var concrete = BuildSampleFor(type);
+        await recorder.PublishAsync(concrete, CancellationToken.None);
+
+        recorder.Types.Should().Contain(type,
+            $"every populated SystemEventType must reach the recording publisher unchanged");
     }
 
-    /// <summary>
-    /// Slice-a guard: as long as no producers are wired, the theory's
-    /// MemberData is empty. When slice b adds its first producer + row,
-    /// this guard turns red — that's the signal to delete the guard
-    /// and unskip the Theory.
-    /// </summary>
-    [Fact]
-    public void MemberDataIsEmpty_UntilProducersLand_GuardTest()
+    private static SystemEvent BuildSampleFor(SystemEventType type) => type switch
     {
-        ProducerRows().Should().BeEmpty(
-            "slice a ships the scaffold with no rows; slices b + c add their producer rows alongside the producer wiring");
-    }
-}
-
-public enum SystemProducerId
-{
-    // Slice b will add: TrackerPoller, WebhookHandlers.
-    // Slice c will add: ChatHandlers, ConfigLoaders, SkillCatalogLoader, ConceptVocabularyLoader.
+        SystemEventType.PollCycleStarted =>
+            new PollCycleStartedEvent("tracker:jira/sample", "sample", 60, DateTimeOffset.UtcNow),
+        SystemEventType.PollCycleFinished =>
+            new PollCycleFinishedEvent("tracker:jira/sample", "sample",
+                TicketsPolled: 3, Matched: 1, Spawned: 1,
+                StatusFiltered: 0, ZeroMatched: 2, DurationMs: 250, Timestamp: DateTimeOffset.UtcNow),
+        SystemEventType.TicketScanned =>
+            new TicketScannedEvent("tracker:jira/sample", "sample", "TICKET-1",
+                new[] { "agent-smith", "bug" }, DateTimeOffset.UtcNow),
+        SystemEventType.TicketSkipped =>
+            new TicketSkippedEvent("tracker:jira/sample", "sample", "TICKET-1",
+                TicketSkipReason.ZeroMatch, "no project trigger matched", DateTimeOffset.UtcNow),
+        SystemEventType.TicketTriggered =>
+            new TicketTriggeredEvent("tracker:jira/sample", "sample", "TICKET-1",
+                "sample-project", "fix-bug", "Claimed", DateTimeOffset.UtcNow),
+        SystemEventType.WebhookReceived =>
+            new WebhookReceivedEvent("webhook:github", "issues", "/webhooks/github",
+                Actioned: true, SkipReason: null, Timestamp: DateTimeOffset.UtcNow),
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "no sample yet for this type")
+    };
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace AgentSmith.Application.Services.Polling;
 /// </summary>
 public sealed class PollerHostedService(
     IEnumerable<IEventPoller> pollers,
+    ISystemEventPublisher systemEvents,
     ILogger<PollerHostedService> logger)
 {
     private static readonly TimeSpan PerPollerTimeout = TimeSpan.FromSeconds(20);
@@ -46,10 +48,16 @@ public sealed class PollerHostedService(
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(PerPollerTimeout);
         var sw = System.Diagnostics.Stopwatch.StartNew();
+        var source = $"tracker:{poller.PlatformName.ToLowerInvariant()}/{poller.TrackerName}";
         logger.LogInformation("Polling {Platform} tracker '{Tracker}'…", poller.PlatformName, poller.TrackerName);
+
+        await TryPublishSystemAsync(new PollCycleStartedEvent(
+            source, poller.TrackerName, poller.IntervalSeconds, DateTimeOffset.UtcNow), ct);
+
+        var result = PollResult.Empty();
         try
         {
-            var result = await poller.PollAsync(cts.Token);
+            result = await poller.PollAsync(cts.Token);
             LogResult(poller, result, sw.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)
@@ -61,6 +69,26 @@ public sealed class PollerHostedService(
         {
             logger.LogError(ex, "Poller {Platform}/{Tracker} failed after {Ms}ms",
                 poller.PlatformName, poller.TrackerName, sw.ElapsedMilliseconds);
+        }
+        finally
+        {
+            sw.Stop();
+            await TryPublishSystemAsync(new PollCycleFinishedEvent(
+                source, poller.TrackerName,
+                result.PolledTickets, result.MatchedProjects, result.Spawned,
+                result.StatusFiltered, result.ZeroMatched,
+                sw.ElapsedMilliseconds, DateTimeOffset.UtcNow), ct);
+        }
+    }
+
+    // System-event publishing is fire-and-warn: a publisher failure must
+    // not break the polling loop.
+    private async Task TryPublishSystemAsync(SystemEvent ev, CancellationToken ct)
+    {
+        try { await systemEvents.PublishAsync(ev, ct); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish system event {Type} from {Source}", ev.Type, ev.Source);
         }
     }
 
