@@ -1,0 +1,320 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173d-dashboard-system-view
+goal: |
+  Build the operator-facing surface that consumes p0173a/b/c's system
+  events. New /system route in the dashboard renders five cards that
+  answer the operator's pre-run questions at a glance:
+
+  - SystemStatusCard: last-poll-per-source + provider status (ok /
+    degraded / disconnected) + next-poll ETA.
+  - TodayActivityCard: KPI tiles — tickets scanned, triggered,
+    skipped, runs started, run success rate, total LLM cost in
+    the rolling-24h window.
+  - ChannelBreakdown: per-source breakdown of events from slices
+    b + c (Jira / GitHub / Azure DevOps / Slack / Teams / webhook
+    deliveries / etc.), each a row with count + recent-event time
+    + skip-vs-action ratio.
+  - TriggerLog: most recent N TicketSkipped events with their
+    Reason + Detail surfaced inline (the "why didn't this ticket
+    trigger" answer); click-through to TicketTriggered → run row.
+  - CostRollupCard: daily / weekly cost projection from RunFinished
+    events that carry costUsd (already in the contract).
+
+  All driven by JobsHubClient.subscribeSystem + XRANGE replay of the
+  retained system stream, plus the existing SubscribeOverview for the
+  Recent-Runs cross-reference used by TriggerLog → run-detail
+  drill-through.
+
+requires:
+  - p0173a-system-event-backbone
+  - p0173b-poller-and-webhook-instrumentation
+  - p0173c-channel-and-config-instrumentation
+
+scope:
+  in: |
+    ROUTING (src/dashboard/src/app):
+
+    (1) New top-level route app/system/page.tsx. Layout adds a
+        navigation entry "System" next to "Runs". The existing
+        landing page (app/page.tsx) gets a side-nav linking to
+        /system; no redirect — runs stay the default home.
+
+    DATA HOOKS (src/dashboard/src/hooks):
+
+    (2) useSystemEvents (already shipped in p0173a) is the per-tab
+        single subscription source. The /system page composes
+        derived hooks on top of it:
+        - useSystemStatus: derives the last-poll-per-source map +
+          provider-status enum from the most recent PollCycleFinished
+          per Source + last WebhookReceived per Source. Provider
+          status: ok if last poll succeeded within IntervalSeconds * 2,
+          degraded if it succeeded but later than that, disconnected
+          if no event in 3 * IntervalSeconds. ETAs from
+          IntervalSeconds + lastFinishedAt.
+        - useActivityKpis: rolling-24h aggregations
+          (TicketScanned count, TicketTriggered count,
+          TicketSkipped count, RunStarted count, RunFinished
+          success ratio, sum of costUsd from RunFinished). The
+          RunStarted / RunFinished metrics tap the EXISTING
+          run-event backbone via useJobsHub (overview snapshot
+          already maintains the recent ring buffer), not the
+          system stream — the system stream covers pre-run; run
+          KPIs come from where they're already published.
+        - useChannelBreakdown: groups events by Source prefix,
+          surfaces per-source counters + most-recent timestamp.
+        - useTriggerLog: filters useSystemEvents to TicketSkipped
+          + TicketTriggered, surfaces the last N (default 50)
+          with Reason + Detail + click-through.
+        - useCostRollup: derives daily + 7-day cost projection
+          from RunFinished cost rollups; same source as
+          useActivityKpis but with a different aggregation window.
+
+    COMPONENTS (src/dashboard/src/components/system):
+
+    (3) SystemStatusCard: grid of source rows
+        (icon + name + status pill + last-event time + next ETA).
+        Status pill colours from DESIGN.md tokens; "disconnected"
+        rose, "degraded" amber, "ok" smith-green (matching p0169j-d's
+        "green RESERVED for done / ok" convention).
+
+    (4) TodayActivityCard: six KPI tiles in a responsive grid
+        (Scanned / Triggered / Skipped / Runs Started / Success
+        Rate / LLM Cost). Each tile shows the value + a tiny
+        sparkline (last-24h hourly buckets). Sparklines render
+        SVG inline (no chart-lib dependency — keeps bundle small).
+
+    (5) ChannelBreakdown: table rows for each Source present in
+        the rolling window. Columns: Source / Count / Last Event
+        / Action Ratio (actioned ÷ total). Click → filters the
+        /system page or drills into the TriggerLog scoped to
+        that Source.
+
+    (6) TriggerLog: list of recent TicketSkipped + TicketTriggered
+        rows. Each TicketSkipped row shows ticket-id + reason
+        (e.g. "zero-match", "status-filter") + the inline Detail
+        string ("label 'agent-smith' absent"). TicketTriggered rows
+        link to the matching /jobs/{runId} via the runId on the
+        event. Pagination via "Show 50 more" (no infinite scroll —
+        operator wants a clear end).
+
+    (7) CostRollupCard: today vs yesterday cost + weekly average
+        + projected weekly cost (linear projection from today's
+        rate). Compact card; no chart in this slice.
+
+    (8) System nav entry in the top-level layout (modifies
+        layout.tsx). Visual style consistent with existing /jobs
+        landing.
+
+    TESTS (src/dashboard/src/__tests__):
+
+    (9) Unit tests per hook (date math, aggregation, status
+        derivation). Component tests for the five cards verifying:
+        - Empty state (no events yet — copy: "Waiting for poll
+          cycles…")
+        - Populated state (synthetic SystemEvent array → expected
+          KPI values)
+        - Status pill colour matches DESIGN.md token for the
+          derived status enum
+        - TriggerLog click on a TicketTriggered row navigates to
+          /jobs/{runId}
+        - No chat message content rendered anywhere (asserts the
+          event payload contract from slice c)
+
+  out: |
+    Persistence beyond Redis TTL. Out — same posture as p0169j-a:
+    when the stream is gone, the cards render the
+    EmptyAfterTtl state. A frozen system trail (jsonl on disk) is
+    a named follow-up alongside p0169j-a if/when ops asks.
+    Configuration of which sources show in SystemStatusCard.
+    Out — auto-discovered from PollCycleFinished + WebhookReceived
+    Source field; no settings UI needed.
+    Real-time charting beyond sparklines. Out — visit-time KPIs +
+    24h sparklines are the slice; full charts ship in a later
+    polish slice if operators want them.
+    Drill-down from KPI tiles into raw event list. Out — TriggerLog
+    is the raw-event surface; KPI tiles are aggregations on top.
+    Export / CSV / report generation. Out — separate phase
+    territory (likely overlapping with p0168's compliance-bundle work).
+
+decisions:
+  - key: |
+      Five cards on one /system page, not multiple sub-routes —
+      Reason: the operator's mental model is one place ("how is
+      Agent Smith doing right now"); five sub-routes would mean
+      four extra clicks and ambient cognitive load. The cards
+      fit comfortably on a single scroll; if the page grows
+      beyond five, that's a signal to revisit but not the
+      starting shape.
+      alternatives: tabbed sub-routes /system/status, /system/
+      activity, etc. (rejected — premature partitioning); a
+      single dense card (rejected — defeats the point of
+      modular cards).
+
+  - key: |
+      KPI cards consume BOTH the system stream and the run
+      overview snapshot — Reason: TicketScanned / Triggered /
+      Skipped live on the system stream; RunStarted / RunFinished
+      / cost live on the per-run streams (already aggregated by
+      useJobsHub's OverviewSnapshot). The TodayActivityCard wants
+      both axes side-by-side. Asking the operator to wire a
+      cross-stream join in the UI is unavoidable here; the
+      alternative would be republishing RunStarted / RunFinished
+      as SystemEvents too, duplicating the contract for one card.
+      alternatives: dual-emit RunStarted to both streams
+      (rejected — duplicate contract surface, drift class);
+      separate "system" and "runs" KPI sections (rejected —
+      operator wants one Today view).
+
+  - key: |
+      Status enum thresholds from IntervalSeconds, not hardcoded
+      seconds — Reason: pollers have per-tracker IntervalSeconds
+      from PollingConfig (Jira 30s, GitHub 60s, etc.). A static
+      "60s = degraded" threshold misfires on slow pollers and
+      flaps on fast ones. Deriving from the poller's own
+      IntervalSeconds (carried on PollCycleStarted /
+      PollCycleFinished) makes the threshold self-tuning.
+      alternatives: hardcoded thresholds (rejected — flaps on
+      heterogeneous trackers); operator-configured per-source
+      (rejected — settings surface for no measured need).
+
+  - key: |
+      TriggerLog renders TicketSkipped Reason + Detail directly,
+      no client-side lookup — Reason: slice b puts both fields on
+      the event. The dashboard's job is to display, not to derive
+      ([[feedback_no_heuristic_for_missing_data]]). Same posture
+      as p0169j-b which rendered event.reason directly instead
+      of pairing.
+      alternatives: client-side prettification table from Reason
+      enum → human-readable string (rejected — display logic
+      where Detail already covers the human-readable part);
+      hover-tooltip for Detail (rejected — operator wants the
+      answer inline, not on hover).
+
+  - key: |
+      Sparklines inline-SVG, no chart library — Reason: 24-hour
+      hourly buckets is 24 rectangles. Adding recharts /
+      visx / d3 for that would inflate the dashboard bundle by
+      ~100KB for one card. Inline-SVG with a small
+      tools/Sparkline.tsx primitive covers the sparkline use case
+      without a dep.
+      alternatives: recharts (rejected — bundle bloat for one
+      shape); ASCII / unicode sparkline (rejected — fixed-width
+      font dependency, doesn't match DESIGN.md typography).
+
+  - key: |
+      EmptyAfterTtl is a deliberate state, not a bug — Reason:
+      the system stream has the same 2-hour TTL as the run
+      streams. After 2h of server idle the dashboard sees zero
+      events. The cards render an explicit "no recent
+      activity — last seen N hours ago" copy rather than
+      pretending all-zero KPIs are real. Operators reading
+      "0 polls today" from a TTL'd stream would be misled. A
+      persisted system-events jsonl (named follow-up
+      alongside p0169j-a) closes this; not in scope here.
+      alternatives: silent zero state (rejected — misleading);
+      auto-fallback to a persisted file (rejected — slice scope
+      creep, that's the follow-up phase).
+
+steps:
+  - id: route-and-nav
+    action: |
+      app/system/page.tsx scaffold; layout.tsx side-nav entry.
+    new:
+      - "src/dashboard/src/app/system/page.tsx"
+    modify:
+      - "src/dashboard/src/app/layout.tsx"
+
+  - id: derived-hooks
+    action: |
+      Five derived hooks on top of useSystemEvents (from p0173a) +
+      useJobsHub (existing). Each is a pure derivation function
+      with no internal state — composability via React's standard
+      useMemo on the source ring buffer.
+    new:
+      - "src/dashboard/src/hooks/useSystemStatus.ts"
+      - "src/dashboard/src/hooks/useActivityKpis.ts"
+      - "src/dashboard/src/hooks/useChannelBreakdown.ts"
+      - "src/dashboard/src/hooks/useTriggerLog.ts"
+      - "src/dashboard/src/hooks/useCostRollup.ts"
+
+  - id: card-components
+    action: |
+      Five card components + supporting primitives (Sparkline +
+      StatusPill). DESIGN.md tokens for all colours; no hardcoded
+      hex.
+    new:
+      - "src/dashboard/src/components/system/SystemStatusCard.tsx"
+      - "src/dashboard/src/components/system/TodayActivityCard.tsx"
+      - "src/dashboard/src/components/system/ChannelBreakdown.tsx"
+      - "src/dashboard/src/components/system/TriggerLog.tsx"
+      - "src/dashboard/src/components/system/CostRollupCard.tsx"
+      - "src/dashboard/src/components/system/Sparkline.tsx"
+      - "src/dashboard/src/components/system/StatusPill.tsx"
+
+  - id: tests
+    action: |
+      Unit tests per hook (date math, aggregation, status
+      derivation against synthetic SystemEvent arrays) + component
+      tests for each card (empty + populated states + click-
+      through + DESIGN.md token assertions + no-message-content
+      assertion).
+    new:
+      - "src/dashboard/src/__tests__/system/useSystemStatus.test.ts"
+      - "src/dashboard/src/__tests__/system/useActivityKpis.test.ts"
+      - "src/dashboard/src/__tests__/system/useChannelBreakdown.test.ts"
+      - "src/dashboard/src/__tests__/system/useTriggerLog.test.ts"
+      - "src/dashboard/src/__tests__/system/useCostRollup.test.ts"
+      - "src/dashboard/src/__tests__/system/SystemStatusCard.test.tsx"
+      - "src/dashboard/src/__tests__/system/TodayActivityCard.test.tsx"
+      - "src/dashboard/src/__tests__/system/TriggerLog.test.tsx"
+
+  - id: docs
+    action: |
+      Operator-facing docs page for the new surface.
+    new:
+      - "docs/reference/dashboard/system-view.md"
+    modify:
+      - "mkdocs.yml"
+
+  - id: verify
+    action: |
+      pnpm build + pnpm test green. dotnet build green (no
+      backend changes in this slice; smoke gate guards against
+      accidental coupling). Manual smoke: dotnet run server +
+      pnpm dev dashboard, configure at least one tracker (the
+      fixture's local Jira sample suffices), wait for a poll
+      cycle, open /system, verify SystemStatusCard shows the
+      tracker as 'ok' with the right ETA + TodayActivityCard
+      KPIs populated + ChannelBreakdown row for the tracker +
+      TriggerLog showing the skipped/triggered tickets from
+      that cycle.
+
+tests:
+  - "UseSystemStatus_NoEvents_ReturnsEmpty"
+  - "UseSystemStatus_RecentPollCycleFinished_ReturnsOk"
+  - "UseSystemStatus_PollOverdueByOneIntervalSeconds_ReturnsDegraded"
+  - "UseSystemStatus_PollOverdueByThreeIntervalSeconds_ReturnsDisconnected"
+  - "UseActivityKpis_RollingTwentyFourHourWindow_ExcludesOlderEvents"
+  - "UseActivityKpis_SuccessRate_DividesByRunFinishedTotalNotByRunStarted"
+  - "UseChannelBreakdown_ThreeSources_ReturnsThreeRowsSortedByCount"
+  - "UseTriggerLog_TenSkippedFiveTriggered_PaginatesToFifty"
+  - "UseTriggerLog_TicketTriggeredRow_CarriesRunIdForClickThrough"
+  - "UseCostRollup_TodayCost_SumsRunFinishedCostUsdInWindow"
+  - "SystemStatusCard_OkStatus_RendersSmithGreenPill"
+  - "SystemStatusCard_DegradedStatus_RendersAmberPill"
+  - "SystemStatusCard_DisconnectedStatus_RendersRosePill"
+  - "TodayActivityCard_ScannedSparkline_RendersTwentyFourBuckets"
+  - "TriggerLog_TicketSkippedRow_RendersReasonAndDetailInline"
+  - "TriggerLog_TicketTriggeredClickHandler_NavigatesToJobsRunId"
+  - "ChatPayloadAssertion_NoCardRendersMessageContent_OverFullCardSet"
+
+done:
+  - "/system route mounted; layout side-nav links to it."
+  - "Five derived hooks ship with unit tests; aggregation logic exercised against synthetic SystemEvent arrays."
+  - "Five cards ship: SystemStatusCard, TodayActivityCard, ChannelBreakdown, TriggerLog, CostRollupCard."
+  - "Sparkline + StatusPill primitives use DESIGN.md tokens only (no hardcoded colours); green RESERVED for ok status (consistent with p0169j-d)."
+  - "TriggerLog renders Reason + Detail inline from the event payload (no client-side derivation)."
+  - "Click-through from TicketTriggered → /jobs/{runId} works against a real run."
+  - "Component tests assert no message content from ChatMessageReceivedEvent is rendered anywhere in the card set."
+  - "docs/reference/dashboard/system-view.md added; mkdocs nav updated."
+  - "Manual smoke: with a configured tracker + at least one poll cycle, /system shows live SystemStatusCard + populated TodayActivityCard + TriggerLog populated with the cycle's outcomes; chat send into Slack adds a ChannelBreakdown row for chat:slack."
