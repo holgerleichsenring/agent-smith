@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
@@ -20,6 +21,8 @@ public sealed class YamlSkillLoader(
     ConceptVocabularyValidator vocabularyValidator,
     SkillIndexBuilder indexBuilder,
     IProviderOverrideResolver overrideResolver,
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
     ILogger<YamlSkillLoader> logger) : ISkillLoader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -153,14 +156,17 @@ public sealed class YamlSkillLoader(
                 logger.LogError(
                     "Skill format violation in {Path}: {Rule}",
                     ex.SkillFilePath, ex.RuleDescription);
+                PublishCatalogIssue("warning", ex.SkillFilePath, "skill-validation", ex.RuleDescription);
             }
             catch (InvalidOperationException ex)
             {
                 logger.LogError(ex, "Invalid skill configuration in {Dir} — skill not loaded", dir);
+                PublishCatalogIssue("warning", dir, "skill-configuration", ex.Message);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to load role definition from {Dir}", dir);
+                PublishCatalogIssue("warning", dir, "skill-load", ex.Message);
             }
         }
     }
@@ -202,6 +208,22 @@ public sealed class YamlSkillLoader(
         }
         error = string.Empty;
         return true;
+    }
+
+    private void PublishCatalogIssue(string severity, string source, string category, string message)
+    {
+        var runId = runContext.CurrentRunId;
+        if (string.IsNullOrEmpty(runId)) return;
+        try
+        {
+            eventPublisher
+                .PublishAsync(new CatalogIssueEvent(runId, severity, source, category, message, DateTimeOffset.UtcNow))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish CatalogIssueEvent for {Source}", source);
+        }
     }
 
     private string ResolveDirectory(string skillsDirectory)
