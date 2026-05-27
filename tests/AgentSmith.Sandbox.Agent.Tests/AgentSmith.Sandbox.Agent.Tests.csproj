@@ -27,8 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,210 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-d-topology-graph
+goal: |
+  ArgoCD-style SVG topology graph replaces the stacked SandboxList on
+  the Topology tab. Run node at the top, sandbox nodes fanning out,
+  status colours from DESIGN.md tokens, click selects → terminal in
+  the detail pane. Closes the "looks like a logfile, not infra"
+  perception gap from the operator UX review.
+
+requires:
+  - p0169f-topology-ui
+
+scope:
+  in: |
+    DASHBOARD (src/dashboard/src/components/jobs):
+
+    (1) New TopologyGraph SVG component. Layout:
+        - Root: run-pipeline node at the top center (rounded rectangle,
+          pipeline name + runId, status colour).
+        - Children: one sandbox node per SandboxCreated event,
+          arranged horizontally below the root with bezier edges
+          connecting them.
+        - Status colours from DESIGN.md tokens. Green is RESERVED for
+          "done" — the most important success signal — and is NOT
+          used for "running" (which is the most common state and
+          would visually dominate, making done-vs-running hard to
+          tell apart at a glance):
+            waiting   → stone-300       (token: --color-muted)
+            running   → amber, pulsing  (token: --color-in-progress
+                                         or --color-warning; add the
+                                         token to DESIGN.md if missing)
+            success   → smith-green     (token: --color-primary
+                                         OR --color-success — green
+                                         is the done-state win signal)
+            failed    → rose            (token: --color-error)
+            disposed  → stone-500       (token: --color-faded)
+        - Pulsing animation on "running": subtle opacity 0.7 ↔ 1.0
+          cycle, ~2s period. CSS keyframes, no JS. Disabled when the
+          user has `prefers-reduced-motion: reduce`.
+        - Sandbox node body: repo name, tool-call count (from RunToolsPanel
+          accounting), elapsed since SandboxCreated.
+
+    (2) Selection state lifted to the run-detail page: a selected
+        sandbox highlights its node (Smith-green outline) and renders
+        its terminal feed in a Detail pane below the graph. Empty
+        selection renders an empty Detail pane with "select a sandbox
+        to see its stdout/stderr".
+
+    (3) Detail pane below the graph is the same SandboxBox terminal
+        from p0169f, scoped to the selected runId+repo. No collapse —
+        click another node to switch sandbox; click the same node to
+        deselect.
+
+    (4) Layout calc:
+        - Pure SVG, no dagre/d3-hierarchy dependency. The layout is
+          star (root center, sandboxes evenly distributed in a row
+          below). Up to 8 sandboxes fit horizontally; beyond, two
+          rows. Simple math, no library.
+        - Node positions computed from sandbox count: x = canvas_width
+          / (n+1) * (i+1); y = fixed row-2 for first 8, row-3 for the
+          rest.
+
+    (5) ?expand=repo1,repo2 deep-link from p0169f maps to selection,
+        but selection is now single — last repo in the list wins.
+        Removed multi-expand semantic (the graph + detail pane is
+        single-select by design — a graph with multiple expanded
+        terminals defeats the topology view).
+
+    (6) SandboxList component stays for the Activity tab's
+        accessibility view (screen-readers + keyboard-nav friendlier
+        than SVG). Topology tab swaps the rendering, not the data
+        layer.
+
+  out: |
+    Edge labels (event-flow annotations on the connection lines).
+    Out — kept clean. If operators ask for it later, an opt-in toggle.
+    Drag-to-rearrange. Out — auto-layout is sufficient for ≤16 sandboxes;
+    operator-driven layouts are an anti-pattern at this density.
+    Multi-run topology / aggregate views. Out — single-run focus.
+    Sandbox health checks beyond status colour (CPU/mem/uptime).
+    Out — needs a backend signal we don't ship yet.
+
+decisions:
+  - key: |
+      Pure SVG + math, no dagre/d3-hierarchy — Reason: the layout is
+      genuinely simple (one root, N siblings); a graph layout library
+      would be 50KB+ for two rows of positions. Math version is ~15
+      LOC. Trivially deterministic, easy to test. alternatives: dagre
+      (rejected — overkill for star); d3-hierarchy (rejected —
+      same); react-flow (rejected — heavyweight, design-system
+      conflict). If the topology grows beyond star (e.g. sub-pipelines
+      nested) a library lands in a follow-up.
+
+  - key: |
+      Single-select graph, not multi-expand — Reason: a graph view
+      where multiple terminals are open simultaneously isn't a
+      graph view anymore; it's a stack of terminals with line art.
+      Single-select keeps the topology view honest: the graph shows
+      the layout, the detail pane shows the focused work.
+      alternatives: multi-select with detail-pane tabs (rejected —
+      tab-in-tab UX, complex); modal overlay per sandbox (rejected —
+      breaks the "see the whole topology while reading" affordance).
+
+  - key: |
+      Keep SandboxList for Activity tab — Reason: SVG is hostile to
+      screen-readers + keyboard nav. Activity tab is the diagnostic
+      surface — operators with accessibility needs (vision, motor)
+      must have a non-SVG path to the same data. Topology tab is the
+      vis surface, optional and best-effort. alternatives: replace
+      SandboxList wholesale (rejected — accessibility regression);
+      SVG + ARIA labels (deferred — ARIA on dynamic SVG is non-trivial,
+      separate phase if a11y becomes a requirement).
+
+  - key: |
+      DESIGN.md token vocabulary for status colours — Reason: same
+      rationale as p0169f. The marketing site + docs already use
+      Smith-green / cream / terminal-panel; the topology graph is
+      the most-seen Smith surface for operators — anchoring it in
+      the design system pays off. alternatives: ad-hoc Tailwind
+      stone/emerald/rose (rejected — drift); a separate "graph"
+      palette (rejected — second palette to maintain).
+
+  - key: |
+      Green reserved for done, NOT running — Reason: a status palette
+      that uses smith-green (the brand primary) for "running" AND
+      emerald (the success token) for "done" makes the two most
+      important states look almost identical. Operators glance at
+      the graph and can't tell active-work-in-flight apart from
+      completed-work. Running is the most common state during a
+      live run — if it dominates the brand colour, the eye habituates
+      and the moment of completion stops registering. Reserve green
+      for the done-state win signal; running gets amber (pulsing,
+      with prefers-reduced-motion fallback) — the universal
+      "in-progress" colour from CI dashboards, JIRA boards, etc.
+      alternatives: smith-green for running + a darker green for
+      done (rejected — same-hue distinction is unreliable across
+      monitors / colour-vision profiles); blue for running
+      (rejected — diverges from CI/CD operator vocabulary).
+
+steps:
+  - id: status-color-helpers
+    action: |
+      sandboxStatusColor helper maps SandboxCreated/Disposed +
+      ToolCount + StepFinished context to status string. Pure
+      function, fully tested.
+    new:
+      - "src/dashboard/src/lib/sandboxStatus.ts"
+      - "src/dashboard/src/lib/__tests__/sandboxStatus.test.ts"
+
+  - id: topology-graph
+    action: |
+      TopologyGraph SVG component. Computes node positions from
+      sandbox count; renders root node, sandbox nodes, bezier
+      edges. Click handler emits selection.
+    new:
+      - "src/dashboard/src/components/jobs/TopologyGraph.tsx"
+      - "src/dashboard/src/components/jobs/TopologyNodeRun.tsx"
+      - "src/dashboard/src/components/jobs/TopologyNodeSandbox.tsx"
+      - "src/dashboard/src/components/jobs/TopologyEdge.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TopologyGraph.test.tsx"
+
+  - id: detail-pane
+    action: |
+      TopologyDetail pane below the graph: when nothing selected,
+      empty-state copy. When a sandbox is selected, reuses
+      SandboxBox in expanded mode scoped to (runId, repo).
+    new:
+      - "src/dashboard/src/components/jobs/TopologyDetail.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TopologyDetail.test.tsx"
+
+  - id: page-integration
+    action: |
+      Topology tab in jobs/[id]/page.tsx switches from SandboxList to
+      TopologyGraph + TopologyDetail. ?expand=... deep-link maps to
+      single-selection (last value wins). SandboxList stays mounted
+      inside the Activity tab path.
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: verify
+    action: |
+      pnpm test + pnpm build green. Manual smoke: trigger a multi-
+      repo run; Topology tab shows N sandbox nodes with live status
+      colours; clicking a node opens its terminal in the detail
+      pane; clicking again deselects.
+
+tests:
+  - "sandboxStatusColor_BeforeCreated_ReturnsWaiting"
+  - "sandboxStatusColor_AfterCreated_ReturnsRunning"
+  - "sandboxStatusColor_DisposedWithoutFailure_ReturnsSuccess"
+  - "sandboxStatusColor_StepFailedOnRepo_ReturnsFailed"
+  - "TopologyGraph_FiveSandboxes_RendersFiveNodesAndFiveEdges"
+  - "TopologyGraph_NineSandboxes_RendersTwoRows"
+  - "TopologyGraph_NodeClick_FiresOnSelect"
+  - "TopologyGraph_SelectedNode_RendersWithHighlightClass"
+  - "TopologyDetail_NoSelection_RendersEmptyStateCopy"
+  - "TopologyDetail_SelectedSandbox_RendersExpandedSandboxBox"
+  - "RunDetailPage_TopologyTab_HostsGraphInsteadOfSandboxList"
+  - "RunDetailPage_ActivityTab_StillUsesSandboxList"
+
+done:
+  - "TopologyGraph SVG renders root node + sandbox nodes + bezier edges via pure-SVG math (no graph lib)."
+  - "Status colours sourced from DESIGN.md tokens: green RESERVED for success/done, amber-pulsing for running, rose for failed, stone for waiting/disposed."
+  - "Pulsing animation respects prefers-reduced-motion."
+  - "Single-select selection state lifted to run-detail page."
+  - "TopologyDetail pane below the graph shows the focused sandbox's terminal."
+  - "?expand=… deep-link maps to single-selection (last value wins)."
+  - "SandboxList stays for the Activity tab's accessibility path."
+  - "Vitest suite green. pnpm build green."
+  - "Manual smoke: multi-repo run shows the topology, clicking nodes switches the focused terminal."

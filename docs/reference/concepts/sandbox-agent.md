@@ -194,7 +194,7 @@ boot
 ```bash
 docker run --rm -d -p 6379:6379 redis:7-alpine
 
-dotnet run --project src/AgentSmith.Sandbox.Agent -- \
+dotnet run --project src/backend/AgentSmith.Sandbox.Agent -- \
   --redis-url redis://localhost:6379 \
   --job-id smoke-test \
   --verbose
@@ -226,7 +226,7 @@ Mimics the K8s two-container pattern using docker volumes:
 
 ```bash
 docker build -t agent-smith-sandbox-agent:smoke \
-  -f src/AgentSmith.Sandbox.Agent/Dockerfile .
+  -f src/backend/AgentSmith.Sandbox.Agent/Dockerfile .
 
 docker volume create as-shared
 

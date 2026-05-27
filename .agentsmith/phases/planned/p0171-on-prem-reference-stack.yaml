@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0171
+goal: |
+  Ship the on-prem reference deployment that lets Agent Smith run end-
+  to-end on operator-owned hardware with open-weight models — Qwen 3.6
+  Plus, DeepSeek V4 Pro, Devstral Small 2, Kimi K2.6 — and publish a
+  documented benchmark comparing pass-rate, latency, and cost against
+  the Claude Opus 4.7 baseline on a fixed test set.
+
+  Result: the first open-source AI-engineering pipeline tool with a
+  published "runs on a 24GB GPU, source never leaves the box" story
+  backed by real numbers. Positioning asset against Devin/Cosine/
+  Workspace (all cloud-only) and the entry point for EU customers who
+  cannot send code to a US-hosted LLM API.
+
+requires: ["p0166a"]
+
+scope:
+  in: |
+    (1) deploy/docker-compose.qwen.yml — compose profile pulling
+        ollama/ollama image, pre-pulled Qwen-3.6-Plus / Devstral-Small-2
+        / DeepSeek-V4 models on first run, wired into agentsmith.qwen.yml
+        configuration. GPU profile uses nvidia runtime; CPU profile
+        for smoke runs on dev machines.
+
+    (2) config/agentsmith.qwen.yml — example config with:
+        - agents.primary: ollama with qwen-3.6-plus model
+        - agents.compaction: ollama with qwen-3.6-plus (smaller context)
+        - cost.pricing.qwen-3.6-plus: 0 (locally hosted, no $)
+        - sandbox image variants if needed
+
+    (3) scripts/bench-onprem.sh — benchmark harness:
+        - Reads `bench/cases.yaml` (fixture set: ~10 fix-bug tickets
+          + ~5 add-feature + ~3 security-scan against deterministic
+          test repos checked into bench/test-repos/).
+        - Runs each case under three configurations (claude-opus-4.7,
+          qwen-3.6-plus, devstral-small-2).
+        - Asserts pass = PR opened + tests green + no errors. Records
+          per-case latency + token usage + (estimated) cost.
+        - Outputs bench/results/<date>-<sha>.json + a human-readable
+          comparison table.
+
+    (4) docs/on-prem-benchmark.md — documented results: methodology,
+        hardware (GPU model + RAM), per-pipeline pass rates, latency
+        percentiles, cost comparison. Update cadence: monthly via
+        GitHub Action on a schedule trigger (results overwritten or
+        appended — TBD by operator pref; default append).
+
+    (5) docs/integrations/on-prem.md — operator-facing setup guide.
+        Hardware shopping (Mac M-series, single 24GB consumer GPU,
+        single H100, on-prem cluster). Trade-offs (smaller models =
+        faster + worse; larger models = slower + better). Cost-of-
+        ownership math vs Claude API.
+
+    (6) Cross-check that Ollama provider (existing) is the right
+        client path; no provider rewrite. If integration gaps surface
+        (e.g. tool-calling reliability with Qwen-3.6) those go in a
+        scoped follow-up.
+
+  out: |
+    Hosted SaaS offering of on-prem mode. Out — this is operator-owned
+    only.
+    Multi-GPU model sharding. Out — single-GPU and CPU profiles only.
+    Fine-tuned task-specific models. Out — open-weight off-the-shelf
+    only.
+    Real-time inference performance optimization (vLLM, TensorRT-LLM,
+    SGLang). Out — Ollama is the reference; operators can swap.
+
+decisions:
+  - key: |
+      Ollama as the reference runtime, not vLLM/TGI/SGLang — Reason:
+      Ollama has the lowest setup friction (single binary, model
+      pull command, zero config); 80% of self-hosted-coding-agent
+      tutorials in 2026 use Ollama. Operators who want faster
+      inference swap to vLLM-with-OpenAI-compat-shim and point
+      agentsmith.yml at the new endpoint. alternatives: vLLM
+      (rejected: K8s+config complexity hostile to entry); custom
+      runtime (rejected: maintenance burden for an example).
+
+  - key: |
+      Three models in the benchmark, not all-five-open-models —
+      Reason: Qwen 3.6 Plus (frontier-class open), DeepSeek V4 Pro
+      (best perf-cost ratio), Devstral Small 2 (entry-level local).
+      Covers the operator decision matrix (best / cheapest /
+      smallest). alternatives: all open models (rejected: bench
+      runtime explodes); single model (rejected: no decision
+      framework for operators).
+
+  - key: |
+      Pass = PR opened + tests green + no errors — Reason: stronger
+      than SWE-Bench's compile-passes (every test must remain green
+      not just the patch test) but bounded enough to be deterministic.
+      Aligns with Agent Smith's actual production-quality bar.
+      alternatives: SWE-Bench-style verified (rejected: ties Agent
+      Smith to a benchmark designed for raw-model eval); subjective
+      review (rejected: not reproducible).
+
+  - key: |
+      Monthly auto-bench via Action, not on-demand only — Reason:
+      keeps the published numbers fresh as open-weight models
+      improve. The cron mechanism prevents the docs from rotting
+      silently. alternatives: on-demand only (rejected: stale
+      story).
+
+steps:
+  - id: compose-profile
+    action: |
+      Compose file + Ollama service + model pre-pull init.
+    new:
+      - "deploy/docker-compose.qwen.yml"
+      - "scripts/pull-onprem-models.sh"
+
+  - id: example-config
+    action: |
+      Reference agentsmith.qwen.yml.
+    new:
+      - "config/agentsmith.qwen.yml"
+
+  - id: bench-harness
+    action: |
+      Bench script + cases definition + test repos.
+    new:
+      - "scripts/bench-onprem.sh"
+      - "bench/cases.yaml"
+      - "bench/test-repos/dotnet-bug/.gitkeep"
+      - "bench/test-repos/node-feature/.gitkeep"
+      - "bench/test-repos/python-security/.gitkeep"
+      - "bench/runner/BenchRunner.csproj"
+      - "bench/runner/Program.cs"
+      - "bench/runner/CaseExecutor.cs"
+      - "bench/runner/ResultsAggregator.cs"
+
+  - id: docs
+    action: |
+      Benchmark + operator setup docs.
+    new:
+      - "docs/on-prem-benchmark.md"
+      - "docs/integrations/on-prem.md"
+    modify:
+      - "mkdocs.yml"
+
+  - id: ci-bench
+    action: |
+      Scheduled workflow that runs the bench monthly, commits results
+      JSON + appends to the markdown table.
+    new:
+      - ".github/workflows/bench-onprem-monthly.yml"
+
+  - id: results-bootstrap
+    action: |
+      Initial bench run captured + committed so docs ship with real
+      numbers from day one.
+    new:
+      - "bench/results/2026-05-bootstrap.json"
+
+  - id: tests
+    action: |
+      Unit tests for the bench runner (case parsing, result
+      aggregation, comparison-table renderer).
+    new:
+      - "bench/runner/Tests/BenchRunnerTests.csproj"
+      - "bench/runner/Tests/CaseExecutorTests.cs"
+      - "bench/runner/Tests/ResultsAggregatorTests.cs"
+
+tests:
+  - "BenchRunner_CasesYamlParse_ProducesExpectedCaseList"
+  - "BenchRunner_ExecuteCase_RecordsLatencyTokensCost"
+  - "ResultsAggregator_TwoModels_RendersComparisonTable"
+  - "BenchHarness_FailingCase_MarkedFailWithDiagnostic"
+
+done:
+  - "docker-compose.qwen.yml + agentsmith.qwen.yml shipped + working."
+  - "Bench harness runs 18 cases across 3 models reproducibly."
+  - "docs/on-prem-benchmark.md shows real pass-rate + latency + cost data."
+  - "docs/integrations/on-prem.md guides operator setup."
+  - "Monthly CI cron updates the table automatically."
+  - "Smoke: `docker compose -f deploy/docker-compose.qwen.yml --profile cpu up` followed by `agent-smith fix --ticket 1 --config config/agentsmith.qwen.yml` completes a fix-bug run end-to-end against a test repo with no external API calls."

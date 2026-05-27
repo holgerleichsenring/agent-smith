@@ -1,0 +1,532 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169e-event-backbone
+goal: |
+  Replace p0169a's filesystem-scan job-list and p0169b's SSE bolt-on with
+  an event-sourcing backbone. Every system component that takes a decision
+  or moves state emits a typed event into a per-run Redis Stream
+  (run:{runId}:events). An in-memory broadcaster keeps a warm overview
+  cache, subscribed unconditionally as long as the server runs. A SignalR
+  hub fans events out to dashboard clients on demand.
+
+  This phase ships only the backbone — no UI shift. p0169f layers the
+  topology view on top of a stable event contract; p0169g adds the filter
+  rail. Splitting the contract from the UI is the explicit countermeasure
+  against the p0169a mistake (UI committed against an ungrounded data
+  model).
+
+  Supersedes p0169a (job-viewer-data-and-list) and p0169b (job-live-tail).
+  Both shipped green but their data plane was wrong: filesystem-scan finds
+  nothing because result.md lives in the sandbox, not on the server; SSE
+  was a separate transport for what is now one channel. Their code is
+  ripped out in this phase, listed file-by-file in steps/ripout.
+
+requires:
+  - p0162-pre-monorepo-restructure
+  - p0169-pre-dashboard-bootstrap
+
+supersedes:
+  - p0169a
+  - p0169b
+
+scope:
+  in: |
+    BACKBONE (src/backend/AgentSmith.Contracts + .Application + .Server):
+
+    (1) Typed event records in a new AgentSmith.Contracts.Events namespace.
+        Three semantic layers, all emitted unconditionally while a run is
+        live (emission is run-id-triggered, not subscriber-triggered):
+
+        L1 (topology — always visible to L1+ subscribers):
+          - RunStarted        { runId, trigger, pipeline, repos[], startedAt }
+          - RunFinished       { runId, status, prUrl?, summary, finishedAt }
+          - SandboxCreated    { runId, repo, image, language }
+          - SandboxDisposed   { runId, repo, exitCode }
+          - StepStarted       { runId, stepIndex, stepName, totalSteps }
+          - StepFinished      { runId, stepIndex, status, durationMs }
+
+        L2 (orchestrator decisions — toggleable in L2+ subscribers):
+          - DecisionLogged    { runId, category, chose, over?, reason }
+          - GateChecked       { runId, gate, passed, reason }
+          - TriageRoute       { runId, skill, role, confidence }
+          - LlmCallStarted    { runId, model, role, promptHash }
+          - LlmCallFinished   { runId, model, role, tokensIn, tokensOut, costUsd, durationMs }
+
+        L3 (sandbox surface — only forwarded when a sandbox is expanded):
+          - SandboxCommand    { runId, repo, command, argsPreview }
+          - SandboxOutput     { runId, repo, stream(stdout|stderr), line, batchSeq }
+          - SandboxResult     { runId, repo, command, exitCode, durationMs }
+          - ToolCall          { runId, tool, argsPreview }
+          - ToolResult        { runId, tool, ok, resultPreview }
+
+        promptHash is sha256-hex-8 of the resolved prompt body. Plaintext
+        prompts never leave the hub — they remain in the run-result-md /
+        cost-summary path. This is a security boundary, not a deferral.
+
+    (2) IEventPublisher contract in AgentSmith.Contracts/Events with one
+        PublishAsync(RunEvent) overload per L1/L2/L3 type. RedisEventPublisher
+        in Infrastructure serialises to the per-run stream
+        run:{runId}:events with MAXLEN=10000 + EXPIRE=2h on every append,
+        matching the existing BusMessage TTL convention.
+
+        Two indices alongside the streams (lightweight pointers, not
+        duplicate copies — the rejected pattern is a second stream, not a
+        Redis-side index):
+          - agentsmith:runs:active  SET  — SADD on RunStarted, SREM on
+                                            RunFinished
+          - agentsmith:runs:recent  LIST — LPUSH + LTRIM 0 49 on
+                                            RunFinished
+        Both let the broadcaster cold-start without touching the Redis
+        keyspace.
+
+    (3) Publisher integration — eight call sites, all server-side:
+        - PipelineExecutor               → RunStarted, StepStarted, StepFinished, RunFinished
+        - PipelineSandboxCoordinator     → SandboxCreated, SandboxDisposed
+        - ToolExecutor                   → ToolCall, ToolResult
+        - SandboxEventProjector (NEW,
+          server-side, consumes Sandbox.
+          Wire StepEvents from
+          sandbox:{jobId}:events stream) → SandboxCommand, SandboxOutput
+                                            (batched per p0115), SandboxResult
+        - Adapters/Agent agentic loops   → LlmCallStarted, LlmCallFinished
+        - TriageHandler                  → TriageRoute
+        - DecisionLogger                 → DecisionLogged (mirror existing
+                                            in-memory log to the stream)
+        - Gate handlers (BootstrapGate,
+          EmptyPlanCheck, etc.)          → GateChecked
+
+        Sandbox.Agent stays untouched. It is a separate deployment with
+        its own minimal AgentSmith.Sandbox.Wire library (p0115/p0116) and
+        must NOT take a dependency on AgentSmith.Contracts.Events. The
+        agent keeps emitting raw StepEvents over sandbox:{jobId}:events
+        as today; the new server-side SandboxEventProjector consumes
+        that stream, maps StepEvent → L3 RunEvent, and republishes via
+        IEventPublisher. This is the one legitimate projection layer —
+        between two deployments, at the seam — and is distinct from the
+        rejected BusMessage-to-Event normalisation (which would have
+        projected across consumer-purposes within one process).
+
+        Existing BusMessage publishers are UNCHANGED. BusMessages stay the
+        chat/Slack/MCP transport; events are a parallel, structured channel.
+
+    (4) IJobsBroadcaster Hosted Service (Server). Subscribes
+        unconditionally to all per-run streams as long as the server lives.
+        Two in-memory structures:
+          - active:  Dictionary<RunId, RunSnapshot>  (unbounded by design;
+                       a single deployment rarely sees >>10 concurrent runs)
+          - recent:  fixed-size ring buffer, capacity 50, LRU-by-finishedAt
+                       (mirror of the agentsmith:runs:recent Redis LIST)
+        Updates the snapshot on every L1/L2 event. On RunFinished:
+        snapshot moves from active → recent (evicts the oldest if at cap).
+        SandboxOutput (L3 high-volume) bypasses the cache and is fanned
+        out only to clients that have ExpandSandbox-d that specific
+        (runId, repo).
+
+        Cold-start on boot uses the indices, NOT the keyspace:
+          - SMEMBERS agentsmith:runs:active → repopulate active dict
+          - LRANGE  agentsmith:runs:recent 0 -1 → repopulate ring buffer
+          - per RunId: XREVRANGE COUNT 1 run:{id}:events to recover the
+            last-known snapshot; if the stream is gone (TTL expired),
+            SREM / drop from recent — self-heals indices against crash
+            survivors.
+        Single pass at Program.cs startup, before the hub opens. KEYS
+        scan is forbidden — it blocks the entire keyspace and would
+        spike latency on a multi-tenant Redis at every boot.
+
+    (5) JobsHub (Microsoft.AspNetCore.SignalR). Three subscribe methods:
+          SubscribeOverview()                       — overview group; receives
+                                                       OverviewSnapshot once +
+                                                       JobUpserted on diffs
+          SubscribeRun(runId)                       — run group; receives
+                                                       L1+L2 events for that run
+          ExpandSandbox(runId, repo)                — sandbox group; receives
+                                                       L3 events for that
+                                                       (runId, repo)
+        Mid-run connects replay the retained stream window (XREAD from
+        0-0, bounded by MAXLEN=10000) into the joining connection before
+        live tail starts. On long verbose runs the window may have been
+        trimmed below the original RunStarted event — clients see the
+        oldest retained event as the start of their visible history, NOT
+        a synthetic "full from beginning". The MAXLEN bound is part of
+        the contract, not a hidden truncation.
+
+    (6) Rip-out of p0169a + p0169b code. Explicit list under steps/ripout
+        below. The .agentsmith/phases/done/ entries stay (history); the
+        code goes.
+
+    (7) EventSequenceCompletenessTests as a gate. A synthetic fix-bug
+        pipeline run against an in-memory ticket fixture executes
+        end-to-end with a recording IEventPublisher decorator. Two
+        complementary assertions:
+          - The base happy-path test asserts the recorded type sequence
+            with .ContainInOrder against a canonical golden sequence,
+            and Distinct() against the expected type-set.
+          - A parameterised [Theory] iterates over all eight producers;
+            each row replaces ONE producer's IEventPublisher with a
+            DroppingEventPublisher decorator and asserts the missing
+            event types surface in the failure message. This is the
+            honest safeguard against silent-publisher drift: a producer
+            that stops emitting must be caught at exactly one Theory
+            row, not slip through because the other seven still emit.
+            Lives in tests/AgentSmith.Tests/Events/.
+
+  out: |
+    Frontend UI — slice p0169f (TopologyCard, useJobsHub, SandboxBox).
+    Event-stream filter rail and L3 expand UX — slice p0169g.
+    Multi-instance SignalR backplane (StackExchange.Redis backplane
+    package). Deferred until replicas > 1 is an operational ask.
+    Prompt-content audit endpoint. Out by design — see decision below.
+    BusMessage replacement. BusMessages keep their Slack/Teams/MCP/chat
+    role unchanged; events are an additive, parallel channel.
+
+decisions:
+  - key: |
+      Permanent broadcaster, not lazy-on-connect — Reason: per-run stream
+      tail subscriptions are essentially free (no events = no work);
+      memory footprint of ~1 KB per active run is negligible; first
+      browser connect after long pause gets instant snapshot from cache,
+      not a Redis cold-scan race. Server-state ≠ browser-state; the
+      server should know its own state independent of who is watching.
+      alternatives: lazy-on-connect (rejected: cold-start lag on every
+      reconnect, race-anfällig when concurrent emits happen during scan).
+
+  - key: |
+      Single per-run stream, no global aggregator stream — Reason:
+      duplicate signals reduce clarity. The broadcaster's in-memory
+      snapshot IS the aggregator; rebuilding it via XREVRANGE on boot is
+      a single pass. A second stream would have to be invalidated
+      consistently with the per-run stream, and the broadcaster would
+      have to dedupe across both. alternatives: agentsmith:events:global
+      stream (rejected for the above reasons).
+
+  - key: |
+      Active-set + recent-list as Redis indices, NOT a second stream —
+      Reason: cold-start needs to enumerate runs without touching the
+      keyspace. KEYS is forbidden (blocks); SCAN works but still iterates
+      the whole keyspace cursor. Two tiny pointer structures
+      (agentsmith:runs:active SET, agentsmith:runs:recent LIST) cost
+      O(1) per maintenance op and give the broadcaster the exact set it
+      needs in two commands. This is the pointer-vs-second-copy pattern
+      done right — the rejected global stream would have been a
+      duplicate of run state; an index is a pointer to it.
+      alternatives: KEYS run:*:events (rejected: blocks Redis);
+      SCAN run:*:events (rejected: iterates whole keyspace, still
+      O(total keys), and races with newly-started runs); no index +
+      depend on heartbeat-replay (rejected: cold-start would have no
+      anchor at all).
+
+  - key: |
+      Recent-runs ring buffer capped at 50, LRU-by-finishedAt — Reason:
+      RunFinished snapshots must not accumulate unbounded — a server
+      running for weeks would leak its memory. Fixed cap is deterministic
+      and bounds memory; LRU-by-finishedAt is the obvious eviction rule
+      (oldest finished run drops first). 50 matches typical dashboard
+      "Recent runs" UX without paging. Mirrored in Redis via LTRIM 0 49
+      so the on-disk index stays consistent with in-memory state across
+      restarts. alternatives: unbounded retention (rejected: leak class
+      that took weeks to surface in past phases); TTL-based eviction
+      (rejected: non-deterministic, surprising at boundary conditions);
+      paged history endpoint (rejected: out of scope, p0169f territory).
+
+  - key: |
+      Sandbox.Wire stays unchanged; server projects StepEvent → L3
+      RunEvent at the deployment seam — Reason: AgentSmith.Sandbox.Agent
+      is a separate deployment with its own minimal AgentSmith.Sandbox.
+      Wire library (p0115/p0116) and zero direct dependency on
+      AgentSmith.Contracts. Forcing the agent to take a Contracts.Events
+      dependency would collapse the deployment boundary that exists for
+      good reasons (carrier image size, language-agnostic sandbox image
+      story, separable release cadence). The new SandboxEventProjector
+      lives server-side, consumes the existing sandbox:{jobId}:events
+      stream, maps StepEvent → L3 RunEvent, and republishes via
+      IEventPublisher. This is the one legitimate projection — between
+      two deployments at the seam — distinct from the rejected
+      BusMessage-to-Event normalisation (which would have projected
+      across consumer purposes within a single process).
+      alternatives: agent depends on Contracts.Events (rejected: breaks
+      Sandbox.Wire-as-minimum-contract); duplicate event records in
+      Wire (rejected: drift class, two records for one concept);
+      keep Wire StepEvents as the dashboard contract (rejected: leaks
+      sandbox internals into the L3 UI vocabulary).
+
+  - key: |
+      No normalisation layer between BusMessages and events — Reason:
+      BusMessages are prosaic, addressed to Slack/Teams readers who watch
+      passively. Events are structured (sandbox/repo/exitCode/promptHash),
+      addressed to a UI that visualises topology. Parsing prose back into
+      structure was the p0169a trap (filesystem-scan-of-markdown-frontmatter)
+      one layer down. Per event-type check: does an existing BusMessage
+      carry exactly this structure? Almost never. Reuse Done/Error where
+      they already are structured; emit fresh otherwise.
+      alternatives: BusMessageToEventNormalizer (rejected: fragile,
+      lossy, hides the real shape of the source data).
+
+  - key: |
+      Emission ≠ forwarding — Reason: L1/L2/L3 emission is triggered by
+      the existence of a run-id context (same as today's --job-id), NOT
+      by a subscriber being attached. Otherwise a mid-run connect sees
+      an empty window. The sandbox cannot know who is watching anyway;
+      it batched-pushes L3 unconditionally (p0115 pattern). "On-demand"
+      applies only to the broadcaster→browser leg, where the SignalR
+      group filter decides what reaches a specific connection.
+      alternatives: subscriber-triggered emission (rejected: empty
+      mid-run-connect window, unworkable producer awareness).
+
+  - key: |
+      promptHash only, prompt content never leaves the hub — Reason:
+      security boundary, not a deferral. LlmCallStarted/Finished carry
+      sha256-hex-8 of the resolved prompt body. The hash is for
+      correlation between events ("which step started this LLM call")
+      and audit trace, not lookup. Plaintext prompts stay in the
+      cost-summary / run-result-md path, which is already access-gated by
+      whoever has filesystem / git access. Adding a hub endpoint to
+      resolve hash → plaintext would invert that boundary.
+      alternatives: separate auth-gated /api/prompts/{hash} (rejected:
+      premature endpoint, leaks prompts to anyone with the hub URL once
+      auth is misconfigured); plaintext over the hub (rejected:
+      compromises code/secrets reaching dashboard logs).
+
+  - key: |
+      Sequence-completeness test as a phase gate — Reason: six new
+      publisher integrations is six places that can silently stop
+      emitting. Unit tests on each producer aren't enough — they pass
+      individually even when the publisher is mocked away. The
+      sequence-completeness test runs the full pipeline against a
+      recording publisher decorator; absence of any expected event-type
+      fails the assertion. Belongs in p0169e's done criteria, not in a
+      follow-up.
+      alternatives: per-producer unit tests only (rejected: cannot
+      detect silent removal of a publisher call from a producer);
+      manual smoke (rejected: rots immediately).
+
+  - key: |
+      SignalR over raw WebSockets / Hub over per-endpoint streams —
+      Reason: .NET-native, JSON-protocol with built-in reconnect-with-
+      backoff, fallback transport (WebSocket → SSE → Long-Poll) handled
+      transparently. Three Subscribe* methods on one hub express the
+      three group-filter levels (overview / run / sandbox) cleanly;
+      separate endpoints would duplicate auth + CORS + lifecycle.
+      Backplane (StackExchange.Redis) deferred until replicas > 1.
+      alternatives: raw WebSockets (rejected: rebuilding what SignalR
+      gives for free); separate REST + WS endpoints (rejected: two auth
+      surfaces, two reconnect stories).
+
+  - key: |
+      lifecycle.svg not recycled as background — Reason: the asset is a
+      5-stage marketing/onboarding diagram; its animation lives in
+      website main.js (MkDocs Material sanitises inline JS — p0159b/c)
+      and its visual semantics are about teaching a flow, not displaying
+      one. The dashboard renders its own responsive React-SVG that
+      inherits the DESIGN.md token vocabulary (colours, radii,
+      typography) without inheriting the static structure. The visual
+      vocabulary belongs in the head; the asset doesn't belong in the
+      dashboard. alternatives: SVG-overlay (rejected: layout-fragile,
+      coupling Smith's UI to a marketing artefact).
+
+steps:
+  - id: event-contracts
+    action: |
+      Define typed event records in AgentSmith.Contracts.Events
+      namespace. RunEvent abstract base with RunId + EventTimestamp;
+      one record per concrete type. EventType enum mirroring the record
+      hierarchy for serialisation discriminator.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/RunEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/EventType.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L1SandboxEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L1StepEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L2OrchestratorEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L2LlmEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L3SandboxStreamEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L3ToolEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/IEventPublisher.cs"
+
+  - id: publisher-infrastructure
+    action: |
+      RedisEventPublisher implements IEventPublisher against
+      StackExchange.Redis. NoOpEventPublisher for CLI / test paths
+      that have no Redis. DI registration in
+      ServiceCollectionExtensions.AddEventPublishing; Server picks
+      Redis variant via AddRedis, CLI picks NoOp.
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventStreamKeys.cs"
+      - "src/backend/AgentSmith.Application/Services/Events/NoOpEventPublisher.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: producer-integration
+    action: |
+      Wire IEventPublisher into the seven server-side producers listed
+      under scope.in(3). Each gets the publisher injected (constructor
+      or method-level), emits at the documented call sites. PromptHash
+      computed at the LLM-call boundary; sha256-hex-8 of the resolved
+      prompt body. Sandbox.Agent files are explicitly NOT touched here
+      — that deployment boundary is honoured by the next step.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/ToolExecutor.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/TriageHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Decisions/DecisionLogger.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/EmptyPlanCheckHandler.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/ClaudeAgenticAnalyzer.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/Adapters/OpenAiAgenticAnalyzer.cs"
+
+  - id: sandbox-event-projector
+    action: |
+      Server-side SandboxEventProjector hosted service consumes the
+      sandbox:{jobId}:events stream produced by Sandbox.Agent
+      (existing, p0115). For each StepEvent it maps to the matching L3
+      RunEvent (SandboxCommand / SandboxOutput / SandboxResult) and
+      publishes via IEventPublisher under the same runId. Batched
+      SandboxOutput preserves the agent's 50-lines / 100-ms batching
+      semantics (one StepEvent batch → one SandboxOutput event with
+      the batch payload, NOT N individual line events). Sandbox.Agent
+      + Sandbox.Wire stay unchanged.
+    new:
+      - "src/backend/AgentSmith.Server/Services/Events/SandboxEventProjector.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/StepEventToRunEventMapper.cs"
+
+  - id: broadcaster-service
+    action: |
+      IJobsBroadcaster + JobsBroadcaster as IHostedService.
+      RunSnapshot record holds the current overview view of one run
+      (topology + last L1/L2 event). Two in-memory structures:
+      Dictionary<RunId, RunSnapshot> for active, fixed-capacity LRU
+      ring buffer (size 50) for recent. Cold-start: SMEMBERS
+      agentsmith:runs:active + LRANGE agentsmith:runs:recent 0 -1,
+      then per RunId XREVRANGE COUNT 1 run:{id}:events to rehydrate
+      snapshot. Stream missing (TTL expired) → SREM / drop from
+      recent for self-healing. Background loop subscribes to active
+      run streams via XREAD BLOCK on a multiplexed key list, updates
+      the snapshot, forwards to SignalR groups. L3 fanout consults a
+      registry of ExpandSandbox subscriptions; absent expansion =
+      drop. On RunFinished: move snapshot active → recent (evict
+      oldest if at cap), SREM active set, LPUSH+LTRIM recent list.
+    new:
+      - "src/backend/AgentSmith.Server/Services/JobsBroadcaster.cs"
+      - "src/backend/AgentSmith.Server/Services/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Server/Services/RecentRunsRingBuffer.cs"
+      - "src/backend/AgentSmith.Server/Services/SandboxExpansionRegistry.cs"
+      - "src/backend/AgentSmith.Server/Services/RunIndexKeys.cs"
+
+  - id: signalr-hub
+    action: |
+      JobsHub with Subscribe* methods routing to SignalR groups.
+      Inject IHubContext<JobsHub> into JobsBroadcaster for fanout.
+      Wire AddSignalR + MapHub<JobsHub>("/hub/jobs") in Program.cs
+      behind the existing AGENTSMITH_UI_API_ENABLED gate.
+    new:
+      - "src/backend/AgentSmith.Server/Hubs/JobsHub.cs"
+      - "src/backend/AgentSmith.Server/Hubs/HubGroups.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Program.cs"
+      - "src/backend/AgentSmith.Server/AgentSmith.Server.csproj"
+    packages:
+      - "Microsoft.AspNetCore.SignalR (in the framework; no extra package)"
+
+  - id: ripout
+    action: |
+      Delete p0169a / p0169b code. CORS policy + Swashbuckle stay
+      (other endpoints may want them), but the JobsEndpoints group
+      and SSE path go. AGENTSMITH_RUNS_ROOT env-var dropped.
+    delete:
+      - "src/backend/AgentSmith.Server/Api/JobsEndpoints.cs"
+      - "src/backend/AgentSmith.Server/Api/JobStreamEndpoint.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/RunMetaResponse.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/RunArtefactResponse.cs"
+      - "src/backend/AgentSmith.Server/Api/PathTraversalGuard.cs"
+      - "src/backend/AgentSmith.Server/Services/RunMetaReader.cs"
+      - "src/backend/AgentSmith.Server/Services/RunArtefactLister.cs"
+      - "src/backend/AgentSmith.Server/Services/SseEventWriter.cs"
+      - "src/backend/AgentSmith.Server/Services/JobBusSubscriber.cs"
+      - "src/backend/AgentSmith.Server/Services/MessageBusEntrySerializer.cs"
+      - "src/backend/AgentSmith.Server/Models/RunMetaFrontmatter.cs"
+      - "tests/AgentSmith.Tests/Api/JobsEndpointsTests.cs"
+      - "tests/AgentSmith.Tests/Api/JobStreamEndpointTests.cs"
+      - "tests/AgentSmith.Tests/Api/PathTraversalGuardTests.cs"
+      - "tests/AgentSmith.Tests/Services/RunMetaReaderTests.cs"
+      - "tests/AgentSmith.Tests/Services/SseEventWriterTests.cs"
+      - "src/dashboard/src/lib/api.ts"
+      - "src/dashboard/src/hooks/useJobStream.ts"
+      - "src/dashboard/src/types/job-stream-events.ts"
+      - "src/dashboard/src/components/jobs/JobListTable.tsx"
+      - "src/dashboard/src/components/jobs/LiveLogPanel.tsx"
+      - "src/dashboard/src/components/jobs/ResultMarkdown.tsx"
+      - "src/dashboard/src/components/jobs/ArtefactSidebar.tsx"
+      - "src/dashboard/src/components/jobs/ProgressBar.tsx"
+      - "src/dashboard/src/components/jobs/ObservationCard.tsx"
+      - "src/dashboard/src/components/jobs/ToolCallEntry.tsx"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+    modify:
+      - "src/backend/AgentSmith.Server/Program.cs (drop Jobs endpoint maps + Swashbuckle DocInclusionPredicate stays generic)"
+      - "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs (keep RunMetaTopology emission — useful for the result.md frontmatter regardless of dashboard; ContextKeys reading unchanged)"
+      - "src/dashboard/src/app/page.tsx (replace JobsPage placeholder with a minimal 'connecting…' shim until p0169f lands)"
+
+  - id: sequence-completeness-test
+    action: |
+      EventSequenceCompletenessTests. Synthetic fix-bug pipeline run
+      with a fake ticket / fake sandbox / fake LLM (existing
+      PipelineExecutorTests fixtures), wired up with a recording
+      EventPublisher decorator. Assertions: .ContainInOrder against
+      canonical golden sequence + .Distinct() set match against
+      expected type-set. Any silent publisher fails the test.
+    new:
+      - "tests/AgentSmith.Tests/Events/EventSequenceCompletenessTests.cs"
+      - "tests/AgentSmith.Tests/Events/RecordingEventPublisher.cs"
+
+  - id: verify
+    action: |
+      Finish-what-you-start gate:
+      - dotnet build green
+      - dotnet test green (full suite + new EventSequenceCompleteness)
+      - manual smoke: dotnet run server, trigger fix-bug, attach
+        `redis-cli XREAD COUNT 50 BLOCK 0 STREAMS run:{id}:events 0`
+        — verify the canonical sequence flows through the stream
+      - manual smoke: connect to /hub/jobs via dotnet
+        Microsoft.AspNetCore.SignalR.Client console probe, call
+        SubscribeOverview, verify OverviewSnapshot + JobUpserted arrive
+
+tests:
+  - "RedisEventPublisher_PublishRunStarted_AppendsToPerRunStream"
+  - "RedisEventPublisher_MaxLenAndExpire_SetOnEveryAppend"
+  - "RedisEventPublisher_RunStarted_AddsRunIdToActiveSet"
+  - "RedisEventPublisher_RunFinished_RemovesFromActiveSet_AppendsToRecentList"
+  - "RedisEventPublisher_RecentList_TrimmedToFiftyEntries"
+  - "RedisEventPublisher_RunIdMissing_ThrowsInvalidOperation"
+  - "SandboxEventProjector_StepEventOutputBatch_EmitsOneSandboxOutputEvent"
+  - "SandboxEventProjector_StepEventResult_EmitsSandboxResultWithExitCode"
+  - "JobsBroadcaster_ColdStart_ReadsActiveAndRecentIndices_NoKeyspaceScan"
+  - "JobsBroadcaster_ColdStart_StreamTtlExpired_DropsStaleIndexEntry"
+  - "JobsBroadcaster_RunStarted_UpdatesSnapshotAndPushesToOverviewGroup"
+  - "JobsBroadcaster_SandboxOutputWithoutExpansion_DroppedFromBroadcast"
+  - "JobsBroadcaster_SandboxOutputWithExpansion_ForwardedToSandboxGroup"
+  - "JobsBroadcaster_RunFinished_MovesSnapshotActiveToRecentRingBuffer"
+  - "JobsBroadcaster_RecentRingBuffer_AtCapacity_EvictsOldestByFinishedAt"
+  - "JobsHub_SubscribeOverview_ReceivesSnapshotImmediately"
+  - "JobsHub_SubscribeRun_ReplaysRetainedStreamWindowBeforeLiveTail"
+  - "JobsHub_SubscribeRun_StreamTrimmedBeyondRunStarted_ClientSeesOldestRetainedEvent"
+  - "JobsHub_ExpandSandbox_AddsToSandboxGroupAndStreamsL3"
+  - "EventSequenceCompleteness_FixBugRun_EmitsCanonicalTypeSequenceInOrder"
+  - "EventSequenceCompleteness_FixBugRun_NoSilentPublisher_AllExpectedTypesPresent"
+  - "EventSequenceCompleteness_DroppedProducer_Theory_EachOfEightProducers_FailsWithMissingType"
+  - "PromptHash_ResolvedSamePrompt_ProducesSameSha256Prefix"
+  - "PromptHash_PlaintextNeverSerialisedIntoLlmCallEvents"
+
+done:
+  - "L1+L2+L3 event records defined in AgentSmith.Contracts.Events; Sandbox.Wire is unchanged (no Contracts.Events dependency leaks across the deployment seam)."
+  - "IEventPublisher contract + RedisEventPublisher + NoOpEventPublisher shipped; DI registration picks Redis variant in Server, NoOp in CLI/tests."
+  - "Seven server-side producers emit their documented event subset; PipelineExecutor / SandboxCoordinator / ToolExecutor / two agentic-loop adapters / TriageHandler / DecisionLogger / two gate handlers. Sandbox events arrive via SandboxEventProjector mapping Sandbox.Wire StepEvents into L3 RunEvents at the seam."
+  - "Per-run Redis stream run:{runId}:events created on first append with MAXLEN=10000 and EXPIRE=2h."
+  - "Active-set + recent-list indices maintained on every RunStarted/RunFinished; recent capped at 50 via LTRIM."
+  - "JobsBroadcaster Hosted Service runs unconditionally; cold-start uses SMEMBERS + LRANGE on the two indices (never KEYS / SCAN over the keyspace); self-heals indices when a stream's TTL has expired."
+  - "RunFinished snapshots move to a fixed-capacity LRU ring buffer (50); memory does not grow unbounded across long uptimes."
+  - "JobsHub maps at /hub/jobs (gated by AGENTSMITH_UI_API_ENABLED); SubscribeOverview / SubscribeRun / ExpandSandbox methods route to SignalR groups."
+  - "Mid-run connects replay the retained stream window (bounded by MAXLEN=10000); the API contract documents this bound, not a synthetic full-from-beginning replay."
+  - "EventSequenceCompletenessTests passes — happy-path golden sequence + parameterised Theory over all eight producers each dropping in turn, surfacing the missing event types as the failure message."
+  - "p0169a + p0169b code ripped out per steps/ripout list; build still green."
+  - "Manual smoke: redis-cli XREAD on run:{id}:events shows the canonical event flow during a fix-bug run; agentsmith:runs:active contains the in-flight runId; agentsmith:runs:recent shows the last 50 after completion."
+  - "Manual smoke: SignalR console probe receives OverviewSnapshot on connect + JobUpserted on subsequent run state changes."
+  - "Prompt content never appears in any event payload (asserted by PromptHash_PlaintextNeverSerialisedIntoLlmCallEvents)."

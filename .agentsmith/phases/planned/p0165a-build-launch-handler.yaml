@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0165a
+goal: |
+  Build the foundation for the Self-Verify Loop: a BuildLaunchHandler that
+  starts the just-built application inside the run's sandbox, waits for it to
+  become reachable, and publishes its base URL to the pipeline context for
+  downstream verification skills. Closes 30% of the Devin-2.2 self-verify gap
+  by giving the pipeline a live target to probe — without taking on full
+  computer-use / browser-driving.
+
+  Today Test step runs the test suite (which catches regressions for code
+  that has tests). Nothing actually launches the app and checks that the
+  changed surface still serves requests. For api-scan + fix-bug pipelines
+  this is a major blind spot.
+
+requires: ["p0158f"]
+
+scope:
+  in: |
+    (1) New BuildLaunchHandler in Application. Reads ProjectMap.Ci (already
+        populated per p0158f's per-repo bootstrap) for:
+        - StartCommand (e.g. `dotnet run --project src/Api`, `npm start`,
+          `python -m flask run`)
+        - StartCwd (optional, defaults to ProjectMap-root)
+        - HealthEndpoint (optional URL path, default `/health`)
+        - StartupTimeoutSeconds (default 60)
+
+    (2) BuildLaunchHandler dispatches a long-running Step via the existing
+        ISandbox.RunAsync (Sandbox-side process management). Stdout/stderr
+        soft-batched into the existing observation bus. Process tree owned
+        by the sandbox agent's lifetime — no orphan risk because sandbox
+        disposal kills children (per p0115 ProcessRunner semantics).
+
+    (3) Reachability detection: BuildLaunchHandler polls HealthEndpoint
+        every 1s up to StartupTimeoutSeconds. First 2xx response → publishes
+        ContextKeys.RunningAppUrl + ContextKeys.RunningAppPid. Timeout →
+        CommandResult.Fail with last stderr tail.
+
+    (4) Per-repo path: BuildLaunchHandler iterates Sandboxes (per p0158e
+        multi-sandbox-per-repo), launches the app in each repo that
+        declares a Ci.StartCommand. Publishes a dict RepoRunningAppUrls
+        plus legacy RunningAppUrl = Repos[0]'s URL.
+
+    (5) ProjectMap.Ci schema extended in ProjectAnalyzer prompt + ProjectMap
+        record. Existing ProjectMap.Ci.TestCommand stays.
+
+  out: |
+    Actual probing of the app — slice [[p0165b]] (SmokeProbeHandler).
+    Preset wiring — slice [[p0165c]].
+    Multi-port apps. Single port per repo for now. Multi-port apps are an
+    edge case better solved by skill-level URL discovery.
+    Browser-based / GUI launching. Headless HTTP servers only.
+
+decisions:
+  - key: |
+      Reachability via health-endpoint polling, not via stdout scraping —
+      Reason: regex'ing 'Listening on http://' from a stdout stream is a
+      framework-specific layer that locks in framework support
+      (per [[feedback_no_language_specific_parsers]]). Health-endpoint
+      polling works for any framework whose Ci.StartCommand serves HTTP.
+      Frameworks without a health endpoint can declare `/` or `/_health`.
+      alternatives: stdout regex (rejected: per cited feedback memory);
+      port-only check (rejected: a listening port that returns 500 is
+      not a successful launch).
+
+  - key: |
+      Per-repo launch, not orchestration-side launch — Reason: p0158e
+      established per-repo sandboxes with per-repo toolchains. A Node
+      sibling and a .NET sibling each launch in their own sandbox.
+      Orchestrator side has no Node runtime. alternatives: orchestrator-
+      side launch (rejected: would re-introduce the cross-toolchain
+      coupling p0158e removed).
+
+  - key: |
+      Process lifetime tied to sandbox — Reason: sandboxes are already
+      disposed via `await using` in PipelineExecutor (per p0116). Any
+      launched process dies when the sandbox dies — no extra cleanup
+      logic needed. alternatives: explicit kill at pipeline end
+      (rejected: redundant with existing sandbox dispose semantics).
+
+steps:
+  - id: project-map-ci
+    action: |
+      Extend ProjectMap.Ci record with StartCommand, StartCwd,
+      HealthEndpoint, StartupTimeoutSeconds. Update project-analyzer
+      prompt (cross-repo agent-smith-skills) to populate the new fields
+      from manifest detection.
+    modify:
+      - "src/AgentSmith.Domain/Models/ProjectMap.cs"
+      - "(cross-repo agent-smith-skills) skills/coding/csharp-bootstrap/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/coding/node-bootstrap/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/coding/python-bootstrap/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/coding/generic-bootstrap/SKILL.md"
+
+  - id: context-keys
+    action: |
+      New ContextKeys.RunningAppUrl + RunningAppPid + RepoRunningAppUrls.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: handler
+    action: |
+      BuildLaunchHandler implementation. Per-repo iteration; polling
+      health endpoint up to timeout; publishes URLs on success; Fail
+      on timeout with stderr tail.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/BuildLaunchHandler.cs"
+      - "src/AgentSmith.Application/Models/BuildLaunchContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/BuildLaunchContextBuilder.cs"
+
+  - id: command-name
+    action: |
+      New CommandNames.BuildLaunch entry. Add to handler + builder
+      DI registration.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+
+  - id: tests
+    action: |
+      Cover: happy launch + health response, timeout with stderr tail,
+      multi-repo iteration, ProjectMap missing StartCommand (Skip with
+      info log).
+    new:
+      - "tests/AgentSmith.Tests/Handlers/BuildLaunchHandlerTests.cs"
+
+tests:
+  - "BuildLaunch_HealthEndpoint200Within30s_PublishesRunningAppUrl"
+  - "BuildLaunch_HealthEndpointNeverResponds_FailsWithStderrTail"
+  - "BuildLaunch_MultiRepoTwoStartCommands_LaunchesEachInOwnSandbox"
+  - "BuildLaunch_RepoMissingStartCommand_SkipsWithInfoLog"
+  - "BuildLaunch_HealthEndpoint500_KeepsPollingUntilSuccessOrTimeout"
+
+done:
+  - "ProjectMap.Ci carries StartCommand + HealthEndpoint + StartupTimeoutSeconds."
+  - "BuildLaunchHandler launches per-repo apps via sandbox; publishes RunningAppUrl on success."
+  - "Sandbox dispose cleans up launched processes (no orphan risk)."
+  - "Unit tests green."
+  - "Build smoke: launch a trivial .NET Minimal API in the sandbox and observe RunningAppUrl populated within 30s."

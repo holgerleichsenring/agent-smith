@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestHelpers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -81,6 +82,8 @@ internal static class RuntimeBuilder
             new OutcomeClassifier(), new RetryCoordinator(),
             validatorFactory,
             new RuntimeObservationFactory(),
+            EventTestStubs.NoOp,
+            EventTestStubs.RunContext,
             NullLogger<SkillCallRuntime>.Instance);
         return (runtime, tracker, factory);
     }

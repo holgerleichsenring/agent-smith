@@ -24,6 +24,7 @@ public sealed class EmptyPlanCheckHandlerTests
     private const string SkipCounterName = "agent_smith_pipeline_skipped_as_irrelevant_total";
 
     private readonly EmptyPlanCheckHandler _handler = new(
+        EventTestStubs.NoOp,
         NullLogger<EmptyPlanCheckHandler>.Instance);
 
     [Fact]

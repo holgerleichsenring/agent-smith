@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0163b
+goal: |
+  Adopt `web_fetch` in the three skills that p0154's deferred-list named as
+  expected consumers: supply-chain-auditor, compliance-checker, false-positive-
+  filter. Cross-repo slice in agent-smith-skills repo. Each skill gains targeted
+  external lookups for the kind of verification it was already supposed to do
+  but couldn't (CVE detail expansion, license-policy URL fetch, FP-candidate
+  cross-check against authoritative source).
+
+requires: ["p0163a"]
+
+scope:
+  in: |
+    Cross-repo (agent-smith-skills, version bump 2.6.x → 2.7.0):
+
+    (1) skills/security/supply-chain-auditor/SKILL.md: gains `web_fetch(url=
+        "https://nvd.nist.gov/vuln/detail/CVE-...")` step in the deep-inspect
+        path. Output schema unchanged (still SkillObservation with severity
+        + cve_id + confidence). Cited URL becomes a Reference field on the
+        observation.
+
+    (2) skills/security/compliance-checker/SKILL.md: gains `web_fetch(url=
+        "https://spdx.org/licenses/<id>.json")` for license-policy resolution
+        when a dependency declares an SPDX-tagged license that isn't in the
+        skill's static map.
+
+    (3) skills/api-security/false-positive-filter/SKILL.md: gains optional
+        `web_fetch(url=...)` for cross-checking FP candidates against published
+        false-positive databases (OSV, GitHub Advisory). Bounded to one fetch
+        per FP candidate to keep cost predictable.
+
+    (4) agent-smith repo pin bump in scripts/fetch-skills.sh + .agentsmith/
+        skills.version reflects the new tag.
+
+    (5) Three new snapshot tests verify the updated SKILL.md files parse +
+        validate against the skill schema.
+
+  out: |
+    New skills using web_fetch. This slice is scope-limited to the three
+    skills p0154 explicitly named.
+    Authenticated API-key fetches. Public read-only URLs only.
+    Caching of fetched content. Each round refetches; cost is bounded by
+    pipeline-level cost cap.
+
+decisions:
+  - key: |
+      Cross-repo version 2.7.0 not 2.6.x — Reason: adding a new tool call to
+      three skills is a behavioural change visible to operators (skills now
+      hit the public internet during a run). Minor bump signals "review your
+      AllowedExternalHosts" rather than silent patch. alternatives: 2.6.1
+      (rejected: per [[feedback_finish_what_you_start]] operators need a
+      reason to review).
+
+  - key: |
+      Citation as Reference field on SkillObservation — Reason: existing
+      SkillObservation schema has a Reference array; reusing it keeps the
+      audit trail in one shape. alternatives: new WebFetchTrail concept
+      (rejected: duplicates Reference's purpose; complicates result.md
+      rendering).
+
+steps:
+  - id: skill-supply-chain
+    action: |
+      SKILL.md update in agent-smith-skills repo for supply-chain-auditor.
+      Add a Phase 2 'deep-inspect' section that names web_fetch + the
+      allowlist requirement.
+    modify:
+      - "(cross-repo agent-smith-skills) skills/security/supply-chain-auditor/SKILL.md"
+
+  - id: skill-compliance
+    action: |
+      SKILL.md update for compliance-checker. Add license-policy resolution
+      via web_fetch to the SPDX endpoint pattern.
+    modify:
+      - "(cross-repo agent-smith-skills) skills/security/compliance-checker/SKILL.md"
+
+  - id: skill-fp-filter
+    action: |
+      SKILL.md update for false-positive-filter. Add optional cross-check
+      step bounded to one fetch per candidate.
+    modify:
+      - "(cross-repo agent-smith-skills) skills/api-security/false-positive-filter/SKILL.md"
+
+  - id: pin-bump
+    action: |
+      In agent-smith repo, bump skill catalog version pin.
+    modify:
+      - ".agentsmith/skills.version"
+      - "scripts/fetch-skills.sh"
+
+  - id: snapshot-tests
+    action: |
+      Three SkillMd parser tests verify the new file content parses against
+      the schema with the new web_fetch references intact.
+    new:
+      - "tests/AgentSmith.Tests/Skills/SupplyChainAuditorWebFetchSnapshotTests.cs"
+      - "tests/AgentSmith.Tests/Skills/ComplianceCheckerWebFetchSnapshotTests.cs"
+      - "tests/AgentSmith.Tests/Skills/FalsePositiveFilterWebFetchSnapshotTests.cs"
+
+tests:
+  - "SupplyChainAuditor_SkillMdParses_AndDeclaresWebFetchTool"
+  - "ComplianceChecker_SkillMdParses_AndReferencesSpdxEndpoint"
+  - "FalsePositiveFilter_SkillMdParses_AndBoundsWebFetchToOnePerCandidate"
+
+done:
+  - "agent-smith-skills 2.7.0 tagged with the three SKILL.md updates."
+  - "agent-smith repo pin bump committed."
+  - "Snapshot tests green."
+  - "Build smoke: agent-smith run --headless 'security-scan --repo .' on a repo with one known vulnerable dep; supply-chain-auditor observation includes a NVD reference."

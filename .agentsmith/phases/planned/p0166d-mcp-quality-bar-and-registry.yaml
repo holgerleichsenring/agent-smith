@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0166d
+goal: |
+  Ship the quality-bar manifest + verification path that puts Agent Smith
+  into the top 12.9% of "high trust" MCP servers (per May 2026 industry
+  data on the public registry). Concretely: a server.json manifest with
+  formal capabilities + version metadata, signature verification of skill
+  tarballs at boot, a public docs page describing the trust posture, and
+  submission to modelcontextprotocol.io's server registry.
+
+  The point is not "we have an MCP server" but "we have an MCP server
+  worth listing".
+
+requires: ["p0166c"]
+
+scope:
+  in: |
+    (1) server.json at deploy/mcp/server.json. Conforms to
+        modelcontextprotocol.io's server-registry schema. Fields:
+        name, version, description, vendor, license, capabilities,
+        instructions, source (link to github repo), homepage.
+
+    (2) Capabilities discovery: GET /mcp/capabilities returns the
+        manifest content. Used by client tooling that prefers in-band
+        discovery over the registry lookup.
+
+    (3) Skill signature verification: at boot, AgentSmith.Server
+        verifies the SHA-256 of the loaded agent-smith-skills tarball
+        against a signed manifest. Mismatch → boot fails with a
+        signature-violation error. Signing key embedded in
+        verification code, ships with releases.
+
+    (4) Trust-posture docs: new docs/integrations/mcp.md describes
+        what Agent Smith does and does not promise as an MCP server:
+        observable side effects, audit-trail surface, isolation
+        guarantees (sandbox + RBAC), tool-call boundaries.
+
+    (5) Registry submission: a one-shot PR against
+        modelcontextprotocol/registry adding agent-smith to the
+        official server-list. Includes the link to deploy/mcp/server.json
+        and the trust-posture docs.
+
+    (6) GitHub Action validates server.json against the MCP server-
+        registry schema on every push, fail-loud on drift.
+
+  out: |
+    Multi-tenant signed-skill-pack support. Out — one signing key for
+    the canonical agent-smith-skills repo is sufficient for v1.
+    Real authentication / authorization (OAuth, API keys). Tracked
+    separately — registry listing does not require it but production
+    deploys behind an auth proxy will want it.
+    Automatic registry-listing PRs. The first submission is manual.
+
+decisions:
+  - key: |
+      Signature verification on the *skills tarball*, not on individual
+      skills — Reason: tarball is the deployment unit; per-skill
+      signatures multiply complexity for little gain. The skill loader
+      already loads the tarball atomically (per p0103). alternatives:
+      per-skill signatures (rejected: 60+ skills, signing overhead);
+      no verification (rejected: this is the quality bar — without it
+      Agent Smith ranks with the 87% of low-trust servers).
+
+  - key: |
+      Manifest in deploy/mcp/server.json, not embedded — Reason:
+      external file is editable by operators who fork. The /capabilities
+      endpoint reads it at runtime. alternatives: embedded constant
+      (rejected: operator fork hostile); generated from code attributes
+      (rejected: indirection for a static metadata file).
+
+  - key: |
+      Manual first registry submission — Reason: PR review on the
+      public registry is part of the trust handshake. Automating it
+      circumvents that. alternatives: automated PR via GitHub Action
+      (rejected: looks like spam to registry maintainers).
+
+steps:
+  - id: manifest
+    action: |
+      Write server.json. Generate companion JSON-schema validator
+      script.
+    new:
+      - "deploy/mcp/server.json"
+      - "scripts/validate-mcp-manifest.sh"
+
+  - id: capabilities-endpoint
+    action: |
+      McpCapabilitiesEndpoint maps GET /mcp/capabilities; returns
+      server.json content with cache headers.
+    new:
+      - "src/AgentSmith.McpServer/Transport/McpCapabilitiesEndpoint.cs"
+
+  - id: signature-verifier
+    action: |
+      SkillTarballVerifier reads the bundled public-key + the tarball
+      SHA-256 manifest from the agent-smith-skills package, asserts
+      match. Hosted-service runs at boot before SkillLoader.
+    new:
+      - "src/AgentSmith.Application/Services/Skills/SkillTarballVerifier.cs"
+      - "src/AgentSmith.Application/Services/Skills/SkillSignatureValidationHostedService.cs"
+      - "config/skills-signing.pub"
+    modify:
+      - "src/AgentSmith.Server/Program.cs"
+
+  - id: docs
+    action: |
+      Trust-posture docs page.
+    new:
+      - "docs/integrations/mcp.md"
+    modify:
+      - "mkdocs.yml"
+
+  - id: ci-validate
+    action: |
+      GitHub Action validates server.json on every push to main.
+    new:
+      - ".github/workflows/mcp-manifest-validate.yml"
+
+  - id: tests
+    action: |
+      Cover signature-verifier happy + mismatch + missing-key paths.
+    new:
+      - "tests/AgentSmith.Tests/Skills/SkillTarballVerifierTests.cs"
+
+tests:
+  - "SkillTarballVerifier_ValidSignature_Succeeds"
+  - "SkillTarballVerifier_TamperedTarball_ThrowsSignatureMismatch"
+  - "SkillTarballVerifier_MissingPublicKey_ThrowsConfigurationError"
+  - "McpCapabilities_ReturnsManifestMatchingDeployJson"
+  - "ServerJsonShape_ConformsToMcpRegistrySchema"
+
+done:
+  - "server.json shipped + GET /mcp/capabilities returns it."
+  - "SkillTarballVerifier blocks boot on signature mismatch."
+  - "docs/integrations/mcp.md published."
+  - "PR opened against modelcontextprotocol/registry to list agent-smith."
+  - "CI validation gate green."
+  - "Smoke: `curl /mcp/capabilities | jq .name` returns 'agent-smith'; tampering with the skills tarball SHA causes the next boot to fail loudly."

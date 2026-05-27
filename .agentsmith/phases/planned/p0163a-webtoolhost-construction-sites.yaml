@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0163a
+goal: |
+  Wire WebToolHost into the three construction sites that p0154 left explicitly
+  deferred. p0154 built the `web_fetch` tool (HtmlAgilityPack + ReverseMarkdown
+  conversion, max_length + start_index pagination, raw bypass), but the host
+  has zero callers today because every ToolHost factory still constructs without
+  the optional WebToolHost parameter.
+
+  Until this slice lands, no skill can actually invoke `web_fetch` — the three
+  intended consumers (supply-chain-auditor, compliance-checker, false-positive-
+  filter) sit idle waiting for the tool.
+
+requires: ["p0154"]
+
+scope:
+  in: |
+    (1) Three factories accept optional `WebToolHost` and pass it into
+        AgenticToolSurface:
+        - BootstrapToolHostFactory.Create (currently no WebToolHost)
+        - ReadWriteWithHumanToolHostFactory.Create
+        - ScoutToolHostFactory.Create
+
+    (2) WebToolHost DI registration in AgentSmith.Application's AddAgentSmithCore.
+        Uses IHttpClient registered via AddHttpClient<WebToolHost> with the
+        existing 30s timeout convention.
+
+    (3) `PipelinePreset.AllowedExternalHosts` allowlist threaded into WebToolHost
+        construction — host check happens inside the tool, not at registration.
+        Per-pipeline host scoping (api-scan defaults nuclei-templates.io + CVE
+        databases; fix-bug defaults to nothing; security-scan defaults to
+        OSV + NVD + CWE).
+
+    (4) AllHostsActivePolicy already includes WebToolHost (per p0154 spec) —
+        verify, fix if missing.
+
+  out: |
+    Skill adoption — agent-smith-skills repo changes are slice [[p0163b]].
+    Per-skill tool allowlist beyond pipeline-level — current model is per-
+    pipeline; per-skill is future.
+    Authenticated fetches (cookies, tokens) — read-only public URLs only.
+
+decisions:
+  - key: |
+      Host allowlist enforced in-tool, not at DI registration — Reason: same
+      WebToolHost singleton serves multiple pipelines; the allowlist varies
+      per pipeline. Construction-time allowlist would force one host per
+      pipeline. alternatives: per-pipeline WebToolHost instances (rejected:
+      multiplies IHttpClient pools); global allowlist (rejected: api-scan
+      and fix-bug have different needs).
+
+  - key: |
+      Default allowlists conservative — Reason: an LLM with web_fetch +
+      no allowlist is a public-internet liability. Each preset's allowlist
+      ships in PipelinePresets.{Name}.cs and is operator-overrideable in
+      agentsmith.yml. alternatives: open-by-default (rejected: blast
+      radius too large for a security-positioned tool); operator-only
+      (rejected: out-of-the-box experience needs working defaults).
+
+steps:
+  - id: di-registration
+    action: |
+      Register WebToolHost in AddAgentSmithCore with IHttpClient<WebToolHost>
+      (BaseAddress none, Timeout 30s). Verify AllHostsActivePolicy includes it.
+    modify:
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+      - "src/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs"
+
+  - id: factories
+    action: |
+      Three factories accept WebToolHost in their Create methods + thread
+      it through to AgenticToolSurface.
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/BootstrapToolHostFactory.cs"
+      - "src/AgentSmith.Application/Services/Tools/ReadWriteWithHumanToolHostFactory.cs"
+      - "src/AgentSmith.Application/Services/Tools/ScoutToolHostFactory.cs"
+
+  - id: allowlist
+    action: |
+      Add AllowedExternalHosts: IReadOnlyList<string> to PipelinePreset record.
+      Default = empty (deny). Populate for the three relevant presets:
+        - api-security-scan: ["nuclei-templates.io", "nvd.nist.gov", "cve.mitre.org"]
+        - security-scan: ["osv.dev", "nvd.nist.gov", "cwe.mitre.org"]
+        - fix-bug: empty (deny by default)
+      WebToolHost.FetchAsync rejects with typed error when host not in list.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePreset.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs"
+      - "src/AgentSmith.Application/Services/Tools/WebToolHost.cs"
+
+  - id: tests
+    action: |
+      Unit tests cover: allowlist accept, allowlist reject (typed error),
+      pagination, max_length truncation, raw bypass, non-HTML body.
+    new:
+      - "tests/AgentSmith.Tests/Tools/WebToolHostAllowlistTests.cs"
+
+tests:
+  - "WebToolHost_HostInAllowlist_FetchesAndReturnsMarkdown"
+  - "WebToolHost_HostNotInAllowlist_ReturnsTypedAccessDeniedError"
+  - "WebToolHost_EmptyAllowlist_RejectsAllRequests"
+  - "BootstrapToolHostFactory_WhenWebToolHostInjected_ToolSurfaceExposesWebFetch"
+  - "ReadWriteWithHumanToolHostFactory_WhenWebToolHostInjected_ToolSurfaceExposesWebFetch"
+
+done:
+  - "WebToolHost registered in DI and resolvable via IAgenticToolSurface."
+  - "Three factories accept and thread WebToolHost through."
+  - "AllowedExternalHosts allowlist enforced at tool boundary."
+  - "Full main test suite green."
+  - "Build smoke: agent-smith run --headless 'security-scan --repo .' executes without WebToolHost-null errors."

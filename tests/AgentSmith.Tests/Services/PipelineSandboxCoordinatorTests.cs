@@ -68,9 +68,10 @@ public sealed class PipelineSandboxCoordinatorTests
     [Fact]
     public async Task EnsureSandboxesAsync_FirstCall_BootsSandbox_PublishesToContext()
     {
-        var sandbox = new Mock<ISandbox>().Object;
+        var sandbox = new Mock<ISandbox>();
+        sandbox.SetupGet(s => s.JobId).Returns("test-job");
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sandbox);
+            .ReturnsAsync(sandbox.Object);
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
@@ -78,9 +79,12 @@ public sealed class PipelineSandboxCoordinatorTests
         var sut = NewSut();
         var result = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        result.Values.Should().ContainSingle().Which.Should().BeSameAs(sandbox);
+        // p0169e: the coordinator wraps each sandbox with SandboxEventProjector
+        // so RunStepAsync emits L3 events; identity check is on JobId, not the
+        // raw mock instance.
+        result.Values.Should().ContainSingle().Which.JobId.Should().Be("test-job");
         context.TryGet<ISandbox>(ContextKeys.Sandbox, out var stored).Should().BeTrue();
-        stored.Should().BeSameAs(sandbox);
+        stored!.JobId.Should().Be("test-job");
     }
 
     [Fact]
@@ -151,5 +155,7 @@ public sealed class PipelineSandboxCoordinatorTests
         _factoryMock.Object,
         _specBuilder,
         _resolverMock.Object,
+        AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+        AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
         NullLogger<PipelineSandboxCoordinator>.Instance);
 }

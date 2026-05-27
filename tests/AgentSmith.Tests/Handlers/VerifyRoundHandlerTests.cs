@@ -237,6 +237,8 @@ public sealed class VerifyRoundHandlerTests
             new AgentSmith.Application.Services.Loop.RetryCoordinator(),
             validatorFactory,
             new AgentSmith.Application.Services.Loop.RuntimeObservationFactory(),
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
     }
 

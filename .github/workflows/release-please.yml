@@ -56,7 +56,7 @@ jobs:
 
       - name: Publish
         run: >-
-          dotnet publish src/AgentSmith.Cli -c Release
+          dotnet publish src/backend/AgentSmith.Cli -c Release
           -r ${{ matrix.rid }} --self-contained
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true

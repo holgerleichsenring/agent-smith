@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
+    <ProjectReference Include="..\AgentSmith.Domain\AgentSmith.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <!-- p0128a: JSON Schema validation (Draft 2020-12) for skill outputs.
+         Pinned EXACT for the same reason the M.E.AI lockstep is pinned. -->
+    <PackageReference Include="JsonSchema.Net" Version="[7.0.4]" />
+    <!-- p0135: SandboxLanguageResolver parses remote .agentsmith/context.yaml
+         to recover stack.lang before sandbox creation. -->
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <!-- p0155: shell-tokenize ProjectMap.Ci.TestCommand without hand-rolling.
+         Same beta pin as the CLI project to keep the transitive surface aligned. -->
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <!-- p0154: WebToolHost converts fetched HTML to markdown. HtmlAgilityPack
+         is a battle-tested HTML parser; ReverseMarkdown is the standard HTML→md
+         converter on top of it. Both BSD/MIT — same license posture as the rest
+         of the dependency graph. -->
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
+    <PackageReference Include="ReverseMarkdown" Version="4.6.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentSmith.Tests" />
+    <InternalsVisibleTo Include="AgentSmith.Cli" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts/Resources/**/*.md" />
+    <!-- p0128a: schemas live under .agentsmith/schemas/ as the source-of-truth visible
+         to skill authors and operators; embedded into the binary via Link so the runtime
+         loader (JsonSchemaLoader) can resolve them without filesystem dependence. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\plan.schema.json" Link="Services\Validation\Schemas\plan.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\diff.schema.json" Link="Services\Validation\Schemas\diff.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\bootstrap.schema.json" Link="Services\Validation\Schemas\bootstrap.schema.json" />
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
+    <!-- p0161d: discovery output schema for the BootstrapDiscover read-only round. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\discovery.schema.json" Link="Services\Validation\Schemas\discovery.schema.json" />
+  </ItemGroup>
+
+</Project>
