@@ -112,6 +112,12 @@ export class JobsHubClient {
     }
   }
 
+  /** p0169h: fetches the full retained event window for the trail tab. */
+  async getTrail(runId: string): Promise<RunEvent[]> {
+    await this.ensureStarted();
+    return this.connection!.invoke<RunEvent[]>("GetTrail", runId);
+  }
+
   async stop(): Promise<void> {
     this.groups.reset();
     if (this.connection) {

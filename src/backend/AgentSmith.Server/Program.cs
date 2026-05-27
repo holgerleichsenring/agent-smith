@@ -86,6 +86,7 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<JobsBroadcaster>();
     builder.Services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
     builder.Services.AddSingleton<IRunEventFanout, JobsHubFanout>();
+    builder.Services.AddSingleton<TrailReader>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>

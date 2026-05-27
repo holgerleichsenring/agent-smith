@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Services.Events;
 using Microsoft.AspNetCore.SignalR;
@@ -15,7 +16,8 @@ namespace AgentSmith.Server.Hubs;
 public sealed class JobsHub(
     JobsBroadcaster broadcaster,
     SandboxExpansionRegistry expansionRegistry,
-    IConnectionMultiplexer redis) : Hub
+    IConnectionMultiplexer redis,
+    TrailReader trailReader) : Hub
 {
     public async Task SubscribeOverview()
     {
@@ -57,4 +59,21 @@ public sealed class JobsHub(
         expansionRegistry.Collapse(runId, repo);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, HubGroups.Sandbox(runId, repo));
     }
+
+    /// <summary>
+    /// p0169h: returns the FULL retained event window for a run. Bounded by
+    /// MAXLEN=10000 in the publisher — clients see the oldest retained event
+    /// as the start of their visible history (same contract as SubscribeRun).
+    /// </summary>
+    public Task<IReadOnlyList<RunEvent>> GetTrail(string runId) =>
+        trailReader.ReadAllAsync(runId);
+
+    /// <summary>
+    /// p0169h: paginated trail retrieval. <paramref name="fromId"/> is the
+    /// stream entry id returned in the previous page's NextCursor; pass
+    /// <c>"-"</c> (or null) for the first page. <paramref name="count"/>
+    /// clamps to [1, 2000].
+    /// </summary>
+    public Task<TrailPage> GetTrailPage(string runId, string? fromId, int? count) =>
+        trailReader.ReadPageAsync(runId, fromId, count);
 }

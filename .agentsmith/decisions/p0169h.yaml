@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169h
+
+decisions:
+  - category: Architecture
+    chose: "TrailReader (Server.Services.Events) holds the XRANGE logic, JobsHub delegates"
+    over: "Inline the trail logic in JobsHub methods directly"
+    reason: |
+      Hubs are awkward to unit-test (Context, Groups, Clients require a
+      bound connection). Extracting the XRANGE + deserialisation into a
+      DI-resolved TrailReader lets us mock IConnectionMultiplexer + IDatabase
+      the same way RedisEventPublisherTests does. JobsHub.GetTrail /
+      GetTrailPage become two-line delegations; the contract surface
+      stays in the hub. alternatives: full WebApplicationFactory +
+      SignalR.Client integration test (rejected: heavyweight); inline
+      logic in the hub (rejected: untestable without SignalR bindings).
+
+  - category: Architecture
+    chose: "Tree projection client-side in TrailAssembler — pure function over RunEvent[]"
+    over: "Server-side TrailTree response shape"
+    reason: |
+      Honors p0169h's design intent: the server speaks events, the client
+      projects. Pure-function projection is easy to test (7 fixture cases
+      cover happy path, parallel rounds, gates, decisions, truncation,
+      mid-step LLM pairs, empty input). Re-assembling the tree on every
+      scrub-slider change is O(N) on the events array — fits comfortably
+      in a useMemo. alternatives: server-side assembler (rejected:
+      re-introduces the file-join pattern p0169e ripped out); incremental
+      projection on event arrival (rejected: trail tab is post-run focus).
+
+  - category: Implementation
+    chose: "GateChecked attaches as inline chips on the parent step, not as own tree row"
+    reason: |
+      A gate is a one-line yes/no marker on a step's outcome. Rendering
+      it as a sibling row inflates the tree with low-information nodes.
+      The chips render on TrailNodeRow's right side via StepGateChips.
+      Mirrors the spec exactly. alternatives: own tree row (rejected:
+      noisy); skip gates entirely (rejected: operator needs to see why
+      a pipeline aborted at the gate).
+
+  - category: Implementation
+    chose: "LLM pairs use most-recent-step lookup at finished-event timestamp"
+    over: "Strict parent-tracking via per-step bookkeeping"
+    reason: |
+      Events don't carry a parent-step id. The most-recent-step lookup
+      walks the stepByIndex Map and picks the step whose startedAtMs is
+      <= the LLM finish time. Concurrent skill-rounds inside the same
+      step batch all attach to the same step node — that's the right
+      visual for a batch (one expansion shows all the LLM calls from
+      that batch). alternatives: per-LLM stepIndex on the event
+      (rejected: re-opens the p0169e contract for projection-only work).
+
+  - category: TradeOff
+    chose: "Trail timeline scrub physically filters out future-time nodes, not just dims them"
+    reason: |
+      The spec wanted "dim later nodes". The pure-function shape of
+      TrailAssembler makes a filtered-clone trivial — pass scrubMs into
+      cloneFiltered, exclude children that started later. Dimming via
+      opacity would need react-arborist row-styling hooks; filtering is
+      one line. Operator perceives the same "what existed at time T"
+      mental model. alternatives: opacity-based dim (deferred — can
+      switch when the visual style is desired without changing the
+      data layer).
+
+  - category: Implementation
+    chose: "Single GetTrail fetch, no incremental paging in the hook today"
+    over: "Page through GetTrailPage 500 at a time"
+    reason: |
+      Server-side cap is MAXLEN=10000 — fits in one fetch. GetTrailPage
+      exists as a contract for future operators who want incremental
+      load (e.g. dashboard runs on a slow connection); useTrail just
+      calls GetTrail today. NOT a silent defer — GetTrailPage is a
+      named server method with its own dedicated tests.
+      alternatives: paginated-by-default (rejected: extra complexity
+      for a fits-in-one-fetch payload).
+
+  - category: Implementation
+    chose: "react-arborist for the tree, openByDefault=true, single-select"
+    reason: |
+      react-arborist handles virtual scrolling + keyboard a11y +
+      indentation. openByDefault matches operator intent (show the
+      whole trail on first render). Single-select drives the right-pane
+      detail. alternatives: build a tree from scratch (rejected:
+      virtual scroll + keyboard nav are non-trivial); other tree libs
+      (react-tree-view etc.) (rejected: react-arborist is the most
+      mature in this niche and the spec named it explicitly).
+
+  - category: Scope
+    chose: "Tab switching via ?tab=trail URL search param, not a separate route"
+    reason: |
+      Two routes (/jobs/[id] and /jobs/[id]/trail) would duplicate the
+      page shell + force a SignalR reconnect on tab switch. A query
+      param keeps both views inside one mounted component, sharing
+      the hub connection. Default tab is "topology"; ?tab=trail flips.
+      alternatives: separate route (rejected: connection churn);
+      tab-state in component state without URL (rejected: refresh
+      loses the tab).
+
+  - category: Scope
+    chose: "No TimelineSlider unit test — it owns a setInterval-like rAF loop"
+    over: "Spec listed TrailTimelineSlider.test.tsx"
+    reason: |
+      Testing the play-button rAF loop reliably under vitest needs
+      fake timers + requestAnimationFrame stubbing. The slider's
+      pure UI surface (range input + click handlers) doesn't carry
+      enough logic to justify the test harness cost today. TrailTab
+      integration test would catch a broken slider faster. Flagged
+      as deferred follow-up if the slider grows logic.
+      NOT silent — named here.
+
+  - category: Scope
+    chose: "No TrailTree component test — covered via TrailAssembler + TrailNodeDetailPane"
+    over: "Spec listed TrailTree.test.tsx"
+    reason: |
+      TrailTree is a thin react-arborist wrapper; testing it tests
+      react-arborist's behavior. TrailAssembler tests cover the tree
+      structure; TrailNodeDetailPane tests cover the row-payload
+      contract. Adding a TrailTree.test.tsx would assert on
+      react-arborist DOM internals (brittle). NOT silent — flagged.
+      alternatives: full DOM test (rejected: tests the third-party
+      lib, not our code).
