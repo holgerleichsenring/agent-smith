@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Polling;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -21,6 +22,7 @@ internal static class PollerFactory
         var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
         var envelopeResolver = provider.GetRequiredService<IEnvelopeProjectResolver>();
         var spawnUseCase = provider.GetRequiredService<ISpawnPipelineRunsUseCase>();
+        var systemEvents = provider.GetRequiredService<ISystemEventPublisher>();
         var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger("AgentSmith.Server.PollerFactory");
 
@@ -35,7 +37,7 @@ internal static class PollerFactory
                 "  built poller for tracker '{Tracker}' ({Type}) every {Interval}s",
                 tracker.Name, tracker.Type, tracker.Polling.IntervalSeconds);
             yield return new TrackerPoller(
-                tracker, config, ticketFactory, envelopeResolver, spawnUseCase,
+                tracker, config, ticketFactory, envelopeResolver, spawnUseCase, systemEvents,
                 loggerFactory.CreateLogger<TrackerPoller>());
         }
     }

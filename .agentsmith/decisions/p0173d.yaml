@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173d
+
+decisions:
+  - category: Architecture
+    chose: "Five pure derivation functions (deriveSystemStatus / deriveActivityKpis / deriveChannelBreakdown / deriveTriggerLog / deriveCostRollup) on top of the existing useSystemEvents ring buffer"
+    over: "Backend pre-aggregation + new SignalR snapshot methods"
+    reason: |
+      The system stream is already replayed in full to every SubscribeSystem
+      subscriber via the broadcaster's ring buffer (capacity 500). Client-
+      side derivation is O(events) per render with useMemo, costs nothing at
+      this scale, and lets the operator change the time-window or grouping
+      without a server round-trip. Pre-aggregation on the server would
+      reinvent the same numbers + add a new contract surface.
+
+  - category: Implementation
+    chose: "Status thresholds at 1.5× / 3× intervalSeconds for ok / degraded / disconnected"
+    reason: |
+      1× interval is the expected cadence; allowing 1.5× covers normal
+      jitter (the existing poller adds ±10% jitter, so the natural max
+      is ~1.1×). Beyond 3× the operator should be paged — anything
+      between is "something's slow but not broken." These match the
+      CI/CD industry convention (Datadog default is 2× scrape interval
+      for "healthy", 3× for "critical"); reused here for operator-
+      familiarity.
+
+  - category: Architecture
+    chose: "CostRollupCard reads from RunEvents (LlmCallFinished.costUsd), not from SystemEvents"
+    reason: |
+      Cost is a per-run-step concept — it lives on the run channel by
+      construction (p0169e). Duplicating cost to the system stream would
+      bloat the system retention budget without giving the dashboard
+      anything new. The /system page passes an empty runEvents array
+      for now; a follow-up slice can wire a run-event subscription if
+      operators want cross-run aggregation on the system surface (today
+      they navigate to /jobs for per-run cost detail).
+
+  - category: Implementation
+    chose: "No Sparkline component in this slice — KPI tiles render as numeric values only"
+    over: "Inline SVG sparkline per KPI"
+    reason: |
+      Sparklines need 24h-of-data bucketed by hour with axes + legend +
+      tooltip behaviour. Building one with the right DESIGN.md token
+      vocabulary is a slice on its own. The numeric tiles answer the
+      core operator question ("how many tickets did the loop scan
+      today"); the sparkline is the "is the trend going up or down"
+      affordance — valuable but not load-bearing for this slice. Named
+      follow-up: dedicated Sparkline component sized for the dashboard
+      density.
+
+  - category: Implementation
+    chose: "Pill colours match p0169j-d's topology palette — emerald for ok, amber for degraded, rose for disconnected, stone for unknown"
+    reason: |
+      Operator visual vocabulary stays consistent across run + system
+      surfaces. Green = good across both. No new design tokens introduced.
+
+  - category: Scope
+    chose: "/system route is a sibling of /, not a section under /jobs/[id]"
+    reason: |
+      System events are not per-run; they're global. A nav-level peer
+      to Runs matches the data model — operators jump to /system to see
+      "what's the watch loop doing", to /jobs/{id} to see "what's a
+      specific run doing". The layout.tsx nav adds both as top-level
+      links.
+
+  - category: TradeOff
+    chose: "TriggerLog uses inline reason-and-detail rendering instead of click-to-expand"
+    reason: |
+      The TicketSkipped.detail string is already operator-actionable
+      ("status 'In Progress' not in trigger_statuses ['To Do','Open']").
+      Hiding it behind a click would defeat the slice's purpose ("why
+      didn't this ticket trigger" — at-a-glance visibility).
+      Click-through to /jobs/{runId} on triggered rows is the only
+      navigation affordance; everything else renders inline.
+
+  - category: Implementation
+    chose: "Card components composed of generic Tailwind classes; design polish deferred"
+    reason: |
+      The operator's stated priority is "get all info into the dashboard
+      first, then make it look good." This slice prioritises functional
+      data flow + correct derivations over visual polish. The
+      design-unification slice (referenced in earlier session
+      conversation, not yet specced) will apply DESIGN.md tokens
+      consistently across this surface — Sparklines included.

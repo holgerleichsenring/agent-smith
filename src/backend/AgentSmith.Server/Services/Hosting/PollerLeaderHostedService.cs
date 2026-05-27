@@ -39,6 +39,7 @@ public sealed class PollerLeaderHostedService(
             "Building pollers from {TrackerCount} trackers (polling-enabled subset)", config.Trackers.Count);
         var host = new PollerHostedService(
             PollerFactory.Build(services, config),
+            services.GetRequiredService<AgentSmith.Contracts.Events.ISystemEventPublisher>(),
             services.GetRequiredService<ILogger<PollerHostedService>>());
         logger.LogInformation("Handing control to PollerHostedService.RunAsync");
         await host.RunAsync(ct);

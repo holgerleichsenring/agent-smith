@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -17,6 +18,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class LoadContextHandler(
     ISandboxFileReaderFactory readerFactory,
+    ISystemEventPublisher systemEvents,
+    IRunContextAccessor runContext,
     ILogger<LoadContextHandler> logger)
     : ICommandHandler<LoadContextContext>
 {
@@ -31,7 +34,14 @@ public sealed class LoadContextHandler(
         {
             if (!discoveries.TryGetValue(key, out var discovery)) continue;
             var content = await TryReadOneAsync(sandbox, key, discovery, cancellationToken);
-            if (content is not null) loaded[key] = content;
+            if (content is not null)
+            {
+                loaded[key] = content;
+                await EmitConfigReadAsync(
+                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.ContextYamlFile}",
+                    sizeBytes: content.Length,
+                    cancellationToken);
+            }
         }
 
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.RepoContextYamls, loaded);
@@ -44,6 +54,27 @@ public sealed class LoadContextHandler(
         if (loaded.Count == 1)
             return CommandResult.Ok($"Loaded project context ({loaded.Values.First().Length} chars)");
         return CommandResult.Ok($"Loaded {loaded.Count} of {sandboxes.Count} context(s)");
+    }
+
+    // p0173c: emit a system event for each context.yaml successfully read,
+    // populating RunId from the active run scope so the dashboard can
+    // cross-reference "which configs did this run read".
+    private async Task EmitConfigReadAsync(string path, int sizeBytes, CancellationToken ct)
+    {
+        try
+        {
+            await systemEvents.PublishAsync(new ConfigFileReadEvent(
+                Source: "config-loader",
+                Path: path,
+                Kind: ConfigFileKind.ContextYaml,
+                SizeBytes: sizeBytes,
+                RunId: runContext.CurrentRunId,
+                Timestamp: DateTimeOffset.UtcNow), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish ConfigFileReadEvent for {Path}", path);
+        }
     }
 
     private async Task<string?> TryReadOneAsync(

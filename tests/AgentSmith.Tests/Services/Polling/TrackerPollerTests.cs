@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models;
@@ -298,6 +299,7 @@ public sealed class TrackerPollerTests
 
             return new TrackerPoller(
                 Tracker, config, factory.Object, envelopeResolver, Spawn.Object,
+                new NoOpSystemEventPublisher(),
                 NullLogger<TrackerPoller>.Instance);
         }
     }

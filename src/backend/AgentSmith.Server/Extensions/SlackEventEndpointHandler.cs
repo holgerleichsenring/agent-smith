@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using System.Text.Json.Nodes;
@@ -17,6 +18,8 @@ internal static class SlackEventEndpointHandler
         if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
         {
             logger.LogWarning("Slack signature verification failed");
+            await EmitChatAsync(ctx, channel: "?", messageType: "unknown",
+                actioned: false, skipReason: "signature-invalid");
             return Results.Unauthorized();
         }
 
@@ -33,10 +36,13 @@ internal static class SlackEventEndpointHandler
         if (outerType != "event_callback")
         {
             logger.LogWarning("Ignoring Slack event with type={Type}", outerType);
+            await EmitChatAsync(ctx, channel: "?", messageType: outerType ?? "unknown",
+                actioned: false, skipReason: "non-event-callback");
             return Results.Ok();
         }
 
         var (text, userId, channelId) = SlackPayloadExtractor.ExtractEventFields(json);
+        var innerType = json["event"]?["type"]?.GetValue<string>() ?? "event_callback";
         if (string.IsNullOrWhiteSpace(text))
         {
             var eventNode = json["event"];
@@ -44,10 +50,14 @@ internal static class SlackEventEndpointHandler
                 eventNode?["type"]?.GetValue<string>(),
                 eventNode?["bot_id"]?.GetValue<string>(),
                 eventNode?["subtype"]?.GetValue<string>());
+            await EmitChatAsync(ctx, channel: channelId ?? "?", messageType: innerType,
+                actioned: false, skipReason: "empty-text");
             return Results.Ok();
         }
 
         logger.LogInformation("Dispatching Slack message: text={Text}, user={UserId}, channel={ChannelId}", text, userId, channelId);
+        await EmitChatAsync(ctx, channel: channelId ?? "?", messageType: innerType,
+            actioned: true, skipReason: null);
 
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         _ = Task.Run(async () =>
@@ -66,5 +76,28 @@ internal static class SlackEventEndpointHandler
         });
 
         return Results.Ok();
+    }
+
+    // p0173c: emit chat-channel ingestion as a SystemEvent. Metadata only —
+    // no message text in the payload (security boundary, see decisions).
+    private static async Task EmitChatAsync(
+        HttpContext ctx, string channel, string messageType, bool actioned, string? skipReason)
+    {
+        var publisher = ctx.RequestServices.GetService<ISystemEventPublisher>();
+        if (publisher is null) return;
+        try
+        {
+            await publisher.PublishAsync(new ChatMessageReceivedEvent(
+                Source: "chat:slack",
+                Channel: channel,
+                MessageType: messageType,
+                Actioned: actioned,
+                SkipReason: skipReason,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch
+        {
+            /* fire-and-warn — never break the HTTP response on a publish failure */
+        }
     }
 }

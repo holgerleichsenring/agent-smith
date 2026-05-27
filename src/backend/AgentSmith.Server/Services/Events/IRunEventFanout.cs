@@ -12,4 +12,12 @@ public interface IRunEventFanout
     Task ToOverviewAsync(RunSnapshot snapshot, CancellationToken cancellationToken);
     Task ToRunAsync(string runId, RunEvent runEvent, CancellationToken cancellationToken);
     Task ToSandboxAsync(string runId, string repo, RunEvent runEvent, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0173a: fans a SystemEvent to the HubGroups.System group. Stays on
+    /// the run-event fanout interface (instead of a separate ISystemEventFanout)
+    /// because the implementation shares the same IHubContext + lifecycle —
+    /// splitting would duplicate registration without isolation benefit.
+    /// </summary>
+    Task ToSystemAsync(SystemEvent systemEvent, CancellationToken cancellationToken);
 }
