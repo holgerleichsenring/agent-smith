@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.65.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.65.0...v0.65.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* **dashboard,server:** /system rollup + L3 details + 4 bug-fix bundle (p0175) ([00dae7b](https://github.com/holgerleichsenring/agent-smith/commit/00dae7bc7385091d49c5f8235a5af4fa5f0021d8))
+* **dashboard,server:** /system rollup + L3 details + bug-fix bundle (p0175) ([662c0f7](https://github.com/holgerleichsenring/agent-smith/commit/662c0f7c2db1c43e6eac6db4b268ee7e939bb8fe))
+
 ## [0.65.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.64.0...v0.65.0) (2026-05-27)
 
 
