@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169j-a
+
+decisions:
+  - category: Architecture
+    chose: "Bump EventStreamKeys.StreamTtl 2h → 24h; drop the events.jsonl-on-disk format entirely"
+    over: "Implement FrozenTrailWriter writing events.jsonl to .agentsmith/runs/{runId}/"
+    reason: |
+      The original spec's events.jsonl lives in the sandbox /
+      target-repo filesystem which the Server-in-Docker cannot read
+      (same blocking premise as p0169j-c — see PARKED.md items 1-2).
+      Stream-TTL extension is the simplest mechanism: one constant
+      change, every existing code path (publisher, broadcaster,
+      TrailReader, hub) extends automatically. The fallback-
+      composition logic the original spec needed (Redis first →
+      frozen second) collapses to "Redis only — longer."
+      Closes PARKED.md item 2.
+
+  - category: Implementation
+    chose: "24h TTL, paired with IRunArtifactStore.ResultSlot's 24h TTL"
+    reason: |
+      The two durations represent the same operator concept — "how
+      long can I look back at this run on the dashboard." If one
+      ever needs to change (operator pressure, scale change), both
+      should change together. Documented in the EventStreamKeys XML
+      doc as a pointer.
+
+  - category: TradeOff
+    chose: "No new tests for the TTL constant itself"
+    over: "Unit test asserting StreamTtl equals 24h"
+    reason: |
+      The constant IS the behaviour — a test would copy the literal.
+      The actually-testable surface (KeyExpireAsync is called on
+      every StreamAdd) is already covered by existing
+      RedisEventPublisher tests. New dashboard tests cover the new
+      empty-state UX where the value matters operationally.
+
+  - category: Implementation
+    chose: "Empty-state mirrors ResultTab's pattern — same affordance, same fallback"
+    reason: |
+      ResultTab + TrailTab now both show "View in PR" when the live
+      cache is cold. Same data flow (snapshot.prUrl), same operator
+      gesture (one click to GitHub/GitLab), same mental model
+      ("missing here = look in the PR"). Mid-run runs still see
+      "Loading trail…" because the stream IS active during a run,
+      so the empty branch only triggers post-finish.
+
+  - category: Scope
+    chose: "ActivityTab empty-state inherits the existing 'No matching activity yet' copy"
+    over: "Mirror the TrailExpiredEmptyState here too"
+    reason: |
+      Activity tab's empty branch covers "no events for the active
+      pill filter" as well as "no events at all." Mirroring the
+      expired-empty here would require disambiguating which case
+      we're in (events.length === 0 vs filter-hides-everything).
+      The dedicated message in TrailTab is the operator surface;
+      Activity tab's generic copy is acceptable. If operator UX
+      review shows confusion, a follow-up slice can wire the same
+      empty-state into ActivityTab.
