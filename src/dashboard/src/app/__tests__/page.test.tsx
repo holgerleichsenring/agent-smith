@@ -1,5 +1,15 @@
 import { render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 import JobsPage from "../page";
+
+vi.mock("@/hooks/useJobsHub", () => ({
+  useJobsHub: () => ({
+    client: {},
+    // 1 = HubConnectionState.Connected per @microsoft/signalr enum
+    connectionState: 1,
+    overview: { active: [], recent: [] },
+  }),
+}));
 
 describe("JobsPage (root /)", () => {
   it("renders the agent-smith heading", () => {
@@ -7,8 +17,8 @@ describe("JobsPage (root /)", () => {
     expect(screen.getByRole("heading", { name: /agent-smith/i })).toBeInTheDocument();
   });
 
-  it("renders the p0169e placeholder explaining backbone-only scope", () => {
+  it("mounts the overview grid (empty state when no runs)", () => {
     render(<JobsPage />);
-    expect(screen.getByText(/p0169e backbone ships, UI lands in p0169f/)).toBeInTheDocument();
+    expect(screen.getByTestId("overview-empty")).toBeInTheDocument();
   });
 });
