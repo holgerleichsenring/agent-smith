@@ -7,33 +7,25 @@ namespace AgentSmith.Application.Services.Tools;
 /// path-outside-repo (escapes the working repo root, including via .. or symlinks),
 /// path-gitignored (.gitignore match), and path-in-dot-git (inside the .git/ tree).
 /// Returns a structured <see cref="Result"/>; the runtime turns the error into a
-/// tool-result string that flows back into the LLM loop.
+/// tool-result string that flows back into the LLM loop. Stateless — the repo
+/// root is passed per call.
 /// </summary>
-public sealed class PathReadGuard : IPathReadGuard
+public sealed class PathReadGuard(IGitIgnoreResolver gitIgnore) : IPathReadGuard
 {
     private const string DotGitSegment = ".git";
 
-    private readonly IGitIgnoreResolver _gitIgnore;
-    private readonly Func<string> _repoRootProvider;
-
-    public PathReadGuard(IGitIgnoreResolver gitIgnore, Func<string> repoRootProvider)
+    public Result AssertReadable(string path, string repoRoot)
     {
-        _gitIgnore = gitIgnore;
-        _repoRootProvider = repoRootProvider;
-    }
+        var root = NormalizeRoot(repoRoot);
+        var resolved = ResolveAgainstRoot(path, root);
 
-    public Result AssertReadable(string path)
-    {
-        var repoRoot = NormalizeRoot(_repoRootProvider());
-        var resolved = ResolveAgainstRoot(path, repoRoot);
-
-        if (!IsInsideRoot(resolved, repoRoot))
+        if (!IsInsideRoot(resolved, root))
             return Fail(GuardErrorKind.OutsideRepo, path, $"path '{path}' is outside the repository root");
 
-        if (IsInDotGit(resolved, repoRoot))
+        if (IsInDotGit(resolved, root))
             return Fail(GuardErrorKind.InDotGit, path, $"path '{path}' is inside the .git directory");
 
-        if (_gitIgnore.IsIgnored(resolved, repoRoot))
+        if (gitIgnore.IsIgnored(resolved, root))
             return Fail(GuardErrorKind.GitIgnored, path, $"path '{path}' is .gitignored");
 
         return Result.Ok();

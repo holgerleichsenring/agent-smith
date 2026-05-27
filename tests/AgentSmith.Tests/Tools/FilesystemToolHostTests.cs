@@ -110,7 +110,7 @@ public sealed class FilesystemToolHostTests
     public async Task ReadFile_PathGuardRejects_ReturnsStructuredError()
     {
         var readGuard = new Mock<IPathReadGuard>();
-        readGuard.Setup(g => g.AssertReadable(It.IsAny<string>()))
+        readGuard.Setup(g => g.AssertReadable(It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Result.Fail(new GuardError
             {
                 Kind = GuardErrorKind.OutsideRepo,
@@ -128,7 +128,8 @@ public sealed class FilesystemToolHostTests
     public async Task WriteFile_PathGuardRejects_ReturnsStructuredError()
     {
         var writeGuard = new Mock<IPathWriteGuard>();
-        writeGuard.Setup(g => g.AssertWritable(It.IsAny<string>()))
+        writeGuard.Setup(g => g.AssertWritable(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<SkillExecutionPhase>(), It.IsAny<string?>()))
             .Returns(Result.Fail(new GuardError
             {
                 Kind = GuardErrorKind.WriteForbiddenInPhase,

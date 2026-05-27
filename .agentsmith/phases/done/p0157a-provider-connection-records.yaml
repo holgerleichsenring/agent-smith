@@ -1,0 +1,192 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0157a
+goal: |
+  Collapse the per-provider primitive-string ctors into one settings record per
+  provider family. Today the GitHub/GitLab/Azure-DevOps/Jira provider trees each
+  spread the same 2-6 credential strings (baseUrl, projectPath, token, …) across
+  3-5 sibling classes (TicketProvider, SourceProvider, TicketStatusTransitioner,
+  AttachmentLoader, IssueLister, PrDiffProvider, ConnectionCache). Every factory
+  call site has to pass the same strings positionally; adding a new field (OAuth
+  rotation, regional URL, …) means touching every sibling.
+
+  This phase introduces one `*Connection` record per platform per concern and
+  replaces the positional string-list ctor arguments. The records themselves are
+  Pattern-V values (records, no behaviour); the factory keeps building per-tenant
+  instances. No DI registration changes, no factory shape changes — only the
+  ctor arity collapses.
+
+  Successor to p0157 (the original draft was written pre-p0152 against a stale
+  inventory and conflated four patterns into one phase).
+
+requires: []
+
+scope:
+  in: |
+    Two new connection record families in AgentSmith.Contracts/Providers/:
+      - SourceProviderConnection (platform-tagged: GitHub / GitLab / Azure / Local)
+      - TicketProviderConnection (platform-tagged: GitHub / GitLab / Azure / Jira)
+    plus the small helper records needed for PR-diff and attachment-loader sub-
+    classes that share the same credential set (or reuse the same record).
+
+    Affected classes (verified against the current tree on 2026-05-26):
+
+      GitHub:
+        - GitHubSourceProvider          (repoUrl, token, defaultBranch?)
+        - GitHubPrDiffProvider          (owner, repoName)
+        - GitHubTicketProvider          (repoUrl, token)
+        - GitHubTicketStatusTransitioner (repoUrl, token)
+        - GitHubIssueLister             (owner, repo)
+
+      GitLab:
+        - GitLabSourceProvider          (baseUrl, projectPath, cloneUrl, privateToken, defaultBranch?)
+        - GitLabPrDiffProvider          (projectId)
+        - GitLabTicketProvider          (baseUrl, projectPath, privateToken)
+        - GitLabTicketStatusTransitioner (baseUrl, projectPath, privateToken)
+        - GitLabAttachmentLoader        (baseUrl, projectPath, privateToken)
+        - GitLabIssueLister             (baseUrl, projectPath)
+
+      AzureDevOps:
+        - AzureReposSourceProvider      (organizationUrl, project, repoName, pat)
+        - AzureDevOpsPrDiffProvider     (organization, project, repositoryId, apiVersion)
+        - AzureDevOpsTicketProvider     (organizationUrl, project, pat, doneStatus?)
+        - AzureDevOpsTicketStatusTransitioner (orgUrl, project, pat)
+        - AzureDevOpsAttachmentLoader   (organizationUrl, project, pat)
+        - AzureDevOpsConnectionCache    (organizationUrl, pat)
+        - AzureDevOpsWorkItemLister     (project)  — kept positional (single arg)
+
+      Jira:
+        - JiraTicketProvider            (baseUrl, email, apiToken, doneStatus?, closeTransitionName?, projectKey?)
+        - JiraTicketStatusTransitioner  (baseUrl, email, apiToken, projectKey)
+        - JiraIssueSearcher             (baseUrl, projectKey?)
+        - JiraTransitioner              (baseUrl)
+
+    Factories that construct these (SourceProviderFactory, TicketProviderFactory,
+    TicketStatusTransitionerFactory) update their call sites to pass the new
+    record. Tests that constructed providers positionally migrate to record
+    instantiation.
+
+  out: |
+    (1) No DI lifetime changes. Factories stay; per-tenant instances still
+        constructed at request scope.
+    (2) No credential-storage changes. `SecretsProvider` still feeds the
+        factory the same strings — only the in-memory shape between factory
+        and provider class collapses.
+    (3) No new platforms. The four existing platforms only.
+    (4) Pattern O (IOptions migration for static config) and Pattern S/V
+        (stateless gate + value records) are separate successor phases
+        ([[p0157b]], [[p0157c]]).
+
+decisions:
+  - key: |
+      One Connection record per platform per concern, not one mega-record —
+      Reason: source-credentials and ticket-credentials overlap on the host/
+      token fields but diverge on repo-vs-project identity. Keeping them
+      separate (SourceProviderConnection, TicketProviderConnection) preserves
+      the SRP boundary and avoids dragging unused fields into source-only
+      call sites.
+  - key: |
+      Records live in AgentSmith.Contracts/Providers/ — Reason: per
+      coding-principles.md, cross-layer contracts go in Contracts. The records
+      have zero behaviour (Pattern V), so they belong in the data layer
+      alongside ProviderConnection-adjacent types like ProviderInfo.
+  - key: |
+      No interim adapter / two-ctor compatibility shim —
+      Reason: per [[feedback_no_wrapper_shims]], migrate factories + tests
+      in the same commit. Both sides change atomically; no positional ctor
+      survives.
+  - key: |
+      Single-string types stay positional — Reason: collapsing
+      `JiraTransitioner(string baseUrl)` or `AzureDevOpsWorkItemLister(string
+      project)` to a one-field record is ceremony with no payoff. Pattern F
+      kicks in at >= 2 primitive strings.
+
+steps:
+  - id: contracts
+    action: |
+      Add the new records under AgentSmith.Contracts/Providers/. Each record
+      is a `sealed record` with init-only properties, no methods.
+    new:
+      - "src/AgentSmith.Contracts/Providers/GitHubSourceConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/GitLabSourceConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/AzureReposSourceConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/GitHubTicketConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/GitLabTicketConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/AzureDevOpsTicketConnection.cs"
+      - "src/AgentSmith.Contracts/Providers/JiraTicketConnection.cs"
+
+  - id: github
+    action: |
+      Migrate the five GitHub-family classes onto GitHubSourceConnection
+      (provider + PrDiff + IssueLister) and GitHubTicketConnection (ticket
+      provider + status transitioner). Update SourceProviderFactory and
+      TicketProviderFactory call sites. Update tests.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrDiffProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubIssueLister.cs"
+
+  - id: gitlab
+    action: |
+      Migrate the six GitLab-family classes (source provider, pr-diff provider,
+      ticket provider, status transitioner, attachment loader, issue lister)
+      onto GitLabSourceConnection / GitLabTicketConnection.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrDiffProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketStatusTransitioner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabAttachmentLoader.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabIssueLister.cs"
+
+  - id: azuredevops
+    action: |
+      Migrate the six Azure-DevOps-family classes onto AzureReposSourceConnection
+      and AzureDevOpsTicketConnection. AzureDevOpsWorkItemLister stays positional
+      (single string arg).
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsAttachmentLoader.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsConnectionCache.cs"
+
+  - id: jira
+    action: |
+      Migrate the Jira-family classes (ticket provider + status transitioner +
+      issue searcher) onto JiraTicketConnection. JiraTransitioner stays
+      positional (single string).
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs"
+
+  - id: factories
+    action: |
+      Update SourceProviderFactory, TicketProviderFactory, and
+      TicketStatusTransitionerFactory so each per-platform branch builds the
+      connection record once and passes it down to all sub-collaborators.
+      This is where the call-site collapse becomes visible.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Factories/SourceProviderFactory.cs"
+      - "src/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs"
+      - "src/AgentSmith.Infrastructure/Services/Factories/TicketProviderStatusTransitionerFactory.cs"
+
+  - id: tests
+    action: |
+      Migrate every test that constructs one of the above classes onto record
+      instantiation. No mock setup changes — only ctor argument shape changes.
+
+tests:
+  - "Existing test suite green (count unchanged, all green pre + post)."
+  - "ProviderConnectionRecord_Field_Reachable_From_All_Sub_Collaborators (one per platform)."
+
+done:
+  - "All 22 listed classes accept a Connection record in place of positional strings."
+  - "All three factories build the record once per call and pass it down."
+  - "No `string` credential parameter survives on the modified ctors."
+  - "Full main test suite green."
+  - "Smoke (api-scan / security-scan / fix-bug) green on the resulting
+    binary — per [[feedback_finish_what_you_start]]."

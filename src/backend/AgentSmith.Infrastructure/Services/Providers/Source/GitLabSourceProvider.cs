@@ -28,19 +28,15 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     public string ProviderType => "GitLab";
 
     public GitLabSourceProvider(
-        string baseUrl,
-        string projectPath,
-        string cloneUrl,
-        string privateToken,
+        GitLabSourceConnection connection,
         HttpClient httpClient,
-        ILogger<GitLabSourceProvider> logger,
-        string? defaultBranch = null)
+        ILogger<GitLabSourceProvider> logger)
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _projectPath = projectPath;
-        _cloneUrl = cloneUrl;
-        _privateToken = privateToken;
-        _configuredDefaultBranch = defaultBranch;
+        _baseUrl = connection.BaseUrl.TrimEnd('/');
+        _projectPath = connection.ProjectPath;
+        _cloneUrl = connection.CloneUrl;
+        _privateToken = connection.PrivateToken;
+        _configuredDefaultBranch = connection.DefaultBranch;
         _httpClient = httpClient;
         _logger = logger;
     }
