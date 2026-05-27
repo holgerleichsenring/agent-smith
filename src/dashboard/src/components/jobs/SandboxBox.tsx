@@ -1,7 +1,9 @@
 "use client";
 
 import { useSandboxEvents } from "@/hooks/useSandboxEvents";
-import type { SandboxCommandEvent } from "@/types/hub-events";
+import { useEventFilter } from "@/lib/EventFilterContext";
+import { isAllowed } from "@/lib/eventFilterQuery";
+import { EventType, type SandboxCommandEvent } from "@/types/hub-events";
 
 interface Props {
   runId: string;
@@ -12,7 +14,12 @@ interface Props {
 
 export function SandboxBox({ runId, repo, expanded, onToggle }: Props) {
   const feed = useSandboxEvents(runId, repo, expanded);
+  const { state: filterState } = useEventFilter();
   const command = feed.command as SandboxCommandEvent | null;
+
+  const stdoutAllowed = isAllowed(filterState, EventType.SandboxOutput);
+  const visibleOutputs = stdoutAllowed ? feed.outputs : [];
+
   return (
     <div className="rounded-md border border-stone-200" data-testid={`sandbox-box-${repo}`}>
       <button
@@ -34,10 +41,10 @@ export function SandboxBox({ runId, repo, expanded, onToggle }: Props) {
       {expanded && (
         <div className="border-t border-stone-200 bg-stone-950 p-3 font-mono text-xs text-stone-100"
              data-testid={`sandbox-output-${repo}`}>
-          {feed.outputs.length === 0 ? (
-            <p className="text-stone-500">waiting for stdout…</p>
+          {visibleOutputs.length === 0 ? (
+            <p className="text-stone-500">{stdoutAllowed ? "waiting for stdout…" : "stdout filtered off"}</p>
           ) : (
-            feed.outputs.map((o, idx) => (
+            visibleOutputs.map((o, idx) => (
               <div key={`${o.batchSeq}-${idx}`} className={o.stream === "stderr" ? "text-rose-300" : ""}>
                 {o.line}
               </div>

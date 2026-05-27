@@ -1,5 +1,17 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { L3_TYPES } from "@/lib/eventFilterQuery";
+
+// Mock the filter context so SandboxBox sees L3 (SandboxOutput) as allowed.
+vi.mock("@/lib/EventFilterContext", () => ({
+  useEventFilter: () => ({
+    state: { l1: new Set(), l2: new Set(), l3: new Set(L3_TYPES) },
+    toggle: () => {},
+    setLevel: () => {},
+  }),
+  EventFilterProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 import { SandboxBox } from "../SandboxBox";
 import { EventType, type SandboxOutputEvent } from "@/types/hub-events";
 import * as useSandboxEventsModule from "@/hooks/useSandboxEvents";
