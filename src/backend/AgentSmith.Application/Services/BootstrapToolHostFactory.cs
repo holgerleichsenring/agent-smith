@@ -21,22 +21,20 @@ namespace AgentSmith.Application.Services;
 /// — never the flat root path, never a foreign context's path. Empty string
 /// falls back to the legacy flat layout for pre-p0161d test fixtures.
 /// </summary>
-public sealed class BootstrapToolHostFactory(IDecisionLogger decisionLogger)
+public sealed class BootstrapToolHostFactory(
+    IDecisionLogger decisionLogger,
+    IPathReadGuard readGuard,
+    IPathWriteGuard writeGuard)
 {
     public BootstrapToolBundle Create(ISandbox sandbox, string repoLocalPath, string contextName = "")
     {
-        var readGuard = new PathReadGuard(NullGitIgnoreResolver.Instance, () => repoLocalPath);
-        var writeGuard = new PathWriteGuard(readGuard, SkillExecutionPhase.Bootstrap, contextName);
-        var fs = new FilesystemToolHost(sandbox, repoLocalPath, readGuard, writeGuard);
+        var fs = new FilesystemToolHost(
+            sandbox, repoLocalPath, readGuard, writeGuard,
+            writePhase: SkillExecutionPhase.Bootstrap,
+            contextName: contextName);
         var log = new LogDecisionToolHost(decisionLogger, repoLocalPath);
         var tools = AgenticToolSurface.Bootstrap(fs, log);
         return new BootstrapToolBundle(tools, fs.GetChanges, log.GetDecisions);
-    }
-
-    private sealed class NullGitIgnoreResolver : IGitIgnoreResolver
-    {
-        public static readonly NullGitIgnoreResolver Instance = new();
-        public bool IsIgnored(string fullPath, string repoPath) => false;
     }
 }
 

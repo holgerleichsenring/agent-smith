@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -123,10 +124,8 @@ public sealed class GitHubSourceProviderTryReadFileTests
         factoryMock.Setup(f => f.Create(Token)).Returns(clientMock.Object);
 
         return new GitHubSourceProvider(
-            repoUrl: RepoUrl,
-            token: Token,
+            connection: new GitHubSourceConnection(RepoUrl, Token, DefaultBranch),
             clientFactory: factoryMock.Object,
-            logger: NullLogger<GitHubSourceProvider>.Instance,
-            defaultBranch: DefaultBranch);
+            logger: NullLogger<GitHubSourceProvider>.Instance);
     }
 }

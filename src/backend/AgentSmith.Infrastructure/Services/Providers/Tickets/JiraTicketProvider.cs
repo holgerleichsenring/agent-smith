@@ -30,18 +30,18 @@ public sealed class JiraTicketProvider : ITicketProvider
     public string ProviderType => "Jira";
 
     public JiraTicketProvider(
-        string baseUrl, string email, string apiToken,
+        JiraTicketConnection connection,
         HttpClient httpClient, JiraFieldMapper mapper,
         ILogger<JiraTicketProvider> logger,
-        string? doneStatus = null, string? closeTransitionName = null, string? projectKey = null)
+        string? doneStatus = null, string? closeTransitionName = null)
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _http = TicketProviderHttpClient.WithBasicAuth(httpClient, email, apiToken);
+        _baseUrl = connection.BaseUrl.TrimEnd('/');
+        _http = TicketProviderHttpClient.WithBasicAuth(httpClient, connection.Email, connection.ApiToken);
         _mapper = mapper;
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
-        _searcher = new JiraIssueSearcher(_http, mapper, _baseUrl, projectKey, logger);
+        _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, logger);
     }
 

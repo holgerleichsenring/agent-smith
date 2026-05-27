@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -74,7 +75,7 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
 
@@ -99,7 +100,7 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
         pipeline.Set(ContextKeys.PhaseAppliesTo, "Application (BootstrapDispatch)");

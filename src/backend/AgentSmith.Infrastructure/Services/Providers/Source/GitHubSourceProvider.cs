@@ -27,15 +27,15 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     public string ProviderType => "GitHub";
 
     public GitHubSourceProvider(
-        string repoUrl, string token, IGitHubClientFactory clientFactory,
-        ILogger<GitHubSourceProvider> logger,
-        string? defaultBranch = null)
+        GitHubSourceConnection connection,
+        IGitHubClientFactory clientFactory,
+        ILogger<GitHubSourceProvider> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(repoUrl);
-        _cloneUrl = repoUrl.EndsWith(".git") ? repoUrl : $"{repoUrl}.git";
-        _token = token;
+        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        _cloneUrl = connection.RepoUrl.EndsWith(".git") ? connection.RepoUrl : $"{connection.RepoUrl}.git";
+        _token = connection.Token;
         _clientFactory = clientFactory;
-        _configuredDefaultBranch = defaultBranch;
+        _configuredDefaultBranch = connection.DefaultBranch;
         _logger = logger;
     }
 

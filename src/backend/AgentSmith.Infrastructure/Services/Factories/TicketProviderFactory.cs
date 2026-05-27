@@ -38,12 +38,13 @@ public sealed class TicketProviderFactory(
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
         _logger.LogDebug("CreateAzureDevOps: org={Org} project={Project}", config.Organization, config.Project);
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
+        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token);
         var loader = new AzureDevOpsAttachmentLoader(
-            orgUrl, config.Project!, token,
+            connection,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<AzureDevOpsAttachmentLoader>());
         return new AzureDevOpsTicketProvider(
-            orgUrl, config.Project!, token, loader,
+            connection, loader,
             new AzureDevOpsFieldMapper(),
             loggerFactory.CreateLogger<AzureDevOpsTicketProvider>(),
             openStates: config.OpenStates.Count > 0 ? config.OpenStates : null,
@@ -55,10 +56,11 @@ public sealed class TicketProviderFactory(
     {
         _logger.LogDebug("CreateGitHub: url={Url}", config.Url);
         var token = secrets.GetRequired("GITHUB_TOKEN");
+        var connection = new GitHubTicketConnection(config.Url!, token);
         var loader = new GitHubAttachmentLoader(
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubAttachmentLoader>());
-        return new GitHubTicketProvider(config.Url!, token, loader,
+        return new GitHubTicketProvider(connection, loader,
             new GitHubFieldMapper(),
             loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
@@ -69,12 +71,12 @@ public sealed class TicketProviderFactory(
         _logger.LogDebug("CreateJira: url={Url} project={Project}", url, config.Project);
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
-        return new JiraTicketProvider(url, email, token, httpClientFactory.CreateClient(),
+        var connection = new JiraTicketConnection(url, email, token, config.Project);
+        return new JiraTicketProvider(connection, httpClientFactory.CreateClient(),
             new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
             doneStatus: config.DoneStatus,
-            closeTransitionName: config.CloseTransitionName,
-            projectKey: config.Project);
+            closeTransitionName: config.CloseTransitionName);
     }
 
     private GitLabTicketProvider CreateGitLab(TrackerConnection config)
@@ -85,10 +87,11 @@ public sealed class TicketProviderFactory(
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var escapedPath = Uri.EscapeDataString(projectPath);
         var httpClient = httpClientFactory.CreateClient();
+        var connection = new GitLabTicketConnection(baseUrl, escapedPath, token);
         var loader = new GitLabAttachmentLoader(
-            baseUrl, escapedPath, token, httpClient,
+            connection, httpClient,
             loggerFactory.CreateLogger<GitLabAttachmentLoader>());
-        return new GitLabTicketProvider(baseUrl, escapedPath, token, httpClient, loader,
+        return new GitLabTicketProvider(connection, httpClient, loader,
             new GitLabFieldMapper(),
             loggerFactory.CreateLogger<GitLabTicketProvider>());
     }
