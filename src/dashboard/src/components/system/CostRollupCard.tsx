@@ -1,14 +1,14 @@
 "use client";
 
 import { useCostRollup } from "@/hooks/useCostRollup";
-import type { RunEvent } from "@/types/hub-events";
+import type { OverviewSnapshot } from "@/types/hub-events";
 
 interface Props {
-  events: readonly RunEvent[];
+  overview: OverviewSnapshot | null;
 }
 
-export function CostRollupCard({ events }: Props) {
-  const cost = useCostRollup(events);
+export function CostRollupCard({ overview }: Props) {
+  const cost = useCostRollup(overview);
 
   return (
     <section

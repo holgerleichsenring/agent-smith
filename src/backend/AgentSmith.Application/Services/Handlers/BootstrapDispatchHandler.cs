@@ -85,7 +85,14 @@ public sealed class BootstrapDispatchHandler(
                 $"BootstrapDispatch: repo '{repoName}' component '{component.Name}' has empty language — discovery must emit a slug."));
         TrySetString(concepts, "project_language", lang);
 
-        var matched = activationFilter.Filter(roles, concepts);
+        // p0175-fix: only consider skills with output_schema=bootstrap.
+        // Without this filter, project-discovery (output_schema=discovery)
+        // competes with project-bootstrap (output_schema=bootstrap) on
+        // the same project_language predicate and produces an ambiguous
+        // match. BootstrapDiscoverHandler already does the same scoping
+        // for the discovery phase (line 133).
+        var bootstrapRoles = roles.Where(r => r.OutputSchema == "bootstrap").ToList();
+        var matched = activationFilter.Filter(bootstrapRoles, concepts);
         if (matched.Count == 0)
         {
             var availableNames = string.Join(", ", roles.Select(r => r.Name).OrderBy(n => n, StringComparer.Ordinal));

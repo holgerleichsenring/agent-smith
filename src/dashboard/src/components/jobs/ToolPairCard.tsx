@@ -15,7 +15,13 @@ export function ToolPairCard({ call, result }: Props) {
       <div className="flex items-center gap-2 text-stone-300">
         <span className="text-stone-500">→</span>
         <span className="font-mono text-amber-300">{call.tool}</span>
-        <span className="text-stone-500">({call.argsLength}B args)</span>
+        {call.summary ? (
+          <span className="truncate font-mono text-stone-300" title={call.summary}>
+            {call.summary}
+          </span>
+        ) : (
+          <span className="text-stone-500">({call.argsLength}B args)</span>
+        )}
         <MetadataTooltip />
       </div>
       <div className="mt-0.5 flex items-center gap-2 text-stone-400">
