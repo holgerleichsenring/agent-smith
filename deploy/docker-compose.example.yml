@@ -42,7 +42,7 @@ services:
   # Required before the first labelled ticket triggers a pipeline; without
   # the image present, DockerJobSpawner fails with DockerImageNotFoundException
   # for `agent-smith-sandbox-agent:<tag>`. Pull from holgerleichsenring on
-  # Docker Hub or build locally from src/AgentSmith.Sandbox.Agent/Dockerfile.
+  # Docker Hub or build locally from src/backend/AgentSmith.Sandbox.Agent/Dockerfile.
   sandbox-agent:
     build:
       context: ..
