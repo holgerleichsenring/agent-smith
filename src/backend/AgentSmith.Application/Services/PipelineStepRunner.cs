@@ -30,8 +30,7 @@ public sealed class PipelineStepRunner(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     IProgressReporter progressReporter,
-    IPhaseDataFlowResolver dataFlowResolver,
-    AgentSmithConfig agentSmithConfig,
+    DataFlowReadGate dataFlowReadGate,
     ISkillRoundBufferDispatcher bufferDispatcher,
     IEventPublisher eventPublisher,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
@@ -185,12 +184,9 @@ public sealed class PipelineStepRunner(
         var resolved = context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp)
             ? rp
             : null;
-        if (resolved is null) return null;
-        var flow = dataFlowResolver.Resolve(resolved.PipelineName);
-        if (flow is null) return null;
-        var gate = new DataFlowReadGate(
-            activeStep, flow, agentSmithConfig.PipelineDataFlow.Enforce, logger);
-        return context.AttachReadGate(gate);
+        return resolved is null
+            ? null
+            : dataFlowReadGate.AttachToStep(activeStep, resolved.PipelineName, context);
     }
 
     private static void TrackBatchedCommands(BatchOutcome outcome, PipelineContext context)

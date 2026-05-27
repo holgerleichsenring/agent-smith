@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0157a
+
+decisions:
+  - category: Architecture
+    chose: "One Connection record per platform per concern (Source vs Ticket)"
+    over: "Single shared *RepoConnection record per platform"
+    reason: |
+      GitHub's source and ticket flows both take (RepoUrl, Token) and would
+      collapse into one record, but GitLab and Azure DevOps diverge — source
+      adds CloneUrl / RepoName, ticket does not. Keeping concerns separate
+      lets unused fields stay off the consumer's surface and preserves the
+      SRP boundary between source-control and issue-tracker credentials.
+
+  - category: Scope
+    chose: "Skip GitLabPrDiffProvider (1 string) and AzureDevOpsPrDiffProvider (orphan code)"
+    reason: |
+      GitLabPrDiffProvider takes only `string projectId`, and the spec's own
+      single-string-stays-positional rule applies. AzureDevOpsPrDiffProvider
+      is unwired (no DI registration, no callers, no factory site) — collapsing
+      its ctor adds files-to-touch with no consumer to benefit. Both are
+      noted for a future code-cleanup phase that decides whether to wire
+      them up or delete them.
+
+  - category: Implementation
+    chose: "Records live in AgentSmith.Contracts/Providers/ alongside the existing IProvider interfaces"
+    reason: |
+      Per coding-principles.md cross-layer contracts go in Contracts. The
+      records have zero behaviour (Pattern V applied at the record level)
+      and the namespace already hosts ISourceProvider / ITicketProvider /
+      RepoConnection — the new types fit there naturally without expanding
+      surface.
+
+  - category: Implementation
+    chose: "AzureDevOpsConnectionCache ctor takes AzureDevOpsTicketConnection, drops the local `connection` variable name in CreateClient to avoid shadowing"
+    reason: |
+      The cache's CreateClient body declared `var connection = new VssConnection(...)`
+      which would shadow the new ctor parameter `connection`. Renamed the
+      local to `vssConnection` so the field and the local don't collide.
+
+  - category: Implementation
+    chose: "JiraTicketStatusTransitioner field _projectKey defaults to 'default' when ProjectKey is null"
+    reason: |
+      Old positional ctor had `string projectKey` (non-nullable) with the
+      factory passing `config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default"`.
+      JiraTicketConnection has `string? ProjectKey = null`. The class
+      passes `_projectKey` to JiraWorkflowCatalog.GetModeForProject so
+      keeping the "default" sentinel preserves behaviour for projects that
+      never specified a key.
+
+  - category: TradeOff
+    chose: "Eat the temporary duplication: TicketStatusTransitionerFactory builds a new connection record per call instead of reusing the one TicketProviderFactory built"
+    reason: |
+      The two factories receive the same TrackerConnection but don't share
+      state. The clean fix is to introduce a single ConnectionResolver that
+      both call into — that's scope creep against p0157a's "ctor shape only"
+      goal. The duplication is two `new XConnection(...)` lines; future
+      phase can DRY it up if the connection-record concept gains additional
+      fields.

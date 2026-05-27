@@ -1,0 +1,624 @@
+src/AgentSmith.Application/Services/Activation/ActivationExpressionEvaluateException.cs  [ActivationExpressionEvaluateException] (public)
+   params: string message
+   NON-DI: string message
+
+src/AgentSmith.Application/Services/Activation/ActivationExpressionParseException.cs  [ActivationExpressionParseException] (public)
+   params: string message, int offset, string offendingToken
+   NON-DI: string message, int offset, string offendingToken
+
+src/AgentSmith.Application/Services/BatchOutcome.cs  [BatchOutcome] (public)
+   params: 
+        IReadOnlyList<BatchSlot> slots,
+        IReadOnlyList<LinkedListNode<PipelineCommand>> nodes,
+        int firstStepIndex
+   NON-DI: int firstStepIndex
+
+src/AgentSmith.Application/Services/ConsoleProgressReporter.cs  [ConsoleProgressReporter] (primary)
+   params: ILogger<ConsoleProgressReporter> logger,
+    bool headless
+   NON-DI: bool headless
+
+src/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs  [BootstrapCheckHandler] (primary)
+   params: ISandboxFileReaderFactory readerFactory,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<BootstrapCheckHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs  [BootstrapDispatchHandler] (primary)
+   params: ActivationSkillFilter activationFilter,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<BootstrapDispatchHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs  [BootstrapGateHandler] (primary)
+   params: Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<BootstrapGateHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs  [CheckoutSourceHandler] (primary)
+   params: ISourceProviderFactory factory,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<CheckoutSourceHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/PipelineNameInitializerHandler.cs  [PipelineNameInitializerHandler] (primary)
+   params: Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<PipelineNameInitializerHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/PublishProjectLanguageHandler.cs  [PublishProjectLanguageHandler] (primary)
+   params: Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<PublishProjectLanguageHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/TriageHandler.cs  [TriageHandler] (primary)
+   params: ITriageStrategySelector strategySelector,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<TriageHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs  [TryCheckoutSourceHandler] (primary)
+   params: IHostSourceCloner cloner,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<TryCheckoutSourceHandler> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Health/SubsystemHealth.cs  [SubsystemHealth] (primary)
+   params: string name
+   NON-DI: string name
+
+src/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs  [EnqueuedReconciler] (primary)
+   params: IJobHeartbeatService heartbeat,
+    IRedisJobQueue jobQueue,
+    ITicketProviderFactory ticketFactory,
+    IConfigurationLoader configLoader,
+    IPipelineConfigResolver pipelineConfigResolver,
+    string configPath,
+    ILogger<EnqueuedReconciler> logger
+   NON-DI: string configPath
+
+src/AgentSmith.Application/Services/Lifecycle/StaleJobDetector.cs  [StaleJobDetector] (primary)
+   params: IJobHeartbeatService heartbeat,
+    ITicketProviderFactory ticketFactory,
+    ITicketStatusTransitionerFactory transitionerFactory,
+    IConfigurationLoader configLoader,
+    string configPath,
+    ILogger<StaleJobDetector> logger
+   NON-DI: string configPath
+
+src/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs  [TicketLifecycleScope] (primary)
+   params: ITicketStatusTransitioner transitioner,
+        IAsyncDisposable heartbeat,
+        TicketId ticketId,
+        ILogger logger
+   NON-DI: TicketId ticketId
+
+src/AgentSmith.Application/Services/LlmIntentParser.cs  [LlmIntentParser] (primary)
+   params: IChatClientFactory chatClientFactory,
+    IConfigurationLoader configLoader,
+    AgentConfig haikusConfig,
+    ILogger<LlmIntentParser> logger
+   NON-DI: AgentConfig haikusConfig
+
+src/AgentSmith.Application/Services/Loop/LimitEnforcer.cs  [LimitEnforcer] (public)
+   params: LoopLimitsConfig limits, CancellationTokenSource cts
+   NON-DI: LoopLimitsConfig limits, CancellationTokenSource cts
+
+src/AgentSmith.Application/Services/Loop/PipelineConcurrencyGate.cs  [PipelineConcurrencyGate] (public)
+   params: LoopLimitsConfig limits
+   NON-DI: LoopLimitsConfig limits
+
+src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs  [SkillCallRuntime] (public)
+   params: 
+        IChatClientFactory chatFactory,
+        PipelineConcurrencyGate gate, LoopLimitsConfig limits,
+        OutcomeClassifier classifier, RetryCoordinator retry,
+        SkillOutputValidatorFactory validatorFactory,
+        RuntimeObservationFactory runtimeObservationFactory,
+        ILogger<SkillCallRuntime> logger
+   NON-DI: LoopLimitsConfig limits
+
+src/AgentSmith.Application/Services/Loop/SkillCallScope.cs  [SkillCallScope] (public)
+   params: string skillName, string role, SkillExecutionPhase phase,
+        PipelineCostTracker tracker, DateTimeOffset startedAt
+   NON-DI: string skillName, string role, SkillExecutionPhase phase, DateTimeOffset startedAt
+
+src/AgentSmith.Application/Services/Persistence/InMemoryRunArtifactStore.cs  [InMemoryRunArtifactStore] (public)
+   params: TimeSpan? ttl = null, Func<DateTimeOffset>? clock = null
+   NON-DI: TimeSpan? ttl, Func<DateTimeOffset>? clock
+
+src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs  [DataFlowReadGate] (public)
+   params: 
+        string activeStep, IPhaseDataFlow flow, bool enforce, ILogger logger
+   NON-DI: string activeStep, bool enforce
+
+src/AgentSmith.Application/Services/PipelineQueueConsumer.cs  [PipelineQueueConsumer] (primary)
+   params: IServiceProvider services,
+    IRedisJobQueue queue,
+    string configPath,
+    int maxParallelJobs,
+    int shutdownGraceSeconds,
+    ILogger<PipelineQueueConsumer> logger
+   NON-DI: string configPath, int maxParallelJobs, int shutdownGraceSeconds
+
+src/AgentSmith.Application/Services/PipelineStepRunner.cs  [PipelineStepRunner] (primary)
+   params: ICommandExecutor commandExecutor,
+    ICommandContextFactory contextFactory,
+    IProgressReporter progressReporter,
+    IPhaseDataFlowResolver dataFlowResolver,
+    AgentSmithConfig agentSmithConfig,
+    ISkillRoundBufferDispatcher bufferDispatcher,
+    ILogger<PipelineStepRunner> logger
+   NON-DI: AgentSmithConfig agentSmithConfig
+
+src/AgentSmith.Application/Services/Polling/LeaderElectedHostedService.cs  [LeaderElectedHostedService] (primary)
+   params: string leaseKey,
+    Func<CancellationToken, Task> work,
+    IRedisLeaderLease lease,
+    ILogger<LeaderElectedHostedService> logger
+   NON-DI: string leaseKey, Func<CancellationToken, Task> work
+
+src/AgentSmith.Application/Services/Polling/TrackerPoller.cs  [TrackerPollCounts] (primary)
+   params: int polled
+   NON-DI: int polled
+
+src/AgentSmith.Application/Services/Polling/TrackerPoller.cs  [TrackerPoller] (primary)
+   params: TrackerConnection tracker,
+    AgentSmithConfig config,
+    ITicketProviderFactory ticketFactory,
+    IEnvelopeProjectResolver envelopeResolver,
+    ISpawnPipelineRunsUseCase spawnUseCase,
+    ILogger<TrackerPoller> logger
+   NON-DI: TrackerConnection tracker, AgentSmithConfig config
+
+src/AgentSmith.Application/Services/RedisDisabled/RedisUnavailableException.cs  [RedisUnavailableException] (primary)
+   params: string operation
+   NON-DI: string operation
+
+src/AgentSmith.Application/Services/SkillRounds/SkillRoundDispatcher.cs  [SkillRoundDispatcher] (primary)
+   params: ISkillCallRuntime skillCallRuntime,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    ILogger<SkillRoundDispatcher> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/SkillRounds/Strategies/ApiSkillPromptStrategy.cs  [ApiSkillPromptStrategy] (primary)
+   params: IProjectBriefBuilder projectBriefBuilder,
+    IBaselineLoader baselineLoader,
+    ObservationBusProjector busProjector,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs  [FilesystemToolHost] (public)
+   params: 
+        IReadOnlyDictionary<string, ISandbox> sandboxes,
+        string defaultRepo,
+        string repoPath = "/work",
+        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
+        ILogger? logger = null
+   NON-DI: string defaultRepo, string repoPath
+
+src/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs  [FilesystemToolHost] (public)
+   params: 
+        ISandbox sandbox, string repoPath = "/work",
+        IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
+        ILogger? logger = null
+   NON-DI: string repoPath
+
+src/AgentSmith.Application/Services/Tools/HumanToolHost.cs  [HumanToolHost] (public)
+   params: IDialogueTransport? dialogueTransport = null, string? jobId = null
+   NON-DI: string? jobId
+
+src/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs  [LogDecisionToolHost] (public)
+   params: IDecisionLogger decisionLogger, string repoPath = "/work"
+   NON-DI: string repoPath
+
+src/AgentSmith.Application/Services/Tools/PathReadGuard.cs  [PathReadGuard] (public)
+   params: IGitIgnoreResolver gitIgnore, Func<string> repoRootProvider
+   NON-DI: Func<string> repoRootProvider
+
+src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs  [PathWriteGuard] (public)
+   params: IPathReadGuard readGuard, SkillExecutionPhase phase
+   NON-DI: SkillExecutionPhase phase
+
+src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs  [PathWriteGuard] (public)
+   params: IPathReadGuard readGuard, SkillExecutionPhase phase, string? contextName
+   NON-DI: SkillExecutionPhase phase, string? contextName
+
+src/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs  [SyncProgress] (primary)
+   params: Action<T> handler
+   NON-DI: Action<T> handler
+
+src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs  [TriageOutputProducer] (primary)
+   params: DeterministicTriageSelector selector,
+    TriageLabelOverrideApplier labelOverrider,
+    ActivationSkillFilter activationFilter,
+    PhaseSpecificityTrimmer phaseTrimmer,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    LoopLimitsConfig limits,
+    ILogger<TriageOutputProducer> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory, LoopLimitsConfig limits
+
+src/AgentSmith.Application/Services/Triggers/InboxPollingService.cs  [InboxPollingService] (primary)
+   params: IInboxJobEnqueuer jobEnqueuer,
+    InboxPollingOptions options,
+    ILogger<InboxPollingService> logger
+   NON-DI: InboxPollingOptions options
+
+src/AgentSmith.Application/Services/Validation/JsonSchemaLoadException.cs  [JsonSchemaLoadException] (public)
+   params: string resourcePath, string message, Exception? inner = null
+   NON-DI: string resourcePath, string message
+
+src/AgentSmith.Application/Services/VerifyRoundCoordinator.cs  [VerifyRoundCoordinator] (primary)
+   params: ActivationSkillFilter activationFilter,
+    ISkillBodyResolver bodyResolver,
+    Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    IDecisionLogger decisionLogger,
+    IToolKit toolKit,
+    ISkillCallRuntime skillCallRuntime,
+    ISkillResponseParser responseParser,
+    ISkillRoundBufferDispatcher bufferDispatcher,
+    ILogger<VerifyRoundCoordinator> logger
+   NON-DI: Func<PipelineContext, IRunStateConcepts> conceptsFactory
+
+src/AgentSmith.Infrastructure/Services/Bus/RedisProgressReporter.cs  [RedisProgressReporter] (primary)
+   params: IMessageBus messageBus,
+    string jobId,
+    ILogger<RedisProgressReporter> logger
+   NON-DI: string jobId
+
+src/AgentSmith.Infrastructure/Services/Lifecycle/JobHeartbeatService.cs  [Handle] (primary)
+   params: IConnectionMultiplexer redis, string key,
+        CancellationTokenSource cts, Task task,
+        ILogger logger
+   NON-DI: string key, CancellationTokenSource cts
+
+src/AgentSmith.Infrastructure/Services/Nuclei/NucleiSpawner.cs  [NucleiSpawner] (primary)
+   params: IToolRunner toolRunner,
+    NucleiConfig config,
+    ToolRunnerConfig toolRunnerConfig,
+    ILogger<NucleiSpawner> logger
+   NON-DI: NucleiConfig config, ToolRunnerConfig toolRunnerConfig
+
+src/AgentSmith.Infrastructure/Services/Persistence/RedisRunArtifactStore.cs  [RedisRunArtifactStore] (public)
+   params: 
+        IConnectionMultiplexer redis,
+        AgentSmithConfig config,
+        ILogger<RedisRunArtifactStore> logger
+   NON-DI: AgentSmithConfig config
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/ClaudeContextCompactor.cs  [ClaudeContextCompactor] (primary)
+   params: AnthropicClient client,
+    string summaryModel,
+    ILogger logger,
+    TokenUsageTracker? usageTracker = null
+   NON-DI: string summaryModel
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/CommandRunner.cs  [CommandRunner] (primary)
+   params: string repositoryPath,
+    ILogger logger,
+    IProgressReporter? progressReporter = null
+   NON-DI: string repositoryPath
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Compaction/OpenAiContextCompactor.cs  [OpenAiContextCompactor] (primary)
+   params: ChatClient summarizerClient,
+    CompactionConfig config,
+    IPromptCatalog prompts,
+    ILogger<OpenAiContextCompactor> logger
+   NON-DI: CompactionConfig config
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/ConfigBasedModelRegistry.cs  [ConfigBasedModelRegistry] (primary)
+   params: ModelRegistryConfig config,
+    ILogger logger
+   NON-DI: ModelRegistryConfig config
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/AzureOpenAiCostTracker.cs  [AzureOpenAiCostTracker] (public)
+   params: PricingConfig pricing, ILogger logger, TokenUsageTracker? tokenTracker = null
+   NON-DI: PricingConfig pricing
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/ClaudeCostTracker.cs  [ClaudeCostTracker] (public)
+   params: PricingConfig pricing, ILogger logger, TokenUsageTracker? tokenTracker = null
+   NON-DI: PricingConfig pricing
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/GeminiCostTracker.cs  [GeminiCostTracker] (public)
+   params: PricingConfig pricing, ILogger logger, TokenUsageTracker? tokenTracker = null
+   NON-DI: PricingConfig pricing
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OllamaCostTracker.cs  [OllamaCostTracker] (public)
+   params: PricingConfig pricing, ILogger logger, TokenUsageTracker? tokenTracker = null
+   NON-DI: PricingConfig pricing
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OpenAiCostTracker.cs  [OpenAiCostTracker] (public)
+   params: PricingConfig pricing, ILogger logger, TokenUsageTracker? tokenTracker = null
+   NON-DI: PricingConfig pricing
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/FileToolHandler.cs  [FileToolHandler] (primary)
+   params: string repositoryPath,
+    ILogger logger,
+    FileReadTracker? fileReadTracker,
+    IProgressReporter? progressReporter
+   NON-DI: string repositoryPath
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/HumanQuestionToolHandler.cs  [HumanQuestionToolHandler] (primary)
+   params: IDialogueTransport? dialogueTransport,
+    IDialogueTrail? dialogueTrail,
+    string? jobId,
+    ILogger logger,
+    IProgressReporter? progressReporter
+   NON-DI: string? jobId
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/OpenAiCompatibleClient.cs  [OpenAiCompatibleClient] (primary)
+   params: string endpoint,
+    string? apiKey,
+    ILogger logger,
+    bool useApiKeyHeader = false,
+    string? apiVersionQueryParam = null
+   NON-DI: string endpoint, string? apiKey, bool useApiKeyHeader, string? apiVersionQueryParam
+
+src/AgentSmith.Infrastructure/Services/Providers/Agent/ResilientHttpClientFactory.cs  [ResilientHttpClientFactory] (primary)
+   params: RetryConfig config,
+    ILogger logger
+   NON-DI: RetryConfig config
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs  [AzureDevOpsPrDiffProvider] (primary)
+   params: HttpClient httpClient,
+    string organization,
+    string project,
+    string repositoryId,
+    ILogger<AzureDevOpsPrDiffProvider> logger,
+    string apiVersion = "7.1"
+   NON-DI: string organization, string project, string repositoryId, string apiVersion
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs  [AzureReposSourceProvider] (primary)
+   params: string organizationUrl,
+    string project,
+    string repoName,
+    string personalAccessToken,
+    IAzDoClientFactory clientFactory,
+    ILogger<AzureReposSourceProvider> logger
+   NON-DI: string organizationUrl, string project, string repoName, string personalAccessToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrDiffProvider.cs  [GitHubPrDiffProvider] (primary)
+   params: IGitHubClient gitHubClient,
+    string owner,
+    string repoName,
+    ILogger<GitHubPrDiffProvider> logger
+   NON-DI: string owner, string repoName
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs  [GitHubSourceProvider] (public)
+   params: 
+        string repoUrl, string token, IGitHubClientFactory clientFactory,
+        ILogger<GitHubSourceProvider> logger,
+        string? defaultBranch = null
+   NON-DI: string repoUrl, string token, string? defaultBranch
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrDiffProvider.cs  [GitLabPrDiffProvider] (primary)
+   params: HttpClient httpClient,
+    string projectId,
+    ILogger<GitLabPrDiffProvider> logger
+   NON-DI: string projectId
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs  [GitLabSourceProvider] (public)
+   params: 
+        string baseUrl,
+        string projectPath,
+        string cloneUrl,
+        string privateToken,
+        HttpClient httpClient,
+        ILogger<GitLabSourceProvider> logger,
+        string? defaultBranch = null
+   NON-DI: string baseUrl, string projectPath, string cloneUrl, string privateToken, string? defaultBranch
+
+src/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs  [LocalSourceProvider] (primary)
+   params: string basePath
+   NON-DI: string basePath
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsAttachmentLoader.cs  [AzureDevOpsAttachmentLoader] (primary)
+   params: string organizationUrl,
+    string project,
+    string personalAccessToken,
+    HttpClient httpClient,
+    ILogger logger
+   NON-DI: string organizationUrl, string project, string personalAccessToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsConnectionCache.cs  [AzureDevOpsConnectionCache] (primary)
+   params: string organizationUrl, string pat, ILogger logger
+   NON-DI: string organizationUrl, string pat
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs  [AzureDevOpsTicketProvider] (public)
+   params: 
+        string organizationUrl, string project, string personalAccessToken,
+        AzureDevOpsAttachmentLoader attachmentLoader,
+        AzureDevOpsFieldMapper mapper,
+        ILogger<AzureDevOpsTicketProvider> logger,
+        IReadOnlyList<string>? openStates = null,
+        string? doneStatus = null,
+        IReadOnlyList<string>? extraFields = null
+   NON-DI: string organizationUrl, string project, string personalAccessToken, string? doneStatus
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs  [AzureDevOpsTicketStatusTransitioner] (primary)
+   params: string orgUrl,
+    string project,
+    string personalAccessToken,
+    HttpClient httpClient,
+    ILogger<AzureDevOpsTicketStatusTransitioner> logger
+   NON-DI: string orgUrl, string project, string personalAccessToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWorkItemLister.cs  [AzureDevOpsWorkItemLister] (primary)
+   params: AzureDevOpsConnectionCache connections,
+    AzureDevOpsFieldMapper mapper,
+    string project,
+    IReadOnlyList<string>? openStates,
+    IReadOnlyList<string>? extraFields,
+    ILogger logger
+   NON-DI: string project
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubIssueLister.cs  [GitHubIssueLister] (primary)
+   params: GitHubClient client, string owner, string repo,
+    ITicketFieldMapper<Issue> mapper, ILogger logger
+   NON-DI: string owner, string repo
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs  [GitHubTicketProvider] (public)
+   params: 
+        string repoUrl, string token, GitHubAttachmentLoader attachmentLoader,
+        ITicketFieldMapper<Issue> mapper, ILogger<GitHubTicketProvider> logger
+   NON-DI: string repoUrl, string token
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs  [GitHubTicketStatusTransitioner] (public)
+   params: 
+        string repoUrl, string token, HttpClient httpClient,
+        ILogger<GitHubTicketStatusTransitioner> logger
+   NON-DI: string repoUrl, string token
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabAttachmentLoader.cs  [GitLabAttachmentLoader] (primary)
+   params: string baseUrl,
+    string projectPath,
+    string privateToken,
+    HttpClient httpClient,
+    ILogger logger
+   NON-DI: string baseUrl, string projectPath, string privateToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabIssueLister.cs  [GitLabIssueLister] (primary)
+   params: TicketProviderHttpClient http, GitLabFieldMapper mapper,
+    string baseUrl, string projectPath, ILogger logger
+   NON-DI: string baseUrl, string projectPath
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs  [GitLabTicketProvider] (public)
+   params: 
+        string baseUrl, string projectPath, string privateToken,
+        HttpClient httpClient, GitLabAttachmentLoader attachmentLoader,
+        GitLabFieldMapper mapper, ILogger<GitLabTicketProvider> logger
+   NON-DI: string baseUrl, string projectPath, string privateToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketStatusTransitioner.cs  [GitLabTicketStatusTransitioner] (primary)
+   params: string baseUrl,
+    string projectPath,
+    string privateToken,
+    HttpClient httpClient,
+    ILogger<GitLabTicketStatusTransitioner> logger
+   NON-DI: string baseUrl, string projectPath, string privateToken
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs  [JiraIssueSearcher] (primary)
+   params: TicketProviderHttpClient http, JiraFieldMapper mapper,
+    string baseUrl, string? projectKey, ILogger logger
+   NON-DI: string baseUrl, string? projectKey
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs  [JiraTicketProvider] (public)
+   params: 
+        string baseUrl, string email, string apiToken,
+        HttpClient httpClient, JiraFieldMapper mapper,
+        ILogger<JiraTicketProvider> logger,
+        string? doneStatus = null, string? closeTransitionName = null, string? projectKey = null
+   NON-DI: string baseUrl, string email, string apiToken, string? doneStatus, string? closeTransitionName, string? projectKey
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs  [JiraTicketStatusTransitioner] (primary)
+   params: string baseUrl,
+    string email,
+    string apiToken,
+    string projectKey,
+    JiraWorkflowCatalog catalog,
+    HttpClient httpClient,
+    ILogger<JiraTicketStatusTransitioner> logger
+   NON-DI: string baseUrl, string email, string apiToken, string projectKey
+
+src/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTransitioner.cs  [JiraTransitioner] (primary)
+   params: TicketProviderHttpClient http, string baseUrl, ILogger logger
+   NON-DI: string baseUrl
+
+src/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs  [InProcessSandbox] (primary)
+   params: string jobId, string workDir, ILogger logger
+   NON-DI: string jobId, string workDir
+
+src/AgentSmith.Infrastructure/Services/Tools/DockerLogStreamWriter.cs  [DockerLogStreamWriter] (primary)
+   params: ILogger logger, string toolName
+   NON-DI: string toolName
+
+src/AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs  [DockerToolRunner] (primary)
+   params: ToolRunnerConfig config,
+    ILogger<DockerToolRunner> logger
+   NON-DI: ToolRunnerConfig config
+
+src/AgentSmith.Infrastructure/Services/Zap/ZapSpawner.cs  [ZapSpawner] (primary)
+   params: IToolRunner toolRunner,
+    ZapConfig config,
+    ToolRunnerConfig toolRunnerConfig,
+    ILogger<ZapSpawner> logger
+   NON-DI: ZapConfig config, ToolRunnerConfig toolRunnerConfig
+
+src/AgentSmith.Sandbox.Agent/Services/OutputBatcher.cs  [OutputBatcher] (public)
+   params: 
+        int thresholdCount,
+        TimeSpan flushInterval,
+        Func<IReadOnlyList<StepEvent>, Task> onFlush
+   NON-DI: int thresholdCount, TimeSpan flushInterval, Func<IReadOnlyList<StepEvent>, Task> onFlush
+
+src/AgentSmith.Server/Services/Adapters/BotFrameworkTokenProvider.cs  [BotFrameworkTokenProvider] (primary)
+   params: HttpClient httpClient,
+    TeamsAdapterOptions options
+   NON-DI: TeamsAdapterOptions options
+
+src/AgentSmith.Server/Services/Adapters/SlackApiClient.cs  [SlackApiClient] (primary)
+   params: HttpClient httpClient,
+    SlackAdapterOptions options,
+    ILogger<SlackApiClient> logger
+   NON-DI: SlackAdapterOptions options
+
+src/AgentSmith.Server/Services/Adapters/SlackSignatureVerifier.cs  [SlackSignatureVerifier] (primary)
+   params: string signingSecret
+   NON-DI: string signingSecret
+
+src/AgentSmith.Server/Services/Adapters/TeamsJwtValidator.cs  [TeamsJwtValidator] (public)
+   params: string appId
+   NON-DI: string appId
+
+src/AgentSmith.Server/Services/LlmIntentParser.cs  [LlmIntentParser] (primary)
+   params: IChatClientFactory chatClientFactory,
+    AgentConfig agent,
+    ILogger<LlmIntentParser> logger
+   NON-DI: AgentConfig agent
+
+src/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs  [DockerSandbox] (primary)
+   params: IDockerClient docker,
+    string toolchainContainerId,
+    string sharedVolume,
+    string workVolume,
+    string jobId,
+    SandboxRedisChannel channel,
+    ILogger logger
+   NON-DI: string toolchainContainerId, string sharedVolume, string workVolume, string jobId
+
+src/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs  [DockerSandboxFactory] (primary)
+   params: IDockerClient docker,
+    IConnectionMultiplexer redis,
+    DockerContainerSpecBuilder specBuilder,
+    DockerSandboxOptions options,
+    ILoggerFactory loggerFactory
+   NON-DI: DockerSandboxOptions options
+
+src/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs  [KubernetesSandbox] (primary)
+   params: IKubernetes client,
+    string @namespace,
+    string podName,
+    string jobId,
+    SandboxRedisChannel channel,
+    ILogger logger
+   NON-DI: string @namespace, string podName, string jobId
+
+src/AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs  [KubernetesSandboxFactory] (primary)
+   params: IKubernetes client,
+    IConnectionMultiplexer redis,
+    PodSpecBuilder podSpecBuilder,
+    KubernetesSandboxOptions options,
+    ILoggerFactory loggerFactory
+   NON-DI: KubernetesSandboxOptions options
+
+src/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs  [SandboxRedisChannel] (public)
+   params: IConnectionMultiplexer multiplexer, string jobId, ILogger logger
+   NON-DI: string jobId
+
+src/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs  [WebhookRequestProcessor] (primary)
+   params: IServiceProvider services,
+    string configPath,
+    ILogger logger
+   NON-DI: string configPath
+
+TOTAL: 99

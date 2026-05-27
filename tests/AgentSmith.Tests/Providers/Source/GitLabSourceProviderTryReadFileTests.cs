@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -80,13 +81,9 @@ public sealed class GitLabSourceProviderTryReadFileTests
     private static GitLabSourceProvider CreateSut(HttpMessageHandler handler)
     {
         return new GitLabSourceProvider(
-            baseUrl: BaseUrl,
-            projectPath: ProjectPath,
-            cloneUrl: CloneUrl,
-            privateToken: Token,
+            connection: new GitLabSourceConnection(BaseUrl, ProjectPath, CloneUrl, Token, DefaultBranch),
             httpClient: new HttpClient(handler),
-            logger: NullLogger<GitLabSourceProvider>.Instance,
-            defaultBranch: DefaultBranch);
+            logger: NullLogger<GitLabSourceProvider>.Instance);
     }
 
     private sealed class FakeHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
