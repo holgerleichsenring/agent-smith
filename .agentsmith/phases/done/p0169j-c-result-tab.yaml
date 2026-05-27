@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-c-result-tab
+goal: |
+  Render result.md from the run in a Result tab — the synthesised
+  deliverable (plan + decisions + per-skill cost + dialogue + trail)
+  becomes the dashboard's primary content surface. Today this artefact
+  is only reachable by opening the file in .agentsmith/runs/{id}/result.md
+  inside the target repo by hand or by clicking through to the PR.
+
+  Spec premise correction (vs original draft): `result.md` is NOT
+  server-readable from `.agentsmith/runs/` — the file lives inside the
+  sandbox / target repo. Path resolution via the existing
+  `IRunArtifactStore` 3-slot pattern (plan/diff/bootstrap) extended
+  with a 4th slot for the rendered result.md. Server reads from Redis.
+  Empty-state falls back to the PR URL (the durable long-term surface
+  for result.md — `git add -A` in `CommitAndPR` already includes
+  `.agentsmith/runs/{id}/result.md` in every PR). See PARKED.md item 1.
+
+requires:
+  - p0169f-topology-ui
+  - p0169h-event-trail-tree
+
+scope:
+  in: |
+    ARTIFACT STORE (src/backend/AgentSmith.Contracts + Application + Infrastructure):
+
+    (1) IRunArtifactStore gains a 4th slot:
+        - Task WriteResultMarkdownAsync(string runId, string content, CancellationToken ct)
+        - Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken ct)
+        Same Redis-key shape as the existing 3 slots
+        (`runs:artifact:{runId}:result`), 24h TTL (long enough that
+        operators still looking at a yesterday-finished run see
+        content; beyond that, dashboard links to PR).
+        RedisRunArtifactStore implements; InMemoryRunArtifactStore
+        (test fallback) implements.
+
+    (2) WriteRunResultHandler writes the rendered resultMd to the store
+        on both single-run and init-fan-out paths, AFTER the existing
+        sandbox FS write. The two write paths give us:
+          - Dashboard read surface (Redis, 24h)
+          - PR durable surface (git, forever)
+        Failure of the Redis write is logged at warning and swallowed
+        — the FS write + PR is the source of truth.
+
+    (3) IRunArtifactStore.PromoteAsync continues to clear the
+        plan/diff/bootstrap slots only; the result slot lives
+        separately with its own TTL because operators read it AFTER
+        WriteRunResult, not before.
+
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (4) New ResultMarkdownReader service in Server.Services.Events,
+        injected with IRunArtifactStore. Single-line forward:
+        `return await store.ReadResultMarkdownAsync(runId, ct);`.
+        RunId path-traversal guard via RunIdGenerator.IsValid.
+
+    (5) JobsHub.GetResultMarkdown(runId) — two-liner delegating to
+        ResultMarkdownReader. Matches the GetTrail shape from p0169h.
+
+    DASHBOARD (src/dashboard/src/app/jobs/[id]):
+
+    (6) JobsHubClient.getResultMarkdown(runId) — mirrors getTrail.
+
+    (7) useResultMarkdown hook — fetch-on-mount, exposes
+        `{ content: string | null; loading: boolean; error: string | null }`.
+
+    (8) New Result tab routed via ?tab=result, added to the existing
+        Topology / Activity / Trail tab bar.
+
+    (9) ResultTab component renders via react-markdown + remark-gfm +
+        rehype-sanitize. Custom code-block renderer uses Smith's
+        terminal-panel token vocabulary (DESIGN.md).
+
+    (10) Top-bar: copy-to-clipboard button (raw markdown). Download
+         removed — operators click through to the PR for the
+         long-term artefact.
+
+    (11) Empty state when content is null OR fetch failed: renders
+         "Result not in cache" with a "View in PR" link if a
+         `prUrl` is available in the run snapshot (from the existing
+         RunFinishedEvent.prUrl field), else a "completes when the
+         run finishes" message for in-flight runs.
+
+    DEPENDENCIES (src/dashboard/package.json):
+
+    (12) react-markdown + remark-gfm + rehype-sanitize. Pinned React 19
+         compatible. Markdown payload is operator-trusted (server
+         artefact) but rehype-sanitize stays in-pipeline for defense-
+         in-depth.
+
+  out: |
+    Long-term server-side filesystem persistence of result.md. Out —
+    the PR is the durable surface; Redis 24h TTL is the live cache
+    window. See PARKED.md item 1 for the architecture rationale.
+    plan.md / decisions.md / cost-summary.md as separate tabs. Out —
+    result.md inlines all three; operators needing raw access click
+    through to the PR.
+    Live re-fetch on file change. Out — result.md is written once at
+    WriteRunResult and never modified.
+    Pre-WriteRunResult preview. Out — there's no content to render
+    until the handler runs; mid-run state shows the "completes-on-
+    finish" message.
+
+decisions:
+  - key: |
+      4th slot on IRunArtifactStore, not a separate result-store
+      interface — Reason: the existing 3-slot store already has the
+      exact shape (Redis-key per runId + per slot, TTL, in-memory
+      fallback for tests, ClearAsync lifecycle). Adding a 4th
+      method-pair keeps one DI registration and one cleanup story.
+      The result-slot lifecycle differs from the existing slots
+      (read after WriteRunResult, not during the pipeline) which is
+      why PromoteAsync does NOT clear the result slot — handled by
+      its own TTL.
+      alternatives: separate IResultArtifactStore interface (rejected
+      — second DI registration, second cleanup story for the same
+      shape); FS-mount approach (rejected — see PARKED.md item 1).
+
+  - key: |
+      24h TTL on the result-slot, not unbounded — Reason: operators
+      typically refer back to a run within hours of completion;
+      beyond that the PR is the source of truth. Bounded TTL keeps
+      Redis memory predictable (256mb cap × ~1-2 MB per result.md
+      = ~100 runs of headroom). If the cap becomes operationally
+      tight, two adjustment knobs: raise Redis maxmemory (now safe
+      since AOF persistence on disk landed) or lower this TTL.
+      alternatives: unbounded (rejected — unbounded Redis growth);
+      1h TTL (rejected — too aggressive for the "I want to see
+      yesterday's run" case).
+
+  - key: |
+      Empty state links to PR, not "result missing" full-stop —
+      Reason: every completed run has a result.md committed via
+      `git add -A` in CommitAndPR (the WriteRunResult step runs
+      BEFORE the commit). The PR URL is in the existing
+      RunFinishedEvent.prUrl field. When the dashboard's Redis
+      cache is cold (24h+ runs), the PR is one click away — the
+      operator sees the same content with one redirect.
+      alternatives: just say "missing" (rejected — operator drop-off;
+      they don't know the PR has it); auto-redirect to PR URL
+      (rejected — UX surprise, breaks tab semantics).
+
+  - key: |
+      react-markdown + remark-gfm + rehype-sanitize, not raw HTML —
+      Reason: defense-in-depth on LLM-generated content + GFM tables
+      are load-bearing for the per-skill cost breakdown in result.md.
+      alternatives: pre-rendered server-side HTML (rejected —
+      couples server to dashboard rendering); strict markdown-only
+      (rejected — tables are essential).
+
+  - key: |
+      DESIGN.md token vocabulary in the code-block renderer —
+      Reason: result.md is full of fenced code (terminal output,
+      JSON, YAML). DESIGN.md's terminal-panel tokens exist for
+      exactly this surface; using them keeps Smith's identity
+      consistent across marketing site, docs, and dashboard. Same
+      rationale as p0169f/g/h.
+
+steps:
+  - id: store-slot
+    action: |
+      IRunArtifactStore + RedisRunArtifactStore + InMemoryRunArtifactStore
+      gain Write/ReadResultMarkdownAsync. RedisRunArtifactStore stores
+      under `runs:artifact:{runId}:result` with 24h TTL.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Persistence/IRunArtifactStore.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisRunArtifactStore.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Persistence/InMemoryRunArtifactStore.cs"
+    new:
+      - "tests/AgentSmith.Tests/Persistence/RedisRunArtifactStoreResultSlotTests.cs"
+
+  - id: write-handler-store
+    action: |
+      WriteRunResultHandler additionally writes the rendered resultMd
+      to the artifact store on both single + init-fan-out paths.
+      Failure logged at warning, swallowed (FS + PR are source of
+      truth).
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+    new:
+      - "tests/AgentSmith.Tests/Handlers/WriteRunResultHandlerResultStoreTests.cs"
+
+  - id: result-reader
+    action: |
+      ResultMarkdownReader service in Server.Services.Events, single-
+      line delegate to IRunArtifactStore. Path-traversal guard rejects
+      runIds not matching RunIdGenerator.IsValid.
+    new:
+      - "src/backend/AgentSmith.Server/Services/Events/ResultMarkdownReader.cs"
+      - "tests/AgentSmith.Tests/Hubs/ResultMarkdownReaderTests.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Hubs/JobsHub.cs"
+      - "src/backend/AgentSmith.Server/Program.cs"
+
+  - id: hub-client
+    action: |
+      JobsHubClient.getResultMarkdown(runId) + useResultMarkdown hook.
+      Same lifecycle shape as useTrail.
+    new:
+      - "src/dashboard/src/hooks/useResultMarkdown.ts"
+    modify:
+      - "src/dashboard/src/lib/JobsHubClient.ts"
+
+  - id: markdown-deps
+    action: |
+      Add react-markdown + remark-gfm + rehype-sanitize. Pin React 19
+      compatible.
+    modify:
+      - "src/dashboard/package.json"
+      - "src/dashboard/pnpm-lock.yaml"
+
+  - id: result-tab
+    action: |
+      ResultTab component + custom code-block renderer wired to
+      DESIGN.md terminal-panel tokens. Top-bar with copy-to-clipboard.
+      Empty state with "View in PR" link when prUrl is available.
+    new:
+      - "src/dashboard/src/components/jobs/ResultTab.tsx"
+      - "src/dashboard/src/components/jobs/ResultCodeBlock.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ResultTab.test.tsx"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test green.
+      Manual smoke: completed run shows result.md rendered with tables,
+      code-fences, decision sections, cost breakdown. Force-clear the
+      cache, refresh — "View in PR" link surfaces.
+
+tests:
+  - "RedisRunArtifactStore_WriteResultMarkdown_RoundTrips"
+  - "RedisRunArtifactStore_ReadResultMarkdown_AbsentKey_ReturnsNull"
+  - "RedisRunArtifactStore_WriteResultMarkdown_AppliesTtl"
+  - "WriteRunResultHandler_SingleRun_WritesResultMdToArtifactStore"
+  - "WriteRunResultHandler_InitFanOut_WritesPerRepoResultMd"
+  - "WriteRunResultHandler_StoreFailure_SwallowsAndLogs"
+  - "ResultMarkdownReader_KnownRunWithResult_ReturnsContent"
+  - "ResultMarkdownReader_StoreReturnsNull_ReturnsNull"
+  - "ResultMarkdownReader_PathTraversalAttempt_RejectsRunId"
+  - "JobsHubGetResultMarkdown_DelegatesToReader"
+  - "useResultMarkdown_FetchesOnMount_StoresContent"
+  - "ResultTab_RendersHeadingsTablesCodeFences"
+  - "ResultTab_MissingWithPrUrl_RendersViewInPrLink"
+  - "ResultTab_MissingNoPrUrl_RendersCompletesOnFinishMessage"
+  - "ResultCodeBlock_AppliesTerminalPanelTokens"
+
+done:
+  - "IRunArtifactStore gains result-md slot; Redis impl writes with 24h TTL."
+  - "WriteRunResultHandler additionally writes resultMd to the store on both single + init paths."
+  - "JobsHub.GetResultMarkdown delegates to ResultMarkdownReader (one-line forward)."
+  - "Path-traversal guard: only valid RunIdGenerator-shaped ids accepted."
+  - "useResultMarkdown hook fetches on mount, exposes loading + error + content."
+  - "ResultTab routed via ?tab=result; renders react-markdown + remark-gfm + rehype-sanitize."
+  - "Code-block renderer uses DESIGN.md terminal-panel tokens."
+  - "Empty state with PR-link fallback ships."
+  - "Backend + dashboard tests green."
+  - "Manual smoke: completed run's result.md is the primary content surface in the dashboard; cold-cache fallback to PR works."

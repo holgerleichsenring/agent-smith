@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -29,6 +30,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class WriteRunResultHandler(
     ISandboxFileReaderFactory readerFactory,
     IDialogueTrail dialogueTrail,
+    IRunArtifactStore artifactStore,
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -77,6 +79,7 @@ public sealed class WriteRunResultHandler(
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown,
             topology);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+        await TryStoreResultAsync(runId, resultMd, cancellationToken);
 
         await AppendToContextYamlAsync(
             reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, cancellationToken);
@@ -133,6 +136,7 @@ public sealed class WriteRunResultHandler(
                 bootstrapOutputsByContext: repoOutputs,
                 sharedCostNote: sharedNote);
             await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+            await TryStoreResultAsync(runId, resultMd, cancellationToken);
 
             await AppendToContextYamlAsync(
                 reader,
@@ -164,9 +168,24 @@ public sealed class WriteRunResultHandler(
             runId, duration, cost, trail, decisions,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
+        await TryStoreResultAsync(runId, resultMd, cancellationToken);
         await AppendToContextYamlAsync(
             reader, Path.Combine(agentDir, ContextFileName), runId, ticket: null, cancellationToken);
         return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
+    }
+
+    private async Task TryStoreResultAsync(string runId, string resultMd, CancellationToken ct)
+    {
+        try
+        {
+            await artifactStore.WriteResultMarkdownAsync(runId, resultMd, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to cache result.md for {RunId} in artifact store — disk write + PR remain authoritative",
+                runId);
+        }
     }
 
     private static ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
