@@ -37,11 +37,17 @@ public sealed class EventPublishingAIFunction(
 
         var ok = false;
         object? result = null;
+        string? errorMessage = null;
         try
         {
             result = await inner.InvokeAsync(arguments, cancellationToken);
             ok = true;
             return result;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            throw;
         }
         finally
         {
@@ -49,7 +55,7 @@ public sealed class EventPublishingAIFunction(
             {
                 var resultLength = EstimateResultLength(result);
                 await eventPublisher.PublishAsync(
-                    new ToolResultEvent(runId!, inner.Name, ok, resultLength, DateTimeOffset.UtcNow),
+                    new ToolResultEvent(runId!, inner.Name, ok, resultLength, DateTimeOffset.UtcNow, errorMessage),
                     CancellationToken.None);
             }
         }

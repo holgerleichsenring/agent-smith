@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Skills;
@@ -72,7 +73,10 @@ internal static class RunStateConceptsTestFactory
         var skillsRoot = TestSkillsRoot.Resolve();
         if (skillsRoot is null) return FallbackMinimal;
 
-        var loader = new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance);
+        var loader = new ConceptVocabularyLoader(
+            new NoOpEventPublisher(),
+            new AsyncLocalRunContextAccessor(),
+            NullLogger<ConceptVocabularyLoader>.Instance);
         var loaded = loader.Load(skillsRoot);
 
         // Defense in depth: if the loader returned Empty (file disappeared
