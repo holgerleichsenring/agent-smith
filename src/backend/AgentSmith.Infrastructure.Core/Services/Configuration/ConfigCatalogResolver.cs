@@ -64,6 +64,7 @@ public sealed class ConfigCatalogResolver
             PipelineDataFlow = raw.PipelineDataFlow,
             Sandbox = raw.Sandbox,
             Orchestrator = raw.Orchestrator,
+            PipelineCostCap = raw.PipelineCostCap,
         };
 
     private static void ThrowIfErrors(List<string> errors)
