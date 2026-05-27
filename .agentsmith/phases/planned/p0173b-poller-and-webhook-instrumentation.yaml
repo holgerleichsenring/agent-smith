@@ -1,0 +1,356 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173-poller-and-webhook-instrumentation
+goal: |
+  Answer "why didn't this ticket trigger" + "what is the polling loop
+  actually doing right now". Wire TrackerPoller + every IWebhookHandler
+  implementation to emit SystemEvents through p0173a's pipe. Every
+  poll cycle reports its source, ticket count, duration; every ticket
+  scanned during a cycle records whether it triggered or was skipped
+  (with the reason already present in TrackerPollCounts:
+  ZeroMatched / StatusFiltered / Spawned); every webhook delivery
+  records whether it was actioned and why not if skipped.
+
+  This slice ships the producers that turn p0173a's empty system:events
+  stream into the most diagnostically valuable signal for the operator.
+  Slice c handles chat + config + catalog producers; slice d builds the
+  dashboard surface on top.
+
+requires:
+  - p0173a-system-event-backbone
+
+scope:
+  in: |
+    EVENT RECORDS (src/backend/AgentSmith.Contracts/Events):
+
+    (1) Concrete SystemEvent records, all under
+        AgentSmith.Contracts.Events:
+        - PollCycleStartedEvent  { Source, Tracker, IntervalSeconds }
+        - PollCycleFinishedEvent { Source, Tracker, TicketsPolled,
+                                    Matched, Spawned, StatusFiltered,
+                                    ZeroMatched, DurationMs }
+        - TicketScannedEvent     { Source, Tracker, TicketId, Labels[] }
+        - TicketSkippedEvent     { Source, Tracker, TicketId, Reason,
+                                    Detail? }
+          Reason enum: zero-match, status-filter, claim-blocked,
+          duplicate-in-flight, not-an-issue (PR). Detail is a short
+          free-form string for the specific case (e.g. "label
+          'agent-smith' absent" or "status 'In Progress' not in
+          trigger_statuses ['To Do','Open']").
+        - TicketTriggeredEvent   { Source, Tracker, TicketId, Project,
+                                    Pipeline, RunId }
+          RunId is the run-id about to be assigned — this is the
+          ONE event that bridges the system stream to the run
+          stream, and lets slice d's dashboard "drill from
+          TriggerLog into the Recent Run".
+        - WebhookReceivedEvent   { Source (e.g. "webhook:github"),
+                                    EventType (raw header value, e.g.
+                                    "issues", "issue_comment"),
+                                    Path, Actioned, SkipReason? }
+
+        Source field convention:
+        - tracker: "tracker:{type}/{trackerName}" (e.g.
+          "tracker:jira/sample")
+        - webhook: "webhook:{platform}" (e.g. "webhook:github")
+        Keeps the dashboard's filter predicates simple (StartsWith).
+
+    (2) SystemEventType enum extended with one entry per record
+        above. Slice a defined the enum; slice b populates it.
+
+    PRODUCER INTEGRATION (TrackerPoller + PollerHostedService):
+
+    (3) PollerHostedService injects ISystemEventPublisher; emits
+        PollCycleStartedEvent at the top of PollSafeAsync and
+        PollCycleFinishedEvent after LogResult. Existing log line
+        stays — events are additive, not a replacement (operators
+        still tail logs).
+
+    (4) TrackerPoller injects ISystemEventPublisher; emits per-ticket
+        events inside the existing loop:
+        - TicketScannedEvent in DispatchTicketAsync entry (one per
+          ticket seen, before matching)
+        - TicketSkippedEvent with Reason=zero-match in the
+          ZeroMatched branch (same code path as the existing
+          polling-zero-match log)
+        - TicketSkippedEvent with Reason=status-filter in the
+          StatusFiltered branch
+        - TicketTriggeredEvent in SpawnIfStatusAllowedAsync just
+          BEFORE spawnUseCase.ExecuteAsync (so the event carries the
+          runId — see decision below)
+
+    (5) ISpawnPipelineRunsUseCase: TicketTriggeredEvent needs the
+        runId. Two options at slice review:
+        (a) Add an out-RunId / IDisposable scope on ExecuteAsync, or
+        (b) Have the use case return the runId.
+        Decision deferred to step-spec; whichever lets TrackerPoller
+        emit TicketTriggeredEvent WITH the runId, before the run
+        actually starts, so the trigger event and the eventual
+        RunStartedEvent share a stable id and slice d can link
+        them. Aligning with [[feedback_no_heuristic_for_missing_data]]:
+        the runId is the link, don't reconstruct it via timestamp.
+
+    PRODUCER INTEGRATION (Webhook handlers):
+
+    (6) WebhookReceivedEvent emitted from the 14 IWebhookHandler
+        implementations. Per the existing single-entrypoint pattern
+        in WebhookEndpoints.HandleWebhookAsync ->
+        WebhookRequestProcessor.ProcessAsync, emit ONCE per delivery
+        from the processor (one place, all 14 handlers covered) with:
+        - Source: "webhook:github" / "webhook:gitlab" /
+          "webhook:azuredevops" / "webhook:jira" (derived from path)
+        - EventType: raw event-type header value (X-GitHub-Event,
+          X-GitLab-Event, etc.)
+        - Path: ctx.Request.Path.Value
+        - Actioned: true iff the processor dispatched to a handler
+          and the handler returned 2xx
+        - SkipReason: short string for the non-actioned case
+          ("no-handler-matched", "signature-invalid",
+          "label-not-in-trigger-config", "pr-not-issue", etc.)
+        This keeps slice b's webhook story declarative: one event
+        per HTTP delivery, regardless of which handler matched.
+
+    (7) The 14 individual IWebhookHandler classes get a single new
+        seam: the SkipReason string surfaces from each handler's
+        existing branch where it decides "don't act". Where today the
+        code logs + returns 200 silently, the processor now reads
+        the SkipReason from the handler's response shape (extend
+        IWebhookHandler.HandleAsync's return to carry Actioned +
+        SkipReason — additive, not breaking).
+
+    SEQUENCE-COMPLETENESS TEST EXTENSION
+    (tests/AgentSmith.Tests/Events):
+
+    (8) SystemEventSequenceCompletenessTests gains six Theory rows
+        (one per record in scope.in (1)). Each row drives the
+        producer into a known state with a recording publisher
+        + a dropping publisher, asserts the missing event surfaces
+        as a failure. Drops the slice-a guard test (MemberData is
+        now non-empty).
+
+    DASHBOARD CONTRACT MIRROR (src/dashboard/src/types):
+
+    (9) system-events.ts extended with the six concrete record
+        types + SystemEventType enum entries. Drift detector green
+        post-update. No UI consumer in this slice — slice d
+        consumes them.
+
+  out: |
+    Chat-message-received events. Slice c.
+    Config-file-read events. Slice c.
+    Skill-catalog-loaded / vocabulary-loaded events. Slice c.
+    Dashboard cards / views. Slice d.
+    Backfill of pre-p0173b webhook deliveries. Out — new traffic only.
+    Per-handler granularity on the webhook event (which of the 14
+    handlers handled it). Out — Path + EventType already gives the
+    dashboard enough to disambiguate; the operator's diagnostic
+    question is "was this delivery actioned", not "which class
+    handled it".
+
+decisions:
+  - key: |
+      Emit WebhookReceivedEvent once from the processor, not once
+      per handler — Reason: WebhookEndpoints.HandleWebhookAsync funnels
+      all four routes into WebhookRequestProcessor.ProcessAsync. One
+      emission point covers all 14 handlers; per-handler emission
+      would duplicate the wiring 14 times and risk drift when a new
+      handler ships without an event call. The trade-off — slightly
+      coarser granularity (no "GitHubPrLabelWebhookHandler matched"
+      detail) — is acceptable because Path + EventType carry that
+      information already.
+      alternatives: per-handler emit (rejected — drift class, 14
+      copies of the same call); pre-dispatch + post-dispatch pair
+      (rejected — doubles event volume without diagnostic gain;
+      Actioned + SkipReason on one event suffices).
+
+  - key: |
+      TicketTriggeredEvent carries runId, emitted BEFORE the run
+      starts — Reason: the operator's dashboard story is "this
+      ticket triggered this run". Without a stable id on the
+      TriggerEvent, slice d would have to pair via timestamp +
+      ticket-id heuristic — exactly the
+      [[feedback_no_heuristic_for_missing_data]] anti-pattern. The
+      runId is the link; ISpawnPipelineRunsUseCase already generates
+      it (the run stream is keyed by it). Threading it out to the
+      caller before ExecuteAsync runs is a small additive contract
+      change; the alternative is a heuristic the dashboard would
+      have to maintain forever.
+      alternatives: emit TicketTriggeredEvent after ExecuteAsync
+      with the just-finished runId (rejected — race: a long-running
+      pipeline means the trigger event arrives long after the
+      RunStartedEvent, confusing the timeline); pair by timestamp +
+      ticket-id (rejected — heuristic, fails under bursts).
+
+  - key: |
+      Reason as enum + Detail as free-form string, not one or the
+      other — Reason: the enum gives slice d a clean grouping axis
+      ("show me all zero-match skips this week"), the Detail string
+      gives the operator the actual answer ("label 'agent-smith'
+      absent"). Stripping either loses diagnostic value: enum-only
+      forces the dashboard to render "Status Filter" with no answer
+      to "filtered for what?"; string-only forces every consumer
+      to substring-match for grouping.
+      alternatives: enum only (rejected — operator gets categories
+      without answers); free-form only (rejected — dashboard
+      grouping becomes a substring-matching nightmare);
+      polymorphic record per reason (rejected — over-engineering;
+      five enum values do not justify five record types).
+
+  - key: |
+      IWebhookHandler return-type carries Actioned + SkipReason
+      (additive, not breaking) — Reason: today HandleAsync returns
+      (int statusCode, string body). The processor needs to know
+      whether the handler took action (vs returned 200 silently
+      because the delivery didn't match this handler's trigger
+      config). Extending the return type with two optional fields
+      (defaulting to Actioned=true on 2xx and SkipReason=null) is
+      additive — existing implementations work without code change,
+      new emissions opt in by populating the new fields where
+      they already branch to "no-op".
+      alternatives: out-parameter (rejected — uglier signature);
+      side-channel via HttpContext.Items (rejected — magic-string
+      contract); new IWebhookHandler interface (rejected —
+      14-file blast radius for what is a two-field record extension).
+
+  - key: |
+      Single TicketSkippedEvent type with Reason enum, not one
+      record per skip reason — Reason: five reasons today, more
+      may come. One record type with a discriminated Reason field
+      keeps the contract narrow + serialiser simple. Five record
+      types would inflate SystemEventType + serializer branches
+      for no benefit; the dashboard groups by Reason anyway.
+      alternatives: one record per reason (rejected — five-fold
+      bloat); generic SkipEvent without Reason field (rejected —
+      cannot filter).
+
+steps:
+  - id: concrete-event-records
+    action: |
+      Add the six SystemEvent records + SystemEventType enum entries.
+      Source-field convention documented in XML doc on
+      SystemEvent.Source. TicketSkipReason enum colocated with the
+      TicketSkippedEvent record.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/PollCycleEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/TicketLifecycleEvents.cs"
+      - "src/backend/AgentSmith.Contracts/Events/WebhookReceivedEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/TicketSkipReason.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/SystemEventType.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+
+  - id: poller-instrumentation
+    action: |
+      PollerHostedService.PollSafeAsync emits PollCycleStarted /
+      Finished around the existing log + result path. TrackerPoller
+      emits TicketScanned / TicketSkipped (with reason from the
+      TrackerPollCounts branch already in place) / TicketTriggered.
+      Source string built once at constructor time
+      ("tracker:{type}/{name}"). All publishes are fire-and-forget
+      Task.Run-style — a publish failure must not break the polling
+      loop.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Polling/PollerHostedService.cs"
+      - "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs"
+
+  - id: spawn-use-case-runid
+    action: |
+      ISpawnPipelineRunsUseCase.ExecuteAsync threads the assigned
+      runId back to the caller (return type change or
+      out-parameter — pick whichever is least invasive on first
+      compile; doc the choice in decisions). TrackerPoller emits
+      TicketTriggeredEvent with the runId between match and
+      ExecuteAsync.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/ISpawnPipelineRunsUseCase.cs"
+      - "src/backend/AgentSmith.Application/Services/Triggers/SpawnPipelineRunsUseCase.cs"
+      - "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs"
+
+  - id: webhook-processor-emit
+    action: |
+      IWebhookHandler.HandleAsync return type gains Actioned +
+      SkipReason (record extension, default values keep callers
+      compiling). WebhookRequestProcessor.ProcessAsync emits one
+      WebhookReceivedEvent per delivery using the returned
+      Actioned + SkipReason. Source string derived from path
+      ("webhook:github" / "webhook:gitlab" / etc.). EventType from
+      the platform-specific header.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/IWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs"
+
+  - id: handler-skip-reason-population
+    action: |
+      The 14 IWebhookHandler implementations populate Actioned +
+      SkipReason at the existing branches where they decide "no
+      action" (signature mismatch, label not in trigger config,
+      PR-not-issue, etc.). Existing return values become explicit:
+      "I handled this" vs "I saw this and chose not to". No
+      behavioural change — just labelling the existing branches.
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/JiraAssigneeWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs"
+
+  - id: completeness-test-rows
+    action: |
+      SystemEventSequenceCompletenessTests gains Theory rows for
+      the six new event records. Each row uses a recording
+      publisher + a dropping publisher; absence of the expected
+      event surfaces as the failure message. Drops the slice-a
+      guard test now that MemberData is populated.
+    modify:
+      - "tests/AgentSmith.Tests/Events/SystemEventSequenceCompletenessTests.cs"
+
+  - id: dashboard-types-mirror
+    action: |
+      system-events.ts extended with the six records + enum entries.
+      Drift detector green.
+    modify:
+      - "src/dashboard/src/types/system-events.ts"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Manual smoke: dotnet run
+      server with a real tracker configured (the fixture's local
+      Jira sample is sufficient); attach redis-cli XRANGE
+      system:events - + and verify PollCycleStarted /
+      TicketScanned / TicketSkipped or TicketTriggered /
+      PollCycleFinished sequence flows through within one poll
+      interval. POST a synthetic GitHub webhook delivery and
+      verify WebhookReceived appears with the right
+      Actioned / SkipReason.
+
+tests:
+  - "PollerHostedService_PollSafeAsync_EmitsPollCycleStartedThenFinished"
+  - "PollerHostedService_PollerThrows_StillEmitsPollCycleFinishedWithFailureMarker"
+  - "TrackerPoller_ZeroMatch_EmitsTicketSkippedWithReasonZeroMatch"
+  - "TrackerPoller_StatusFiltered_EmitsTicketSkippedWithReasonStatusFilter"
+  - "TrackerPoller_Spawned_EmitsTicketTriggeredWithRunIdMatchingSpawnUseCase"
+  - "WebhookRequestProcessor_ActionedDelivery_EmitsWebhookReceivedWithActionedTrue"
+  - "WebhookRequestProcessor_SkippedDelivery_EmitsWebhookReceivedWithSkipReason"
+  - "WebhookRequestProcessor_UnknownPath_EmitsWebhookReceivedWithSkipReasonNoHandlerMatched"
+  - "GitHubPrLabelWebhookHandler_LabelNotInTriggerConfig_ReturnsActionedFalseWithReason"
+  - "JiraAssigneeWebhookHandler_StatusFiltered_ReturnsActionedFalseWithReason"
+  - "SystemEventSequenceCompleteness_PollCycleStarted_DroppedProducerSurfacesAsFailure"
+  - "SystemEventSequenceCompleteness_TicketTriggered_DroppedProducerSurfacesAsFailure"
+  - "SystemEventSequenceCompleteness_WebhookReceived_DroppedProducerSurfacesAsFailure"
+  - "BuildHubEventTypesScript_NoDriftAfterPollerWebhookMirror"
+
+done:
+  - "Six SystemEvent records ship + SystemEventType enum populated."
+  - "TrackerPoller emits TicketScanned / TicketSkipped (with Reason + Detail) / TicketTriggered (with runId)."
+  - "PollerHostedService emits PollCycleStarted / Finished around every cycle."
+  - "WebhookRequestProcessor emits WebhookReceived once per delivery with Actioned + SkipReason from the IWebhookHandler return."
+  - "14 IWebhookHandler implementations populate Actioned + SkipReason at their existing no-action branches."
+  - "SystemEventSequenceCompletenessTests Theory has six populated rows; slice-a guard test dropped."
+  - "system-events.ts mirror updated; drift detector green."
+  - "Manual smoke: a synthetic Jira poll + GitHub webhook produce the expected event sequence on redis-cli XRANGE system:events."

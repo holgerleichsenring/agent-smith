@@ -1,0 +1,307 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173a-system-event-backbone
+goal: |
+  Build the pipe that lets the dashboard observe pre-run activity. Same
+  envelope contract as p0169e, parallel hierarchy: SystemEvent base
+  alongside RunEvent, ISystemEventPublisher alongside IEventPublisher,
+  RedisSystemEventPublisher writing to a single system:events stream,
+  JobsHub.SubscribeSystem alongside SubscribeRun, and a
+  SystemEventSequenceCompletenessTests pattern lifted from p0169e's
+  silent-producer Theory.
+
+  This slice ships the pipe only. No producer instrumentation —
+  TrackerPoller, IWebhookHandler implementations, chat handlers, config
+  loaders, skill loaders are all untouched here. Slices b + c wire them
+  in. Splitting the contract from the producers is the same explicit
+  countermeasure that p0169e used against the p0169a UI-vs-data race.
+
+requires:
+  - p0169e-event-backbone
+  - p0169j-b1-failure-reason-events
+
+scope:
+  in: |
+    EVENT CONTRACTS (src/backend/AgentSmith.Contracts/Events):
+
+    (1) New SystemEvent abstract base record, parallel to RunEvent:
+        - record SystemEvent(string Source, SystemEventType Type,
+          DateTimeOffset Timestamp)
+        Source is a free-form producer tag (e.g. "tracker:jira/sample",
+        "webhook:github", "chat:slack", "skill-catalog",
+        "config-loader") that lets the dashboard group events by
+        origin without parsing the type discriminator.
+
+    (2) New SystemEventType enum, separate range from EventType (no
+        overlap with the run-scoped enum — the two are deserialised
+        from different streams and never share a payload). Slice a
+        defines only the enum + base; concrete event records ship in
+        b/c alongside their producers.
+
+    PUBLISHER INFRASTRUCTURE (src/backend/AgentSmith.Infrastructure):
+
+    (3) New ISystemEventPublisher contract in AgentSmith.Contracts.Events
+        with one PublishAsync(SystemEvent) method. Distinct interface
+        from IEventPublisher — system events have no RunId, and the
+        existing IEventPublisher contract is run-scoped by construction
+        (RunEvent.RunId is required). DI of a single combined publisher
+        would force every system-side caller to handle a sentinel.
+
+    (4) RedisSystemEventPublisher writes to a single stream
+        system:events with the same MAXLEN=10_000 + EXPIRE=2h pattern
+        as p0169e's per-run streams (constants reused via a new
+        SystemEventStreamKeys helper). No per-source streams — system
+        events are low-volume relative to run events; one stream
+        suffices and keeps the dashboard subscription path symmetric
+        with run events.
+
+    (5) NoOpSystemEventPublisher for CLI / test paths without Redis,
+        same shape as p0169e's NoOpEventPublisher.
+
+    (6) ServiceCollectionExtensions registers Redis variant in Server,
+        NoOp in CLI.
+
+    BROADCASTER + HUB (src/backend/AgentSmith.Server):
+
+    (7) JobsBroadcaster gains SystemSnapshot field (fixed-capacity
+        ring buffer, capacity 500 — system events accumulate slower
+        than run events but the operator wants a meaningful recent
+        window for KPIs in slice d). Background loop subscribes to
+        system:events via XREAD BLOCK on boot, same pattern as the
+        per-run streams. Cold-start: XREVRANGE COUNT 500 to rehydrate
+        the ring buffer.
+
+    (8) JobsHub.SubscribeSystem method:
+        - SubscribeSystem() — adds caller to HubGroups.System;
+          replays the retained system stream window via XRANGE before
+          live tail starts; mid-connect clients see the oldest
+          retained event as the start of their visible history, same
+          contract as p0169e's mid-run replay.
+
+    (9) HubGroups.System constant added.
+
+    PRODUCER-COMPLETENESS TEST PATTERN
+    (tests/AgentSmith.Tests/Events):
+
+    (10) SystemEventSequenceCompletenessTests scaffold. No producers
+         exist yet in slice a — the test infrastructure ships here so
+         slices b + c can each ADD their Theory row, not invent the
+         pattern. Mirror of p0169e's EventSequenceCompletenessTests:
+         RecordingSystemEventPublisher decorator, DroppingSystemEventPublisher
+         decorator, Theory placeholder structure (xUnit
+         [Theory][MemberData]) that fails with a clear error message
+         when slices b/c forget to add their row. p0169j-b1 demonstrated
+         this exact "test scaffold ships ahead of producers" cadence.
+
+    DASHBOARD CONTRACT MIRROR (src/dashboard/src/types):
+
+    (11) New system-events.ts file mirroring SystemEvent + SystemEventType
+         enum + the future record types as TypeScript types. Empty
+         union at slice a; populated by b/c. Drift detector
+         (tools/build-hub-event-types.mjs) extended to scan both
+         RunEvent and SystemEvent hierarchies; no-drift line on green.
+
+    (12) JobsHubClient extension method subscribeSystem() + a
+         useSystemEvents hook (sibling to useRunEvents from p0169f).
+         No UI consumer in this slice — slice d builds the cards. The
+         hook ships here so b/c integration tests can exercise it.
+
+  out: |
+    Producer instrumentation. Slices b (poller + webhook) and c (chat
+    + config + catalog) own that.
+    Dashboard cards / views. Slice d owns them; this slice ships only
+    the contract mirror + hook so b/c can integration-test against it.
+    Persistence beyond Redis TTL. Out — same posture as p0169e, named
+    follow-up if/when needed.
+    Per-source stream keys. Out — one system:events stream is the
+    contract; the Source field on every event gives the dashboard
+    everything it needs to filter without multiplying stream keys.
+
+decisions:
+  - key: |
+      Separate SystemEvent base, not RunId="system" sentinel on
+      RunEvent — Reason: RunEvent.RunId is required by every consumer
+      today (XADD key is run:{runId}:events, broadcaster keys its
+      active dict by RunId, hub group is HubGroups.Run(runId)).
+      Reusing the same base with a magic "system" runId would force
+      every existing consumer to branch on the sentinel, and the new
+      system:events stream would still be a different stream key —
+      so the carrier hierarchy is genuinely different. Cleaner:
+      parallel base + parallel publisher + parallel hub method. The
+      cost is two near-identical Redis publisher classes; the gain
+      is no sentinel logic anywhere.
+      alternatives: RunId="system" sentinel (rejected — sentinel
+      branching infects every consumer, and the stream key differs
+      anyway so we don't save infrastructure); subclass RunEvent
+      with optional RunId (rejected — breaks p0169e's silent-producer
+      Theory because RunId null becomes valid for a subset of records,
+      and the broadcaster's per-run dict would have to handle nulls).
+
+  - key: |
+      Single system:events stream, no per-source streams — Reason:
+      system events are low-frequency (poll cycle every N seconds per
+      tracker, webhooks event-driven, chat similarly sparse). One
+      stream is simple to reason about, gives the dashboard one
+      subscription path, and the Source field provides client-side
+      grouping. Per-source streams would multiply Redis keys (each
+      with its own TTL and MAXLEN budget), force the broadcaster to
+      multiplex N XREAD calls, and require the dashboard to subscribe
+      to N groups it doesn't know in advance.
+      alternatives: per-source streams (rejected — N-key multiplexing
+      with no measured volume justification); per-event-type streams
+      (rejected — same anti-pattern, finer granularity).
+
+  - key: |
+      Test scaffold ships ahead of producers — Reason: p0169j-b1
+      demonstrated that landing the contract change as one slice and
+      the producer instrumentation as a follow-up needs an enforcement
+      mechanism, or producers silently never get wired. Shipping the
+      RecordingSystemEventPublisher + Theory placeholder in slice a
+      means slices b + c MUST add their Theory row alongside their
+      producer wiring; absence shows up as a failed test, not a
+      silent gap.
+      alternatives: test only when producers exist (rejected — same
+      silent-producer drift class p0169e called out); manual smoke
+      gate (rejected — rots immediately, see
+      [[feedback_finish_what_you_start]]).
+
+  - key: |
+      Source field instead of typed origin enum — Reason: free-form
+      string lets b/c add new producers without modifying a shared
+      enum (no merge-conflict hotspot, no version coupling between
+      slices). Dashboard filters by string prefix or exact match,
+      which is what the operator wants anyway ("show me only Jira
+      polls", "show me only Slack-channel events"). The cost is loss
+      of compile-time exhaustiveness; the gain is independent slice
+      evolution.
+      alternatives: SystemEventSource enum (rejected — every new
+      producer needs the enum updated in lockstep, generates merge
+      pain across slices); polymorphic source records (rejected —
+      over-engineering for a string).
+
+  - key: |
+      JobsBroadcaster owns the system snapshot, not a separate
+      SystemBroadcaster — Reason: the broadcaster is already an
+      IHostedService with a Redis multiplexer + SignalR fanout. Adding
+      a second hosted service would duplicate connection management
+      + lifecycle + cold-start logic for no isolation benefit
+      (system + run event streams share Redis and SignalR anyway).
+      Keeping it in JobsBroadcaster also means slice d's cards can
+      cross-reference run snapshots and system snapshots from a
+      single source.
+      alternatives: SystemBroadcaster (rejected — two services where
+      one suffices, doubles cold-start complexity); inline into
+      JobsHub directly (rejected — same anti-pattern p0169e rejected
+      for the run flow).
+
+steps:
+  - id: system-event-base
+    action: |
+      Define SystemEvent abstract record + SystemEventType enum +
+      ISystemEventPublisher contract. No concrete event records yet
+      (those land in b/c next to their producers).
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/SystemEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/SystemEventType.cs"
+      - "src/backend/AgentSmith.Contracts/Events/ISystemEventPublisher.cs"
+
+  - id: publisher-infrastructure
+    action: |
+      RedisSystemEventPublisher serialises SystemEvent to
+      system:events with MAXLEN + EXPIRE matching p0169e.
+      NoOpSystemEventPublisher for non-Redis paths.
+      SystemEventStreamKeys exposes the single stream key + reuses
+      StreamMaxLen + StreamTtl from EventStreamKeys (DRY). DI in
+      ServiceCollectionExtensions.AddEventPublishing (extended, not
+      duplicated).
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/RedisSystemEventPublisher.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/SystemEventStreamKeys.cs"
+      - "src/backend/AgentSmith.Application/Services/Events/NoOpSystemEventPublisher.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: envelope-serializer
+    action: |
+      Extend EventEnvelopeSerializer with a SerializeSystem +
+      DeserializeSystem path. Same JSON shape as RunEvent
+      (Type discriminator + camelCase payload); separate top-level
+      method so the run-event path stays type-narrow.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+
+  - id: broadcaster-and-hub
+    action: |
+      JobsBroadcaster gains a SystemRecent ring buffer (capacity 500)
+      + a background XREAD BLOCK loop on system:events with cold-start
+      XREVRANGE COUNT 500. JobsHub gains SubscribeSystem method that
+      adds caller to HubGroups.System and replays the retained stream
+      window via XRANGE before live tail. HubGroups.System constant.
+      Fanout in the broadcaster: every consumed system event is sent
+      to the HubGroups.System group via IHubContext<JobsHub>.
+    new:
+      - "src/backend/AgentSmith.Server/Services/SystemRecentRingBuffer.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/JobsBroadcaster.cs"
+      - "src/backend/AgentSmith.Server/Hubs/JobsHub.cs"
+      - "src/backend/AgentSmith.Server/Hubs/HubGroups.cs"
+
+  - id: completeness-test-scaffold
+    action: |
+      RecordingSystemEventPublisher decorator + DroppingSystemEventPublisher
+      decorator + SystemEventSequenceCompletenessTests scaffold. No
+      Theory rows in slice a (no producers yet). Test class compiles
+      green; the [Theory][MemberData] structure is present with a
+      "TODO: slices b + c add their producer rows" guard test that
+      asserts the MemberData set is non-empty once any producer ships.
+      Mirrors p0169e's pattern.
+    new:
+      - "tests/AgentSmith.Tests/Events/RecordingSystemEventPublisher.cs"
+      - "tests/AgentSmith.Tests/Events/DroppingSystemEventPublisher.cs"
+      - "tests/AgentSmith.Tests/Events/SystemEventSequenceCompletenessTests.cs"
+
+  - id: dashboard-types-mirror
+    action: |
+      system-events.ts ships the SystemEvent + SystemEventType TS
+      mirror (enum entries empty union for now — populated by b/c).
+      JobsHubClient.subscribeSystem() opens an overview-style
+      subscription. useSystemEvents hook caps at 500 events
+      client-side, matching the broadcaster ring buffer.
+      build-hub-event-types.mjs extended to scan both hierarchies;
+      drift detector green.
+    new:
+      - "src/dashboard/src/types/system-events.ts"
+      - "src/dashboard/src/hooks/useSystemEvents.ts"
+    modify:
+      - "src/dashboard/src/lib/JobsHubClient.ts"
+      - "tools/build-hub-event-types.mjs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test green.
+      Manual smoke: dotnet run server (no producers wired), connect
+      a SignalR console probe, call SubscribeSystem, verify empty
+      replay + ready for live tail. redis-cli XLEN system:events
+      returns 0 (no producers yet — proves the pipe is wired but
+      silent, the next slice will fill it).
+
+tests:
+  - "SystemEvent_RecordContract_HasSourceTypeTimestamp"
+  - "RedisSystemEventPublisher_PublishAsync_AppendsToSystemEventsStream"
+  - "RedisSystemEventPublisher_MaxLenAndExpire_SetOnEveryAppend"
+  - "EventEnvelopeSerializer_SystemEventRoundTrip_PreservesSourceAndType"
+  - "JobsBroadcaster_ColdStart_LoadsSystemRecentFromXRevRange"
+  - "JobsBroadcaster_SystemRingBuffer_AtCapacity_EvictsOldest"
+  - "JobsHub_SubscribeSystem_ReplaysRetainedStreamWindowBeforeLiveTail"
+  - "JobsHub_SubscribeSystem_LiveTailFansOutSystemEvents"
+  - "SystemEventSequenceCompleteness_NoProducersYet_TheoryMemberDataEmpty_GuardTestFires"
+  - "BuildHubEventTypesScript_NoDriftAfterSystemEventsMirror"
+
+done:
+  - "SystemEvent base + SystemEventType enum + ISystemEventPublisher contract live in AgentSmith.Contracts.Events."
+  - "RedisSystemEventPublisher + NoOpSystemEventPublisher ship; DI picks Redis variant in Server, NoOp in CLI/tests."
+  - "system:events stream is created on first append with MAXLEN=10000 + EXPIRE=2h."
+  - "JobsBroadcaster owns the SystemRecent ring buffer (capacity 500); cold-start uses XREVRANGE COUNT 500."
+  - "JobsHub.SubscribeSystem maps to HubGroups.System; mid-connect clients see the retained window via XRANGE replay before live tail."
+  - "SystemEventSequenceCompletenessTests scaffold compiles with empty Theory MemberData + guard test ready for slices b/c to extend."
+  - "system-events.ts mirror + useSystemEvents hook ship; drift detector covers both hierarchies."
+  - "No producers wired (slices b + c will do that); system:events stream is empty post-smoke until slice b lands."

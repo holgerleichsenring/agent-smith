@@ -12,6 +12,7 @@ using AgentSmith.Infrastructure.Services.Dialogue;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Persistence;
 
 namespace AgentSmith.Tests.Handlers;
 
@@ -35,8 +36,7 @@ public sealed class WriteRunResultTopologyTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
-        _sut = new WriteRunResultHandler(
-            factory.Object, _dialogueTrail, NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]

@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169j-b
+
+decisions:
+  - category: Architecture
+    chose: "ActivityRow reads typed event.reason / event.errorMessage / event.message directly — no client-side pairing"
+    over: "ActivityErrorPairer with a 2-second temporal window"
+    reason: |
+      p0169j-b1 put the reason on the producer side of the contract.
+      The UI consumer becomes "render event.reason" — one branch per
+      event type in projectEvent(), pulled from the typed field. No
+      proximity heuristic, no across-producer guessing. The motivating
+      case (CatalogIssue → step-fail across producer classes) works
+      because both events carry their own reason field; row order
+      tells the operator which preceded which. See
+      [[feedback_no_heuristic_for_missing_data]].
+
+  - category: Implementation
+    chose: "Lifecycle events (RunStarted/RunFinished/StepStarted/StepFinished) are pill-exempt; always visible"
+    reason: |
+      Lifecycle is the chronological scaffold operators navigate by.
+      Hiding them behind a pill would let operators end up in a state
+      where the Activity tab shows nothing but tools / decisions and
+      they've lost the "where am I in the run" anchor. The four pill-
+      exempt types are the same set p0169g treats as L1 default-on;
+      consistent vocabulary across surfaces.
+
+  - category: Implementation
+    chose: "Power-user 'Show event types' reveals the legacy FilterRail inline, not in a separate modal"
+    reason: |
+      The FilterRail still has a job — debug-grade per-EventType
+      filtering for operators who need the raw layer view. Showing
+      it inline under the Activity pills keeps "switch to debug mode"
+      a one-click affordance instead of a modal navigation. Toggle
+      state is component-local (useState), not URL-persisted — the
+      Activity pills carry the durable filter intent; the debug rail
+      is a momentary look-under-the-hood.
+
+  - category: TradeOff
+    chose: "?activity=… URL param uses empty-string-means-empty-set; absence-means-default"
+    over: "Three states encoded as a single param (default / partial / all-off)"
+    reason: |
+      Same convention as the existing eventFilterQuery (?l1=, ?l2=,
+      ?l3=). Default state omits the param; partial state writes the
+      comma-list; all-off writes the empty string. Lets the URL
+      distinguish "operator turned everything off" from "operator
+      hasn't touched the filter" — meaningful for share-the-URL
+      debugging when one operator wants to send another a link with
+      "all filters off so you can see exactly what I saw."
+
+  - category: Implementation
+    chose: "ActivityRow self-renders payload-on-expand instead of delegating to TrailNodeDetailPane"
+    over: "Reuse TrailNodeDetailPane's payload renderers"
+    reason: |
+      TrailNodeDetailPane is built around TrailNode (the tree-projection
+      shape from p0169h's TrailAssembler) — not raw RunEvents. Wiring
+      it for ActivityRow would mean either (a) building per-event
+      TrailNode shims, or (b) extracting the payload renderers into a
+      shared surface. Option (b) is the right long-term move but it's
+      scope-creep for this slice; ActivityRow inlines a JSON dump for
+      now and the dedicated payload renderers stay co-located with
+      the Trail tab. Flagged for a follow-up slice if operator UX
+      review surfaces the JSON dump as too raw.
+
+  - category: Implementation
+    chose: "Event row severity inferred from the typed event fields, not stored on the event"
+    over: "Add a severity field to every event"
+    reason: |
+      The producer-side contract for the event is "what happened";
+      severity is a presentation concern that derives from status /
+      ok / passed / severity-string. ToolResult with ok=false is
+      "warn" by default but becomes part of an "error" story only
+      when the calling step fails — that linkage lives in the row
+      order, not in the event itself. Keeping severity in the
+      projection function makes the rules visible in one place and
+      keeps the event schema lean. CatalogIssueEvent carries
+      severity because it's a producer-declared property ("the
+      loader skipped vs. the loader aborted"), not a presentation
+      derivation.

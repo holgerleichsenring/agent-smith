@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services;
 
+[Collection("ConsoleOut")]
 public sealed class ConsoleOutputStrategyTests
 {
     private readonly ConsoleOutputStrategy _sut = new(NullLogger<ConsoleOutputStrategy>.Instance);

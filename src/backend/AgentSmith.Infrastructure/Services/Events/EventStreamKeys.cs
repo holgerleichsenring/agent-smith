@@ -12,7 +12,14 @@ public static class EventStreamKeys
     public const string RecentRunsList = "agentsmith:runs:recent";
     public const int RecentRunsCap = 50;
     public const int StreamMaxLen = 10_000;
-    public static readonly TimeSpan StreamTtl = TimeSpan.FromHours(2);
+    /// <summary>
+    /// p0169j-a: operator look-back window. Paired with the
+    /// IRunArtifactStore result-slot TTL — both default to 24h so the
+    /// Trail + Result tabs share the same "yesterday's run still works"
+    /// horizon. Beyond 24h, the PR is the durable surface (result.md
+    /// shipped via <c>git add -A</c> in <c>CommitAndPR</c>).
+    /// </summary>
+    public static readonly TimeSpan StreamTtl = TimeSpan.FromHours(24);
 
     public static string RunStream(string runId) => $"run:{runId}:events";
 }

@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169j-d
+
+decisions:
+  - category: Architecture
+    chose: "Pure SVG + math, no graph library"
+    over: "dagre / d3-hierarchy / react-flow"
+    reason: |
+      Star layout (one root, N siblings on one or two rows) is trivial
+      math — ~15 LoC for positions. A library would be 30-100 KB for
+      two rows of x/y. The math version is deterministic, easy to
+      unit-test (snapshot the second-row threshold), and depends on
+      nothing. If topology grows beyond star (e.g. nested
+      sub-pipelines), bringing in dagre/d3-hierarchy is a follow-up
+      slice.
+
+  - category: Architecture
+    chose: "Single-select graph + detail pane, not multi-expand"
+    reason: |
+      A graph view where multiple terminals are open simultaneously
+      isn't a graph view anymore — it's a stack of terminals with
+      line art on top. Single-select keeps the topology view honest:
+      the SVG shows layout, the detail pane shows the focused work.
+      ?expand=a,b,c URL param stays compatible (last-value-wins)
+      so existing bookmarks keep working.
+
+  - category: Implementation
+    chose: "Green RESERVED for done; running is amber-pulsing"
+    over: "Smith-green for running + a darker green for done"
+    reason: |
+      A status palette that uses smith-green (#22c55e — brand
+      primary) for "running" AND emerald for "done" makes the two
+      most operationally relevant states look almost identical.
+      During a live run, running dominates — eye habituates,
+      completion moment stops registering. Reserving green for
+      done = win-state signal, running gets amber (universal
+      CI/CD "in-progress" colour). prefers-reduced-motion via
+      Tailwind's `motion-safe:` variant disables the 2s pulse
+      for accessibility-conscious operators.
+
+  - category: Implementation
+    chose: "Removed multi-expand semantic from ?expand= URL param"
+    over: "Keep multi-expand and ignore extras in single-select mode"
+    reason: |
+      Operators sharing URLs would generate `?expand=a,b,c` from the
+      old multi-expand UI and reload to find a different visual
+      result — confusing. Per spec decision: last value wins
+      (deterministic, documented), URL stays backwards-readable.
+      The page.tsx `lastExpandParam` helper extracts the trailing
+      token; a single-repo URL still works because last-of-one is
+      that one.
+
+  - category: Scope
+    chose: "SandboxList component stays in the codebase but is unmounted from page.tsx"
+    over: "Delete SandboxList entirely"
+    reason: |
+      Spec notes SandboxList should remain available for a future
+      accessibility-tab path (screen-readers + keyboard-nav-friendlier
+      than SVG). Today no consumer renders it — but the component +
+      its tests + SandboxBox stay so the future a11y view doesn't
+      need to re-build that wheel. ExpandCollapseControls + the
+      now-unused multi-expand state in page.tsx were the only things
+      removed.
+
+  - category: Implementation
+    chose: "TopologyDetail reuses SandboxBox in always-expanded mode (onToggle as no-op)"
+    over: "A new TerminalPane component with the same shape"
+    reason: |
+      SandboxBox already renders the command + stdout / stderr feed
+      with the right filtering hooks. Forcing expanded=true and
+      ignoring onToggle makes the existing terminal surface
+      reusable without duplicating the StepEvent rendering logic.
+      The toggle no-op is fine: graph selection IS the toggle —
+      clicking the same node again deselects via the graph's
+      onSelect handler.
+
+  - category: Implementation
+    chose: "Two layout rows max, no virtualisation"
+    over: "Dynamic row count or scroll-list"
+    reason: |
+      Per p0158e the multi-sandbox-per-repo refactor caps realistic
+      runs at ~16 sandboxes (one per repo). Two rows of 8 fits
+      comfortably. If the topology ever grows past 16, the spec's
+      "follow-up library" candidate is the right move — not adding
+      a scrollbar to the graph view.
