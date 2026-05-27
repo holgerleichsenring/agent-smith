@@ -26,12 +26,15 @@ public sealed class PipelineStepRunnerTests
 
     public PipelineStepRunnerTests()
     {
+        var dataFlowReadGate = new DataFlowReadGate(
+            new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
+            Microsoft.Extensions.Options.Options.Create(new PipelineDataFlowConfig()),
+            NullLogger<DataFlowReadGate>.Instance);
         _sut = new PipelineStepRunner(
             _executorMock.Object,
             _factoryMock.Object,
             _progressMock.Object,
-            new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
-            new AgentSmithConfig(),
+            dataFlowReadGate,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineStepRunner>.Instance);
     }

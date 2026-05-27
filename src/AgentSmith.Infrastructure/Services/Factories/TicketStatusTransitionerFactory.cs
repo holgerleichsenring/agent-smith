@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Models;
@@ -31,9 +32,11 @@ public sealed class TicketStatusTransitionerFactory(
     private GitHubTicketStatusTransitioner CreateGitHub(TrackerConnection config)
     {
         var token = secrets.GetRequired("GITHUB_TOKEN");
-        return new GitHubTicketStatusTransitioner(
+        var connection = new GitHubTicketConnection(
             config.Url ?? throw new ArgumentException("GitHub URL required"),
-            token,
+            token);
+        return new GitHubTicketStatusTransitioner(
+            connection,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubTicketStatusTransitioner>());
     }
@@ -44,8 +47,9 @@ public sealed class TicketStatusTransitionerFactory(
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var projectPath = Uri.EscapeDataString(
             config.Project ?? secrets.GetRequired("GITLAB_PROJECT"));
+        var connection = new GitLabTicketConnection(baseUrl, projectPath, token);
         return new GitLabTicketStatusTransitioner(
-            baseUrl, projectPath, token,
+            connection,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitLabTicketStatusTransitioner>());
     }
@@ -54,8 +58,9 @@ public sealed class TicketStatusTransitionerFactory(
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
+        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token);
         return new AzureDevOpsTicketStatusTransitioner(
-            orgUrl, config.Project!, token,
+            connection,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<AzureDevOpsTicketStatusTransitioner>());
     }
@@ -66,8 +71,9 @@ public sealed class TicketStatusTransitionerFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
+        var connection = new JiraTicketConnection(url, email, token, projectKey);
         return new JiraTicketStatusTransitioner(
-            url, email, token, projectKey, jiraCatalog,
+            connection, jiraCatalog,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<JiraTicketStatusTransitioner>());
     }

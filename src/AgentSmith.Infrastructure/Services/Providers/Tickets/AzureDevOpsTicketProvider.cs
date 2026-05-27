@@ -29,7 +29,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public string ProviderType => "AzureDevOps";
 
     public AzureDevOpsTicketProvider(
-        string organizationUrl, string project, string personalAccessToken,
+        AzureDevOpsTicketConnection connection,
         AzureDevOpsAttachmentLoader attachmentLoader,
         AzureDevOpsFieldMapper mapper,
         ILogger<AzureDevOpsTicketProvider> logger,
@@ -37,12 +37,12 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         string? doneStatus = null,
         IReadOnlyList<string>? extraFields = null)
     {
-        _project = project;
+        _project = connection.Project;
         _doneStatus = doneStatus ?? "Closed";
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
-        _connections = new AzureDevOpsConnectionCache(organizationUrl, personalAccessToken, logger);
-        _lister = new AzureDevOpsWorkItemLister(_connections, mapper, project, openStates, extraFields, logger);
+        _connections = new AzureDevOpsConnectionCache(connection, logger);
+        _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)

@@ -11,22 +11,30 @@ namespace AgentSmith.Application.Services.Tools;
 /// (<c>.agentsmith/contexts/&lt;ContextName&gt;/{context.yaml,coding-principles.md}</c>).
 /// Empty contextName falls back to the legacy flat layout
 /// (<c>.agentsmith/{context.yaml,coding-principles.md}</c>) for pre-p0161d test
-/// fixtures.
+/// fixtures. Stateless — per-call values come from the caller.
 /// </summary>
-public sealed class PathWriteGuard : IPathWriteGuard
+public sealed class PathWriteGuard(IPathReadGuard readGuard) : IPathWriteGuard
 {
-    private readonly IPathReadGuard _readGuard;
-    private readonly SkillExecutionPhase _phase;
-    private readonly string[] _bootstrapFiles;
-
-    public PathWriteGuard(IPathReadGuard readGuard, SkillExecutionPhase phase)
-        : this(readGuard, phase, contextName: null) { }
-
-    public PathWriteGuard(IPathReadGuard readGuard, SkillExecutionPhase phase, string? contextName)
+    public Result AssertWritable(
+        string path, string repoRoot, SkillExecutionPhase phase, string? contextName)
     {
-        _readGuard = readGuard;
-        _phase = phase;
-        _bootstrapFiles = BuildBootstrapFileList(contextName);
+        var readResult = readGuard.AssertReadable(path, repoRoot);
+        if (!readResult.IsSuccess)
+            return readResult;
+
+        if (phase != SkillExecutionPhase.Implementation && phase != SkillExecutionPhase.Bootstrap)
+            return Fail(GuardErrorKind.WriteForbiddenInPhase, path,
+                $"writes are forbidden in phase '{phase}'; only Implementation and Bootstrap may write");
+
+        if (phase == SkillExecutionPhase.Bootstrap)
+        {
+            var bootstrapFiles = BuildBootstrapFileList(contextName);
+            if (!IsBootstrapFile(path, bootstrapFiles))
+                return Fail(GuardErrorKind.NotInBootstrapFiles, path,
+                    $"path '{path}' is not in the bootstrap-allowed file list [{string.Join(", ", bootstrapFiles)}]");
+        }
+
+        return Result.Ok();
     }
 
     private static string[] BuildBootstrapFileList(string? contextName)
@@ -41,27 +49,10 @@ public sealed class PathWriteGuard : IPathWriteGuard
         ];
     }
 
-    public Result AssertWritable(string path)
-    {
-        var readResult = _readGuard.AssertReadable(path);
-        if (!readResult.IsSuccess)
-            return readResult;
-
-        if (_phase != SkillExecutionPhase.Implementation && _phase != SkillExecutionPhase.Bootstrap)
-            return Fail(GuardErrorKind.WriteForbiddenInPhase, path,
-                $"writes are forbidden in phase '{_phase}'; only Implementation and Bootstrap may write");
-
-        if (_phase == SkillExecutionPhase.Bootstrap && !IsBootstrapFile(path))
-            return Fail(GuardErrorKind.NotInBootstrapFiles, path,
-                $"path '{path}' is not in the bootstrap-allowed file list [{string.Join(", ", _bootstrapFiles)}]");
-
-        return Result.Ok();
-    }
-
-    private bool IsBootstrapFile(string path)
+    private static bool IsBootstrapFile(string path, string[] bootstrapFiles)
     {
         var normalized = path.Replace('\\', '/').TrimStart('/');
-        return _bootstrapFiles.Any(bf =>
+        return bootstrapFiles.Any(bf =>
             normalized.EndsWith(bf, StringComparison.Ordinal)
             || normalized.Equals(bf, StringComparison.Ordinal));
     }

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models.Configuration;
@@ -140,7 +141,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
 
     private static BootstrapRoundHandler NewHandler(CapturedPrompt captured) => new(
         new PromptCapturingFactory(new CapturingChatClient(captured)),
-        new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>()),
+        new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
         NullLogger<BootstrapRoundHandler>.Instance);
 
     private static PipelineContext NewPipeline()

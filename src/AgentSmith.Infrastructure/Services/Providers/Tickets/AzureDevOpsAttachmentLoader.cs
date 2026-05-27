@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -13,12 +14,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Filters for AttachedFile relations with image MIME types, downloads with PAT.
 /// </summary>
 public sealed class AzureDevOpsAttachmentLoader(
-    string organizationUrl,
-    string project,
-    string personalAccessToken,
+    AzureDevOpsTicketConnection connection,
     HttpClient httpClient,
     ILogger logger) : IAttachmentLoader
 {
+    private readonly string _organizationUrl = connection.OrganizationUrl;
+    private readonly string _project = connection.Project;
+    private readonly string _personalAccessToken = connection.PersonalAccessToken;
+
     /// <summary>
     /// Fetches work item with expanded relations and returns image attachment refs.
     /// </summary>
@@ -27,7 +30,7 @@ public sealed class AzureDevOpsAttachmentLoader(
     {
         var client = CreateClient();
         var workItem = await client.GetWorkItemAsync(
-            project, workItemId, expand: Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemExpand.Relations,
+            _project, workItemId, expand: Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemExpand.Relations,
             cancellationToken: cancellationToken);
 
         if (workItem?.Relations is null)
@@ -60,7 +63,7 @@ public sealed class AzureDevOpsAttachmentLoader(
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, attachment.Uri);
             var basicCreds = Convert.ToBase64String(
-                System.Text.Encoding.UTF8.GetBytes($":{personalAccessToken}"));
+                System.Text.Encoding.UTF8.GetBytes($":{_personalAccessToken}"));
             request.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", basicCreds);
 
@@ -90,9 +93,9 @@ public sealed class AzureDevOpsAttachmentLoader(
 
     private WorkItemTrackingHttpClient CreateClient()
     {
-        var credentials = new VssBasicCredential(string.Empty, personalAccessToken);
-        var connection = new VssConnection(new Uri(organizationUrl), credentials);
-        return connection.GetClient<WorkItemTrackingHttpClient>();
+        var credentials = new VssBasicCredential(string.Empty, _personalAccessToken);
+        var vssConnection = new VssConnection(new Uri(_organizationUrl), credentials);
+        return vssConnection.GetClient<WorkItemTrackingHttpClient>();
     }
 
     private static string GuessMimeType(string fileName)
