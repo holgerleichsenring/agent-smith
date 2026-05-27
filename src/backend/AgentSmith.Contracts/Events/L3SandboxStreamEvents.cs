@@ -1,17 +1,22 @@
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
-/// Sandbox command launched. <see cref="ArgsLength"/> is metadata only — the
-/// raw args may carry sensitive content (SQL, secrets, file paths) and are
-/// kept out of the event stream by design, matching the prompt-content
-/// boundary from p0169e.
+/// Sandbox command launched. <see cref="ArgsLength"/> stays metadata-only
+/// for raw arg blobs (SQL, secrets, file content). <see cref="Summary"/> is
+/// an optional, producer-curated one-liner (≤120 chars) — operators in a
+/// dev-tool dashboard need to know <i>what was launched against what</i>,
+/// not just <i>that something ran</i>. Producers must only put
+/// operator-visible identifiers (paths, subcommands, target names) in the
+/// summary; full arg blobs remain off-stream. Softens the strict
+/// metadata-only boundary from p0169e — see decisions/p0175.yaml.
 /// </summary>
 public sealed record SandboxCommandEvent(
     string RunId,
     string Repo,
     string Command,
     int ArgsLength,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? Summary = null)
     : RunEvent(RunId, EventType.SandboxCommand, Timestamp);
 
 /// <summary>

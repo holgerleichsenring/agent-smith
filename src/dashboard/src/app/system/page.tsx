@@ -9,17 +9,17 @@ import { ChannelBreakdown } from "@/components/system/ChannelBreakdown";
 import { PullCycleLog } from "@/components/system/PullCycleLog";
 import { WebhookLog } from "@/components/system/WebhookLog";
 import { CostRollupCard } from "@/components/system/CostRollupCard";
-import type { RunEvent } from "@/types/hub-events";
 
 export default function SystemPage() {
-  const { connectionState } = useJobsHub();
+  const { connectionState, overview, systemActivity } = useJobsHub();
   const events = useSystemEvents();
-  // p0173d: CostRollupCard pulls from RunEvents, not SystemEvents (LLM
-  // cost is per-run-step). The page can wire in a run-event subscription
-  // later; for now we pass an empty array so the card renders zero-state
-  // — operators can navigate to /jobs for live cost detail until the
-  // run-event subscription is wired in a follow-up slice.
-  const runEvents: RunEvent[] = [];
+  // p0175-fix: Last-24h KPIs + By-source now come from the server-side
+  // rollup (systemActivity) instead of being derived client-side from
+  // the capped event ring buffer. CostRollupCard reads from the run
+  // snapshots (broadcaster rolls up LlmCallFinished into RunSnapshot).
+  // Pull/Webhook logs still derive from the local event stream — those
+  // need the per-event detail and a future slice will move them to
+  // server-aggregated cycles.
 
   return (
     <main className="mx-auto max-w-6xl space-y-4 p-6">
@@ -34,10 +34,10 @@ export default function SystemPage() {
       </header>
 
       <SystemStatusCard events={events} />
-      <TodayActivityCard events={events} />
+      <TodayActivityCard activity={systemActivity} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChannelBreakdown events={events} />
-        <CostRollupCard events={runEvents} />
+        <ChannelBreakdown activity={systemActivity} />
+        <CostRollupCard overview={overview} />
       </div>
       <PullCycleLog events={events} />
       <WebhookLog events={events} />

@@ -10,14 +10,22 @@ interface Props {
   repo: string;
   expanded: boolean;
   onToggle: () => void;
+  /**
+   * p0175-fix: when SandboxBox renders inside TopologyDetail the operator
+   * has explicitly selected the sandbox to see its stdout — the
+   * FilterRail's L3 default-off (inherited from p0169g's "L3 events
+   * default to off matching the hub's gated fanout") shouldn't gate that
+   * content. Pass true to bypass the L3 filter.
+   */
+  ignoreL3Filter?: boolean;
 }
 
-export function SandboxBox({ runId, repo, expanded, onToggle }: Props) {
+export function SandboxBox({ runId, repo, expanded, onToggle, ignoreL3Filter = false }: Props) {
   const feed = useSandboxEvents(runId, repo, expanded);
   const { state: filterState } = useEventFilter();
   const command = feed.command as SandboxCommandEvent | null;
 
-  const stdoutAllowed = isAllowed(filterState, EventType.SandboxOutput);
+  const stdoutAllowed = ignoreL3Filter || isAllowed(filterState, EventType.SandboxOutput);
   const visibleOutputs = stdoutAllowed ? feed.outputs : [];
 
   return (
@@ -32,7 +40,8 @@ export function SandboxBox({ runId, repo, expanded, onToggle }: Props) {
           <span className="font-medium text-stone-800">{repo}</span>
           {command && (
             <span className="font-mono text-xs text-stone-500">
-              {command.command} ({command.argsLength}B args)
+              {command.command}
+              {command.summary ? ` ${command.summary}` : ` (${command.argsLength}B args)`}
             </span>
           )}
         </span>

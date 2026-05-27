@@ -28,6 +28,7 @@ export function TopologyDetail({ runId, selected }: Props) {
         runId={runId}
         repo={selected}
         expanded
+        ignoreL3Filter
         onToggle={() => {
           /* expansion is controlled by graph selection — no-op here */
         }}

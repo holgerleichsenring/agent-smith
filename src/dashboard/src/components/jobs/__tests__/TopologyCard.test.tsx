@@ -18,6 +18,8 @@ const snapshot: RunSnapshot = {
   stepName: "CheckoutSource",
   totalSteps: 10,
   lastEventType: "StepStarted",
+  costUsd: 0,
+  llmCalls: 0,
 };
 
 function stepStarted(idx: number, name: string): RunEvent {

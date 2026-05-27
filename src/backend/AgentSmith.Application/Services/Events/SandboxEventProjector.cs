@@ -30,9 +30,10 @@ public sealed class SandboxEventProjector(
 
         var commandLabel = step.Command ?? step.Kind.ToString();
         var argsLength = EstimateArgsLength(step);
+        var summary = BuildSummary(step);
 
         await eventPublisher.PublishAsync(
-            new SandboxCommandEvent(runId!, repo, commandLabel, argsLength, DateTimeOffset.UtcNow),
+            new SandboxCommandEvent(runId!, repo, commandLabel, argsLength, DateTimeOffset.UtcNow, summary),
             cancellationToken);
 
         var startedAt = DateTimeOffset.UtcNow;
@@ -75,6 +76,34 @@ public sealed class SandboxEventProjector(
             argsLength = step.Args.Sum(a => a?.Length ?? 0);
         if (step.Content is not null) argsLength += step.Content.Length;
         return argsLength;
+    }
+
+    // p0175-fix: one-liner for the activity row. Uses only structured
+    // fields (Path, Pattern, first 1-2 Args) — never the Content blob or
+    // Env/secrets. Capped at 120 chars to stay readable in a row.
+    private const int SummaryCap = 120;
+    private static string? BuildSummary(Step step) => step.Kind switch
+    {
+        StepKind.Run => FromArgs(step.Args),
+        StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles or StepKind.DirectoryTree
+            => Trim(step.Path),
+        StepKind.Grep => string.IsNullOrEmpty(step.Pattern)
+            ? Trim(step.Path)
+            : Trim($"{step.Pattern} in {step.Path}"),
+        _ => null,
+    };
+
+    private static string? FromArgs(IReadOnlyList<string>? args)
+    {
+        if (args is null || args.Count == 0) return null;
+        var firstTwo = args.Take(2).Where(a => !string.IsNullOrEmpty(a));
+        return Trim(string.Join(' ', firstTwo));
+    }
+
+    private static string? Trim(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return value.Length > SummaryCap ? value[..SummaryCap] : value;
     }
 
     private sealed class ProjectingProgress(

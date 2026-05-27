@@ -46,11 +46,13 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "node-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"node\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -75,11 +77,13 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "node-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"node\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "generic-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"generic\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -99,11 +103,13 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "csharp-bootstrap-alt",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -123,6 +129,7 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -160,16 +167,19 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "markdown-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"markdown\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -198,11 +208,13 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -228,11 +240,13 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+                OutputSchema = "bootstrap",
             });
         var concepts = _conceptsFactory(pipeline);
         concepts.SetString("project_language", "scala");
@@ -260,26 +274,31 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "markdown-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"markdown\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "terraform-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"terraform\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "python-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"python\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -302,6 +321,7 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             });
         pipeline.Set(ContextKeys.DiscoveryAmbiguous,
             "BootstrapDiscover: repo 'api' is ambiguous — Server vs API. Candidates: [Server, API]. Re-run via CLI.");
@@ -331,16 +351,19 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "typescript-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"typescript\"",
+                OutputSchema = "bootstrap",
             },
             new RoleSkillDefinition
             {
                 Name = "markdown-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"markdown\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(
@@ -368,6 +391,7 @@ public sealed class BootstrapDispatchHandlerTests
             {
                 Name = "csharp-bootstrap",
                 ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+                OutputSchema = "bootstrap",
             });
 
         var result = await Handler().ExecuteAsync(

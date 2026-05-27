@@ -1,15 +1,16 @@
 "use client";
 
-import { useActivityKpis } from "@/hooks/useActivityKpis";
-import type { SystemEvent } from "@/types/system-events";
+import type { SystemActivitySnapshot } from "@/types/hub-events";
 
 interface Props {
-  events: readonly SystemEvent[];
+  activity: SystemActivitySnapshot | null;
 }
 
-export function TodayActivityCard({ events }: Props) {
-  const kpis = useActivityKpis(events);
+// p0175-fix: reads the server-computed 24h rollup. Old client-derived
+// useActivityKpis path was capped by the local 500-event ring buffer
+// and drifted from the visible cycle list when the buffer filled.
 
+export function TodayActivityCard({ activity }: Props) {
   return (
     <section
       className="rounded-lg border border-stone-200 bg-white p-4"
@@ -17,12 +18,12 @@ export function TodayActivityCard({ events }: Props) {
     >
       <h2 className="mb-3 text-sm font-medium text-stone-700">Last 24h</h2>
       <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
-        <Kpi label="Tickets scanned" value={kpis.ticketsScanned} testId="kpi-tickets-scanned" />
-        <Kpi label="Tickets triggered" value={kpis.ticketsTriggered} testId="kpi-tickets-triggered" />
-        <Kpi label="Tickets skipped" value={kpis.ticketsSkipped} testId="kpi-tickets-skipped" />
-        <Kpi label="Webhooks received" value={kpis.webhooksReceived} testId="kpi-webhooks-received" />
-        <Kpi label="Webhooks actioned" value={kpis.webhooksActioned} testId="kpi-webhooks-actioned" />
-        <Kpi label="Poll cycles" value={kpis.pollCyclesFinished} testId="kpi-poll-cycles" />
+        <Kpi label="Tickets scanned" value={activity?.ticketsScanned ?? 0} testId="kpi-tickets-scanned" />
+        <Kpi label="Tickets triggered" value={activity?.ticketsTriggered ?? 0} testId="kpi-tickets-triggered" />
+        <Kpi label="Tickets skipped" value={activity?.ticketsSkipped ?? 0} testId="kpi-tickets-skipped" />
+        <Kpi label="Webhooks received" value={activity?.webhooksReceived ?? 0} testId="kpi-webhooks-received" />
+        <Kpi label="Webhooks actioned" value={activity?.webhooksActioned ?? 0} testId="kpi-webhooks-actioned" />
+        <Kpi label="Poll cycles" value={activity?.pollCyclesFinished ?? 0} testId="kpi-poll-cycles" />
       </dl>
     </section>
   );
