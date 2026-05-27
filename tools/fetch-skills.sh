@@ -19,6 +19,6 @@ fi
 OUTPUT="${1:-./test-skills}"
 mkdir -p "${OUTPUT}"
 
-dotnet run --project src/AgentSmith.Cli -- skills pull \
+dotnet run --project src/backend/AgentSmith.Cli -- skills pull \
   --version "${VERSION}" \
   --output "${OUTPUT}"
