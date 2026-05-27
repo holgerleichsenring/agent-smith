@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169j-b1
+
+decisions:
+  - category: Architecture
+    chose: "Reason as an optional field on the existing StepFinishedEvent (and ErrorMessage on ToolResultEvent)"
+    over: "Separate StepFailedEvent + ToolFailedEvent records, or piggyback on DecisionLogged"
+    reason: |
+      The status discriminator on StepFinishedEvent already encodes success
+      vs failure; splitting into a second record would force every consumer
+      to subscribe to two types and reassemble the pair-by-stepIndex. The
+      optional field matches the data shape: a populated reason is the only
+      thing failure paths need to carry beyond status='failed'. Same
+      reasoning for ToolResultEvent.ErrorMessage — Ok=false is already the
+      discriminator; ErrorMessage is the payload. EventEnvelopeSerializer
+      gains zero new branches; the existing ResolveType -> StepFinishedEvent
+      / ToolResultEvent rows handle the nullable-field deserialization for
+      free.
+
+  - category: Architecture
+    chose: "Dedicated CatalogIssueEvent record (EventType code 30) for skill-validator + vocabulary failures"
+    over: "Piggyback on DecisionLogged with category='Validation'"
+    reason: |
+      DecisionLogged is operator-recorded design choices (Architecture /
+      Tooling / Implementation / TradeOff). Skill-validator drops are
+      infrastructure observations made by the loader, not decisions. The
+      dashboard needs to render the two distinctly — decisions are
+      operator-curated content; catalog issues are diagnostic noise the
+      operator must triage. Sharing a type would force the FilterRail to
+      split DecisionLogged by category, and the result.md projector to
+      decide whether catalog issues belong in the decisions list (they
+      don't). The 30-range matches the "catalog/loader" category and
+      leaves room for future loader-category events.
+
+  - category: Implementation
+    chose: "YamlSkillLoader + ConceptVocabularyLoader take IEventPublisher + IRunContextAccessor directly (no async signature change)"
+    over: "Change LoadRoleDefinitions / Load to async, or introduce a separate IssueReporter abstraction"
+    reason: |
+      The ISkillLoader API is sync and has four callers (ExecutePipelineUseCase,
+      BootstrapDocumentHandler, LoadSkillsHandler, ValidateConceptsCommand).
+      Threading async through the whole stack would touch every caller for
+      a fire-and-once-per-run event. The emit uses
+      .GetAwaiter().GetResult() on the PublishAsync return value;
+      StackExchange.Redis is library-internal async with no
+      SynchronizationContext capture, so the sync wait is safe (no deadlock
+      risk). Wrapping in try/catch logs publish failures at Debug so a
+      transient Redis hiccup doesn't crash skill loading — the loader's
+      job is loading, not publishing.
+
+  - category: Implementation
+    chose: "Catch in EventPublishingAIFunction sets errorMessage, re-throws — finally still publishes"
+    reason: |
+      The decorator's contract is "be transparent to callers"; catching
+      and swallowing would change the runtime behaviour observable to
+      SkillCallRuntime. Catching to capture the message and re-throwing
+      preserves the contract while letting the finally block emit
+      ToolResultEvent(Ok=false, ErrorMessage=exMessage). The state machine
+      stays: try → result (ok=true) | catch → capture + re-throw |
+      finally → emit. Matches the pattern in PipelineStepRunner
+      (SafeExecuteAsync catches and converts to CommandResult.Fail).
+
+  - category: Implementation
+    chose: "Failed-run completeness as a separate test class (EventFailureReasonCompletenessTests), not a Theory in EventSequenceCompletenessTests"
+    over: "Fold failure rows into the existing success Theory"
+    reason: |
+      The success Theory tests "given a producer that goes silent, does
+      the type still emit elsewhere" — set membership on EventType. The
+      failure tests assert on per-field content (Reason populated,
+      ErrorMessage populated, CatalogIssue.Severity=warning/error) which
+      doesn't fit the silent-producer InlineData pattern. Splitting into
+      a class with four [Fact] methods keeps each assertion focused and
+      lets the failure-path setup (temp directories, malformed SKILL.md,
+      legacy-shape vocab YAML) stay co-located with its assertion.
+
+  - category: Scope
+    chose: "ValidateStrict-fail (defensive Role-empty path in YamlSkillLoader) does NOT emit CatalogIssueEvent"
+    reason: |
+      That code path is documented as "remains as a final assertion that
+      Role is set for every loaded skill" after p0127c moved validation to
+      parse time. In practice it's unreachable: SkillFormatException at
+      parse-time catches the cases. Adding an emit there would carry the
+      cost of testing an unreachable branch with no observable benefit.
+      The two reachable paths (SkillFormatException, InvalidOperationException)
+      now emit; the catch-all Exception path also emits (defensive — if a
+      new failure mode surfaces, operators see it). Spec line "skill-
+      validation" covers the SkillFormatException case; the other two
+      branches emit with category="skill-configuration" or "skill-load"
+      to keep the diagnostic surface honest.
+
+  - category: TradeOff
+    chose: "Spec said ConceptVocabularyLoader lives in AgentSmith.Application/Services/; actual path is AgentSmith.Infrastructure.Core/Services/"
+    reason: |
+      Spec step 'catalog-issue-emit' listed the file path under
+      AgentSmith.Application; the loader has lived in Infrastructure.Core
+      since well before this phase. Used the actual path and noted the
+      spec typo here. Behaviour unchanged.
+
+  - category: Implementation
+    chose: "Hub-events.ts mirror: reason / errorMessage typed as 'string | null', not optional ('reason?: string')"
+    reason: |
+      The C# record uses 'string? Reason' which serialises to either the
+      string or null, never undefined. TypeScript 'string | null' matches
+      that wire shape exactly; 'string?' would model "the field might be
+      absent" which the JSON envelope never produces (System.Text.Json
+      writes null, not omits). Consumers do `if (ev.reason)` either way,
+      but the wire shape matches what RedisEventPublisher actually emits.
+
+  - category: TradeOff
+    chose: "Sync .GetAwaiter().GetResult() over fire-and-forget Task discard"
+    over: "_ = eventPublisher.PublishAsync(...)"
+    reason: |
+      Fire-and-forget swallows the publish task without observing it; an
+      exception inside Redis or the serializer would surface as an
+      unobserved-task warning that's invisible from the loader. The sync
+      wait lets the try/catch see the publish exception and log at Debug.
+      The cost is one blocking call per catalog issue (rare event, fast
+      operation on local Redis). For a per-tool-call decorator it would
+      matter; for a per-run startup loader, the trade is on the right
+      side.
