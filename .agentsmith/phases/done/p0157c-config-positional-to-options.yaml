@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0157c
+goal: |
+  Idiomatic-polish slice: classes that take a bare `*Config` / `*Options` class
+  positionally in their ctor get migrated onto `IOptions<T>`. The configs in
+  question are ALREADY DI-registered as singletons (verified — AgentSmithConfig
+  is `services.AddSingleton<AgentSmithConfig>(...)` in Infrastructure.Core), so
+  this is not a correctness fix — the implicit-state concern that motivated the
+  original p0157 doesn't actually apply once you trace the registration. What
+  remains is style consistency: half the codebase resolves config via direct
+  injection, half via IOptions, and the cost trackers/spawners/loop services
+  sit on the wrong side.
+
+  Lowest-priority of the four p0157 successors. Defer unless the team
+  explicitly wants the idiom cleanup; the architectural-guard test in
+  [[p0157d]] should NOT fail on these (they're already legitimately DI-bound).
+
+  Successor to p0157.
+
+requires: []
+
+scope:
+  in: |
+    Classes that take a positional `*Config` / `*Options` instance whose
+    underlying type is registered as a DI singleton. Convert ctor signature
+    from `T config` to `IOptions<T> options` (or `T config` resolved via
+    `sp.GetRequiredService<T>()` — leave the choice to execute-time per
+    matching surrounding code).
+
+      Cost trackers (constructed by an LlmClientFactory hot path —
+      verify they're actually DI-resolved before changing):
+        - ClaudeCostTracker, GeminiCostTracker, OllamaCostTracker,
+          OpenAiCostTracker, AzureOpenAiCostTracker, CostTrackerBase
+          → PricingConfig
+
+      Loop / pipeline:
+        - PipelineStepRunner → AgentSmithConfig (only PipelineDataFlow
+          property is read — could narrow to PipelineDataFlowOptions)
+        - PipelineConcurrencyGate → LoopLimitsConfig
+        - SkillCallRuntime → LoopLimitsConfig
+        - TriageOutputProducer → LoopLimitsConfig
+
+      Spawner / tool runner:
+        - NucleiSpawner → NucleiConfig, ToolRunnerConfig
+        - ZapSpawner → ZapConfig, ToolRunnerConfig
+        - DockerToolRunner → ToolRunnerConfig
+        - ResilientHttpClientFactory → RetryConfig
+
+      Adapter / sandbox:
+        - DockerSandboxFactory → DockerSandboxOptions
+        - KubernetesSandboxFactory → KubernetesSandboxOptions
+        - SlackApiClient → SlackAdapterOptions
+        - BotFrameworkTokenProvider → TeamsAdapterOptions
+        - InboxPollingService → InboxPollingOptions
+        - LlmIntentParser (Server + Application) → AgentConfig
+        - OpenAiContextCompactor → CompactionConfig
+        - ConfigBasedModelRegistry → ModelRegistryConfig
+        - ClaudeContextCompactor → string summaryModel  (kept positional;
+          per-instance value, not config — flagged for completeness)
+        - TrackerPoller → AgentSmithConfig (per-tracker; already wraps a
+          TrackerConnection value)
+
+    Service registration changes: where a type is currently bound via
+    `services.AddSingleton<T>(...)`, also expose it as
+    `services.AddSingleton<IOptions<T>>(sp => Options.Create(sp.GetRequiredService<T>()))`
+    OR migrate the registration to `services.AddOptions<T>().Configure(...)`.
+    Pick one pattern, apply uniformly.
+
+  out: |
+    (1) Per-pipeline / per-tenant values (jobId, runId, repoPath, …) — those
+        are NOT config and stay positional. They live in the per-call factory
+        product, not in DI.
+    (2) Records that just happen to end in `Connection` (e.g.
+        TrackerConnection passed to TrackerPoller) — those are per-tenant
+        identity, not config. Stay positional.
+    (3) Per-skill-call temp objects (LimitEnforcer, SkillCallScope) — those
+        are constructed at call time; IOptions makes no sense.
+    (4) The architectural guard test ([[p0157d]]) defines whether this work
+        is even required. If the guard allows direct `*Config` injection
+        for DI-registered singletons, this phase reduces to "nice-to-have"
+        and can be skipped.
+
+decisions:
+  - key: |
+      Pattern O is style, not correctness — Reason: AgentSmithConfig + the
+      other *Config types are already DI singletons. A class taking
+      `AgentSmithConfig config` positionally IS receiving a DI-injected
+      value, not implicit state. The IOptions wrapper is the project's
+      preferred idiom but not a behavioural fix. This phase is therefore
+      optional polish.
+  - key: |
+      Pick one pattern (IOptions<T> OR direct *Config injection) for the
+      whole project — Reason: today both patterns coexist. The split is
+      historical noise. Whichever pattern wins in the guard test
+      ([[p0157d]]) becomes the canonical form here.
+  - key: |
+      Cost trackers verified DI-resolved before migration — Reason: the
+      trackers might be constructed by hand inside an LlmClientFactory hot
+      path. If so, ctor changes ripple into the factory. Check before
+      changing, per [[feedback_challenge_premises]].
+
+steps:
+  - id: pick-canonical-idiom
+    action: |
+      One-decision step: agree (with the operator) which idiom to
+      standardise on — IOptions<T> or direct *Config singleton. Record the
+      choice in decisions/p0157c.yaml. Subsequent steps blindly follow that
+      decision.
+
+  - id: cost-trackers
+    action: |
+      Verify the cost trackers' construction path. Migrate or skip
+      depending on whether they're DI-resolved.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/CostTrackerBase.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/ClaudeCostTracker.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/GeminiCostTracker.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OllamaCostTracker.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/OpenAiCostTracker.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Cost/AzureOpenAiCostTracker.cs"
+
+  - id: loop-pipeline
+    action: |
+      Apply chosen idiom to PipelineStepRunner, PipelineConcurrencyGate,
+      SkillCallRuntime, TriageOutputProducer.
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineStepRunner.cs"
+      - "src/AgentSmith.Application/Services/Loop/PipelineConcurrencyGate.cs"
+      - "src/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+      - "src/AgentSmith.Application/Services/Triage/TriageOutputProducer.cs"
+
+  - id: tool-runner-and-spawner
+    action: |
+      Apply chosen idiom to NucleiSpawner, ZapSpawner, DockerToolRunner,
+      ResilientHttpClientFactory, ClaudeContextCompactor (if applicable),
+      OpenAiContextCompactor, ConfigBasedModelRegistry.
+    modify:
+      - "src/AgentSmith.Infrastructure/Services/Nuclei/NucleiSpawner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Zap/ZapSpawner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ResilientHttpClientFactory.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/Compaction/OpenAiContextCompactor.cs"
+      - "src/AgentSmith.Infrastructure/Services/Providers/Agent/ConfigBasedModelRegistry.cs"
+
+  - id: server-adapters
+    action: |
+      Apply chosen idiom to DockerSandboxFactory, KubernetesSandboxFactory,
+      SlackApiClient, BotFrameworkTokenProvider, InboxPollingService,
+      LlmIntentParser (both copies).
+    modify:
+      - "src/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs"
+      - "src/AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs"
+      - "src/AgentSmith.Server/Services/Adapters/SlackApiClient.cs"
+      - "src/AgentSmith.Server/Services/Adapters/BotFrameworkTokenProvider.cs"
+      - "src/AgentSmith.Application/Services/Triggers/InboxPollingService.cs"
+      - "src/AgentSmith.Server/Services/LlmIntentParser.cs"
+      - "src/AgentSmith.Application/Services/LlmIntentParser.cs"
+
+tests:
+  - "Existing test suite green (count unchanged, all green pre + post)."
+
+done:
+  - "All listed classes follow the chosen canonical config-injection idiom."
+  - "The matching DI registrations expose the configs under that idiom."
+  - "[[p0157d]] architectural guard passes on the modified classes."
+  - "Full main test suite green."
+  - "Smoke (api-scan / security-scan / fix-bug) green — per
+    [[feedback_finish_what_you_start]]."

@@ -46,12 +46,15 @@ internal sealed class PipelineExecutorTestBuilder
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
         SandboxSpecBuilder = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
 
+        var dataFlowReadGate = new DataFlowReadGate(
+            DataFlowResolver,
+            Microsoft.Extensions.Options.Options.Create(AgentSmithConfig.PipelineDataFlow),
+            NullLogger<DataFlowReadGate>.Instance);
         var stepRunner = new PipelineStepRunner(
             ExecutorMock.Object,
             FactoryMock.Object,
             ProgressReporterMock.Object,
-            DataFlowResolver,
-            AgentSmithConfig,
+            dataFlowReadGate,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             NullLogger<PipelineStepRunner>.Instance);
 

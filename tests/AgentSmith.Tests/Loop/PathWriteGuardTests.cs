@@ -10,20 +10,20 @@ public sealed class PathWriteGuardTests
 {
     private const string RepoRoot = "/work";
 
-    private static PathWriteGuard Build(SkillExecutionPhase phase)
+    private static PathWriteGuard Build()
     {
         var gitIgnore = new Mock<IGitIgnoreResolver>();
         gitIgnore.Setup(g => g.IsIgnored(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
-        var readGuard = new PathReadGuard(gitIgnore.Object, () => RepoRoot);
-        return new PathWriteGuard(readGuard, phase);
+        var readGuard = new PathReadGuard(gitIgnore.Object);
+        return new PathWriteGuard(readGuard);
     }
 
     [Fact]
     public void AssertWritable_PlanPhase_ReturnsErrorWriteForbidden()
     {
-        var guard = Build(SkillExecutionPhase.Plan);
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/src/main.cs");
+        var result = guard.AssertWritable("/work/src/main.cs", RepoRoot, SkillExecutionPhase.Plan, contextName: null);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.WriteForbiddenInPhase);
@@ -32,9 +32,9 @@ public sealed class PathWriteGuardTests
     [Fact]
     public void AssertWritable_ImplementationPhase_PathInsideRepo_ReturnsOk()
     {
-        var guard = Build(SkillExecutionPhase.Implementation);
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/src/main.cs");
+        var result = guard.AssertWritable("/work/src/main.cs", RepoRoot, SkillExecutionPhase.Implementation, contextName: null);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -42,9 +42,9 @@ public sealed class PathWriteGuardTests
     [Fact]
     public void AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk()
     {
-        var guard = Build(SkillExecutionPhase.Bootstrap);
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/.agentsmith/context.yaml");
+        var result = guard.AssertWritable("/work/.agentsmith/context.yaml", RepoRoot, SkillExecutionPhase.Bootstrap, contextName: null);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -52,9 +52,9 @@ public sealed class PathWriteGuardTests
     [Fact]
     public void AssertWritable_BootstrapPhase_OtherPath_ReturnsErrorBootstrapFiles()
     {
-        var guard = Build(SkillExecutionPhase.Bootstrap);
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/src/main.cs");
+        var result = guard.AssertWritable("/work/src/main.cs", RepoRoot, SkillExecutionPhase.Bootstrap, contextName: null);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.NotInBootstrapFiles);
@@ -63,9 +63,9 @@ public sealed class PathWriteGuardTests
     [Fact]
     public void AssertWritable_VerifyPhase_ReturnsErrorWriteForbidden()
     {
-        var guard = Build(SkillExecutionPhase.Verify);
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/src/main.cs");
+        var result = guard.AssertWritable("/work/src/main.cs", RepoRoot, SkillExecutionPhase.Verify, contextName: null);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.WriteForbiddenInPhase);
@@ -77,11 +77,11 @@ public sealed class PathWriteGuardTests
         // p0161d: a Bootstrap-phase guard scoped to context "server" must accept
         // .agentsmith/contexts/server/{context.yaml, coding-principles.md} and
         // nothing else.
-        var guard = BuildWithContext(SkillExecutionPhase.Bootstrap, "server");
+        var guard = Build();
 
-        guard.AssertWritable("/work/.agentsmith/contexts/server/context.yaml")
+        guard.AssertWritable("/work/.agentsmith/contexts/server/context.yaml", RepoRoot, SkillExecutionPhase.Bootstrap, "server")
             .IsSuccess.Should().BeTrue();
-        guard.AssertWritable("/work/.agentsmith/contexts/server/coding-principles.md")
+        guard.AssertWritable("/work/.agentsmith/contexts/server/coding-principles.md", RepoRoot, SkillExecutionPhase.Bootstrap, "server")
             .IsSuccess.Should().BeTrue();
     }
 
@@ -90,9 +90,9 @@ public sealed class PathWriteGuardTests
     {
         // p0161d: when the round writes for context "server", attempting to write
         // into context "client" must be rejected by the per-context guard.
-        var guard = BuildWithContext(SkillExecutionPhase.Bootstrap, "server");
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/.agentsmith/contexts/client/context.yaml");
+        var result = guard.AssertWritable("/work/.agentsmith/contexts/client/context.yaml", RepoRoot, SkillExecutionPhase.Bootstrap, "server");
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.NotInBootstrapFiles);
@@ -103,19 +103,11 @@ public sealed class PathWriteGuardTests
     {
         // p0161d: the flat .agentsmith/context.yaml legacy path is rejected for
         // per-context rounds — the only legal writes live under MetaDirFor(name).
-        var guard = BuildWithContext(SkillExecutionPhase.Bootstrap, "server");
+        var guard = Build();
 
-        var result = guard.AssertWritable("/work/.agentsmith/context.yaml");
+        var result = guard.AssertWritable("/work/.agentsmith/context.yaml", RepoRoot, SkillExecutionPhase.Bootstrap, "server");
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Kind.Should().Be(GuardErrorKind.NotInBootstrapFiles);
-    }
-
-    private static PathWriteGuard BuildWithContext(SkillExecutionPhase phase, string contextName)
-    {
-        var gitIgnore = new Mock<IGitIgnoreResolver>();
-        gitIgnore.Setup(g => g.IsIgnored(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
-        var readGuard = new PathReadGuard(gitIgnore.Object, () => RepoRoot);
-        return new PathWriteGuard(readGuard, phase, contextName);
     }
 }

@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0157b
+goal: |
+  Three concrete strip-per-instance-state wins that survived re-baselining the
+  original p0157 inventory: DataFlowReadGate (constructed manually in
+  PipelineStepRunner.AttachReadGate), the PathReadGuard/PathWriteGuard pair (
+  per-call values reached the gate via ctor instead of method arg), and
+  SkillCallScope (a class today with no methods beyond property access — i.e.
+  a record waiting to happen).
+
+  Pattern S applies to the two gates: lift the per-step values
+  (`activeStep`, `enforce`, `phase`, `contextName`, `repoRootProvider`) off the
+  ctor surface and onto the method that needs them. Pattern V applies to
+  SkillCallScope: collapse to `sealed record SkillCallScope(...)`.
+
+  Successor to p0157 (focused slice — original draft conflated this with the
+  much larger Pattern F + Pattern O waves).
+
+requires: []
+
+scope:
+  in: |
+    DataFlowReadGate (Pattern S):
+      Today: `new DataFlowReadGate(activeStep, flow, enforce, logger)` is
+      built inside PipelineStepRunner.AttachReadGate for every step. The
+      `activeStep` + `enforce` ARE per-step values; `flow` and `logger` ARE
+      services. After the change: the gate is a scoped service taking
+      `(IPhaseDataFlowResolver, ILogger, IOptions<PipelineDataFlowOptions>)`
+      with an `OnRead(string activeStep, string key)` signature; the
+      step-level call site goes from `new ...` + AttachReadGate to a direct
+      method call on the DI-resolved gate. The PipelineStepRunner ctor
+      gains the new gate dependency in place of the AgentSmithConfig
+      positional and IPhaseDataFlowResolver.
+
+    PathReadGuard / PathWriteGuard (Pattern S):
+      Today: PathReadGuard caches a `Func<string> repoRootProvider`; PathWriteGuard
+      caches `SkillExecutionPhase phase` + `string? contextName`. Both are
+      constructed per-bootstrap inside BootstrapToolHostFactory. The per-call
+      values lift onto the methods (`IsReadAllowed(string path, string repoRoot)`
+      / `IsWriteAllowed(string path, SkillExecutionPhase phase, string? contextName)`).
+      BootstrapToolHostFactory shrinks: it no longer constructs guards, it
+      just composes them with the per-job args.
+
+    SkillCallScope (Pattern V):
+      Today: `public sealed class SkillCallScope { public SkillCallScope(string,
+      string, SkillExecutionPhase, PipelineCostTracker, DateTimeOffset) }` with
+      only property access. After: `public sealed record SkillCallScope(string
+      SkillName, string Role, SkillExecutionPhase Phase, PipelineCostTracker
+      Tracker, DateTimeOffset StartedAt)`. Value equality is a free win for
+      test assertions.
+
+  out: |
+    (1) Wider re-architecture of pipeline-runtime state. PipelineStepRunner
+        stays in shape — only the gate dependency swaps.
+    (2) FilesystemToolHost / HumanToolHost / LogDecisionToolHost. They are
+        also flagged in the original p0157 Pattern-S inventory but they
+        legitimately live behind BootstrapToolHostFactory and pass per-job
+        repoPath/jobId through to many filesystem methods — passing those
+        as per-method args is ergonomically worse than the factory pattern.
+        Left as-is.
+    (3) Pattern F (connection records) and Pattern O (IOptions polish) live
+        in [[p0157a]] and [[p0157c]].
+
+decisions:
+  - key: |
+      Make DataFlowReadGate a scoped service, not a stateless singleton —
+      Reason: the `_alreadyWarned` HashSet is per-pipeline-run state used to
+      dedupe warning logs; a true singleton across runs would leak warnings
+      from one run into the next. Scoped lifetime matches the pipeline
+      DI scope.
+  - key: |
+      PathWriteGuard becomes singleton with method-arg phase/contextName —
+      Reason: the guard has no per-call state of its own; phase + contextName
+      are properties of the call being validated, not of the guard's
+      identity. The caller (FilesystemToolHost.WriteAsync) already knows
+      both — the factory just bound them at the wrong place.
+  - key: |
+      SkillCallScope becomes a record, not a record struct —
+      Reason: PipelineCostTracker is a reference type with shared state;
+      defensive-copy semantics of record struct would create surprise
+      aliasing. Reference-record is the safer choice.
+  - key: |
+      No interim two-ctor compat shim — Reason: per
+      [[feedback_no_wrapper_shims]], migrate PipelineStepRunner and
+      BootstrapToolHostFactory in the same commit. The old ctors disappear.
+
+steps:
+  - id: dataflow-gate
+    action: |
+      Convert DataFlowReadGate into a scoped service: ctor takes
+      (IPhaseDataFlowResolver, ILogger<DataFlowReadGate>,
+      IOptions<PipelineDataFlowOptions>); per-read method becomes
+      `OnRead(string activeStep, string pipelineName, string key)`.
+      AttachReadGate-style scope handle stays — it's the read-gate-attach
+      lifecycle, not state. Register as Scoped in Application's
+      ServiceCollectionExtensions.
+    modify:
+      - "src/AgentSmith.Application/Services/Pipeline/DataFlowReadGate.cs"
+      - "src/AgentSmith.Application/Services/PipelineStepRunner.cs"
+      - "src/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+
+  - id: path-guards
+    action: |
+      Strip ctor state from PathReadGuard and PathWriteGuard. Update the
+      single consumer (BootstrapToolHostFactory) and any tests that
+      constructed guards directly.
+    modify:
+      - "src/AgentSmith.Application/Services/Tools/PathReadGuard.cs"
+      - "src/AgentSmith.Application/Services/Tools/PathWriteGuard.cs"
+      - "src/AgentSmith.Application/Services/BootstrapToolHostFactory.cs"
+
+  - id: skill-call-scope
+    action: |
+      Class → record. Members keep the same names; consumers stay
+      source-compatible (positional property access works the same on
+      records). PipelineCostTracker field stays a reference.
+    modify:
+      - "src/AgentSmith.Application/Services/Loop/SkillCallScope.cs"
+      - "src/AgentSmith.Application/Services/Loop/SkillCostScopeManager.cs (verify positional ctor call still compiles)"
+
+  - id: tests
+    action: |
+      Update every test that constructed DataFlowReadGate, PathReadGuard,
+      PathWriteGuard, or SkillCallScope. No mock changes — only
+      ctor/method shape.
+
+tests:
+  - "DataFlowReadGate_Resolved_FromDi_NotManuallyConstructed (assertion on PipelineStepRunner deps)"
+  - "PathWriteGuard_PerCallPhase_IndependentOfFactoryConstruction"
+  - "SkillCallScope_RecordEquality_HoldsForIdenticalFields"
+  - "Existing test suite green (count unchanged, all green pre + post)."
+
+done:
+  - "DataFlowReadGate constructed only via DI; PipelineStepRunner.AttachReadGate
+    deleted (or replaced with a one-line forward to the scoped gate)."
+  - "PathReadGuard / PathWriteGuard ctors take services only; phase/contextName/
+    repoRoot moved to method arguments."
+  - "SkillCallScope is a `sealed record` with the same members; all consumers
+    compile."
+  - "Full main test suite green."
+  - "Smoke (api-scan / security-scan / fix-bug) green — per
+    [[feedback_finish_what_you_start]]."

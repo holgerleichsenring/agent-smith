@@ -1,5 +1,6 @@
 using System.Net;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -18,7 +19,7 @@ public sealed class PlatformTransitionerTests
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
 
         var sut = new GitLabTicketStatusTransitioner(
-            "https://gitlab.com", "my-proj", "token",
+            new GitLabTicketConnection("https://gitlab.com", "my-proj", "token"),
             new HttpClient(handler),
             NullLogger<GitLabTicketStatusTransitioner>.Instance);
 
@@ -35,7 +36,7 @@ public sealed class PlatformTransitionerTests
         handler.Enqueue(JsonResponse("{\"labels\":[\"agent-smith:in-progress\"]}"));
 
         var sut = new GitLabTicketStatusTransitioner(
-            "https://gitlab.com", "my-proj", "token",
+            new GitLabTicketConnection("https://gitlab.com", "my-proj", "token"),
             new HttpClient(handler),
             NullLogger<GitLabTicketStatusTransitioner>.Instance);
 
@@ -53,7 +54,7 @@ public sealed class PlatformTransitionerTests
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.PreconditionFailed));
 
         var sut = new AzureDevOpsTicketStatusTransitioner(
-            "https://dev.azure.com/org", "proj", "pat",
+            new AzureDevOpsTicketConnection("https://dev.azure.com/org", "proj", "pat"),
             new HttpClient(handler),
             NullLogger<AzureDevOpsTicketStatusTransitioner>.Instance);
 
@@ -73,7 +74,7 @@ public sealed class PlatformTransitionerTests
         handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:enqueued\",\"System.Rev\":6}}"));
 
         var sut = new AzureDevOpsTicketStatusTransitioner(
-            "https://dev.azure.com/org", "proj", "pat",
+            new AzureDevOpsTicketConnection("https://dev.azure.com/org", "proj", "pat"),
             new HttpClient(handler),
             NullLogger<AzureDevOpsTicketStatusTransitioner>.Instance);
 
@@ -96,7 +97,7 @@ public sealed class PlatformTransitionerTests
         handler.Enqueue(JsonResponse("{\"fields\":{\"System.Tags\":\"agent-smith:in-progress; bug\",\"System.Rev\":6}}"));
 
         var sut = new AzureDevOpsTicketStatusTransitioner(
-            "https://dev.azure.com/org", "proj", "pat",
+            new AzureDevOpsTicketConnection("https://dev.azure.com/org", "proj", "pat"),
             new HttpClient(handler),
             NullLogger<AzureDevOpsTicketStatusTransitioner>.Instance);
 
@@ -125,7 +126,7 @@ public sealed class PlatformTransitionerTests
 
         var catalog = new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance);
         var sut = new JiraTicketStatusTransitioner(
-            "https://jira.com", "x@y", "tok", "PROJ",
+            new JiraTicketConnection("https://jira.com", "x@y", "tok", "PROJ"),
             catalog,
             new HttpClient(handler),
             NullLogger<JiraTicketStatusTransitioner>.Instance);

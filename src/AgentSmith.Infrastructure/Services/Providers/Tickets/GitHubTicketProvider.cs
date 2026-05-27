@@ -27,15 +27,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
     public string ProviderType => "GitHub";
 
     public GitHubTicketProvider(
-        string repoUrl, string token, GitHubAttachmentLoader attachmentLoader,
+        GitHubTicketConnection connection, GitHubAttachmentLoader attachmentLoader,
         ITicketFieldMapper<Issue> mapper, ILogger<GitHubTicketProvider> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(repoUrl);
+        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
         _client = new GitHubClient(new ProductHeaderValue("AgentSmith"))
-        { Credentials = new Credentials(token) };
+        { Credentials = new Credentials(connection.Token) };
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
-        _lister = new GitHubIssueLister(_client, _owner, _repo, _mapper, logger);
+        _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
