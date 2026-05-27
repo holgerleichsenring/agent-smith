@@ -12,6 +12,7 @@ const call: ToolCallEvent = {
   timestamp: baseTime,
   tool: "write_file",
   argsLength: 1234,
+  summary: null,
 };
 
 const result: ToolResultEvent = {
@@ -21,6 +22,7 @@ const result: ToolResultEvent = {
   tool: "write_file",
   ok: true,
   resultLength: 42,
+  errorMessage: null,
 };
 
 describe("ToolCallRow", () => {

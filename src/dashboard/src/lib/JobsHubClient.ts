@@ -10,6 +10,7 @@ import type {
   OverviewSnapshot,
   RunEvent,
   RunSnapshot,
+  SystemActivitySnapshot,
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
 
@@ -58,6 +59,7 @@ export class JobsHubClient {
   readonly runEvents = makeSubject<{ runId: string; event: RunEvent }>();
   readonly sandboxEvents = makeSubject<{ runId: string; repo: string; event: RunEvent }>();
   readonly systemEvents = makeSubject<SystemEvent>();
+  readonly systemActivityUpdates = makeSubject<SystemActivitySnapshot>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -187,6 +189,8 @@ export class JobsHubClient {
     });
     conn.on("SystemEvent", (event: SystemEvent) =>
       this.systemEvents.emit(event));
+    conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>
+      this.systemActivityUpdates.emit(snapshot));
     conn.onreconnecting(() => this.connectionState.emit(HubConnectionState.Reconnecting));
     conn.onreconnected(() => this.connectionState.emit(HubConnectionState.Connected));
     conn.onclose(() => this.connectionState.emit(HubConnectionState.Disconnected));

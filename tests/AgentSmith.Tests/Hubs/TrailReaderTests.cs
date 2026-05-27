@@ -41,7 +41,7 @@ public sealed class TrailReaderTests
             .ReturnsAsync(entries);
 
         var sut = new TrailReader(_redis.Object);
-        var result = await sut.ReadAllAsync(_runId);
+        var result = await sut.ReadAllTypedAsync(_runId);
 
         result.Should().HaveCount(3);
         result.Select(e => e.Type).Should().ContainInOrder(
@@ -56,7 +56,7 @@ public sealed class TrailReaderTests
             .ReturnsAsync(Array.Empty<StreamEntry>());
 
         var sut = new TrailReader(_redis.Object);
-        var result = await sut.ReadAllAsync(_runId);
+        var result = await sut.ReadAllTypedAsync(_runId);
 
         result.Should().BeEmpty();
     }
