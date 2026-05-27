@@ -1,6 +1,8 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Server.Services;
 using EnvelopeProjectResolverImpl = AgentSmith.Application.Services.Triggers.ProjectResolver;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -111,7 +113,7 @@ public sealed class ServerCommandBuildPollersTests
 
         try
         {
-            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths())
+            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher())
                 .LoadConfig(path);
 
             var provider = BuildProvider();
@@ -180,6 +182,7 @@ public sealed class ServerCommandBuildPollersTests
         services.AddSingleton(ticketFactory.Object);
         services.AddSingleton<IEnvelopeProjectResolver>(envelopeResolver);
         services.AddSingleton(spawnUseCase.Object);
+        services.AddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         return services.BuildServiceProvider();
     }

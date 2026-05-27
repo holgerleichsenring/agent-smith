@@ -34,6 +34,45 @@ public static class EventEnvelopeSerializer
         return (RunEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
     }
 
+    // p0173a: parallel envelope path for SystemEvent. Same JSON shape
+    // ({"t":<code>,"p":<payload>}) — a separate top-level method keeps the
+    // run-event path type-narrow at the call sites and lets ResolveType
+    // stay focused on each hierarchy.
+    public static string SerializeSystem(SystemEvent systemEvent)
+    {
+        var payload = JsonSerializer.Serialize((object)systemEvent, systemEvent.GetType(), Options);
+        return $"{{\"t\":{(int)systemEvent.Type},\"p\":{payload}}}";
+    }
+
+    public static SystemEvent? DeserializeSystem(string envelope)
+    {
+        using var doc = JsonDocument.Parse(envelope);
+        var root = doc.RootElement;
+        var typeCode = root.GetProperty("t").GetInt32();
+        var payload = root.GetProperty("p").GetRawText();
+        var concrete = ResolveSystemType((SystemEventType)typeCode);
+        if (concrete is null) return null;
+        return (SystemEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
+    }
+
+    // p0173a: slice a defined only the enum codes; p0173b adds the
+    // poller + webhook records. Slice c will add the chat / config /
+    // catalog rows.
+    private static Type? ResolveSystemType(SystemEventType type) => type switch
+    {
+        SystemEventType.PollCycleStarted => typeof(PollCycleStartedEvent),
+        SystemEventType.PollCycleFinished => typeof(PollCycleFinishedEvent),
+        SystemEventType.TicketScanned => typeof(TicketScannedEvent),
+        SystemEventType.TicketSkipped => typeof(TicketSkippedEvent),
+        SystemEventType.TicketTriggered => typeof(TicketTriggeredEvent),
+        SystemEventType.WebhookReceived => typeof(WebhookReceivedEvent),
+        SystemEventType.ChatMessageReceived => typeof(ChatMessageReceivedEvent),
+        SystemEventType.ConfigFileRead => typeof(ConfigFileReadEvent),
+        SystemEventType.SkillCatalogLoaded => typeof(SkillCatalogLoadedEvent),
+        SystemEventType.ConceptVocabularyLoaded => typeof(ConceptVocabularyLoadedEvent),
+        _ => null
+    };
+
     private static Type? ResolveType(EventType type) => type switch
     {
         EventType.RunStarted => typeof(RunStartedEvent),

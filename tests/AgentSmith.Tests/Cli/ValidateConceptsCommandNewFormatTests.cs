@@ -17,6 +17,7 @@ public sealed class ValidateConceptsCommandNewFormatTests : IDisposable
     private readonly ConceptVocabularyLoader _vocabularyLoader = new(
         new NoOpEventPublisher(),
         new AsyncLocalRunContextAccessor(),
+        new NoOpSystemEventPublisher(),
         NullLogger<ConceptVocabularyLoader>.Instance);
     private readonly Mock<ISkillLoader> _skillLoaderMock = new();
     private readonly ActivationExpressionParser _parser = new(new ActivationExpressionTokenizer());

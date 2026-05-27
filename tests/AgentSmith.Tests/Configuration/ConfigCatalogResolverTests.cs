@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services;
@@ -215,5 +216,6 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         new YamlConfigurationLoader(
             new ProjectConfigNormalizer(),
             new ConfigCatalogResolver(),
-            new AgentSmithPaths()).LoadConfig(_tempFile);
+            new AgentSmithPaths(),
+            new NoOpSystemEventPublisher()).LoadConfig(_tempFile);
 }
