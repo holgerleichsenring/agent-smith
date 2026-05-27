@@ -8,12 +8,15 @@ import { TrailTree } from "./TrailTree";
 import { TrailNodeDetailPane } from "./TrailNodeDetailPane";
 import { TrailTimelineSlider } from "./TrailTimelineSlider";
 import { TrailTruncationBanner } from "./TrailTruncationBanner";
+import { TrailExpiredEmptyState } from "./TrailExpiredEmptyState";
 
 interface Props {
   runId: string;
+  isFinished: boolean;
+  prUrl: string | null;
 }
 
-export function TrailTab({ runId }: Props) {
+export function TrailTab({ runId, isFinished, prUrl }: Props) {
   const { events, loading, error } = useTrail(runId);
   const assembled = useMemo(() => assembleTrail(events), [events]);
   const [selected, setSelected] = useState<TrailNode | null>(null);
@@ -33,7 +36,10 @@ export function TrailTab({ runId }: Props) {
 
   if (loading) return <p className="text-sm text-stone-500" data-testid="trail-loading">Loading trail…</p>;
   if (error) return <p className="text-sm text-rose-700" data-testid="trail-error">{error}</p>;
-  if (!root || !filtered) return <p className="text-sm text-stone-500" data-testid="trail-empty">No trail events yet.</p>;
+  if (!root || !filtered) {
+    if (isFinished) return <TrailExpiredEmptyState prUrl={prUrl} />;
+    return <p className="text-sm text-stone-500" data-testid="trail-empty">No trail events yet.</p>;
+  }
 
   return (
     <div className="space-y-3" data-testid="trail-tab">
