@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
+using AgentSmith.Application.Services.Events;
 
 namespace AgentSmith.Tests.Configuration;
 
@@ -70,7 +71,7 @@ public class MultiPipelineBehaviorPreservationTests
         File.WriteAllText(path, AgentSmithYaml);
         try
         {
-            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
+            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
             return loader.LoadConfig(path);
         }
         finally

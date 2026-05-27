@@ -66,6 +66,10 @@ public static class EventEnvelopeSerializer
         SystemEventType.TicketSkipped => typeof(TicketSkippedEvent),
         SystemEventType.TicketTriggered => typeof(TicketTriggeredEvent),
         SystemEventType.WebhookReceived => typeof(WebhookReceivedEvent),
+        SystemEventType.ChatMessageReceived => typeof(ChatMessageReceivedEvent),
+        SystemEventType.ConfigFileRead => typeof(ConfigFileReadEvent),
+        SystemEventType.SkillCatalogLoaded => typeof(SkillCatalogLoadedEvent),
+        SystemEventType.ConceptVocabularyLoaded => typeof(ConceptVocabularyLoadedEvent),
         _ => null
     };
 

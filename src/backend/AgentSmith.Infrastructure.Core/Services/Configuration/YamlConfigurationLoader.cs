@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -17,7 +18,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class YamlConfigurationLoader(
     ProjectConfigNormalizer normalizer,
     ConfigCatalogResolver resolver,
-    IAgentSmithPaths paths) : IConfigurationLoader
+    IAgentSmithPaths paths,
+    ISystemEventPublisher systemEvents) : IConfigurationLoader
 {
     public AgentSmithConfig LoadConfig(string configPath)
     {
@@ -26,7 +28,28 @@ public sealed class YamlConfigurationLoader(
         ResolveSecrets(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
+        EmitConfigRead(configPath, yaml.Length);
         return resolver.Resolve(raw);
+    }
+
+    // p0173c: emit ConfigFileReadEvent after a successful agentsmith.yml
+    // load. Startup read — RunId is null.
+    private void EmitConfigRead(string path, int sizeBytes)
+    {
+        try
+        {
+            _ = systemEvents.PublishAsync(new ConfigFileReadEvent(
+                Source: "config-loader",
+                Path: path,
+                Kind: ConfigFileKind.AgentSmithYml,
+                SizeBytes: sizeBytes,
+                RunId: null,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch
+        {
+            /* fire-and-warn — never break configuration load on a publish failure */
+        }
     }
 
     private void NormalizeProjects(RawAgentSmithConfig raw)

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Services.Adapters;
 
 namespace AgentSmith.Server.Extensions;
@@ -22,6 +23,8 @@ internal static class TeamsEndpoints
         if (!await validator.ValidateAsync(authHeader, ctx.RequestAborted))
         {
             logger.LogWarning("Teams JWT validation failed");
+            await EmitChatAsync(ctx, channel: "?", messageType: "unknown",
+                actioned: false, skipReason: "jwt-invalid");
             return Results.Unauthorized();
         }
 
@@ -48,7 +51,32 @@ internal static class TeamsEndpoints
 
             default:
                 logger.LogDebug("Ignoring Teams activity type={Type}", activityType);
+                await EmitChatAsync(ctx, channel: conversationId, messageType: activityType,
+                    actioned: false, skipReason: "non-message-activity");
                 return Results.Ok();
+        }
+    }
+
+    // p0173c: emit chat-channel ingestion as a SystemEvent. Metadata only —
+    // no message text in the payload (security boundary, see decisions).
+    private static async Task EmitChatAsync(
+        HttpContext ctx, string channel, string messageType, bool actioned, string? skipReason)
+    {
+        var publisher = ctx.RequestServices.GetService<ISystemEventPublisher>();
+        if (publisher is null) return;
+        try
+        {
+            await publisher.PublishAsync(new ChatMessageReceivedEvent(
+                Source: "chat:teams",
+                Channel: channel,
+                MessageType: messageType,
+                Actioned: actioned,
+                SkipReason: skipReason,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch
+        {
+            /* fire-and-warn — never break the HTTP response on a publish failure */
         }
     }
 
@@ -57,12 +85,19 @@ internal static class TeamsEndpoints
         string fromId, string conversationId)
     {
         var text = json["text"]?.GetValue<string>()?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(text)) return Results.Ok();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await EmitChatAsync(ctx, channel: conversationId, messageType: "message",
+                actioned: false, skipReason: "empty-text");
+            return Results.Ok();
+        }
 
         text = StripTeamsMention(text, json);
 
         logger.LogInformation("Teams message from {FromId} in {ConversationId}: {Text}",
             fromId, conversationId, text);
+        await EmitChatAsync(ctx, channel: conversationId, messageType: "message",
+            actioned: true, skipReason: null);
 
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         _ = Task.Run(async () =>

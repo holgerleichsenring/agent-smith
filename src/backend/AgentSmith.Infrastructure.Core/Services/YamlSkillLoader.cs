@@ -23,6 +23,7 @@ public sealed class YamlSkillLoader(
     IProviderOverrideResolver overrideResolver,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    ISystemEventPublisher systemEvents,
     ILogger<YamlSkillLoader> logger) : ISkillLoader
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -60,6 +61,7 @@ public sealed class YamlSkillLoader(
 
     public IReadOnlyList<RoleSkillDefinition> LoadRoleDefinitions(string skillsDirectory)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         var resolved = ResolveDirectory(skillsDirectory);
         if (!Directory.Exists(resolved))
         {
@@ -68,14 +70,34 @@ public sealed class YamlSkillLoader(
         }
 
         var roles = new List<RoleSkillDefinition>();
-        LoadFromSkillMdDirectories(resolved, roles);
+        var droppedCount = LoadFromSkillMdDirectories(resolved, roles);
 
         var vocabulary = vocabularyLoader.Load(FindVocabularyDirectory(resolved));
         vocabularyValidator.Validate(roles, vocabulary);
         indexBuilder.Build(resolved, roles);
+        sw.Stop();
 
         logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, resolved);
+        TryPublishCatalogLoaded(resolved, roles.Count, droppedCount, sw.ElapsedMilliseconds);
         return roles;
+    }
+
+    private void TryPublishCatalogLoaded(string resolvedPath, int loaded, int dropped, long durationMs)
+    {
+        try
+        {
+            _ = systemEvents.PublishAsync(new SkillCatalogLoadedEvent(
+                Source: "skill-catalog",
+                CatalogVersion: Path.GetFileName(resolvedPath),
+                SkillsLoaded: loaded,
+                SkillsDropped: dropped,
+                DurationMs: durationMs,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish SkillCatalogLoaded event");
+        }
     }
 
     public IReadOnlyList<RoleSkillDefinition> GetActiveRoles(
@@ -126,8 +148,9 @@ public sealed class YamlSkillLoader(
         return activeRoles;
     }
 
-    private void LoadFromSkillMdDirectories(string skillsDirectory, List<RoleSkillDefinition> roles)
+    private int LoadFromSkillMdDirectories(string skillsDirectory, List<RoleSkillDefinition> roles)
     {
+        var dropped = 0;
         foreach (var dir in Directory.GetDirectories(skillsDirectory).OrderBy(d => d))
         {
             if (Path.GetFileName(dir).StartsWith('_')) continue; // skip _index/ etc.
@@ -145,10 +168,12 @@ public sealed class YamlSkillLoader(
                     logger.LogError(
                         "Skill '{Skill}' at {Dir} rejected: {Error}. See docs/configuration/skills/migration.md",
                         role.Name, dir, error);
+                    dropped++;
                     continue;
                 }
 
                 roles.Add(role);
+                TryPublishSkillRead(Path.Combine(dir, "SKILL.md"));
                 logger.LogDebug("Loaded role definition from SKILL.md: {Name}", role.Name);
             }
             catch (SkillFormatException ex)
@@ -157,17 +182,44 @@ public sealed class YamlSkillLoader(
                     "Skill format violation in {Path}: {Rule}",
                     ex.SkillFilePath, ex.RuleDescription);
                 PublishCatalogIssue("warning", ex.SkillFilePath, "skill-validation", ex.RuleDescription);
+                dropped++;
             }
             catch (InvalidOperationException ex)
             {
                 logger.LogError(ex, "Invalid skill configuration in {Dir} — skill not loaded", dir);
                 PublishCatalogIssue("warning", dir, "skill-configuration", ex.Message);
+                dropped++;
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to load role definition from {Dir}", dir);
                 PublishCatalogIssue("warning", dir, "skill-load", ex.Message);
+                dropped++;
             }
+        }
+        return dropped;
+    }
+
+    // p0173c: per-skill ConfigFileReadEvent emitted only for successfully
+    // accepted skills. Drops surface via the existing CatalogIssueEvent
+    // path (p0169j-b1) — keeps the two surfaces aligned with the operator's
+    // "what loaded" vs "why didn't this one load" questions.
+    private void TryPublishSkillRead(string skillMdPath)
+    {
+        try
+        {
+            var size = new FileInfo(skillMdPath).Length;
+            _ = systemEvents.PublishAsync(new ConfigFileReadEvent(
+                Source: "skill-catalog",
+                Path: skillMdPath,
+                Kind: ConfigFileKind.SkillYaml,
+                SizeBytes: size,
+                RunId: runContext.CurrentRunId,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish ConfigFileRead skill event for {Path}", skillMdPath);
         }
     }
 

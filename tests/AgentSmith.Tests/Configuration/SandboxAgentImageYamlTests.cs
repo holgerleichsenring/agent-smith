@@ -1,6 +1,7 @@
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
+using AgentSmith.Application.Services.Events;
 
 namespace AgentSmith.Tests.Configuration;
 
@@ -24,7 +25,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -55,7 +56,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
                   agent_version: 0.49.0-beta
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -70,7 +71,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 

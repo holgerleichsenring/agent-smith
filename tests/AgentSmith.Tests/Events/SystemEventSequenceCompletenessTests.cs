@@ -22,6 +22,10 @@ public sealed class SystemEventSequenceCompletenessTests
     [InlineData(SystemEventType.TicketSkipped)]
     [InlineData(SystemEventType.TicketTriggered)]
     [InlineData(SystemEventType.WebhookReceived)]
+    [InlineData(SystemEventType.ChatMessageReceived)]
+    [InlineData(SystemEventType.ConfigFileRead)]
+    [InlineData(SystemEventType.SkillCatalogLoaded)]
+    [InlineData(SystemEventType.ConceptVocabularyLoaded)]
     public async Task EventType_RoundTripsThroughTheBackbone(SystemEventType type)
     {
         // Asserts each concrete SystemEvent record reaches the recording
@@ -61,6 +65,20 @@ public sealed class SystemEventSequenceCompletenessTests
         SystemEventType.WebhookReceived =>
             new WebhookReceivedEvent("webhook:github", "issues", "/webhooks/github",
                 Actioned: true, SkipReason: null, Timestamp: DateTimeOffset.UtcNow),
+        SystemEventType.ChatMessageReceived =>
+            new ChatMessageReceivedEvent("chat:slack", "#agent-smith", "app_mention",
+                Actioned: true, SkipReason: null, Timestamp: DateTimeOffset.UtcNow),
+        SystemEventType.ConfigFileRead =>
+            new ConfigFileReadEvent("config-loader", "/app/config/agentsmith.yml",
+                ConfigFileKind.AgentSmithYml, SizeBytes: 4096, RunId: null,
+                Timestamp: DateTimeOffset.UtcNow),
+        SystemEventType.SkillCatalogLoaded =>
+            new SkillCatalogLoadedEvent("skill-catalog", "v2.5.0",
+                SkillsLoaded: 30, SkillsDropped: 1, DurationMs: 450,
+                Timestamp: DateTimeOffset.UtcNow),
+        SystemEventType.ConceptVocabularyLoaded =>
+            new ConceptVocabularyLoadedEvent("concept-vocabulary",
+                ConceptCount: 12, DurationMs: 25, Timestamp: DateTimeOffset.UtcNow),
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "no sample yet for this type")
     };
 }

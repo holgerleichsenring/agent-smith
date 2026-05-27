@@ -18,12 +18,13 @@ public sealed class RoleSkillDefinitionNewFormatFieldsTests : IDisposable
         Directory.CreateDirectory(_tempDir);
         _loader = new YamlSkillLoader(
             new StubSkillsCatalogPath(),
-            new ConceptVocabularyLoader(new NoOpEventPublisher(), new AsyncLocalRunContextAccessor(), NullLogger<ConceptVocabularyLoader>.Instance),
+            new ConceptVocabularyLoader(new NoOpEventPublisher(), new AsyncLocalRunContextAccessor(), new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance),
             new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
             new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
             new ProviderOverrideResolver(new ActiveProviderResolver(new AgentSmithConfig())),
             new NoOpEventPublisher(),
             new AsyncLocalRunContextAccessor(),
+            new NoOpSystemEventPublisher(),
             NullLogger<YamlSkillLoader>.Instance);
     }
 

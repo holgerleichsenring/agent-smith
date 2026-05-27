@@ -96,7 +96,7 @@ public sealed class EventFailureReasonCompletenessTests : IDisposable
         var recorder = new RecordingEventPublisher();
         var runContext = new ScopedRunContext(RunId);
         var loader = new ConceptVocabularyLoader(
-            recorder, runContext, NullLogger<ConceptVocabularyLoader>.Instance);
+            recorder, runContext, new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance);
 
         WriteLegacyVocabulary(_tempDir);
 
@@ -111,12 +111,13 @@ public sealed class EventFailureReasonCompletenessTests : IDisposable
     private YamlSkillLoader BuildSkillLoader(IEventPublisher publisher, IRunContextAccessor runContext) =>
         new(
             new StubSkillsCatalogPath(),
-            new ConceptVocabularyLoader(publisher, runContext, NullLogger<ConceptVocabularyLoader>.Instance),
+            new ConceptVocabularyLoader(publisher, runContext, new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance),
             new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
             new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
             new ProviderOverrideResolver(new ActiveProviderResolver(new AgentSmithConfig())),
             publisher,
             runContext,
+            new NoOpSystemEventPublisher(),
             NullLogger<YamlSkillLoader>.Instance);
 
     private static void WriteSkillWithOversizedDescription(string skillsDir)

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
@@ -98,6 +99,8 @@ public class LoadCodingPrinciplesHandlerTests
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
         return new LoadCodingPrinciplesHandler(
             factory.Object,
+            new NoOpSystemEventPublisher(),
+            new AsyncLocalRunContextAccessor(),
             NullLogger<LoadCodingPrinciplesHandler>.Instance);
     }
 

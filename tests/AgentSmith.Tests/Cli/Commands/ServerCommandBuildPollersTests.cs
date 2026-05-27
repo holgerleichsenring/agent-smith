@@ -113,7 +113,7 @@ public sealed class ServerCommandBuildPollersTests
 
         try
         {
-            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths())
+            var config = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher())
                 .LoadConfig(path);
 
             var provider = BuildProvider();

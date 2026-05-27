@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services;
@@ -9,7 +10,7 @@ namespace AgentSmith.Tests.Configuration;
 public class YamlConfigurationLoaderTests
 {
     private readonly YamlConfigurationLoader _loader =
-        new(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths());
+        new(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
     private static string TestDataPath(string fileName)
     {
