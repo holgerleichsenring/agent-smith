@@ -11,6 +11,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Services;
 
+[Collection("ConsoleOut")]
 public sealed class MultiOutputTests
 {
     [Fact]

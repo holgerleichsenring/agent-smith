@@ -54,34 +54,32 @@ maxmemory to 1 GB now that we have AOF persistence on disk.
 durable artefact for any operator who needs to refer back beyond the
 in-memory retention window.
 
-## 3. Hardcoded `"api-scan"` pipeline name in DeliverFindingsHandler
+## 3. Hardcoded `"api-scan"` pipeline name in DeliverFindingsHandler ✅ CLOSED
 
 **Found-in:** observed while reading code for p0169j-c
 
-**Symptom:** `DeliverFindingsHandler.cs:28` constructs OutputContext with
-the literal string `"api-scan"` for ProjectName regardless of which
-pipeline is running. The mad-discussion / fix-bug / etc. pipelines would
-all label themselves "api-scan" in any consumer that reads
+**Symptom:** `DeliverFindingsHandler.cs:28` constructed OutputContext
+with the literal string `"api-scan"` for ProjectName regardless of
+which pipeline was running. mad-discussion / fix-bug / etc. would all
+label themselves "api-scan" in any consumer that read
 `OutputContext.ProjectName`.
 
-**Workaround:** None — not on the p0169j critical path.
+**Fixed:** Reads `context.Pipeline.TryGet<string>(ContextKeys.PipelineName, ...)`
+with a `"unknown-pipeline"` fallback when not set (CLI / test paths
+without a resolved pipeline). 4-line change in the p0169j cleanup pass.
 
-**Real fix:** Should read `context.Pipeline.Get<string>(ContextKeys.PipelineName)`
-or take it from `ResolvedPipelineConfig.PipelineName`. Cleanup-pass
-candidate (5-line fix).
-
-## 4. CI Console.SetOut race (6 tests red on main)
+## 4. CI Console.SetOut race (6 tests red on main) ✅ CLOSED
 
 **Found-in:** CI run 26524374968 on the merged PR #214
 
 **Symptom:** `Console.SetOut(stringWriter)` in ChannelSplitTests +
-ConsoleOutputStructuredFallbackTests races against parallel
-ConsoleOutputStrategyTests + MultiOutputTests via xUnit's default
-parallelism. Failure: `ObjectDisposedException: Cannot write to a
-closed TextWriter`. Release 0.65.0 went out with this red.
+ConsoleOutputStructuredFallbackTests + SummaryEvidenceBreakdownTests
+raced against parallel ConsoleOutputStrategyTests + MultiOutputTests
+via xUnit's default parallelism. Failure:
+`ObjectDisposedException: Cannot write to a closed TextWriter`.
+Release 0.65.0 went out with this red.
 
-**Workaround:** None — exists on main, not introduced by p0169j-b1.
-
-**Real fix:** Put the four output-test classes in a single
-`[Collection("ConsoleOut")]` so they run serial. ~30 min job;
-candidate for the cleanup PR if not already fixed by then.
+**Fixed:** Annotated the five output-test classes with
+`[Collection("ConsoleOut")]` so xUnit's collection-scheduler runs
+them serially. No new fixture needed — xUnit's default behaviour
+is "no parallelism within a collection."

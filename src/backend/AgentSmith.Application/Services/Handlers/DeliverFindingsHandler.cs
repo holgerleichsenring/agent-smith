@@ -24,8 +24,13 @@ public sealed class DeliverFindingsHandler(
         context.Pipeline.TryGet<List<SkillObservation>>(
             ContextKeys.SkillObservations, out var observations);
 
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn)
+            && !string.IsNullOrWhiteSpace(pn)
+            ? pn
+            : "unknown-pipeline";
+
         var outputContext = new OutputContext(
-            "api-scan", null,
+            pipelineName, null,
             (IReadOnlyList<SkillObservation>)(observations ?? []),
             null, outputDir, context.Pipeline);
 
