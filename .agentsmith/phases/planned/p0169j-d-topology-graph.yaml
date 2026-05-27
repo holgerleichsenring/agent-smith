@@ -20,12 +20,23 @@ scope:
         - Children: one sandbox node per SandboxCreated event,
           arranged horizontally below the root with bezier edges
           connecting them.
-        - Status colours from DESIGN.md tokens:
-            running   → smith-green (--color-primary)
-            success   → emerald (token: --color-success)
-            failed    → rose      (token: --color-error)
-            waiting   → stone-300 (token: --color-muted)
-            disposed  → stone-500 (token: --color-faded)
+        - Status colours from DESIGN.md tokens. Green is RESERVED for
+          "done" — the most important success signal — and is NOT
+          used for "running" (which is the most common state and
+          would visually dominate, making done-vs-running hard to
+          tell apart at a glance):
+            waiting   → stone-300       (token: --color-muted)
+            running   → amber, pulsing  (token: --color-in-progress
+                                         or --color-warning; add the
+                                         token to DESIGN.md if missing)
+            success   → smith-green     (token: --color-primary
+                                         OR --color-success — green
+                                         is the done-state win signal)
+            failed    → rose            (token: --color-error)
+            disposed  → stone-500       (token: --color-faded)
+        - Pulsing animation on "running": subtle opacity 0.7 ↔ 1.0
+          cycle, ~2s period. CSS keyframes, no JS. Disabled when the
+          user has `prefers-reduced-motion: reduce`.
         - Sandbox node body: repo name, tool-call count (from RunToolsPanel
           accounting), elapsed since SandboxCreated.
 
@@ -109,6 +120,23 @@ decisions:
       stone/emerald/rose (rejected — drift); a separate "graph"
       palette (rejected — second palette to maintain).
 
+  - key: |
+      Green reserved for done, NOT running — Reason: a status palette
+      that uses smith-green (the brand primary) for "running" AND
+      emerald (the success token) for "done" makes the two most
+      important states look almost identical. Operators glance at
+      the graph and can't tell active-work-in-flight apart from
+      completed-work. Running is the most common state during a
+      live run — if it dominates the brand colour, the eye habituates
+      and the moment of completion stops registering. Reserve green
+      for the done-state win signal; running gets amber (pulsing,
+      with prefers-reduced-motion fallback) — the universal
+      "in-progress" colour from CI dashboards, JIRA boards, etc.
+      alternatives: smith-green for running + a darker green for
+      done (rejected — same-hue distinction is unreliable across
+      monitors / colour-vision profiles); blue for running
+      (rejected — diverges from CI/CD operator vocabulary).
+
 steps:
   - id: status-color-helpers
     action: |
@@ -172,7 +200,8 @@ tests:
 
 done:
   - "TopologyGraph SVG renders root node + sandbox nodes + bezier edges via pure-SVG math (no graph lib)."
-  - "Status colours sourced from DESIGN.md tokens (smith-green / emerald / rose / stone)."
+  - "Status colours sourced from DESIGN.md tokens: green RESERVED for success/done, amber-pulsing for running, rose for failed, stone for waiting/disposed."
+  - "Pulsing animation respects prefers-reduced-motion."
   - "Single-select selection state lifted to run-detail page."
   - "TopologyDetail pane below the graph shows the focused sandbox's terminal."
   - "?expand=… deep-link maps to single-selection (last value wins)."

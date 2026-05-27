@@ -2,27 +2,35 @@
 phase: p0169j-dashboard-polish
 goal: |
   Operator-grade UX polish on top of p0169f/g/h. The backbone works; the
-  surface is developer-debug. Four slices turn the dashboard from
+  surface is developer-debug. Five slices turn the dashboard from
   "functional" into "operator-usable":
 
+  - p0169j-b1: failure-reason events (BACKEND PREREQUISITE for b) —
+    failing producers emit their reason as a typed event field.
+    StepFinished gains Reason, ToolResult gains ErrorMessage,
+    new CatalogIssueEvent for YamlSkillLoader / ConceptVocabularyLoader
+    failures. Failed-run completeness Theory mirrors p0169e's
+    silent-producer gate.
   - p0169j-a: frozen-trail persistence — events survive Redis TTL via
     .agentsmith/runs/{id}/events.jsonl; Trail + Activity tabs fall back
     to the file when the stream is gone. Closes the "see a run from
     yesterday" gap.
   - p0169j-b: Activity tab + human pills — replaces the
-    16-event-type FilterRail with 5 operator-meaningful pill groups;
-    failure rows surface the reason inline. Closes the "I see step 6
-    failed but don't know why" gap.
+    16-event-type FilterRail with 6 operator-meaningful pill groups
+    (Decisions / Tools / LLM / Sandbox / Gates / Issues); failure rows
+    surface event.reason directly. No heuristic pairing.
   - p0169j-c: Result tab — renders result.md (plan + decisions +
     per-skill cost + dialogue + execution trail) via react-markdown so
     the synthesised deliverable is reachable from the dashboard, not
     only from the run-dir.
   - p0169j-d: Topology graph — ArgoCD-style SVG node graph replaces
-    the stacked SandboxList; status colours from DESIGN.md tokens;
-    click → terminal in the detail pane. Closes the "looks like a
-    logfile, not infra" perception gap.
+    the stacked SandboxList; status colours from DESIGN.md tokens
+    (green RESERVED for done; running is amber-pulsing); click →
+    terminal in the detail pane.
 
-  Recommended ship order (by operator value): b → c → a → d.
+  Recommended ship order: b1 → b → c → a → d. b1 is the backend
+  prerequisite that lets b show reasons inline without a heuristic
+  pairer.
 
 requires:
   - p0169f-topology-ui
@@ -31,7 +39,7 @@ requires:
 
 scope:
   in: |
-    Umbrella spec only — the four slices are independently shippable.
+    Umbrella spec only — the five slices are independently shippable.
     Each slice carries its own scope/decisions/done.
 
   out: |
@@ -45,34 +53,53 @@ scope:
 
 decisions:
   - key: |
-      Four separable slices, not one mega-phase — Reason: each slice has
-      a distinct operator-value profile (b high diag value, c high
-      content surface, a durability fix, d aesthetic). Bundling them
-      forces a single commit-and-review cycle where the slices have
-      different review-needs (b/c land fast, d wants design eyes).
-      Operators get incremental wins; the dashboard improves at every
-      slice instead of one all-at-once jump.
-      alternatives: one phase (rejected — long review cycle, hides the
-      per-slice value); two phases (rejected — splits unnaturally).
+      Five slices including the backend prerequisite b1 — Reason: the
+      original four-slice draft had p0169j-b consume failure reasons
+      via a 2-second temporal heuristic (ActivityErrorPairer). On
+      review the heuristic would have missed exactly the case it was
+      built for — the project-discovery skill-validator drop, whose
+      FAIL line never becomes an event at all today. The fix is on
+      the producer side: emit the reason as a typed event field.
+      That work is backend-only (event contract + producer
+      integration + completeness test) and merits its own slice with
+      its own decisions.yaml + review surface. See
+      [[feedback_no_heuristic_for_missing_data]].
+      alternatives: roll b1 into b (rejected — couples backend
+      contract change with UI work in one PR, complicates review);
+      ship b with the heuristic (rejected — the heuristic IS the
+      symptom of the missing field).
 
   - key: |
-      Ship-order b → c → a → d — Reason: b answers "what failed and
-      why" today (the operator was bitten by this on the project-
-      discovery skill-drop bug). c makes result.md the durable content
+      Ship-order b1 → b → c → a → d — Reason: b1 is the backend
+      prerequisite for b; b answers "what failed and why" today
+      (the operator was bitten by this on the project-discovery
+      skill-drop bug). c makes result.md the durable content
       surface (which currently lives only on disk). a is durability
-      polish — only matters after the 2h Redis TTL window. d is brand/
-      UX upgrade, valuable but not on the critical diagnostic path.
-      alternatives: a first (rejected — durability without diagnostic
-      surface is solving the wrong problem first); d first (rejected —
-      pretty without informative is worse than informative without
-      pretty).
+      polish — only matters after the 2h Redis TTL window. d is
+      brand/UX upgrade, valuable but not on the critical diagnostic
+      path. alternatives: a first (rejected — durability without
+      diagnostic surface is solving the wrong problem first); d
+      first (rejected — pretty without informative is worse than
+      informative without pretty); b without b1 (rejected — the
+      heuristic-pairer trap, see decision above).
+
+  - key: |
+      Five separable slices (b1 + b + c + a + d) — Reason: each slice
+      has a distinct operator-value profile (b1 unblocks diagnostic
+      surface, b high diag value, c high content surface, a
+      durability fix, d aesthetic). Bundling them forces a single
+      commit-and-review cycle where the slices have different
+      review-needs (b1/b/c land fast, d wants design eyes).
+      Operators get incremental wins; the dashboard improves at
+      every slice instead of one all-at-once jump.
 
 steps: []  # umbrella — see slice specs for actual steps
 
 tests: []  # umbrella — slices ship their own
 
 done:
-  - "p0169j-a shipped: events.jsonl persistence + Trail/Activity fallback path."
-  - "p0169j-b shipped: Activity tab + pills + inline failure reason."
+  - "p0169j-b1 shipped: failure reasons emitted as typed event fields; CatalogIssueEvent visible; failed-run completeness Theory green."
+  - "p0169j-b shipped: Activity tab + 6 pills + inline failure reasons from event fields (no heuristic)."
   - "p0169j-c shipped: Result tab renders result.md via react-markdown."
-  - "p0169j-d shipped: ArgoCD-style topology graph replaces SandboxList."
+  - "p0169j-a shipped: events.jsonl persistence + Trail/Activity fallback path."
+  - "p0169j-d shipped: ArgoCD-style topology graph replaces SandboxList; green reserved for done."
