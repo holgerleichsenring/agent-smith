@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -32,6 +33,7 @@ public sealed class PipelineStepRunner(
     IPhaseDataFlowResolver dataFlowResolver,
     AgentSmithConfig agentSmithConfig,
     ISkillRoundBufferDispatcher bufferDispatcher,
+    IEventPublisher eventPublisher,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
 {
     public async Task<StepExecutionResult> RunSingleAsync(
@@ -49,6 +51,7 @@ public sealed class PipelineStepRunner(
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
         await progressReporter.ReportProgressAsync(executionCount, total, label, cancellationToken);
+        await PublishStepStartedAsync(context, executionCount, label, total, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
@@ -56,6 +59,8 @@ public sealed class PipelineStepRunner(
         {
             var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
             sw.Stop();
+            await PublishStepFinishedAsync(
+                context, executionCount, result.IsSuccess ? "success" : "failed", sw.ElapsedMilliseconds, cancellationToken);
             return await FinalizeStepAsync(
                 current, commands, context, executionCount, cmd, label, sw.Elapsed, result, cancellationToken);
         }
@@ -69,9 +74,16 @@ public sealed class PipelineStepRunner(
         int firstStepIndex,
         CancellationToken cancellationToken)
     {
+        var batchLabel = $"{CommandNames.GetLabel(batch[0].Value.Name)} batch×{batch.Count}";
+        await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count, cancellationToken);
+        var batchSw = System.Diagnostics.Stopwatch.StartNew();
         var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
+        batchSw.Stop();
+        var anyFailed = outcome.FirstFailure() is not null;
+        await PublishStepFinishedAsync(
+            context, firstStepIndex, anyFailed ? "failed" : "success", batchSw.ElapsedMilliseconds, cancellationToken);
 
         TrackBatchedCommands(outcome, context);
 
@@ -215,6 +227,24 @@ public sealed class PipelineStepRunner(
         }
         logger.LogInformation("{Command} inserted {Count} follow-up commands: {Commands}",
             after.Value.DisplayName, follow.Count, string.Join(", ", follow));
+    }
+
+    private Task PublishStepStartedAsync(
+        PipelineContext context, int stepIndex, string stepName, int totalSteps, CancellationToken ct)
+    {
+        if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+            return Task.CompletedTask;
+        return eventPublisher.PublishAsync(
+            new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow), ct);
+    }
+
+    private Task PublishStepFinishedAsync(
+        PipelineContext context, int stepIndex, string status, long durationMs, CancellationToken ct)
+    {
+        if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+            return Task.CompletedTask;
+        return eventPublisher.PublishAsync(
+            new StepFinishedEvent(runId, stepIndex, status, durationMs, DateTimeOffset.UtcNow), ct);
     }
 
     private async Task PostSkillDetailAsync(

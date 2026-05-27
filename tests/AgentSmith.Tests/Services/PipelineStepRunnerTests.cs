@@ -33,6 +33,7 @@ public sealed class PipelineStepRunnerTests
             new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
             new AgentSmithConfig(),
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             NullLogger<PipelineStepRunner>.Instance);
     }
 

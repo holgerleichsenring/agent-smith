@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -16,20 +17,31 @@ namespace AgentSmith.Application.Services.Handlers;
 /// no-op plan); emits agent_smith_pipeline_skipped_as_irrelevant_total with reason
 /// label 'empty_plan'.
 /// </summary>
-public sealed class EmptyPlanCheckHandler(ILogger<EmptyPlanCheckHandler> logger)
+public sealed class EmptyPlanCheckHandler(
+    IEventPublisher eventPublisher,
+    ILogger<EmptyPlanCheckHandler> logger)
     : ICommandHandler<EmptyPlanCheckContext>
 {
     private const string EmptyPlanReason = "empty_plan";
+    private const string GateName = "empty_plan";
 
-    public Task<CommandResult> ExecuteAsync(
+    public async Task<CommandResult> ExecuteAsync(
         EmptyPlanCheckContext context, CancellationToken cancellationToken)
     {
+        var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var r) ? r : null;
+
         if (!context.Pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan) || plan is null)
-            return Task.FromResult(CommandResult.Ok("empty-plan-check: no Plan in context, skipping gate"));
+        {
+            await PublishGateAsync(runId, passed: true, "no plan in context", cancellationToken);
+            return CommandResult.Ok("empty-plan-check: no Plan in context, skipping gate");
+        }
 
         if (plan.Steps.Count > 0)
-            return Task.FromResult(CommandResult.Ok(
-                $"empty-plan-check: plan has {plan.Steps.Count} step(s) — continuing"));
+        {
+            await PublishGateAsync(runId, passed: true, $"plan has {plan.Steps.Count} step(s)", cancellationToken);
+            return CommandResult.Ok(
+                $"empty-plan-check: plan has {plan.Steps.Count} step(s) — continuing");
+        }
 
         var (projectName, pipelineName) = ResolveLabels(context.Pipeline);
         AgentSmithMeter.PipelineSkippedAsIrrelevant.Add(1,
@@ -43,7 +55,15 @@ public sealed class EmptyPlanCheckHandler(ILogger<EmptyPlanCheckHandler> logger)
             "empty_plan_skip: project={Project} pipeline={Pipeline} ticket={Ticket} reason={Reason} — pipeline will exit cleanly",
             projectName, pipelineName, ticketLabel, EmptyPlanReason);
 
-        return Task.FromResult(CommandResult.Ok($"empty-plan-skip: reason={EmptyPlanReason}"));
+        await PublishGateAsync(runId, passed: false, EmptyPlanReason, cancellationToken);
+        return CommandResult.Ok($"empty-plan-skip: reason={EmptyPlanReason}");
+    }
+
+    private Task PublishGateAsync(string? runId, bool passed, string reason, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(runId)) return Task.CompletedTask;
+        return eventPublisher.PublishAsync(
+            new GateCheckedEvent(runId!, GateName, passed, reason, DateTimeOffset.UtcNow), ct);
     }
 
     private static (string Project, string Pipeline) ResolveLabels(PipelineContext pipeline)

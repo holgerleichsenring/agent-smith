@@ -13,6 +13,7 @@ public sealed class BootstrapGateHandlerTests
 {
     private readonly BootstrapGateHandler _sut = new(
         RunStateConceptsTestFactory.Default,
+        EventTestStubs.NoOp,
         NullLogger<BootstrapGateHandler>.Instance);
 
     [Fact]

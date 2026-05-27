@@ -36,6 +36,8 @@ public class ExecutePipelineUseCaseTests
             new StubSkillsCatalogPath(),
             skillLoaderMock.Object,
             new PipelineConfigResolver(),
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

@@ -99,6 +99,8 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
             new AgentSmith.Application.Services.Loop.RetryCoordinator(),
             validatorFactory,
             new AgentSmith.Application.Services.Loop.RuntimeObservationFactory(),
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<AgentSmith.Application.Services.Loop.SkillCallRuntime>.Instance);
         var coordinator = new AgentSmith.Application.Services.VerifyRoundCoordinator(
             filter, bodyResolver.Object,

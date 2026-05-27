@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -24,6 +25,8 @@ public sealed class ExecutePipelineUseCase(
     ISkillsCatalogPath catalogPath,
     ISkillLoader skillLoader,
     IPipelineConfigResolver pipelineConfigResolver,
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
     ILogger<ExecutePipelineUseCase> logger)
 {
     /// <summary>
@@ -40,6 +43,7 @@ public sealed class ExecutePipelineUseCase(
         var runStartedAt = DateTimeOffset.UtcNow;
         var runId = RunIdGenerator.Generate(runStartedAt);
         using var logScope = logger.BeginScope("run={RunId}", runId);
+        using var runScope = runContext.BeginScope(runId);
 
         var ticketDesc = request.TicketId is not null ? $" ticket #{request.TicketId.Value}" : "";
         logger.LogInformation(
@@ -115,12 +119,14 @@ public sealed class ExecutePipelineUseCase(
 
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
+        await PublishRunStartedAsync(runId, runStartedAt, request, repos, cancellationToken);
         var result = await pipelineExecutor.ExecuteAsync(
             commands, projectConfig, pipeline, cancellationToken);
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
 
+        await PublishRunFinishedAsync(runId, result, cancellationToken);
         LogResult(result, projectName, pipeline);
         return result;
     }
@@ -257,6 +263,26 @@ public sealed class ExecutePipelineUseCase(
             return ConceptVocabulary.Empty;
         }
     }
+
+    private Task PublishRunStartedAsync(
+        string runId, DateTimeOffset runStartedAt, PipelineRequest request,
+        IReadOnlyList<RepoConnection> repos, CancellationToken ct)
+    {
+        var trigger = request.TicketId is not null ? "ticket" : "manual";
+        var repoNames = repos.Select(r => r.Name).ToArray();
+        return eventPublisher.PublishAsync(
+            new RunStartedEvent(runId, trigger, request.PipelineName, repoNames, runStartedAt), ct);
+    }
+
+    private Task PublishRunFinishedAsync(string runId, CommandResult result, CancellationToken ct) =>
+        eventPublisher.PublishAsync(
+            new RunFinishedEvent(
+                runId,
+                result.IsSuccess ? "success" : "failed",
+                result.PrUrl,
+                result.Message ?? string.Empty,
+                DateTimeOffset.UtcNow),
+            ct);
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)
     {

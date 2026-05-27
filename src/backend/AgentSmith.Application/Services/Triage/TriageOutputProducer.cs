@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
@@ -25,12 +26,14 @@ public sealed class TriageOutputProducer(
     PhaseSpecificityTrimmer phaseTrimmer,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
     LoopLimitsConfig limits,
+    IEventPublisher eventPublisher,
     ILogger<TriageOutputProducer> logger) : ITriageOutputProducer
 {
-    public Task<TriageOutput> ProduceAsync(
+    private const int DeterministicConfidence = 100;
+
+    public async Task<TriageOutput> ProduceAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
         var skills = LoadAvailableSkills(pipeline);
         var filtered = activationFilter.Filter(skills, conceptsFactory(pipeline));
         logger.LogInformation(
@@ -41,7 +44,29 @@ public sealed class TriageOutputProducer(
         var ticketLabels = ResolveTicketLabels(pipeline);
         var withOverrides = labelOverrider.Apply(trimmed, ticketLabels);
         LogUnderCount(withOverrides);
-        return Task.FromResult(withOverrides);
+        await PublishRoutesAsync(pipeline, withOverrides, cancellationToken);
+        return withOverrides;
+    }
+
+    private async Task PublishRoutesAsync(
+        PipelineContext pipeline, TriageOutput output, CancellationToken ct)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+            return;
+        foreach (var (_, assignment) in output.Phases)
+        {
+            await EmitSlotAsync(runId!, assignment.Lead, "Lead", ct);
+            foreach (var name in assignment.Analysts) await EmitSlotAsync(runId!, name, "Analyst", ct);
+            foreach (var name in assignment.Reviewers) await EmitSlotAsync(runId!, name, "Reviewer", ct);
+            await EmitSlotAsync(runId!, assignment.Filter, "Filter", ct);
+        }
+    }
+
+    private Task EmitSlotAsync(string runId, string? skill, string role, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(skill)) return Task.CompletedTask;
+        return eventPublisher.PublishAsync(
+            new TriageRouteEvent(runId, skill!, role, DeterministicConfidence, DateTimeOffset.UtcNow), ct);
     }
 
     private static IReadOnlyList<RoleSkillDefinition> LoadAvailableSkills(PipelineContext pipeline)

@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Validation;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
@@ -23,6 +25,8 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     private readonly RetryCoordinator _retry;
     private readonly SkillOutputValidatorFactory _validatorFactory;
     private readonly RuntimeObservationFactory _runtimeObservationFactory;
+    private readonly IEventPublisher _eventPublisher;
+    private readonly IRunContextAccessor _runContext;
     private readonly ILogger<SkillCallRuntime> _logger;
 
     public SkillCallRuntime(
@@ -31,6 +35,8 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         OutcomeClassifier classifier, RetryCoordinator retry,
         SkillOutputValidatorFactory validatorFactory,
         RuntimeObservationFactory runtimeObservationFactory,
+        IEventPublisher eventPublisher,
+        IRunContextAccessor runContext,
         ILogger<SkillCallRuntime> logger)
     {
         _chatFactory = chatFactory;
@@ -40,6 +46,8 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         _retry = retry;
         _validatorFactory = validatorFactory;
         _runtimeObservationFactory = runtimeObservationFactory;
+        _eventPublisher = eventPublisher;
+        _runContext = runContext;
         _logger = logger;
     }
 
@@ -95,7 +103,12 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         try
         {
             var cap = _limits.ResolveToolCallCap(request.InvestigatorMode);
-            var chat = new TracingChatClient(_chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap), trace);
+            var inner = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
+            // EventPublishing wraps innermost (below the retry layer) so every
+            // provider attempt produces its own LlmCallStarted/Finished pair
+            // with the actual response's token counts — not an aggregated total.
+            var instrumented = new EventPublishingChatClient(inner, _eventPublisher, _runContext, request.Role);
+            var chat = new TracingChatClient(instrumented, trace);
             var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);
@@ -135,8 +148,14 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             request.SkillName, toolNames.Count, string.Join(", ", toolNames));
     }
 
-    private static IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
-        tools.Select(t => t is AIFunction f ? (AITool)new TracingAIFunction(f, trace) : t).ToList();
+    private IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
+        tools.Select(t => t is AIFunction f ? Wrap(f, trace) : t).ToList();
+
+    private AITool Wrap(AIFunction f, LoopTraceCollector trace)
+    {
+        var withEvents = new EventPublishingAIFunction(f, _eventPublisher, _runContext);
+        return new TracingAIFunction(withEvents, trace);
+    }
 
     private SkillCallOutcome ClassifyAndLog(
         SkillCallRequest request, RetryOutcome? retryOutcome, Exception? exception,

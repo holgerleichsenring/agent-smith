@@ -2,11 +2,15 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Server.Api;
+using AgentSmith.Server;
+using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.Events;
 using AgentSmith.Server.Services.Logging;
 using AgentSmith.Server.Extensions;
 using Microsoft.Extensions.Logging.Console;
+
+const string DashboardCorsPolicy = DashboardConstants.CorsPolicy;
 
 DispatcherBanner.Print();
 
@@ -69,23 +73,24 @@ var uiApiEnabled = !string.Equals(
 
 if (uiApiEnabled)
 {
-    builder.Services.AddSingleton<IRunsRootResolver, EnvRunsRootResolver>();
-    builder.Services.AddSingleton<RunMetaReader>();
-    builder.Services.AddSingleton<RunArtefactLister>();
-    builder.Services.AddSingleton<IJobBusSubscriber, JobBusSubscriber>();
-
     var dashboardOrigin = Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
         ?? "http://localhost:3000";
-    builder.Services.AddCors(o => o.AddPolicy(JobsEndpoints.CorsPolicy, p => p
+    builder.Services.AddCors(o => o.AddPolicy(DashboardCorsPolicy, p => p
         .WithOrigins(dashboardOrigin)
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .AllowCredentials()));
+
+    builder.Services.AddSignalR();
+    builder.Services.AddSingleton<SandboxExpansionRegistry>();
+    builder.Services.AddSingleton<JobsBroadcaster>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
+    builder.Services.AddSingleton<IRunEventFanout, JobsHubFanout>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>
     {
         o.SwaggerDoc("v1", new() { Title = "agent-smith", Version = "v1" });
-        // Hide Slack / Teams / Webhook endpoints from the dashboard contract.
         o.DocInclusionPredicate((_, api) =>
             api.RelativePath?.StartsWith("api/", StringComparison.OrdinalIgnoreCase) == true);
     });
@@ -104,11 +109,9 @@ app.MapHealthEndpoints()
 
 if (uiApiEnabled)
 {
-    app.UseCors(JobsEndpoints.CorsPolicy);
-    app.MapJobsEndpoints();
-    app.MapJobStreamEndpoint();
+    app.UseCors(DashboardCorsPolicy);
+    app.MapHub<JobsHub>("/hub/jobs");
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
-    // Convenience alias matching the spec: /api/openapi.json -> /api/openapi/v1.json
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
         Results.Redirect("/api/openapi/v1.json", permanent: false))
        .ExcludeFromDescription();
