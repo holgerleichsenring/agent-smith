@@ -19,6 +19,7 @@ export enum EventType {
   SandboxResult = 22,
   ToolCall = 23,
   ToolResult = 24,
+  CatalogIssue = 30,
 }
 
 interface RunEventBase {
@@ -68,6 +69,7 @@ export interface StepFinishedEvent extends RunEventBase {
   stepIndex: number;
   status: string;
   durationMs: number;
+  reason: string | null;
 }
 
 export interface DecisionLoggedEvent extends RunEventBase {
@@ -143,6 +145,15 @@ export interface ToolResultEvent extends RunEventBase {
   tool: string;
   ok: boolean;
   resultLength: number;
+  errorMessage: string | null;
+}
+
+export interface CatalogIssueEvent extends RunEventBase {
+  type: EventType.CatalogIssue;
+  severity: string;
+  source: string;
+  category: string;
+  message: string;
 }
 
 export type RunEvent =
@@ -161,7 +172,8 @@ export type RunEvent =
   | SandboxOutputEvent
   | SandboxResultEvent
   | ToolCallEvent
-  | ToolResultEvent;
+  | ToolResultEvent
+  | CatalogIssueEvent;
 
 export interface RunSnapshot {
   runId: string;

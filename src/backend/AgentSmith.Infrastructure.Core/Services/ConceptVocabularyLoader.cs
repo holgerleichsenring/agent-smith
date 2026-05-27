@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Skills;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -11,7 +12,10 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// Boot fails loudly on legacy three-section shape, missing required fields, or
 /// type-incompatible attributes; missing file is a warning, not a failure.
 /// </summary>
-public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> logger)
+public sealed class ConceptVocabularyLoader(
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
+    ILogger<ConceptVocabularyLoader> logger)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
@@ -27,17 +31,41 @@ public sealed class ConceptVocabularyLoader(ILogger<ConceptVocabularyLoader> log
             return ConceptVocabulary.Empty;
         }
 
-        var yaml = File.ReadAllText(path);
-        RejectLegacyShape(yaml, path);
+        try
+        {
+            var yaml = File.ReadAllText(path);
+            RejectLegacyShape(yaml, path);
 
-        var raw = Deserializer.Deserialize<RawFile>(yaml);
-        if (raw?.Concepts is null)
-            throw new InvalidOperationException(
-                $"concept-vocabulary.yaml at {path} is empty or missing the top-level 'concepts:' list");
+            var raw = Deserializer.Deserialize<RawFile>(yaml);
+            if (raw?.Concepts is null)
+                throw new InvalidOperationException(
+                    $"concept-vocabulary.yaml at {path} is empty or missing the top-level 'concepts:' list");
 
-        var lookup = BuildLookup(raw.Concepts, path);
-        logger.LogInformation("Loaded {Count} concepts from {Path}", lookup.Count, path);
-        return new ConceptVocabulary(lookup);
+            var lookup = BuildLookup(raw.Concepts, path);
+            logger.LogInformation("Loaded {Count} concepts from {Path}", lookup.Count, path);
+            return new ConceptVocabulary(lookup);
+        }
+        catch (Exception ex)
+        {
+            PublishCatalogIssue("error", path, "vocabulary-parse", ex.Message);
+            throw;
+        }
+    }
+
+    private void PublishCatalogIssue(string severity, string source, string category, string message)
+    {
+        var runId = runContext.CurrentRunId;
+        if (string.IsNullOrEmpty(runId)) return;
+        try
+        {
+            eventPublisher
+                .PublishAsync(new CatalogIssueEvent(runId, severity, source, category, message, DateTimeOffset.UtcNow))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish CatalogIssueEvent for {Source}", source);
+        }
     }
 
     private static void RejectLegacyShape(string yaml, string path)

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Tests.TestSupport;
@@ -17,10 +18,12 @@ public sealed class YamlSkillLoaderTests : IDisposable
         Directory.CreateDirectory(_tempDir);
         _loader = new YamlSkillLoader(
             new StubSkillsCatalogPath(),
-            new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance),
+            new ConceptVocabularyLoader(new NoOpEventPublisher(), new AsyncLocalRunContextAccessor(), NullLogger<ConceptVocabularyLoader>.Instance),
             new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
             new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
             new ProviderOverrideResolver(new ActiveProviderResolver(new AgentSmithConfig())),
+            new NoOpEventPublisher(),
+            new AsyncLocalRunContextAccessor(),
             NullLogger<YamlSkillLoader>.Instance);
     }
 
