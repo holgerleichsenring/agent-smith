@@ -21,6 +21,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SandboxResult]: "SandboxResult",
   [EventType.ToolCall]: "ToolCall",
   [EventType.ToolResult]: "ToolResult",
+  [EventType.CatalogIssue]: "CatalogIssue",
 };
 
 export function FilterRail() {

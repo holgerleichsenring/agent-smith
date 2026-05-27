@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Infrastructure.Core.Services;
 using FluentAssertions;
@@ -14,7 +15,10 @@ public sealed class ConceptVocabularyLoaderTests : IDisposable
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-vocab-" + Guid.NewGuid());
         Directory.CreateDirectory(_tempDir);
-        _loader = new ConceptVocabularyLoader(NullLogger<ConceptVocabularyLoader>.Instance);
+        _loader = new ConceptVocabularyLoader(
+            new NoOpEventPublisher(),
+            new AsyncLocalRunContextAccessor(),
+            NullLogger<ConceptVocabularyLoader>.Instance);
     }
 
     public void Dispose()

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Activation;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Cli.Commands;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Models.Configuration;
@@ -14,7 +15,10 @@ namespace AgentSmith.Tests.Cli;
 public sealed class ValidateConceptsCommandTests : IDisposable
 {
     private readonly string _tempDir;
-    private readonly ConceptVocabularyLoader _vocabularyLoader = new(NullLogger<ConceptVocabularyLoader>.Instance);
+    private readonly ConceptVocabularyLoader _vocabularyLoader = new(
+        new NoOpEventPublisher(),
+        new AsyncLocalRunContextAccessor(),
+        NullLogger<ConceptVocabularyLoader>.Instance);
     private readonly Mock<ISkillLoader> _skillLoaderMock = new();
     private readonly ActivationExpressionParser _parser = new(new ActivationExpressionTokenizer());
 

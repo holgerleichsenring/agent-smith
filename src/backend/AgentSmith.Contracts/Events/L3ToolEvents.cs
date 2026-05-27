@@ -21,5 +21,6 @@ public sealed record ToolResultEvent(
     string Tool,
     bool Ok,
     int ResultLength,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? ErrorMessage = null)
     : RunEvent(RunId, EventType.ToolResult, Timestamp);

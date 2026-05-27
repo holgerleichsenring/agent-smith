@@ -52,6 +52,7 @@ public static class EventEnvelopeSerializer
         EventType.SandboxResult => typeof(SandboxResultEvent),
         EventType.ToolCall => typeof(ToolCallEvent),
         EventType.ToolResult => typeof(ToolResultEvent),
+        EventType.CatalogIssue => typeof(CatalogIssueEvent),
         _ => null
     };
 }

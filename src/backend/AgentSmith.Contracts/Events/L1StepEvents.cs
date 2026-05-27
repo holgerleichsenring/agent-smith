@@ -13,5 +13,6 @@ public sealed record StepFinishedEvent(
     int StepIndex,
     string Status,
     long DurationMs,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? Reason = null)
     : RunEvent(RunId, EventType.StepFinished, Timestamp);
