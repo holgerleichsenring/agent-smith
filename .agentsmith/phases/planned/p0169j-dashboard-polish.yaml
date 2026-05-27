@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-dashboard-polish
+goal: |
+  Operator-grade UX polish on top of p0169f/g/h. The backbone works; the
+  surface is developer-debug. Four slices turn the dashboard from
+  "functional" into "operator-usable":
+
+  - p0169j-a: frozen-trail persistence — events survive Redis TTL via
+    .agentsmith/runs/{id}/events.jsonl; Trail + Activity tabs fall back
+    to the file when the stream is gone. Closes the "see a run from
+    yesterday" gap.
+  - p0169j-b: Activity tab + human pills — replaces the
+    16-event-type FilterRail with 5 operator-meaningful pill groups;
+    failure rows surface the reason inline. Closes the "I see step 6
+    failed but don't know why" gap.
+  - p0169j-c: Result tab — renders result.md (plan + decisions +
+    per-skill cost + dialogue + execution trail) via react-markdown so
+    the synthesised deliverable is reachable from the dashboard, not
+    only from the run-dir.
+  - p0169j-d: Topology graph — ArgoCD-style SVG node graph replaces
+    the stacked SandboxList; status colours from DESIGN.md tokens;
+    click → terminal in the detail pane. Closes the "looks like a
+    logfile, not infra" perception gap.
+
+  Recommended ship order (by operator value): b → c → a → d.
+
+requires:
+  - p0169f-topology-ui
+  - p0169g-filter-rail-and-l3-tools
+  - p0169h-event-trail-tree
+
+scope:
+  in: |
+    Umbrella spec only — the four slices are independently shippable.
+    Each slice carries its own scope/decisions/done.
+
+  out: |
+    Per-sandbox tool-event attribution (needs ToolCall/ToolResult event
+    enrichment with repo). Tracked as a separate follow-up, named in
+    p0169g's decisions.yaml.
+    Real-time collaborative cursors / multi-user presence. Out — single
+    operator focus.
+    Run search / filter beyond the Recent-50 window. Out — addressed by
+    p0169j-a's persisted index but the UI for it is deferred.
+
+decisions:
+  - key: |
+      Four separable slices, not one mega-phase — Reason: each slice has
+      a distinct operator-value profile (b high diag value, c high
+      content surface, a durability fix, d aesthetic). Bundling them
+      forces a single commit-and-review cycle where the slices have
+      different review-needs (b/c land fast, d wants design eyes).
+      Operators get incremental wins; the dashboard improves at every
+      slice instead of one all-at-once jump.
+      alternatives: one phase (rejected — long review cycle, hides the
+      per-slice value); two phases (rejected — splits unnaturally).
+
+  - key: |
+      Ship-order b → c → a → d — Reason: b answers "what failed and
+      why" today (the operator was bitten by this on the project-
+      discovery skill-drop bug). c makes result.md the durable content
+      surface (which currently lives only on disk). a is durability
+      polish — only matters after the 2h Redis TTL window. d is brand/
+      UX upgrade, valuable but not on the critical diagnostic path.
+      alternatives: a first (rejected — durability without diagnostic
+      surface is solving the wrong problem first); d first (rejected —
+      pretty without informative is worse than informative without
+      pretty).
+
+steps: []  # umbrella — see slice specs for actual steps
+
+tests: []  # umbrella — slices ship their own
+
+done:
+  - "p0169j-a shipped: events.jsonl persistence + Trail/Activity fallback path."
+  - "p0169j-b shipped: Activity tab + pills + inline failure reason."
+  - "p0169j-c shipped: Result tab renders result.md via react-markdown."
+  - "p0169j-d shipped: ArgoCD-style topology graph replaces SandboxList."
