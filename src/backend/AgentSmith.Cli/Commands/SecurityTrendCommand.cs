@@ -47,9 +47,10 @@ internal static class SecurityTrendCommand
                 return;
             }
 
-            // Reuse InProcessSandbox path-translation so the parser sees the project as /work
-            // (no fs cleanup on dispose because the workDir IS the user's project).
-            var sandbox = new InProcessSandbox(Guid.NewGuid().ToString("N"), projectPath, NullLogger<InProcessSandbox>.Instance);
+            // Reuse InProcessSandbox path-translation so the parser sees the project as /work.
+            // ownsWorkDir: false — workDir IS the user's project directory, never delete it.
+            var sandbox = new InProcessSandbox(Guid.NewGuid().ToString("N"), projectPath,
+                ownsWorkDir: false, NullLogger<InProcessSandbox>.Instance);
             var reader = new SandboxFileReaderFactory().Create(sandbox);
             var sandboxSecurityDir = $"/work/.agentsmith/security";
             var snapshots = await SnapshotYamlParser.LoadSnapshotsAsync(reader, sandboxSecurityDir, ctx.GetCancellationToken());
