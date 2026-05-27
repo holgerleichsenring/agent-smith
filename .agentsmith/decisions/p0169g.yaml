@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169g
+
+decisions:
+  - category: Architecture
+    chose: "Tool events render at the run level (RunToolsPanel), not per-sandbox (SandboxBox)"
+    over: "Inline tool rows inside each SandboxBox (the spec's letter-of-the-spec)"
+    reason: |
+      ToolCall / ToolResult events from p0169e don't carry a repo field —
+      EventPublishingAIFunction wraps AIFunction calls without sandbox
+      context, and ToolCallEvent / ToolResultEvent in
+      AgentSmith.Contracts.Events have no Repo property today.
+      Attribution to a specific SandboxBox would require a backend
+      contract extension. Honest move: surface tool events on the run
+      surface where they belong. ToolCountChip moves alongside.
+
+      NOT a silent defer — this decision documents the gap so a future
+      slice can (a) add Repo to the events + EventPublishingAIFunction
+      (needs sandbox-scoped tool host correlation), or (b) keep tools
+      run-level if operators report that's the right surface.
+      alternatives: enrich events with repo now (deferred — outside
+      p0169g scope, needs server change + sandbox host correlation);
+      duplicate every tool event in every sandbox (rejected: lies
+      about origin).
+
+  - category: Implementation
+    chose: "Pair tool events client-side by name + 60s window"
+    reason: |
+      Events don't carry correlation IDs. The pairing heuristic in
+      ToolEventPairer pops the most-recent unpaired call for the same
+      tool name when a result arrives within 60s; otherwise both render
+      standalone. Concurrent same-name calls naturally produce one
+      pair + one standalone, which is correct for a UI that can't
+      disambiguate further. alternatives: server-side correlation id
+      (deferred to a follow-up if the heuristic causes operator
+      confusion); strict by-timestamp pairing (rejected: race-prone
+      when latency varies).
+
+  - category: Implementation
+    chose: "URL params encode defaults by absence; L3 default is empty"
+    reason: |
+      L1 + L2 are on by default; absence of l1/l2 in the URL means
+      "all on". L3 is OFF by default (matches the hub gating model);
+      absence of l3 means "all off". writeFilterToQuery's serialise()
+      compares against the level-specific default set, NOT the
+      level's full type set — that was the bug fix during testing.
+      alternatives: always emit all three params (rejected: noisy URLs).
+
+  - category: Implementation
+    chose: "EventFilterProvider wraps the run-detail page only"
+    reason: |
+      Filtering is per-run, not per-tab — different runs may want
+      different filter state. The overview page has no FilterRail
+      (overview filtering is out of scope for p0169g). Provider sits
+      inside RunDetailPage's return. useEventFilter falls back to
+      defaultFilterState when no provider is mounted so unit tests
+      can render leaf components without provider gymnastics.
+      alternatives: top-level layout-wide provider (rejected: shares
+      state across unrelated routes).
+
+  - category: Implementation
+    chose: "ExpandCollapseControls is disabled when redundant"
+    reason: |
+      expand all when everything's already expanded is a no-op +
+      visually confusing. Disabled state surfaces the "nothing more
+      to do here" affordance. collapse all mirror-flag when no
+      sandbox is open. alternatives: always-enabled buttons
+      (rejected: misleading affordance).
+
+  - category: Scope
+    chose: "Skipped wiring tool-rows into SandboxBox per spec"
+    over: "Spec's scope.in(4): 'render ToolCallRow + ToolResultRow inline in the SandboxBox stream'"
+    reason: |
+      See the first decision — the event contract makes that
+      impossible without backend changes. SandboxBox stays clean
+      (just stdout/stderr + the command header); RunToolsPanel
+      hosts tool rendering. ToolCountChip is rendered there too,
+      not per-sandbox. Per [[feedback_no_silent_defer]] this is
+      flagged here rather than silently dropped.

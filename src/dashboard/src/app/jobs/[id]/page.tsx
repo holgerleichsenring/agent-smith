@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { EventFilterProvider } from "@/lib/EventFilterContext";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
+import { FilterRail } from "@/components/jobs/FilterRail";
 import { TopologyCard } from "@/components/jobs/TopologyCard";
+import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
 import { SandboxList } from "@/components/jobs/SandboxList";
+import { EventType } from "@/types/hub-events";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -16,6 +20,14 @@ interface PageProps {
 export default function RunDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const runId = decodeURIComponent(id);
+  return (
+    <EventFilterProvider>
+      <RunDetail runId={runId} />
+    </EventFilterProvider>
+  );
+}
+
+function RunDetail({ runId }: { runId: string }) {
   const { connectionState, overview } = useJobsHub();
   const events = useRunEvents(runId);
 
@@ -26,6 +38,12 @@ export default function RunDetailPage({ params }: PageProps) {
       ?? null;
   }, [overview, runId]);
 
+  const repoNames = useMemo(() => {
+    const repos = new Set<string>();
+    for (const e of events) if (e.type === EventType.SandboxCreated) repos.add(e.repo);
+    return [...repos].sort();
+  }, [events]);
+
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,7 +53,6 @@ export default function RunDetailPage({ params }: PageProps) {
 
   useEffect(() => {
     setExpanded(expandedFromUrl);
-    // intentionally not in deps: only reset when URL changes
   }, [expandedFromUrl]);
 
   const updateUrl = useCallback((next: Set<string>) => {
@@ -56,6 +73,17 @@ export default function RunDetailPage({ params }: PageProps) {
     });
   }, [updateUrl]);
 
+  const expandAll = useCallback(() => {
+    const next = new Set(repoNames);
+    setExpanded(next);
+    updateUrl(next);
+  }, [repoNames, updateUrl]);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+    updateUrl(new Set());
+  }, [updateUrl]);
+
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-8">
       <header className="flex items-start justify-between gap-4">
@@ -65,8 +93,21 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
         <ConnectionState state={connectionState} />
       </header>
-      <TopologyCard runId={runId} snapshot={snapshot} events={events} />
-      <SandboxList runId={runId} events={events} expanded={expanded} onToggle={toggle} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
+        <FilterRail />
+        <div className="space-y-6">
+          <TopologyCard runId={runId} snapshot={snapshot} events={events} />
+          <SandboxList
+            runId={runId}
+            events={events}
+            expanded={expanded}
+            onToggle={toggle}
+            onExpandAll={expandAll}
+            onCollapseAll={collapseAll}
+          />
+          <RunToolsPanel events={events} />
+        </div>
+      </div>
     </main>
   );
 }
