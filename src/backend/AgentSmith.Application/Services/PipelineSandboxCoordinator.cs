@@ -1,6 +1,8 @@
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -25,6 +27,8 @@ public sealed class PipelineSandboxCoordinator(
     ISandboxFactory sandboxFactory,
     SandboxSpecBuilder sandboxSpecBuilder,
     ISandboxLanguageResolver sandboxLanguageResolver,
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
@@ -45,6 +49,7 @@ public sealed class PipelineSandboxCoordinator(
 
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
+    private string? _runId;
     private bool _disposed;
 
     public bool IsSandboxRequiring(string commandName) =>
@@ -56,6 +61,7 @@ public sealed class PipelineSandboxCoordinator(
     public async Task<IReadOnlyDictionary<string, ISandbox>> EnsureSandboxesAsync(
         ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
+        _runId ??= context.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : null;
         var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         foreach (var repo in repos)
         {
@@ -75,8 +81,19 @@ public sealed class PipelineSandboxCoordinator(
     {
         var key = SandboxKeyComposer.Compose(repoCount, repo.Name, perRepoDiscoveryCount, discovery.ContextName);
         if (_sandboxes.ContainsKey(key)) return;
-        _sandboxes[key] = await CreateOneAsync(projectConfig, repo, discovery, key, context, ct);
+        var sandbox = await CreateOneAsync(projectConfig, repo, discovery, key, context, ct);
+        _sandboxes[key] = sandbox;
         _discoveries[key] = discovery;
+        await PublishCreatedAsync(key, discovery, projectConfig, ct);
+    }
+
+    private Task PublishCreatedAsync(
+        string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
+        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language).ToolchainImage;
+        return eventPublisher.PublishAsync(
+            new SandboxCreatedEvent(_runId!, sandboxKey, image, discovery.Language, DateTimeOffset.UtcNow), ct);
     }
 
     private async Task<ISandbox> CreateOneAsync(
@@ -93,19 +110,38 @@ public sealed class PipelineSandboxCoordinator(
             discovery.Language ?? "<none>", spec.ToolchainImage);
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
-        return sandbox;
+        // p0169e: wrap with the seam-side projector so each RunStepAsync emits
+        // SandboxCommand/Output/Result. Sandbox.Agent + Wire remain untouched.
+        // If the factory returned null (test stub paths), pass through — the
+        // disposer's null guard already covers that branch.
+        return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key);
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
-        foreach (var sandbox in _sandboxes.Values)
+        foreach (var (key, sandbox) in _sandboxes)
         {
             if (sandbox is null) continue;
             await sandbox.DisposeAsync();
+            await PublishDisposedAsync(key);
         }
         _sandboxes.Clear();
         _discoveries.Clear();
+    }
+
+    private async Task PublishDisposedAsync(string sandboxKey)
+    {
+        if (string.IsNullOrEmpty(_runId)) return;
+        try
+        {
+            await eventPublisher.PublishAsync(
+                new SandboxDisposedEvent(_runId!, sandboxKey, ExitCode: null, DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish SandboxDisposed for {Key}", sandboxKey);
+        }
     }
 }

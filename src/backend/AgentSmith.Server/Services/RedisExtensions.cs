@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Dialogue;
+using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Persistence;
 using AgentSmith.Infrastructure.Services.Queue;
@@ -32,6 +34,7 @@ internal static class RedisExtensions
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
+        services.AddSingleton<IEventPublisher, RedisEventPublisher>();
         return services;
     }
 }

@@ -10,6 +10,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -53,6 +54,7 @@ internal sealed class PipelineExecutorTestBuilder
             DataFlowResolver,
             AgentSmithConfig,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            EventTestStubs.NoOp,
             NullLogger<PipelineStepRunner>.Instance);
 
         var errorHandler = new PipelineErrorHandler(
@@ -68,6 +70,8 @@ internal sealed class PipelineExecutorTestBuilder
             SandboxFactoryMock.Object,
             SandboxSpecBuilder,
             SandboxLanguageResolverMock.Object,
+            EventTestStubs.NoOp,
+            EventTestStubs.RunContext,
             NullLogger<PipelineSandboxCoordinator>.Instance));
         var provider = services.BuildServiceProvider();
 
