@@ -1,5 +1,6 @@
 using System.Net;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -91,11 +92,12 @@ public sealed class GitLabTicketProviderListByLifecycleTests
     private static GitLabTicketProvider BuildSut(HttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler);
+        var connection = new GitLabTicketConnection("https://gitlab.com", "group%2Fproj", "token");
         var loader = new GitLabAttachmentLoader(
-            "https://gitlab.com", "group%2Fproj", "token", httpClient,
+            connection, httpClient,
             NullLogger<GitLabAttachmentLoader>.Instance);
         return new GitLabTicketProvider(
-            "https://gitlab.com", "group%2Fproj", "token", httpClient, loader,
+            connection, httpClient, loader,
             new GitLabFieldMapper(),
             NullLogger<GitLabTicketProvider>.Instance);
     }

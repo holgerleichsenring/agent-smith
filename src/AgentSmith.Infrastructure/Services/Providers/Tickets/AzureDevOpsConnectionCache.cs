@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
@@ -13,13 +14,16 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// 503/timeouts so the entries are rebuilt on TTL expiry or on transport
 /// failure (the latter via <see cref="Invalidate"/>).
 /// </summary>
-internal sealed class AzureDevOpsConnectionCache(string organizationUrl, string pat, ILogger logger)
+internal sealed class AzureDevOpsConnectionCache(AzureDevOpsTicketConnection connection, ILogger logger)
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(30);
     private static readonly ConcurrentDictionary<string, Entry> Cache = new();
 
+    private readonly string _organizationUrl = connection.OrganizationUrl;
+    private readonly string _pat = connection.PersonalAccessToken;
+
     public WorkItemTrackingHttpClient CreateClient() =>
-        Cache.AddOrUpdate(organizationUrl,
+        Cache.AddOrUpdate(_organizationUrl,
             addValueFactory: Build,
             updateValueFactory: (url, existing) =>
                 existing.IsStale(Ttl) ? Rebuild(url, existing) : existing)
@@ -27,16 +31,16 @@ internal sealed class AzureDevOpsConnectionCache(string organizationUrl, string 
 
     public void Invalidate(Exception cause)
     {
-        if (Cache.TryRemove(organizationUrl, out _))
+        if (Cache.TryRemove(_organizationUrl, out _))
             logger.LogWarning(cause, "Evicting cached VssConnection for {Url}: {Message}",
-                organizationUrl, cause.Message);
+                _organizationUrl, cause.Message);
     }
 
     private Entry Build(string url)
     {
         logger.LogInformation("Initializing VssConnection for {Url}", url);
         return new Entry(
-            new VssConnection(new Uri(url), new VssBasicCredential(string.Empty, pat)),
+            new VssConnection(new Uri(url), new VssBasicCredential(string.Empty, _pat)),
             DateTimeOffset.UtcNow);
     }
 

@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +36,9 @@ public static class SkillRunHandlersExtensions
         services.AddTransient<FilterRoundCaller>();
         services.AddTransient<IVerifyRoundCoordinator, VerifyRoundCoordinator>();
         services.AddTransient<IPlanOpenQuestionExtractor, PlanOpenQuestionExtractor>();
+        services.AddSingleton<IGitIgnoreResolver, NullGitIgnoreResolver>();
+        services.AddSingleton<IPathReadGuard, PathReadGuard>();
+        services.AddSingleton<IPathWriteGuard, PathWriteGuard>();
         services.AddTransient<BootstrapToolHostFactory>();
         return services;
     }

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0157c
+
+decisions:
+  - category: Architecture
+    chose: "Direct *Config injection as canonical idiom (no IOptions migration)"
+    over: "Mechanical conversion of ~20 classes to IOptions<T> per the spec's Pattern O wave"
+    reason: |
+      Re-baselining the candidate classes against actual DI state showed
+      that the bulk are ALREADY correctly DI-resolved — AgentSmithConfig
+      is `services.AddSingleton<AgentSmithConfig>(...)`; LoopLimitsConfig,
+      SlackAdapterOptions, KubernetesSandboxOptions, DockerSandboxOptions,
+      NucleiConfig, ZapConfig, are all singletons. The classes that take
+      these `*Config` parameters positionally are receiving DI-injected
+      singletons, not implicit state. The IOptions wrapper would add a
+      layer of indirection (Options.Create + IOptions<T> consumption)
+      with zero behavioural improvement and no `IConfiguration`-reload
+      story behind it. Converting ~20 classes for stylistic uniformity
+      across a 2105-test surface fails the cost/benefit bar.
+
+  - category: Scope
+    chose: "Document the canonical pattern in coding-principles.md; do not mechanically migrate"
+    reason: |
+      The win the spec was aiming at (architectural consistency) is
+      delivered by [[p0157d]]'s registration-based architectural test
+      which whitelists both direct *Config injection AND IOptions<T> as
+      legitimate DI. The choice between them is now a style preference
+      with a written rationale, not an enforcement gap.
+
+  - category: Scope
+    chose: "Factory products (cost trackers, model registry, context compactors) are intentionally exempt"
+    reason: |
+      Cost trackers (Claude/Gemini/OpenAi/Ollama/AzureOpenAi/CostTrackerBase),
+      ConfigBasedModelRegistry, OpenAiContextCompactor, ResilientHttpClientFactory,
+      LlmIntentParser are all constructed by `*Factory.Create(...)` call
+      sites inside ChatClientFactory or similar — they're not
+      DI-registered services. Their ctors can legitimately take
+      positional config values; they're products, not services. The
+      architectural guard in [[p0157d]] correctly skips types not in
+      IServiceCollection.
+
+  - category: Implementation
+    chose: "Leave the two pre-existing IOptions cases (SandboxGlobalConfig, OrchestratorGlobalConfig) untouched"
+    reason: |
+      Two existing IOptions<T> registrations under Server/Services/Sandbox/
+      use the IOptions idiom; converting them to direct injection would
+      ripple through their consumers for zero gain. The canonical
+      pattern is direct injection going forward; existing IOptions
+      consumers don't break the guard rule.
