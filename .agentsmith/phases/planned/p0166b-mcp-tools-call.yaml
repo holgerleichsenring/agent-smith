@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0166b
+goal: |
+  Implement tools/call so MCP consumers can actually trigger Agent Smith
+  pipelines. The handler validates arguments against the schema published
+  in p0166a, constructs a PipelineRequest, enqueues it via the existing
+  ClaimService → queue path, and returns either a synchronous result
+  (for short headless runs) or a run-id with a pointer to the SSE stream
+  (handled in p0166c).
+
+requires: ["p0166a"]
+
+scope:
+  in: |
+    (1) ToolsCallHandler implementation. Validates JSON-RPC params against
+        the schema for the named tool (presence + types of required fields).
+        Returns -32602 (invalid params) on validation failure with a
+        human-readable detail.
+
+    (2) PipelineRequest construction. Maps the validated JSON-RPC params
+        directly into a PipelineRequest record (the schema names match
+        the record properties).
+
+    (3) Dispatch via ITicketClaimService.ClaimAsync, identical to the
+        webhook + poller dispatch paths (consistency over special-casing).
+        MCP-triggered runs get `source: mcp` in their lineage trail.
+
+    (4) Response shape (sync): for headless + already-resolvable runs,
+        return the run result inline. Response shape (async): return
+        { runId, status: 'enqueued', stream_url: '/mcp/events?run=<id>' }.
+        Sync vs async chosen by request.params.wait (default false → async).
+
+    (5) Error mapping: pipeline-validation errors (unknown project, missing
+        ticket) → -32602 with detail. Pipeline-execution errors after
+        enqueue surface via SSE in p0166c.
+
+    (6) Idempotency: same (tool, args, request-id) twice → returns same
+        runId. Uses an in-memory recent-call cache keyed by request hash
+        (1 hour TTL).
+
+  out: |
+    SSE notification streaming — slice [[p0166c]].
+    Authenticated multi-tenant project routing — out for MVP; one
+    deployment serves one config.
+    Tool result schemas (currently free-form). Future MCP spec drift
+    may require formal output schemas; tracked but not blocking.
+
+decisions:
+  - key: |
+      Dispatch via the existing claim service, not a new MCP-specific
+      executor — Reason: keeps the run lifecycle (claim → enqueue →
+      pipeline executor → lifecycle coordinator) identical across
+      webhook / poller / chat / MCP. One pipeline runtime to debug.
+      alternatives: in-process direct executor for MCP (rejected:
+      bypasses claim semantics, breaks duplicate-prevention).
+
+  - key: |
+      Default async with wait=true opt-in — Reason: pipelines run for
+      tens of seconds to many minutes. JSON-RPC over HTTP holding a
+      socket for that long is brittle. Returning a runId + SSE stream
+      URL is the production pattern. alternatives: default sync
+      (rejected: HTTP timeouts).
+
+  - key: |
+      Idempotency cache 1h TTL — Reason: matches typical CI-run window;
+      same operator hitting tools/call twice in a minute (button-mash)
+      should not double-enqueue. Cache key uses canonical-JSON of args.
+      alternatives: no idempotency (rejected: double-enqueue risk for
+      AI agents that retry on perceived failure); longer TTL (rejected:
+      operators may legitimately re-trigger the same args).
+
+steps:
+  - id: validator
+    action: |
+      JsonSchemaValidator wraps existing schema-generator output + the
+      raw params node; returns flat error list.
+    new:
+      - "src/AgentSmith.McpServer/Services/JsonSchemaValidator.cs"
+
+  - id: handler
+    action: |
+      ToolsCallHandler dispatches to PipelineRequest builder + claim
+      service.
+    new:
+      - "src/AgentSmith.McpServer/Handlers/ToolsCallHandler.cs"
+      - "src/AgentSmith.McpServer/Services/PipelineRequestBuilder.cs"
+
+  - id: source-lineage
+    action: |
+      PipelineRequest.Source = 'mcp' for MCP-originated runs. Logged
+      in ClaimRequest + visible in result.md.
+    modify:
+      - "src/AgentSmith.Contracts/Models/PipelineRequest.cs"
+      - "src/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+
+  - id: idempotency
+    action: |
+      RecentCallCache (in-memory, 1h TTL, capacity 100). Composite
+      key (tool, sha256-of-args). Returns existing runId on hit.
+    new:
+      - "src/AgentSmith.McpServer/Services/RecentCallCache.cs"
+
+  - id: dispatch
+    action: |
+      Method dispatcher routes 'tools/call' to ToolsCallHandler.
+    modify:
+      - "src/AgentSmith.McpServer/Transport/McpMethodDispatcher.cs"
+
+  - id: tests
+    action: |
+      Cover: valid call → run enqueued, missing field → -32602,
+      idempotency-second-call returns same runId, sync vs async
+      response shape.
+    new:
+      - "tests/AgentSmith.McpServer.Tests/ToolsCallHandlerTests.cs"
+      - "tests/AgentSmith.McpServer.Tests/RecentCallCacheTests.cs"
+      - "tests/AgentSmith.McpServer.Tests/Integration/McpToolsCallSmokeTests.cs"
+
+tests:
+  - "ToolsCall_ValidFixBugRequest_EnqueuesAndReturnsRunId"
+  - "ToolsCall_MissingRequiredField_ReturnsJsonRpcError32602WithDetail"
+  - "ToolsCall_UnknownTool_ReturnsJsonRpcError32601"
+  - "ToolsCall_SameArgsTwiceWithinHour_ReturnsSameRunIdSecondCall"
+  - "ToolsCall_WaitTrue_ReturnsResultInlineForHeadlessShortRun"
+  - "ToolsCall_WaitFalse_ReturnsRunIdAndStreamUrl"
+  - "PipelineRequest_SourceFieldMcp_VisibleInRunResultMarkdown"
+
+done:
+  - "tools/call dispatches to ITicketClaimService and returns runId."
+  - "Schema validation surface JSON-RPC -32602 with detail."
+  - "Idempotency cache prevents double-enqueue within 1 hour."
+  - "result.md shows 'Source: mcp' for MCP-triggered runs."
+  - "Smoke: `curl /mcp -d '{...tools/call fix-bug...}' | jq '.result.runId'` returns a valid run id; pipeline runs to completion (visible in /runs/<id>/)."

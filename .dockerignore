@@ -12,5 +12,6 @@
 prompts/
 *.md
 !config/coding-principles.md
+!DESIGN.md
 .dockerignore
 docker-compose.yml

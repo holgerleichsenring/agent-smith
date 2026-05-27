@@ -23,7 +23,7 @@ services:
   agentsmith:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Cli/Dockerfile
+      dockerfile: src/backend/AgentSmith.Cli/Dockerfile
     image: agentsmith-cli:${AGENTSMITH_VERSION:-0.50.0}
     restart: "no"
     env_file:
@@ -42,11 +42,11 @@ services:
   # Required before the first labelled ticket triggers a pipeline; without
   # the image present, DockerJobSpawner fails with DockerImageNotFoundException
   # for `agent-smith-sandbox-agent:<tag>`. Pull from holgerleichsenring on
-  # Docker Hub or build locally from src/AgentSmith.Sandbox.Agent/Dockerfile.
+  # Docker Hub or build locally from src/backend/AgentSmith.Sandbox.Agent/Dockerfile.
   sandbox-agent:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Sandbox.Agent/Dockerfile
+      dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
     image: agent-smith-sandbox-agent:${AGENT_VERSION:-0.50.0}
     profiles: [build-only]
 
@@ -66,7 +66,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: src/AgentSmith.Server/Dockerfile
+      dockerfile: src/backend/AgentSmith.Server/Dockerfile
     restart: unless-stopped
     user: root  # docker socket access for SPAWNER_TYPE=docker (local dev)
     extra_hosts:
@@ -89,6 +89,35 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Operator opt-in dashboard (p0169-pre).
+  # Run with: docker compose --profile dashboard up
+  dashboard:
+    build:
+      context: ..
+      dockerfile: src/dashboard/Dockerfile
+    image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.60.1}
+    profiles: [dashboard]
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - AGENT_SMITH_API_URL=http://server:8081
+      # p0169f-followup: next.config.ts rewrites /hub/* and /api/* to this
+      # target so the browser stays same-origin. In compose, the dashboard's
+      # Next.js server reaches the backend via compose DNS.
+      - AGENTSMITH_BACKEND_URL=http://server:8081
+    depends_on:
+      - server
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    healthcheck:
+      # BusyBox wget on Alpine resolves localhost IPv6-first and doesn't
+      # fall back to IPv4 → force 127.0.0.1 (matches Dockerfile).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 5s
       retries: 3

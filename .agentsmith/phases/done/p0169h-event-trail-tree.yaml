@@ -1,0 +1,259 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169h-event-trail-tree
+goal: |
+  Navigable post-run trail tree built from the per-run event stream:
+  skill-rounds + LLM calls + tool calls + decisions, rendered as a
+  react-arborist tree with a two-pane detail view. Supersedes p0169c —
+  the trail no longer assembles from joined JSON files (those endpoints
+  are gone post-p0169e), it assembles from XRANGE 0 to + over
+  run:{runId}:events.
+
+requires:
+  - p0169e-event-backbone
+  - p0169f-topology-ui
+
+supersedes:
+  - p0169c
+
+scope:
+  in: |
+    HUB (src/backend/AgentSmith.Server/Hubs):
+
+    (1) JobsHub.GetTrail(runId) new SignalR method: returns the full
+        retained stream window (XRANGE 0 to + on run:{runId}:events)
+        as a flat RunEvent[] payload. Authoritative source — no file
+        join, no projection on the server (the projection is in the
+        client where the tree is rendered). Bounded by p0169e's
+        MAXLEN=10000 — clients with longer runs see the oldest
+        retained event as the start of their visible history (same
+        contract as SubscribeRun's replay).
+
+    (2) JobsHub.GetTrailPage(runId, fromId, count) for paginated
+        retrieval. count defaults to 500, max 2000. Used when a run's
+        retained window exceeds the client's single-call budget.
+
+    DASHBOARD CLIENT (src/dashboard/src/lib):
+
+    (3) TrailAssembler service projects RunEvent[] into a tree:
+        - root: run-id
+        - level 1: skill-rounds (derived from StepStarted/Finished
+          for SkillRound / SecuritySkillRound / ApiSecuritySkillRound
+          step names) AND non-skill steps (CheckoutSource, etc.) as
+          siblings
+        - level 2 under skill-round: LlmCall pairs +
+          DecisionLogged + TriageRoute siblings
+        - level 2 under sandbox-step: SandboxCommand → child
+          SandboxOutput batch + SandboxResult; ToolCall + ToolResult
+          paired as in p0169g
+        - GateChecked events render as inline chips on their
+          containing step, not as tree nodes (one-line decisions
+          don't deserve a row)
+
+    (4) TrailNode shape mirrors what the UI needs: id, kind, label,
+        startedAt, durationMs (where derivable), childCount,
+        eventTypes (set of EventType in this subtree), payload
+        (full RunEvent for the right pane). No payload-uri / lazy
+        load — the entire trail is one fetch.
+
+    DASHBOARD UI (src/dashboard/src/app/jobs/[id]):
+
+    (5) New "Trail" tab in the run-detail page (alongside the
+        topology view from p0169f). Tab routing via search param
+        ?tab=trail.
+
+    (6) Two-pane layout: left ~35% react-arborist tree, right ~65%
+        TrailNodeDetailPane. Selection in the tree updates the right
+        pane (no fetch — payload is already in memory).
+
+    (7) Timeline slider over the tree (visual scrub, same UX as
+        p0169c's slider — dims later nodes, doesn't refetch).
+
+    (8) "Replay timeline" play button next to the slider (time-scaled
+        animation, 2 min run → 20s replay; same as p0169c).
+
+    (9) Truncation banner: when the retained window's oldest event is
+        NOT a RunStarted, render a banner "trail starts mid-run;
+        oldest events were trimmed by Redis MAXLEN=10000". Operator
+        can verify it's a normal trim, not a bug.
+
+  out: |
+    Server-side trail projection (assembled-tree JSON). Out — the
+    projection is in the client where it belongs; the server speaks
+    events.
+    Filter by tool / skill in the tree. Out — the filter rail
+    (p0169g) covers the visibility axis; the tree is the history
+    axis.
+    Cross-run comparison. Out — single-run focus.
+    Editable trail / replay-with-edits. Out — read-only inspection.
+
+decisions:
+  - key: |
+      Tree projection client-side, not server-side — Reason: the
+      server's contract is events; assembling a tree on the server
+      would re-introduce the "join layer over files" pattern that
+      p0169e ripped out. The client already has the events in memory
+      from SubscribeRun's replay (or fetches them once via GetTrail);
+      projection is a pure function of that array. alternatives:
+      server-side TrailTree assembler (rejected: re-introduces the
+      file-join layer one architectural step removed).
+
+  - key: |
+      Single GetTrail fetch + optional pagination, no lazy node
+      detail — Reason: the retained window is capped at 10000 events
+      (p0169e). A typical run lives within that budget; the trail
+      fits in one fetch. Lazy per-node detail (p0169c's payload_uri
+      pattern) was a leftover from the file-join model where each
+      detail required reading a separate file. With everything in
+      one event-stream, lazy loading is overengineering.
+      alternatives: lazy per-node fetch (rejected: see above);
+      stream-as-tree-builds (rejected: complicates client state for
+      no operator benefit on post-run trails).
+
+  - key: |
+      GateChecked as inline chip on parent step, not its own tree row —
+      Reason: a gate is a one-line yes/no decision attached to a
+      step's outcome; rendering it as a sibling row inflates the tree
+      with low-information nodes. Inline chips on the step header
+      keep the tree skim-friendly. alternatives: gate as own row
+      (rejected: noise); omit gate entirely (rejected: operator
+      wants to see why a pipeline aborted at the gate).
+
+  - key: |
+      Timeline slider is visual scrub, same UX as p0169c — Reason:
+      the UX rationale from p0169c still holds (dims later nodes,
+      tree structure stays put). The data source changed (events
+      not file joins) but the UI affordance is unchanged.
+      alternatives: state-rewind (rejected: same reason as p0169c);
+      omit slider (rejected: timeline navigation is the high-value
+      affordance for the trail).
+
+  - key: |
+      Truncation banner derived client-side from event sequence —
+      Reason: the oldest event in the retained window is the
+      observable truncation marker. If it's a RunStarted, the trail
+      is complete; otherwise the operator sees the banner. No
+      backend metadata required. alternatives: server-side
+      truncation flag in the response (rejected: derivable
+      client-side; adds wire-format field for no semantic gain).
+
+steps:
+  - id: hub-trail-methods
+    action: |
+      JobsHub.GetTrail + GetTrailPage SignalR methods. Backed by
+      IDatabase.StreamRangeAsync on run:{runId}:events.
+    modify:
+      - "src/backend/AgentSmith.Server/Hubs/JobsHub.cs"
+    new:
+      - "src/backend/AgentSmith.Server/Hubs/TrailPageRequest.cs"
+
+  - id: trail-assembler
+    action: |
+      TrailAssembler.ts in dashboard lib. Pure function from
+      RunEvent[] → TrailNode tree. Tested with fixture event
+      sequences (happy path, mid-run truncation, parallel skill
+      rounds, sandbox step with N output batches).
+    new:
+      - "src/dashboard/src/lib/TrailAssembler.ts"
+      - "src/dashboard/src/types/trail-node.ts"
+      - "src/dashboard/src/lib/__tests__/TrailAssembler.test.ts"
+
+  - id: trail-tab
+    action: |
+      Trail tab content + tab-routing in jobs/[id]/page.tsx. Tabs
+      primitive from shadcn registry. ?tab=trail deep-link.
+    new:
+      - "src/dashboard/src/components/jobs/TrailTab.tsx"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: trail-tree-component
+    action: |
+      TrailTree wrapping react-arborist with TrailNode renderer.
+      Severity badges + cost chips on skill-round rows. GateChecked
+      chips on step headers.
+    new:
+      - "src/dashboard/src/components/jobs/TrailTree.tsx"
+      - "src/dashboard/src/components/jobs/TrailNodeRow.tsx"
+      - "src/dashboard/src/components/jobs/StepGateChips.tsx"
+    packages:
+      - "react-arborist ^3"
+
+  - id: trail-detail-pane
+    action: |
+      TrailNodeDetailPane renders the typed RunEvent payload for
+      the selected node. LlmCall pair → side-by-side started +
+      finished card with token counts + duration + promptHash.
+      DecisionLogged → markdown-rendered chose/over/reason. Tool
+      pair → metadata-only summary (matches p0169g).
+    new:
+      - "src/dashboard/src/components/jobs/TrailNodeDetailPane.tsx"
+      - "src/dashboard/src/components/jobs/payload/LlmCallPayload.tsx"
+      - "src/dashboard/src/components/jobs/payload/DecisionPayload.tsx"
+      - "src/dashboard/src/components/jobs/payload/ToolPairPayload.tsx"
+      - "src/dashboard/src/components/jobs/payload/StepPayload.tsx"
+
+  - id: timeline-slider
+    action: |
+      TimelineSlider above the tree; dims nodes by timestamp. Play
+      button animates the slider forward time-scaled.
+    new:
+      - "src/dashboard/src/components/jobs/TrailTimelineSlider.tsx"
+
+  - id: truncation-banner
+    action: |
+      TrailTruncationBanner derives "trail starts mid-run" from the
+      oldest event not being RunStarted.
+    new:
+      - "src/dashboard/src/components/jobs/TrailTruncationBanner.tsx"
+
+  - id: backend-tests
+    action: |
+      JobsHub.GetTrail + GetTrailPage unit tests against a stubbed
+      IConnectionMultiplexer (same pattern as p0169e's
+      RedisEventPublisherTests).
+    new:
+      - "tests/AgentSmith.Tests/Hubs/JobsHubGetTrailTests.cs"
+
+  - id: dashboard-tests
+    action: |
+      Vitest: TrailAssembler against the four event-sequence
+      fixtures; TrailTree render of 40 nodes; TrailNodeDetailPane
+      payload rendering for each event type; TimelineSlider dim
+      logic; TrailTruncationBanner trigger condition.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/TrailTree.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TrailNodeDetailPane.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TrailTimelineSlider.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TrailTruncationBanner.test.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test
+      green. Manual smoke: trigger a real run, open the Trail tab,
+      see skill-rounds + LlmCall pairs + tool pairs + decisions
+      assembled into a tree; click a node, see typed payload in
+      the right pane; scrub the timeline, watch later nodes dim.
+
+tests:
+  - "JobsHubGetTrail_FullRetainedWindow_ReturnsEventArrayInOrder"
+  - "JobsHubGetTrail_RunIdMissing_ReturnsEmptyArray"
+  - "JobsHubGetTrailPage_FromId_ReturnsNextWindow"
+  - "TrailAssembler_HappyPathFixBugSequence_BuildsExpectedTree"
+  - "TrailAssembler_MidRunTruncation_BuildsPartialTreeWithTruncationFlag"
+  - "TrailAssembler_ParallelSkillRoundsSameStepIndex_RendersAsSiblings"
+  - "TrailAssembler_SandboxStepWithBatches_NestsSandboxOutputUnderCommand"
+  - "TrailAssembler_GateCheckedEvent_AttachesToParentStepNotOwnRow"
+  - "TrailTree_FortyNodes_VirtualScrollsWithoutFreeze"
+  - "TrailNodeDetailPane_LlmCallPair_RendersTokensDurationPromptHash"
+  - "TrailNodeDetailPane_DecisionEvent_RendersChoseOverReason"
+  - "TrailTimelineSlider_ScrubbedMidRun_DimsNodesAfterT"
+  - "TrailTruncationBanner_OldestEventNotRunStarted_BannerVisible"
+
+done:
+  - "JobsHub.GetTrail + GetTrailPage methods ship; backed by XRANGE on the per-run stream."
+  - "TrailAssembler client-side projector covers the five fixture sequences."
+  - "Trail tab routed via ?tab=trail in /jobs/[id]; react-arborist tree + two-pane detail view rendered."
+  - "Timeline slider + play button + truncation banner all functional."
+  - "Backend + dashboard tests green."
+  - "Manual smoke: real run → Trail tab → click a tool-call node → see metadata-only payload; click an LLM-call node → see token counts + promptHash; scrub timeline → watch nodes dim."
+  - "p0169c marked as superseded by this phase (history kept; code never built against its file-join API)."

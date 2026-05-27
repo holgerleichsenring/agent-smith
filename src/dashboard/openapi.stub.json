@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "agent-smith API (stub)",
+    "version": "0.0.0-pre-p0169a",
+    "description": "Stub spec checked in for p0169-pre bootstrap. Replaced by the live spec from /api/openapi.json once p0169a's backend ships."
+  },
+  "paths": {
+    "/api/ping": {
+      "get": {
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Liveness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } },
+                  "required": ["ok"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {}
+}

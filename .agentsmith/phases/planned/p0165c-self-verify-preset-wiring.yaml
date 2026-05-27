@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0165c
+goal: |
+  Wire BuildLaunch + SmokeProbe into the pipeline presets where they make
+  observable sense (FixBug, AddFeature, ApiSecurityScan). The handlers from
+  p0165a/b are shipped but unwired today; this slice flips on the
+  verification step in the standard run sequence.
+
+  Steps added between Test and CommitAndPR for code-changing presets;
+  between Triage and CompileFindings for api-scan (verify the live target
+  is reachable before running deeper scan rounds).
+
+requires: ["p0165a", "p0165b"]
+
+scope:
+  in: |
+    (1) Three preset edits:
+        - FixBug: Test → BuildLaunch → SmokeProbe → CommitAndPR
+        - AddFeature: same insertion point
+        - ApiSecurityScan: TryCheckoutSource → ApiCodeContext →
+          BuildLaunch → SmokeProbe → Triage → ...
+
+    (2) Both BuildLaunch + SmokeProbe steps are *soft-fail by default*:
+        when ProjectMap.Ci.StartCommand is absent the steps log an info
+        line and skip. Operator opts into hard-fail via pipeline config
+        (verify.enforce: true).
+
+    (3) Hard-fail mode: SmokeProbe Failed > 0 fails the pipeline at the
+        SmokeProbe step boundary; CommitAndPR does not run. Soft-fail
+        mode: SmokeProbe Failed > 0 still ships PR but VerifyReport in
+        result.md shows the failures + PR description warns.
+
+    (4) Branch-persistence (p0112) extended: a SmokeProbe-fail in
+        hard-fail mode triggers PersistWorkBranch with a 'verify-failed'
+        marker so the operator can pick up the WIP and investigate.
+
+    (5) MAD-discussion + legal-analysis + autonomous: no wiring. These
+        presets do not produce a launchable binary.
+
+  out: |
+    Auth-flow verification — out per p0165b scope.
+    Selective per-pipeline verification configuration. Two modes
+    (soft / hard) is the surface; deeper per-step toggles live in
+    the operator's pipeline config.
+
+decisions:
+  - key: |
+      Soft-fail default — Reason: most repos do not have a documented
+      StartCommand yet (ProjectMap.Ci is opt-in). Hard-fail-by-default
+      would regress every existing run. Operators who want strictness
+      opt in. alternatives: hard-fail (rejected: regression risk);
+      no fail mode (rejected: defeats the point — operators need a
+      way to gate merges on verify pass).
+
+  - key: |
+      Branch-persistence on verify-fail — Reason: a verify-fail is a
+      higher-quality WIP than a test-fail (the build works, the test
+      suite was green, only the live surface broke). Saving the
+      branch lets the next run resume close to a fix. alternatives:
+      no persistence (rejected: same loss-of-context problem p0112
+      already solved for test-fail).
+
+steps:
+  - id: presets
+    action: |
+      Edit three preset step lists. BuildLaunch + SmokeProbe inserted
+      at the correct boundaries. Step-count tests in
+      FixBugPipelinePresetTests / AddFeaturePipelinePresetTests /
+      ApiSecurityScanPipelinePresetTests updated.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs"
+
+  - id: config
+    action: |
+      VerifyConfig record with single Enforce: bool field. Read from
+      pipeline-level config under verify.enforce. Default false.
+    new:
+      - "src/AgentSmith.Contracts/Models/Configuration/VerifyConfig.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Models/Configuration/PipelineDefinition.cs"
+      - "config/agentsmith.example.yml"
+
+  - id: hard-fail-wiring
+    action: |
+      SmokeProbeHandler reads VerifyConfig.Enforce. When true + Failed > 0:
+      CommandResult.Fail with summary message. When false + Failed > 0:
+      CommandResult.Ok but VerifyReport.HasFailures = true so downstream
+      WriteRunResult + branch persistence can route appropriately.
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/SmokeProbeHandler.cs"
+
+  - id: persist-on-verify-fail
+    action: |
+      PipelineExecutor's failure-handling reads the failing step's
+      command-name. On SmokeProbe-fail-in-Enforce-mode, PersistWorkBranch
+      is invoked with marker 'verify-failed'.
+    modify:
+      - "src/AgentSmith.Application/Services/PipelineExecutor.cs"
+      - "src/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs"
+
+  - id: pr-description
+    action: |
+      CommitAndPRHandler appends a Verification block to the PR
+      description (pass/fail counts, link to result.md).
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+
+  - id: tests
+    action: |
+      Update preset-shape tests + add cross-cutting tests for
+      soft/hard fail behaviour.
+    new:
+      - "tests/AgentSmith.Tests/Pipelines/VerifyEnforceModeTests.cs"
+
+tests:
+  - "FixBugPreset_StepSequence_BuildLaunchBeforeSmokeProbeBeforeCommit"
+  - "AddFeaturePreset_StepSequence_BuildLaunchBeforeSmokeProbeBeforeCommit"
+  - "ApiSecurityScanPreset_StepSequence_BuildLaunchBeforeTriage"
+  - "VerifyEnforceFalse_OneFailingProbe_PipelineSucceedsWithWarning"
+  - "VerifyEnforceTrue_OneFailingProbe_PipelineFailsAtSmokeProbe"
+  - "VerifyEnforceTrue_FailingProbe_TriggersPersistWorkBranch"
+  - "CommitAndPR_VerifyReportPresent_AppendsVerifyBlockToPrDescription"
+
+done:
+  - "FixBug / AddFeature / ApiSecurityScan presets contain BuildLaunch + SmokeProbe."
+  - "VerifyConfig.Enforce default false; flag toggles soft → hard."
+  - "Hard-fail triggers PersistWorkBranch with verify-failed marker."
+  - "PR description shows Verification block."
+  - "Full main test suite green."
+  - "Smoke: agent-smith fix --ticket X on a repo with a working StartCommand produces a PR whose description contains a Verification: 3/3 passed line."

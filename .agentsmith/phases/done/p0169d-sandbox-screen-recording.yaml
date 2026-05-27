@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169d
+goal: |
+  OPTIONAL — terminal-session recordings (asciinema cast format) of the
+  sandbox during self-verify (p0165) execution, played back in the
+  dashboard. Closes ~60% of the Devin-2.2 screen-recording perception
+  gap without taking on browser-driving / computer-use.
+
+  Marked optional: high demo-impact, modest production-utility. Ship
+  only after the rest of the dashboard track stabilises.
+
+requires: ["p0169c", "p0165c"]
+
+scope:
+  in: |
+    SANDBOX (src/backend/AgentSmith.Sandbox.Agent):
+
+    (1) ScriptRecorder service wraps Process.Start during BuildLaunch +
+        SmokeProbe steps (p0165) with `script -q -O cast.txt` (BSD
+        script, asciinema-compatible). Recording file sealed at
+        step end; uploaded as run artefact under .agentsmith/runs/
+        {run-id}/cast/{step}.cast.
+
+    (2) Asciinema cast file format v2 (JSON-lines, text-only). 100-500 KB
+        per session typical.
+
+    (3) Secrets-scrubbing: at recording end (post-flush, pre-upload),
+        regex-replace tokens / env values matching
+        config/patterns/secrets-output.yaml. Streaming-time scrubbing
+        rejected because partial-match risk across writes.
+
+    (4) Size guard: total per-step cast file capped at 5 MB. Beyond:
+        truncate with a marker line + log warning.
+
+    (5) AGENTSMITH_RECORD_SESSIONS env flag (default false). Recording
+        is opt-in.
+
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (6) GET /api/jobs/{id}/cast/{step} streams the cast file content
+        with text/plain content-type. Path traversal guard reuses
+        p0169a's PathTraversalGuard.
+
+    DASHBOARD (src/dashboard):
+
+    (7) Trail-tab node detail pane: TrailNodes for BuildLaunch +
+        SmokeProbe steps render a "▶ play recording" affordance when
+        the API surface indicates a cast file is present.
+
+    (8) Cast playback component wraps asciinema-player (npm package).
+        Modal overlay with playback controls (play / pause / seek /
+        speed). Closeable.
+
+    (9) Privacy notice in the modal footer: "Recording scrubbed against
+        the operator-configured secret-pattern list. Verify no
+        sensitive output before sharing externally."
+
+  out: |
+    GUI / X-server / browser recordings. Out — terminal-only.
+    Cost-of-doing-this metric in result.md. Operators evaluate via
+    recording file size + storage cost; no dedicated telemetry.
+    Replay-as-input (re-running the recorded commands). Out —
+    playback is observation only.
+    Recording during AgenticExecute. Out — that step does many
+    things; recording would be huge + low signal. Verify steps only.
+
+decisions:
+  - key: |
+      Optional slice — Reason: between demo-eindrucksvoll and
+      production-useful. Marked optional so the rest of p0169 ships
+      without dependency. alternatives: skip (rejected: the Devin-2.2
+      gap is real); mandatory (rejected: deployment complexity for a
+      subset of users).
+
+  - key: |
+      asciinema cast format, not video — Reason: text-based, diffable,
+      tiny, no codec dep, no GPU. asciinema-player is the de-facto
+      browser playback for cast files. alternatives: MP4 via ffmpeg
+      (rejected: 100x size + binary blobs + codec dep); SVG-anim
+      (rejected: niche).
+
+  - key: |
+      Secrets-scrubbing at end-of-step, not streaming — Reason:
+      streaming-time redaction risks partial-match misses (token
+      split across writes). End-of-step pass is safer + simpler.
+      alternatives: streaming (rejected: see above); no scrubbing
+      (rejected: regulator-hostile).
+
+  - key: |
+      asciinema-player from npm, not vendored — Reason: dashboard is
+      already a Next.js project with package.json + lockfile; adding
+      one more npm dep is trivial. p0169d in its pre-rewrite form
+      vendored the player because the dashboard was vanilla-JS in
+      Razor — that constraint no longer applies. alternatives:
+      vendor (rejected: no longer necessary; npm hygiene preferred).
+
+steps:
+  - id: script-recorder
+    action: |
+      ScriptRecorder + size guard in the sandbox agent. Wraps
+      Process.Start when env flag set. Output to
+      /work/.agentsmith/cast/{step}.cast.
+    new:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/ScriptRecorder.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/RecorderSizeGuard.cs"
+    modify:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs"
+
+  - id: handler-integration
+    action: |
+      BuildLaunchHandler + SmokeProbeHandler invoke the recorder.
+      Cast files added to run-artefact list.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/BuildLaunchHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/SmokeProbeHandler.cs"
+
+  - id: scrubber
+    action: |
+      CastFileSecretScrubber reads config/patterns/secrets-output.yaml
+      + redacts matches in the cast file pre-upload.
+    new:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/CastFileSecretScrubber.cs"
+      - "config/patterns/secrets-output.yaml"
+
+  - id: cast-endpoint
+    action: |
+      GET /api/jobs/{id}/cast/{step} endpoint with path-traversal guard.
+    new:
+      - "src/backend/AgentSmith.Server/Api/JobCastEndpoint.cs"
+
+  - id: dashboard-player
+    action: |
+      AsciinemaPlayer wrapper component + modal opener wired into
+      TrailNode detail pane for BuildLaunch + SmokeProbe nodes.
+    new:
+      - "src/dashboard/src/components/jobs/AsciinemaPlayerModal.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/NodeDetailPane.tsx"
+    packages:
+      - "asciinema-player ^3"
+
+  - id: env-flag
+    action: |
+      Document AGENTSMITH_RECORD_SESSIONS in compose.example + docs.
+    modify:
+      - "deploy/docker-compose.example.yml"
+      - "docs/configuration/sandbox.md"
+
+  - id: tests
+    action: |
+      Cast file generation + scrub + truncation behaviour. Dashboard
+      modal-open test.
+    new:
+      - "tests/AgentSmith.Sandbox.Agent.Tests/ScriptRecorderTests.cs"
+      - "tests/AgentSmith.Sandbox.Agent.Tests/CastFileSecretScrubberTests.cs"
+      - "tests/AgentSmith.Tests/Api/JobCastEndpointTests.cs"
+      - "src/dashboard/src/components/jobs/__tests__/AsciinemaPlayerModal.test.tsx"
+
+tests:
+  - "ScriptRecorder_RecordEnabled_ProducesValidAsciinemaV2"
+  - "ScriptRecorder_RecordDisabled_NoCastFileGenerated"
+  - "CastFileSecretScrubber_TokenInOutput_ReplacedWithRedactedMarker"
+  - "RecorderSizeGuard_Beyond5Mb_TruncatesWithMarker"
+  - "JobCastEndpoint_KnownStep_ReturnsCastContent"
+  - "JobCastEndpoint_PathTraversal_Returns400"
+  - "AsciinemaPlayerModal_PlayButtonClicked_OpensModalWithPlayerLoaded"
+
+done:
+  - "ScriptRecorder + scrubber + size guard shipped + invoked from BuildLaunch + SmokeProbe."
+  - "GET /api/jobs/{id}/cast/{step} returns cast content + path-traversal guarded."
+  - "Dashboard NodeDetailPane shows play affordance for verify-step nodes; modal plays back the recording."
+  - "AGENTSMITH_RECORD_SESSIONS env flag gates the entire feature."
+  - "Backend + sandbox + dashboard tests green."
+  - "Smoke: set AGENTSMITH_RECORD_SESSIONS=true, run a fix-bug pipeline with self-verify on; in dashboard Trail tab click the BuildLaunch node's ▶ button; watch the live recording in the modal."

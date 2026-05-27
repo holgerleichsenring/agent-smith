@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0164a
+goal: |
+  Replace the Console.ReadLine() Plan-Approval step with a dialogue-based
+  approval that routes through IDialogueTransport. Today ApprovalHandler
+  (src/AgentSmith.Application/Services/Handlers/ApprovalHandler.cs:32) hard-
+  codes `Console.Write/ReadLine` — so Slack-, Teams-, webhook-, and poller-
+  triggered runs are forced into headless mode (auto-approve), and any
+  non-headless run spawned in a sandbox blocks forever on an absent TTY.
+
+  The dialogue infrastructure already exists end-to-end (AskCommandHandler,
+  IDialogueTransport, QuestionType.Approval, SlackTypedQuestionBlockBuilder
+  + TeamsQuestionCardBuilder both render Approval blocks/cards). This slice
+  wires the Plan-Approval step onto that path. p0164b adds Edit-Step buttons
+  for the Workspace-style plan-iteration UX.
+
+requires: ["p0162a"]
+
+scope:
+  in: |
+    (1) ApprovalHandler retired. Pipeline presets that contained
+        CommandNames.Approval now contain CommandNames.Ask with an
+        AskContext pre-populated by a new PlanApprovalQuestionBuilder.
+
+    (2) PlanApprovalQuestionBuilder constructs a DialogQuestion of
+        QuestionType.Approval. Question.Text = "Approve this plan?";
+        Question.Context = rendered plan summary (Plan.Steps joined with
+        ordering + change-type + description); Question.Choices = null
+        (Approval is binary); Question.Timeout = pipeline.config-overridable
+        (default 30 minutes — long enough for human review without holding
+        the sandbox forever).
+
+    (3) Three presets switched from Approval to Ask: FixBug, AddFeature,
+        FixNoTest. Each preset's step list edits CommandNames.Approval →
+        CommandNames.Ask. CommandNames.Approval entry retired from
+        CommandNames.cs (or kept as a deprecation-aliased forward to Ask
+        if it appears in any external operator config — verify).
+
+    (4) Headless behaviour preserved: AskCommandHandler already returns the
+        DefaultAnswer when ContextKeys.Headless is set (verify; if not,
+        add the short-circuit). DefaultAnswer for plan approval = "approve"
+        (matches today's auto-yes headless behaviour).
+
+    (5) Rejection failure path: AskCommandHandler already returns
+        CommandResult.Fail on QuestionType.Approval + RejectionAnswers
+        match — verify the rejection short-circuits the pipeline (no
+        AgenticExecute run).
+
+  out: |
+    Plan-edit buttons + per-step rejection — slice [[p0164b]].
+    Approval timeout configuration via pipeline config — covered by
+    existing AskContext shape, default lives in PlanApprovalQuestionBuilder.
+    Cross-platform approval (web-UI approval) — separate concern.
+
+decisions:
+  - key: |
+      Replace ApprovalHandler, do not wrap — Reason: per
+      [[feedback_no_wrapper_shims]], no adapter that bridges old to new.
+      The dialogue path is the single approval surface from this slice
+      forward. ApprovalHandler.cs deleted; its 50 lines become part of
+      the PlanApprovalQuestionBuilder + reuse of AskCommandHandler.
+      alternatives: keep ApprovalHandler as `Console`-only branch
+      (rejected: split-brain — every operator forever has to remember
+      which pipelines use which path).
+
+  - key: |
+      DefaultAnswer="approve" in headless mode — Reason: preserves the
+      current observable behaviour exactly. Pre-p0164a: headless = auto-
+      yes (ApprovalHandler.cs:27-29). Post-p0164a: same outcome through
+      a different code path. alternatives: DefaultAnswer="reject"
+      (rejected: silent regression of every CI/webhook-triggered run).
+
+  - key: |
+      30-minute default approval timeout — Reason: long enough for a
+      human reviewer to context-switch and respond; short enough that
+      a forgotten approval does not pin a sandbox pod for a day. The
+      sandbox-side cost of an idle pod for 30min is small relative to
+      a typical run (~$0.50 of LLM cost). alternatives: 5 min (rejected:
+      reviewer-hostile); 24h (rejected: pod-lifecycle pressure).
+
+steps:
+  - id: question-builder
+    action: |
+      Build the DialogQuestion + AskContext from the current Plan +
+      pipeline metadata. Pure function, no I/O.
+    new:
+      - "src/AgentSmith.Application/Services/Builders/PlanApprovalQuestionBuilder.cs"
+
+  - id: presets
+    action: |
+      Switch FixBug / AddFeature / FixNoTest presets from Approval to Ask
+      with the Question prepared at builder time.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
+
+  - id: handler-retirement
+    action: |
+      Delete ApprovalHandler + ApprovalContext + ApprovalContextBuilder.
+      Remove their DI registrations + command-name entry. Update any
+      remaining references.
+    delete:
+      - "src/AgentSmith.Application/Services/Handlers/ApprovalHandler.cs"
+      - "src/AgentSmith.Application/Models/ApprovalContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/ApprovalContextBuilder.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+      - "src/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+
+  - id: tests
+    action: |
+      AAA tests covering headless auto-approve, dialogue approve, dialogue
+      reject (Fail result), timeout (DefaultAnswer applied), question
+      shape (plan rendering in Context).
+    new:
+      - "tests/AgentSmith.Tests/Handlers/PlanApprovalDialogueTests.cs"
+      - "tests/AgentSmith.Tests/Builders/PlanApprovalQuestionBuilderTests.cs"
+
+tests:
+  - "PlanApproval_HeadlessMode_AutoApprovesWithDefaultAnswer"
+  - "PlanApproval_DialogueAnswerApprove_PipelineContinues"
+  - "PlanApproval_DialogueAnswerReject_PipelineFails"
+  - "PlanApproval_TimeoutNoAnswer_AppliesDefaultAndContinues"
+  - "PlanApprovalQuestionBuilder_RendersPlanStepsInContext"
+  - "FixBugPreset_StepSequence_ContainsAskNotApproval"
+
+done:
+  - "ApprovalHandler + ApprovalContext + ApprovalContextBuilder removed."
+  - "FixBug / AddFeature / FixNoTest presets contain CommandNames.Ask instead of CommandNames.Approval."
+  - "Headless behaviour bit-for-bit preserved (auto-approve)."
+  - "Slack / Teams initiated runs receive an approval card/block and pause for response."
+  - "Full main test suite green."
+  - "Smoke: agent-smith fix --ticket X --headless completes (auto-approve); same command without --headless surfaces a question event on the dialogue transport."

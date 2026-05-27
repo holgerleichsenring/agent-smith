@@ -5,29 +5,29 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Domain", "src\AgentSmith.Domain\AgentSmith.Domain.csproj", "{AC24DDAD-D0FF-4FF1-A173-D29CAAE71136}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Domain", "src\backend\AgentSmith.Domain\AgentSmith.Domain.csproj", "{AC24DDAD-D0FF-4FF1-A173-D29CAAE71136}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Contracts", "src\AgentSmith.Contracts\AgentSmith.Contracts.csproj", "{B7021438-801C-4A7F-84C5-2EDA7165159A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Contracts", "src\backend\AgentSmith.Contracts\AgentSmith.Contracts.csproj", "{B7021438-801C-4A7F-84C5-2EDA7165159A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Application", "src\AgentSmith.Application\AgentSmith.Application.csproj", "{E620888A-10FC-483B-8DF2-089805A3EF7D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Application", "src\backend\AgentSmith.Application\AgentSmith.Application.csproj", "{E620888A-10FC-483B-8DF2-089805A3EF7D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure", "src\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj", "{891B6E25-CA05-4B38-90C0-7BE5EB67CF96}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure", "src\backend\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj", "{891B6E25-CA05-4B38-90C0-7BE5EB67CF96}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Cli", "src\AgentSmith.Cli\AgentSmith.Cli.csproj", "{A5EC2B3E-68FD-42F2-A660-4B4728CCB744}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Cli", "src\backend\AgentSmith.Cli\AgentSmith.Cli.csproj", "{A5EC2B3E-68FD-42F2-A660-4B4728CCB744}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Tests", "tests\AgentSmith.Tests\AgentSmith.Tests.csproj", "{12F4004F-05E8-48CB-98A4-EAE3F80C529A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Server", "src\AgentSmith.Server\AgentSmith.Server.csproj", "{B42A667B-B20E-46EF-AFF3-EC5C256F4622}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Server", "src\backend\AgentSmith.Server\AgentSmith.Server.csproj", "{B42A667B-B20E-46EF-AFF3-EC5C256F4622}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Core", "src\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj", "{B65106CC-4CC3-4249-9803-A35BBFD46538}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Core", "src\backend\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj", "{B65106CC-4CC3-4249-9803-A35BBFD46538}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Sandbox.Agent", "src\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj", "{E39325CC-0313-425B-BEC5-AA2FE043EF8B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Sandbox.Agent", "src\backend\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj", "{E39325CC-0313-425B-BEC5-AA2FE043EF8B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Sandbox.Agent.Tests", "tests\AgentSmith.Sandbox.Agent.Tests\AgentSmith.Sandbox.Agent.Tests.csproj", "{AA05A219-87A8-4E0E-9D86-B512752ADB27}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Sandbox.Wire", "src\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj", "{BBAE0AEB-6E3B-4E69-86AF-6A2758FF935C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Sandbox.Wire", "src\backend\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj", "{BBAE0AEB-6E3B-4E69-86AF-6A2758FF935C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

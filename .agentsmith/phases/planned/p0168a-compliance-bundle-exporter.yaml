@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0168a
+goal: |
+  Ship the ComplianceBundleExporter: a CLI command that, given a run-id,
+  packages every artifact required for EU AI Act Article 12 (record-keeping)
+  + Article 13 (transparency) audit into a single ZIP.
+
+  Timing note (May 2026 reprioritization): the original spec assumed
+  full application by 2 August 2026. The Digital Omnibus political
+  agreement of 7 May 2026 pushed the high-risk start date to
+  approximately December 2027, gated on standards availability. Phase
+  retained because the Act still arrives extra-territorially with real
+  fines, and EU customers anticipate it. Priority lowered — execute
+  only when a customer actively requests a compliance bundle or after
+  the Track 1 / Track 2 / Track 3 work above is complete.
+
+  Bundle contents derived entirely from existing files — no new data
+  generation, only collection + manifest assembly. This slice is the
+  collection mechanic; downstream slices add the Decision-Logic-Doc
+  (p0168b), Risk-Event-Log (p0168c), and Article-by-Article docs (p0168d).
+
+requires: ["p0156"]
+
+scope:
+  in: |
+    (1) New CLI subcommand `agent-smith compliance export --run <run-id>
+        --output <zip-path>`. Default output path: ./compliance-{runId}.zip
+        in cwd.
+
+    (2) Bundle contents:
+        - result.md (full run summary)
+        - decisions.md (project-level + run-scoped)
+        - observations.json (typed SkillObservations from the run)
+        - dialogue-trail.json (every operator-agent question/answer)
+        - cost-summary.json (per-skill token + cost breakdown)
+        - tool-call-trail.json (every tool invocation, deterministic
+          subset of agentic-loop traces)
+        - plan.json (the approved plan, if applicable)
+        - verify.json (VerifyReport if p0165 ran)
+        - manifest.json (this file, see below)
+
+    (3) manifest.json schema:
+        - run_id, pipeline_name, pipeline_version
+        - started_at, ended_at, duration_seconds
+        - models_used (list of model names + provider)
+        - project_id, project_repos
+        - operator_email (if known from chat/webhook trigger)
+        - sources (list of artifacts with sha256)
+        - article_mapping (filled by p0168d's lookup table)
+
+    (4) Bundle is content-addressed: filename includes a sha256-truncated
+        digest of the bundle content for traceability. The plain
+        agentsmith.org-style export omits the hash; --hashed flag adds it.
+
+    (5) New IComplianceArtifactCollector abstraction so future artifacts
+        (risk events from p0168c) plug in without touching the exporter.
+
+  out: |
+    Decision-logic doc generator — slice [[p0168b]].
+    Risk-event log endpoint — slice [[p0168c]].
+    Article-by-article mapping doc + checklist — slice [[p0168d]].
+    Signed / sealed bundles (PKCS7, etc). Operators handle signing
+    externally if their regulator requires it.
+    Privacy redaction of operator emails / PII in bundles. Operators
+    control inclusion via --include-pii flag (default: included; opt-out).
+
+decisions:
+  - key: |
+      Collection only, no new data generation — Reason: the run already
+      writes every artifact in scope. The exporter is plumbing. New data
+      sources (e.g. risk events) plug in via IComplianceArtifactCollector
+      from subsequent slices. alternatives: re-render data into Act-
+      specific schemas (rejected: drift between source + bundle).
+
+  - key: |
+      ZIP not tar.gz — Reason: regulators in EU jurisdictions overwhelmingly
+      send ZIPs. .NET System.IO.Compression.ZipArchive is in-box, no extra
+      dep. alternatives: tar.gz (rejected: Windows operator friction);
+      both formats (rejected: knob without benefit).
+
+  - key: |
+      Content-addressed filename optional — Reason: regulators are mixed
+      on whether they want the hash in the filename or in a side-car.
+      Default off, opt-in via --hashed. Manifest always carries the hash.
+      alternatives: always include (rejected: ugly default filenames);
+      never (rejected: precludes the operators who need it).
+
+steps:
+  - id: cli-command
+    action: |
+      ComplianceCommand in AgentSmith.Cli. Subcommands: export.
+    new:
+      - "src/AgentSmith.Cli/Commands/ComplianceCommand.cs"
+      - "src/AgentSmith.Cli/Commands/ComplianceExportSubcommand.cs"
+    modify:
+      - "src/AgentSmith.Cli/Program.cs"
+
+  - id: collector-abstraction
+    action: |
+      IComplianceArtifactCollector + a baseline implementation that
+      collects the 8 known run artifacts.
+    new:
+      - "src/AgentSmith.Contracts/Services/IComplianceArtifactCollector.cs"
+      - "src/AgentSmith.Application/Services/Compliance/RunArtifactCollector.cs"
+
+  - id: exporter
+    action: |
+      ComplianceBundleExporter assembles the ZIP. Reads run dir; collects
+      via injected IComplianceArtifactCollectors; writes manifest.json;
+      seals the archive.
+    new:
+      - "src/AgentSmith.Application/Services/Compliance/ComplianceBundleExporter.cs"
+      - "src/AgentSmith.Application/Models/ComplianceManifest.cs"
+
+  - id: docs
+    action: |
+      docs/compliance/bundle-format.md describes the manifest schema
+      and the file inventory.
+    new:
+      - "docs/compliance/bundle-format.md"
+    modify:
+      - "mkdocs.yml"
+
+  - id: tests
+    action: |
+      Cover: happy export, missing run-id error, hashed filename,
+      manifest sha256 correctness, content-addressed verification.
+    new:
+      - "tests/AgentSmith.Tests/Compliance/ComplianceBundleExporterTests.cs"
+      - "tests/AgentSmith.Tests/Compliance/ComplianceManifestTests.cs"
+      - "scripts/smoke-compliance.sh"
+
+tests:
+  - "ComplianceExporter_KnownRunId_ProducesZipWithEightCoreArtifacts"
+  - "ComplianceExporter_MissingRunId_FailsWithDiagnostic"
+  - "ComplianceManifest_Sha256PerArtifact_VerifiesAgainstZipContents"
+  - "ComplianceCli_HashedFlag_FilenameIncludesTruncatedSha"
+  - "ComplianceCli_DefaultPath_WritesCwdRelative"
+
+done:
+  - "agent-smith compliance export --run <id> produces a ZIP with manifest + 8 core artifacts."
+  - "Manifest sha256 over each artifact verifies."
+  - "IComplianceArtifactCollector accepts plugins (verified by adding a no-op test collector)."
+  - "docs/compliance/bundle-format.md published."
+  - "scripts/smoke-compliance.sh exits 0 against a real recorded run."

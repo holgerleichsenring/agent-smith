@@ -212,6 +212,7 @@ public sealed class MultiRepoBootstrapTests
                 CodingPrinciplesPath: null));
             var handler = new BootstrapGateHandler(
                 RunStateConceptsTestFactory.Default,
+                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
                 NullLogger<BootstrapGateHandler>.Instance);
             return handler.ExecuteAsync(new BootstrapGateContext(Pipeline), CancellationToken.None);
         }

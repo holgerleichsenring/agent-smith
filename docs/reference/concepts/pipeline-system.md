@@ -41,7 +41,7 @@ Agent Smith ships with nine presets defined in `PipelinePresets.*.cs`. Step coun
 | `mad-discussion` | 9 | Multi-agent design discussion |
 | `autonomous` | 3 | Open-ended operator-driven loop |
 
-Authoritative source-of-truth is each `src/AgentSmith.Contracts/Commands/PipelinePresets.{Name}.cs` file — counts here track but may lag.
+Authoritative source-of-truth is each `src/backend/AgentSmith.Contracts/Commands/PipelinePresets.{Name}.cs` file — counts here track but may lag.
 
 ## Pipeline Types and Triage
 

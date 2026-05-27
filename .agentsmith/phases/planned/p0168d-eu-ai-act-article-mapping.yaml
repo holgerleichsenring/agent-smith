@@ -1,0 +1,148 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0168d
+goal: |
+  Publish docs/compliance/eu-ai-act.md — Article-by-Article mapping of
+  Agent Smith features to the EU AI Act's high-risk system obligations.
+  Plus a machine-parsable compliance-checklist.yaml that the compliance
+  bundle (p0168a) references in its manifest. This is the operator-facing
+  artifact that completes the EU AI Act positioning play: agent-smith
+  becomes the AI engineering tool whose Article-13 readiness is
+  documented, not asserted.
+
+requires: ["p0168a", "p0168b", "p0168c"]
+
+scope:
+  in: |
+    (1) docs/compliance/eu-ai-act.md structured by Article:
+        - Article 9: Risk management — pipeline-cost cap, severity gates,
+          confidence-threshold downgrade
+        - Article 10: Data and data governance — agentsmith.yml + skills
+          version pinning + signed skill tarballs (p0166d)
+        - Article 11: Technical documentation — this file + decision-logic
+          docs (p0168b)
+        - Article 12: Record-keeping — risk-event log (p0168c) + run dir
+        - Article 13: Transparency & information to deployers — result.md,
+          decision-logic docs, compliance bundle
+        - Article 14: Human oversight — approval gates (p0164),
+          dialogue trail, intervention_available flag
+        - Article 15: Accuracy, robustness, cybersecurity — verify loop
+          (p0165), sandbox isolation (p0115+), signature verification
+        - Article 17: Quality management system — release-please +
+          conventional commits + this spec-first methodology
+        - Article 26 (deployers): operator obligations w/ guidance on
+          monitoring + log retention
+
+    (2) compliance-checklist.yaml machine-readable companion. Per Article,
+        per obligation:
+        - obligation_id (e.g. "art.9.2.a")
+        - status (covered / partial / out_of_scope)
+        - evidence (list of file paths or feature pointers)
+        - notes (free-form)
+        Schema in docs/compliance/checklist-schema.json.
+
+    (3) Compliance bundle manifest (from p0168a) populates its
+        article_mapping field by parsing compliance-checklist.yaml at
+        build time. So every bundle declares which Articles it claims
+        evidence for.
+
+    (4) Honest scope clarity: explicit out_of_scope obligations are
+        named in the docs with one-paragraph rationale (e.g.
+        Art.27 fundamental-rights impact assessment is operator-
+        side, agent-smith provides logs).
+
+    (5) GitHub Action validates compliance-checklist.yaml against
+        the schema on every push.
+
+    (6) Single-source-of-truth assertion: a doc-linter ensures the
+        evidence files referenced in the checklist exist in the
+        repo and have not been deleted.
+
+  out: |
+    Legal advice or formal compliance attestation. The docs are
+    technical mapping; operators retain legal counsel.
+    Member-state-specific addenda (e.g. France CNIL guidance).
+    Out — generic EU level only.
+    Annex IV technical documentation template generation. Out for
+    this slice; templates exist in commercial tooling.
+
+decisions:
+  - key: |
+      Article-by-article structure, not feature-by-feature — Reason:
+      auditors read by Article. The doc must match their workflow,
+      not Agent Smith's internal taxonomy. alternatives: feature-
+      ordered (rejected: forces cross-referencing).
+
+  - key: |
+      Honest partial / out_of_scope markers — Reason: claiming full
+      coverage where there is none is worse than silence; regulators
+      and customers respect bounded scope. Partial coverage with
+      named gaps is a defensible position. alternatives: claim full
+      coverage (rejected: liability); omit partial obligations
+      (rejected: incomplete).
+
+  - key: |
+      Schema-validated checklist YAML — Reason: future agent-smith
+      versions will gain / lose obligations as features ship. Schema
+      gate catches drift. alternatives: free-form (rejected: drift);
+      embedded in source (rejected: legal review needs to read it
+      without compiling).
+
+steps:
+  - id: docs
+    action: |
+      docs/compliance/eu-ai-act.md per the article structure.
+    new:
+      - "docs/compliance/eu-ai-act.md"
+    modify:
+      - "mkdocs.yml"
+
+  - id: checklist
+    action: |
+      compliance-checklist.yaml + JSON schema.
+    new:
+      - "docs/compliance/compliance-checklist.yaml"
+      - "docs/compliance/checklist-schema.json"
+
+  - id: manifest-extension
+    action: |
+      ComplianceBundleExporter loads compliance-checklist.yaml and
+      populates manifest.article_mapping at export time.
+    modify:
+      - "src/AgentSmith.Application/Services/Compliance/ComplianceBundleExporter.cs"
+      - "src/AgentSmith.Application/Models/ComplianceManifest.cs"
+
+  - id: linter
+    action: |
+      scripts/lint-compliance-evidence.sh: parses checklist YAML,
+      asserts every referenced evidence path exists in the repo.
+    new:
+      - "scripts/lint-compliance-evidence.sh"
+
+  - id: ci-gate
+    action: |
+      GitHub Action validates checklist against schema + runs evidence
+      linter on every push.
+    new:
+      - ".github/workflows/compliance-validate.yml"
+
+  - id: tests
+    action: |
+      ComplianceManifestTests extended for article_mapping;
+      checklist-schema validation test.
+    modify:
+      - "tests/AgentSmith.Tests/Compliance/ComplianceManifestTests.cs"
+    new:
+      - "tests/AgentSmith.Tests/Compliance/ComplianceChecklistSchemaTests.cs"
+
+tests:
+  - "ComplianceChecklist_ValidatesAgainstSchema"
+  - "ComplianceManifest_ArticleMappingPopulatedFromChecklist"
+  - "ComplianceEvidenceLinter_AllReferencedPathsExist"
+  - "ComplianceChecklist_OutOfScopeObligations_NamedWithRationale"
+
+done:
+  - "docs/compliance/eu-ai-act.md published; articles 9-17 + 26 mapped."
+  - "compliance-checklist.yaml validates against schema + every evidence path exists."
+  - "Compliance bundle manifest carries article_mapping populated from the checklist."
+  - "CI validation gate green; doc drift breaks the build."
+  - "Smoke: a compliance bundle exported via p0168a contains a manifest.article_mapping listing every obligation, status, and evidence pointer."

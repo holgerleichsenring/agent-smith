@@ -45,13 +45,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AgentSmith.Domain\AgentSmith.Domain.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Application\AgentSmith.Application.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Server\AgentSmith.Server.csproj" />
-    <ProjectReference Include="..\..\src\AgentSmith.Cli\AgentSmith.Cli.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Domain\AgentSmith.Domain.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Application\AgentSmith.Application.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Server\AgentSmith.Server.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Cli\AgentSmith.Cli.csproj" />
   </ItemGroup>
 
 </Project>

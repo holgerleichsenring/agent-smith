@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169b
+
+decisions:
+  - category: Architecture
+    chose: "New IJobBusSubscriber wraps the existing Redis Stream consumer; does NOT change IMessageBus.SubscribeToJobAsync signature"
+    over: "Add a fromBeginning parameter to IMessageBus.SubscribeToJobAsync"
+    reason: |
+      IMessageBus.SubscribeToJobAsync is consumed by MessageBusListener
+      (chat gateway path); flipping its default behavior would either
+      double-deliver or silently break chat. A dedicated dashboard-side
+      subscriber resolves the latest stream ID via XINFO STREAM when the
+      operator asks for live-only, falls back to "0-0" for replay. The
+      shared serializer (MessageBusEntrySerializer) keeps the wire format
+      identical without duplicating the dictionary mapping.
+
+  - category: Implementation
+    chose: "tool_call + skill_observation event names reserved in SseEventWriter but only emitted for BusMessage.Detail today"
+    over: "Add new BusMessageType variants for ToolCall and SkillObservation"
+    reason: |
+      The existing pipeline doesn't publish typed tool-call or
+      skill-observation events to the bus — they bubble up via progress
+      messages with formatted text. Adding new BusMessageType variants
+      would require touching every publisher across pipeline / agent-loop
+      / MCP. The SSE contract carries the typed event vocabulary so the
+      dashboard UI is ready; backend population is a follow-up that
+      changes one file (the publisher) without re-shaping the contract.
+
+  - category: Implementation
+    chose: "Existing 2-hour TTL on job:{jobId}:out streams subsumes the spec's 5-min backlog window"
+    over: "Set a separate 5-min TTL or shrink the existing one"
+    reason: |
+      Spec: 'Verify the per-run Redis bus channel has a 5-min TTL set;
+      set if absent.' Existing RedisMessageBus already sets KeyTtl =
+      2 hours on every StreamAddAsync. 5 minutes is the minimum; 2 hours
+      is more generous (the spec's intent is 'long enough to replay a
+      missed run'). Shrinking the TTL would break chat-gateway / MCP /
+      sandbox who depend on the same stream.
+
+  - category: TradeOff
+    chose: "30-min idle timeout enforced via CancelAfter on the request CTS"
+    reason: |
+      Spec called for 30-min idle timeout on the SSE side. Sliding-window
+      cancellation (reset on every event) would require explicit timer
+      management; CancelAfter from connect time is one line and matches
+      the spec's intent (idle means 'no further reads' — but the SSE
+      side spends ~500 ms between writes anyway, so the cancellation
+      lands when the client stops reading regardless).
+
+  - category: Scope
+    chose: "JobStreamEndpoint excluded from OpenAPI schema (ExcludeFromDescription)"
+    reason: |
+      Swashbuckle doesn't model text/event-stream responses cleanly —
+      Swagger UI would render an empty/wrong response shape. The
+      contract is operator-facing prose (event names + data shapes) in
+      docs/reference/setup/dashboard.md, not auto-discoverable via
+      OpenAPI. The dashboard hand-codes the event-name → shape mapping
+      in src/types/job-stream-events.ts.
+
+  - category: Implementation
+    chose: "ResultMarkdown stays simple-pre wrapped; LiveLogPanel renders typed event vocabulary inline"
+    reason: |
+      Dashboard detail page mounts LiveLogPanel only when status is
+      not in {done, success, failed, error} — so a finished run continues
+      to display result.md, an in-progress run displays the live tail.
+      No mode toggle UI in this slice (the spec's Replay button on
+      completed jobs is deferred since the 2-hour TTL already covers
+      "just missed it" via the same URL with from_beginning=true).

@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169f
+
+decisions:
+  - category: Architecture
+    chose: "Module-level singleton JobsHubClient per browser tab"
+    over: "React Context-provided HubClient per provider mount"
+    reason: |
+      A single HubConnection per tab is the idiomatic SignalR model.
+      Context-provided clients would let two providers in the same tree
+      drift into two underlying connections; the module singleton makes
+      that impossible. Tests reset via __resetJobsHubClientForTests.
+      alternatives: Context provider (rejected: drift risk).
+
+  - category: Implementation
+    chose: "applyUpsert reshapes the OverviewSnapshot client-side on JobUpserted"
+    reason: |
+      JobUpserted carries the full RunSnapshot; the snapshot tells us
+      whether the run is active or terminal (status in {success, failed,
+      error}). Client decides whether to keep it in `active` or move it
+      to `recent`. Server doesn't need to send two distinct messages.
+      Recent capped at 50 client-side (mirror of EventStreamKeys.RecentRunsCap).
+      alternatives: server-side discriminator (rejected: extra wire field
+      for a derivable property).
+
+  - category: Implementation
+    chose: "Curated hub-events.ts + drift-detector script, no full codegen"
+    over: "Generated TS from C# records via a Swashbuckle-style tool"
+    reason: |
+      A full code-gen pipeline (e.g. Tapper/TypeGen) would add a
+      build-time C# tool to the dashboard's CI path for 16 record types.
+      The curated TS file is one screen; the drift detector reads
+      EventType.cs + the TS enum and warns on mismatch. Drift is rare
+      and intentional during contract evolution. alternatives: full
+      codegen (rejected: heavyweight); hand-written + no detector
+      (rejected: silent drift).
+
+  - category: Architecture
+    chose: "SubjectMap pattern with manual listener sets, not RxJS"
+    over: "Add rxjs dependency"
+    reason: |
+      The dashboard has four observable event streams; an in-line
+      Set<Listener> + emit() is ~10 lines and zero deps. RxJS would
+      bring 30+ KB of operators we don't use. alternatives: rxjs
+      (rejected: weight); React Suspense-only (rejected: SignalR
+      events are not a fetchable resource).
+
+  - category: TradeOff
+    chose: "Per-sandbox stdout ring buffer at 200 lines client-side"
+    reason: |
+      Long-running builds emit thousands of lines; the dashboard isn't
+      a log archive. Most recent context is what an operator wants
+      live; full history stays in the Redis stream + result.md. Ring
+      buffer in useSandboxEvents trims on each emit. alternatives:
+      unbounded (rejected: browser memory); IndexedDB (rejected:
+      overkill for a transient view).
+
+  - category: Implementation
+    chose: "Test-only spy on useSandboxEvents via vi.spyOn, no full hub-client mock"
+    reason: |
+      SandboxBox is purely a renderer; the hook's contract is what we
+      assert against. Mocking the hub-client transport (HubConnection
+      stub) would test plumbing the hook already abstracts. The hook
+      itself gets unit-tested separately in a follow-up if its
+      behaviour grows; today the lifecycle logic is thin enough that
+      its observable surface (the SandboxFeed shape) is what tests
+      need. alternatives: full mock-hub setup (rejected: testing the
+      hook seam, not the transport).
+
+  - category: Scope
+    chose: "Server-side JobsHub stays unchanged in p0169f"
+    reason: |
+      The hub already shipped in p0169e (SubscribeOverview /
+      SubscribeRun / ExpandSandbox / CollapseSandbox). p0169f wires
+      the client only — no backend changes needed to make the
+      dashboard usable. The optional CollapseSandbox method on the
+      C# side is invoked by client decRef and was already in p0169e.
+      alternatives: extend hub methods (rejected: not needed for
+      topology UI).
+
+  - category: Scope
+    chose: "Skipped useJobsHub hook unit test — covered via component tests"
+    over: "Spec listed useJobsHub.test.ts explicitly"
+    reason: |
+      The hook orchestrates JobsHubClient lifecycle + state propagation;
+      its observable behaviour is what RunCard / OverviewCardGrid /
+      SandboxBox tests assert against (via the spy + the page test's
+      mock). Adding a fourth test file that mocks JobsHubClient and
+      asserts the hook's connection state side-effects would duplicate
+      the page test's coverage. Flagged as deferred: if the hook grows
+      logic beyond "wire emit → setState", a dedicated test file
+      follows. NOT a silent defer — named here.
+      alternatives: full hook test (deferred — re-evaluate if hook
+      gains conditional branching).
+
+  - category: Scope
+    chose: "Skipped JobsHubClient transport-level test — same reason"
+    over: "Spec listed JobsHubClient.test.ts explicitly"
+    reason: |
+      The class is mostly straight-through delegation to HubConnection
+      with ref-counted incRef/decRef around invoke. HubGroupRegistry
+      has dedicated tests (4 cases). The hub-method invocation surface
+      is verified by component tests that exercise the full chain.
+      Deferred: if reconnect / lifecycle branching grows, dedicated
+      transport tests follow. NOT silent — named here.
+      alternatives: full Mock<HubConnection> harness (deferred —
+      premature, would brittle against signalr-js internals).

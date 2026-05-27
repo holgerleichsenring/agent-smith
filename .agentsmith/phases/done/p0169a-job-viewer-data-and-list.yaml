@@ -1,0 +1,261 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169a
+goal: |
+  First customer-demo-ready slice of the dashboard: every completed job
+  shows up as a card on a Job-Board, click into it for the run detail
+  with topology header + result.md + artefact sidebar.
+
+  Three integrated parts (one slice because they ship together or none
+  of them demo):
+  - Backend persists run-meta topology fields (without this the UI has
+    nothing to render — today repos / sandbox count evaporate at
+    pipeline end).
+  - Backend exposes /api/jobs + /api/jobs/{id} REST endpoints with
+    OpenAPI spec (so the dashboard generates types from the contract).
+  - Dashboard renders the job list + job detail with topology badges
+    prominently in the header.
+
+  Track 1 of the May 2026 plan. Demo metric: a customer opens
+  http://localhost:3000, sees recent jobs at a glance, clicks one,
+  understands within two seconds what topology of work happened.
+
+requires: ["p0162-pre-monorepo-restructure", "p0169-pre-dashboard-bootstrap"]
+
+scope:
+  in: |
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (1) Run-meta persistence. WriteRunResultHandler extends result.md
+        frontmatter with topology fields harvested at run-end:
+        - repos: [name, ...]            from ContextKeys.Repos
+        - repo_mode: "mono" | "multi"   from Repos.Count
+        - sandbox_count: int            from p0161a discovery list
+        - pipeline_name: string
+        - status: enum                  (already present as 'result')
+        - run_id, started_at, duration_seconds
+        Backward compat: pre-p0169a runs render with "unknown"
+        placeholders.
+
+    (2) JobsApi module under src/backend/AgentSmith.Server/Api/.
+        GET /api/jobs — paginated job list (default 50, max 200),
+          newest first, returns RunMeta[] + cursor.
+        GET /api/jobs/{id} — single job with full RunMeta + artefact
+          list (filename, size, content_type).
+        GET /api/jobs/{id}/files/{*path} — raw file content with path
+          canonicalization + whitelist guard under the run dir.
+
+    (3) Swashbuckle integration. /api/openapi.json exposes the contract.
+        At dashboard build time, openapi-typescript reads from
+        ../backend/AgentSmith.Server/wwwroot/openapi.json (or the live
+        endpoint during dev). Generated types in src/dashboard/src/
+        types/api.ts (gitignored).
+
+    (4) CORS configuration. Allowed origin reads from
+        AGENTSMITH_DASHBOARD_ORIGIN env (default http://localhost:3000).
+        Production operators set this to their reverse-proxy URL.
+
+    (5) AGENTSMITH_UI_API_ENABLED env-gate (default on) — backend
+        flag separate from the dashboard's own opt-out at the docker-
+        compose layer.
+
+    DASHBOARD (src/dashboard):
+
+    (6) Job list page at /jobs (also wired as the root /):
+        Table or card grid (shadcn Table or Card + Badge) showing
+        run-id, pipeline name, repo-mode badge with repo names,
+        sandbox count, started_at (relative time), duration, status
+        badge. Sortable client-side; server returns sorted-by-id-
+        descending default.
+
+    (7) Job detail page at /jobs/[id]:
+        - Header section: large status badge + one-line summary
+          "{repo-mode} · {N} sandboxes · {pipeline} · {status}".
+        - Two-column body: result.md rendered via react-markdown
+          (with rehype-raw for HTML passthrough) on the left ~70%,
+          artefact sidebar on the right ~30% listing decisions.md,
+          observations.json, cost-summary.json, tool-call-trail.json,
+          verify.json (if present). Click → modal or page swap to
+          rendered content.
+
+    (8) Data fetching via Next.js App Router Server Components calling
+        the backend API. Generated TypeScript types from /api/openapi.json
+        give end-to-end type safety.
+
+    (9) Styling per DESIGN.md tokens: Smith-green status-ok badge,
+        coffee-ink text, cream canvas, card-terminal-panel for JSON
+        viewers. Dark mode via prefers-color-scheme.
+
+  out: |
+    Live tailing — slice [[p0169b]].
+    Trail-tree visualization — slice [[p0169c]].
+    Screen recording playback — optional slice [[p0169d]].
+    Search / filter across runs. Out for v1; list page is the
+    navigation surface.
+    Two-way interaction (approve / reject from the dashboard). UI
+    stays read-only; approval flows continue via chat / PR per p0164.
+    Authentication. Operator's reverse proxy concern.
+
+decisions:
+  - key: |
+      Backend + dashboard land as one slice — Reason: a half-slice
+      (backend without UI, or UI without backend) demos nothing. The
+      smoke gate is "open browser, see a job". Splitting backward
+      would push that smoke past two slices' boundaries. alternatives:
+      separate backend slice + UI slice (rejected: neither demos on
+      its own; user explicitly wants demo-readiness per slice).
+
+  - key: |
+      Frontmatter extension, not run-meta.json sidecar — Reason:
+      result.md already carries cost + token fields per p0033; new
+      topology fields are additive YAML. One file is simpler than
+      two-files-that-must-stay-in-sync. Sidecar becomes the fallback
+      only if YAML parsing of result.md starts hurting. alternatives:
+      sidecar (rejected: two-file drift); separate metadata DB
+      (rejected: complexity for filesystem-native data).
+
+  - key: |
+      shadcn Table for the job list, not card grid — Reason: jobs are
+      tabular data (multiple columns, sort-by-column, scannable rows).
+      Cards work for ~6 items; a grid of 50 cards is visual noise.
+      shadcn Table is keyboard-navigable + a11y-correct out of the
+      box. alternatives: card grid (rejected: poor scannability);
+      naked HTML table (rejected: no shadcn primitives like Badge
+      composition).
+
+  - key: |
+      react-markdown + rehype-raw for result.md, not server-side
+      rendering — Reason: result.md is the run's free-form summary.
+      Rendering it client-side keeps the API surface as raw markdown
+      strings (clean contract). rehype-raw allows the HTML comment
+      markers (e.g. agent-smith:sibling-prs from p0158c) to pass
+      through harmlessly. alternatives: backend-side render to HTML
+      (rejected: couples API to a renderer; clients lose markdown
+      access); skip HTML passthrough (rejected: breaks existing
+      markers).
+
+  - key: |
+      Server Components for data fetching, no client-side SWR/React
+      Query — Reason: job list + detail are read-heavy with infrequent
+      navigation. Server Components handle the fetch on the server,
+      stream the rendered HTML, no client-side cache layer needed. SWR
+      / React Query become relevant in p0169b (live-tail) where
+      client-side reactivity matters. alternatives: client SWR
+      (rejected: unnecessary client-state complexity for static views).
+
+steps:
+  - id: run-meta-persistence
+    action: |
+      Extend WriteRunResultHandler frontmatter emission. Verify which
+      fields already exist (p0033 added some); only add the missing
+      ones (repos, repo_mode, sandbox_count). Use existing
+      ContextKeys.Repos + the p0161a discovery service for the count.
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Handlers/WriteRunResultHandler.cs"
+    new:
+      - "src/backend/AgentSmith.Server/Models/RunMetaFrontmatter.cs"
+
+  - id: jobs-api
+    action: |
+      Minimal-API endpoints under /api/jobs/*. RunMetaReader parses
+      frontmatter into RunMeta records; handles missing fields with
+      Unknown sentinel. ArtefactLister enumerates run-dir files.
+    new:
+      - "src/backend/AgentSmith.Server/Api/JobsEndpoints.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/RunMetaResponse.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/RunArtefactResponse.cs"
+      - "src/backend/AgentSmith.Server/Services/RunMetaReader.cs"
+      - "src/backend/AgentSmith.Server/Services/RunArtefactLister.cs"
+      - "src/backend/AgentSmith.Server/Api/PathTraversalGuard.cs"
+
+  - id: openapi
+    action: |
+      Add Swashbuckle.AspNetCore. Configure to expose /api/openapi.json.
+      Hide non-/api endpoints (Slack / Teams / Webhooks already covered
+      elsewhere) via document filter.
+    modify:
+      - "src/backend/AgentSmith.Server/AgentSmith.Server.csproj"
+      - "src/backend/AgentSmith.Server/Program.cs"
+    packages:
+      - "Swashbuckle.AspNetCore 6.x"
+
+  - id: cors
+    action: |
+      AddCors with named policy "Dashboard". Allowed origin read from
+      AGENTSMITH_DASHBOARD_ORIGIN. UseCors applied to /api routes only.
+    modify:
+      - "src/backend/AgentSmith.Server/Program.cs"
+
+  - id: dashboard-list-page
+    action: |
+      App Router page at src/dashboard/src/app/page.tsx (or
+      app/jobs/page.tsx with root redirect). Server Component fetches
+      /api/jobs, renders shadcn Table with status / repo-mode / sandbox
+      badges.
+    new:
+      - "src/dashboard/src/app/page.tsx"
+      - "src/dashboard/src/components/jobs/JobListTable.tsx"
+      - "src/dashboard/src/components/jobs/StatusBadge.tsx"
+      - "src/dashboard/src/components/jobs/RepoModeBadge.tsx"
+      - "src/dashboard/src/lib/api.ts"
+
+  - id: dashboard-detail-page
+    action: |
+      Dynamic route app/jobs/[id]/page.tsx. Server Component fetches
+      /api/jobs/{id}. Renders topology header + react-markdown result
+      view + artefact sidebar.
+    new:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/components/jobs/TopologyHeader.tsx"
+      - "src/dashboard/src/components/jobs/ResultMarkdown.tsx"
+      - "src/dashboard/src/components/jobs/ArtefactSidebar.tsx"
+      - "src/dashboard/src/components/jobs/ArtefactViewer.tsx"
+    packages:
+      - "react-markdown ^9"
+      - "rehype-raw ^7"
+
+  - id: backend-tests
+    action: |
+      Frontmatter persistence test + endpoint tests (unit + integration
+      via WebApplicationFactory).
+    new:
+      - "tests/AgentSmith.Tests/Handlers/WriteRunResultTopologyTests.cs"
+      - "tests/AgentSmith.Tests/Api/JobsEndpointsTests.cs"
+      - "tests/AgentSmith.Tests/Services/RunMetaReaderTests.cs"
+      - "tests/AgentSmith.Tests/Api/PathTraversalGuardTests.cs"
+
+  - id: dashboard-tests
+    action: |
+      Vitest unit tests on components.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/TopologyHeader.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/JobListTable.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/StatusBadge.test.tsx"
+
+tests:
+  - "WriteRunResult_SingleRepo_PersistsRepoModeMono"
+  - "WriteRunResult_ThreeRepos_PersistsRepoModeMultiAndRepoNames"
+  - "WriteRunResult_FiveSandboxes_PersistsSandboxCountFive"
+  - "RunMetaReader_PreP0169aRun_ReturnsUnknownPlaceholders"
+  - "JobsEndpoint_GetAll_PaginatedAndSortedDescending"
+  - "JobsEndpoint_GetById_ReturnsRunMetaAndArtefactList"
+  - "JobsEndpoint_GetFile_PathTraversalRelativeEscape_Returns400"
+  - "JobsEndpoint_GetFile_AbsolutePath_Returns400"
+  - "OpenApiEndpoint_ReturnsValidSpec_WithJobsRoutes"
+  - "Cors_DashboardOrigin_AllowedForApiRoutes"
+  - "TopologyHeader_MultiRepoMode_RendersBadgeAndRepoNames"
+  - "TopologyHeader_UnknownTopology_RendersFallbackGracefully"
+  - "JobListTable_EmptyState_RendersNoJobsMessage"
+  - "JobListTable_TenJobs_RendersTenRowsWithStatusBadges"
+  - "StatusBadge_StatusDone_RendersGreenAccent"
+  - "StatusBadge_StatusFailed_RendersRedAccent"
+
+done:
+  - "Frontmatter carries repos / repo_mode / sandbox_count / pipeline_name / status / started_at / duration_seconds for every new run."
+  - "Pre-p0169a runs render with 'unknown' placeholders; no crash."
+  - "/api/jobs + /api/jobs/{id} + /api/jobs/{id}/files/{path} live; path-traversal guard rejects escape attempts."
+  - "/api/openapi.json publishes the contract; dashboard codegen consumes it."
+  - "CORS allowed-origin gates dashboard access."
+  - "Dashboard /jobs lists every job with topology badges at-a-glance."
+  - "Dashboard /jobs/[id] renders topology header + markdown result + artefact sidebar."
+  - "Backend + dashboard tests green."
+  - "Smoke: run a mono fix-bug + a multi-repo fix-bug; open http://localhost:3000 in a browser; both jobs appear in the list with correct topology; click into the multi-repo job; header reads 'multi-repo · N sandboxes · fix-bug · done'."

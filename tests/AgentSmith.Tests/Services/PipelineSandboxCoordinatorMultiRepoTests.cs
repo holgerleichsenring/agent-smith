@@ -194,6 +194,8 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
                     new SandboxResourceResolver(Options.Create(new SandboxOptions())),
                     new StubAgentImageResolver()),
                 LanguageResolverMock.Object,
+                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+                AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
                 NullLogger<PipelineSandboxCoordinator>.Instance);
 
             Pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, _repos);
