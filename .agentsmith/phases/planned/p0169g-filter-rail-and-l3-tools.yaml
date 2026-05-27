@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169g-filter-rail-and-l3-tools
+goal: |
+  Operator polish on top of p0169f's topology UI: a filter rail to toggle
+  L1/L2/L3 event visibility, plus rendering for L3 ToolCall / ToolResult
+  events inside the SandboxBox (metadata-only previews — name + ArgsLength
+  + ok + ResultLength, no content, matching p0169e's security boundary).
+  Closes the dashboard surface area p0169e's scope.out enumerated.
+
+requires:
+  - p0169f-topology-ui
+
+scope:
+  in: |
+    FILTER RAIL (src/dashboard/src/components/jobs):
+
+    (1) FilterRail component as a left-hand sidebar on /jobs/[id]/.
+        Three sections (L1 topology / L2 decisions / L3 sandbox), each
+        with per-event-type toggles. Defaults: L1 on, L2 on, L3 off
+        (matches the hub's gated fanout — L3 only flows when a sandbox
+        is expanded).
+
+    (2) Filter state lives in the URL search string (?l1=… &l2=…
+        &l3=…) so refresh + share preserves the view. Defaults are
+        encoded as the absence of the param; a non-default state writes
+        the param explicitly.
+
+    (3) FilterRail-state propagates through useJobsHub via a small
+        context provider so RunEventStream + SandboxBox subscribe to
+        the same filtered set.
+
+    L3 TOOL EVENTS IN SANDBOX BOX (src/dashboard/src/components/jobs):
+
+    (4) ToolCallRow + ToolResultRow components render ToolCallEvent /
+        ToolResultEvent inline in the SandboxBox stream. The previews
+        ARE METADATA ONLY (name + ArgsLength + ok + ResultLength) —
+        matching the events that the backend emits. No content slice,
+        no truncated arg dump. The rationale is documented in a small
+        info-icon tooltip ("Tool inputs/outputs are metadata-only —
+        full payloads stay in result.md per p0169e security boundary").
+
+    (5) Pairing logic: a ToolCall event followed by a ToolResult event
+        with matching Tool name pairs into a single TwoLineCard
+        (call + result on adjacent lines). Unpaired tool calls render
+        as standalone rows.
+
+    EXPAND-COLLAPSE UX POLISH (src/dashboard/src/components/jobs):
+
+    (6) Sandbox expand state is URL-encoded (?expand=repo1,repo2)
+        BEFORE p0169f (which already supports deep-link parse) — this
+        slice extends it to WRITE the param on click. SandboxBox
+        expansion now syncs both directions: URL ↔ UI.
+
+    (7) "Expand all" / "Collapse all" actions in the SandboxList
+        header. Expand all is a multi-call (one expandSandbox per
+        sandbox key); collapse all is the mirror.
+
+    (8) Tool count chip on each collapsed SandboxBox header (derived
+        client-side from L2 ToolCall events scoped to that sandbox).
+        Lets operators see "this box did 47 tool calls" without
+        expanding.
+
+  out: |
+    Event-trail tree (the navigable tool-call history view) — slice p0169h.
+    Asciinema-style replay — slice p0169i.
+    Custom filters by skill name / model — out of scope; if demand
+    emerges, follow-up phase.
+    Filter persistence in localStorage. URL-only is the right scope —
+    localStorage adds a cross-tab consistency problem.
+
+decisions:
+  - key: |
+      Default L3 off matches the hub's gating model — Reason: p0169e
+      gates L3 fanout server-side on ExpandSandbox subscriptions. The
+      UI default mirrors that: an operator who hasn't asked to see
+      L3 doesn't pay for the bandwidth or render cost. Flipping L3 on
+      in the filter rail opens the gate; the hub fans out on demand.
+      alternatives: default L3 on (rejected: bypasses the gate);
+      remove L3 from the filter entirely (rejected: operator needs the
+      escape hatch).
+
+  - key: |
+      Filter state in URL, not localStorage — Reason: URL is shareable
+      and refresh-stable. A teammate can hand off "look at this run
+      with these filters" via a Slack link. localStorage is per-tab,
+      per-browser, and easy to forget about. alternatives:
+      localStorage (rejected: cross-device drift); component state
+      only (rejected: refresh loses filters).
+
+  - key: |
+      Metadata-only ToolCall rendering — Reason: hard contract from
+      p0169e's security boundary. The tooltip explains the why so
+      operators don't think it's a UI bug. alternatives: show full
+      args (rejected: violates the boundary); collapse to icon only
+      (rejected: too opaque, operator can't tell ToolCall apart).
+
+  - key: |
+      Pairing logic done client-side by name + temporal proximity —
+      Reason: events don't carry a correlation id today. Adding one
+      would touch p0169e's contract; pairing the latest unpaired
+      ToolCall for the same tool name within a 60s window is
+      good-enough for the UI. Edge cases (concurrent same-name tool
+      calls) render as separate rows; the operator can still
+      reconstruct the sequence. alternatives: ship a correlation id
+      in events (rejected: re-opens the p0169e contract for
+      polish-only work); deduplicate aggressively (rejected: hides
+      legitimate concurrent calls).
+
+steps:
+  - id: filter-rail
+    action: |
+      FilterRail component + URL-search-string state. Three sections
+      with per-type checkboxes. Defaults encoded by absence; non-
+      default writes the param. EventFilterProvider context wraps
+      /jobs/[id]/page.tsx so child components consume the same set.
+    new:
+      - "src/dashboard/src/components/jobs/FilterRail.tsx"
+      - "src/dashboard/src/lib/EventFilterContext.tsx"
+      - "src/dashboard/src/lib/eventFilterQuery.ts"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: l3-tool-rows
+    action: |
+      ToolCallRow + ToolResultRow + ToolPairCard. Metadata-only
+      rendering. Info tooltip explaining the boundary.
+    new:
+      - "src/dashboard/src/components/jobs/ToolCallRow.tsx"
+      - "src/dashboard/src/components/jobs/ToolResultRow.tsx"
+      - "src/dashboard/src/components/jobs/ToolPairCard.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/SandboxBox.tsx"
+
+  - id: tool-pair-logic
+    action: |
+      Client-side pairing helper: maintains a per-sandbox map of
+      unpaired ToolCall events keyed by tool-name; on ToolResult,
+      looks up the latest unpaired call with matching name within
+      60s and merges into a TwoLineCard payload.
+    new:
+      - "src/dashboard/src/lib/ToolEventPairer.ts"
+      - "src/dashboard/src/lib/__tests__/ToolEventPairer.test.ts"
+
+  - id: expand-collapse-polish
+    action: |
+      ?expand=… URL writes on click (read already works post-p0169f).
+      Expand all / Collapse all actions in SandboxList header.
+      Tool-count chip on collapsed SandboxBox headers.
+    modify:
+      - "src/dashboard/src/components/jobs/SandboxList.tsx"
+      - "src/dashboard/src/components/jobs/SandboxBox.tsx"
+    new:
+      - "src/dashboard/src/components/jobs/ExpandCollapseControls.tsx"
+      - "src/dashboard/src/components/jobs/ToolCountChip.tsx"
+
+  - id: dashboard-tests
+    action: |
+      Vitest: FilterRail toggle round-trips through URL state;
+      ToolEventPairer correctly pairs name + temporal-proximity;
+      ToolCallRow renders metadata only (no content); Expand all
+      issues N expandSandbox calls.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/FilterRail.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ToolCallRow.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ExpandCollapseControls.test.tsx"
+
+  - id: verify
+    action: |
+      pnpm build + pnpm test green. Manual smoke: open a finished run,
+      flip L3 on in the filter rail → ToolCallRow + ToolResultRow rows
+      appear inside expanded sandbox boxes (metadata only, no content).
+
+tests:
+  - "FilterRail_DefaultLoad_L3OffByDefault"
+  - "FilterRail_ToggleL3On_WritesUrlSearchParam"
+  - "FilterRail_UrlSearchParamL3On_RestoresStateOnRefresh"
+  - "ToolEventPairer_CallThenResultSameNameWithin60s_PairsIntoSingleCard"
+  - "ToolEventPairer_UnpairedCallAfter60s_RendersAsStandalone"
+  - "ToolEventPairer_ConcurrentSameNameCalls_RendersAsTwoStandaloneRows"
+  - "ToolCallRow_RendersNameAndArgsLength_ContainsNoContent"
+  - "ToolResultRow_RendersOkAndResultLength_ContainsNoContent"
+  - "ToolCountChip_FifteenToolCalls_ShowsChipWithCount15"
+  - "ExpandAll_ThreeSandboxes_IssuesThreeExpandSandboxCalls"
+  - "DeepLinkExpand_ClickingExpandButton_WritesRepoToUrlParam"
+
+done:
+  - "FilterRail ships with L1/L2/L3 toggles + URL persistence; defaults match the hub gating model (L3 off)."
+  - "Tool events render inline in SandboxBox as metadata-only rows; the security boundary tooltip is visible."
+  - "Tool pairing groups call+result by name + 60s window; concurrent same-name calls fall back to standalone rendering."
+  - "Expand-all / Collapse-all + per-sandbox tool-count chip ship."
+  - "?expand=… URL syncing works in both directions (read + write)."
+  - "Vitest suite green."
+  - "Manual smoke: real run, all three L1/L2/L3 toggles exercised, expand-all opens every sandbox box and metadata-only tool rows render."
