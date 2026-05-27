@@ -55,12 +55,17 @@ public static class EventEnvelopeSerializer
         return (SystemEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
     }
 
-    // Slice a defines only the enum codes; concrete records ship in
-    // slices b + c next to their producers. Until then, ResolveSystemType
-    // always returns null — DeserializeSystem yields null for every
-    // payload, which is exactly what an empty stream produces anyway.
+    // p0173a: slice a defined only the enum codes; p0173b adds the
+    // poller + webhook records. Slice c will add the chat / config /
+    // catalog rows.
     private static Type? ResolveSystemType(SystemEventType type) => type switch
     {
+        SystemEventType.PollCycleStarted => typeof(PollCycleStartedEvent),
+        SystemEventType.PollCycleFinished => typeof(PollCycleFinishedEvent),
+        SystemEventType.TicketScanned => typeof(TicketScannedEvent),
+        SystemEventType.TicketSkipped => typeof(TicketSkippedEvent),
+        SystemEventType.TicketTriggered => typeof(TicketTriggeredEvent),
+        SystemEventType.WebhookReceived => typeof(WebhookReceivedEvent),
         _ => null
     };
 

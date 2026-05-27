@@ -29,6 +29,70 @@ export interface SystemEventBase {
   timestamp: string;
 }
 
-// Slice a: union has no concrete members yet — slices b + c add them.
-// Until then, components consuming SystemEvent receive the base shape.
-export type SystemEvent = SystemEventBase;
+// p0173b poller + webhook records.
+
+export interface PollCycleStartedEvent extends SystemEventBase {
+  type: SystemEventType.PollCycleStarted;
+  tracker: string;
+  intervalSeconds: number;
+}
+
+export interface PollCycleFinishedEvent extends SystemEventBase {
+  type: SystemEventType.PollCycleFinished;
+  tracker: string;
+  ticketsPolled: number;
+  matched: number;
+  spawned: number;
+  statusFiltered: number;
+  zeroMatched: number;
+  durationMs: number;
+}
+
+export interface TicketScannedEvent extends SystemEventBase {
+  type: SystemEventType.TicketScanned;
+  tracker: string;
+  ticketId: string;
+  labels: string[];
+}
+
+export enum TicketSkipReason {
+  ZeroMatch = 0,
+  StatusFilter = 1,
+  ClaimBlocked = 2,
+  DuplicateInFlight = 3,
+  NotAnIssue = 4,
+}
+
+export interface TicketSkippedEvent extends SystemEventBase {
+  type: SystemEventType.TicketSkipped;
+  tracker: string;
+  ticketId: string;
+  reason: TicketSkipReason;
+  detail: string;
+}
+
+export interface TicketTriggeredEvent extends SystemEventBase {
+  type: SystemEventType.TicketTriggered;
+  tracker: string;
+  ticketId: string;
+  project: string;
+  pipeline: string;
+  outcome: string;
+}
+
+export interface WebhookReceivedEvent extends SystemEventBase {
+  type: SystemEventType.WebhookReceived;
+  eventType: string;
+  path: string;
+  actioned: boolean;
+  skipReason: string | null;
+}
+
+export type SystemEvent =
+  | PollCycleStartedEvent
+  | PollCycleFinishedEvent
+  | TicketScannedEvent
+  | TicketSkippedEvent
+  | TicketTriggeredEvent
+  | WebhookReceivedEvent
+  | SystemEventBase; // slice c records will extend this union

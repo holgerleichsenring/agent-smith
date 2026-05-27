@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -22,11 +23,13 @@ public sealed class TrackerPoller(
     ITicketProviderFactory ticketFactory,
     IEnvelopeProjectResolver envelopeResolver,
     ISpawnPipelineRunsUseCase spawnUseCase,
+    ISystemEventPublisher systemEvents,
     ILogger<TrackerPoller> logger) : IEventPoller
 {
     public string PlatformName => tracker.Type.ToString();
     public string TrackerName => tracker.Name;
     public int IntervalSeconds => tracker.Polling.IntervalSeconds;
+    private string Source => $"tracker:{tracker.Type.ToString().ToLowerInvariant()}/{tracker.Name}";
 
     public async Task<PollResult> PollAsync(CancellationToken ct)
     {
@@ -68,13 +71,23 @@ public sealed class TrackerPoller(
     private async Task DispatchTicketAsync(Ticket ticket, TrackerPollCounts counts, CancellationToken ct)
     {
         var envelope = BuildEnvelope(ticket);
+        await TryPublishSystemAsync(new TicketScannedEvent(
+            Source, tracker.Name, ticket.Id.Value,
+            (IReadOnlyList<string>)(ticket.Labels?.ToArray() ?? Array.Empty<string>()),
+            DateTimeOffset.UtcNow), ct);
+
         var matches = envelopeResolver.Resolve(config, envelope);
         if (matches.Count == 0)
         {
             counts.ZeroMatched++;
             logger.LogDebug(
                 "polling-zero-match: tracker={Tracker} ticket={Ticket} labels=[{Labels}]",
-                tracker.Name, ticket.Id.Value, string.Join(",", ticket.Labels));
+                tracker.Name, ticket.Id.Value, string.Join(",", ticket.Labels ?? Array.Empty<string>()));
+            await TryPublishSystemAsync(new TicketSkippedEvent(
+                Source, tracker.Name, ticket.Id.Value,
+                TicketSkipReason.ZeroMatch,
+                $"no project trigger matched labels=[{string.Join(",", ticket.Labels ?? Array.Empty<string>())}]",
+                DateTimeOffset.UtcNow), ct);
             return;
         }
 
@@ -94,14 +107,33 @@ public sealed class TrackerPoller(
         if (!IsStatusAllowed(trigger, ticket.Status))
         {
             counts.StatusFiltered++;
-            logger.LogInformation(
-                "polling-status-filter: ticket={Ticket} status='{Status}' not in trigger_statuses for project '{Project}'",
-                ticket.Id.Value, ticket.Status, project.Name);
+            var detail = $"status '{ticket.Status}' not in trigger_statuses [{string.Join(",", trigger.TriggerStatuses)}] for project '{project.Name}'";
+            logger.LogInformation("polling-status-filter: ticket={Ticket} {Detail}", ticket.Id.Value, detail);
+            await TryPublishSystemAsync(new TicketSkippedEvent(
+                Source, tracker.Name, ticket.Id.Value,
+                TicketSkipReason.StatusFilter, detail, DateTimeOffset.UtcNow), ct);
             return;
         }
 
-        await spawnUseCase.ExecuteAsync(config, project, match.PipelineName, envelope, trigger, ct);
+        var spawn = await spawnUseCase.ExecuteAsync(config, project, match.PipelineName, envelope, trigger, ct);
         counts.Spawned++;
+        var outcome = spawn.ClaimResults.Count > 0
+            ? spawn.ClaimResults[0].Outcome.ToString()
+            : "Unknown";
+        await TryPublishSystemAsync(new TicketTriggeredEvent(
+            Source, tracker.Name, ticket.Id.Value,
+            project.Name, match.PipelineName, outcome,
+            DateTimeOffset.UtcNow), ct);
+    }
+
+    // Fire-and-warn: a publish failure must not break the polling loop.
+    private async Task TryPublishSystemAsync(SystemEvent ev, CancellationToken ct)
+    {
+        try { await systemEvents.PublishAsync(ev, ct); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish system event {Type} from {Source}", ev.Type, ev.Source);
+        }
     }
 
     private IncomingTicketEnvelope BuildEnvelope(Ticket ticket) => new()

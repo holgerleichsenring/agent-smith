@@ -68,6 +68,31 @@ label themselves "api-scan" in any consumer that read
 with a `"unknown-pipeline"` fallback when not set (CLI / test paths
 without a resolved pipeline). 4-line change in the p0169j cleanup pass.
 
+## 5. TicketTriggeredEvent → RunStartedEvent linking via RunId
+
+**Found-in:** p0173b (poller + webhook instrumentation)
+
+**Symptom:** The spec wanted `TicketTriggeredEvent { ..., RunId }` so the
+dashboard's TriggerLog (slice d) could drill from "this ticket triggered"
+into "this is the run that started". But `SpawnPipelineRunsUseCase`
+only enqueues a `ClaimRequest`; `RunId` is generated later in
+`ExecutePipelineUseCase.cs:44` after the queue is dequeued. At
+spawn-time no RunId exists yet.
+
+**Workaround in slice:** `TicketTriggeredEvent` ships WITHOUT a RunId,
+carries `Platform + TicketId + Project + Pipeline + ClaimOutcome`
+instead. Slice d (or its follow-up) joins to `RunStartedEvent` via
+`(Platform, TicketId)` — `RunStartedEvent.trigger` doesn't carry the
+ticket-id today, so slice d would either rely on temporal proximity OR
+the next fix lands first.
+
+**Real fix:** Move `RunId` generation from `ExecutePipelineUseCase` to
+`SpawnPipelineRunsUseCase`, thread it through the `ClaimRequest` queue
+payload, have `ExecutePipelineUseCase` read it from the request. Then
+`TicketTriggeredEvent` can carry a stable id and `RunStartedEvent`
+reuses it. Invasive (every code path that enqueues a `ClaimRequest`
+needs RunId generation); cleanup-pass-of-cleanup-pass candidate.
+
 ## 4. CI Console.SetOut race (6 tests red on main) ✅ CLOSED
 
 **Found-in:** CI run 26524374968 on the merged PR #214
