@@ -6,12 +6,16 @@ on:
     paths:
       - 'src/dashboard/**'
       - 'tools/build-tokens.mjs'
+      - 'tools/build-hub-event-types.mjs'
+      - 'src/backend/AgentSmith.Contracts/Events/**'
       - 'DESIGN.md'
       - '.github/workflows/dashboard.yml'
   pull_request:
     paths:
       - 'src/dashboard/**'
       - 'tools/build-tokens.mjs'
+      - 'tools/build-hub-event-types.mjs'
+      - 'src/backend/AgentSmith.Contracts/Events/**'
       - 'DESIGN.md'
       - '.github/workflows/dashboard.yml'
 
@@ -42,6 +46,9 @@ jobs:
 
       - name: Generate API types
         run: pnpm gen:types
+
+      - name: Check hub-events.ts drift against C# RunEvent records
+        run: pnpm gen:hub-events
 
       - name: Lint
         run: pnpm lint
