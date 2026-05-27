@@ -13,6 +13,7 @@ import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
 import { SandboxList } from "@/components/jobs/SandboxList";
 import { TrailTab } from "@/components/jobs/TrailTab";
 import { ActivityTab } from "@/components/jobs/ActivityTab";
+import { ResultTab } from "@/components/jobs/ResultTab";
 import { EventType } from "@/types/hub-events";
 
 interface PageProps {
@@ -87,9 +88,12 @@ function RunDetail({ runId }: { runId: string }) {
   }, [updateUrl]);
 
   const tabParam = searchParams.get("tab");
-  const activeTab: "topology" | "trail" | "activity" =
-    tabParam === "trail" ? "trail" : tabParam === "activity" ? "activity" : "topology";
-  const setActiveTab = useCallback((tab: "topology" | "trail" | "activity") => {
+  const activeTab: "topology" | "trail" | "activity" | "result" =
+    tabParam === "trail" ? "trail"
+      : tabParam === "activity" ? "activity"
+      : tabParam === "result" ? "result"
+      : "topology";
+  const setActiveTab = useCallback((tab: "topology" | "trail" | "activity" | "result") => {
     const params = new URLSearchParams(searchParams.toString());
     if (tab === "topology") params.delete("tab");
     else params.set("tab", tab);
@@ -121,6 +125,12 @@ function RunDetail({ runId }: { runId: string }) {
         >Activity</button>
         <button
           type="button"
+          onClick={() => setActiveTab("result")}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "result" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          data-testid="tab-result"
+        >Result</button>
+        <button
+          type="button"
           onClick={() => setActiveTab("trail")}
           className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-trail"
@@ -130,6 +140,8 @@ function RunDetail({ runId }: { runId: string }) {
         <TrailTab runId={runId} />
       ) : activeTab === "activity" ? (
         <ActivityTab runId={runId} />
+      ) : activeTab === "result" ? (
+        <ResultTab runId={runId} prUrl={snapshot?.prUrl ?? null} />
       ) : (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[180px_minmax(0,1fr)]">
         <FilterRail />

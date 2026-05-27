@@ -17,6 +17,9 @@ public sealed class RedisRunArtifactStore : IRunArtifactStore
     private const string PlanSlot = "plan";
     private const string DiffSlot = "diff";
     private const string BootstrapSlot = "bootstrap";
+    private const string ResultSlot = "result";
+
+    private static readonly TimeSpan ResultTtl = TimeSpan.FromHours(24);
 
     private readonly IConnectionMultiplexer _redis;
     private readonly TimeSpan _ttl;
@@ -50,6 +53,12 @@ public sealed class RedisRunArtifactStore : IRunArtifactStore
     public async Task<string?> ReadBootstrapAsync(string runId, CancellationToken ct)
         => await ReadAsync(runId, BootstrapSlot);
 
+    public Task WriteResultMarkdownAsync(string runId, string resultMd, CancellationToken ct)
+        => WriteAsync(runId, ResultSlot, resultMd, ResultTtl);
+
+    public async Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken ct)
+        => await ReadAsync(runId, ResultSlot);
+
     public async Task<RunArtifactSnapshot> PromoteAsync(string runId, CancellationToken ct)
     {
         var plan = await ReadAsync(runId, PlanSlot);
@@ -68,10 +77,10 @@ public sealed class RedisRunArtifactStore : IRunArtifactStore
         _logger.LogDebug("Cleared run-artifact keys for {RunId}", runId);
     }
 
-    private async Task WriteAsync(string runId, string slot, string value)
+    private async Task WriteAsync(string runId, string slot, string value, TimeSpan? ttlOverride = null)
     {
         var db = _redis.GetDatabase();
-        await db.StringSetAsync(BuildKey(runId, slot), value, _ttl);
+        await db.StringSetAsync(BuildKey(runId, slot), value, ttlOverride ?? _ttl);
     }
 
     private async Task<string?> ReadAsync(string runId, string slot)
