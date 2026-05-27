@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -19,6 +20,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class LoadCodingPrinciplesHandler(
     ISandboxFileReaderFactory readerFactory,
+    ISystemEventPublisher systemEvents,
+    IRunContextAccessor runContext,
     ILogger<LoadCodingPrinciplesHandler> logger)
     : ICommandHandler<LoadCodingPrinciplesContext>
 {
@@ -35,7 +38,14 @@ public sealed class LoadCodingPrinciplesHandler(
         {
             if (!discoveries.TryGetValue(key, out var discovery)) continue;
             var content = await TryReadOneAsync(context, sandbox, key, discovery, cancellationToken);
-            if (content is not null) loaded[key] = content;
+            if (content is not null)
+            {
+                loaded[key] = content;
+                await EmitConfigReadAsync(
+                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.CodingPrinciplesFile}",
+                    sizeBytes: content.Length,
+                    cancellationToken);
+            }
         }
 
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodingPrinciples, loaded);
@@ -43,6 +53,26 @@ public sealed class LoadCodingPrinciplesHandler(
             context.Pipeline.Set(ContextKeys.DomainRules, Aggregate(loaded));
 
         return CommandResult.Ok($"Loaded {loaded.Count} of {sandboxes.Count} context principles");
+    }
+
+    // p0173c: emit a system event per coding-principles.md successfully read.
+    // RunId comes from the active run scope via IRunContextAccessor.
+    private async Task EmitConfigReadAsync(string path, int sizeBytes, CancellationToken ct)
+    {
+        try
+        {
+            await systemEvents.PublishAsync(new ConfigFileReadEvent(
+                Source: "config-loader",
+                Path: path,
+                Kind: ConfigFileKind.CodingPrinciplesMd,
+                SizeBytes: sizeBytes,
+                RunId: runContext.CurrentRunId,
+                Timestamp: DateTimeOffset.UtcNow), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish ConfigFileReadEvent for {Path}", path);
+        }
     }
 
     private async Task<string?> TryReadOneAsync(

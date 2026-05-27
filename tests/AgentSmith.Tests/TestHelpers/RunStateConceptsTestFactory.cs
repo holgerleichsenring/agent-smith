@@ -75,8 +75,7 @@ internal static class RunStateConceptsTestFactory
 
         var loader = new ConceptVocabularyLoader(
             new NoOpEventPublisher(),
-            new AsyncLocalRunContextAccessor(),
-            NullLogger<ConceptVocabularyLoader>.Instance);
+            new AsyncLocalRunContextAccessor(), new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance);
         var loaded = loader.Load(skillsRoot);
 
         // Defense in depth: if the loader returned Empty (file disappeared

@@ -62,7 +62,11 @@ for (const channel of channels) {
     .map((m) => m[1])
     .filter((n) => n !== channel.enumName);
   const tsSource = readFileSync(channel.tsFile, "utf8");
-  const tsTypes = [...tsSource.matchAll(/^\s*(\w+)\s*=\s*\d+,\s*$/gm)]
+  // p0173c: scope the regex to the NAMED enum's body so unrelated enums in
+  // the same TS file (TicketSkipReason, ConfigFileKind, …) don't trigger
+  // false-positive drift reports.
+  const tsEnumBody = extractEnumBody(tsSource, channel.enumName);
+  const tsTypes = [...tsEnumBody.matchAll(/^\s*(\w+)\s*=\s*\d+,\s*$/gm)]
     .map((m) => m[1])
     .filter((n) => n !== channel.enumName);
 
@@ -81,5 +85,20 @@ for (const channel of channels) {
 
 if (anyDrift && !checkOnly) {
   console.warn("Curated files kept as-is — edit the TS mirror manually.");
+}
+
+function extractEnumBody(source, enumName) {
+  const open = new RegExp(`export\\s+enum\\s+${enumName}\\s*\\{`).exec(source);
+  if (!open) return "";
+  let depth = 1;
+  let i = open.index + open[0].length;
+  const start = i;
+  while (i < source.length && depth > 0) {
+    const ch = source[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+    i++;
+  }
+  return source.slice(start, i - 1);
 }
 process.exit(0);

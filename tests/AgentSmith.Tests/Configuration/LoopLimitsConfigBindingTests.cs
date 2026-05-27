@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using FluentAssertions;
+using AgentSmith.Application.Services.Events;
 
 namespace AgentSmith.Tests.Configuration;
 
@@ -18,7 +19,7 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths())
+        return new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher())
             .LoadConfig(_tempFile);
     }
 

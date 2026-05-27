@@ -15,6 +15,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 public sealed class ConceptVocabularyLoader(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    ISystemEventPublisher systemEvents,
     ILogger<ConceptVocabularyLoader> logger)
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -31,6 +32,7 @@ public sealed class ConceptVocabularyLoader(
             return ConceptVocabulary.Empty;
         }
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             var yaml = File.ReadAllText(path);
@@ -42,13 +44,33 @@ public sealed class ConceptVocabularyLoader(
                     $"concept-vocabulary.yaml at {path} is empty or missing the top-level 'concepts:' list");
 
             var lookup = BuildLookup(raw.Concepts, path);
+            sw.Stop();
             logger.LogInformation("Loaded {Count} concepts from {Path}", lookup.Count, path);
+            TryPublishVocabularyLoaded(lookup.Count, sw.ElapsedMilliseconds);
             return new ConceptVocabulary(lookup);
         }
         catch (Exception ex)
         {
             PublishCatalogIssue("error", path, "vocabulary-parse", ex.Message);
             throw;
+        }
+    }
+
+    // p0173c: success-only system event. Failure path stays on
+    // PublishCatalogIssue's run-scoped CatalogIssueEvent (error severity).
+    private void TryPublishVocabularyLoaded(int conceptCount, long durationMs)
+    {
+        try
+        {
+            _ = systemEvents.PublishAsync(new ConceptVocabularyLoadedEvent(
+                Source: "concept-vocabulary",
+                ConceptCount: conceptCount,
+                DurationMs: durationMs,
+                Timestamp: DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to publish ConceptVocabularyLoaded event");
         }
     }
 
