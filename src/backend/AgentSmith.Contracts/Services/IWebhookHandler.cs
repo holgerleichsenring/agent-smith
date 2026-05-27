@@ -28,9 +28,18 @@ public sealed record WebhookResult(
     string? ProjectName = null,
     string? TicketId = null,
     string? Platform = null,
-    Dictionary<string, string>? PlanAnswers = null)
+    Dictionary<string, string>? PlanAnswers = null,
+    string? SkipReason = null)
 {
     public static WebhookResult NotHandled() => new(false, null, null);
+    /// <summary>
+    /// p0173b: emit a no-action result with a specific reason so the
+    /// dashboard's webhook list shows "skipped because X" rather than
+    /// a generic "ignored". Existing call sites that pass no reason
+    /// continue to compile and surface SkipReason=null in the event.
+    /// </summary>
+    public static WebhookResult NotHandled(string reason) =>
+        new(false, null, null, SkipReason: reason);
     public static WebhookResult HandledNoRoute() => new(true, null, null);
 }
 

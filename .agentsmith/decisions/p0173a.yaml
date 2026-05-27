@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173a
+
+decisions:
+  - category: Architecture
+    chose: "SystemEvent parallel base, ISystemEventPublisher parallel interface"
+    over: "RunEvent.RunId='system' sentinel"
+    reason: |
+      RunEvent.RunId is required by every existing consumer (XADD key,
+      broadcaster active-dict, hub group). A sentinel would force
+      branching at every consumer; the stream key is genuinely different
+      anyway. Parallel hierarchy means no sentinel logic, two
+      near-identical publisher classes the explicit price.
+
+  - category: Architecture
+    chose: "Single system:events stream, no per-source streams"
+    reason: |
+      Low-volume relative to run events (poll cycles every N seconds,
+      webhooks event-driven). The Source field on every SystemEvent
+      gives the dashboard client-side grouping. Per-source streams
+      would multiply Redis keys + force broadcaster to multiplex N
+      XREAD calls — no measured volume justification.
+
+  - category: Implementation
+    chose: "ResolveSystemType returns null for every code in slice a"
+    reason: |
+      Concrete event records ship with their producers in b/c. Slice
+      a's serializer path round-trips the envelope correctly (Source +
+      Type + Timestamp from the base) — concrete payload deserialization
+      activates when b/c add their records to the switch. Today the
+      stream is empty so the null branch is unreachable in practice;
+      the structure ships now so b/c only add their case lines.
+
+  - category: Implementation
+    chose: "JobsBroadcaster owns SystemRecent + DrainSystem, not a separate hosted service"
+    reason: |
+      The broadcaster is already an IHostedService with a Redis
+      multiplexer + IRunEventFanout. Adding a second hosted service
+      would duplicate connection management + cold-start logic for no
+      isolation benefit. SystemRecent is a 500-event ring buffer
+      (smaller than the per-run streams since system events are
+      sparser). Cold-start uses XREVRANGE COUNT 500 to populate, then
+      live drain reads from `$` so we don't replay fanned-out events.
+
+  - category: Implementation
+    chose: "Theory ships as [Theory(Skip=...)] with empty MemberData + a guard [Fact]"
+    over: "Compile-time stub that produces a failing assertion"
+    reason: |
+      Skipped Theory + empty MemberData = no test runs against zero
+      rows (xUnit would warn about empty data). Guard [Fact] asserts
+      the empty-state explicitly. When slice b adds its first
+      producer + row: remove the Skip, delete the guard, theory turns
+      live. Cadence matches p0169j-b1 — scaffold ships ahead of
+      producers.
+
+  - category: TradeOff
+    chose: "ToSystemAsync on the existing IRunEventFanout interface"
+    over: "New ISystemEventFanout interface"
+    reason: |
+      Same IHubContext, same lifecycle, same DI registration. Splitting
+      would force a second DI registration and a second test stub for
+      the same contract surface. The semantic clarity loss (one
+      interface called IRunEventFanout but also handles system events)
+      is paid back by the implementation simplicity. Renaming to
+      IHubFanout is candidate cleanup once slice d ships and the
+      pattern matures.
+
+  - category: Implementation
+    chose: "Drift detector scans both EventType.cs + SystemEventType.cs in one pass"
+    reason: |
+      Both share the same enum-shape regex + same TS-mirror convention.
+      Two channels in one tool keeps CI surface unified — one no-drift
+      output per channel, one exit code. Adding a third channel later
+      (e.g. CronEventType if scheduled tasks land) is one entry in the
+      channels array.

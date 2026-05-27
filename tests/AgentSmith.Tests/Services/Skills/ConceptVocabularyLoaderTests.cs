@@ -17,8 +17,7 @@ public sealed class ConceptVocabularyLoaderTests : IDisposable
         Directory.CreateDirectory(_tempDir);
         _loader = new ConceptVocabularyLoader(
             new NoOpEventPublisher(),
-            new AsyncLocalRunContextAccessor(),
-            NullLogger<ConceptVocabularyLoader>.Instance);
+            new AsyncLocalRunContextAccessor(), new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance);
     }
 
     public void Dispose()

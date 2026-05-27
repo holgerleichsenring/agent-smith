@@ -11,6 +11,7 @@ import type {
   RunEvent,
   RunSnapshot,
 } from "@/types/hub-events";
+import type { SystemEvent } from "@/types/system-events";
 
 // p0169f: single shared HubConnection per tab; ref-counted group
 // subscriptions; lazy-connect on first subscribe. Owns the connection
@@ -38,6 +39,7 @@ function makeSubject<T>(): SubjectMap<T> {
 }
 
 const KEY_OVERVIEW = "overview";
+const KEY_SYSTEM = "system";
 const keyRun = (runId: string) => `run:${runId}`;
 const keySandbox = (runId: string, repo: string) => `sandbox:${runId}:${repo}`;
 
@@ -55,6 +57,7 @@ export class JobsHubClient {
   readonly jobUpserts = makeSubject<RunSnapshot>();
   readonly runEvents = makeSubject<{ runId: string; event: RunEvent }>();
   readonly sandboxEvents = makeSubject<{ runId: string; repo: string; event: RunEvent }>();
+  readonly systemEvents = makeSubject<SystemEvent>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -93,6 +96,25 @@ export class JobsHubClient {
 
   private async unsubscribeRun(runId: string): Promise<void> {
     this.groups.decRef(keyRun(runId));
+  }
+
+  /**
+   * p0173a: subscribes the caller to the system event group. Identical
+   * shape to subscribeOverview — system events are global, no per-run
+   * scoping. Replays the retained system stream window before live tail
+   * starts (the hub does the XRANGE replay server-side).
+   */
+  async subscribeSystem(): Promise<() => Promise<void>> {
+    await this.ensureStarted();
+    const key = KEY_SYSTEM;
+    if (this.groups.incRef(key)) {
+      await this.connection!.invoke("SubscribeSystem");
+    }
+    return () => this.unsubscribeSystem();
+  }
+
+  private async unsubscribeSystem(): Promise<void> {
+    this.groups.decRef(KEY_SYSTEM);
   }
 
   async expandSandbox(runId: string, repo: string): Promise<() => Promise<void>> {
@@ -163,6 +185,8 @@ export class JobsHubClient {
       const repo = "repo" in event ? (event as { repo: string }).repo : "";
       this.sandboxEvents.emit({ runId: event.runId, repo, event });
     });
+    conn.on("SystemEvent", (event: SystemEvent) =>
+      this.systemEvents.emit(event));
     conn.onreconnecting(() => this.connectionState.emit(HubConnectionState.Reconnecting));
     conn.onreconnected(() => this.connectionState.emit(HubConnectionState.Connected));
     conn.onclose(() => this.connectionState.emit(HubConnectionState.Disconnected));
