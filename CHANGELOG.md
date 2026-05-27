@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.64.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.63.0...v0.64.0) (2026-05-26)
+
+
+### Features
+
+* **landing:** publish lifecycle SVG redesign ([d0b77bf](https://github.com/holgerleichsenring/agent-smith/commit/d0b77bf5bc83bd391a03478b4d86adbadb57548e))
+* **landing:** publish lifecycle SVG redesign (release trigger) ([0331220](https://github.com/holgerleichsenring/agent-smith/commit/03312201624c71ac85093fbf878fdd5e8f42008d))
+
+
+### Bug Fixes
+
+* **landing:** sync lifecycle SVG + replace overflowing branch labels with repo slugs ([0b8b310](https://github.com/holgerleichsenring/agent-smith/commit/0b8b310bdf3512ba343d00a7a52b8a24540e1abb))
+
 ## [0.63.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.62.1...v0.63.0) (2026-05-26)
 
 
