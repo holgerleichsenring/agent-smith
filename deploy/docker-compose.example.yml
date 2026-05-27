@@ -106,6 +106,10 @@ services:
     environment:
       - NODE_ENV=production
       - AGENT_SMITH_API_URL=http://server:8081
+      # p0169f-followup: next.config.ts rewrites /hub/* and /api/* to this
+      # target so the browser stays same-origin. In compose, the dashboard's
+      # Next.js server reaches the backend via compose DNS.
+      - AGENTSMITH_BACKEND_URL=http://server:8081
     depends_on:
       - server
     ports:
