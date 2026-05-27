@@ -1,0 +1,252 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169f-topology-ui
+goal: |
+  Dashboard wires to the SignalR hub from p0169e and renders the topology
+  view: an overview list of active + recent runs (cards), a per-run
+  detail page with run lifecycle, step progress, and per-sandbox panes.
+  This is the slice that turns p0169e's backbone into an operator-usable
+  surface — without it the dashboard is a placeholder.
+
+requires:
+  - p0169-pre-dashboard-bootstrap
+  - p0169e-event-backbone
+
+scope:
+  in: |
+    HUB CLIENT (src/dashboard/src/lib + src/hooks):
+
+    (1) New @microsoft/signalr dependency. Single shared HubConnection
+        per browser tab, opened lazily on first subscribe, kept alive
+        with reconnect-with-backoff (SignalR default policy: 0/2/10/30s).
+
+    (2) useJobsHub hook exposes: connectionState, overviewSnapshot,
+        runEvents (per-runId map), sandboxEvents (per-(runId,repo) map),
+        subscribeRun(runId), unsubscribeRun(runId), expandSandbox,
+        collapseSandbox. The hook owns the HubConnection lifecycle and
+        de-duplicates concurrent subscribers per group (overview, run,
+        sandbox) via reference counting.
+
+    (3) OpenAPI types (openapi-typescript output) are NOT used for hub
+        events — the hub speaks JSON-over-SignalR, not OpenAPI. Typed
+        equivalents of the C# event records ship as
+        src/dashboard/src/types/hub-events.ts (hand-maintained, 16 type
+        defs mirroring the EventType enum). A small generator script
+        (tools/build-hub-event-types.mjs) regenerates them from the
+        backend C# event records to keep drift visible — runs on
+        pnpm gen:types alongside the OpenAPI generator.
+
+    DASHBOARD ROUTES (src/dashboard/src/app):
+
+    (4) / (overview) renders OverviewCardGrid: one card per active run
+        + one section "Recent runs (50)". Cards show pipeline,
+        repo(s), step progress (current/total), elapsed, status. Card
+        click navigates to /jobs/{runId}.
+
+    (5) /jobs/[id] (run detail) renders TopologyCard (full run state)
+        + SandboxList. Each sandbox row collapses by default; clicking
+        the row calls expandSandbox(runId, repo) and shows the
+        SandboxBox with live stdout/stderr lines (last 200, ring-buffer
+        on the client). Collapsing the row calls collapseSandbox.
+
+    (6) URL deep-links: /jobs/{runId}?expand=repo1,repo2 auto-expands
+        the named sandboxes on page load (one expandSandbox call per
+        comma-separated name).
+
+    COMPONENTS (src/dashboard/src/components/jobs):
+
+    (7) OverviewCardGrid + RunCard. RunCard derives status colour from
+        RunSnapshot.Status (running → DESIGN.md primary; success →
+        token positive; failed → token negative; etc.). DESIGN.md token
+        vocabulary only — no hardcoded hex.
+
+    (8) TopologyCard renders the run header (pipeline, repos, status,
+        elapsed, cost) + a vertical step-list with step-progress
+        indicators driven by StepStarted/StepFinished events.
+
+    (9) SandboxBox renders one box per sandbox key (matches
+        PipelineSandboxCoordinator's composite key). Shows command +
+        ArgsLength metadata for the active SandboxCommand, then a
+        terminal-style stdout/stderr feed for SandboxOutput events.
+        Closes on SandboxResult.
+
+    (10) Empty + connecting + error states for OverviewCardGrid and
+        TopologyCard. Connecting renders a skeleton card row; error
+        renders the connection-state error with a retry button.
+
+  out: |
+    Filter rail by event type / severity — slice p0169g.
+    L3 ToolCall/ToolResult event display in the per-sandbox box —
+    slice p0169g.
+    Event-trail tree (the navigable tool-call-history view) —
+    slice p0169h.
+    Asciinema-style replay of sandbox sessions — slice p0169i.
+    Cross-run comparison + tag filters. Out of scope, single-run focus.
+    SignalR backplane for multi-instance — operational ask, deferred.
+
+decisions:
+  - key: |
+      Single shared HubConnection per tab, ref-counted group
+      subscriptions — Reason: SignalR's connection per tab is the
+      idiomatic model; opening one per component would multiply auth
+      + heartbeat overhead. Ref counting around Subscribe* lets two
+      components in the same tree subscribe to the same run without
+      duplicating server-side fanout. alternatives: connection-per-
+      component (rejected: heartbeat storm); single connection without
+      ref counting (rejected: unmount of one component cancels the
+      other's subscription).
+
+  - key: |
+      Hand-maintained hub-events.ts mirrored from C# records via a
+      generator script — Reason: SignalR isn't OpenAPI; openapi-
+      typescript can't see the hub. A small generator script reading
+      AgentSmith.Contracts/Events/*.cs and emitting TS types keeps
+      drift visible (a frontmatter-style PR check would fail if types
+      diverge). alternatives: hand-write without generator (rejected:
+      drift); ship full TS-from-C# code-gen via Swashbuckle plugin
+      (rejected: heavyweight for 16 record types).
+
+  - key: |
+      Per-sandbox SandboxOutput ring buffer caps at 200 lines client-
+      side — Reason: long-running builds emit thousands of lines.
+      The dashboard isn't a log archive; the operator wants the most
+      recent context to diagnose a stuck box. Full history stays in
+      the Redis stream + result.md. alternatives: unbounded (rejected:
+      browser memory); persisted to IndexedDB (rejected: overkill).
+
+  - key: |
+      Sandbox box collapsed by default — Reason: opening every
+      sandbox on load would fan out L3 events to every connection,
+      undoing p0169e's L3-gating design. The expansion gate IS the
+      privacy + bandwidth boundary. alternatives: expanded by default
+      (rejected: defeats the gate); auto-expand on failure (rejected:
+      racy, operator surprise).
+
+  - key: |
+      DESIGN.md token vocabulary is the only colour source — Reason:
+      consistency with the marketing site + docs (p0159a/b/c). No
+      Tailwind color literals, no inline hex. alternatives: ad-hoc
+      Tailwind colors (rejected: drift); inline hex (rejected: same).
+
+steps:
+  - id: hub-deps
+    action: |
+      Add @microsoft/signalr to src/dashboard/package.json. Vitest +
+      Playwright peer-deps unchanged.
+    modify:
+      - "src/dashboard/package.json"
+      - "src/dashboard/pnpm-lock.yaml"
+    packages:
+      - "@microsoft/signalr ^8"
+
+  - id: hub-event-types
+    action: |
+      Hand-write src/dashboard/src/types/hub-events.ts mirroring the
+      16 event records + EventType enum + RunSnapshot. Generator
+      script tools/build-hub-event-types.mjs reads
+      src/backend/AgentSmith.Contracts/Events/*.cs (regex over
+      `public sealed record XxxEvent(` + parameter list) and emits
+      the TS file. Wired into pnpm gen:types alongside the OpenAPI
+      generator. CI runs gen:types + diffs against the checked-in
+      file (warning, not failure — drift is intentional during
+      contract evolution).
+    new:
+      - "src/dashboard/src/types/hub-events.ts"
+      - "tools/build-hub-event-types.mjs"
+    modify:
+      - "src/dashboard/package.json"
+      - ".github/workflows/dashboard.yml"
+
+  - id: jobs-hub-client
+    action: |
+      JobsHubClient class wraps HubConnection with typed methods
+      (subscribeOverview / subscribeRun / expandSandbox / collapse).
+      Lazy connection open on first subscribe; close on last
+      unsubscribe. SubjectMap pattern: one RxJS-like emitter per
+      group key. Connection-state Observable exposed for the hook.
+    new:
+      - "src/dashboard/src/lib/JobsHubClient.ts"
+      - "src/dashboard/src/lib/HubGroupRegistry.ts"
+      - "src/dashboard/src/lib/HubReconnectPolicy.ts"
+
+  - id: use-jobs-hub-hook
+    action: |
+      useJobsHub React hook backed by JobsHubClient. Returns
+      connection state + overview snapshot + per-run event log +
+      per-sandbox event log. Memoizes by ref-counting; the second
+      caller for the same runId reuses the existing subscription.
+    new:
+      - "src/dashboard/src/hooks/useJobsHub.ts"
+      - "src/dashboard/src/hooks/useRunEvents.ts"
+      - "src/dashboard/src/hooks/useSandboxEvents.ts"
+
+  - id: overview-page
+    action: |
+      Replace the placeholder shim in src/dashboard/src/app/page.tsx
+      with OverviewCardGrid wired to useJobsHub. Skeleton state +
+      empty state + error state.
+    modify:
+      - "src/dashboard/src/app/page.tsx"
+    new:
+      - "src/dashboard/src/components/jobs/OverviewCardGrid.tsx"
+      - "src/dashboard/src/components/jobs/RunCard.tsx"
+      - "src/dashboard/src/components/jobs/ConnectionState.tsx"
+
+  - id: run-detail-page
+    action: |
+      /jobs/[id]/page.tsx hosts TopologyCard + SandboxList.
+      ?expand=repoA,repoB query-string parser auto-expands listed
+      sandboxes on mount.
+    new:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/components/jobs/TopologyCard.tsx"
+      - "src/dashboard/src/components/jobs/StepProgressList.tsx"
+      - "src/dashboard/src/components/jobs/SandboxList.tsx"
+      - "src/dashboard/src/components/jobs/SandboxBox.tsx"
+
+  - id: dashboard-tests
+    action: |
+      Vitest component tests cover: useJobsHub ref-counting,
+      OverviewCardGrid render on snapshot + diff, TopologyCard step
+      progress driven by event sequence, SandboxBox stdout/stderr
+      render + ring-buffer cap, ?expand=… deep-link parsing.
+    new:
+      - "src/dashboard/src/lib/__tests__/JobsHubClient.test.ts"
+      - "src/dashboard/src/hooks/__tests__/useJobsHub.test.ts"
+      - "src/dashboard/src/components/jobs/__tests__/OverviewCardGrid.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TopologyCard.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/SandboxBox.test.tsx"
+
+  - id: verify
+    action: |
+      Finish-what-you-start gate:
+      - pnpm build green (Next.js)
+      - pnpm test green (vitest)
+      - manual smoke: docker compose up (redis + server + dashboard),
+        trigger a fix-bug run, open localhost:3000 — see the run in
+        the overview within 1s; click the card, see TopologyCard
+        ticking step indicators; click a sandbox row, see live
+        stdout flowing.
+
+tests:
+  - "JobsHubClient_OpensConnectionLazilyOnFirstSubscribe"
+  - "JobsHubClient_RefCountedGroupSubs_LastUnsubscribeClosesGroup"
+  - "JobsHubClient_ReconnectsAfterTransientDrop"
+  - "useJobsHub_TwoComponentsSameRun_SingleHubSubscription"
+  - "OverviewCardGrid_OverviewSnapshotEvent_RendersAllActiveAndRecent"
+  - "OverviewCardGrid_JobUpsertedDiff_UpdatesMatchingCardInPlace"
+  - "TopologyCard_StepStartedThenFinished_StepProgressTicksForward"
+  - "TopologyCard_RunFinishedSuccess_StatusBadgeFlipsToSuccess"
+  - "SandboxBox_ExpandTriggersExpandSandboxCall"
+  - "SandboxBox_SandboxOutputBeyondRingBufferCap_OldestLineDrops"
+  - "SandboxBox_Collapse_CallsCollapseSandbox"
+  - "DeepLinkExpandQuery_TwoRepos_AutoExpandsBothOnMount"
+
+done:
+  - "@microsoft/signalr added; pnpm install + pnpm build green."
+  - "hub-events.ts mirrors the 16 RunEvent record types; tools/build-hub-event-types.mjs regenerates them."
+  - "JobsHubClient + useJobsHub hook ship; single-connection / ref-counted-groups behaviour holds under the test suite."
+  - "Overview page wires to the hub; OverviewCardGrid renders active + recent runs and updates on JobUpserted diffs."
+  - "Run-detail page hosts TopologyCard + SandboxList; per-sandbox box opens on click and streams SandboxOutput; collapses cleanly."
+  - "?expand=… deep-link parsing auto-opens the named sandboxes."
+  - "Vitest suite covers hub client, hook, overview, topology, sandbox box, deep-link parser."
+  - "Manual smoke: trigger a real fix-bug run, watch the dashboard render the run lifecycle end-to-end."

@@ -70,6 +70,7 @@ public sealed class TriageOutputProducerDeterministicTests
             new PhaseSpecificityTrimmer(scorer, NullLogger<PhaseSpecificityTrimmer>.Instance),
             RunStateConceptsTestFactory.Default,
             new LoopLimitsConfig { MaxSkillsPerPhase = maxSkillsPerPhase },
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             NullLogger<TriageOutputProducer>.Instance);
     }
 

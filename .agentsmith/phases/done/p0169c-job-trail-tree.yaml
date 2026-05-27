@@ -1,0 +1,230 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169c
+goal: |
+  Tool-call trail + skill-round timeline rendered as a navigable tree
+  in the dashboard. Operators see the actual sequence of agent
+  decisions — which skills fired, which tools they invoked, what
+  each cost, what observations they produced — as a tree they can
+  expand and inspect, rather than as a JSON blob in result.md.
+
+  Closes the "I can inspect the decision graph after the fact" gap
+  that observability tools (Langfuse / LangSmith) sell as a
+  standalone product.
+
+requires: ["p0169b"]
+
+scope:
+  in: |
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (1) GET /api/jobs/{id}/trail — exposes the existing
+        tool-call-trail.json + skill-rounds + cost-summary as a single
+        unified TrailTree JSON response. Backend assembles by reading
+        the three files from the run dir; no new data emission, only
+        a join layer.
+
+    (2) TrailTree shape:
+        - root: { run_id, total_cost, total_tokens, started_at,
+                  ended_at, nodes: TrailNode[] }
+        - TrailNode: { id, kind: 'skill-round' | 'skill-call' |
+                       'tool-call' | 'tool-result',
+                       label, severity_max, cost_tokens, cost_dollars,
+                       started_at, duration_ms, children: TrailNode[],
+                       payload_preview, payload_uri }
+        - payload_uri points at /api/jobs/{id}/trail/nodes/{node_id}
+          for lazy detail loading.
+
+    (3) GET /api/jobs/{id}/trail/nodes/{node_id} — single-node detail
+        (full payload of the tool call / observation / etc.). Used
+        by the dashboard's two-pane right panel.
+
+    (4) Threshold-fallback: if the assembled TrailTree exceeds
+        5 MB JSON or 500 nodes, the response sets
+        truncated: true + only includes the top-level skill-rounds
+        (no tool-call children). Dashboard renders the
+        truncated view with a "download full trail" link.
+        AGENTSMITH_TRAIL_MAX_MB + _MAX_NODES env knobs.
+
+    DASHBOARD (src/dashboard):
+
+    (5) /jobs/[id] gains a "Trail" tab alongside Summary + Live Log.
+        Tab routing via shadcn Tabs; URL fragment / search param for
+        deep-link.
+
+    (6) Two-pane layout:
+        - Left ~35%: tree using react-arborist (mature React tree
+          component). Each node shows label + severity badge +
+          cost. Collapsed by default below skill-round level.
+        - Right ~65%: NodeDetailPane fetches via payload_uri when a
+          node is selected. Renders typed payload (tool args + result
+          JSON pretty-printed; observation as card with severity +
+          source-ref; skill-round summary with model + tokens).
+
+    (7) Timeline slider at top of the tree pane. Scrubs node visibility
+        by timestamp (nodes that started before the slider position
+        visible, rest dimmed). Helps reconstruct cause/effect for
+        parallel skill rounds.
+
+    (8) "Replay timeline" play button next to the slider animates the
+        slider forward in real-time-scaled fashion (run took 2 min →
+        replay in 20s). Pure visual, doesn't refetch.
+
+    (9) Truncated-trail handling: when API returns truncated: true,
+        the tree shows a notice + a download button that fetches the
+        raw tool-call-trail.json via /api/jobs/{id}/files/.
+
+  out: |
+    Cross-run comparison view. Out — single-run focus.
+    Editable trail (replay-with-edits). Out — read-only inspection.
+    Custom trail filters by skill / tool. Out — tree expansion +
+    slider is the navigation affordance; if filter-by-skill demand
+    emerges, separate follow-up phase.
+
+decisions:
+  - key: |
+      Backend join layer over the three JSON files, not raw passthrough —
+      Reason: tool-call-trail.json, observations.json, cost-summary.json
+      live as separate files for separate concerns; the trail tree
+      needs them stitched. Doing the stitch backend-side keeps the
+      dashboard simple (one fetch, one shape). alternatives: client-
+      side join (rejected: three fetches + reassembly logic in the
+      browser); persist the joined shape (rejected: duplicates data on
+      disk, drift risk).
+
+  - key: |
+      react-arborist for the tree, not custom — Reason: virtual
+      scrolling, drag-handle support, keyboard a11y, and the rendering
+      sweet spot for 100-1000 nodes are all hard to get right by hand.
+      react-arborist is mature + MIT + ~30KB. alternatives: custom
+      (rejected: reinvent virtual list + keyboard nav); react-tree-view
+      (rejected: less mature, smaller community).
+
+  - key: |
+      5MB + 500-node truncation thresholds — Reason: a run producing a
+      trail beyond these is unusual (one order above typical). The
+      fallback prevents browser lock-up. Configurable via env so
+      operators with heavy workloads can raise. alternatives: no limit
+      (rejected: lock-up risk); much smaller (rejected: typical runs
+      hit the cap).
+
+  - key: |
+      Two-pane left-tree right-detail, not top-down timeline — Reason:
+      matches the mental model of IDE debugger views + Langfuse +
+      Anthropic Console traces. Familiar pattern. Timeline-as-top-axis
+      is the slider role, not the main layout. alternatives: flat
+      timeline (rejected: loses parent/child context); top-down
+      collapsing (rejected: harder to scan deep nests).
+
+  - key: |
+      Timeline slider is visual scrub, not history rewind — Reason:
+      scrubbing dims nodes that haven't happened yet but the tree
+      structure stays put. Re-rendering "the trail as it looked at
+      time T" requires a snapshot model the data doesn't have.
+      alternatives: full state-rewind (rejected: data doesn't carry
+      pre-state; visual dimming gives the same comprehension win).
+
+steps:
+  - id: trail-api
+    action: |
+      JobTrailEndpoint + TrailTreeAssembler. Reads tool-call-trail.json
+      + observations.json + cost-summary.json from the run dir; joins
+      into TrailTree shape. Truncation guard.
+    new:
+      - "src/backend/AgentSmith.Server/Api/JobTrailEndpoint.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/TrailTree.cs"
+      - "src/backend/AgentSmith.Server/Api/Models/TrailNode.cs"
+      - "src/backend/AgentSmith.Server/Services/TrailTreeAssembler.cs"
+      - "src/backend/AgentSmith.Server/Services/TrailTruncationGuard.cs"
+
+  - id: node-detail-api
+    action: |
+      JobTrailNodeDetailEndpoint returns single-node full payload by
+      node_id lookup.
+    new:
+      - "src/backend/AgentSmith.Server/Api/JobTrailNodeDetailEndpoint.cs"
+
+  - id: env-knobs
+    action: |
+      AGENTSMITH_TRAIL_MAX_MB + _MAX_NODES read by TrailTruncationGuard.
+    modify:
+      - "src/backend/AgentSmith.Server/Program.cs"
+      - "deploy/docker-compose.example.yml"
+
+  - id: trail-tab-page
+    action: |
+      Trail tab content in jobs/[id]/page.tsx. shadcn Tabs primitive
+      already in shadcn registry.
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+    new:
+      - "src/dashboard/src/components/jobs/TrailTab.tsx"
+
+  - id: trail-tree-component
+    action: |
+      TrailTree component wrapping react-arborist with TrailNode
+      renderer (label, severity, cost).
+    new:
+      - "src/dashboard/src/components/jobs/TrailTree.tsx"
+      - "src/dashboard/src/components/jobs/TrailNodeRow.tsx"
+    packages:
+      - "react-arborist ^3"
+
+  - id: node-detail-pane
+    action: |
+      NodeDetailPane fetches via payload_uri; renders typed payload.
+    new:
+      - "src/dashboard/src/components/jobs/NodeDetailPane.tsx"
+      - "src/dashboard/src/components/jobs/PayloadJsonViewer.tsx"
+
+  - id: timeline-slider
+    action: |
+      TimelineSlider above the tree; dims nodes by timestamp.
+      Play button animates the slider.
+    new:
+      - "src/dashboard/src/components/jobs/TimelineSlider.tsx"
+
+  - id: truncation-ui
+    action: |
+      Truncated-trail banner + download button when API returns
+      truncated: true.
+    new:
+      - "src/dashboard/src/components/jobs/TruncatedTrailBanner.tsx"
+
+  - id: backend-tests
+    action: |
+      TrailTreeAssembler unit tests against fixtures + truncation guard
+      tests + endpoint integration tests.
+    new:
+      - "tests/AgentSmith.Tests/Api/JobTrailEndpointTests.cs"
+      - "tests/AgentSmith.Tests/Services/TrailTreeAssemblerTests.cs"
+      - "tests/AgentSmith.Tests/Services/TrailTruncationGuardTests.cs"
+
+  - id: dashboard-tests
+    action: |
+      Vitest component tests for TrailTree + NodeDetailPane + slider
+      visibility logic.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/TrailTree.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/NodeDetailPane.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TimelineSlider.test.tsx"
+
+tests:
+  - "TrailTreeAssembler_KnownRunWithToolCalls_BuildsExpectedTreeShape"
+  - "TrailTreeAssembler_TrailBeyond5Mb_TruncatesToSkillRoundsOnly"
+  - "TrailTreeAssembler_NodeCountBeyond500_TruncatesToSkillRoundsOnly"
+  - "TrailNodeDetailEndpoint_KnownNodeId_ReturnsFullPayload"
+  - "TrailNodeDetailEndpoint_UnknownNodeId_Returns404"
+  - "TrailTree_RendersFortyNodes_VirtualScrollsCorrectly"
+  - "NodeDetailPane_NodeSelected_FetchesAndRendersPayload"
+  - "TimelineSlider_ScrubbedToMidRun_DimsLaterNodes"
+  - "TruncatedTrailBanner_VisibleWhenTruncatedTrue_OffersDownloadLink"
+
+done:
+  - "GET /api/jobs/{id}/trail returns assembled TrailTree."
+  - "GET /api/jobs/{id}/trail/nodes/{node_id} returns single-node detail."
+  - "Truncation guard activates above 5 MB / 500 nodes."
+  - "Dashboard Trail tab renders the tree with react-arborist."
+  - "Node-detail pane lazy-loads on selection."
+  - "Timeline slider dims nodes by timestamp; play button animates."
+  - "Backend + dashboard tests green."
+  - "Smoke: open /jobs/<id> in dashboard, click Trail tab; expand a skill-round → tool-call; see cost + args + result in the right pane; scrub slider midway, watch later nodes dim."

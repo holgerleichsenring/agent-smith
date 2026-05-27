@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0170b
+goal: |
+  Add inline diff + run-result rendering to the VS Code extension. When
+  a pipeline finishes, the extension opens the PR diff in VS Code's
+  native diff view + a webview-rendered run-result panel. Decision-log
+  surfaces as a QuickPick. Closes the "I have to open a browser to see
+  what the agent did" friction.
+
+requires: ["p0170a"]
+
+scope:
+  in: |
+    (1) Run-completion handler: on Done bus message, extension fetches:
+        - result.md (via /mcp/resources/read agentsmith://run/<id>/result.md)
+        - decisions.md
+        - PR URL (from run-result frontmatter or response body)
+
+    (2) PR diff rendering:
+        - When PR is on a remote origin matching the open workspace,
+          extension fetches PR head ref via VS Code's git extension API,
+          opens the diff view between head and base in a virtual document.
+        - When workspace is not the PR repo, extension surfaces a
+          "Open PR in browser" action only.
+
+    (3) Run-result webview (in-IDE panel): renders result.md as HTML
+        with the same markdown processor used elsewhere. Tabs for
+        Summary / Decisions / Verification (the latter shows
+        VerifyReport from p0165b if present). Links open in browser.
+
+    (4) Decision picker: command "Agent Smith: Browse Decisions" opens
+        a QuickPick over decisions.md entries (one per quick-pick item,
+        with key as label + reasoning as detail). Click → opens the
+        decisions.md file at that line.
+
+    (5) Webview state preservation across reloads via context.workspaceState.
+
+    (6) Performance: webview lazy-renders; result.md > 1MB falls back
+        to "Open externally" button.
+
+  out: |
+    PR-comment authoring from the extension (operator approves /
+    rejects review-bot's comments). Out — round-trip via PR itself.
+    Multi-repo workspace handling. The diff view works against the
+    folder the extension activated in.
+    Settings UI beyond raw JSON. VS Code settings.json is the
+    config surface; native settings GUI is sufficient.
+
+decisions:
+  - key: |
+      Native VS Code diff view over webview-based diff — Reason: native
+      diff is a known UX with familiar keybindings, search, etc.
+      Webview-based diffs require reimplementing those. alternatives:
+      Monaco-in-webview (rejected: reinvents native); browser-based
+      (rejected: leaves the IDE).
+
+  - key: |
+      QuickPick for decisions, not webview list — Reason: QuickPick is
+      keyboard-first + matches the "command palette" mental model
+      operators already use. alternatives: tree view (rejected: feature
+      for a feature); webview (rejected: overkill).
+
+  - key: |
+      Workspace-state-persisted webview — Reason: pipeline runs are
+      long; user may close + reopen VS Code mid-run. Webview state
+      restored on reactivation preserves the "I left this here"
+      experience. alternatives: ephemeral (rejected: forces user
+      to remember run-id); global state (rejected: cross-workspace
+      contamination).
+
+steps:
+  - id: completion-listener
+    action: |
+      RunCompletionListener subscribes to MCP SSE / polls for Done
+      message; triggers post-completion UI.
+    new:
+      - "(separate repo) vscode-agent-smith/src/runs/RunCompletionListener.ts"
+
+  - id: diff-opener
+    action: |
+      Resolves PR head + base; opens VS Code native diff via
+      vscode.commands.executeCommand('vscode.diff', ...) when local
+      repo matches.
+    new:
+      - "(separate repo) vscode-agent-smith/src/diff/PrDiffOpener.ts"
+      - "(separate repo) vscode-agent-smith/src/diff/GitWorkspaceMatcher.ts"
+
+  - id: result-webview
+    action: |
+      Webview panel rendering result.md (Markdown-it client-side).
+      Tabs for Summary / Decisions / Verification.
+    new:
+      - "(separate repo) vscode-agent-smith/src/ui/RunResultWebview.ts"
+      - "(separate repo) vscode-agent-smith/src/ui/templates/run-result.html"
+      - "(separate repo) vscode-agent-smith/src/ui/styles/run-result.css"
+
+  - id: decisions-picker
+    action: |
+      Command + QuickPick handler reading decisions.md.
+    new:
+      - "(separate repo) vscode-agent-smith/src/commands/browseDecisions.ts"
+      - "(separate repo) vscode-agent-smith/src/decisions/DecisionsMdParser.ts"
+
+  - id: state-persistence
+    action: |
+      LastRunState (runId, status) saved to workspaceState; restored
+      on activate.
+    new:
+      - "(separate repo) vscode-agent-smith/src/state/WorkspaceRunState.ts"
+
+  - id: tests
+    action: |
+      Headless tests for diff-opener, webview, decisions parser.
+    new:
+      - "(separate repo) vscode-agent-smith/src/test/prDiffOpener.test.ts"
+      - "(separate repo) vscode-agent-smith/src/test/runResultWebview.test.ts"
+      - "(separate repo) vscode-agent-smith/src/test/decisionsMdParser.test.ts"
+
+  - id: docs-update
+    action: |
+      docs/integrations/vscode.md gains the new feature surface.
+    modify:
+      - "docs/integrations/vscode.md"
+
+tests:
+  - "RunCompletion_DoneMessage_OpensResultWebviewAndDiffView"
+  - "PrDiffOpener_LocalRepoMatches_OpensNativeDiff"
+  - "PrDiffOpener_LocalRepoMismatch_FallsBackToBrowserAction"
+  - "RunResultWebview_LargeResultMd_OffersOpenExternally"
+  - "DecisionsMdParser_ThreeDecisions_ProducesThreeQuickPickItems"
+  - "WorkspaceRunState_PersistsAcrossActivation"
+
+done:
+  - "vscode-agent-smith 1.1.0 tagged with diff + webview + decisions picker."
+  - "Native VS Code diff opens on local-repo PR completion."
+  - "Webview renders result.md + decisions + verification tabs."
+  - "Decisions picker reads decisions.md and jumps to lines."
+  - "Workspace state persists last-run-id."
+  - "Smoke: complete a fix-bug run via the extension; verify webview opens automatically + diff view shows changes inline."

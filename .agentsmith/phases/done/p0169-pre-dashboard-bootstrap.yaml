@@ -1,0 +1,229 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169-pre-dashboard-bootstrap
+goal: |
+  Bootstrap the Next.js dashboard project under src/dashboard/ — toolchain,
+  styling system, Docker image, CI workflow, OpenAPI type-generation — so
+  every subsequent dashboard slice (p0169a-d) writes business features
+  against an established convention instead of inventing infrastructure
+  per phase.
+
+  Pure infrastructure phase. Ships a Next.js app that renders a single
+  "Hello, agent-smith" landing page proving the toolchain works
+  end-to-end. Real Job-Viewer UI lands in p0169a.
+
+requires: ["p0162-pre-monorepo-restructure"]
+
+scope:
+  in: |
+    (1) Next.js 15 project at src/dashboard/ with App Router. TypeScript
+        strict mode. Single dependency tree (pnpm).
+
+    (2) Styling stack:
+        - Tailwind CSS v4 (JIT engine, May-2026 stable)
+        - shadcn/ui (copy-in components, no lib lock-in)
+        - lucide-react (icon set)
+        - tailwind.config maps DESIGN.md tokens (colors, typography, radii)
+          via tools/build-tokens.mjs output; single source of truth stays
+          DESIGN.md.
+
+    (3) Configuration:
+        - tsconfig.json strict, paths alias '@/*' → src/*
+        - eslint with Next.js recommended + typescript-eslint
+        - prettier with the same line-width as .NET (no auto-format wars)
+        - vitest + @testing-library/react for unit tests
+        - playwright NOT included here — visual smoke is operator
+          responsibility, not unit-test boundary
+
+    (4) OpenAPI type generation. Backend exposes /api/openapi.json (the
+        backend side of this lives in p0169a). The dashboard build runs
+        `openapi-typescript` at build-time to generate src/dashboard/src/
+        types/api.ts. Generated file gitignored; regenerated on build.
+        Bootstrap ships with a minimal stub openapi.json checked-in so
+        the type-codegen step produces something even before p0169a's
+        backend lands.
+
+    (5) Dockerfile multi-stage:
+        Stage 1: node:20-alpine → COPY package.json + pnpm-lock.yaml,
+                 pnpm install --frozen-lockfile
+        Stage 2: same → COPY src + tailwind + tsconfig + next config,
+                 pnpm build (outputs .next/ standalone)
+        Stage 3: node:20-alpine → COPY .next/standalone + .next/static
+                 + public, ENTRYPOINT ["node", "server.js"], EXPOSE 3000
+
+    (6) docker-compose extended:
+        agentsmith-dashboard service alongside agentsmith-server. ENV
+        AGENT_SMITH_API_URL=http://agentsmith-server:8081 (compose-internal
+        DNS). Operator sees the dashboard on host port 3000.
+
+    (7) CI workflow .github/workflows/dashboard.yml:
+        - on: push, pull_request (paths: src/dashboard/**)
+        - jobs: lint + test + build (parallel where possible)
+        - publish docker image on tagged release (same trigger pattern as
+          existing docker-publish.yml).
+
+    (8) docs/setup/dashboard.md — operator setup guide. Hardware/run
+        instructions, where to point the proxy, how to disable the
+        dashboard if not wanted (compose-profile gating).
+
+  out: |
+    Real Job-Viewer UI — slice [[p0169a]].
+    Authentication. Operator stands up an auth proxy (nginx oauth2-proxy,
+    Cloudflare Access, etc.). Dashboard ships expecting same-origin or
+    reverse-proxied API.
+    SSO integration. Out — same as auth.
+    Theme toggle. Light + dark via prefers-color-scheme follows DESIGN.md
+    polarity-flipped variants. Manual toggle deferred unless operator
+    feedback demands.
+
+decisions:
+  - key: |
+      Next.js 15 App Router, not Pages Router — Reason: App Router is
+      the default since Next 13 and stable by May 2026; new docs +
+      examples all assume it. Streaming + Server Components matter for
+      the Live-Tail page (p0169b). alternatives: Pages Router (rejected:
+      maintenance mode); Vite + React Router (rejected: user explicitly
+      named Next.js; Live-Tail + future approval UI benefit from RSC).
+
+  - key: |
+      Tailwind v4 — Reason: stable since early 2026, JIT engine is
+      significantly faster, CSS-first config (config in @theme block)
+      reduces config-file friction. shadcn/ui supports v4 since
+      shadcn-cli 2.5+. alternatives: v3 (rejected: legacy by May 2026);
+      vanilla CSS (rejected: defeats the toolchain win).
+
+  - key: |
+      OpenAPI codegen, not handwritten types — Reason: backend is the
+      type source of truth (C# strong-typing flows into OpenAPI via
+      Swashbuckle). Handwriting TypeScript types means drift the first
+      time someone changes a C# DTO. Codegen at build time is one extra
+      command + zero ongoing maintenance. alternatives: handwritten
+      (rejected: drift); GraphQL (rejected: ecosystem shift for no
+      benefit).
+
+  - key: |
+      docker-compose service, not Vercel deployment — Reason: agent-smith
+      is self-hosted by positioning. Default deploy must work in a
+      single `docker compose up`. Operators who prefer Vercel for the
+      dashboard can deploy src/dashboard/ to Vercel and point at their
+      self-hosted backend — that path is implicit (Next.js standalone
+      build runs anywhere). alternatives: Vercel-only (rejected:
+      betrays self-hosting story); static-export (rejected: kills
+      Server Components for Live-Tail).
+
+  - key: |
+      DESIGN.md tokens via build-tokens.mjs — Reason: docs site +
+      landing already consume tokens.css generated from DESIGN.md.
+      Dashboard joins that pipeline. tools/build-tokens.mjs gains
+      a `--target tailwind` flag emitting Tailwind theme JSON
+      alongside the existing tokens.css. Single source of truth.
+      alternatives: hand-port tokens (rejected: drift); separate
+      Tailwind config (rejected: drift squared).
+
+steps:
+  - id: scaffold
+    action: |
+      pnpm create next-app at src/dashboard/ with --typescript --tailwind
+      --eslint --app --src-dir --import-alias '@/*'. Strip the boilerplate
+      home page to a minimal placeholder.
+    new:
+      - "src/dashboard/package.json"
+      - "src/dashboard/pnpm-lock.yaml"
+      - "src/dashboard/tsconfig.json"
+      - "src/dashboard/next.config.ts"
+      - "src/dashboard/tailwind.config.ts"
+      - "src/dashboard/postcss.config.mjs"
+      - "src/dashboard/eslint.config.mjs"
+      - "src/dashboard/.prettierrc.json"
+      - "src/dashboard/.gitignore"
+      - "src/dashboard/README.md"
+      - "src/dashboard/src/app/layout.tsx"
+      - "src/dashboard/src/app/page.tsx"
+      - "src/dashboard/src/app/globals.css"
+
+  - id: shadcn-init
+    action: |
+      pnpm dlx shadcn@latest init. Pick neutral base colour (we override
+      via tokens). Generates components.json + the cn() utility.
+    new:
+      - "src/dashboard/components.json"
+      - "src/dashboard/src/lib/utils.ts"
+
+  - id: design-tokens
+    action: |
+      Extend tools/build-tokens.mjs with a --target tailwind flag that
+      emits src/dashboard/src/styles/tokens.json from DESIGN.md. The
+      tailwind.config.ts imports that JSON to set theme.colors,
+      theme.fontFamily, theme.borderRadius. Tailwind v4's CSS-first
+      @theme block also accepts the same vars from globals.css.
+    modify:
+      - "tools/build-tokens.mjs"
+    new:
+      - "src/dashboard/src/styles/tokens.json (generated, gitignored)"
+
+  - id: openapi-codegen
+    action: |
+      Add openapi-typescript as a devDependency. Script
+      `pnpm gen:types` runs it against ../backend/AgentSmith.Server/
+      openapi.json (or the live /api/openapi.json endpoint when in dev).
+      Output: src/dashboard/src/types/api.ts (gitignored). Bootstrap
+      ships a stub openapi.json so codegen succeeds before p0169a.
+    new:
+      - "src/dashboard/openapi.stub.json"
+
+  - id: testing
+    action: |
+      vitest + @testing-library/react config. One smoke test asserts
+      the landing page renders.
+    new:
+      - "src/dashboard/vitest.config.ts"
+      - "src/dashboard/src/app/__tests__/page.test.tsx"
+
+  - id: dockerfile
+    action: |
+      Multi-stage Dockerfile per spec above. Next.js standalone output
+      keeps the runtime image small (~50MB).
+    new:
+      - "src/dashboard/Dockerfile"
+      - "src/dashboard/.dockerignore"
+
+  - id: compose-integration
+    action: |
+      docker-compose.yml + docker-compose.example.yml gain the
+      agentsmith-dashboard service. Profile-gated 'dashboard' so
+      operators can opt out.
+    modify:
+      - "deploy/docker-compose.yml"
+      - "deploy/docker-compose.example.yml"
+
+  - id: ci-workflow
+    action: |
+      New workflow with paths-filter on src/dashboard/. Lint + test +
+      build matrix. Image publish on release tags.
+    new:
+      - ".github/workflows/dashboard.yml"
+
+  - id: docs
+    action: |
+      Operator setup page + mkdocs nav entry.
+    new:
+      - "docs/setup/dashboard.md"
+    modify:
+      - "mkdocs.yml"
+
+tests:
+  - "Dashboard_LandingPageRenders_WithDesignMdTokensApplied"
+  - "Dashboard_OpenApiCodegenScript_RunsAgainstStub_ProducesApiTs"
+  - "Dashboard_TailwindConfig_LoadsDesignMdTokens"
+  - "Dashboard_VitestSmokeTest_GreenInCi"
+  - "Dashboard_DockerfileBuild_ProducesStandaloneImage"
+  - "DockerCompose_DashboardService_StartsAndExposesPort3000"
+
+done:
+  - "src/dashboard/ contains a working Next.js 15 + TS + Tailwind v4 + shadcn project."
+  - "pnpm dev runs locally with hot-reload."
+  - "Landing page styles read DESIGN.md tokens via the build-tokens.mjs output."
+  - "pnpm gen:types succeeds against the stub openapi.json."
+  - "Docker image builds; docker compose up exposes the dashboard on :3000."
+  - "CI workflow green on push."
+  - "docs/setup/dashboard.md published."
+  - "Smoke: open http://localhost:3000 in a browser after docker compose up, see the placeholder landing page styled with Smith-green primary + Inter typography."

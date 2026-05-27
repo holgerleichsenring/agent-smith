@@ -7,7 +7,10 @@ namespace AgentSmith.Tests.Services;
 
 public sealed class InMemoryDecisionLoggerTests
 {
-    private readonly InMemoryDecisionLogger _sut = new(NullLogger<InMemoryDecisionLogger>.Instance);
+    private readonly InMemoryDecisionLogger _sut = new(
+        AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+        AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+        NullLogger<InMemoryDecisionLogger>.Instance);
 
     [Fact]
     public async Task LogAsync_CompletesWithoutError()

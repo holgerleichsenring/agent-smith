@@ -1,0 +1,147 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0167b
+goal: |
+  Ship the four review skills consumed by the pr-review preset (p0167a).
+  Each skill operates over the structured ContextKeys.PrDiff and emits
+  typed SkillObservations scoped to PR-line-level findings. Cross-repo
+  slice in agent-smith-skills (2.7.x → 2.8.0).
+
+requires: ["p0167a"]
+
+scope:
+  in: |
+    (1) Four new skills in agent-smith-skills under skills/pr-review/:
+
+        - style-reviewer: style + naming + readability checks against
+          coding-principles.md. Emits PerFileLineObservation entries
+          with category=style.
+
+        - correctness-reviewer: logic / behaviour / edge-case checks.
+          Highest severity tier. Emits category=correctness.
+
+        - test-coverage-reviewer: identifies changed code paths that
+          have no matching test addition or change. Reads ProjectMap
+          (per p0158f) to know where tests live. Emits category=test-
+          coverage with severity per heuristic (no tests in PR for
+          changed public API = high; no tests for private helper = low).
+
+        - security-overlap-reviewer: reuses the existing security-scan
+          skill catalog but scoped to PR-diff only. Wraps not duplicates
+          the security skills.
+
+    (2) Skill activation by phase: all four skills declare
+        phase: review and activation expressions matching pr-review
+        preset's review phase.
+
+    (3) Common observation shape: extension of SkillObservation with
+        optional line_range field (start..end) so PR-line-level
+        comments can target a hunk precisely.
+
+    (4) Confidence-threshold lowering for pr-review preset: blocking=true
+        + confidence<70 becomes non-blocking (per existing
+        SkillRoundHandlerBase behaviour; the threshold value is per-preset
+        configurable, default 70 stays).
+
+    (5) Self-test in skills repo: snapshot tests for each new SKILL.md
+        parsing under the existing skill-md-parser test bed.
+
+  out: |
+    Output rendering as comments — slice [[p0167c]].
+    Skill judge / verifier rounds — review skills emit observations;
+    structured triage path (p0111c) decides which become comments.
+    Custom severity vocabularies per skill. The 4-tier severity
+    enum (critical / high / medium / low) holds.
+
+decisions:
+  - key: |
+      Four skills, not one super-skill — Reason: separation of concern
+      maps to existing skill-round architecture; each skill has its
+      own prompt + activation + cost. Catastrophic miss in one
+      dimension (e.g. style ignoring correctness) cannot pollute the
+      other. alternatives: one skill (rejected: prompt bloat,
+      no per-dimension cost attribution).
+
+  - key: |
+      Wrap security-scan skills, do not duplicate — Reason: the
+      existing security-scan catalog (auth-reviewer, supply-chain-
+      auditor, …) already detects what security-overlap-reviewer
+      needs. The wrapper scopes them to PR-diff lines. alternatives:
+      copy security skills (rejected: drift); cross-pipeline call
+      (rejected: ISkillCallRuntime can dispatch — use that).
+
+  - key: |
+      line_range optional on SkillObservation — Reason: existing
+      observations have file + start_line + end_line equivalents in
+      some skill outputs; standardizing to line_range as the canonical
+      field reduces drift. Backwards-compatible (default null).
+      alternatives: separate PrLineObservation type (rejected:
+      doubles parsing logic).
+
+steps:
+  - id: observation-extension
+    action: |
+      Optional line_range field on SkillObservation. ObservationParser
+      maps it through.
+    modify:
+      - "src/AgentSmith.Contracts/Models/SkillObservation.cs"
+      - "src/AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs"
+
+  - id: skills-style
+    action: |
+      style-reviewer SKILL.md.
+    new:
+      - "(cross-repo agent-smith-skills) skills/pr-review/style-reviewer/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/pr-review/style-reviewer/agentsmith.md"
+
+  - id: skills-correctness
+    action: |
+      correctness-reviewer SKILL.md.
+    new:
+      - "(cross-repo agent-smith-skills) skills/pr-review/correctness-reviewer/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/pr-review/correctness-reviewer/agentsmith.md"
+
+  - id: skills-test-coverage
+    action: |
+      test-coverage-reviewer SKILL.md.
+    new:
+      - "(cross-repo agent-smith-skills) skills/pr-review/test-coverage-reviewer/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/pr-review/test-coverage-reviewer/agentsmith.md"
+
+  - id: skills-security-overlap
+    action: |
+      security-overlap-reviewer SKILL.md — a thin role-mapper invoking
+      the existing security skill catalog via ISkillCallRuntime with
+      PR-diff scoping.
+    new:
+      - "(cross-repo agent-smith-skills) skills/pr-review/security-overlap-reviewer/SKILL.md"
+      - "(cross-repo agent-smith-skills) skills/pr-review/security-overlap-reviewer/agentsmith.md"
+
+  - id: roster-config
+    action: |
+      pr-review preset's skills-path defaults to skills/pr-review/.
+      Pipeline-level confidence threshold setting (default 70) reads
+      from config.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.PrReview.cs"
+      - "config/agentsmith.example.yml"
+
+  - id: tests
+    action: |
+      Snapshot tests + activation-filter test for the four skills.
+    new:
+      - "tests/AgentSmith.Tests/Skills/PrReviewSkillRosterTests.cs"
+
+tests:
+  - "StyleReviewer_SkillMdParses_AndActivatesOnReviewPhase"
+  - "CorrectnessReviewer_SkillMdParses_AndActivatesOnReviewPhase"
+  - "TestCoverageReviewer_SkillMdParses_AndReadsProjectMapForTestProjects"
+  - "SecurityOverlapReviewer_SkillMdParses_AndReferencesSecurityScanCatalog"
+  - "ObservationLineRange_PopulatedFromSkillOutput_RoundTrips"
+  - "PrReviewRoster_ActivationFilter_OnlyReviewPhaseSkillsPicked"
+
+done:
+  - "agent-smith-skills 2.8.0 tagged with 4 new skills."
+  - "ObservationLineRange field on SkillObservation + ObservationNormalizer carries it through."
+  - "pr-review preset's skills-path resolves to skills/pr-review/."
+  - "Snapshot + activation tests green."
+  - "Build smoke: pr-review run on a sample PR with a deliberate naming-convention violation produces a style-reviewer observation with line_range populated."

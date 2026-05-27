@@ -36,6 +36,7 @@ public sealed class PipelineStepRunnerTests
             _progressMock.Object,
             dataFlowReadGate,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             NullLogger<PipelineStepRunner>.Instance);
     }
 

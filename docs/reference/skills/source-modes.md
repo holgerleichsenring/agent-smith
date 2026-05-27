@@ -82,5 +82,5 @@ agentsmith skills pull --version v1.0.0 --output ./test-skills    # no config fi
 agentsmith skills pull --url https://… --sha256 <hex> --output ./skills
 ```
 
-`scripts/fetch-skills.sh` uses explicit `--version` and `--output` so CI works
+`tools/fetch-skills.sh` uses explicit `--version` and `--output` so CI works
 without a project config file.

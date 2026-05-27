@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0167a
+goal: |
+  Introduce a `pr-review` pipeline preset. Distinct from p0025 (PR-feedback
+  loop where agent-smith responds to review comments) — this preset is
+  agent-smith *performing* the review: read a PR diff, dispatch review
+  skills against it, and emit findings as PR comments. Hits the most
+  contested 2026 market segment (CodeRabbit 2M repos, Greptile 82% bug-
+  catch claim).
+
+requires: ["p0158a"]
+
+scope:
+  in: |
+    (1) New PipelinePresets.PrReview.cs. Step sequence:
+        - FetchPullRequest (existing IPrDiffProvider)
+        - CheckoutSource (PR head)
+        - BootstrapProject + AnalyzeProject (existing handlers)
+        - LoadCodingPrinciples + LoadContext (existing)
+        - AnalyzePrDiff (new step — see p0167b for skill side)
+        - Triage (existing phase-based)
+        - RunReviewPhase (existing)
+        - CompilePrReviewFindings (new — see p0167c)
+        - PostPrComments (new — see p0167c)
+
+    (2) Webhook trigger: PR-opened + PR-synchronize routed to pr-review
+        by default (operator opt-out via pipeline_from_label). Reuses
+        existing GitHubPrCommentWebhookHandler-style infra extended for
+        pr-event (not comment-event).
+
+    (3) New ContextKeys.PrDiff (the raw diff text + parsed hunks), PrHead
+        (commit sha), PrBase (commit sha), PrAuthor.
+
+    (4) AnalyzePrDiff is a new handler that parses the unified diff into
+        per-file hunks with line numbers, publishes ContextKeys.PrDiff
+        as structured data the review skills can consume.
+
+    (5) Re-review on synchronize: a PR receiving new commits triggers
+        the preset again; previous comments (marked with an
+        `<!-- agentsmith:pr-review -->` HTML marker) are deleted before
+        new ones are posted. Idempotent overwrite, not stacking.
+
+  out: |
+    The review skills themselves — slice [[p0167b]].
+    Output formatting + PostPrComments handler — slice [[p0167c]].
+    Multi-repo PR review (a PR per repo via p0158c cross-link). The
+    cross-link path already exists; pr-review wiring per-repo is a
+    follow-up.
+
+decisions:
+  - key: |
+      Distinct preset, not a sub-mode of fix-bug — Reason: review and fix
+      have different output contracts (review = comments, fix = PR);
+      different triggers (PR event vs ticket event); different cost
+      profiles (review is fast, fix is slow). Sharing a preset would
+      duplicate every conditional. alternatives: --mode=review on fix-bug
+      (rejected: conditional explosion).
+
+  - key: |
+      PR-synchronize re-runs preset with idempotent comment overwrite —
+      Reason: stacking comments on every push spams the PR; deleting
+      and re-posting preserves the latest assessment. The marker
+      pattern is consistent with p0158c's cross-link replace-marker
+      approach. alternatives: stack comments (rejected: noise);
+      run once per PR (rejected: misses changes in subsequent pushes).
+
+  - key: |
+      Webhook trigger uses existing infra extended, not new — Reason:
+      pr-event is structurally similar to pr-comment-event (same
+      provider, same auth). The new handler is one IWebhookHandler
+      alongside the 13 existing ones, not a parallel infra. alternatives:
+      separate webhook pipeline (rejected: divergence).
+
+steps:
+  - id: preset
+    action: |
+      New PipelinePresets.PrReview.cs with the step sequence above.
+      Register in PipelinePresets.cs catalog.
+    new:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.PrReview.cs"
+    modify:
+      - "src/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: context-keys
+    action: |
+      ContextKeys.PrDiff / PrHead / PrBase / PrAuthor.
+    modify:
+      - "src/AgentSmith.Contracts/Commands/ContextKeys.cs"
+
+  - id: webhook-handlers
+    action: |
+      Per-platform PrEventWebhookHandler (GitHub / GitLab / AzDO).
+      Each subscribes to pr-opened + pr-synchronize.
+    new:
+      - "src/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs"
+      - "src/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs"
+      - "src/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrEventWebhookHandler.cs"
+    modify:
+      - "src/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs"
+
+  - id: analyze-pr-diff
+    action: |
+      AnalyzePrDiffHandler reads PR head/base from IPrDiffProvider,
+      parses unified diff into structured hunks, publishes
+      ContextKeys.PrDiff.
+    new:
+      - "src/AgentSmith.Application/Services/Handlers/AnalyzePrDiffHandler.cs"
+      - "src/AgentSmith.Application/Models/AnalyzePrDiffContext.cs"
+      - "src/AgentSmith.Application/Services/Builders/AnalyzePrDiffContextBuilder.cs"
+      - "src/AgentSmith.Domain/Models/PrDiff.cs"
+      - "src/AgentSmith.Domain/Models/PrHunk.cs"
+
+  - id: tests
+    action: |
+      Cover: preset shape, webhook routing, diff parsing for added /
+      removed / context lines.
+    new:
+      - "tests/AgentSmith.Tests/Pipelines/PrReviewPresetTests.cs"
+      - "tests/AgentSmith.Tests/Webhooks/GitHubPrEventWebhookHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Handlers/AnalyzePrDiffHandlerTests.cs"
+
+tests:
+  - "PrReviewPreset_StepSequence_ContainsFetchPrThroughPostComments"
+  - "GitHubPrEventWebhookHandler_PrOpenedPayload_EnqueuesPrReviewRun"
+  - "GitHubPrEventWebhookHandler_PrSynchronizePayload_EnqueuesPrReviewRun"
+  - "AnalyzePrDiff_UnifiedDiffWithAddedAndRemovedLines_ParsesPerFileHunks"
+  - "AnalyzePrDiff_BinaryFileDiff_SkipsWithMetadataOnly"
+
+done:
+  - "pr-review preset registered + step sequence asserted by test."
+  - "Three platform webhook handlers route pr-opened + pr-synchronize."
+  - "AnalyzePrDiffHandler emits structured ContextKeys.PrDiff."
+  - "Unit tests green."
+  - "Build smoke: open a test PR on a sample repo with webhook → pr-review run enqueues."

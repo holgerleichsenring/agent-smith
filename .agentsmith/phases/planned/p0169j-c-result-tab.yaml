@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-c-result-tab
+goal: |
+  Render result.md from the run-dir in a Result tab — the synthesised
+  deliverable (plan + decisions with full rationale + per-skill cost
+  + dialogue answers + execution trail) becomes the dashboard's
+  primary content surface. Today this artefact is only reachable by
+  opening the file in .agentsmith/runs/{id}/result.md by hand.
+
+requires:
+  - p0169f-topology-ui
+  - p0169h-event-trail-tree
+
+scope:
+  in: |
+    BACKEND (src/backend/AgentSmith.Server):
+
+    (1) New SignalR hub method JobsHub.GetResultMarkdown(runId) returns
+        the result.md content for that run, OR null when no run-dir is
+        on disk. Path resolution reuses the same convention as
+        WriteRunResultHandler — .agentsmith/runs/{runId}/result.md.
+        Path-traversal guarded (runId must match the timestamp+suffix
+        regex from RunIdGenerator).
+
+    (2) Same delegating shape as p0169h's GetTrail: hub method is a
+        two-line forward to a new ResultMarkdownReader service in
+        AgentSmith.Server.Services.Events (singleton, unit-testable
+        against a stubbed IRunsRootResolver).
+
+    DASHBOARD (src/dashboard/src/app/jobs/[id]):
+
+    (3) New Result tab routed via ?tab=result. JobsHubClient gains
+        getResultMarkdown(runId) (mirrors getTrail's shape).
+
+    (4) ResultTab component fetches the markdown, renders via
+        react-markdown + remark-gfm (tables, task lists, fenced code,
+        strikethrough). Custom code-block renderer uses Smith's
+        existing terminal-panel token vocabulary (DESIGN.md).
+
+    (5) ResultTab top-bar: links to download result.md (raw) +
+        copy-to-clipboard button + last-modified timestamp.
+
+    (6) Empty state when no result.md exists yet (mid-run, init-mode,
+        or pre-WriteRunResult): renders "Result generated when the
+        run completes" with a link back to Activity for live state.
+        Errored result-fetch (server returned null) renders the same
+        empty state with a small hint.
+
+    DEPENDENCIES (src/dashboard/package.json):
+
+    (7) react-markdown + remark-gfm + rehype-sanitize (XSS guard).
+        Pinned compatible with React 19. Markdown payload is
+        operator-trusted (server-side artefact) but rehype-sanitize
+        stays in the pipeline as a defense-in-depth layer.
+
+  out: |
+    plan.md / decisions.md / cost-summary.md as separate tabs. Out
+    today — result.md is the synthesised top-level artefact that
+    already inlines all three; if operators want raw access, the
+    download button surfaces it.
+    Live re-fetch on file change. Out — result.md is written once at
+    WriteRunResult; no live update story needed.
+    bootstrap-output rendering per repo (init-project). Out — that
+    artefact already inlines into result.md per p0161d's WriteRunResult
+    rewrite.
+
+decisions:
+  - key: |
+      Hub method, not REST endpoint — Reason: keeps the dashboard's
+      data surface single-channel (SignalR). Adding a REST endpoint
+      forces a second auth / CORS / path-prefix story. The method
+      shape mirrors GetTrail: hub-side two-liner + DI-resolved reader
+      service that's testable. alternatives: REST GET /api/runs/{id}/
+      result.md (rejected — second channel, second contract surface);
+      embed result.md as a giant event (rejected — payload up to MBs,
+      doesn't fit the event-stream model).
+
+  - key: |
+      react-markdown + remark-gfm + rehype-sanitize, not raw HTML —
+      Reason: result.md is operator-generated content (LLM output
+      synthesis); sanitisation is defense-in-depth, not paranoia.
+      GFM is essential for the per-skill cost tables WriteRunResult
+      renders. alternatives: pre-rendered HTML server-side (rejected
+      — couples server to dashboard markdown conventions); strict
+      markdown-only (rejected — tables are load-bearing).
+
+  - key: |
+      DESIGN.md token vocabulary in the code-block renderer —
+      Reason: result.md is full of fenced code (terminal output,
+      JSON payloads, YAML configs). The terminal-panel tokens from
+      DESIGN.md exist for exactly this surface; using them keeps
+      Smith's identity consistent across marketing site, docs, and
+      dashboard. alternatives: prismjs default theme (rejected —
+      generic look, no brand); no syntax highlighting (rejected —
+      readability cost on JSON/YAML blocks).
+
+steps:
+  - id: result-reader
+    action: |
+      ResultMarkdownReader service in Server.Services.Events. Reads
+      .agentsmith/runs/{runId}/result.md via IRunsRootResolver.
+      Returns null when path missing. Path-traversal guard rejects
+      runIds not matching the RunIdGenerator regex.
+    new:
+      - "src/backend/AgentSmith.Server/Services/Events/ResultMarkdownReader.cs"
+      - "tests/AgentSmith.Tests/Hubs/ResultMarkdownReaderTests.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Hubs/JobsHub.cs"
+      - "src/backend/AgentSmith.Server/Program.cs"
+
+  - id: hub-client
+    action: |
+      JobsHubClient.getResultMarkdown(runId) + useResultMarkdown hook.
+      Same lifecycle shape as useTrail.
+    new:
+      - "src/dashboard/src/hooks/useResultMarkdown.ts"
+    modify:
+      - "src/dashboard/src/lib/JobsHubClient.ts"
+
+  - id: markdown-deps
+    action: |
+      Add react-markdown + remark-gfm + rehype-sanitize. Pin React 19
+      compatible.
+    modify:
+      - "src/dashboard/package.json"
+      - "src/dashboard/pnpm-lock.yaml"
+
+  - id: result-tab
+    action: |
+      ResultTab component + custom code-block renderer wired to
+      DESIGN.md terminal-panel tokens. Top-bar with download + copy
+      + timestamp. Empty + error states.
+    new:
+      - "src/dashboard/src/components/jobs/ResultTab.tsx"
+      - "src/dashboard/src/components/jobs/ResultCodeBlock.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ResultTab.test.tsx"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test green.
+      Manual smoke: completed run shows result.md rendered in the
+      Result tab with tables, code-fences, decision sections, cost
+      breakdown.
+
+tests:
+  - "ResultMarkdownReader_KnownRunWithResultMd_ReturnsContent"
+  - "ResultMarkdownReader_RunDirMissing_ReturnsNull"
+  - "ResultMarkdownReader_ResultMdMissing_ReturnsNull"
+  - "ResultMarkdownReader_PathTraversalAttempt_RejectsRunId"
+  - "JobsHubGetResultMarkdown_DelegatesToReader"
+  - "useResultMarkdown_FetchesOnMount_StoresContent"
+  - "ResultTab_RendersHeadingsTablesCodeFences"
+  - "ResultTab_MissingResultMd_RendersEmptyStateWithActivityLink"
+  - "ResultTab_FetchError_RendersFriendlyEmptyState"
+  - "ResultCodeBlock_AppliesTerminalPanelTokens"
+
+done:
+  - "JobsHub.GetResultMarkdown method delegates to ResultMarkdownReader."
+  - "Path-traversal guard: only valid RunIdGenerator-shaped ids accepted."
+  - "useResultMarkdown hook fetches on mount, exposes loading + error + content."
+  - "ResultTab routed via ?tab=result; renders react-markdown + remark-gfm + rehype-sanitize."
+  - "Code-block renderer uses DESIGN.md terminal-panel tokens."
+  - "Empty + error states ship; mid-run runs surface 'completes-on-finish' message."
+  - "Backend + dashboard tests green."
+  - "Manual smoke: completed run's result.md is the primary content surface in the dashboard."

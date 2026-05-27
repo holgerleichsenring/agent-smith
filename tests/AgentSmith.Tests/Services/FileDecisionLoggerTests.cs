@@ -16,7 +16,10 @@ public sealed class FileDecisionLoggerTests : IDisposable
         _tempDir = Path.Combine(Path.GetTempPath(), "agentsmith-decisions-" + Guid.NewGuid().ToString("N")[..8]);
         _agentDir = Path.Combine(_tempDir, ".agentsmith");
         Directory.CreateDirectory(_agentDir);
-        _sut = new FileDecisionLogger(NullLogger<FileDecisionLogger>.Instance);
+        _sut = new FileDecisionLogger(
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+            NullLogger<FileDecisionLogger>.Instance);
     }
 
     public void Dispose()

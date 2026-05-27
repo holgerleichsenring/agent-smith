@@ -1,0 +1,175 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169i-sandbox-session-replay
+goal: |
+  Asciinema-style replay of a sandbox session, played back in the
+  dashboard. Closes the Devin-2.2 screen-recording perception gap.
+  Supersedes p0169d — the agent-side ScriptRecorder is no longer needed
+  because p0169e's SandboxOutput L3 events already capture per-line
+  stdout/stderr with timestamps; replay assembles client-side from those
+  events. No new backend code, no separate cast endpoint, no
+  sandbox-agent changes.
+
+  Marked OPTIONAL — high demo-impact, modest production-utility. Ship
+  after p0169f + p0169g + p0169h stabilise.
+
+requires:
+  - p0169e-event-backbone
+  - p0169f-topology-ui
+  - p0169h-event-trail-tree
+
+supersedes:
+  - p0169d
+
+scope:
+  in: |
+    DASHBOARD CLIENT (src/dashboard/src/components/jobs):
+
+    (1) AsciinemaCastBuilder service builds an asciinema v2 cast file
+        in-memory from SandboxOutput events for a given (runId, repo,
+        stepIndex). Cast header derives from SandboxCommand
+        (Command + initial timestamp); subsequent rows are per-line
+        delta-timestamped against the first SandboxOutput.
+
+    (2) Replay affordance: TrailNodeDetailPane (p0169h) detects when
+        the selected node is a sandbox-step containing
+        SandboxCommand/Output/Result and renders a "▶ Replay session"
+        button next to the metadata.
+
+    (3) Modal overlay opens with asciinema-player wrapping the
+        in-memory cast. Standard playback controls (play / pause /
+        seek / 0.5×/1×/2×/4× speed). Closeable.
+
+    (4) Privacy notice in the modal footer: "Replay uses SandboxOutput
+        events captured during the run. Sandbox stdout/stderr is
+        captured verbatim — verify no sensitive output before sharing
+        externally. (See p0169e for the L3 expansion gate that
+        governs server-side fanout.)"
+
+    (5) Cast-builder size guard: if assembled events exceed
+        2 MB equivalent, the modal opens with a "trail truncated"
+        banner; replay still works on the available window.
+
+  out: |
+    Server-side cast generation / asciinema file artefacts. Out —
+    p0169d's premise (separate cast file on disk) is gone; the events
+    ARE the recording.
+    AGENTSMITH_RECORD_SESSIONS env flag. Out — recording is now
+    free with the event-backbone; the gate is the L3 expansion in
+    JobsHub (already operator-controlled per-subscription).
+    Secrets-scrubbing on the cast. Same boundary as the event stream:
+    SandboxOutput is the L3 expanded surface, not a wider audience.
+    Operator-configured scrubbing of the per-run stream is a separate
+    follow-up if demand emerges.
+    GUI / X-server / browser recordings. Out — terminal-only.
+    Replay-as-input (re-running the recorded commands). Out —
+    inspection only.
+
+decisions:
+  - key: |
+      Cast assembled client-side from L3 events, no agent-side
+      recording — Reason: p0169d's ScriptRecorder + cast-file +
+      cast-endpoint chain was built before the event-backbone
+      existed. Post-p0169e the same data flows through SandboxOutput
+      events with per-line timestamps — strictly more capable than
+      a static cast file. Client-side assembly removes the entire
+      agent + endpoint axis. alternatives: agent-side ScriptRecorder
+      (rejected: duplicates the event capture); persist a cast file
+      alongside the event stream (rejected: drift risk, two sources
+      of truth).
+
+  - key: |
+      Optional slice, ship last — Reason: p0169d's "optional, high
+      demo / modest production" assessment still holds. The
+      event-backbone makes it cheap to build, but operator value
+      ranks below filter rail + trail tree. Spec exists so the
+      follow-up is named; sequencing is the operator's call.
+      alternatives: ship before p0169h (rejected: trail tree is the
+      higher-value affordance for diagnostic work); drop entirely
+      (rejected: real demo gap, low cost post-p0169e).
+
+  - key: |
+      asciinema-player from npm, not vendored — Reason: same
+      rationale as p0169d (npm hygiene + Next.js project), still
+      valid. alternatives: vendor (rejected: same as p0169d);
+      custom player (rejected: redo a solved problem).
+
+  - key: |
+      No secrets-scrubbing at replay time — Reason: the L3 expansion
+      gate IS the audience boundary. Operators who expand a sandbox
+      have consented to see its stdout/stderr. Scrubbing at replay
+      adds a false sense of safety (regex misses) while the upstream
+      event stream is unscrubbed. If scrubbing becomes a hard
+      requirement, the right layer is the publisher (filter
+      SandboxOutput at the seam) — different phase. alternatives:
+      replay-time regex scrub (rejected: false-confidence anti-
+      pattern); publisher-side scrub (deferred: separate phase if
+      operators demand it).
+
+steps:
+  - id: cast-builder
+    action: |
+      AsciinemaCastBuilder.ts: pure function from SandboxOutput[] +
+      SandboxCommand → asciinema v2 cast string. Header from
+      command + first timestamp; rows from per-line deltas.
+    new:
+      - "src/dashboard/src/lib/AsciinemaCastBuilder.ts"
+      - "src/dashboard/src/lib/__tests__/AsciinemaCastBuilder.test.ts"
+
+  - id: replay-modal
+    action: |
+      AsciinemaPlayerModal wrapping asciinema-player. Loads the
+      cast string from AsciinemaCastBuilder; standard playback
+      controls.
+    new:
+      - "src/dashboard/src/components/jobs/AsciinemaPlayerModal.tsx"
+    packages:
+      - "asciinema-player ^3"
+
+  - id: replay-affordance
+    action: |
+      TrailNodeDetailPane gains a "▶ Replay session" button on
+      sandbox-step nodes. Click opens the modal.
+    modify:
+      - "src/dashboard/src/components/jobs/TrailNodeDetailPane.tsx"
+    new:
+      - "src/dashboard/src/components/jobs/ReplayAffordance.tsx"
+
+  - id: size-guard
+    action: |
+      AsciinemaCastBuilder caps assembled output at 2 MB equivalent;
+      modal renders truncation banner on overflow.
+    new:
+      - "src/dashboard/src/components/jobs/ReplayTruncationBanner.tsx"
+
+  - id: dashboard-tests
+    action: |
+      Vitest: cast builder against fixture event sequences (single
+      step, multiple steps, mixed stdout/stderr, beyond-cap
+      truncation). Modal open + player init.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/AsciinemaPlayerModal.test.tsx"
+
+  - id: verify
+    action: |
+      pnpm build + pnpm test green. Manual smoke: open a finished
+      run's Trail tab, click a sandbox-step node, click "▶ Replay
+      session" — modal opens, asciinema player plays back the
+      stdout/stderr stream at original timing.
+
+tests:
+  - "AsciinemaCastBuilder_SingleStepWithFiveLines_ProducesValidV2Cast"
+  - "AsciinemaCastBuilder_MixedStdoutAndStderr_PreservesStreamLabels"
+  - "AsciinemaCastBuilder_BeyondTwoMb_TruncatesWithMarker"
+  - "AsciinemaCastBuilder_EmptyEventList_ReturnsEmptyCastHeader"
+  - "AsciinemaPlayerModal_OpenWithCast_InitialisesPlayer"
+  - "ReplayAffordance_SandboxStepNode_ButtonRendered"
+  - "ReplayAffordance_NonSandboxNode_ButtonHidden"
+
+done:
+  - "AsciinemaCastBuilder ships; pure-function projection from SandboxOutput events → asciinema v2 cast."
+  - "Replay button visible on sandbox-step nodes in the trail's detail pane."
+  - "asciinema-player wired; modal opens with playback controls."
+  - "Size guard activates beyond 2 MB; truncation banner renders in the modal."
+  - "Vitest suite green."
+  - "Manual smoke: real run → Trail tab → sandbox node → ▶ Replay → playback at original timing."
+  - "p0169d marked superseded; no agent-side ScriptRecorder + cast-endpoint chain shipped (replaced by event-stream-based replay)."

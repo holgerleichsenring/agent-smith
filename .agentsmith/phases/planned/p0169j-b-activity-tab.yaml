@@ -1,0 +1,202 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-b-activity-tab
+goal: |
+  Replace the developer-debug FilterRail (16 event-type checkboxes,
+  L1/L2/L3 jargon) with a human Activity tab: chronological event
+  timeline, 6 pill-style toggle groups, failure rows surface the
+  reason inline FROM THE EVENT — no heuristic pairing, no "(see
+  server logs)" fallback. Consumes the typed reason fields landed
+  by p0169j-b1.
+
+  Closes the diagnostic gap the user hit on the project-discovery
+  skill-drop run: dashboard now shows "BootstrapDiscover failed:
+  no skill with output_schema=discovery available" inline, and
+  shows the preceding CatalogIssueEvent "skill format violation:
+  description must be at most 200 chars" as a warning row.
+
+requires:
+  - p0169f-topology-ui
+  - p0169g-filter-rail-and-l3-tools
+  - p0169h-event-trail-tree
+  - p0169j-b1-failure-reason-events
+
+scope:
+  in: |
+    DASHBOARD (src/dashboard/src/app/jobs/[id]):
+
+    (1) New Activity tab routed via ?tab=activity, alongside the
+        existing Topology + Trail tabs. Default tab unchanged
+        (Topology).
+
+    (2) Six pill toggles in a single horizontal row replace the
+        three-section L1/L2/L3 FilterRail:
+          - [ All ] [ Decisions ] [ Tools ] [ LLM ] [ Sandbox ] [ Gates ] [ Issues ]
+        Maps to existing EventType groups:
+          - Decisions: TriageRoute + DecisionLogged
+          - Tools: ToolCall + ToolResult
+          - LLM: LlmCallStarted + LlmCallFinished
+          - Sandbox: SandboxCommand + SandboxOutput + SandboxResult
+            + SandboxCreated + SandboxDisposed
+          - Gates: GateChecked
+          - Issues: CatalogIssueEvent (new in p0169j-b1)
+        L1 lifecycle events (RunStarted/RunFinished/StepStarted/
+        StepFinished) are always-visible — they're the chronological
+        scaffold operators navigate by.
+
+    (3) Power-user toggle "show event types" reveals the full 16-type
+        FilterRail underneath for debug work. Default off.
+
+    (4) ActivityRow per event, chronological. Renders directly from
+        the event's typed reason field — no client-side pairing:
+          12:56:34  ◇  Triage         backend-developer-planner   Lead
+          12:56:38  ◆  Decision       Architecture: chose X over Y
+                                      "because the cache invalidation..."
+          12:56:41  ↗  LLM start      claude-sonnet · planner · 2.1k in
+          12:57:03  ↘  LLM done       1.4k out · $0.04 · 22s
+          12:59:30  ⚠  Catalog        skill format violation in
+                                      project-discovery/SKILL.md:
+                                      description must be at most 200 chars
+          12:59:32  ✕  Step failed    BootstrapDiscover: no skill with
+                                      output_schema=discovery available
+        Failure rows (StepFinished status=failed AND Reason set;
+        GateChecked passed=false; ToolResult ok=false AND ErrorMessage
+        set; CatalogIssue severity=error) render in rose with the
+        reason text visible without a click.
+
+    (5) Warning rows (CatalogIssue severity=warning, ToolResult ok=
+        false WITHOUT a downstream step-fail) render in amber. The
+        catalog-issue → step-fail correlation is OBSERVED via row
+        order (CatalogIssue precedes the StepFinished failure
+        chronologically), not heuristic-paired.
+
+    (6) Click on any row expands to full payload (re-uses
+        TrailNodeDetailPane's payload renderers from p0169h).
+
+    (7) URL search-param ?activity=Decisions,Tools encodes the active
+        pill set; absence = all pills on. Pill toggle calls
+        router.replace; URL round-trips on refresh / share.
+
+  out: |
+    Heuristic temporal pairing of step-fail + nearby explanation.
+    REMOVED FROM THIS SLICE — p0169j-b1 puts the reason on the event
+    itself. The ActivityErrorPairer drafted in the original p0169j-b
+    is no longer needed; consumers read event.reason directly.
+    FilterRail removal. Out — still serves the Trail tab. Activity
+    gets its own pills; FilterRail's removal happens after the
+    Activity surface proves itself with operators.
+    Search-in-events. Out — pill filtering + URL persistence is the
+    affordance today.
+    Server-side row aggregation / windowing. Out — chronological
+    rendering of a ≤2000-event run is fast in the browser.
+
+decisions:
+  - key: |
+      Reason fields read directly from the event, no temporal pairing
+      — Reason: p0169j-b1 added the reason as typed event fields
+      (StepFinishedEvent.Reason, ToolResultEvent.ErrorMessage,
+      CatalogIssueEvent.Message). The original p0169j-b draft had
+      an ActivityErrorPairer that folded step-fail + a nearby
+      DecisionLogged/GateChecked into a composite ErrorRow within
+      a 2-second window — that pairer would have missed exactly
+      the motivating case (CatalogIssue from a skill-validator
+      drop arrives ~2s before the step-fail and is a different
+      producer class entirely). Direct event-field rendering is
+      contract-honest; row order tells the operator which event
+      preceded which.
+      alternatives: heuristic pairer (rejected — papered over the
+      missing field, drifted under edge cases, failed on
+      non-pairable cases like CatalogIssue → step-fail across
+      producer classes). See [[feedback_no_heuristic_for_missing_data]].
+
+  - key: |
+      Six pills (Issues added), not five — Reason: p0169j-b1 ships
+      CatalogIssueEvent as a distinct producer. The Issues pill makes
+      catalog-loader visibility explicit; today's operator would have
+      seen the project-discovery validation drop as an amber row in
+      their Activity tab before BootstrapDiscover crashed. The pill
+      lets operators filter catalog noise away once they trust their
+      catalog. alternatives: bundle Issues into Gates (rejected —
+      different producer category, different severity model);
+      always-on Issues without pill (rejected — operators with clean
+      catalogs want to hide it).
+
+  - key: |
+      Five-pill operator vocabulary, not L1/L2/L3 — Reason: L1/L2/L3
+      is the internal contract from p0169e. Operators don't care
+      about semantic layers; they care about what kind of activity
+      the agent did. Decisions / Tools / LLM / Sandbox / Gates /
+      Issues is the operator vocabulary; the L-numbers stay in the
+      backend contract.
+
+  - key: |
+      Activity tab as new addition, not FilterRail replacement —
+      Reason: FilterRail still serves the Trail tab (its filtering
+      is consumed by SandboxBox + RunToolsPanel). Ripping it out
+      here would force coupled rework. Activity gets its own pills;
+      FilterRail's removal happens after the Activity surface
+      proves itself.
+
+steps:
+  - id: activity-pills
+    action: |
+      ActivityPills component + ?activity= URL persistence helper.
+      Six pill groups + ALL toggle.
+    new:
+      - "src/dashboard/src/lib/activityPillQuery.ts"
+      - "src/dashboard/src/components/jobs/ActivityPills.tsx"
+      - "src/dashboard/src/lib/__tests__/activityPillQuery.test.ts"
+
+  - id: activity-rows
+    action: |
+      ActivityRow renders each event type with severity-coloured
+      styling. Failure rows pull reason / errorMessage / message
+      directly from the event payload — no pairing logic. Click
+      expands via TrailNodeDetailPane's payload renderers.
+    new:
+      - "src/dashboard/src/components/jobs/ActivityRow.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ActivityRow.test.tsx"
+
+  - id: activity-tab
+    action: |
+      ActivityTab orchestrator: consumes useRunEvents, applies pill
+      filter, renders rows chronologically. Power-user "show event
+      types" toggle reveals the legacy FilterRail.
+    new:
+      - "src/dashboard/src/components/jobs/ActivityTab.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/ActivityTab.test.tsx"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: verify
+    action: |
+      pnpm test green. pnpm build green. Manual smoke: trigger a
+      failing run (e.g. the too-long skill description case);
+      switch to Activity tab; see the CatalogIssue warning row
+      preceding the step-fail failure row, both with reason
+      inline — no click, no server-log diversion.
+
+tests:
+  - "ActivityPills_DefaultLoad_AllPillsActive"
+  - "ActivityPills_TogglingOneOff_WritesUrlSearchParam"
+  - "ActivityPills_UrlActivityParam_RestoresPillStateOnRefresh"
+  - "ActivityPills_IssuesPillFiltersCatalogIssueEvents"
+  - "ActivityRow_StepFinishedFailedWithReason_ShowsReasonInlineRoseStyling"
+  - "ActivityRow_GateFailWithReason_ShowsReasonInline"
+  - "ActivityRow_ToolResultErrorMessage_ShowsMessageInline"
+  - "ActivityRow_CatalogIssueWarning_RendersAmber"
+  - "ActivityRow_CatalogIssueError_RendersRose"
+  - "ActivityRow_ClickExpands_ShowsPayloadDetail"
+  - "ActivityTab_PillFilter_HidesEventsOutsideActivePills"
+  - "ActivityTab_LifecycleEventsAlwaysVisible_RegardlessOfPills"
+  - "ActivityTab_PowerToggle_RevealsLegacyFilterRail"
+
+done:
+  - "Activity tab routed via ?tab=activity; default tab unchanged."
+  - "Six pills (Decisions / Tools / LLM / Sandbox / Gates / Issues) replace L1/L2/L3 jargon."
+  - "Failure rows show event.reason / event.errorMessage / event.message inline; click expands to payload."
+  - "Warning rows (CatalogIssue severity=warning) render amber; error rows render rose."
+  - "?activity=… URL params round-trip; defaults encoded by absence."
+  - "Power-user toggle 'show event types' reveals the legacy FilterRail."
+  - "No client-side pairing / heuristic — UI consumes typed event fields directly."
+  - "Vitest suite green. pnpm build green."
+  - "Manual smoke: the project-discovery skill-drop case shows CatalogIssue (amber) + Step failed (rose) with reasons inline."

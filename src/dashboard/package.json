@@ -1,0 +1,48 @@
+{
+  "name": "agentsmith-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm gen:tokens && pnpm gen:types && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:types": "openapi-typescript ${OPENAPI_SOURCE:-./openapi.stub.json} -o src/types/api.ts",
+    "gen:hub-events": "node ../../tools/build-hub-event-types.mjs --check",
+    "gen:tokens": "node ../../tools/build-tokens.mjs --target tailwind"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "next": "15.0.3",
+    "react": "19.0.0",
+    "react-arborist": "^3.8.0",
+    "react-dom": "19.0.0",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@tailwindcss/postcss": "^4.0.0-beta.4",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "15.0.3",
+    "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.4.4",
+    "postcss": "^8.4.49",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^4.0.0-beta.4",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169e
+
+decisions:
+  - category: Architecture
+    chose: "EventPublishingChatClient wraps the innermost IChatClient — below SkillCallRuntime's retry layer"
+    over: "Wrap above the retry layer or at the SkillCallRuntime boundary"
+    reason: |
+      Each retry attempt must produce its own LlmCallStarted/Finished pair
+      with the actual response's token counts. Wrapping above retries would
+      mean one event for N attempts and tokensIn/Out reflecting only the
+      last attempt — that misalignment would surface as 'why don't the
+      cost events match result.md'. The chain inside SkillCallRuntime is
+      now: inner provider client → EventPublishingChatClient (events) →
+      TracingChatClient (LoopTraceCollector) → RetryCoordinator. Per-event
+      attribution stays honest.
+
+  - category: Security
+    chose: "Tool previews are metadata only — name + arg length + ok/fail"
+    over: "First-N-character previews of args / results"
+    reason: |
+      The first 200 chars of a write_file call are often the sensitive
+      content (source, secrets, file contents read back). Same security
+      class as prompts — and we drew the line against plaintext prompts
+      leaving the hub. ToolCallEvent carries Tool + ArgsLength;
+      ToolResultEvent carries Tool + Ok + ResultLength. SandboxCommandEvent
+      uses the same metadata-only shape for its args (command name +
+      ArgsLength). SandboxOutputEvent keeps Line as content because the
+      L3 expansion gate (ExpandSandbox group) is the boundary — operators
+      who expand a sandbox have asked for the stream.
+
+  - category: Architecture
+    chose: "Producer list grounded in current code (p0119a/p0142 reality), not the spec's pre-migration list"
+    over: "Build the spec's literal eight-producer list"
+    reason: |
+      The spec listed ToolExecutor, ClaudeAgenticAnalyzer, OpenAiAgenticAnalyzer
+      as producers. All three were deleted in p0119a (M.E.AI migration —
+      tool calls + LLM calls go through IChatClient + AIFunction now).
+      The grounded list is: ExecutePipelineUseCase, PipelineStepRunner,
+      PipelineSandboxCoordinator, EventPublishingChatClient (decorator),
+      EventPublishingAIFunction (decorator), SandboxEventProjector (new
+      seam-side decorator), DecisionLogger (in-memory + file impls),
+      BootstrapGateHandler + EmptyPlanCheckHandler, TriageOutputProducer.
+      Per [[feedback_challenge_premises]]: foundational premise of the
+      spec was stale; honoured the spec's intent (catch silent producers),
+      not its literal call sites.
+
+  - category: TradeOff
+    chose: "SandboxEventProjector implemented as an ISandbox decorator, not a hosted Redis consumer"
+    over: "A separate hosted service polling sandbox:{jobId}:events from Redis"
+    reason: |
+      The spec framed the projector as a hosted Redis consumer
+      crossing the deployment seam. But the existing sandbox
+      implementations (Kubernetes / Docker / InProcess) already consume
+      sandbox:{jobId}:events server-side and forward each StepEvent via
+      IProgress<StepEvent> in RunStepAsync. The seam is crossed once
+      inside ISandbox — a parallel Redis consumer would re-cross it.
+      Wrapping ISandbox at PipelineSandboxCoordinator.CreateOneAsync is
+      the natural choke-point: every RunStepAsync emits SandboxCommand
+      on entry, SandboxOutput per StepEvent in IProgress, SandboxResult
+      on completion. Sandbox.Agent + Sandbox.Wire stay untouched as the
+      spec intended.
+
+  - category: Architecture
+    chose: "AsyncLocal-backed IRunContextAccessor for decorators that don't see PipelineContext"
+    over: "Thread runId through every decorator's constructor"
+    reason: |
+      EventPublishingChatClient and EventPublishingAIFunction are
+      constructed per-skill-call inside SkillCallRuntime; threading runId
+      through every construction site would force the runtime to take a
+      PipelineContext dependency it doesn't otherwise need. The
+      AsyncLocal scope is opened at ExecutePipelineUseCase entry (same
+      place we already open the log scope and set ContextKeys.RunId),
+      closed at exit; decorators read CurrentRunId on each event. Returns
+      null outside a pipeline run so background services / tests don't
+      accidentally tag their work with a stale runId.
+
+  - category: Implementation
+    chose: "Active SET + recent LIST indices in Redis; no global aggregator stream"
+    reason: |
+      Cold-start of JobsBroadcaster enumerates runs in two commands
+      (SMEMBERS active, LRANGE recent), never touches the keyspace.
+      KEYS run:*:events is forbidden (blocks Redis); SCAN iterates the
+      whole keyspace and races with newly-started runs. Self-heals on
+      cold-start: when a stream's TTL has expired, the broadcaster SREMs
+      from active / LREMs from recent. RecentRunsRingBuffer caps at 50
+      (mirror of LTRIM 0 49 in RedisEventPublisher) so memory bound is
+      deterministic across long uptimes.
+
+  - category: Implementation
+    chose: "TriageOutputProducer gets its own drop-row in the completeness Theory"
+    over: "Folding deterministic Triage into the structured path"
+    reason: |
+      Deterministic ≠ exempt from silent-publisher checks. If
+      TriageOutputProducer.PublishRoutesAsync ever stops emitting (e.g.
+      a future refactor moves the publish call into a helper that
+      becomes unreachable), the Theory row turns red. Same gate as the
+      LLM-driven producers — the row is the silent-publisher tripwire.
+
+  - category: Implementation
+    chose: "SandboxEventProjector gets its own dedicated gate test (StepEvent fixture → 3 event types)"
+    over: "Folding the projector into the completeness Theory"
+    reason: |
+      The projector crosses the deployment seam between Sandbox.Agent
+      and the server — it is the highest-volume, most-fragile producer.
+      Forcing it into the Theory would require a real ISandbox stub
+      reused across rows. A dedicated SandboxEventProjectorTests file
+      drives a scripted StepEvent feed through the projector and asserts
+      SandboxCommand + SandboxOutput + SandboxResult all surface — red
+      on absence of any one. The projector also has a row in the Theory
+      so the silent-publisher symmetry stays explicit.
+
+  - category: Implementation
+    chose: "Hub uses XRANGE replay on SubscribeRun, bounded by the existing MAXLEN=10000"
+    reason: |
+      Mid-run connects replay the retained stream window (from 0 to +)
+      via XRANGE before live-tail starts. The 10000-entry cap is part
+      of the contract, not a hidden truncation — clients see the oldest
+      retained event as the start of their visible history, never a
+      synthetic 'full from beginning' replay. Matches the existing
+      BusMessage TTL convention (2 hours).
+
+  - category: TradeOff
+    chose: "promptHash = sha256-hex-8 of concatenated text content; binary attachments excluded"
+    reason: |
+      The hash exists for correlation between events ('which step
+      started this LLM call') and audit trace, not for lookup. Including
+      tool call IDs or binary attachments in the hash would make it
+      depend on per-call random IDs and bloat the digest. Plaintext
+      prompts stay in the cost-summary / result.md path, gated by
+      whoever has filesystem / git access — adding a hub endpoint to
+      resolve hash → plaintext would invert that boundary.
+      alternatives: include tool call IDs (rejected: random IDs break
+      reproducibility); resolve hash → plaintext via hub endpoint
+      (rejected: same data class as the boundary we're protecting).
+
+  - category: Scope
+    chose: "/api/openapi.json + Swashbuckle stay; Jobs-specific endpoints removed"
+    reason: |
+      The CORS policy + Swashbuckle setup is generic — Slack / Teams /
+      Webhook endpoints may benefit from the dashboard contract surface
+      later. The ripout removes the JobsEndpoints group + SSE endpoint +
+      AGENTSMITH_RUNS_ROOT env-var (no current consumer), but keeps the
+      hub mapping at /hub/jobs and the OpenAPI redirect. Dashboard's
+      jobs/[id] route is deleted; the home page renders a
+      'connecting…' shim until p0169f lands the topology UI.
+
+  - category: Implementation
+    chose: "Two test publishers (EventTestStubs.NoOp + RecordingEventPublisher) live in tests/TestHelpers and tests/Events respectively"
+    reason: |
+      EventTestStubs in TestHelpers is the no-op default for tests of
+      classes that took on IEventPublisher dependencies but don't care
+      about events. RecordingEventPublisher in tests/Events is the
+      assertion-oriented recorder used by EventSequenceCompletenessTests
+      and the projector tests. Two distinct shapes — one for 'tests of
+      X that don't assert on emission', one for 'tests that assert on
+      emission' — keeps each test file's intent visible at the call
+      site. Both share the IEventPublisher interface.
