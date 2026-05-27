@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0169j-c
+
+decisions:
+  - category: Architecture
+    chose: "IRunArtifactStore gains a 4th slot (Result), not a separate IResultArtifactStore"
+    reason: |
+      The existing 3-slot store already has the right shape — per-runId
+      Redis key, per-slot TTL, in-memory fallback for tests, ClearAsync
+      lifecycle. Adding a 4th method-pair keeps one DI registration and
+      one cleanup story. The result-slot lifecycle differs from the
+      others (read AFTER WriteRunResult, not during the pipeline)
+      which is why PromoteAsync deliberately does NOT clear the result
+      slot — the slot lives on its own 24h TTL.
+      Alternatives: separate IResultArtifactStore interface (rejected
+      — two DI registrations for the same shape); server-readable
+      filesystem mount (rejected — see PARKED.md item 1).
+
+  - category: Architecture
+    chose: "WriteRunResultHandler writes resultMd to BOTH disk (sandbox / target repo) AND store (Redis cache)"
+    reason: |
+      The disk write is what makes result.md land in the PR (git add
+      -A in CommitAndPR includes the .agentsmith/runs/{id}/ directory).
+      The store write is what the dashboard can read server-side. Two
+      write paths give us:
+        - Dashboard read surface (Redis, 24h cache)
+        - PR durable surface (git, forever)
+      Failure of the Redis write is logged at warning and swallowed —
+      the FS write + PR remains the source of truth.
+
+  - category: TradeOff
+    chose: "24h hard-coded TTL on the result slot, separate from the existing TTL config"
+    over: "Inherit the existing PipelineStorage.RedisTtlHours setting"
+    reason: |
+      The existing 3 slots (plan/diff/bootstrap) are in-flight data
+      cleared at PromoteAsync; their TTL is "max in-flight pipeline
+      duration." Result-slot lifetime is "operator look-back window"
+      — fundamentally different scale (24h vs 4h default).
+      Hard-coding 24h matches the spec's intent + keeps Redis memory
+      predictable (~100-run headroom at 1-2 MB per result.md).
+      Operators who need different windows can come back later;
+      adding a knob now would be premature.
+
+  - category: Implementation
+    chose: "Init-fan-out writes per-repo result.md to the store with the same runId (last write wins)"
+    reason: |
+      The dashboard's per-runId read model gives us one slot per
+      runId. Multi-repo init runs write each repo's result.md to
+      disk (separate `{runId}-init/` dirs PER REPO via the
+      per-sandbox reader), but only one of them survives in the Redis
+      store. For the multi-repo init case the per-repo content
+      already lives in the per-repo PR — clicking through to a
+      specific repo's PR is the operator path. Combining into one
+      multi-section markdown is a spec-creep candidate, not in this
+      slice.
+
+  - category: Security
+    chose: "rehype-sanitize stays in the pipeline despite the content being server-authored"
+    reason: |
+      result.md is LLM-synthesised content. Even though the server
+      authors it, the inputs are operator-bound (ticket descriptions,
+      repo contents, plan steps, decisions) and an LLM can be coaxed
+      into emitting unsafe HTML in extreme cases (prompt-injection
+      from a malicious ticket). The defense-in-depth pipeline costs
+      nothing meaningful at this content size and removes one class
+      of UI vulnerability outright.
+
+  - category: Implementation
+    chose: "Empty state links to the PR (when prUrl is available), not a generic 'missing' message"
+    reason: |
+      Every completed run has its result.md in a PR — the WriteRunResult
+      → CommitAndPR ordering guarantees it (verified in code). The PR
+      URL is on the RunFinishedEvent payload that the Run-snapshot
+      carries. When the dashboard's 24h cache is cold, the PR is one
+      click away — operators see the same content with one redirect.
+      For runs where prUrl is null (in-flight, init mode, failed
+      before commit), the empty state says "result becomes visible
+      when the run finishes" instead — there's nothing to link to.
+
+  - category: Implementation
+    chose: "Path-traversal guard via RunIdGenerator.IsValid in ResultMarkdownReader"
+    reason: |
+      Today the reader pulls from Redis (no FS access), so traversal
+      via "../../etc/passwd" can't escape anything — but the guard
+      is defense-in-depth and trivially cheap. If we ever swap the
+      reader to read from a filesystem path (e.g. a future "frozen
+      events" feature that does land on disk), the guard is already
+      in place.

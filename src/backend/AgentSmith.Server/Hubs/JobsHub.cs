@@ -17,7 +17,8 @@ public sealed class JobsHub(
     JobsBroadcaster broadcaster,
     SandboxExpansionRegistry expansionRegistry,
     IConnectionMultiplexer redis,
-    TrailReader trailReader) : Hub
+    TrailReader trailReader,
+    ResultMarkdownReader resultReader) : Hub
 {
     public async Task SubscribeOverview()
     {
@@ -76,4 +77,13 @@ public sealed class JobsHub(
     /// </summary>
     public Task<TrailPage> GetTrailPage(string runId, string? fromId, int? count) =>
         trailReader.ReadPageAsync(runId, fromId, count);
+
+    /// <summary>
+    /// p0169j-c: returns the rendered result.md for a run from the artifact
+    /// store cache (24h TTL). Returns null for unknown runs, mid-run runs
+    /// before WriteRunResult, or runs whose cache has expired. Dashboard
+    /// falls back to the PR URL when null.
+    /// </summary>
+    public Task<string?> GetResultMarkdown(string runId) =>
+        resultReader.ReadAsync(runId, Context.ConnectionAborted);
 }

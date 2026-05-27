@@ -19,10 +19,21 @@ public interface IRunArtifactStore
     Task<string?> ReadBootstrapAsync(string runId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reads all three slots and returns them; <see cref="ClearAsync"/> still
-    /// has to be called explicitly after the caller has durably written the snapshot.
-    /// Splitting the read and the clear keeps the store free of the durability
-    /// concern (which lives in WriteRunResultHandler).
+    /// Stores the rendered result.md so the dashboard can read it server-side
+    /// (the on-disk write inside the sandbox / target repo is not reachable
+    /// from the server). 24h TTL is longer-lived than the other slots —
+    /// operators read this AFTER WriteRunResult, not during the pipeline.
+    /// PromoteAsync deliberately does NOT clear this slot.
+    /// </summary>
+    Task WriteResultMarkdownAsync(string runId, string resultMd, CancellationToken cancellationToken);
+    Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads all three in-flight slots and returns them; <see cref="ClearAsync"/>
+    /// still has to be called explicitly after the caller has durably written
+    /// the snapshot. Splitting the read and the clear keeps the store free of
+    /// the durability concern (which lives in WriteRunResultHandler). Does
+    /// NOT include the result slot — that one has its own lifetime.
     /// </summary>
     Task<RunArtifactSnapshot> PromoteAsync(string runId, CancellationToken cancellationToken);
 
