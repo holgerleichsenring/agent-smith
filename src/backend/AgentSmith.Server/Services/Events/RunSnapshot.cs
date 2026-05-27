@@ -22,12 +22,15 @@ public sealed record RunSnapshot(
     int StepIndex,
     string? StepName,
     int TotalSteps,
-    string? LastEventType)
+    string? LastEventType,
+    decimal CostUsd,
+    int LlmCalls)
 {
     public static RunSnapshot Empty(string runId) => new(
         runId, "unknown", "unknown", Array.Empty<string>(),
         "running", null, null,
-        DateTimeOffset.UtcNow, null, 0, 0, null, 0, null);
+        DateTimeOffset.UtcNow, null, 0, 0, null, 0, null,
+        CostUsd: 0m, LlmCalls: 0);
 
     public RunSnapshot Apply(RunEvent runEvent) => runEvent switch
     {
@@ -52,6 +55,17 @@ public sealed record RunSnapshot(
         },
         StepFinishedEvent e => this with
         {
+            LastEventType = e.Type.ToString()
+        },
+        // p0175-fix: LLM cost rolls up onto the run snapshot so the
+        // /system CostRollupCard can read it from the overview without
+        // a separate cross-stream subscription. Per-event granularity
+        // is preserved in the run-stream; snapshot keeps the running
+        // total for fast dashboard reads.
+        LlmCallFinishedEvent e => this with
+        {
+            CostUsd = CostUsd + (decimal)e.CostUsd,
+            LlmCalls = LlmCalls + 1,
             LastEventType = e.Type.ToString()
         },
         _ => this with { LastEventType = runEvent.Type.ToString() }

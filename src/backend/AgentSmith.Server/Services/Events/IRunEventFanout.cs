@@ -20,4 +20,11 @@ public interface IRunEventFanout
     /// splitting would duplicate registration without isolation benefit.
     /// </summary>
     Task ToSystemAsync(SystemEvent systemEvent, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0175-fix: pushes a recomputed <see cref="SystemActivitySnapshot"/> to
+    /// the Overview group so /system KPI cards stay in sync with the server's
+    /// 24h rollup instead of deriving from the capped client buffer.
+    /// </summary>
+    Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken cancellationToken);
 }

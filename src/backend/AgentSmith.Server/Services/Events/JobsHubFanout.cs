@@ -22,4 +22,7 @@ public sealed class JobsHubFanout(IHubContext<JobsHub> hub) : IRunEventFanout
 
     public Task ToSystemAsync(SystemEvent systemEvent, CancellationToken cancellationToken) =>
         hub.Clients.Group(HubGroups.System).SendAsync("SystemEvent", systemEvent, cancellationToken);
+
+    public Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken cancellationToken) =>
+        hub.Clients.Group(HubGroups.Overview).SendAsync("SystemActivityUpdated", snapshot, cancellationToken);
 }
