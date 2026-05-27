@@ -18,6 +18,8 @@ const baseSnapshot: RunSnapshot = {
   stepName: "AnalyzeCode",
   totalSteps: 10,
   lastEventType: "StepStarted",
+  costUsd: 0,
+  llmCalls: 0,
 };
 
 describe("RunCard", () => {

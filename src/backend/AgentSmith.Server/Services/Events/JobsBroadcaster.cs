@@ -22,7 +22,13 @@ public sealed class JobsBroadcaster(
     ILogger<JobsBroadcaster> logger) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
-    private const int SystemRecentCapacity = 500;
+    // p0175-fix: bumped from 500 → 10_000 to match the Redis system stream
+    // MAXLEN. The 500-cap was too tight for active trackers — one poller
+    // pushing ~94 events/cycle (started + finished + ~46 scanned + ~46
+    // skipped) exhausted the buffer in 5-6 cycles. The 24h rollup then
+    // diverged from the visible cycle list because the oldest
+    // PollCycleStarted got evicted while its matching Finished did not.
+    private const int SystemRecentCapacity = 10_000;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
 
     private readonly ConcurrentDictionary<string, RunSnapshot> _active = new(StringComparer.Ordinal);
@@ -36,6 +42,14 @@ public sealed class JobsBroadcaster(
     public IReadOnlyDictionary<string, RunSnapshot> Active => _active;
     public IReadOnlyList<RunSnapshot> Recent => _recent.Snapshot();
     public IReadOnlyList<SystemEvent> SystemRecent => _systemRecent.Snapshot();
+
+    /// <summary>
+    /// p0175-fix: 24h rolling aggregate computed from the in-memory system
+    /// ring buffer. Cheap O(N) over <see cref="SystemRecentCapacity"/>; called
+    /// on each subscribe and re-broadcast after every system event publish.
+    /// </summary>
+    public SystemActivitySnapshot GetSystemActivity() =>
+        SystemActivitySnapshot.Compute(_systemRecent.Snapshot(), DateTimeOffset.UtcNow);
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -228,15 +242,21 @@ public sealed class JobsBroadcaster(
         var fromCursor = _systemCursor == "$" ? "0-0" : _systemCursor;
         var entries = await db.StreamReadAsync(SystemEventStreamKeys.Stream, fromCursor, count: 100);
         if (entries.Length == 0) return;
+        var appended = false;
         foreach (var entry in entries)
         {
             ct.ThrowIfCancellationRequested();
             var systemEvent = DeserializeSystemEntry(entry);
             if (systemEvent is null) continue;
             _systemRecent.Append(systemEvent);
+            appended = true;
             await fanout.ToSystemAsync(systemEvent, ct);
         }
         _systemCursor = entries[^1].Id.ToString();
+        // p0175-fix: one rollup broadcast per batch (not per event) keeps the
+        // SignalR overhead bounded under burst load while still keeping the
+        // /system KPI cards within ~200ms of true state (the loop interval).
+        if (appended) await fanout.ToSystemActivityAsync(GetSystemActivity(), ct);
     }
 
     private static SystemEvent? DeserializeSystemEntry(StreamEntry entry)

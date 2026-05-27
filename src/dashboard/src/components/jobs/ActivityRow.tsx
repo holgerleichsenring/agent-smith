@@ -132,7 +132,9 @@ function projectEvent(event: RunEvent): RowView {
       return {
         icon: "⟫",
         label: "Sandbox cmd",
-        detail: `${e.repo}: ${e.command}`,
+        detail: e.summary
+          ? `${e.repo}: ${e.command} ${e.summary}`
+          : `${e.repo}: ${e.command}`,
         reason: null,
         severity: "info",
       };
@@ -213,7 +215,9 @@ function projectEvent(event: RunEvent): RowView {
       return {
         icon: "→",
         label: "Tool call",
-        detail: `${e.tool} (${e.argsLength}B)`,
+        detail: e.summary
+          ? `${e.tool} ${e.summary}`
+          : `${e.tool} (${e.argsLength}B)`,
         reason: null,
         severity: "info",
       };

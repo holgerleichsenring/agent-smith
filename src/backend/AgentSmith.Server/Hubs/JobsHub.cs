@@ -23,10 +23,14 @@ public sealed class JobsHub(
     public async Task SubscribeOverview()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Overview);
+        // p0175-fix: SystemActivity rides on OverviewSnapshot so the dashboard
+        // gets server-truth KPIs on first paint. Live updates arrive via
+        // SystemActivityUpdated (broadcast after each system event batch).
         var snapshot = new
         {
             Active = broadcaster.Active.Values.ToArray(),
-            Recent = broadcaster.Recent
+            Recent = broadcaster.Recent,
+            SystemActivity = broadcaster.GetSystemActivity()
         };
         await Clients.Caller.SendAsync("OverviewSnapshot", snapshot);
     }
@@ -92,7 +96,7 @@ public sealed class JobsHub(
     /// MAXLEN=10000 in the publisher — clients see the oldest retained event
     /// as the start of their visible history (same contract as SubscribeRun).
     /// </summary>
-    public Task<IReadOnlyList<RunEvent>> GetTrail(string runId) =>
+    public Task<IReadOnlyList<object>> GetTrail(string runId) =>
         trailReader.ReadAllAsync(runId);
 
     /// <summary>
