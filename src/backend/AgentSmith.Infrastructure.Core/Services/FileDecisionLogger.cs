@@ -1,13 +1,18 @@
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Events;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// Appends decisions to .agentsmith/decisions.md in the target repository.
-/// Thread-safe via SemaphoreSlim for concurrent pipeline runs.
+/// Thread-safe via SemaphoreSlim for concurrent pipeline runs. Mirrors each
+/// entry into the per-run event stream when a run scope is active (p0169e).
 /// </summary>
-public sealed class FileDecisionLogger(ILogger<FileDecisionLogger> logger) : IDecisionLogger
+public sealed class FileDecisionLogger(
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
+    ILogger<FileDecisionLogger> logger) : IDecisionLogger
 {
     private const string AgentSmithDir = ".agentsmith";
     private const string DecisionsFileName = "decisions.md";
@@ -17,6 +22,9 @@ public sealed class FileDecisionLogger(ILogger<FileDecisionLogger> logger) : IDe
                                string decision, CancellationToken cancellationToken = default,
                                string? sourceLabel = null)
     {
+        await DecisionEventMirror.PublishAsync(
+            eventPublisher, runContext, category, decision, sourceLabel, cancellationToken);
+
         if (string.IsNullOrEmpty(repoPath))
         {
             logger.LogDebug("No repo path provided, skipping file write for [{Category}]: {Decision}",

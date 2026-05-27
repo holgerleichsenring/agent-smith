@@ -2,6 +2,7 @@ using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Configuration;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Pipeline;
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddLoopRuntime();
         services.AddSwaggerCompression();
         services.AddWebhookCommentIntent();
+        services.AddEventPublishing();
         return services;
     }
 }
