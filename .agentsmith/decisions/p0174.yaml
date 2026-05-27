@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0174
+
+decisions:
+  - category: Architecture
+    chose: "One row per PullCycle, with skip-reason histogram inline in the row header"
+    over: "One row per ticket (the previous TriggerLog) OR one row per event"
+    reason: |
+      The operator asked specifically for "PULL" rows showing system,
+      duration, ticket count, criteria. The PullCycle is the unit of
+      operator attention — a 60-second cycle with 30 tickets reads
+      cleanly as ONE row "pull acme-cloud-dev · 1.5s · 30 scanned ·
+      28 skipped (28 no-match)" instead of 30 separate lines. Per-ticket
+      detail is the drill-in expand. The reason histogram is the answer
+      to "why didn't they trigger" — hiding it behind a click defeats
+      the slice.
+
+  - category: Architecture
+    chose: "Source-scoped cycle pairing (Started→Finished within the same Source string)"
+    over: "Timestamp-only proximity pairing"
+    reason: |
+      Multiple concurrent trackers produce interleaved events. Pairing
+      a PollCycleStarted from tracker A with the next PollCycleFinished
+      regardless of source would mis-attribute scanned tickets across
+      pollers. Source is a stable string on every SystemEvent —
+      pairing on it is correct by construction.
+
+  - category: Implementation
+    chose: "In-flight cycles (no Finished yet) render with null durationMs + in-flight badge"
+    reason: |
+      The dashboard updates live as events arrive; the Started event
+      arrives before the Finished. Rendering nothing until both land
+      would leave a 1.5s blank window on every cycle. Showing the
+      in-flight row with an amber tone + "in-flight…" duration gives
+      operators "the poller is running right now" visibility.
+
+  - category: Implementation
+    chose: "Skip-reason histogram caps at top-3 reasons in the row; full breakdown on expand"
+    reason: |
+      A cycle could in principle skip for all five TicketSkipReason
+      values; rendering 5 chips inline would crowd the row. Top-3
+      covers the realistic operator case (most cycles drop one or
+      two reasons heavily); the expand-row shows the full per-ticket
+      breakdown when operators need it.
+
+  - category: Implementation
+    chose: "next/font/google for Inter, not @import or <link>"
+    reason: |
+      next/font self-hosts the font (no CDN dependency on a
+      self-hosted dashboard), gives automatic font-display:swap,
+      preconnect, and CSS variable wiring. The IBM Plex Mono token
+      from DESIGN.md stays unused for now — existing code-block
+      surfaces work with system mono; can be added in a follow-up
+      when the terminal-panel polish phase lands.
+
+  - category: TradeOff
+    chose: "Dashboard surface stays light even under prefers-color-scheme: dark"
+    over: "Polarity-flipped dark dashboard variant"
+    reason: |
+      DESIGN.md ships dark variants for marketing surfaces; the
+      operator-facing dashboard is content-bright by design. Operators
+      stare at terminal panels INSIDE the dashboard already; the
+      surrounding chrome stays cream so the terminal-panel content
+      stands out as content. Dark-mode polarity flip is a separate
+      slice if operators request it.
+
+  - category: Implementation
+    chose: "Tab-active underline uses --color-primary (Smith-green); inactive uses --color-ink-soft"
+    over: "Stone-800 active / stone-500 inactive (previous default)"
+    reason: |
+      Smith-green is the brand-primary signal across marketing + docs.
+      Using it for the active-tab affordance ties the dashboard back
+      into the design system. Same rationale as p0169j-d's green-is-
+      success: brand-primary is the win signal.
+
+  - category: Scope
+    chose: "Cards keep their current border + spacing; only canvas + typography migrate to tokens"
+    reason: |
+      A full visual polish of every card would balloon the slice. The
+      core operator complaint was "log-like representation" and "dark
+      uniformity"; the aggregation hooks + the canvas + Inter
+      typography + Smith-green accents address both. Per-card visual
+      polish (chip styles, dividers, hover states) is its own slice
+      when operators identify specific friction.
+
+  - category: Implementation
+    chose: "TriggerLog component deleted, not deprecated"
+    reason: |
+      Only one consumer (the /system page); replacing it inline + the
+      file delete is cleaner than a deprecation marker that would rot
+      across follow-up slices. PullCycleLog + WebhookLog cover the
+      same surface with the better representation.
