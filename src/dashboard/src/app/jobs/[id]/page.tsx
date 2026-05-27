@@ -137,7 +137,11 @@ function RunDetail({ runId }: { runId: string }) {
         >Trail</button>
       </nav>
       {activeTab === "trail" ? (
-        <TrailTab runId={runId} />
+        <TrailTab
+          runId={runId}
+          isFinished={snapshot?.finishedAt !== null && snapshot?.finishedAt !== undefined}
+          prUrl={snapshot?.prUrl ?? null}
+        />
       ) : activeTab === "activity" ? (
         <ActivityTab runId={runId} />
       ) : activeTab === "result" ? (

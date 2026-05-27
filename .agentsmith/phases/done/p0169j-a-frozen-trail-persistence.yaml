@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0169j-a-frozen-trail-persistence
+goal: |
+  Event stream survives past the current 2-hour Redis TTL so operators
+  can open "yesterday's run" on the dashboard. Same outcome as the
+  original frozen-trail draft (.agentsmith/runs/{id}/events.jsonl),
+  but achieved without a server-readable mount.
+
+  Spec premise correction vs original draft: the file path
+  `.agentsmith/runs/{id}/events.jsonl` is inside the sandbox / target
+  repo and not reachable by the Server-in-Docker (same constraint that
+  blocked p0169j-c's original premise — see PARKED.md item 2). The
+  realisation: we don't NEED a separate frozen format. Bumping the
+  Redis stream TTL from 2h to 24h gives operators the "yesterday-run
+  works" outcome for almost no code. Beyond 24h, the PR is the
+  durable surface (same fallback story as p0169j-c).
+
+requires:
+  - p0169e-event-backbone
+  - p0169h-event-trail-tree
+
+scope:
+  in: |
+    BACKEND (src/backend/AgentSmith.Infrastructure):
+
+    (1) EventStreamKeys.StreamTtl 2h → 24h. The MAXLEN=10000 cap
+        stays the same (per-stream bound, not lifetime bound).
+        RedisEventPublisher already calls KeyExpireAsync on every
+        StreamAdd; the longer TTL extends every existing stream
+        and every new one.
+
+    (2) Active-runs SET + recent-runs LIST indices keep their
+        existing lifecycle (SADD on RunStarted, SREM on RunFinished,
+        LPUSH+LTRIM 50 on RunFinished). The cap of 50 recent runs
+        already gives operators a navigable list of the last day's
+        runs without any new indexing.
+
+    DASHBOARD (src/dashboard/src/components/jobs):
+
+    (3) TrailTab empty-state copy updated: when events is empty AND
+        the snapshot exists (= run was finished, just not in cache),
+        render a friendlier message — "Trail expired (24h+). The
+        full execution detail is in the PR" with a "View in PR"
+        link when prUrl is available, mirroring ResultTab's empty
+        state. Mid-run runs still show "Loading trail…".
+
+    (4) ActivityTab gets the same empty-state treatment via the
+        existing `No matching activity yet` branch when the
+        underlying useRunEvents returns empty for a finished run.
+
+    TESTS:
+
+    (5) Manual smoke: trigger a run, watch it finish, wait < 24h,
+        reload — trail still visible. Wait > 24h (or force-evict
+        by clearing the Redis key) — trail tab + activity tab
+        render the PR-link empty state.
+
+  out: |
+    A separate FrozenTrailWriter service + events.jsonl format.
+    Out — superseded by the simpler TTL bump.
+    ListHistoricalRuns hub method beyond the existing Recent-50
+    LIST. Out — 50 most-recent covers operator look-back within
+    24h; beyond that the PR is the surface.
+    Beyond-24h trail recovery. Out — the PR carries result.md (the
+    synthesised summary including the execution-trail section); raw
+    per-event playback past 24h would need a different storage tier.
+    Configurable TTL via agentsmith.yml. Out — 24h is the default;
+    operators with extreme retention needs can fork the constant.
+    Redis maxmemory tuning. Out — the realistic stream size
+    (typical ~500 events × ~500 bytes = ~250 KB per run; 100 runs
+    × 250 KB = ~25 MB) fits inside the current 256mb cap with room
+    to spare; AOF persistence is on disk so allkeys-lru evictions
+    are restart-safe.
+
+decisions:
+  - key: |
+      Bump stream TTL 2h → 24h, drop the events.jsonl file format —
+      Reason: the original spec's events.jsonl exists in the sandbox
+      filesystem which the server can't read (same architectural
+      premise that blocked p0169j-c — see PARKED.md item 2). Stream
+      TTL is the simplest knob: one constant change extends every
+      existing data path. The fallback-composition logic the
+      original spec needed (Redis first → frozen second) collapses
+      into "Redis only — longer." Beyond 24h, the PR is the durable
+      surface (same fallback as p0169j-c's empty state).
+      alternatives: keep the events.jsonl format but put it in
+      IRunArtifactStore (rejected — duplicates the stream data
+      in a second Redis representation, ~2x memory for the same
+      content); FrozenTrailWriter with a mount (rejected — see
+      PARKED.md item 2); SQLite/disk-backed long-term store
+      (rejected — operationally heavy for a "yesterday works"
+      use case the PR already covers structurally).
+
+  - key: |
+      24h, not 7d or unbounded — Reason: 24h covers the "I want to
+      see yesterday's run" case which was the motivating UX. 7d
+      would 3.5× the realistic Redis stream footprint (~25 MB → ~85 MB)
+      for a long-tail benefit (operators looking at week-old runs
+      almost always go through the PR anyway since that's where they
+      record what they did with the result). 24h hits the same
+      bound chosen for ResultTab's IRunArtifactStore slot — the two
+      durations move together as one "operator look-back window"
+      knob if they ever need to change.
+      alternatives: 7d (rejected — diminishing returns on memory);
+      unbounded with LRU eviction (rejected — non-deterministic from
+      the operator perspective).
+
+  - key: |
+      Empty-state mirrors ResultTab — Reason: the operator UX is
+      now consistent. ResultTab missing → "View in PR" link.
+      TrailTab missing-after-24h → "View in PR" link. Same affordance,
+      same fallback, same mental model. Mid-run runs still show
+      "Loading trail…" because the stream IS live and events ARE
+      arriving — the empty state only kicks in for finished runs
+      whose snapshot exists in `recent` but stream has TTL-expired.
+
+  - key: |
+      No new tests for the TTL constant itself — Reason: testing
+      "constant equals 24h" is tautological (the test would copy
+      the constant). The behaviour change is verified by the
+      existing RedisEventPublisher tests (which already assert
+      KeyExpireAsync is called on StreamAdd) plus a manual smoke.
+      The empty-state UX is covered by a new dashboard test for the
+      TrailTab fallback message.
+      alternatives: golden-path duration test (rejected — 24h is a
+      number, not a behaviour); integration test that waits 24h
+      (rejected — not feasible in CI).
+
+steps:
+  - id: ttl-bump
+    action: |
+      EventStreamKeys.StreamTtl: TimeSpan.FromHours(2) → FromHours(24).
+      Add a one-line XML doc note that this is the operator look-back
+      window paired with IRunArtifactStore.ResultSlot's 24h TTL.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventStreamKeys.cs"
+
+  - id: trail-tab-empty
+    action: |
+      TrailTab empty-state branch consumes the run snapshot (already
+      available via useJobsHub overview). When the run is finished
+      AND events is empty, render the "Trail expired (24h+)" message
+      with the View-in-PR link mirroring ResultTab. Mid-run / no-
+      snapshot keeps the existing "Loading trail…" / "No trail
+      events yet" copy.
+    modify:
+      - "src/dashboard/src/components/jobs/TrailTab.tsx"
+    new:
+      - "src/dashboard/src/components/jobs/TrailExpiredEmptyState.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TrailExpiredEmptyState.test.tsx"
+
+  - id: verify
+    action: |
+      dotnet build green. pnpm test + pnpm build green. Manual smoke:
+      finish a run; observe trail tab populated (live); evict the
+      stream via redis-cli DEL run:{runId}:events; reload — trail
+      tab shows the expired empty state with PR link if snapshot has
+      prUrl.
+
+tests:
+  - "TrailExpiredEmptyState_PrUrlAvailable_RendersViewInPrLink"
+  - "TrailExpiredEmptyState_NoPrUrl_RendersGenericExpiredMessage"
+  - "TrailTab_EmptyEventsFinishedRun_RendersExpiredEmptyState"
+  - "TrailTab_EmptyEventsNoSnapshot_RendersLoadingOrGenericEmpty"
+
+done:
+  - "EventStreamKeys.StreamTtl bumped 2h → 24h with paired XML doc."
+  - "TrailTab empty state for finished-but-expired runs links to PR (when available) or shows generic expired message."
+  - "ActivityTab inherits the same empty-state via the existing useRunEvents-returns-empty branch."
+  - "Backend + dashboard tests green."
+  - "Manual smoke: yesterday's run is still navigable; >24h runs fall back to the PR link."
+  - "PARKED.md item 2 closed."
