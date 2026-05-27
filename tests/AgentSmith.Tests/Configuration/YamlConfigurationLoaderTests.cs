@@ -100,4 +100,76 @@ public class YamlConfigurationLoaderTests
         strategies.Should().Contain(ResolutionStrategy.Tag);
         strategies.Should().Contain(ResolutionStrategy.Repo);
     }
+
+    // Regression: pre-fix the top-level pipeline_cost_cap YAML block was
+    // silently dropped because RawAgentSmithConfig had no PipelineCostCap
+    // slot (YamlDotNet's IgnoreUnmatchedProperties() hid the binding gap),
+    // and ConfigCatalogResolver.Compose did not propagate it. Effect:
+    // PipelineCostCapConfig.ResolveFor always returned the hardcoded
+    // $5 / 500k default — the per_pipeline override never took effect,
+    // capping api-security-scan runs early (observed 2026-05-27: 890k
+    // tokens / $1.81 capped despite a per_pipeline override of 2M tokens).
+    [Fact]
+    public void LoadConfig_PipelineCostCap_PerPipelineOverrideReachesResolver()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"agentsmith-costcap-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(tempFile, """
+            agents:
+              claude-default:
+                type: claude
+                model: sonnet-4
+
+            repos:
+              test-repo:
+                type: github
+                url: https://github.com/test/repo
+                auth: token
+
+            trackers:
+              test-ado:
+                type: azure_devops
+                organization: testorg
+                project: TestProject
+                auth: token
+
+            projects:
+              testproject:
+                agent: claude-default
+                tracker: test-ado
+                repos: [test-repo]
+                pipeline: fix-bug
+
+            pipeline_cost_cap:
+              default:
+                usd: 3
+                tokens: 250000
+              per_pipeline:
+                api-security-scan:
+                  usd: 5
+                  tokens: 2000000
+            """);
+        try
+        {
+            var config = _loader.LoadConfig(tempFile);
+
+            config.PipelineCostCap.Default.Usd.Should().Be(3m,
+                "the top-level pipeline_cost_cap.default YAML block must bind to AgentSmithConfig.PipelineCostCap.Default");
+            config.PipelineCostCap.Default.Tokens.Should().Be(250_000);
+
+            var resolved = config.PipelineCostCap.ResolveFor("api-security-scan");
+            resolved.Usd.Should().Be(5m,
+                "per_pipeline.api-security-scan override must reach the resolver, not fall back to the default");
+            resolved.Tokens.Should().Be(2_000_000,
+                "per_pipeline.api-security-scan.tokens override must propagate through Raw → Compose → AgentSmithConfig");
+
+            var fallback = config.PipelineCostCap.ResolveFor("fix-bug");
+            fallback.Usd.Should().Be(3m,
+                "pipelines without a per_pipeline entry must fall back to pipeline_cost_cap.default");
+            fallback.Tokens.Should().Be(250_000);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
 }
