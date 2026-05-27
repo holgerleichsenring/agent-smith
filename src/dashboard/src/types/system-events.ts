@@ -88,6 +88,46 @@ export interface WebhookReceivedEvent extends SystemEventBase {
   skipReason: string | null;
 }
 
+// p0173c chat + config + catalog records.
+
+export interface ChatMessageReceivedEvent extends SystemEventBase {
+  type: SystemEventType.ChatMessageReceived;
+  channel: string;
+  messageType: string;
+  actioned: boolean;
+  skipReason: string | null;
+}
+
+export enum ConfigFileKind {
+  AgentSmithYml = 0,
+  ContextYaml = 1,
+  CodingPrinciplesMd = 2,
+  SkillYaml = 3,
+  ConceptVocabulary = 4,
+}
+
+export interface ConfigFileReadEvent extends SystemEventBase {
+  type: SystemEventType.ConfigFileRead;
+  path: string;
+  kind: ConfigFileKind;
+  sizeBytes: number;
+  runId: string | null;
+}
+
+export interface SkillCatalogLoadedEvent extends SystemEventBase {
+  type: SystemEventType.SkillCatalogLoaded;
+  catalogVersion: string;
+  skillsLoaded: number;
+  skillsDropped: number;
+  durationMs: number;
+}
+
+export interface ConceptVocabularyLoadedEvent extends SystemEventBase {
+  type: SystemEventType.ConceptVocabularyLoaded;
+  conceptCount: number;
+  durationMs: number;
+}
+
 export type SystemEvent =
   | PollCycleStartedEvent
   | PollCycleFinishedEvent
@@ -95,4 +135,7 @@ export type SystemEvent =
   | TicketSkippedEvent
   | TicketTriggeredEvent
   | WebhookReceivedEvent
-  | SystemEventBase; // slice c records will extend this union
+  | ChatMessageReceivedEvent
+  | ConfigFileReadEvent
+  | SkillCatalogLoadedEvent
+  | ConceptVocabularyLoadedEvent;

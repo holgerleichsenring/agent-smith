@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173c
+
+decisions:
+  - category: Security
+    chose: "ChatMessageReceivedEvent carries metadata only — channel + messageType + actioned + skipReason; no message content"
+    reason: |
+      Same security boundary as p0169e's promptHash decision. Message
+      text in the dashboard event stream means operator-readable chat
+      content in whatever the SignalR client logs / inspects. The
+      operator's question is "did Agent Smith see this channel
+      message", which channel + actioned + skipReason answers
+      completely. Content stays in the existing chat-history / run
+      path, gated by Slack/Teams workspace permissions.
+
+  - category: Implementation
+    chose: "ConfigFileReadEvent.RunId is nullable; populated only for run-scoped reads"
+    reason: |
+      Some reads happen at startup (agentsmith.yml — no run scope, RunId=null);
+      others happen mid-pipeline inside an active run scope (LoadContextHandler,
+      LoadCodingPrinciplesHandler — both already inside the
+      IRunContextAccessor scope). Threading RunId through optionally lets
+      one event type serve both "system-startup audit" and "run-level
+      config-read audit" without splitting into two record types.
+
+  - category: Architecture
+    chose: "SkillCatalogLoaded is success-only; failure path stays on p0169j-b1's CatalogIssueEvent (run-scoped, error severity)"
+    reason: |
+      Success has aggregate counters (loaded / dropped + version + duration);
+      drops have per-skill detail (which rule failed, which file). One
+      event type for both would either bloat the success case with an
+      empty-array-of-drops, or rebuild what p0169j-b1 already ships.
+      Keeping them separate aligns with the slice-a Source-field
+      convention: SkillCatalogLoaded with Source="skill-catalog" is a
+      system-level audit; CatalogIssueEvent (run-scoped) is per-drop
+      diagnostics.
+
+  - category: Implementation
+    chose: "One ConfigFileReadEvent per *successfully accepted* skill, not per raw file read"
+    reason: |
+      A catalog has ~30 skills; each ships with SKILL.md + agentsmith.md
+      + possibly extras. Per-file emission inflates the stream by 30-90
+      events for one logical operation. One event per accepted skill
+      aligns with the operator's diagnostic question ("which skills did
+      this catalog actually load"); drops have their own event already
+      (p0169j-b1).
+
+  - category: Scope
+    chose: "Chat instrumentation covers main message-receipt endpoints; modal + interaction sub-actions deferred"
+    reason: |
+      SlackEventEndpointHandler + TeamsEndpoints.HandleMessageAsync are
+      the "did a chat message arrive at the bot" surface — high
+      operator-value, low event volume. SlackModalActionHandler /
+      TeamsInteractionHandler handle mid-conversation UI button clicks
+      (high volume, low diagnostic value for an OVERVIEW dashboard).
+      Deferred to a follow-up if operators ask for per-button-click
+      visibility.
+
+  - category: Implementation
+    chose: "Individual webhook handlers' internal NotHandled() call sites NOT updated with specific reasons in this slice"
+    reason: |
+      Slice b shipped WebhookResult.SkipReason + NotHandled(reason)
+      factory; the 30+ existing NotHandled() call sites in the 13
+      IWebhookHandler implementations still return SkipReason=null
+      (operator sees "skipped, no reason given" in the dashboard).
+      WebhookRequestProcessor itself populates four meaningful reasons
+      (unknown-platform, signature-invalid, no-handler-matched,
+      redis-unavailable). The 14-file blast radius for per-handler
+      reasons is a follow-up slice when operators identify specific
+      cases they care about.
+
+  - category: TradeOff
+    chose: "Drift detector regex now scopes to the named enum's body"
+    over: "Keep the global regex + accept TicketSkipReason/ConfigFileKind false positives"
+    reason: |
+      Slice c's TicketSkipReason + ConfigFileKind enums in the same
+      system-events.ts file caused the drift detector to flag their
+      members as "stale in TS" (not present in SystemEventType.cs).
+      The fix: extract the named enum's body via brace-matching, then
+      run the regex on that subset. ~15 LoC change in
+      tools/build-hub-event-types.mjs; keeps both channels green.
+
+  - category: Implementation
+    chose: "TryPublishVocabularyLoaded uses fire-and-forget `_ = systemEvents.PublishAsync(...)`"
+    over: "await + try/catch like the poller path"
+    reason: |
+      ConceptVocabularyLoader.Load is sync — making the publish path
+      await would force a sync-over-async call (.GetAwaiter().GetResult()).
+      Fire-and-forget keeps the loader sync, accepts that a publish
+      failure becomes an unobserved-task warning (cost: low — the loader
+      runs once per run startup, not per request). The catch block
+      logs the failure synchronously at Debug so operators have a
+      forensic trail when needed.
