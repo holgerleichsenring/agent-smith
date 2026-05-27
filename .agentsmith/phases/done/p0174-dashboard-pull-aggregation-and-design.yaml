@@ -1,0 +1,226 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0174-dashboard-pull-aggregation-and-design
+goal: |
+  Two concerns in one slice because they're the same operator complaint:
+  "the system view looks like a log file, not a dashboard."
+
+  (1) Verdichtung — replace the per-event TriggerLog with per-CYCLE
+      aggregation. One row per PullCycle (started + finished pair)
+      shows source, duration, ticket count, per-reason skip breakdown,
+      triggered count. One row per webhook delivery shows
+      platform/path/actioned/skip-reason. Operators stop reading the
+      stream as a log and read it as a summary.
+
+  (2) Design — apply DESIGN.md tokens to the dashboard. Cream canvas
+      (#fffefb) globally, Inter typography, Smith-green primary, dark
+      terminal-panel only for code-fence surfaces (the SandboxBox stdout
+      and result.md code blocks). The current dashboard inherited p0169f's
+      operator-debug-shell aesthetic; this slice migrates it to the
+      design system the marketing site + docs already use.
+
+requires:
+  - p0173d-dashboard-system-view
+
+scope:
+  in: |
+    AGGREGATION (src/dashboard/src/hooks + components/system):
+
+    (1) New usePullCycleLog hook. Pairs PollCycleStarted with the
+        next PollCycleFinished from the same source (or unfinished
+        if no finish yet). Walks the events array; for each
+        cycle window collects ALL TicketScanned / TicketSkipped /
+        TicketTriggered events from THE SAME source in the window
+        [started, finished]. Returns one PullCycleEntry per cycle
+        with:
+          - source, tracker
+          - startedAt, finishedAt (nullable for in-flight)
+          - durationMs (computed from start→finish, null if in-flight)
+          - ticketsPolled (from PollCycleFinished payload)
+          - triggered (count)
+          - skipped breakdown by TicketSkipReason
+        Pure derivation; useMemo'd in the hook wrapper.
+
+    (2) New useWebhookLog hook. One entry per WebhookReceivedEvent
+        with source / eventType / path / actioned / skipReason /
+        timestamp. Most-recent-first.
+
+    (3) PullCycleLog component replaces the SystemEvent-level
+        TriggerLog (which gets retired). One row per cycle with a
+        compact header (status icon + source + duration) and a
+        breakdown chip-row (×scanned / ×triggered / ×skipped grouped
+        by reason). Click expands to per-ticket detail (the
+        TicketSkipped + TicketTriggered events from that cycle window).
+
+    (4) WebhookLog component for webhook deliveries.
+
+    (5) page.tsx replaces the TriggerLog mount with PullCycleLog +
+        WebhookLog (stacked).
+
+    DESIGN POLISH (src/dashboard/src/app + components):
+
+    (6) globals.css canvas/ink/primary tokens already live there from
+        p0173d's layout work; this slice activates them as the actual
+        default (replaces zinc-950 / stone-* defaults). Inter font is
+        loaded via Next.js next/font and bound to --font-sans.
+
+    (7) Body background — cream (#fffefb) by default, ink (#201515) only
+        as the accent for code/terminal blocks. Tab bar gets a
+        Smith-green underline for the active tab (consistent with
+        DESIGN.md primary).
+
+    (8) Cards: rounded-md (12 px per DESIGN.md), light border, ink-soft
+        text, Inter typography. Sandbox panels keep the dark
+        terminal-panel look because they ARE terminal output.
+
+    (9) StatusPill palette stays from p0173d (green=ok, amber=degraded,
+        rose=disconnected, stone=unknown) — already DESIGN.md-token
+        aligned.
+
+  out: |
+    Sparklines under KPI tiles. Deferred per p0173d's decision; this
+    slice gets the numbers right + readable, sparklines are a separate
+    polish slice.
+    Per-source filter on PullCycleLog. Out — operator can grep the
+    list visually for now; multi-tracker setups can add filtering when
+    operator pressure justifies it.
+    Click-through PullCycle → per-ticket detail PANE. The expand-in-row
+    pattern (collapsing inline detail under the cycle row) ships;
+    a dedicated TicketDetail pane is a follow-up if operators need
+    deep-linking.
+    Dark-mode polarity flip of the dashboard. DESIGN.md ships dark
+    variants for marketing surfaces; the dashboard's operator surface
+    stays light. Dark mode is a separate slice.
+
+decisions:
+  - key: |
+      One row per PullCycle, not one row per event — Reason: the
+      operator's question is "what is the poller doing every minute?",
+      not "show me 874 TicketScanned events with the same source
+      timestamp ±100ms". The PullCycle is the unit of operator
+      attention; per-ticket detail is drill-down. The old TriggerLog
+      (one row per Skipped/Triggered) was 1748 rows for a 60-second
+      poll cycle with a busy tracker — unusable.
+      alternatives: keep per-event with virtualized scroll (rejected —
+      the user explicitly called this out as "log-like, not dashboard");
+      group by hour/day (rejected — too coarse, hides intra-hour bursts).
+
+  - key: |
+      Cycle window is [PollCycleStarted, PollCycleFinished] from the
+      SAME source — Reason: tickets are scanned WITHIN a poll cycle.
+      Pairing them by timestamp-only would mis-attribute across
+      concurrent trackers. Source-scoped pairing is correct by
+      construction since every event carries its Source string.
+      alternatives: time-bucket pairing (rejected — wrong under
+      concurrent pollers); Started-only header with all subsequent
+      events until next Started (rejected — fails when the cycle
+      fails before Finished, ticket detail orphans).
+
+  - key: |
+      Per-reason skip breakdown in the row header, not a click-to-expand
+      — Reason: the answer to "why didn't 28 tickets trigger" is the
+      reason histogram (e.g. "28 zero-match"). Hiding it behind a click
+      defeats the purpose. The expand-row affordance is for
+      "show me the actual ticket IDs" detail.
+
+  - key: |
+      Activate DESIGN.md tokens globally in this slice, not as a
+      separate "design unification" phase — Reason: the operator has
+      asked for the data representation + the look-and-feel in the
+      same breath; bundling them is what makes the surface feel like
+      "a dashboard" instead of "a log". Sparklines + dark-mode are
+      genuinely separate (different complexity profile); the canvas /
+      typography / card-style swap is small enough to land alongside
+      the aggregation.
+      alternatives: ship aggregation only (rejected — operator said
+      both in the same request); ship design only (rejected — the
+      aggregation is the value).
+
+  - key: |
+      next/font for Inter, not @import url(...) — Reason: Next.js's
+      next/font is the standard self-hosted webfont path; gives us
+      automatic font-display, preconnect, and CSS variable wiring
+      without an external CDN dependency. The IBM Plex Mono load
+      stays system-default for now (the existing terminal-panel
+      surfaces don't depend on Plex specifically; can be added in a
+      follow-up).
+      alternatives: <link href="…googleapis…"> (rejected — external
+      CDN dependency for a self-hosted dashboard); @import in
+      globals.css (rejected — render-blocking, no font-display
+      control).
+
+steps:
+  - id: aggregation-hooks
+    action: |
+      usePullCycleLog + useWebhookLog hooks. Pure derivations from
+      events array. Companion test files exercise: cycle pairing
+      across multiple sources, in-flight cycle (no Finished),
+      reason histogram, webhook actioned/skipped split.
+    new:
+      - "src/dashboard/src/hooks/usePullCycleLog.ts"
+      - "src/dashboard/src/hooks/useWebhookLog.ts"
+      - "src/dashboard/src/__tests__/system/usePullCycleLog.test.ts"
+      - "src/dashboard/src/__tests__/system/useWebhookLog.test.ts"
+
+  - id: aggregation-components
+    action: |
+      PullCycleLog + WebhookLog components. PullCycleLog renders one
+      row per cycle, expand toggle reveals the per-ticket detail
+      (Triggered / Skipped events scoped to that cycle window).
+      WebhookLog renders one row per delivery. TriggerLog component
+      retired (file deleted; not used anywhere else).
+    new:
+      - "src/dashboard/src/components/system/PullCycleLog.tsx"
+      - "src/dashboard/src/components/system/WebhookLog.tsx"
+    modify:
+      - "src/dashboard/src/app/system/page.tsx"
+    delete:
+      - "src/dashboard/src/components/system/TriggerLog.tsx"
+
+  - id: inter-font
+    action: |
+      next/font/google loads Inter; binds to --font-sans CSS variable;
+      layout.tsx applies the font className to the body wrapper.
+    modify:
+      - "src/dashboard/src/app/layout.tsx"
+
+  - id: design-tokens
+    action: |
+      globals.css sets body background to --color-canvas, default
+      text to --color-ink, font-family to --font-sans (already
+      defined). Tab bar active state uses --color-primary as the
+      underline. Card border uses --color-canvas-soft variants.
+      Existing zinc/stone references in dashboard components stay
+      for now (terminal panels + log surfaces); only the layout-level
+      surfaces switch to the design tokens.
+    modify:
+      - "src/dashboard/src/app/globals.css"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/components/system/SystemStatusCard.tsx"
+      - "src/dashboard/src/components/system/TodayActivityCard.tsx"
+      - "src/dashboard/src/components/system/ChannelBreakdown.tsx"
+      - "src/dashboard/src/components/system/CostRollupCard.tsx"
+
+  - id: verify
+    action: |
+      pnpm test green; pnpm build green. Manual smoke: open /system,
+      verify one row per poll cycle (not one row per ticket); verify
+      Smith-green tab/nav accents; verify SandboxBox stays dark
+      (terminal panel is a content choice).
+
+tests:
+  - "UsePullCycleLog_StartedAndFinished_PairsIntoCycle"
+  - "UsePullCycleLog_InFlightCycleHasNullFinishedAt"
+  - "UsePullCycleLog_TwoSourcesConcurrent_PairsCorrectlyBySource"
+  - "UsePullCycleLog_SkipReasonHistogram_GroupsByReason"
+  - "UsePullCycleLog_TriggeredCount_CountsTriggeredEvents"
+  - "UseWebhookLog_NewestFirst_OrdersByTimestampDesc"
+  - "UseWebhookLog_ActionedAndSkipped_PreservesActionedFlag"
+
+done:
+  - "PullCycleLog replaces TriggerLog at /system; one row per cycle with reason histogram + drill-in expand."
+  - "WebhookLog ships next to PullCycleLog; one row per delivery."
+  - "Inter font loaded via next/font; cream canvas + ink text are the default body styles via DESIGN.md tokens."
+  - "Smith-green primary on tab-active underlines."
+  - "SandboxBox + result.md code-fences keep the dark terminal-panel look (content choice, per DESIGN.md)."
+  - "Dashboard tests + build green."
+  - "Manual smoke: a live tracker poll shows up as ONE PullCycle row with the right counts; reason histogram visible inline."
