@@ -59,7 +59,11 @@ public sealed class PipelineStepRunner(
             var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
             sw.Stop();
             await PublishStepFinishedAsync(
-                context, executionCount, result.IsSuccess ? "success" : "failed", sw.ElapsedMilliseconds, cancellationToken);
+                context, executionCount,
+                result.IsSuccess ? "success" : "failed",
+                sw.ElapsedMilliseconds,
+                result.IsSuccess ? null : result.Message,
+                cancellationToken);
             return await FinalizeStepAsync(
                 current, commands, context, executionCount, cmd, label, sw.Elapsed, result, cancellationToken);
         }
@@ -80,21 +84,25 @@ public sealed class PipelineStepRunner(
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
         batchSw.Stop();
-        var anyFailed = outcome.FirstFailure() is not null;
+        var firstFailureSlot = outcome.FirstFailure();
+        var anyFailed = firstFailureSlot is not null;
         await PublishStepFinishedAsync(
-            context, firstStepIndex, anyFailed ? "failed" : "success", batchSw.ElapsedMilliseconds, cancellationToken);
+            context, firstStepIndex,
+            anyFailed ? "failed" : "success",
+            batchSw.ElapsedMilliseconds,
+            anyFailed ? firstFailureSlot!.Result.Message : null,
+            cancellationToken);
 
         TrackBatchedCommands(outcome, context);
 
-        var failure = outcome.FirstFailure();
-        if (failure is not null)
+        if (firstFailureSlot is not null)
         {
             return new StepExecutionResult(
-                failure.Result with
+                firstFailureSlot.Result with
                 {
-                    FailedStep = failure.StepIndex,
+                    FailedStep = firstFailureSlot.StepIndex,
                     TotalSteps = commands.Count,
-                    StepName = CommandNames.GetLabel(failure.Command.Name)
+                    StepName = CommandNames.GetLabel(firstFailureSlot.Command.Name)
                 },
                 null);
         }
@@ -235,12 +243,12 @@ public sealed class PipelineStepRunner(
     }
 
     private Task PublishStepFinishedAsync(
-        PipelineContext context, int stepIndex, string status, long durationMs, CancellationToken ct)
+        PipelineContext context, int stepIndex, string status, long durationMs, string? reason, CancellationToken ct)
     {
         if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new StepFinishedEvent(runId, stepIndex, status, durationMs, DateTimeOffset.UtcNow), ct);
+            new StepFinishedEvent(runId, stepIndex, status, durationMs, DateTimeOffset.UtcNow, reason), ct);
     }
 
     private async Task PostSkillDetailAsync(
