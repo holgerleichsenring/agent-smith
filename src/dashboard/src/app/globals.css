@@ -33,14 +33,14 @@
   html {
     background: var(--color-canvas);
     color: var(--color-ink);
-    font-family: var(--font-sans);
+    /* p0174: --font-sans is bound to Inter via next/font in layout.tsx;
+       Tailwind's font-sans utility resolves it through the theme. */
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    html {
-      background: var(--color-terminal-bg);
-      color: var(--color-terminal-text);
-    }
-  }
+  /* p0174: dashboard surface stays light in dark-mode UA too — operator
+     surface is content-bright by design (DESIGN.md ships dark variants
+     for marketing surfaces, not the dashboard). Code/terminal panels
+     get their own dark surface via card-terminal-panel classes. */
 }
 
 /* p0169j-d: subtle pulse for "running" sandbox nodes in the topology
