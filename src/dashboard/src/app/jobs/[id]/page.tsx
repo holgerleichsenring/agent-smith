@@ -108,25 +108,25 @@ function RunDetail({ runId }: { runId: string }) {
         <button
           type="button"
           onClick={() => setActiveTab("topology")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "topology" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "topology" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-topology"
         >Topology</button>
         <button
           type="button"
           onClick={() => setActiveTab("activity")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "activity" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "activity" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-activity"
         >Activity</button>
         <button
           type="button"
           onClick={() => setActiveTab("result")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "result" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "result" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-result"
         >Result</button>
         <button
           type="button"
           onClick={() => setActiveTab("trail")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-stone-800 text-stone-800" : "border-transparent text-stone-500 hover:text-stone-700"}`}
+          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
           data-testid="tab-trail"
         >Trail</button>
       </nav>

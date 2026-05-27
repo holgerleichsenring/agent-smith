@@ -6,7 +6,8 @@ import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SystemStatusCard } from "@/components/system/SystemStatusCard";
 import { TodayActivityCard } from "@/components/system/TodayActivityCard";
 import { ChannelBreakdown } from "@/components/system/ChannelBreakdown";
-import { TriggerLog } from "@/components/system/TriggerLog";
+import { PullCycleLog } from "@/components/system/PullCycleLog";
+import { WebhookLog } from "@/components/system/WebhookLog";
 import { CostRollupCard } from "@/components/system/CostRollupCard";
 import type { RunEvent } from "@/types/hub-events";
 
@@ -38,7 +39,8 @@ export default function SystemPage() {
         <ChannelBreakdown events={events} />
         <CostRollupCard events={runEvents} />
       </div>
-      <TriggerLog events={events} />
+      <PullCycleLog events={events} />
+      <WebhookLog events={events} />
     </main>
   );
 }
