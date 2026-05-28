@@ -27,6 +27,7 @@ public sealed class ExecutePipelineUseCase(
     IPipelineConfigResolver pipelineConfigResolver,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    IModelPricingResolver modelPricingResolver,
     ILogger<ExecutePipelineUseCase> logger)
 {
     /// <summary>
@@ -75,6 +76,9 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
         pipeline.Set("PipelineCostCap", config.PipelineCostCap.ResolveFor(request.PipelineName));
+        // p0176b: per-call cost emitter (EventPublishingChatClient) and the
+        // tracker share the same default-pricing baseline via the resolver.
+        pipeline.Set("ModelPricingResolver", modelPricingResolver);
 
         // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
         // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every
@@ -126,7 +130,8 @@ public sealed class ExecutePipelineUseCase(
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
 
-        await PublishRunFinishedAsync(runId, result, cancellationToken);
+        var costUsd = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+        await PublishRunFinishedAsync(runId, result, costUsd, cancellationToken);
         LogResult(result, projectName, pipeline);
         return result;
     }
@@ -274,14 +279,18 @@ public sealed class ExecutePipelineUseCase(
             new RunStartedEvent(runId, trigger, request.PipelineName, repoNames, runStartedAt), ct);
     }
 
-    private Task PublishRunFinishedAsync(string runId, CommandResult result, CancellationToken ct) =>
+    // p0176b: pipeline-aggregate cost rides on RunFinished so RunSnapshot.Apply
+    // can override the per-call accumulation with the tracker's truth.
+    private Task PublishRunFinishedAsync(
+        string runId, CommandResult result, decimal? costUsd, CancellationToken ct) =>
         eventPublisher.PublishAsync(
             new RunFinishedEvent(
                 runId,
                 result.IsSuccess ? "success" : "failed",
                 result.PrUrl,
                 result.Message ?? string.Empty,
-                DateTimeOffset.UtcNow),
+                DateTimeOffset.UtcNow,
+                costUsd),
             ct);
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)

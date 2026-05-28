@@ -2,9 +2,11 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 
-namespace AgentSmith.Application.Services.Events;
+namespace AgentSmith.Infrastructure.Services.Events;
 
 /// <summary>
 /// Innermost <see cref="IChatClient"/> decorator: emits LlmCallStarted /
@@ -19,7 +21,8 @@ public sealed class EventPublishingChatClient(
     IChatClient inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    string role) : IChatClient
+    IModelPricingResolver pricingResolver,
+    string role = "") : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -45,18 +48,45 @@ public sealed class EventPublishingChatClient(
         if (!string.IsNullOrEmpty(runId))
         {
             var modelOut = response.ModelId ?? model;
+            var inputTokens = response.Usage?.InputTokenCount ?? 0;
+            var outputTokens = response.Usage?.OutputTokenCount ?? 0;
+            var costUsd = ComputeCostUsd(modelOut, response.Usage);
             await eventPublisher.PublishAsync(
                 new LlmCallFinishedEvent(
-                    runId, modelOut, role,
-                    response.Usage?.InputTokenCount ?? 0,
-                    response.Usage?.OutputTokenCount ?? 0,
-                    CostUsd: 0m,
+                    runId!, modelOut, role,
+                    inputTokens,
+                    outputTokens,
+                    costUsd,
                     sw.ElapsedMilliseconds,
                     DateTimeOffset.UtcNow),
                 cancellationToken);
         }
         return response;
     }
+
+    // p0176b: mirrors PipelineCostTracker.EstimateCostUsdLocked so per-call
+    // events agree with the per-pipeline summary's totals. billable input
+    // excludes cache_read, output billed full, cache_create billed at input
+    // rate × 1.25 (Anthropic write penalty), cache_read at its own rate.
+    private decimal ComputeCostUsd(string model, UsageDetails? usage)
+    {
+        if (usage is null) return 0m;
+        var pricing = pricingResolver.Resolve(model);
+        if (pricing is null) return 0m;
+        var input = (int)(usage.InputTokenCount ?? 0);
+        var output = (int)(usage.OutputTokenCount ?? 0);
+        var cacheRead = ReadAdditionalCount(usage, "cache_read_input_tokens")
+            + ReadAdditionalCount(usage, "cached_tokens");
+        var cacheCreate = ReadAdditionalCount(usage, "cache_creation_input_tokens");
+        var billable = Math.Max(0, input - cacheRead);
+        return (billable / 1_000_000m * pricing.InputPerMillion)
+             + (output / 1_000_000m * pricing.OutputPerMillion)
+             + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+             + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+    }
+
+    private static int ReadAdditionalCount(UsageDetails usage, string key)
+        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,

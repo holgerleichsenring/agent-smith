@@ -46,6 +46,7 @@ public sealed class ExecutePipelineUseCaseReposTests
             new PipelineConfigResolver(),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+            new ModelPricingResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

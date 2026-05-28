@@ -67,6 +67,7 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<AgentPromptBuilder>();
+        services.AddSingleton<IModelPricingResolver, ModelPricingResolver>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
         services.AddSingleton<IToolKit, ToolKit>();

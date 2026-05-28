@@ -25,30 +25,25 @@ public sealed class PipelineCostTracker
     private int _totalCacheReadTokens;
     private int _callCount;
     private string _lastModel = "unknown";
-    private readonly Dictionary<string, ModelPricing> _pricing;
+    // p0176b: project-level pricing overrides only — defaults live in
+    // IModelPricingResolver so the per-call cost emitter shares the same
+    // baseline. Lookup walks overrides first, then resolver.
+    private readonly Dictionary<string, ModelPricing> _overrides;
+    private readonly IModelPricingResolver _resolver;
     private readonly CostCapValues? _costCap;
     private readonly SkillCostScopeManager _scopes = new();
 
-    private static readonly Dictionary<string, ModelPricing> DefaultPricing = new(StringComparer.OrdinalIgnoreCase)
+    public PipelineCostTracker(
+        IModelPricingResolver? resolver = null,
+        PricingConfig? config = null,
+        CostCapValues? costCap = null)
     {
-        ["claude-sonnet-4-20250514"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
-        ["claude-haiku-4-5-20251001"] = new() { InputPerMillion = 0.80m, OutputPerMillion = 4.0m, CacheReadPerMillion = 0.08m },
-        ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m },
-        ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m, CacheReadPerMillion = 0.50m },
-        ["gpt-4.1-mini"] = new() { InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CacheReadPerMillion = 0.10m },
-        ["gpt-4.1-nano"] = new() { InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CacheReadPerMillion = 0.025m },
-        ["gpt-4o"] = new() { InputPerMillion = 2.50m, OutputPerMillion = 10.0m },
-        ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m },
-        ["llama-3.3-70b-versatile"] = new() { InputPerMillion = 0.0m, OutputPerMillion = 0.0m },
-    };
-
-    public PipelineCostTracker(PricingConfig? config = null, CostCapValues? costCap = null)
-    {
-        _pricing = new Dictionary<string, ModelPricing>(DefaultPricing, StringComparer.OrdinalIgnoreCase);
+        _resolver = resolver ?? new ModelPricingResolver();
+        _overrides = new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase);
         if (config?.Models is { Count: > 0 })
         {
             foreach (var (model, pricing) in config.Models)
-                _pricing[model] = pricing;
+                _overrides[model] = pricing;
         }
         _costCap = costCap;
     }
@@ -210,17 +205,18 @@ public sealed class PipelineCostTracker
                (_totalCacheReadTokens / 1_000_000m * pricing.CacheReadPerMillion);
     }
 
-    // Provider SDKs return date-suffixed ids (gpt-4.1-2025-04-14, claude-sonnet-4-5-20250929)
-    // while pricing is registered against the base name (gpt-4.1, claude-sonnet-4-5).
-    // Exact lookup first; on miss, longest-prefix wins so gpt-4.1-mini-* beats gpt-4.1.
+    // p0176b: project overrides walk first (exact + longest-prefix); on
+    // miss the lookup delegates to the shared resolver so both the
+    // tracker and the per-call event emitter agree on the baseline.
     private ModelPricing? ResolvePricing(string model)
     {
-        if (_pricing.TryGetValue(model, out var exact)) return exact;
-        return _pricing
+        if (_overrides.TryGetValue(model, out var exact)) return exact;
+        var prefix = _overrides
             .Where(kv => model.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(kv => kv.Key.Length)
             .Select(kv => kv.Value)
             .FirstOrDefault();
+        return prefix ?? _resolver.Resolve(model);
     }
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)
@@ -230,9 +226,10 @@ public sealed class PipelineCostTracker
             && existing is not null)
             return existing;
 
+        pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
         pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out var costCap);
-        var tracker = new PipelineCostTracker(pricingConfig, costCap);
+        var tracker = new PipelineCostTracker(resolver, pricingConfig, costCap);
         pipeline.Set(Key, tracker);
         return tracker;
     }
