@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Bus;
 using Microsoft.Extensions.Logging;
 
@@ -19,10 +20,10 @@ public sealed class RedisProgressReporter(
 
     public string? JobId => jobId;
 
-    public async Task ReportProgressAsync(int step, int total, string commandName,
+    public async Task ReportProgressAsync(int step, int total, PipelineCommand command,
         CancellationToken cancellationToken)
     {
-        var message = BusMessage.Progress(jobId, step, total, commandName);
+        var message = BusMessage.Progress(jobId, step, total, command.DisplayName);
         await messageBus.PublishAsync(message, cancellationToken);
 
         logger.LogDebug("Published progress {Step}/{Total} for job {JobId}", step, total, jobId);
@@ -80,14 +81,5 @@ public sealed class RedisProgressReporter(
         await messageBus.PublishAsync(message, cancellationToken);
 
         logger.LogError("Published Error for job {JobId}: {Text}", jobId, text);
-    }
-
-    public async Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken)
-    {
-        var message = BusMessage.Detail(jobId, text);
-        await messageBus.PublishAsync(message, cancellationToken);
-
-        logger.LogDebug("Published detail for job {JobId}: {Text}", jobId, text);
     }
 }

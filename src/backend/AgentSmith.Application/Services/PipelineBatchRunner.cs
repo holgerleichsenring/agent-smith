@@ -96,8 +96,7 @@ public sealed class PipelineBatchRunner(
     {
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             stepIndex, totalSteps, cmd.DisplayName);
-        await progressReporter.ReportProgressAsync(
-            stepIndex, totalSteps, CommandNames.GetLabel(cmd.Name), ct);
+        await progressReporter.ReportProgressAsync(stepIndex, totalSteps, cmd, ct);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var result = await SafeExecuteAsync(cmd, projectConfig, context, ct);

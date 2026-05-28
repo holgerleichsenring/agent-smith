@@ -1,15 +1,25 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// Reports pipeline progress and asks interactive questions during execution.
 /// Implementations: ConsoleProgressReporter (local/CLI), RedisProgressReporter (K8s job mode).
+///
+/// <para>p0173e: the previous <c>string commandName</c> parameter on
+/// <see cref="ReportProgressAsync"/> is replaced by a typed
+/// <see cref="PipelineCommand"/> reference, and the free-form
+/// <c>ReportDetailAsync(string)</c> channel is removed — detail rows now
+/// flow as typed <c>L1StepDetailEvent</c> on the event bus.</para>
 /// </summary>
 public interface IProgressReporter
 {
     /// <summary>
-    /// Reports the current pipeline step progress.
+    /// Reports the current pipeline step progress. The typed command carries
+    /// the pipeline command + skill + round + repo + workdir so the reporter
+    /// does not have to re-format a display string.
     /// </summary>
-    Task ReportProgressAsync(int step, int total, string commandName,
+    Task ReportProgressAsync(int step, int total, PipelineCommand command,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -38,12 +48,4 @@ public interface IProgressReporter
     /// Returns null when not running in job mode (e.g., CLI).
     /// </summary>
     string? JobId => null;
-
-    /// <summary>
-    /// Reports a fine-grained detail event during agentic execution.
-    /// In Slack mode, posted as a thread reply under the progress message.
-    /// In CLI mode, logged at Debug level (visible with --verbose).
-    /// </summary>
-    Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken);
 }
