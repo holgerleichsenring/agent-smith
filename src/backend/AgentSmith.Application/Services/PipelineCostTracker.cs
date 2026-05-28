@@ -78,8 +78,9 @@ public sealed class PipelineCostTracker
 
     public IReadOnlyList<CallCostRecord> PerSkillBreakdown => _scopes.PerSkillBreakdown;
 
-    public SkillCallScope BeginCall(string skillName, string role, SkillExecutionPhase phase)
-        => _scopes.BeginCall(skillName, role, phase, this);
+    public SkillCallScope BeginCall(
+        string skillName, string role, SkillExecutionPhase phase, string? repoName = null)
+        => _scopes.BeginCall(skillName, role, phase, this, repoName);
 
     public void EndCall(SkillCallScope scope, LimitEnforcer? enforcer)
         => _scopes.EndCall(scope, enforcer);
@@ -135,12 +136,13 @@ public sealed class PipelineCostTracker
         {
             if (_callCount == 0) return null;
 
-            var grouped = _scopes.PerSkillBreakdown
+            var records = _scopes.PerSkillBreakdown;
+            var grouped = records
                 .GroupBy(r => r.Phase.ToString())
                 .ToDictionary(g => g.Key, g => AggregatePhase(g));
 
-            var scopedInput = _scopes.PerSkillBreakdown.Sum(r => r.InputTokens);
-            var scopedOutput = _scopes.PerSkillBreakdown.Sum(r => r.OutputTokens);
+            var scopedInput = records.Sum(r => r.InputTokens);
+            var scopedOutput = records.Sum(r => r.OutputTokens);
             var unscopedInput = Math.Max(0, _totalInputTokens - (int)scopedInput);
             var unscopedOutput = Math.Max(0, _totalOutputTokens - (int)scopedOutput);
             if (unscopedInput > 0 || unscopedOutput > 0)
@@ -150,11 +152,36 @@ public sealed class PipelineCostTracker
                     InputTokens: unscopedInput,
                     OutputTokens: unscopedOutput,
                     CacheReadTokens: 0,
-                    Iterations: Math.Max(0, _callCount - _scopes.PerSkillBreakdown.Sum(r => r.LlmCallCount)),
+                    Iterations: Math.Max(0, _callCount - records.Sum(r => r.LlmCallCount)),
                     Cost: EstimateUnscopedCost(unscopedInput, unscopedOutput));
             }
 
-            return new RunCostSummary(grouped, EstimateCostUsdLocked());
+            // p0176a: per-repo split is conditional — only populated when any
+            // record carried a RepoName, otherwise legacy single-repo callers
+            // get null and result.md skips the per-repo section. Unscoped
+            // records (no RepoName) are deliberately dropped from the per-repo
+            // view because they can't be attributed; the pipeline total still
+            // reflects them via the flat Phases dictionary above.
+            IReadOnlyDictionary<string, RepoCost>? perRepo = null;
+            var repoBuckets = records
+                .Where(r => !string.IsNullOrEmpty(r.RepoName))
+                .GroupBy(r => r.RepoName!)
+                .ToList();
+            if (repoBuckets.Count > 0)
+            {
+                perRepo = repoBuckets.ToDictionary(
+                    bucket => bucket.Key,
+                    bucket =>
+                    {
+                        var phases = bucket
+                            .GroupBy(r => r.Phase.ToString())
+                            .ToDictionary(g => g.Key, g => AggregatePhase(g));
+                        var totalCost = phases.Values.Sum(p => p.Cost);
+                        return new RepoCost(phases, totalCost);
+                    });
+            }
+
+            return new RunCostSummary(grouped, EstimateCostUsdLocked(), perRepo);
         }
     }
 

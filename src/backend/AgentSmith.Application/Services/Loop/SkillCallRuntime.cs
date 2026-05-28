@@ -56,6 +56,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     {
         using var permit = await _gate.AcquireAsync(cancellationToken);
         using var scope = costTracker.BeginCall(request.SkillName, request.Role, request.Phase);
+        using var _callScope = _runContext.BeginCallScope(request.Role, request.Phase.ToString());
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         var enforcer = new LimitEnforcer(_limits, linkedCts);

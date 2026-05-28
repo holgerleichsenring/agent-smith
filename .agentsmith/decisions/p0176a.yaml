@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0176a
+
+decisions:
+  - category: Architecture
+    chose: |
+      AsyncLocal CallScope as a second ambient on IRunContextAccessor
+      (BeginCallScope alongside BeginScope), not a separate accessor.
+    over: |
+      A new ILlmCallScopeAccessor injected wherever the run scope already
+      goes.
+    reason: |
+      runId and (role, phase, repoName) are both run-lifecycle ambients
+      read by the same cross-cutting decorators (EventPublishingChatClient
+      + EventPublishingAIFunction). Two accessors would double the ctor
+      noise on every handler and ChatClientFactory for no gain — the
+      lifecycle is shared. One accessor with two BeginScope methods keeps
+      the contract narrow.
+
+  - category: Architecture
+    chose: |
+      CallScope record lives in AgentSmith.Contracts.Events with Phase
+      as a free-text string.
+    over: |
+      Phase as a strongly-typed SkillExecutionPhase enum reference.
+    reason: |
+      SkillExecutionPhase is in AgentSmith.Application (it ships with
+      SkillCallScope + the cost-tracker scope concept, which are
+      Application-layer types). The architectural layering is
+      Domain → Contracts → Application → Infrastructure, so Contracts
+      cannot reference Application. Producers convert
+      SkillExecutionPhase.ToString() at the BeginCallScope call site.
+      The L2/L3 events that consume the scope's Phase field already
+      carry string payloads (no enum on the wire either).
+    alternatives:
+      - "Move SkillExecutionPhase to Contracts — rejected, it would drag the SkillCallScope ↔ tracker coupling along with it for no producer-side gain."
+
+  - category: Architecture
+    chose: |
+      EventPublishingChatClient drops the role ctor parameter.
+      Role / phase / repoName flow exclusively via the ambient CallScope.
+    over: |
+      Keep the role ctor param as a fallback, scope overrides when set.
+    reason: |
+      Two sources of truth produce ambiguity: which wins, the ctor or
+      the scope? More importantly, the role-on-ctor pattern was exactly
+      the wiring that broke under D2 — every consumer except
+      SkillCallRuntime constructed the decorator with role="" because
+      the factory had no way to know the per-call role. With scope, the
+      role flows in from the handler that opens the scope; the factory
+      doesn't need to know, and there's no way for a future caller to
+      forget the role plumbing.
+
+  - category: Architecture
+    chose: |
+      PipelineCostTracker.BuildSummary's PerRepo grouping is conditional
+      on any CallCostRecord carrying a RepoName.
+    over: |
+      Always render a PerRepo dictionary (single-repo runs get a
+      one-entry dict).
+    reason: |
+      Single-repo / non-init pipelines have no operator-meaningful per-repo
+      view — rendering a one-key block in result.md adds noise without
+      information. Multi-repo runs (init-project on a target with N repos)
+      are where the operator question "which repo cost what?" applies.
+      Conditional rendering keeps single-repo result.md unchanged from the
+      baseline so the change is purely additive for the operator.
+
+  - category: Implementation
+    chose: |
+      Open BeginCallScope explicitly in every handler that calls
+      .GetResponseAsync, even when PipelineCostTracker.BeginCall is also
+      open on the same path.
+    over: |
+      Have PipelineCostTracker.BeginCall open both the cost-tracker scope
+      AND the event-attribution scope in a single call.
+    reason: |
+      Two reasons. (1) Not every handler that calls GetResponseAsync uses
+      the cost tracker's scope mechanism — ProjectAnalyzer / LlmIntentParser
+      / GateRetryCoordinator track via Track(response) only. Coupling the
+      event scope to BeginCall would leave those handlers unscoped.
+      (2) The Roslyn rule looks for an explicit BeginCallScope using-
+      statement; an indirect open buried inside BeginCall would force the
+      rule to also recognise costTracker.BeginCall as a scope opener,
+      making the gate fuzzy.
+
+  - category: Implementation
+    chose: |
+      Roslyn-style architectural test implemented as a brace-depth
+      heuristic over the .cs source text, not via Microsoft.CodeAnalysis.
+    over: |
+      Add Microsoft.CodeAnalysis.CSharp to the test project and walk a
+      real SyntaxTree.
+    reason: |
+      The codebase has no existing dependency on Microsoft.CodeAnalysis;
+      adding it would pull a ~20MB NuGet payload into every test run for
+      one architectural gate. The heuristic walks brace-depth + line-level
+      method-name extraction — pinned by two synthetic-case tests (one
+      violator, one passing) so the rule's behaviour is asserted, not
+      assumed. If a future architectural test needs full syntax-tree
+      analysis, the package can be added at that point; until then the
+      regex/brace approach matches the patterns this slice installs.
+
+  - category: Implementation
+    chose: |
+      Exemption list in the Roslyn test is file-name-based
+      (EventPublishingChatClient.cs / TracingChatClient.cs /
+      RetryCoordinator.cs).
+    over: |
+      Recognise IChatClient implementers as decorators automatically.
+    reason: |
+      The brace-depth heuristic doesn't parse type signatures.
+      File-name exemption with a justification comment is a smaller,
+      auditable surface — three names, each defended in the doc comment.
+      A future decorator gets added by name, which forces the reviewer
+      to think about whether the exemption is warranted.
+
+  - category: Implementation
+    chose: |
+      ProjectAnalyzer.AnalyzeAsync gains an optional repoName parameter
+      threaded through from AnalyzeProjectHandler (sandbox key = repo
+      name).
+    over: |
+      Have the handler open the scope around its `await analyzer.AnalyzeAsync(...)`
+      call.
+    reason: |
+      The analyzer makes up to 2 .GetResponseAsync calls in its retry loop
+      (one initial + one corrective on JSON-parse failure). Opening the
+      scope inside the analyzer keeps the role + phase choice ("project-analyzer"
+      / "BootstrapDiscover") next to the prompt-construction logic that
+      defines the call's identity. The handler doesn't know analyzer-internal
+      retries; opening per-call inside is cleaner than wrapping the whole
+      AnalyzeAsync invocation.
+
+  - category: Implementation
+    chose: |
+      All 14 IChatClient.GetResponseAsync call sites get a BeginCallScope,
+      including QueryKnowledgeHandler / GenerateTestsHandler / LlmIntentParser
+      which weren't in the spec's D2 list.
+    over: |
+      Limit to the 12 sites the spec named.
+    reason: |
+      The build-time Roslyn gate enforces every direct call. Limiting to
+      the named subset would leave the gate red on three handlers and
+      block the merge anyway. The original D2 list was a forensic
+      readout from one run's redis stream — the structural fix covers
+      everything the gate considers, not just what showed up in the
+      forensic sample.
+
+  - category: TradeOff
+    chose: |
+      SkillCallRuntime opens BeginCallScope so RetryCoordinator's
+      .GetResponseAsync inherits the scope via AsyncLocal flow.
+    over: |
+      Move the GetResponseAsync call out of RetryCoordinator into
+      SkillCallRuntime.
+    reason: |
+      RetryCoordinator is the retry-loop seam; moving the call out
+      would entangle SkillCallRuntime with retry mechanics. The
+      AsyncLocal scope flows through the seam without code movement.
+      RetryCoordinator's file is on the Roslyn exemption list with a
+      justification.

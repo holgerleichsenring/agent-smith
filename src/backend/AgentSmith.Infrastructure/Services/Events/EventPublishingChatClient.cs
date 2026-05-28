@@ -15,14 +15,16 @@ namespace AgentSmith.Infrastructure.Services.Events;
 /// event pair, and tokens / duration reflect the actual provider response,
 /// not an aggregated retry total. Prompt content stays in the cost-summary
 /// + result.md path — the event carries the sha256-hex-8 of the resolved
-/// prompt body only.
+/// prompt body only. p0176a: role / phase / repoName flow in via the
+/// ambient <see cref="CallScope"/> on <see cref="IRunContextAccessor"/>
+/// instead of the constructor — handlers open a scope before
+/// <c>.GetResponseAsync</c>, the decorator reads it at emission time.
 /// </summary>
 public sealed class EventPublishingChatClient(
     IChatClient inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    IModelPricingResolver pricingResolver,
-    string role = "") : IChatClient
+    IModelPricingResolver pricingResolver) : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -30,6 +32,10 @@ public sealed class EventPublishingChatClient(
         CancellationToken cancellationToken = default)
     {
         var runId = runContext.CurrentRunId;
+        var scope = runContext.CurrentCallScope;
+        var role = scope?.Role ?? string.Empty;
+        var phase = scope?.Phase;
+        var repoName = scope?.RepoName;
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var promptHash = HashPrompt(materialised);
         var model = options?.ModelId ?? "unknown";
@@ -37,7 +43,7 @@ public sealed class EventPublishingChatClient(
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new LlmCallStartedEvent(runId, model, role, promptHash, DateTimeOffset.UtcNow),
+                new LlmCallStartedEvent(runId, model, role, promptHash, DateTimeOffset.UtcNow, phase, repoName),
                 cancellationToken);
         }
 
@@ -58,7 +64,9 @@ public sealed class EventPublishingChatClient(
                     outputTokens,
                     costUsd,
                     sw.ElapsedMilliseconds,
-                    DateTimeOffset.UtcNow),
+                    DateTimeOffset.UtcNow,
+                    phase,
+                    repoName),
                 cancellationToken);
         }
         return response;

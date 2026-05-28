@@ -90,6 +90,7 @@ public sealed class ConvergenceEvaluatorTests
         var prompts = new FakePromptCatalog().WithPrompt("convergence-system", "system");
         var parser = TolerantJsonParserFactory.CreateConvergence();
         return new ConvergenceEvaluator(factory, prompts, parser,
+            EventTestStubs.RunContext,
             NullLogger<ConvergenceEvaluator>.Instance);
     }
 

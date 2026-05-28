@@ -59,8 +59,12 @@ public sealed class EventPublishingChatClientCostTests
         });
 
     private static EventPublishingChatClient NewClient(
-        IChatClient inner, IEventPublisher publisher, IModelPricingResolver resolver) =>
-        new(inner, publisher, new ScopedRunContext(RunId), resolver, role: "Lead");
+        IChatClient inner, IEventPublisher publisher, IModelPricingResolver resolver)
+    {
+        var ctx = new ScopedRunContext(RunId);
+        ctx.BeginCallScope("Lead", "Plan");
+        return new EventPublishingChatClient(inner, publisher, ctx, resolver);
+    }
 
     private sealed class StubChat : IChatClient
     {
@@ -117,7 +121,14 @@ public sealed class EventPublishingChatClientCostTests
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor
     {
         public string? CurrentRunId => runId;
+        public CallScope? CurrentCallScope => callScope;
         public IDisposable BeginScope(string id) => new NoOpScope();
+        public IDisposable BeginCallScope(string role, string phase, string? repoName = null)
+        {
+            callScope = new CallScope(role, phase, repoName);
+            return new NoOpScope();
+        }
+        private CallScope? callScope;
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 }
