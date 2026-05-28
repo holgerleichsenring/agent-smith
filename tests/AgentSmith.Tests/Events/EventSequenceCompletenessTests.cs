@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Contracts.Activation;
@@ -127,7 +129,8 @@ public sealed class EventSequenceCompletenessTests
     private static async Task ExerciseLlmDecorator(IEventPublisher publisher)
     {
         var client = new EventPublishingChatClient(
-            new StubChat(), publisher, new ScopedRunContext(RunId), role: "Lead");
+            new StubChat(), publisher, new ScopedRunContext(RunId),
+            new ModelPricingResolver());
         await client.GetResponseAsync(
             new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
     }
@@ -184,7 +187,9 @@ public sealed class EventSequenceCompletenessTests
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor
     {
         public string? CurrentRunId => runId;
+        public CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string id) => new NoOpScope();
+        public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 

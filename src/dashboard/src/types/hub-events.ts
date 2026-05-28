@@ -42,6 +42,8 @@ export interface RunFinishedEvent extends RunEventBase {
   prUrl: string | null;
   summary: string;
   finishedAt: string;
+  /** p0176b: pipeline-aggregate cost from PipelineCostTracker at run end. */
+  costUsd: number | null;
 }
 
 export interface SandboxCreatedEvent extends RunEventBase {
@@ -99,6 +101,10 @@ export interface LlmCallStartedEvent extends RunEventBase {
   model: string;
   role: string;
   promptHash: string;
+  /** p0176a: phase (string form of SkillExecutionPhase) from the ambient CallScope. */
+  phase: string | null;
+  /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
+  repoName: string | null;
 }
 
 export interface LlmCallFinishedEvent extends RunEventBase {
@@ -109,6 +115,10 @@ export interface LlmCallFinishedEvent extends RunEventBase {
   tokensOut: number;
   costUsd: number;
   durationMs: number;
+  /** p0176a: phase (string form of SkillExecutionPhase) from the ambient CallScope. */
+  phase: string | null;
+  /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
+  repoName: string | null;
 }
 
 export interface SandboxCommandEvent extends RunEventBase {
@@ -142,6 +152,12 @@ export interface ToolCallEvent extends RunEventBase {
   argsLength: number;
   /** p0175-fix: producer-curated one-liner (≤120 chars), null when unsafe to surface. */
   summary: string | null;
+  /** p0176a: role from the ambient CallScope so per-skill tool activity is attributable. */
+  role: string | null;
+  /** p0176a: phase (string form of SkillExecutionPhase) from the ambient CallScope. */
+  phase: string | null;
+  /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
+  repoName: string | null;
 }
 
 export interface ToolResultEvent extends RunEventBase {
@@ -150,6 +166,12 @@ export interface ToolResultEvent extends RunEventBase {
   ok: boolean;
   resultLength: number;
   errorMessage: string | null;
+  /** p0176a: role from the ambient CallScope so per-skill tool activity is attributable. */
+  role: string | null;
+  /** p0176a: phase (string form of SkillExecutionPhase) from the ambient CallScope. */
+  phase: string | null;
+  /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
+  repoName: string | null;
 }
 
 export interface CatalogIssueEvent extends RunEventBase {

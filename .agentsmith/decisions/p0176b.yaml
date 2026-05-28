@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0176b
+
+decisions:
+  - category: Architecture
+    chose: |
+      Move IModelPricingResolver interface to Contracts.Services and
+      EventPublishingChatClient implementation to Infrastructure.Services.Events
+    over: |
+      Keep both in Application; have a per-call-site provider service wrap
+      the factory output in Application
+    reason: |
+      ChatClientFactory lives in Infrastructure and is the structural choke
+      point for the factory-level decoration the slice demands. With the
+      decorator in Application and the factory in Infrastructure there is
+      no path from factory → decorator without an upward project reference
+      (Application → Infrastructure is not allowed under the project's
+      Clean Architecture layering, per contexts/default/context.yaml).
+
+      Two options:
+        (a) Move the decorator down to Infrastructure so the factory can
+            instantiate it directly. Interface moves to Contracts (the
+            standard pattern for cross-layer service contracts in this
+            codebase — same shape as IEventPublisher and
+            IRunContextAccessor already there).
+        (b) Keep the decorator in Application and have every Application
+            call site wrap the factory output before use.
+
+      (b) reintroduces the per-call-site opt-in pattern that produced D2
+      in the first place — the next handler would forget. (a) keeps the
+      factory the single gate. Picked (a).
+
+      EventPublishingAIFunction stays in Application for now — it's
+      wrapped at SkillCallRuntime.WrapTools call-site only, which slice a
+      addresses with the call-scope accessor.
+
+  - category: Implementation
+    chose: |
+      Tracker delegates default-pricing lookup to IModelPricingResolver
+      and keeps project overrides as its own per-instance dictionary
+    over: |
+      Resolver holds both defaults and overrides as a singleton with
+      a mutation API; tracker reads from resolver only
+    reason: |
+      Per-pipeline pricing overrides are tied to the PricingConfig
+      pulled out of project configuration at tracker construction time
+      (PipelineCostTracker.GetOrCreate pulls "ProjectPricing" from the
+      PipelineContext). The resolver is registered as a DI singleton —
+      no per-pipeline scoping.
+
+      Pushing overrides onto a singleton would require either AsyncLocal
+      mutation or a per-pipeline resolver instance pattern; both
+      complicate consumers (decorator + tracker) that just want a
+      stable lookup. Keeping the tracker as the "merged view" matches
+      the prior behaviour (overrides win); per-call event cost flows
+      from the resolver's defaults, which matches 99% of operators who
+      don't override.
+
+      Custom-pricing operators will see a slight mismatch between
+      per-call LlmCallFinished.CostUsd (default pricing) and the
+      pipeline summary in result.md (project-overridden pricing). The
+      run-end truth on RunFinishedEvent.CostUsd uses the tracker's
+      override-aware value, so the snapshot's final number is correct
+      either way.
+
+  - category: TradeOff
+    chose: |
+      Role parameter on EventPublishingChatClient becomes optional
+      with empty-string default
+    over: |
+      Drop role from the decorator entirely; resolve only via the
+      CallScope accessor planned for p0176a-call-scope-attribution
+    reason: |
+      Factory-level decoration needs to construct the decorator without
+      a role (the factory has no per-call context). SkillCallRuntime's
+      previous manual wrap passed request.Role explicitly; that wrap is
+      gone after this slice. Until p0176a-call-scope-attribution lands
+      the AsyncLocal scope that carries role / phase / repo, the event
+      role field is empty for every consumer.
+
+      Dropping role entirely now would break the PromptHashTests +
+      EventSequenceCompletenessTests fixtures that exercise the
+      decorator with role: "Lead". Keeping role as a defaulted
+      ctor parameter avoids the test-fixture churn while still
+      letting the factory construct without specifying it.
+
+  - category: Implementation
+    chose: |
+      RunFinishedEvent.CostUsd is optional (decimal?), Snapshot.Apply
+      writes the finished value when present; falls back to the
+      per-call accumulation when null
+    over: |
+      Always require CostUsd on RunFinishedEvent (non-nullable)
+    reason: |
+      Older recorded runs in Redis (XRANGE replay window, 24h) were
+      serialised before this slice landed and have no CostUsd in the
+      envelope. Making it required would break replay on every active
+      restart — broadcaster crashes, dashboard ghosts.
+
+      Optional + Snapshot.Apply's fallback (`e.CostUsd ?? CostUsd`)
+      means pre-slice events deserialise cleanly with CostUsd = null;
+      post-slice events override the accumulation. Two-day rollover
+      window is enough for the optional path to be safe.
+
+  - category: TradeOff
+    chose: |
+      EventPublishingChatClient computes cost mirroring
+      PipelineCostTracker.EstimateCostUsdLocked logic (billable input
+      minus cache_read, output billed full, cache_create at 1.25× input
+      rate, cache_read at its own rate)
+    over: |
+      Refactor the cost arithmetic into a shared helper used by both
+      sites
+    reason: |
+      One math expression duplicated in two files vs. a third helper
+      class that becomes a maintenance burden. The arithmetic is six
+      lines, well-commented, and identical in both consumers. If the
+      formula changes (e.g. a new provider with a different cache
+      penalty), both sites need an update either way — the helper
+      doesn't save churn, it adds a layer.
+
+      Per coding-principles.md "Three similar lines are better than a
+      premature abstraction"; we have two sites, not five.

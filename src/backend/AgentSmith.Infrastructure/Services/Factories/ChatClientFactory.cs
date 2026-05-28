@@ -1,6 +1,8 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Microsoft.Extensions.AI;
@@ -12,9 +14,15 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// IChatClientFactory implementation. Resolves AgentConfig.Type to the right
 /// IChatClientBuilder, applies per-task ModelAssignment via a per-call
 /// ConfigBasedModelRegistry, and wraps tool-bearing tasks with FunctionInvokingChatClient.
+/// p0176b: every returned client is also wrapped with
+/// <see cref="EventPublishingChatClient"/> so all consumers (not just
+/// SkillCallRuntime) emit LlmCallStarted/Finished events with real cost.
 /// </summary>
 public sealed class ChatClientFactory(
     IEnumerable<IChatClientBuilder> builders,
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
+    IModelPricingResolver pricingResolver,
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -41,11 +49,20 @@ public sealed class ChatClientFactory(
             task, effectiveType, assignment.Model, assignment.MaxTokens,
             ToolBearingTasks.Contains(task));
 
+        // p0176b: wrap innermost with EventPublishingChatClient BEFORE
+        // FunctionInvokingChatClient so each provider call (including
+        // tool-loop iterations) produces its own LlmCallStarted/Finished
+        // pair. Role / phase / repoName flow in via the ambient CallScope
+        // on IRunContextAccessor (p0176a), opened by each handler around
+        // its .GetResponseAsync invocation.
+        var instrumented = new EventPublishingChatClient(
+            bare, eventPublisher, runContext, pricingResolver);
+
         if (!ToolBearingTasks.Contains(task))
-            return bare;
+            return instrumented;
 
         var iterations = maxIterations ?? MaxIterationsPerRequest;
-        return new ChatClientBuilder(bare)
+        return new ChatClientBuilder(instrumented)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
     }

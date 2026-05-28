@@ -2,9 +2,11 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 
-namespace AgentSmith.Application.Services.Events;
+namespace AgentSmith.Infrastructure.Services.Events;
 
 /// <summary>
 /// Innermost <see cref="IChatClient"/> decorator: emits LlmCallStarted /
@@ -13,13 +15,16 @@ namespace AgentSmith.Application.Services.Events;
 /// event pair, and tokens / duration reflect the actual provider response,
 /// not an aggregated retry total. Prompt content stays in the cost-summary
 /// + result.md path — the event carries the sha256-hex-8 of the resolved
-/// prompt body only.
+/// prompt body only. p0176a: role / phase / repoName flow in via the
+/// ambient <see cref="CallScope"/> on <see cref="IRunContextAccessor"/>
+/// instead of the constructor — handlers open a scope before
+/// <c>.GetResponseAsync</c>, the decorator reads it at emission time.
 /// </summary>
 public sealed class EventPublishingChatClient(
     IChatClient inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    string role) : IChatClient
+    IModelPricingResolver pricingResolver) : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -27,6 +32,10 @@ public sealed class EventPublishingChatClient(
         CancellationToken cancellationToken = default)
     {
         var runId = runContext.CurrentRunId;
+        var scope = runContext.CurrentCallScope;
+        var role = scope?.Role ?? string.Empty;
+        var phase = scope?.Phase;
+        var repoName = scope?.RepoName;
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var promptHash = HashPrompt(materialised);
         var model = options?.ModelId ?? "unknown";
@@ -34,7 +43,7 @@ public sealed class EventPublishingChatClient(
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new LlmCallStartedEvent(runId, model, role, promptHash, DateTimeOffset.UtcNow),
+                new LlmCallStartedEvent(runId, model, role, promptHash, DateTimeOffset.UtcNow, phase, repoName),
                 cancellationToken);
         }
 
@@ -45,18 +54,47 @@ public sealed class EventPublishingChatClient(
         if (!string.IsNullOrEmpty(runId))
         {
             var modelOut = response.ModelId ?? model;
+            var inputTokens = response.Usage?.InputTokenCount ?? 0;
+            var outputTokens = response.Usage?.OutputTokenCount ?? 0;
+            var costUsd = ComputeCostUsd(modelOut, response.Usage);
             await eventPublisher.PublishAsync(
                 new LlmCallFinishedEvent(
-                    runId, modelOut, role,
-                    response.Usage?.InputTokenCount ?? 0,
-                    response.Usage?.OutputTokenCount ?? 0,
-                    CostUsd: 0m,
+                    runId!, modelOut, role,
+                    inputTokens,
+                    outputTokens,
+                    costUsd,
                     sw.ElapsedMilliseconds,
-                    DateTimeOffset.UtcNow),
+                    DateTimeOffset.UtcNow,
+                    phase,
+                    repoName),
                 cancellationToken);
         }
         return response;
     }
+
+    // p0176b: mirrors PipelineCostTracker.EstimateCostUsdLocked so per-call
+    // events agree with the per-pipeline summary's totals. billable input
+    // excludes cache_read, output billed full, cache_create billed at input
+    // rate × 1.25 (Anthropic write penalty), cache_read at its own rate.
+    private decimal ComputeCostUsd(string model, UsageDetails? usage)
+    {
+        if (usage is null) return 0m;
+        var pricing = pricingResolver.Resolve(model);
+        if (pricing is null) return 0m;
+        var input = (int)(usage.InputTokenCount ?? 0);
+        var output = (int)(usage.OutputTokenCount ?? 0);
+        var cacheRead = ReadAdditionalCount(usage, "cache_read_input_tokens")
+            + ReadAdditionalCount(usage, "cached_tokens");
+        var cacheCreate = ReadAdditionalCount(usage, "cache_creation_input_tokens");
+        var billable = Math.Max(0, input - cacheRead);
+        return (billable / 1_000_000m * pricing.InputPerMillion)
+             + (output / 1_000_000m * pricing.OutputPerMillion)
+             + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+             + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+    }
+
+    private static int ReadAdditionalCount(UsageDetails usage, string key)
+        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -21,6 +22,7 @@ public sealed class LlmIntentParser(
     IChatClientFactory chatClientFactory,
     IConfigurationLoader configLoader,
     AgentConfig haikusConfig,
+    IRunContextAccessor runContext,
     ILogger<LlmIntentParser> logger) : IIntentParser
 {
     private const string SystemPrompt = """
@@ -61,6 +63,8 @@ public sealed class LlmIntentParser(
             new(ChatRole.System, SystemPrompt),
             new(ChatRole.User, userPrompt),
         };
+        using var _scope = runContext.BeginCallScope(
+            "intent-parser", SkillExecutionPhase.Investigate.ToString());
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
 

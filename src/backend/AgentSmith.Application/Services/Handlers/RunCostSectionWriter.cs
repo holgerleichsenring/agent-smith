@@ -14,7 +14,7 @@ internal static class RunCostSectionWriter
     internal static void AppendFrontmatter(
         StringBuilder sb, Ticket ticket, string changeType,
         int durationSeconds, RunCostSummary? costSummary,
-        RunMetaTopology? topology = null)
+        RunMetaTopology? topology = null, string? repoName = null)
     {
         var ci = CultureInfo.InvariantCulture;
 
@@ -33,6 +33,7 @@ internal static class RunCostSectionWriter
         {
             AppendTokenSection(sb, costSummary);
             AppendCostSection(sb, costSummary, ci);
+            AppendRepoCostSection(sb, costSummary, repoName, ci);
         }
 
         sb.AppendLine("---");
@@ -61,7 +62,8 @@ internal static class RunCostSectionWriter
     /// sections so operators get consistent reporting across init / fix / feat.
     /// </summary>
     internal static void AppendInitFrontmatter(
-        StringBuilder sb, int durationSeconds, RunCostSummary? costSummary)
+        StringBuilder sb, int durationSeconds, RunCostSummary? costSummary,
+        string? repoName = null)
     {
         var ci = CultureInfo.InvariantCulture;
 
@@ -77,6 +79,7 @@ internal static class RunCostSectionWriter
         {
             AppendTokenSection(sb, costSummary);
             AppendCostSection(sb, costSummary, ci);
+            AppendRepoCostSection(sb, costSummary, repoName, ci);
         }
 
         sb.AppendLine("---");
@@ -104,6 +107,33 @@ internal static class RunCostSectionWriter
         sb.AppendLine("  phases:");
 
         foreach (var (phase, cost) in costSummary.Phases)
+        {
+            sb.AppendLine($"    {phase}:");
+            sb.AppendLine($"      model: {cost.Model}");
+            sb.AppendLine($"      input: {cost.InputTokens}");
+            sb.AppendLine($"      output: {cost.OutputTokens}");
+            sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
+            sb.AppendLine($"      turns: {cost.Iterations}");
+            sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
+        }
+    }
+
+    // p0176a: per-repo cost block — only emitted when (a) the summary
+    // carries a PerRepo dictionary (any record had a RepoName set) and
+    // (b) the caller is rendering the doc for a specific repo. The
+    // pipeline total stays in the cost: block above so the operator can
+    // compare repo-share to total inline.
+    private static void AppendRepoCostSection(
+        StringBuilder sb, RunCostSummary costSummary, string? repoName, CultureInfo ci)
+    {
+        if (costSummary.PerRepo is not { Count: > 0 } perRepo) return;
+        if (string.IsNullOrEmpty(repoName) || !perRepo.TryGetValue(repoName, out var repoCost)) return;
+
+        sb.AppendLine("repo_cost:");
+        sb.AppendLine($"  repo: {repoName}");
+        sb.AppendLine(string.Format(ci, "  total_usd: {0:F4}", repoCost.TotalCost));
+        sb.AppendLine("  phases:");
+        foreach (var (phase, cost) in repoCost.Phases)
         {
             sb.AppendLine($"    {phase}:");
             sb.AppendLine($"      model: {cost.Model}");

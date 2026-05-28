@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -180,7 +181,8 @@ public sealed class BootstrapDiscoverHandlerTests
         var chat = new CannedChatClient(canned, captured);
         var factory = new CannedChatClientFactory(chat);
         return new BootstrapDiscoverHandler(
-            factory, dialogueTransport, NullLogger<BootstrapDiscoverHandler>.Instance);
+            factory, dialogueTransport, EventTestStubs.RunContext,
+            NullLogger<BootstrapDiscoverHandler>.Instance);
     }
 
     private static BootstrapDiscoverContext NewContext(string repoName, PipelineContext pipeline)
