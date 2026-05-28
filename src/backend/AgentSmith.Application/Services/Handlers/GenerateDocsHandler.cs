@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -24,6 +25,7 @@ public sealed class GenerateDocsHandler(
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
     IDialogueTransport? dialogueTransport,
+    IRunContextAccessor runContext,
     ILogger<GenerateDocsHandler> logger)
     : ICommandHandler<GenerateDocsContext>
 {
@@ -65,6 +67,8 @@ public sealed class GenerateDocsHandler(
             MaxOutputTokens = maxTokens,
         };
 
+        using var _scope = runContext.BeginCallScope(
+            "docs-generator", SkillExecutionPhase.Implementation.ToString());
         var response = await chat.GetResponseAsync(messages, options, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
 

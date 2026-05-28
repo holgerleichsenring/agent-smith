@@ -1,3 +1,5 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -18,6 +20,7 @@ public sealed class ConvergenceEvaluator(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     ConvergenceResultParser resultParser,
+    IRunContextAccessor runContext,
     ILogger<ConvergenceEvaluator> logger) : IConvergenceEvaluator
 {
     public async Task<ConvergenceResult> EvaluateAsync(
@@ -33,6 +36,8 @@ public sealed class ConvergenceEvaluator(
             new(ChatRole.System, prompts.Get("convergence-system")),
             new(ChatRole.User, BuildUserPrompt(observations)),
         };
+        using var _scope = runContext.BeginCallScope(
+            "convergence-evaluator", SkillExecutionPhase.Synthesize.ToString());
         var response = await chat.GetResponseAsync(
             messages, new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         costSink(response);
