@@ -1,0 +1,15 @@
+{
+  "t": 41,
+  "p": {
+    "source": "tracker:jira/sample",
+    "tracker": "jira/sample",
+    "ticketsPolled": 18,
+    "matched": 2,
+    "spawned": 1,
+    "statusFiltered": 1,
+    "zeroMatched": 15,
+    "durationMs": 412,
+    "type": 41,
+    "timestamp": "2026-05-20T10:14:01Z"
+  }
+}

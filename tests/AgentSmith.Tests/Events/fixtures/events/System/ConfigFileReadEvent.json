@@ -1,0 +1,12 @@
+{
+  "t": 51,
+  "p": {
+    "source": "config-loader",
+    "path": ".agentsmith/context.yaml",
+    "kind": 1,
+    "sizeBytes": 4321,
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "type": 51,
+    "timestamp": "2026-05-20T10:15:35Z"
+  }
+}
