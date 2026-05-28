@@ -15,5 +15,6 @@ public interface IProjectAnalyzer
         string repositoryPath,
         AgentConfig agent,
         ISandbox sandbox,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? repoName = null);
 }

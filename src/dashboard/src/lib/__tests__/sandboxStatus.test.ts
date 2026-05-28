@@ -100,4 +100,25 @@ describe("paletteFor", () => {
     const p = paletteFor("failed");
     expect(p.fill).toContain("rose");
   });
+
+  it("not_started uses terminal-grey (no pulse) — same palette as disposed", () => {
+    const p = paletteFor("not_started");
+    expect(p.fill).toContain("stone");
+    expect(p.pulse).toBe(false);
+  });
+});
+
+describe("p0176c — not_started terminal status", () => {
+  it("RunFinishedButSandboxNeverCreated_ReturnsNotStarted", () => {
+    expect(sandboxStatusColor([runFinished("failed")], "abandoned-repo")).toBe("not_started");
+  });
+
+  it("MidRunBeforeSandboxCreated_StaysWaiting", () => {
+    // No RunFinished yet — still in-progress, the create may still fire.
+    expect(sandboxStatusColor([], "pending-repo")).toBe("waiting");
+  });
+
+  it("SandboxCreatedBeforeRunFinished_DoesNotDowngradeToNotStarted", () => {
+    expect(sandboxStatusColor([created("server"), runFinished("success")], "server")).not.toBe("not_started");
+  });
 });

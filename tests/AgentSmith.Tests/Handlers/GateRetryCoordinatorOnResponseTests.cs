@@ -87,6 +87,7 @@ public sealed class GateRetryCoordinatorOnResponseTests
                 It.IsAny<string>(), It.IsAny<PipelineContext>()))
             .Returns(passesGate ? CommandResult.Ok("ok") : CommandResult.Fail("parse failed"));
         return (new GateRetryCoordinator(gateHandler.Object, factory,
+            EventTestStubs.RunContext,
             NullLogger<GateRetryCoordinator>.Instance), factory);
     }
 

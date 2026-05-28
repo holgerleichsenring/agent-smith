@@ -7,14 +7,19 @@ namespace AgentSmith.Contracts.Events;
 /// (≤120 chars) extracted from a whitelist of operator-visible argument
 /// keys (path, file, url, …) so the activity row reads "read_file
 /// src/Foo.cs" instead of "read_file (47B)". Softens the strict
-/// metadata-only boundary from p0169e — see decisions/p0175.yaml.
+/// metadata-only boundary from p0169e — see decisions/p0175.yaml. p0176a
+/// adds optional Role + Phase + RepoName from the ambient CallScope so
+/// per-repo tool activity is attributable.
 /// </summary>
 public sealed record ToolCallEvent(
     string RunId,
     string Tool,
     int ArgsLength,
     DateTimeOffset Timestamp,
-    string? Summary = null)
+    string? Summary = null,
+    string? Role = null,
+    string? Phase = null,
+    string? RepoName = null)
     : RunEvent(RunId, EventType.ToolCall, Timestamp);
 
 /// <summary>
@@ -27,5 +32,8 @@ public sealed record ToolResultEvent(
     bool Ok,
     int ResultLength,
     DateTimeOffset Timestamp,
-    string? ErrorMessage = null)
+    string? ErrorMessage = null,
+    string? Role = null,
+    string? Phase = null,
+    string? RepoName = null)
     : RunEvent(RunId, EventType.ToolResult, Timestamp);

@@ -41,7 +41,8 @@ public static class RunResultFormatter
         SecurityTrend? securityTrend = null,
         IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
         IReadOnlyList<CallCostRecord>? perSkillBreakdown = null,
-        RunMetaTopology? topology = null)
+        RunMetaTopology? topology = null,
+        string? repoName = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -50,7 +51,7 @@ public static class RunResultFormatter
         sb.AppendLine($"# Run {RunIdGenerator.FormatForDisplay(runId)}: {ticket.Title}");
         sb.AppendLine();
 
-        RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary, topology);
+        RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary, topology, repoName);
 
         sb.AppendLine("## Changed Files");
         foreach (var change in changes)
@@ -141,7 +142,7 @@ public static class RunResultFormatter
         sb.AppendLine("Bootstrap run — generated per-context `context.yaml` + `coding-principles.md`.");
         sb.AppendLine();
 
-        RunCostSectionWriter.AppendInitFrontmatter(sb, durationSeconds, costSummary);
+        RunCostSectionWriter.AppendInitFrontmatter(sb, durationSeconds, costSummary, repoName);
         AppendDiscoverySection(sb, components);
         AppendBootstrapOutputsSection(sb, components, bootstrapOutputsByContext);
         AppendSharedCostNote(sb, sharedCostNote);

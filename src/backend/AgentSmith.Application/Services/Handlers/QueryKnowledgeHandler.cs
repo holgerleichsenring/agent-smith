@@ -2,6 +2,7 @@ using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -18,6 +19,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class QueryKnowledgeHandler(
     IChatClientFactory chatClientFactory,
     ISandboxFileReaderFactory readerFactory,
+    IRunContextAccessor runContext,
     ILogger<QueryKnowledgeHandler> logger)
     : ICommandHandler<QueryKnowledgeContext>
 {
@@ -52,6 +54,8 @@ public sealed class QueryKnowledgeHandler(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, userPrompt),
         };
+        using var _scope = runContext.BeginCallScope(
+            "knowledge-query", SkillExecutionPhase.Investigate.ToString());
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);

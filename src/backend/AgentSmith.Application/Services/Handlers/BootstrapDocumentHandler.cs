@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -21,6 +22,7 @@ public sealed class BootstrapDocumentHandler(
     ISkillLoader skillLoader,
     IPromptCatalog prompts,
     ISandboxFileReaderFactory readerFactory,
+    IRunContextAccessor runContext,
     ILogger<BootstrapDocumentHandler> logger) : ICommandHandler<BootstrapDocumentContext>
 {
     private const int ContractTypeDetectionMaxChars = 2000;
@@ -122,6 +124,8 @@ public sealed class BootstrapDocumentHandler(
                 new(ChatRole.System, prompts.Get("contract-classifier-system")),
                 new(ChatRole.User, snippet),
             };
+            using var _scope = runContext.BeginCallScope(
+                "contract-classifier", SkillExecutionPhase.Bootstrap.ToString());
             var response = await chat.GetResponseAsync(messages,
                 new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
             var contractType = (response.Text ?? string.Empty).Trim().ToLowerInvariant();

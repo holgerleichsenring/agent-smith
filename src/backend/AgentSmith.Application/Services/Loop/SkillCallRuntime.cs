@@ -56,6 +56,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     {
         using var permit = await _gate.AcquireAsync(cancellationToken);
         using var scope = costTracker.BeginCall(request.SkillName, request.Role, request.Phase);
+        using var _callScope = _runContext.BeginCallScope(request.Role, request.Phase.ToString());
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         var enforcer = new LimitEnforcer(_limits, linkedCts);
@@ -103,12 +104,12 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         try
         {
             var cap = _limits.ResolveToolCallCap(request.InvestigatorMode);
+            // p0176b: ChatClientFactory now wraps the innermost client with
+            // EventPublishingChatClient unconditionally, so every direct
+            // consumer (not just this site) emits LlmCallStarted/Finished
+            // events. Manual `new EventPublishingChatClient(...)` removed.
             var inner = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
-            // EventPublishing wraps innermost (below the retry layer) so every
-            // provider attempt produces its own LlmCallStarted/Finished pair
-            // with the actual response's token counts — not an aggregated total.
-            var instrumented = new EventPublishingChatClient(inner, _eventPublisher, _runContext, request.Role);
-            var chat = new TracingChatClient(instrumented, trace);
+            var chat = new TracingChatClient(inner, trace);
             var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);

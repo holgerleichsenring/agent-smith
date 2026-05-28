@@ -19,7 +19,8 @@ public sealed class SkillCostScopeManager
     }
 
     public SkillCallScope BeginCall(
-        string skillName, string role, SkillExecutionPhase phase, PipelineCostTracker tracker)
+        string skillName, string role, SkillExecutionPhase phase, PipelineCostTracker tracker,
+        string? repoName = null)
     {
         lock (_gate)
         {
@@ -27,7 +28,7 @@ public sealed class SkillCostScopeManager
                 throw new InvalidOperationException(
                     "skill calls do not nest — a SkillCallScope is already active");
 
-            var scope = new SkillCallScope(skillName, role, phase, tracker, DateTimeOffset.UtcNow);
+            var scope = new SkillCallScope(skillName, role, phase, tracker, DateTimeOffset.UtcNow, repoName);
             _activeScope = scope;
             return scope;
         }

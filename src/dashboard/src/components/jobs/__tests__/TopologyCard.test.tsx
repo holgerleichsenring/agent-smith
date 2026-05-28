@@ -69,4 +69,30 @@ describe("TopologyCard", () => {
     render(<TopologyCard runId={snapshot.runId} snapshot={snapshot} events={[]} />);
     expect(screen.getByTestId("steps-empty")).toBeInTheDocument();
   });
+
+  it("p0176c — FailedStatusWithSummary_RendersSummaryLine", () => {
+    const failed: RunSnapshot = {
+      ...snapshot,
+      status: "failed",
+      summary: "BootstrapDispatch: ambiguous match for csharp (project-bootstrap, csharp-bootstrap)",
+    };
+    render(<TopologyCard runId={failed.runId} snapshot={failed} events={[]} />);
+    const banner = screen.getByTestId("topology-failure-summary");
+    expect(banner).toHaveTextContent("BootstrapDispatch: ambiguous match");
+  });
+
+  it("p0176c — SuccessStatus_DoesNotRenderSummaryLine", () => {
+    const succeeded: RunSnapshot = {
+      ...snapshot,
+      status: "success",
+      summary: "Pipeline completed successfully",
+    };
+    render(<TopologyCard runId={succeeded.runId} snapshot={succeeded} events={[]} />);
+    expect(screen.queryByTestId("topology-failure-summary")).not.toBeInTheDocument();
+  });
+
+  it("p0176c — RunningStatus_DoesNotRenderSummaryLine", () => {
+    render(<TopologyCard runId={snapshot.runId} snapshot={snapshot} events={[]} />);
+    expect(screen.queryByTestId("topology-failure-summary")).not.toBeInTheDocument();
+  });
 });

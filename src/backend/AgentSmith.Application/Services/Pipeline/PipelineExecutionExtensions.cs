@@ -8,6 +8,7 @@ using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Sandbox;
@@ -32,6 +33,7 @@ public static class PipelineExecutionExtensions
             sp.GetRequiredService<IChatClientFactory>(),
             sp.GetRequiredService<IConfigurationLoader>(),
             new AgentConfig { Type = "claude" },
+            sp.GetRequiredService<IRunContextAccessor>(),
             sp.GetRequiredService<ILogger<LlmIntentParser>>()));
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
@@ -67,6 +69,7 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         services.AddSingleton<AgentPromptBuilder>();
+        services.AddSingleton<IModelPricingResolver, ModelPricingResolver>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
         services.AddSingleton<IToolKit, ToolKit>();

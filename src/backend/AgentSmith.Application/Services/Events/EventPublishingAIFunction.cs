@@ -26,13 +26,17 @@ public sealed class EventPublishingAIFunction(
         AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var runId = runContext.CurrentRunId;
+        var scope = runContext.CurrentCallScope;
+        var role = scope?.Role;
+        var phase = scope?.Phase;
+        var repoName = scope?.RepoName;
         var argsLength = EstimateArgsLength(arguments);
         var summary = ExtractSummary(arguments);
 
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary),
+                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary, role, phase, repoName),
                 cancellationToken);
         }
 
@@ -56,7 +60,7 @@ public sealed class EventPublishingAIFunction(
             {
                 var resultLength = EstimateResultLength(result);
                 await eventPublisher.PublishAsync(
-                    new ToolResultEvent(runId!, inner.Name, ok, resultLength, DateTimeOffset.UtcNow, errorMessage),
+                    new ToolResultEvent(runId!, inner.Name, ok, resultLength, DateTimeOffset.UtcNow, errorMessage, role, phase, repoName),
                     CancellationToken.None);
             }
         }
