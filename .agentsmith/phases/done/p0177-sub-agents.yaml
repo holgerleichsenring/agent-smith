@@ -1,0 +1,241 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0177
+goal: |
+  A master agentic loop (AgenticExecuteHandler) spawns n warm sub-agents at
+  runtime; children share the run sandbox + run cost tracker and inherit
+  context as DATA (pipeline goal, prior context slice, optional system-prompt
+  block — no cache_control architecture here; that is p0178). Children emit
+  typed observation / finding / file-write events on the p0173e bus.
+  SubAgentResult to the master carries decision anchors only (counts + IDs +
+  status + cost), never distilled text — the master reads details lazily via
+  a read_sub_agent_observations(sub_agent_id, filter) tool that returns paged
+  raw bus events. Bus is the single source of truth; no compress step. Each
+  child has a non-generic Name + Activity, validated in code (^agent\d+$,
+  ^sub\d+$, single-word generics rejected). Topology: one master, n children,
+  one level — only the master gets spawn_agents (enforced via tool policy +
+  IsSubAgent). p0097's concurrency mechanics reused (semaphore, deterministic
+  spec-order merge), fail-fast NOT — a failed child returns Status, siblings
+  continue. Step 0 measures a baseline (single agent, warm context,
+  parallel-capable task) BEFORE the rest of the phase begins; the post-phase
+  gate compares against it. If the spawned variant does not measurably beat
+  the baseline, the roadmap halts at this phase.
+
+requires:
+  - p0097
+  - p0116
+  - p0142
+  - p0145
+  - p0173e-typed-message-contracts
+
+scope:
+  in: |
+    Step 0 baseline: single agent with warm context runs a parallel-capable task (multi-module read in a fixture repo, or parallel verify across multiple targets); 3 sample runs; numbers (latency, total tokens, qualitative result quality) recorded in reports/p0177-baseline.md BEFORE the rest of the phase begins.
+    SubAgentSpec sealed record: { Name, Activity, TaskDescription, OutputHint?, ToolProfile, InheritedContext }. InheritedContext (PipelineGoal, PriorContextSlice, OptionalSystemPromptBlock) is data only — no cache_control here.
+    SubAgentNameValidator (Application + tool schema): rejects ^agent\d+$, ^sub\d+$, ^child\d+$, single-word generics (worker, helper, runner). Code guard, not schema-only.
+    SubAgentResult sealed record (implements IDomainEvent): { TaskIndex, Status, SubAgentId, Name, ObservationsCount, FindingsCount, FilesWrittenCount, ToolCalls, CostUsd }. NO ResultText field — reflection-asserted.
+    L2SubAgent event records under AgentSmith.Contracts/Events (p0173e contract): SubAgentSpawnedEvent, SubAgentObservationEvent, SubAgentFindingEvent, SubAgentFileWrittenEvent, SubAgentToolCallEvent, SubAgentCompletedEvent. Each implements IDomainEvent; frozen JSON fixture committed under tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/.
+    AgenticLoopRunner extracted from AgenticExecuteHandler (no handler-calls-handler); AgenticLoopRequest carries InheritedContext + identity (Name, Activity, SubAgentId, nullable ParentSubAgentId).
+    ISubAgentRunner + SubAgentRunner: SemaphoreSlim(MaxConcurrentSubAgents) + Task.WhenAll over specs; per spec build child ToolKit (IsSubAgent=true, no spawn_agents), build AgenticLoopRequest from spec + InheritedContext, emit SubAgentSpawnedEvent, call AgenticLoopRunner, emit SubAgentCompletedEvent, map to SubAgentResult (decision anchors only). Deterministic spec-order merge. NO fail-fast — failed child returns Status=Failed, siblings continue.
+    SubAgentBudget scoped per run; int counter + MaxSubAgentsPerRun; TryReserve(count) thread-safe, returns how many fit, never throws.
+    SpawnAgentToolHost (IToolHost, p0145): one tool spawn_agents(tasks[]) — task params flat primitives per p0153 (name, activity, task_description, output_hint?, tool_profile?, inherited_context object). Reserves budget, validates names, runs children via ISubAgentRunner, logs the decision via IDecisionLogger (count + names + activities + per-child status+cost), returns labeled SubAgentResult list (no result_text).
+    ReadSubAgentObservationsToolHost (IToolHost): one tool read_sub_agent_observations(sub_agent_id, kinds?, max_results?). Reads from the run-event bus (in-process query for sync; XRANGE-style for Redis). Returns paged typed events labeled per kind. Master uses it whenever it needs detail behind a decision-anchor count. Available to master AND children (siblings may query each other's observations — explicitly allowed; topology bound is spawn, not read).
+    IPipelineToolPolicy + ToolKit gain IsSubAgent awareness: SpawnAgentToolHost excluded for children regardless of pipeline; included for master only when the pipeline opts in. Config-gated; default off — non-opt-in pipelines byte-identical to pre-p0177.
+    LoopLimitsConfig adds MaxConcurrentSubAgents (default 4) and MaxSubAgentsPerRun (default 20), bound from loop_limits:.
+    Master-prompt-guidance: append to the p0151a one-prefix master prompt — role-naming requirement with examples (good: ContextMapInvestigator, UploadHandlerAuditor; bad: agent1, worker), one-line activity requirement, budget self-limit. Soft guidance; the hard limits are the code validator + SubAgentBudget + topology.
+    Smoke: run the SAME parallel-capable task as Step 0 with sub-agents enabled (MaxSubAgentsPerRun=3) on a cheap model. Capture latency, total tokens, qualitative quality, trace tree, decision-anchor counts. Record in reports/p0177-subagent-bench.md alongside the baseline numbers.
+
+  out: |
+    Cache architecture for InheritedContext (cache_control breakpoints, prefix warming, byte-identical fork) → p0178. Parallel fan-out does not naturally hit the cache (entry only available after the first response); a separate problem class that needs measurement first.
+    Synthesis sub-agent — removed. Distilling output through another child is the same compress trap the model is meant to escape.
+    Two-level / grandchild agents — topologically excluded; no plan unless a concrete need appears.
+    Mutual challenge between sub-agents (shared-context agent teams) — no plan.
+    Coding-vs-Scan pipeline-shape rework (Plan→Execute→Verify vs broad-tool-loop master skill) → p0179.
+    Choreography teardown / skill consolidation (Triage / Compress / Convergence / Synthesizer / four-slot) → p0179; domain content extracted before any slot falls.
+    Self-generated skills by master → p0178.
+    Subscription / setup-token auth as token source — dev/test uses the Ollama + stub path.
+    Mid-sub-agent cancellation beyond p0097's level — CancellationToken cancels orchestration, not the in-flight LLM call; child cost still tracked.
+
+decisions:
+  - key: "spawn_agents is a tool (IToolHost), not orchestration above the loop — fits p0145 composition, single dispatch path."
+  - key: "One master, n children, one level — depth bound in topology (IsSubAgent in tool policy), not only in the cap."
+  - key: "Children share the run sandbox + run cost tracker; Name / Activity / trace / tool profile are per-child."
+  - key: "Failed child is NOT batch fail-fast (unlike p0097); master sees Status and decides."
+  - key: "MaxSubAgentsPerRun is run-wide, not per spawn_agents call; exhaustion returns Failed for surplus tasks, no run abort."
+  - key: "Sub-agent core extracted into AgenticLoopRunner — no handler-calls-handler."
+  - key: |
+      InheritedContext is data, not cache. Reason: cold-start sub-agents (only TaskDescription) are worse than the existing static skill graph; data inheritance is the fix that ships now. Cache_control / prefix warming is a separate problem class — parallel fan-out does not naturally cache-hit (entry only available after the first response, parallel calls all pay the write price). p0178 owns the cache architecture. alternatives: cache-aware spec from day one (rejected — conflates two problems and rushes a design that needs measurement first); cold-start (rejected — known worse than the existing skill graph).
+  - key: |
+      SubAgentResult carries decision anchors only, never distilled text. Reason: a summary is a distillate and reintroduces the compress trap the whole model is meant to escape — same loss under a new name. Master reads raw observations via read_sub_agent_observations when it needs detail. alternatives: ResultText field (rejected — the loss the architecture is built to abolish); compressed-trace field (rejected — same trap renamed).
+  - key: |
+      Master accesses sub-agent observations via a lazy read tool, not via a return channel. Reason: bus is single source of truth; master pulls only what it needs by filter; bloat-avoidance is structured filtering, not summarizing. alternatives: full trace returned in SubAgentResult (rejected — master context drowns at N=4 children); pre-summarized observations (rejected — distillate trap).
+  - key: |
+      Name + Activity required and code-validated non-generic. Reason: dashboard identity rots without it; schema words without code backing are the convention discipline that p0173e is built to replace. Validator rejects ^agent\d+$, ^sub\d+$, ^child\d+$, single-word generics (worker, helper, runner). alternatives: optional Name (rejected — master will skip it); schema-only validation (rejected — convention-only).
+  - key: |
+      Step 0 baseline is measured BEFORE the rest of the phase, on a parallel-capable task. Reason: a post-phase comparison without a baseline is a confirmation trap; the task must be parallel-capable (multi-module read or multi-target verify) so sub-agents can show their strength — comparing on coherent-judgement tasks biases against them, comparing on arbitrary pipelines biases for or against them depending on the day. The post-phase gate halts the roadmap if the spawned variant does not measurably beat the baseline. alternatives: baseline at the end (rejected — confirmation-biased); baseline on an arbitrary pipeline (rejected — biased one way or the other); no baseline (rejected — gate is performative).
+  - key: |
+      Sub-agents are p0173e event producers; their typed events live under L2SubAgent and follow the same compat-test + drift-detector discipline as the rest of the contract surface. Reason: ad-hoc event records for sub-agents would reintroduce exactly the schema drift that p0173e exists to abolish. alternatives: untyped emit on a sub-agent-specific channel (rejected — second contract surface); inline result aggregation (rejected — the compress trap).
+
+steps:
+  - id: baseline-spike
+    action: |
+      Measure single-agent-with-warm-context on a parallel-capable task (multi-module read in a fixture repo, or parallel verify across multiple targets). Capture: latency, total tokens, three qualitative result-quality assessments. Record in reports/p0177-baseline.md. This is Step 0 — no other step starts until this file exists with measured numbers, so the post-phase gate is grounded against real data, not a story.
+    new:
+      - "reports/p0177-baseline.md"
+
+  - id: loop-limits-config
+    action: |
+      Extend LoopLimitsConfig with MaxConcurrentSubAgents (default 4) and MaxSubAgentsPerRun (default 20); bind from loop_limits:; documented in the example config + docs/configuration.md.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs"
+      - "config/agentsmith.example.yml"
+      - "docs/configuration.md"
+
+  - id: agentic-loop-extraction
+    action: |
+      Extract the FunctionInvokingChatClient loop core from AgenticExecuteHandler into AgenticLoopRunner. AgenticLoopRequest carries InheritedContext + identity (Name, Activity, SubAgentId, nullable ParentSubAgentId). AgenticExecuteHandler delegates its loop to AgenticLoopRunner; behaviour identical (regression test stays green).
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/IAgenticLoopRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRequest.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopResult.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/.../AgenticExecuteHandler.cs: delegate the loop to AgenticLoopRunner."
+
+  - id: sub-agent-types
+    action: |
+      Define SubAgentSpec, InheritedContext (data fields only — no cache_control), ToolProfile enum, SubAgentResult (no ResultText), SubAgentStatus enum, SubAgentContext (shared sandbox + run cost tracker + master trace id + IToolKit + IPipelineToolPolicy + SubAgentBudget).
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentSpec.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/InheritedContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/ToolProfile.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentResult.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentStatus.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentContext.cs"
+
+  - id: sub-agent-event-records
+    action: |
+      Add typed L2 sub-agent events under the p0173e contract: SubAgentSpawnedEvent (Name, Activity, ParentSubAgentId, InheritedContextHash), SubAgentObservationEvent (Text), SubAgentFindingEvent (Severity, Title, Detail), SubAgentFileWrittenEvent (Path, Bytes), SubAgentToolCallEvent (ToolName, ArgsSummary), SubAgentCompletedEvent (Status, ObservationsCount, FindingsCount, FilesWrittenCount, ToolCalls, CostUsd). Each implements IDomainEvent. Frozen JSON fixture per event committed under tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/ so the p0173e compat test covers them from day one.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/L2SubAgentEvents.cs"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentSpawnedEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentObservationEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentFindingEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentFileWrittenEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentToolCallEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/SubAgentCompletedEvent.json"
+
+  - id: sub-agent-budget
+    action: |
+      SubAgentBudget scoped per run; int counter + MaxSubAgentsPerRun; TryReserve(count) thread-safe via lock; returns how many fit (may be fewer than requested, or zero); never throws.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentBudget.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs: register SubAgentBudget + ISubAgentRunner + IAgenticLoopRunner as scoped."
+
+  - id: name-validator
+    action: |
+      SubAgentNameValidator rejects ^agent\d+$, ^sub\d+$, ^child\d+$, and single-word generics (worker, helper, runner, executor, processor). Applied at SpawnAgentToolHost on the parsed input. Rejected tasks return Status=Failed reason=invalid_name without an LLM call. Same validator used in unit tests so the regex is shared, not duplicated.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentNameValidator.cs"
+
+  - id: sub-agent-runner
+    action: |
+      SubAgentRunner: SemaphoreSlim(MaxConcurrentSubAgents) + Task.WhenAll over specs. Per spec: build child ToolKit (IsSubAgent=true, no spawn_agents), build AgenticLoopRequest with the spec's InheritedContext + identity, emit SubAgentSpawnedEvent, call AgenticLoopRunner, emit SubAgentCompletedEvent, map AgenticLoopResult into SubAgentResult (decision anchors only). Deterministic spec-order merge. NO fail-fast — failed child returns Status=Failed, siblings continue.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/ISubAgentRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs"
+
+  - id: spawn-agent-toolhost
+    action: |
+      SpawnAgentToolHost implements IToolHost (p0145). GetTools returns one spawn_agents AIFunction. Ctor: ISubAgentRunner + SubAgentBudget + SubAgentNameValidator + IDecisionLogger. Handler: parse tasks (flat primitive params: name, activity, task_description, output_hint?, tool_profile?, inherited_context object) → validate names → TryReserve budget → run children → log the decision via IDecisionLogger (count, names, activities, per-child status+cost) → return labeled SubAgentResult list (decision anchors only, no result_text).
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs"
+
+  - id: tool-policy-master-only
+    action: |
+      IPipelineToolPolicy + ToolKit thread an IsSubAgent flag. SpawnAgentToolHost is excluded for children regardless of pipeline. For the master, the host is included only when the pipeline explicitly opts in via config (default off — non-opt-in pipelines byte-identical to pre-p0177). Same opt-in discipline as p0097's MaxConcurrentSkillRounds default=1.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/IPipelineToolPolicy.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/ToolKit.cs"
+
+  - id: lazy-access-tool
+    action: |
+      ReadSubAgentObservationsToolHost implements IToolHost. GetTools returns one read_sub_agent_observations AIFunction with params (sub_agent_id string, kinds? array, max_results? int default 50). Handler queries the run-event bus (in-process for sync, XRANGE-style for Redis) filtered by sub_agent_id + optional kinds; returns paged typed events labeled per kind. Available to master AND children — siblings may inspect each other's observations.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/ReadSubAgentObservationsToolHost.cs"
+
+  - id: master-prompt-guidance
+    action: |
+      Append to the p0151a one-prefix master prompt (SourceAnchoringPreamble / master prompt strategy composer): role-naming requirement with explicit examples (good: ContextMapInvestigator, UploadHandlerAuditor, SecuritySurfaceScanner; bad: agent1, worker, helper), one-line activity requirement, run-budget statement so the LLM self-limits. Soft guidance only; the hard limits are SubAgentNameValidator + SubAgentBudget + the topology.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Skills/Prompting/SourceAnchoringPreamble.cs (or the equivalent p0151a master prompt composer in src/backend/AgentSmith.Application/Services/Skills/Prompting/)"
+
+  - id: tests-stub-deterministic
+    action: |
+      Stub IAgenticLoopRunner — assert mechanism bit-exact (10x same path): deterministic spec-order merge, semaphore caps in-flight peak at MaxConcurrentSubAgents, failed child does not cancel siblings, SubAgentResult has no ResultText field (reflection), read_sub_agent_observations returns paged bus events not summaries, SubAgentNameValidator rejects every documented generic pattern. Determinism is testable BECAUSE the LLM is stubbed; real-LLM output is never bit-exact.
+    new:
+      - "tests/AgentSmith.Tests/Application/Services/Loop/SubAgentRunnerTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Loop/SubAgentBudgetTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Loop/SubAgentNameValidatorTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/SpawnAgentToolHostTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/SubAgentToolPolicyTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/ReadSubAgentObservationsToolHostTests.cs"
+      - "tests/AgentSmith.Tests/Events/SubAgentEventRoundTripTests.cs"
+
+  - id: smoke-real
+    action: |
+      Run the SAME parallel-capable task as Step 0 with sub-agents enabled (MaxSubAgentsPerRun=3) on a cheap model. Capture latency, total tokens, three qualitative quality assessments, trace tree, decision-anchor counts. Record in reports/p0177-subagent-bench.md alongside the baseline numbers. The post-phase gate: if the spawned variant does not measurably beat the baseline (lower latency or higher quality at equivalent cost), the roadmap halts at this phase. No silent continuation.
+    new:
+      - "reports/p0177-subagent-bench.md"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green; pnpm build + pnpm test green; sub-agents default off (non-opt-in pipelines byte-identical to pre-p0177). reports/p0177-baseline.md and reports/p0177-subagent-bench.md both committed; the post-phase gate decision recorded at the top of the bench file (pass / halt + the comparison numbers).
+
+tests:
+  - "AgenticExecuteHandler_AfterLoopExtraction_BehavesIdentically"
+  - "SubAgentNameValidator_GenericRegex_Rejected_AgentDigits"
+  - "SubAgentNameValidator_GenericRegex_Rejected_SubDigits"
+  - "SubAgentNameValidator_GenericRegex_Rejected_ChildDigits"
+  - "SubAgentNameValidator_SingleWordGenerics_Rejected_Worker_Helper_Runner"
+  - "SubAgentNameValidator_DescriptiveName_Accepted_ContextMapInvestigator"
+  - "SubAgentResult_HasNoResultTextField_Reflection"
+  - "SubAgentResult_ImplementsIDomainEvent"
+  - "SubAgentRunner_DeterministicSpecOrderMerge"
+  - "SubAgentRunner_SemaphoreCapsInFlightAtMaxConcurrent"
+  - "SubAgentRunner_OneChildFails_SiblingsContinue"
+  - "SubAgentRunner_EmitsSpawnedAndCompletedEventsPerChild"
+  - "SubAgentRunner_ChildrenShareRunSandbox_NoNewSandboxSpawned"
+  - "SubAgentRunner_ChildrenShareRunCostTracker_TokensCountToRunTotal"
+  - "SubAgentRunner_InheritedContextPropagatesToChildLoop"
+  - "SubAgentBudget_RespectsMaxPerRunAcrossMultipleSpawnCalls"
+  - "SubAgentBudget_ConcurrentReserve_NoOversubscription"
+  - "SubAgentBudget_OverBudget_ReturnsFewerOrZero_NeverThrows"
+  - "SpawnAgentToolHost_GenericName_TaskFailsWithoutLlmCall"
+  - "SpawnAgentToolHost_OverBudget_TasksFailWithoutLlmCall"
+  - "SpawnAgentToolHost_LogsDecision_CountNamesActivities"
+  - "SpawnAgentToolHost_ResultHasNoResultTextField"
+  - "SubAgentToolPolicy_IsSubAgentTrue_NeverIncludesSpawnAgents"
+  - "SubAgentToolPolicy_Master_IncludesSpawnAgents_WhenPipelineOptsIn"
+  - "ReadSubAgentObservations_ReturnsPagedBusEvents_NotSummary"
+  - "ReadSubAgentObservations_FilterByKind_ReturnsOnlyMatching"
+  - "L2SubAgentEvents_RoundTripThroughEnvelopeSerializer"
+  - "L2SubAgentEvents_FrozenFixturesDeserializeOnCurrentTypes"
+  - "ToolKit_SubAgentsDisabledByDefault_MasterToolSetUnchanged"
+
+done:
+  - "Step 0 baseline measured on a parallel-capable task with a single warm-context agent BEFORE any code in this phase ships; numbers in reports/p0177-baseline.md."
+  - "AgenticLoopRunner extracted from AgenticExecuteHandler; regression test green (handler behaviour identical)."
+  - "SubAgentSpec carries InheritedContext (data fields only — PipelineGoal, PriorContextSlice, OptionalSystemPromptBlock); no cache_control in this phase (deferred to p0178)."
+  - "Name + Activity required and code-validated non-generic; SubAgentNameValidator rejects the documented patterns (^agent\\d+$, ^sub\\d+$, ^child\\d+$, single-word generics)."
+  - "SubAgentResult is typed decision anchors only — TaskIndex, Status, SubAgentId, Name, ObservationsCount, FindingsCount, FilesWrittenCount, ToolCalls, CostUsd. No ResultText field (reflection-asserted)."
+  - "L2SubAgent typed events ship under the p0173e contract (IDomainEvent applied, frozen JSON fixtures committed); SubAgentRunner emits Spawned + Completed; AgenticLoopRunner emits Observation / FileWritten / ToolCall on behalf of children."
+  - "read_sub_agent_observations tool returns paged typed bus events filtered by sub_agent_id + kind; never a summary."
+  - "Topology guarantee in code: children lack spawn_agents (IsSubAgent in tool policy); one level, no tree — directly tested."
+  - "Hard cap: MaxConcurrentSubAgents (semaphore) + run-wide MaxSubAgentsPerRun + p0151d cost cap sees child tokens automatically; budget exhaustion returns Failed, never aborts the run."
+  - "Failed child does not cancel siblings (no p0097 fail-fast); master sees Status and decides."
+  - "Result merge deterministic in spec order regardless of completion order."
+  - "Default off: non-opt-in pipelines byte-identical to pre-p0177 (verified)."
+  - "Smoke run on the SAME parallel-capable task as Step 0; reports/p0177-subagent-bench.md records the gate decision (pass / halt) at the top; if halt, the roadmap stops at this phase."
+  - "dotnet build + dotnet test + pnpm build + pnpm test all green."

@@ -32,6 +32,20 @@ public interface IToolKit
         IEnumerable<IToolHost> hosts);
 
     /// <summary>
+    /// p0177: IsSubAgent-aware overload. Passes the flag through to
+    /// <see cref="AgentSmith.Contracts.Services.IPipelineToolPolicy"/> so
+    /// the child loop never sees <c>SpawnAgentToolHost</c> regardless of
+    /// the pipeline preset.
+    /// </summary>
+    IList<AITool> GetToolsFor(
+        string pipelineName,
+        SkillExecutionPhase? phase,
+        string? investigatorMode,
+        IEnumerable<IToolHost> hosts,
+        bool isSubAgent) =>
+        GetToolsFor(pipelineName, phase, investigatorMode, hosts);
+
+    /// <summary>
     /// Sentinel for "no specific pipeline." Resolves to all-hosts-active under
     /// <see cref="AgentSmith.Contracts.Services.IPipelineToolPolicy"/> defaults.
     /// </summary>

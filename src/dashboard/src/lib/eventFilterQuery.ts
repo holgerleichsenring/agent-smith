@@ -56,6 +56,12 @@ const TYPE_KEYS: Record<string, EventType> = {
   ToolResult: EventType.ToolResult,
   L1StepDetail: EventType.L1StepDetail,
   CatalogIssue: EventType.CatalogIssue,
+  SubAgentSpawned: EventType.SubAgentSpawned,
+  SubAgentObservation: EventType.SubAgentObservation,
+  SubAgentFinding: EventType.SubAgentFinding,
+  SubAgentFileWritten: EventType.SubAgentFileWritten,
+  SubAgentToolCall: EventType.SubAgentToolCall,
+  SubAgentCompleted: EventType.SubAgentCompleted,
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

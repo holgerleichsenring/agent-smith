@@ -23,6 +23,12 @@ const LABELS: Record<EventType, string> = {
   [EventType.ToolResult]: "ToolResult",
   [EventType.L1StepDetail]: "L1StepDetail",
   [EventType.CatalogIssue]: "CatalogIssue",
+  [EventType.SubAgentSpawned]: "SubAgentSpawned",
+  [EventType.SubAgentObservation]: "SubAgentObservation",
+  [EventType.SubAgentFinding]: "SubAgentFinding",
+  [EventType.SubAgentFileWritten]: "SubAgentFileWritten",
+  [EventType.SubAgentToolCall]: "SubAgentToolCall",
+  [EventType.SubAgentCompleted]: "SubAgentCompleted",
 };
 
 export function FilterRail() {
