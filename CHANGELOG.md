@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.66.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.65.1...v0.66.0) (2026-05-28)
+
+
+### Features
+
+* call-scope attribution + per-repo cost in result.md (p0176a) ([b5e3130](https://github.com/holgerleichsenring/agent-smith/commit/b5e3130030183a7fb2442f8e79d6c57d193af8c5))
+* cost-integrity baseline — events fire with real cost (p0176b) ([f5d8e5e](https://github.com/holgerleichsenring/agent-smith/commit/f5d8e5ee284939031b4a6a1e8ae97c1a353e5d96))
+* p0175 dashboard bug fixes ([57fdf28](https://github.com/holgerleichsenring/agent-smith/commit/57fdf28f513a5a39ee431f17d99b314daf8da3ce))
+* p0176b cost integrity ([748c370](https://github.com/holgerleichsenring/agent-smith/commit/748c37065d2065b28021a91439427fc309c18002))
+* topology failure visibility (p0176c) ([0166888](https://github.com/holgerleichsenring/agent-smith/commit/01668886ce90f394a45059f7e9dd0f6e15c6d6cb))
+
+
+### Bug Fixes
+
+* **pipeline:** publish RunFinished(failed) on unhandled executor exception (p0175) ([cfc5efa](https://github.com/holgerleichsenring/agent-smith/commit/cfc5efa75f4f4dde8c34d62da1de23e74cabcc6b))
+
 ## [0.65.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.65.0...v0.65.1) (2026-05-27)
 
 
