@@ -37,45 +37,62 @@ goal: |
     prompts vary at the start, or the cache window is too short between
     calls. Potential 40-45% cost cut on input tokens.
 
-  Ship order: a → b → c → d → e. a unblocks the operator's "what did
-  this cost" question (currently always answered "$0"); b unblocks
-  "what failed and why" without leaving the Topology view; c + d are
-  iterative UX polish; e is the largest cost-impact lever but needs
-  diagnosis before fix.
+  - p0176f: server-log surface on the dashboard. Today the only way to
+    see why a run failed at the OS/infra layer (Docker image missing,
+    Redis down, network) is `docker logs agentsmith-server`. The
+    dashboard must surface that channel — either bridge server stdout
+    into the system event stream as a dedicated LogEntry event, or
+    expose a hub method that tails the container log directly. Decision
+    on the bridge path lives in the slice.
+  - p0176g: in-flight LLM cost broadcast. p0176a closes the lie at
+    run-end (RunFinished carries the real total), but the operator
+    can't see what an in-flight run has spent until it terminates. A
+    long-running multi-skill run can quietly burn through budget
+    without surfacing live. PipelineCostTracker already has the data
+    after every Track() call; we need a periodic (debounced) emit of a
+    CostAttributed / RunCostUpdated event into the run stream that
+    RunSnapshot.Apply accumulates.
+
+  Ship order: a → b → c → d → e → f → g. a unblocks the operator's
+  "what did this cost" question (currently always answered "$0"); b
+  unblocks "what failed and why" without leaving the Topology view; c +
+  d are iterative UX polish; e is the largest cost-impact lever but
+  needs diagnosis before fix; f surfaces the infrastructure-layer
+  errors that bypass the run-event stream entirely; g extends a from
+  run-end-only to live tracking once the contract from a is stable.
 
 requires:
   - p0175
 
 scope:
   in: |
-    Umbrella spec only — the five slices are independently shippable.
+    Umbrella spec only — the seven slices are independently shippable.
     Each slice carries its own scope/decisions/done. All slices flow
     from the same operator session against init-project on a
     multi-context sample target.
 
   out: |
-    Server-log streaming into the dashboard. Considered during this
-    session but deferred — the failure-reason surface in p0176b
-    addresses the operator's stated pain ("warte nur auf der UI")
-    without the channel-bridging cost. Revisit if Topology+Activity
-    reason rendering doesn't close enough of the diagnostic gap.
-
-    In-flight cost broadcast (RunCostUpdated event during a run). p0176a
-    ships the run-end total; live mid-run cost waits until an operator
-    reports needing it. Mid-run cost-cap enforcement already exists in
-    PipelineCostTracker, so the safety floor isn't compromised.
-
     Anthropic prompt caching (cache_control breakpoints). Out of p0176e
     scope — p0176e investigates the OpenAI / gpt-4.1 path observed in
     the failing data. Anthropic caching is a separate provider story.
 
+    Persistent log storage beyond Redis TTL for p0176f. The dashboard
+    surface is the goal; long-term archival is an ops question handled
+    by the host log pipeline (Docker / k8s log driver), not Agent Smith.
+
+    Per-skill / per-tool cost attribution in the live broadcast (p0176g).
+    The slice ships pipeline-level live cost only — per-skill drill-down
+    already exists in result.md at run end; replicating it live multiplies
+    event volume without a stated diagnostic need.
+
 decisions:
   - key: |
-      Five slices, not one phase — operator UX defects from one session
-      cluster around five distinct seams (cost integrity, failure
-      surfacing, per-sandbox view, tab polish, prompt-cache). Each has
-      its own review surface + landing risk; bundling them buries the
-      cost integrity fix (highest operator pain) behind UI polish PRs.
+      Seven slices, not one phase — operator UX defects from one session
+      cluster around seven distinct seams (cost integrity, failure
+      surfacing, per-sandbox view, tab polish, prompt-cache, server-log
+      bridge, in-flight cost). Each has its own review surface + landing
+      risk; bundling them buries the cost integrity fix (highest
+      operator pain) behind UI polish PRs.
       alternatives: one mega-phase (rejected — couples backend cost
       plumbing with frontend polish); cost only, defer UX (rejected —
       operator already named the UI gaps in the session; deferring
@@ -108,3 +125,5 @@ done:
   - "p0176c shipped: expanded SandboxBox shows the tool-call activity feed scoped to that sandbox (re-using the Summary field from p0175 Fix #4), not just stdout."
   - "p0176d shipped: Trail tab auto-selects the run node on load; Activity tab scroll direction + sticky behavior decided and applied."
   - "p0176e shipped: cache_read=0 root cause identified; if a code fix lands (provider header, prompt structure), result.md from a re-run of the same init-project shows cache_read > 0 in at least one phase; if no fix is needed (cache TTL or operator-controlled), decision is documented."
+  - "p0176f shipped: dashboard surfaces server-log entries either via a new SystemEvent LogEntry contract OR a hub method tailing container stdout; an OS/infra-layer failure (e.g. Docker image missing) is visible in the dashboard without ssh / docker logs."
+  - "p0176g shipped: an in-flight run's accumulated cost is visible on the topology view (or runs list) before RunFinished arrives; a long-running multi-skill run shows a non-zero, monotonically-increasing cost while it executes; the broadcast is debounced (no per-call SignalR storm)."
