@@ -13,6 +13,9 @@ interface Props {
 
 export function TopologyCard({ runId, snapshot, events }: Props) {
   const steps = useMemo(() => buildStepRows(events), [events]);
+  const failureSummary = isFailureStatus(snapshot?.status) && snapshot?.summary
+    ? snapshot.summary
+    : null;
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5" data-testid="topology-card">
       <header className="mb-4">
@@ -24,10 +27,24 @@ export function TopologyCard({ runId, snapshot, events }: Props) {
           {snapshot?.repos.join(", ") || "no repos"}
           {snapshot?.totalSteps ? ` · step ${snapshot.stepIndex}/${snapshot.totalSteps}` : ""}
         </p>
+        {failureSummary && (
+          <p className="mt-2 text-sm text-rose-700" data-testid="topology-failure-summary">
+            {failureSummary}
+          </p>
+        )}
       </header>
       <StepProgressList steps={steps} />
     </section>
   );
+}
+
+// p0176c: snapshot.status is whatever the RunFinishedEvent carried —
+// "success", "failed", "error", or transient "running". Treat anything
+// outside running/success as a failure surface so error / failed /
+// cancelled all light up.
+function isFailureStatus(status: string | undefined): boolean {
+  if (!status) return false;
+  return status !== "running" && status !== "success";
 }
 
 function buildStepRows(events: RunEvent[]): StepRow[] {

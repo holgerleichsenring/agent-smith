@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0176c
+
+decisions:
+  - category: Scope
+    chose: |
+      Phase id renamed from the umbrella's original "p0176b" to "p0176c"
+      to avoid collision with the shipped p0176b-cost-integrity slice.
+    over: |
+      Reuse "p0176b" with a disambiguating slug.
+    reason: |
+      During the p0176a split, what the umbrella called "p0176a"
+      (cost-integrity baseline) was renamed to "p0176b-cost-integrity"
+      so the two cost slices had unique IDs. That collapsed the
+      remaining letters: "p0176b" in the umbrella (topology failure
+      visibility) now conflicts with the shipped phase. Bumping this
+      slice to "c" preserves alphabetic ship-order semantics for the
+      rest of the umbrella (c → d → e → f → g) without rewriting
+      history.
+
+  - category: Architecture
+    chose: |
+      Add `not_started` as a distinct SandboxStatus rather than
+      reusing `waiting`.
+    over: |
+      Keep `waiting` and have the palette branch on runFinished.
+    reason: |
+      Status enums are read by multiple consumers (palette, future
+      tooltips, possible filter chips). Encoding terminality in the
+      status name keeps the read sites trivial — `if (status === 'not_started')`
+      reads correctly. Branching on (status, runFinished) every
+      downstream consumer would have to recreate the same conditional.
+
+  - category: Implementation
+    chose: |
+      `not_started` palette mirrors `disposed` (terminal-grey).
+    over: |
+      A new palette entry distinct from disposed.
+    reason: |
+      Both states are "this is over, not a problem to act on" — the
+      operator should not be drawn to either. Disposed = clean teardown
+      after success; not_started = never started because the run aborted
+      first. Visual identity of "neutral terminal" reads the same; the
+      tooltip / status text can carry the distinction when it matters.
+      One less palette to design + maintain.
+
+  - category: Architecture
+    chose: |
+      Step-name (repo, component) suffix composed in PipelineStepRunner.ComposeStepLabel,
+      not in command-class DisplayName overrides.
+    over: |
+      Override PipelineCommand.DisplayName / per-command formatter.
+    reason: |
+      The (repo, component) data lives on PipelineCommand itself
+      (RepoName, ContextName from p0158g / p0161d). One formatter,
+      one read site (StepStartedEvent.StepName), one place to evolve
+      the convention. Per-command DisplayName overrides would
+      duplicate the (repo, component) formatting across every
+      multi-repo command type that ever ships.
+
+  - category: Implementation
+    chose: |
+      ComposeStepLabel is `internal static` and exercised directly by
+      PipelineStepRunnerStepNameTests.
+    over: |
+      Drive coverage end-to-end through a recorded StepStartedEvent.
+    reason: |
+      The label composition is pure (PipelineCommand → string).
+      Direct test gives 5 focused assertions in ~10ms; an end-to-end
+      seam test would carry the rest of PipelineStepRunner's
+      machinery for the same signal. The downstream wiring (label →
+      StepStartedEvent.StepName) is one line in PublishStepStartedAsync
+      and read by existing tests.
+
+  - category: TradeOff
+    chose: |
+      TopologyCard treats any status that isn't "running" or "success"
+      as failure-surface (failed, error, cancelled, …).
+    over: |
+      Hard-coded list of failure statuses.
+    reason: |
+      RunFinishedEvent.Status is a free-form string. Hard-coding a list
+      would silently miss future status values (e.g. "timed_out",
+      "cost_capped"). The whitelist of "running"/"success" is bounded
+      and ages well — any new status defaults to surfacing the summary,
+      which is the safer failure mode for the operator.

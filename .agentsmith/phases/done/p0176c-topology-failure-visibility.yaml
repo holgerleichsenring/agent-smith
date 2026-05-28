@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0176c-topology-failure-visibility
+goal: |
+  Close the three gaps on the Topology view surfaced by the same
+  operator session that drove p0176a/b: failure summary not visible on
+  the Topology header (operator forced to Activity/Trail to read
+  "why"), sandbox nodes show "waiting" forever for repos whose run
+  aborted before sandbox creation (terminal state misread as
+  in-progress), bootstrap rounds render as N identical "Producing
+  bootstrap files" rows without (repo, component) attribution
+  (operator can't tell which round is for which repo).
+
+  Mapped from the umbrella's original "p0176b" slice; renamed to
+  p0176c because the cost-integrity baseline took the "b" letter
+  during the p0176a split.
+
+requires: ["p0176a-call-scope-attribution"]
+
+scope:
+  in: |
+    1. Topology header failure summary — TopologyCard renders
+       snapshot.summary as a second header line when snapshot.status
+       is not "running" or "success". RunFinishedEvent already carries
+       Summary (p0175); RunSnapshot already projects it. This slice
+       is the dashboard read-through.
+
+    2. Sandbox "not_started" terminal status — sandboxStatus.ts adds
+       a new status: `not_started` (terminal, distinct from `waiting`
+       which is in-progress). Rule: `(!created && runFinished)` →
+       `not_started`. Palette mirrors `disposed` (terminal-grey).
+       `waiting` keeps its mid-run semantics. Pure-function change;
+       TopologyGraph picks it up via paletteFor automatically.
+
+    3. Bootstrap step naming — BootstrapDispatchHandler emits
+       BootstrapRound commands with RepoName + ContextName already.
+       PipelineStepRunner's step-name composition reads those when
+       present and appends " (repo, component)" suffix to the label,
+       so 11 BootstrapRound rows render as "Producing bootstrap files
+       (repo-a, api)", "Producing bootstrap files (repo-a, client)",
+       etc., one per (repo, component) pair. Affects the StepStartedEvent
+       payload + the step row in TopologyCard.
+
+  out: |
+    Per-sandbox tool-call activity feed — [[p0176d]].
+
+    Trail auto-select + Activity scroll behaviour — [[p0176e]].
+
+    Streaming server-log surface — [[p0176f]].
+
+    A general step-naming overhaul for non-bootstrap rounds — explicit
+    out. Only the BootstrapRound case is observable as the
+    "N identical rows" defect; SkillRound naming already includes the
+    skill name.
+
+decisions:
+  - key: |
+      `not_started` as a separate status from `waiting` — `waiting`
+      implies "still going to happen", `not_started` implies "this
+      will never happen". Operator UX hinges on the distinction; a
+      finished failed run with a `waiting` node misreads as
+      in-progress. alternatives: reuse `disposed` (rejected — disposed
+      means "sandbox completed and was torn down", semantically
+      different from never-spawned).
+
+  - key: |
+      Step-naming suffix lives in PipelineStepRunner, not in command
+      definitions — the (repo, component) info is on PipelineCommand
+      itself (RepoName + ContextName from p0158g/p0161d). One place
+      to format it; commands stay un-aware of presentation.
+      alternatives: per-command DisplayName override (rejected —
+      duplicates the formatting across every multi-repo command type).
+
+steps:
+  - id: dashboard-not-started-status
+    action: |
+      sandboxStatus.ts gains `not_started`; (!created && runFinished)
+      maps to it; paletteFor returns terminal-grey (mirrors disposed).
+      Existing test file extended; TopologyGraph picks it up
+      automatically via paletteFor.
+    modify:
+      - "src/dashboard/src/lib/sandboxStatus.ts"
+      - "src/dashboard/src/lib/__tests__/sandboxStatus.test.ts"
+
+  - id: dashboard-topology-failure-summary
+    action: |
+      TopologyCard header renders snapshot.summary as a second line
+      when snapshot.status is failed/error and summary is non-empty.
+      Existing test file extended.
+    modify:
+      - "src/dashboard/src/components/jobs/TopologyCard.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TopologyCard.test.tsx"
+
+  - id: backend-step-name-suffix
+    action: |
+      PipelineStepRunner composes a (repo, component) suffix on the
+      step label when the executing PipelineCommand carries RepoName
+      and/or ContextName. StepStartedEvent.StepName carries the
+      suffixed form; the rest of the dashboard reads through.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs"
+
+  - id: tests
+    action: |
+      Unit coverage for the new status + suffix logic.
+    new:
+      - "tests/AgentSmith.Tests/Services/PipelineStepRunnerStepNameTests.cs"
+
+tests:
+  - "SandboxStatusColor_RunFinishedButSandboxNeverCreated_ReturnsNotStarted"
+  - "TopologyCard_FailedStatusWithSummary_RendersSummaryLine"
+  - "TopologyCard_SuccessStatus_DoesNotRenderSummaryLine"
+  - "PipelineStepRunner_CommandWithRepoNameAndContextName_StepNameCarriesSuffix"
+  - "PipelineStepRunner_CommandWithRepoNameOnly_StepNameCarriesRepoSuffix"
+  - "PipelineStepRunner_CommandWithoutRepoOrContext_StepNameUnchanged"
+
+done:
+  - "sandboxStatus.ts has `not_started`; (!created && runFinished) returns it; palette is terminal-grey."
+  - "TopologyCard header shows snapshot.summary on failed runs and hides it on success."
+  - "BootstrapRound StepStartedEvent.StepName carries (repo, component) suffix; verified by unit test against PipelineStepRunner."
+  - "Dashboard + backend tests green."
