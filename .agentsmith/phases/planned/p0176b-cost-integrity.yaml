@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0176a-cost-integrity
+phase: p0176b-cost-integrity
 goal: |
   Stop the /system LLM-cost card from lying. After a successful $5.37
   init-project run the dashboard showed $0 / 0 calls — fix the producer

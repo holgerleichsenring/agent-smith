@@ -3,13 +3,13 @@ phase: p0176a-call-scope-attribution
 goal: |
   Attach per-call metadata (role, phase, repoName) to LlmCallFinished /
   ToolCall events, and render per-repo cost in result.md. Builds on the
-  producer wiring from [[p0176a-cost-integrity]] — events now fire from
+  producer wiring from [[p0176b-cost-integrity]] — events now fire from
   every handler with the right cost, but they don't carry the
   attribution needed for the operator to answer "which repo cost
   what?". Closes the per-repo half of the cost-integrity story and
   installs a build-time gate so the structural fix doesn't regress.
 
-requires: ["p0176a-cost-integrity"]
+requires: ["p0176b-cost-integrity"]
 
 scope:
   in: |
@@ -31,7 +31,7 @@ scope:
        scope for repo attribution on ToolCall/ToolResult events.
 
     4. Open call scopes — every handler from the D2 list (see
-       [[p0176a-cost-integrity]]) opens a BeginCallScope around its
+       [[p0176b-cost-integrity]]) opens a BeginCallScope around its
        direct .GetResponseAsync call. Twelve sites:
        ProjectAnalyzer, BootstrapDiscoverHandler, BootstrapRoundHandler,
        BootstrapDocumentHandler, AgenticExecuteHandler,
@@ -132,7 +132,7 @@ steps:
     action: |
       Every direct .GetResponseAsync call site opens a BeginCallScope
       around the call. Twelve handlers (see D2 list in
-      [[p0176a-cost-integrity]]).
+      [[p0176b-cost-integrity]]).
     modify:
       - "src/backend/AgentSmith.Application/Services/ProjectAnalyzer.cs"
       - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs"
