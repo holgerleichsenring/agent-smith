@@ -1,0 +1,11 @@
+{
+  "t": 11,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "gate": "convergence",
+    "passed": true,
+    "reason": "All findings have anchors.",
+    "type": 11,
+    "timestamp": "2026-05-20T10:17:00Z"
+  }
+}

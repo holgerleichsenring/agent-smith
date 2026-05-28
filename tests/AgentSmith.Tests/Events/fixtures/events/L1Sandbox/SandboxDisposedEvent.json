@@ -1,0 +1,10 @@
+{
+  "t": 3,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "repo": "sample-repo",
+    "exitCode": 0,
+    "type": 3,
+    "timestamp": "2026-05-20T10:18:40Z"
+  }
+}

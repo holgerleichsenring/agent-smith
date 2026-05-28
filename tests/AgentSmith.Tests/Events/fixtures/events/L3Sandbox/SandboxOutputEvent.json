@@ -1,0 +1,12 @@
+{
+  "t": 21,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "repo": "sample-repo",
+    "stream": "stdout",
+    "line": "Passed!  - Failed: 0, Passed: 2107, Skipped: 0",
+    "batchSeq": 12,
+    "type": 21,
+    "timestamp": "2026-05-20T10:17:50Z"
+  }
+}

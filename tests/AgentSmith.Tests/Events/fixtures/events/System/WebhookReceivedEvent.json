@@ -1,0 +1,12 @@
+{
+  "t": 45,
+  "p": {
+    "source": "webhook:github",
+    "eventType": "issues",
+    "path": "/webhook/github",
+    "actioned": true,
+    "skipReason": null,
+    "type": 45,
+    "timestamp": "2026-05-20T10:14:02Z"
+  }
+}

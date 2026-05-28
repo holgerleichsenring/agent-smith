@@ -1,0 +1,12 @@
+{
+  "t": 43,
+  "p": {
+    "source": "tracker:jira/sample",
+    "tracker": "jira/sample",
+    "ticketId": "SAMP-43",
+    "reason": 1,
+    "detail": "status 'In Progress' not in trigger_statuses ['To Do','Open']",
+    "type": 43,
+    "timestamp": "2026-05-20T10:14:00Z"
+  }
+}

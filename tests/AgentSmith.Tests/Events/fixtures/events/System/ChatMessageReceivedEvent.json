@@ -1,0 +1,12 @@
+{
+  "t": 50,
+  "p": {
+    "source": "chat:slack",
+    "channel": "C0123456",
+    "messageType": "app_mention",
+    "actioned": true,
+    "skipReason": null,
+    "type": 50,
+    "timestamp": "2026-05-20T10:14:05Z"
+  }
+}
