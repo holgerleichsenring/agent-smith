@@ -14,5 +14,17 @@ namespace AgentSmith.Contracts.Events;
 /// events by origin without parsing the type discriminator. Free-form by
 /// design — see decisions: new producers add new strings without modifying
 /// a shared enum.</para>
+///
+/// <para>p0173e: implements <see cref="IDomainEvent"/> via explicit interface
+/// members derived from existing record fields. The envelope shape stays
+/// unchanged so frozen fixtures continue to deserialise.</para>
 /// </summary>
-public abstract record SystemEvent(string Source, SystemEventType Type, DateTimeOffset Timestamp);
+public abstract record SystemEvent(string Source, SystemEventType Type, DateTimeOffset Timestamp) : IDomainEvent
+{
+    private readonly string _eventId = Guid.NewGuid().ToString();
+
+    string IDomainEvent.EventId => _eventId;
+    DateTimeOffset IDomainEvent.OccurredAt => Timestamp;
+    string IDomainEvent.Origin => Source;
+    string? IDomainEvent.ParentEventId => null;
+}
