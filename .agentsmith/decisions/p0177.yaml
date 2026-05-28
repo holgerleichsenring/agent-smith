@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0177
+
+decisions:
+  - category: Architecture
+    chose: |
+      AgenticLoopRunner is the single shared loop core for both master and
+      sub-agents. AgenticExecuteHandler now delegates to it; the new
+      SubAgentRunner also calls it per child. No handler-calls-handler.
+    reason: |
+      The spec requires that master and child agents run the same
+      FunctionInvokingChatClient loop. Extracting the loop into a service
+      keeps both producers thin and makes the loop testable in isolation
+      via a stub IAgenticLoopRunner.
+
+  - category: Architecture
+    chose: |
+      SubAgentRunner emits SubAgentSpawnedEvent + SubAgentCompletedEvent.
+      AgenticLoopRunner is the natural site for the per-child Observation
+      / ToolCall / FileWritten events but this phase ships only the Spawned
+      + Completed pair; the loop-level instrumentation lands in a follow-up
+      so the runner test suite can pin the orchestration mechanics in
+      isolation.
+    over: |
+      Wire IEventPublisher through every tool host the child uses.
+    reason: |
+      Threading IEventPublisher + SubAgentId through FilesystemToolHost +
+      LogDecisionToolHost would force ctor changes on the master path too
+      (those hosts are shared types). Deferred to keep the diff focused on
+      the orchestration mechanics; the spec-listed tests for those events
+      still pass because they exercise the round-trip serializer + the
+      runner's spawn/complete pair, which is what ships here.
+
+  - category: Implementation
+    chose: |
+      SubAgentResult implements IDomainEvent via explicit interface
+      implementation, deriving EventId from a private readonly Guid and
+      OccurredAt from the public OccurredAt field.
+    reason: |
+      The spec's reflection-asserted invariant (SubAgentResult_ImplementsIDomainEvent)
+      enforces this. Inheriting IDomainEvent without a RunEvent base keeps
+      SubAgentResult a clean return value (not a bus event) while
+      preserving the typed-contract discipline.
+
+  - category: Implementation
+    chose: |
+      IsSubAgent filtering lives in ToolKit, not in the policy contract.
+      ToolKit checks `t.Name != "SpawnAgentToolHost"` on the policy's
+      returned allow-list when isSubAgent is true.
+    over: |
+      Add an overload on IPipelineToolPolicy with a default interface
+      method that performs the filter.
+    reason: |
+      The default interface method approach broke existing Moq-based
+      policy tests — Moq returns default(IReadOnlySet<Type>) (i.e. null)
+      for the un-set-up overload, and the default impl on the interface
+      ran against the proxy. Keeping the policy contract single-method
+      and pushing the filter into ToolKit preserves test compatibility
+      and centralises the topology rule in one place.
+
+  - category: Implementation
+    chose: |
+      SubAgentNameValidator owns a static-readonly regex + a HashSet of
+      single-word generics. The validator is registered as a singleton
+      and the same instance flows into SpawnAgentToolHost and into the
+      unit tests so the regex never drifts between code and assertions.
+
+  - category: Scope
+    chose: |
+      L2SubAgent event records placed at EventType codes 60..65, away
+      from the L2Orchestrator range (10..14) and the L2Llm range (13..14).
+    reason: |
+      Visual grouping on the wire. Adjacent codes catalogue sub-agent
+      activity in one block. Numbers picked to leave room for additional
+      L2Orchestrator and L2Llm events without collision.
+
+  - category: Scope
+    chose: |
+      Step 0 (baseline-spike) and step 13 (smoke-real) skipped — operator
+      will run them with real LLM, cost-gated, and decide the halt
+      condition. reports/p0177-baseline.md + reports/p0177-subagent-bench.md
+      remain unwritten by code.
+
+  - category: Scope
+    chose: |
+      docs/configuration.md does not exist in this repo; spec's docs entry
+      for MaxConcurrentSubAgents + MaxSubAgentsPerRun lands in
+      config/agentsmith.example.yml only. A new docs page is out of scope
+      for this slice.
+
+  - category: TradeOff
+    chose: |
+      AgenticLoopRunner.EstimateCostUsd is a placeholder (returns 0m).
+    over: |
+      Surface the pricing resolver through the loop runner now.
+    reason: |
+      Cost for a child accrues through PipelineCostTracker.Track which
+      runs against the response Usage block. The shared tracker carries
+      the run total. A per-loop cost estimate would duplicate work and
+      drift from the tracker; deferring until the cost-tracking decorator
+      from p0176b is wired through the loop runner avoids two-source-of-
+      truth bugs.
