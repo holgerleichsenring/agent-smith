@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0176-operator-ux-polish
+goal: |
+  Close the gaps surfaced by an operator running init-project end-to-end
+  on a real multi-context project against the p0175 dashboard. The
+  pipeline works, but each surface that's supposed to answer "what is
+  the system doing, what failed, what did it cost" leaks at a different
+  seam. Five independently shippable slices.
+
+  - p0176a: cost integrity end-to-end. The /system LLM-cost card showed
+    $0 / 0 calls after a successful $5.37 run because the cost producer
+    (EventPublishingChatClient) hard-codes CostUsd=0m and the LLM-call
+    counter is also zero despite a successful run — points to a wider
+    leak between LlmCallFinished events and RunSnapshot.Apply. result.md
+    shows the pipeline total (~$5.37) in every per-repo PR, masking the
+    per-repo share (~$1.07).
+  - p0176b: failure + progress visibility on the Topology view. When a
+    pipeline aborts before sandboxes spawn (or any step fails), the
+    Topology header shows only "step N/M" with a red dot — operator must
+    switch to Activity/Trail to read the reason. Sandbox nodes show
+    "failed" when they were never spawned (because the step failed
+    before sandbox creation). Bootstrap rounds appear as N repetitions
+    of "Producing bootstrap files" without (Repo, Component) labels.
+  - p0176c: per-sandbox activity feed. The expanded SandboxBox shows
+    "waiting for stdout..." for the entire run because bootstrap uses
+    WriteFile / Grep / ReadFile steps that don't emit stdout. Operator
+    needs to see the tool-call activity scoped to that sandbox (path,
+    summary — same data Fix #4 surfaces globally in Activity tab).
+  - p0176d: dashboard tab polish. Trail tab right-pane defaults to
+    "Select a node to see its payload" — auto-select the run node.
+    Activity tab fills from the top and the operator can't tell whether
+    to scroll up or down — pick a direction + sticky behavior.
+  - p0176e: prompt-cache investigation. Both BootstrapDiscover and
+    Bootstrap phases show cache_read=0 in result.md despite 8 skill
+    calls with mostly-identical system prompts. gpt-4.1 supports prompt
+    caching; either we're not sending the cache header / cache_control,
+    prompts vary at the start, or the cache window is too short between
+    calls. Potential 40-45% cost cut on input tokens.
+
+  - p0176f: server-log surface on the dashboard. Today the only way to
+    see why a run failed at the OS/infra layer (Docker image missing,
+    Redis down, network) is `docker logs agentsmith-server`. The
+    dashboard must surface that channel — either bridge server stdout
+    into the system event stream as a dedicated LogEntry event, or
+    expose a hub method that tails the container log directly. Decision
+    on the bridge path lives in the slice.
+  - p0176g: in-flight LLM cost broadcast. p0176a closes the lie at
+    run-end (RunFinished carries the real total), but the operator
+    can't see what an in-flight run has spent until it terminates. A
+    long-running multi-skill run can quietly burn through budget
+    without surfacing live. PipelineCostTracker already has the data
+    after every Track() call; we need a periodic (debounced) emit of a
+    CostAttributed / RunCostUpdated event into the run stream that
+    RunSnapshot.Apply accumulates.
+
+  Ship order: a → b → c → d → e → f → g. a unblocks the operator's
+  "what did this cost" question (currently always answered "$0"); b
+  unblocks "what failed and why" without leaving the Topology view; c +
+  d are iterative UX polish; e is the largest cost-impact lever but
+  needs diagnosis before fix; f surfaces the infrastructure-layer
+  errors that bypass the run-event stream entirely; g extends a from
+  run-end-only to live tracking once the contract from a is stable.
+
+requires:
+  - p0175
+
+scope:
+  in: |
+    Umbrella spec only — the seven slices are independently shippable.
+    Each slice carries its own scope/decisions/done. All slices flow
+    from the same operator session against init-project on a
+    multi-context sample target.
+
+  out: |
+    Anthropic prompt caching (cache_control breakpoints). Out of p0176e
+    scope — p0176e investigates the OpenAI / gpt-4.1 path observed in
+    the failing data. Anthropic caching is a separate provider story.
+
+    Persistent log storage beyond Redis TTL for p0176f. The dashboard
+    surface is the goal; long-term archival is an ops question handled
+    by the host log pipeline (Docker / k8s log driver), not Agent Smith.
+
+    Per-skill / per-tool cost attribution in the live broadcast (p0176g).
+    The slice ships pipeline-level live cost only — per-skill drill-down
+    already exists in result.md at run end; replicating it live multiplies
+    event volume without a stated diagnostic need.
+
+decisions:
+  - key: |
+      Seven slices, not one phase — operator UX defects from one session
+      cluster around seven distinct seams (cost integrity, failure
+      surfacing, per-sandbox view, tab polish, prompt-cache, server-log
+      bridge, in-flight cost). Each has its own review surface + landing
+      risk; bundling them buries the cost integrity fix (highest
+      operator pain) behind UI polish PRs.
+      alternatives: one mega-phase (rejected — couples backend cost
+      plumbing with frontend polish); cost only, defer UX (rejected —
+      operator already named the UI gaps in the session; deferring
+      them silently violates the no-silent-defer feedback).
+
+  - key: |
+      a first because the dashboard already lies (shows $0 for a $5
+      run); fixing the lie before adding more surfaces is the higher
+      trust win. b second because failure visibility is the next-most
+      operator-blocking gap. c + d are polish that can land in any
+      order. e last because it needs diagnosis before any code change
+      lands — could be a one-line provider header fix, could be a
+      prompt-structure rewrite.
+
+  - key: |
+      cache_read=0 investigation as its own slice (e), not bundled into
+      a — cost INTEGRITY (a) is about the event-pipeline carrying the
+      right number to the dashboard. Cost MAGNITUDE (e) is about
+      whether the run should have been cheaper in the first place.
+      Different teams of concerns, different review reviewers, don't
+      bundle.
+
+steps: []  # umbrella — slice specs ship their own
+
+tests: []  # umbrella — slices ship their own
+
+done:
+  - "p0176a shipped: /system LLM-cost card shows real run cost (from RunFinishedEvent.CostUsd or sibling pipeline-cost-emission path); LlmCalls counter non-zero on a run with LLM activity; result.md per-repo PR shows per-repo cost share alongside pipeline total."
+  - "p0176b shipped: Topology header surfaces RunFinished.Summary on failure; sandbox nodes show 'not started' (not 'failed') when the pipeline aborted before their creation; bootstrap round step names include (Repo, Component) suffix."
+  - "p0176c shipped: expanded SandboxBox shows the tool-call activity feed scoped to that sandbox (re-using the Summary field from p0175 Fix #4), not just stdout."
+  - "p0176d shipped: Trail tab auto-selects the run node on load; Activity tab scroll direction + sticky behavior decided and applied."
+  - "p0176e shipped: cache_read=0 root cause identified; if a code fix lands (provider header, prompt structure), result.md from a re-run of the same init-project shows cache_read > 0 in at least one phase; if no fix is needed (cache TTL or operator-controlled), decision is documented."
+  - "p0176f shipped: dashboard surfaces server-log entries either via a new SystemEvent LogEntry contract OR a hub method tailing container stdout; an OS/infra-layer failure (e.g. Docker image missing) is visible in the dashboard without ssh / docker logs."
+  - "p0176g shipped: an in-flight run's accumulated cost is visible on the topology view (or runs list) before RunFinished arrives; a long-running multi-skill run shows a non-zero, monotonically-increasing cost while it executes; the broadcast is debounced (no per-call SignalR storm)."

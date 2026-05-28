@@ -120,8 +120,26 @@ public sealed class ExecutePipelineUseCase(
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
         await PublishRunStartedAsync(runId, runStartedAt, request, repos, cancellationToken);
-        var result = await pipelineExecutor.ExecuteAsync(
-            commands, projectConfig, pipeline, cancellationToken);
+        CommandResult result;
+        try
+        {
+            result = await pipelineExecutor.ExecuteAsync(
+                commands, projectConfig, pipeline, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // p0175-fix: an unhandled exception in the executor (e.g. Docker
+            // sandbox image not built, Redis down, config loader throw) used
+            // to escape this method without publishing RunFinished. The
+            // dashboard then kept the run in its active map as status=running
+            // forever — operator sees a ghost. Now we publish a terminal
+            // RunFinished(failed) with the exception message as summary, then
+            // rethrow so PipelineQueueConsumer's existing log path is preserved.
+            // CancellationToken.None on the publish: even if the operator's
+            // ct is already cancelled, the terminal event still needs to land.
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), CancellationToken.None);
+            throw;
+        }
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };
