@@ -1,0 +1,11 @@
+{
+  "t": 25,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "stepIndex": 7,
+    "origin": "skill-round",
+    "detail": "architect: completed round 2 (3 observations).",
+    "type": 25,
+    "timestamp": "2026-05-20T10:16:45Z"
+  }
+}

@@ -18,5 +18,6 @@ public enum EventType
     SandboxResult = 22,
     ToolCall = 23,
     ToolResult = 24,
+    L1StepDetail = 25,
     CatalogIssue = 30
 }

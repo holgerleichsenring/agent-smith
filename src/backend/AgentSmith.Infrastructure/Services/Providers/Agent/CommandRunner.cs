@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
-using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
@@ -10,8 +9,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// </summary>
 public sealed class CommandRunner(
     string repositoryPath,
-    ILogger logger,
-    IProgressReporter? progressReporter = null)
+    ILogger logger)
 {
     private const int CommandTimeoutSeconds = 60;
 
@@ -44,7 +42,7 @@ public sealed class CommandRunner(
         }
 
         logger.LogInformation("Executing command: {Command}", command);
-        ReportDetail($"\u25b6\ufe0f Running: {Truncate(command, 80)}");
+        logger.LogDebug("Running: {Truncated}", Truncate(command, 80));
 
         using var cts = new CancellationTokenSource(
             TimeSpan.FromSeconds(CommandTimeoutSeconds));
@@ -109,12 +107,6 @@ public sealed class CommandRunner(
     {
         try { process.Kill(entireProcessTree: true); }
         catch (Exception ex) { logger.LogWarning(ex, "Failed to kill timed-out process"); }
-    }
-
-    private void ReportDetail(string text)
-    {
-        try { progressReporter?.ReportDetailAsync(text, CancellationToken.None).GetAwaiter().GetResult(); }
-        catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
     }
 
     private static string Truncate(string text, int maxLength) =>

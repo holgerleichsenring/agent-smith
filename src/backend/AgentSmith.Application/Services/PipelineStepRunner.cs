@@ -49,7 +49,7 @@ public sealed class PipelineStepRunner(
 
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
-        await progressReporter.ReportProgressAsync(executionCount, total, label, cancellationToken);
+        await progressReporter.ReportProgressAsync(executionCount, total, cmd, cancellationToken);
         await PublishStepStartedAsync(context, executionCount, label, total, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -111,7 +111,7 @@ public sealed class PipelineStepRunner(
         if (firstInsert is not null)
             InsertFollowUps(firstInsert.Value.Node, commands, firstInsert.Value.Result);
 
-        await PostBatchSkillDetailsAsync(outcome, cancellationToken);
+        await PostBatchSkillDetailsAsync(outcome, context, cancellationToken);
         return new StepExecutionResult(
             CommandResult.Ok(
                 $"Batch of {batch.Count} {batch[0].Value.Name} skills (round {batch[0].Value.Round}) completed"),
@@ -181,7 +181,7 @@ public sealed class PipelineStepRunner(
         }
 
         InsertFollowUps(current, commands, result);
-        await PostSkillDetailAsync(cmd, result, cancellationToken);
+        await PostSkillDetailAsync(cmd, result, executionCount, context, cancellationToken);
         logger.LogInformation("[{Step}/{Total}] {Command} completed: {Message}",
             executionCount, commands.Count, cmd.DisplayName, result.Message);
         return new StepExecutionResult(result, null);
@@ -207,12 +207,12 @@ public sealed class PipelineStepRunner(
         }
     }
 
-    private async Task PostBatchSkillDetailsAsync(BatchOutcome outcome, CancellationToken ct)
+    private async Task PostBatchSkillDetailsAsync(BatchOutcome outcome, PipelineContext context, CancellationToken ct)
     {
         foreach (var slot in outcome.Slots)
         {
             if (slot is null) continue;
-            await PostSkillDetailAsync(slot.Command, slot.Result, ct);
+            await PostSkillDetailAsync(slot.Command, slot.Result, slot.StepIndex, context, ct);
         }
     }
 
@@ -268,23 +268,29 @@ public sealed class PipelineStepRunner(
     }
 
     private async Task PostSkillDetailAsync(
-        PipelineCommand cmd, CommandResult result, CancellationToken cancellationToken)
+        PipelineCommand cmd, CommandResult result, int stepIndex, PipelineContext context,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var detail = cmd.Name switch
+            var (origin, detail) = cmd.Name switch
             {
                 CommandNames.Triage
-                    => $"Triage: {result.Message}",
+                    => ("triage", result.Message),
                 CommandNames.SkillRound or CommandNames.SecuritySkillRound or CommandNames.ApiSecuritySkillRound
-                    => $"Skill Round: {result.Message}",
-                CommandNames.ConvergenceCheck => $"Convergence: {result.Message}",
-                CommandNames.SwitchSkill => $"Skill Switch: {result.Message}",
-                _ => null
+                    => ("skill-round", result.Message),
+                CommandNames.ConvergenceCheck => ("convergence", result.Message),
+                CommandNames.SwitchSkill => ("skill-switch", result.Message),
+                _ => (null, null)
             };
 
-            if (detail is not null)
-                await progressReporter.ReportDetailAsync(detail, cancellationToken);
+            if (origin is null || detail is null) return;
+            if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+                return;
+
+            await eventPublisher.PublishAsync(
+                new L1StepDetailEvent(runId, stepIndex, origin, detail, DateTimeOffset.UtcNow),
+                cancellationToken);
         }
         catch (Exception ex)
         {
