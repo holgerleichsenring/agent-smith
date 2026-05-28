@@ -18,9 +18,18 @@ interface Props {
    * content. Pass true to bypass the L3 filter.
    */
   ignoreL3Filter?: boolean;
+  /**
+   * p0173f: when a sub-agent currently operates this sandbox, surface
+   * that identity inline. Resolved upstream by SandboxList from the
+   * latest SubAgentToolCallEvent or SubAgentFileWrittenEvent on this
+   * sandbox; null when no sub-agent has touched it (the master alone).
+   */
+  operatingSubAgentName?: string | null;
 }
 
-export function SandboxBox({ runId, repo, expanded, onToggle, ignoreL3Filter = false }: Props) {
+export function SandboxBox({
+  runId, repo, expanded, onToggle, ignoreL3Filter = false, operatingSubAgentName = null,
+}: Props) {
   const feed = useSandboxEvents(runId, repo, expanded);
   const { state: filterState } = useEventFilter();
   const command = feed.command as SandboxCommandEvent | null;
@@ -38,6 +47,14 @@ export function SandboxBox({ runId, repo, expanded, onToggle, ignoreL3Filter = f
       >
         <span className="flex items-center gap-2">
           <span className="font-medium text-stone-800">{repo}</span>
+          {operatingSubAgentName && (
+            <span
+              data-testid={`sandbox-operator-${repo}`}
+              className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-900"
+            >
+              {operatingSubAgentName}
+            </span>
+          )}
           {command && (
             <span className="font-mono text-xs text-stone-500">
               {command.command}
