@@ -252,6 +252,66 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.SubAgentSpawned: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentSpawned }>;
+      return {
+        icon: "⤴",
+        label: "Sub-agent spawn",
+        detail: `${e.name} — ${e.activity}`,
+        reason: null,
+        severity: "info",
+      };
+    }
+    case EventType.SubAgentObservation: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentObservation }>;
+      return {
+        icon: "·",
+        label: "Sub-agent obs",
+        detail: `${e.subAgentId}: ${e.text}`,
+        reason: null,
+        severity: "info",
+      };
+    }
+    case EventType.SubAgentFinding: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentFinding }>;
+      return {
+        icon: "◆",
+        label: "Sub-agent finding",
+        detail: `${e.severity}: ${e.title}`,
+        reason: e.detail,
+        severity: e.severity === "high" || e.severity === "critical" ? "warn" : "info",
+      };
+    }
+    case EventType.SubAgentFileWritten: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentFileWritten }>;
+      return {
+        icon: "✏",
+        label: "Sub-agent write",
+        detail: `${e.path} (${e.bytes}B)`,
+        reason: null,
+        severity: "info",
+      };
+    }
+    case EventType.SubAgentToolCall: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentToolCall }>;
+      return {
+        icon: "→",
+        label: "Sub-agent tool",
+        detail: e.argsSummary ? `${e.toolName} ${e.argsSummary}` : e.toolName,
+        reason: null,
+        severity: "info",
+      };
+    }
+    case EventType.SubAgentCompleted: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentCompleted }>;
+      return {
+        icon: e.status === "Succeeded" ? "✓" : "✕",
+        label: "Sub-agent done",
+        detail: `${e.subAgentId}: ${e.status} — ${e.observationsCount} obs, ${e.findingsCount} findings, $${e.costUsd.toFixed(4)}`,
+        reason: null,
+        severity: e.status === "Succeeded" ? "info" : "warn",
+      };
+    }
   }
 }
 
