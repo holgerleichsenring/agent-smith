@@ -292,6 +292,10 @@ limits:
   max_output_tokens_per_skill_call: 16000
   max_seconds_per_skill_call: 300
   max_concurrent_skill_calls: 10
+  # p0177: sub-agent limits — soft defaults, hard caps live in
+  # SubAgentBudget + SubAgentRunner. spawn_agents is opt-in per pipeline.
+  max_concurrent_sub_agents: 4
+  max_sub_agents_per_run: 20
 
 # p0151d: per-pipeline cost cap. When cumulative USD or tokens cross the cap,
 # remaining LLM-driven skill calls short-circuit with a `cost-cap-exhausted`
