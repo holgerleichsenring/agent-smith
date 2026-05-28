@@ -1,0 +1,16 @@
+{
+  "t": 14,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "model": "claude-sonnet-4-6",
+    "role": "implementer",
+    "tokensIn": 4823,
+    "tokensOut": 612,
+    "costUsd": 0.0721,
+    "durationMs": 3215,
+    "phase": "Implementation",
+    "repoName": "sample-repo",
+    "type": 14,
+    "timestamp": "2026-05-20T10:16:13Z"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "t": 40,
+  "p": {
+    "source": "tracker:jira/sample",
+    "tracker": "jira/sample",
+    "intervalSeconds": 60,
+    "type": 40,
+    "timestamp": "2026-05-20T10:14:00Z"
+  }
+}
