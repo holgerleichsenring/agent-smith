@@ -1,0 +1,13 @@
+{
+  "t": 60,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "name": "UploadHandlerAuditor",
+    "activity": "Audit upload handler for path-traversal risks",
+    "parentSubAgentId": null,
+    "inheritedContextHash": "sha256:c0ffeebeef",
+    "type": 60,
+    "timestamp": "2026-05-20T10:17:00Z"
+  }
+}
