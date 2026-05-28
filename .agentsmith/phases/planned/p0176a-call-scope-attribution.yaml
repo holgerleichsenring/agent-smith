@@ -1,0 +1,201 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0176a-call-scope-attribution
+goal: |
+  Attach per-call metadata (role, phase, repoName) to LlmCallFinished /
+  ToolCall events, and render per-repo cost in result.md. Builds on the
+  producer wiring from [[p0176a-cost-integrity]] — events now fire from
+  every handler with the right cost, but they don't carry the
+  attribution needed for the operator to answer "which repo cost
+  what?". Closes the per-repo half of the cost-integrity story and
+  installs a build-time gate so the structural fix doesn't regress.
+
+requires: ["p0176a-cost-integrity"]
+
+scope:
+  in: |
+    1. CallScope contract — record carrying Role, Phase, RepoName?
+       (and any future per-call ambients). Lives next to RunEvent
+       contracts so producers + consumers share the shape.
+
+    2. AsyncLocal call-scope accessor — IRunContextAccessor gains
+       BeginCallScope(role, phase, repoName?) returning IDisposable.
+       Pushed onto an AsyncLocal alongside the existing runId scope;
+       ScopeHandle restores the previous frame on dispose. CurrentCallScope
+       exposes the topmost frame.
+
+    3. Decorator reads scope — EventPublishingChatClient reads
+       CurrentCallScope at LlmCallFinished emission and writes Role +
+       Phase + RepoName onto the event. The role parameter on the
+       decorator's ctor goes away (it was always wrong for non-skill
+       callers anyway). EventPublishingAIFunction mirrors — reads
+       scope for repo attribution on ToolCall/ToolResult events.
+
+    4. Open call scopes — every handler from the D2 list (see
+       [[p0176a-cost-integrity]]) opens a BeginCallScope around its
+       direct .GetResponseAsync call. Twelve sites:
+       ProjectAnalyzer, BootstrapDiscoverHandler, BootstrapRoundHandler,
+       BootstrapDocumentHandler, AgenticExecuteHandler,
+       GeneratePlanHandler, GenerateDocsHandler, FilterRoundHandler,
+       ConvergenceEvaluator, PlanConsolidator, CompileKnowledgeHandler,
+       GateRetryCoordinator.
+
+    5. Per-repo cost on result.md — PipelineCostTracker.BeginCall
+       gains optional repoName; SkillCostScopeManager stores it on
+       CallCostRecord. PipelineCostTracker.BuildSummary groups by
+       (Repo, Phase) when repoName is set on any record; falls back to
+       flat (Phase) grouping otherwise. RunCostSummary carries
+       per-repo totals. RunCostSectionWriter / WriteRunResultHandler
+       writes the per-repo share alongside the pipeline total — each
+       repo's PR shows "$1.07 (repo X share) / $5.37 (pipeline total)"
+       instead of the same total in every PR.
+
+    6. Roslyn architectural test — mirrors p0169e's silent-producer
+       gate. Every direct call to `IChatClient.GetResponseAsync` in
+       Application + Infrastructure must occur inside a `using` block
+       opened by `IRunContextAccessor.BeginCallScope`. Without the
+       gate the structural fix regresses the next time someone calls
+       Create() and forgets to open a scope.
+
+  out: |
+    In-flight cost broadcast (live CostAttributed event mid-run) —
+    [[p0176g]] owns it.
+
+    cache_read cost-magnitude work — [[p0176e]].
+
+    Failure surfacing on Topology, not-started sandboxes, bootstrap
+    step naming — [[p0176b]].
+
+    Additional ambients on CallScope beyond role + phase + repoName
+    (tokens, timings, observation IDs) — explicit out; revisit when a
+    consumer asks for them.
+
+decisions:
+  - key: |
+      AsyncLocal CallScope on IRunContextAccessor, not a new accessor
+      — runId + callRole + callPhase + callRepo are all run-lifecycle
+      ambients; one accessor with two BeginScope methods (BeginScope
+      / BeginCallScope) keeps the contract tight. alternatives: new
+      ILlmCallScopeAccessor (rejected: two accessors injected together
+      everywhere; one accessor reduces ctor noise).
+
+  - key: |
+      Decorator ctor loses the role parameter — role now lives on the
+      scope. Previously every consumer had to pass `request.Role` to
+      `new EventPublishingChatClient(...)`, which is exactly the wiring
+      that broke under D2. With scope, the role flows in ambient.
+      alternatives: keep ctor role + nullable scope (rejected: two
+      sources of truth, ambiguity on which wins).
+
+  - key: |
+      Completeness gate is roslyn-based, not a runtime assertion —
+      runtime trips fire at user-cost; build-time blocks regression
+      before merge. Same shape as p0169e's silent-producer gate.
+      alternatives: throw at runtime when an uninstrumented call is
+      detected (rejected: kicks the bug into production).
+
+  - key: |
+      Per-repo grouping in BuildSummary is conditional on any record
+      having repoName — pipelines that don't attribute (single-repo
+      runs, or pre-migration handlers) get flat (Phase) grouping with
+      no schema break. alternatives: hard-required repoName (rejected:
+      forces every caller into the migration in one go).
+
+steps:
+  - id: call-scope-contract
+    action: |
+      CallScope record carrying Role, Phase, RepoName?. Lives in
+      Contracts.Events next to RunEvent / SystemEvent.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/CallScope.cs"
+
+  - id: call-scope-accessor
+    action: |
+      IRunContextAccessor gains BeginCallScope(role, phase, repoName?)
+      and CurrentCallScope. AsyncLocal<CallScope?> pushed alongside
+      runId; ScopeHandle restores on dispose.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs"
+      - "src/backend/AgentSmith.Application/Services/Events/AsyncLocalRunContextAccessor.cs"
+
+  - id: decorator-reads-scope
+    action: |
+      EventPublishingChatClient reads CurrentCallScope at emission;
+      role ctor-param drops. EventPublishingAIFunction reads scope
+      for repo attribution on tool events.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Events/EventPublishingChatClient.cs"
+      - "src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"
+
+  - id: open-call-scopes
+    action: |
+      Every direct .GetResponseAsync call site opens a BeginCallScope
+      around the call. Twelve handlers (see D2 list in
+      [[p0176a-cost-integrity]]).
+    modify:
+      - "src/backend/AgentSmith.Application/Services/ProjectAnalyzer.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticExecuteHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/GeneratePlanHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/GenerateDocsHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/FilterRoundHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/ConvergenceEvaluator.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/PlanConsolidator.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/GateRetryCoordinator.cs"
+
+  - id: per-repo-cost
+    action: |
+      PipelineCostTracker.BeginCall + SkillCostScopeManager carry
+      optional repoName on CallCostRecord. BuildSummary groups by
+      (Repo, Phase) when any record has repo set. RunCostSummary
+      gains per-repo totals. RunCostSectionWriter / WriteRunResultHandler
+      writes the per-repo share alongside the pipeline total into
+      result.md.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs"
+      - "src/backend/AgentSmith.Application/Services/SkillCostScopeManager.cs"
+      - "src/backend/AgentSmith.Application/Models/CallCostRecord.cs"
+      - "src/backend/AgentSmith.Application/Models/RunCostSummary.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/RunCostSectionWriter.cs"
+
+  - id: completeness-gate
+    action: |
+      Roslyn-style architectural test asserts every direct
+      `IChatClient.GetResponseAsync` invocation in Application +
+      Infrastructure is enclosed by an `IRunContextAccessor.BeginCallScope`
+      using-statement in the same method. Mirrors
+      EventSequenceCompletenessTests.
+    new:
+      - "tests/AgentSmith.Tests/Architecture/ChatClientCallScopeRuleTests.cs"
+
+  - id: tests
+    action: |
+      Call-scope round-trip through AsyncLocal; decorator picks up
+      scope; per-repo summary builds from mixed records.
+    new:
+      - "tests/AgentSmith.Tests/Events/CallScopeAccessorTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineCostTrackerPerRepoTests.cs"
+      - "tests/AgentSmith.Tests/Services/RunCostSectionWriterPerRepoTests.cs"
+
+tests:
+  - "AsyncLocalRunContextAccessor_BeginCallScope_RestoresPreviousScopeOnDispose"
+  - "AsyncLocalRunContextAccessor_NestedBeginCallScope_TopmostScopeWins"
+  - "EventPublishingChatClient_ActiveCallScope_EventCarriesRolePhaseRepo"
+  - "EventPublishingChatClient_NoActiveCallScope_OmitsRolePhaseRepoOnEvent"
+  - "PipelineCostTracker_BeginCallWithRepoName_BuildSummaryGroupsByRepoAndPhase"
+  - "PipelineCostTracker_NoRecordsWithRepo_FallsBackToFlatPhaseGrouping"
+  - "RunCostSectionWriter_MultiRepoSummary_RendersPerRepoShareAndPipelineTotal"
+  - "ChatClientCallScopeRule_DirectGetResponseAsyncWithoutScope_FailsBuild"
+
+done:
+  - "CallScope record + BeginCallScope accessor land; AsyncLocal round-trips role + phase + repoName."
+  - "EventPublishingChatClient + EventPublishingAIFunction read CurrentCallScope; events carry role + phase + repoName when a scope is open."
+  - "All 12 D2-list handlers open a BeginCallScope around their .GetResponseAsync call; existing PipelineCostTracker.BeginCall on those paths threads the same repoName into the scope."
+  - "Per-repo cost section appears in result.md for each repo PR on a multi-repo run; pipeline total still visible alongside."
+  - "Roslyn architectural test fails the build if a new .GetResponseAsync call lands outside a BeginCallScope using-statement."
+  - "Smoke: re-run init-project against a multi-repo sample target — each repo's result.md shows the per-repo cost share; LlmCallFinished events in the trail tab carry role + phase + repo."
