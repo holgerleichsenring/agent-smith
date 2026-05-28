@@ -5,11 +5,12 @@ import { EventType, type RunEvent } from "@/types/hub-events";
 // has) and a repo name, get back the operator-meaningful status.
 
 export type SandboxStatus =
-  | "waiting"    // no SandboxCreated yet (rare — usually we don't render until created)
-  | "running"    // SandboxCreated, no SandboxDisposed yet, no step-failure
-  | "success"    // SandboxDisposed without failure context
-  | "failed"     // a StepFinished with status=failed has been observed
-  | "disposed";  // SandboxDisposed AND the run has finished (terminal state, neutral)
+  | "waiting"      // mid-run, no SandboxCreated yet — will (probably) happen
+  | "not_started"  // p0176c: run finished without SandboxCreated for this repo — terminal
+  | "running"      // SandboxCreated, no SandboxDisposed yet, no step-failure
+  | "success"      // SandboxDisposed without failure context
+  | "failed"       // a StepFinished with status=failed has been observed
+  | "disposed";    // SandboxDisposed AND the run has finished (terminal state, neutral)
 
 export function sandboxStatusColor(
   events: readonly RunEvent[],
@@ -39,6 +40,10 @@ export function sandboxStatusColor(
     }
   }
 
+  // p0176c: a sandbox that never received SandboxCreated AND the run
+  // is finished was never going to spawn — terminal, not in-progress.
+  // waiting stays for the mid-run case where the create may still fire.
+  if (!created && runFinished) return "not_started";
   if (!created) return "waiting";
   if (stepFailed) return "failed";
   if (disposed && runFinished && runSucceeded) return "success";
@@ -82,6 +87,16 @@ export function paletteFor(status: SandboxStatus): StatusPalette {
         pulse: false,
       };
     case "disposed":
+      return {
+        fill: "fill-stone-100",
+        stroke: "stroke-stone-400",
+        text: "text-stone-600",
+        pulse: false,
+      };
+    case "not_started":
+      // p0176c: terminal-grey mirroring disposed — the operator should
+      // read "this never happened" with the same neutrality as a clean
+      // teardown, not the in-progress beige of waiting.
       return {
         fill: "fill-stone-100",
         stroke: "stroke-stone-400",

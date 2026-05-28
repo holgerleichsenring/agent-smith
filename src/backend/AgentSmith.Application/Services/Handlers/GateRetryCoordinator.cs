@@ -1,4 +1,6 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -16,6 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class GateRetryCoordinator(
     IGateOutputHandler gateOutputHandler,
     IChatClientFactory chatClientFactory,
+    IRunContextAccessor runContext,
     ILogger<GateRetryCoordinator> logger) : IGateRetryCoordinator
 {
     private const int FailedResponseQuoteLimit = 2000;
@@ -73,6 +76,8 @@ public sealed class GateRetryCoordinator(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, combinedUser),
         };
+        using var _scope = runContext.BeginCallScope(
+            "gate", SkillExecutionPhase.Review.ToString());
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);

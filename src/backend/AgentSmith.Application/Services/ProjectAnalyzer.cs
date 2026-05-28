@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -21,10 +22,12 @@ public sealed class ProjectAnalyzer(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     IProjectMapJsonReader mapJsonReader,
+    IRunContextAccessor runContext,
     ILogger<ProjectAnalyzer> logger) : IProjectAnalyzer
 {
     public async Task<ProjectMap> AnalyzeAsync(
-        string repositoryPath, AgentConfig agent, ISandbox sandbox, CancellationToken cancellationToken)
+        string repositoryPath, AgentConfig agent, ISandbox sandbox,
+        CancellationToken cancellationToken, string? repoName = null)
     {
         var systemPrompt = prompts.Get("project-analyzer-system");
         var userPrompt = $"Repository to analyze: {repositoryPath}\n\nStart by listing the root directory.";
@@ -45,6 +48,8 @@ public sealed class ProjectAnalyzer(
                 new(ChatRole.System, systemPrompt),
                 new(ChatRole.User, ComposePrompt(userPrompt, attempt, lastError)),
             };
+            using var _scope = runContext.BeginCallScope(
+                "project-analyzer", "BootstrapDiscover", repoName);
             var response = await chat.GetResponseAsync(messages, options, cancellationToken);
             logger.LogInformation(
                 "ProjectAnalyzer attempt {Attempt}: {In}+{Out} tokens",

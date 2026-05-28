@@ -5,7 +5,9 @@ public sealed record LlmCallStartedEvent(
     string Model,
     string Role,
     string PromptHash,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? Phase = null,
+    string? RepoName = null)
     : RunEvent(RunId, EventType.LlmCallStarted, Timestamp);
 
 public sealed record LlmCallFinishedEvent(
@@ -16,5 +18,7 @@ public sealed record LlmCallFinishedEvent(
     long TokensOut,
     decimal CostUsd,
     long DurationMs,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? Phase = null,
+    string? RepoName = null)
     : RunEvent(RunId, EventType.LlmCallFinished, Timestamp);

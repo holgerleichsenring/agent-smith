@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0176b-cost-integrity
+goal: |
+  Stop the /system LLM-cost card from lying. After a successful $5.37
+  init-project run the dashboard showed $0 / 0 calls — fix the producer
+  so events fire from every handler and carry the real per-call cost.
+  Baseline of slice a; the call-scope metadata + per-repo cost
+  attribution ride on top in [[p0176a-call-scope-attribution]].
+
+  Diagnosis (frozen — do not re-derive at implementation time, verified
+  against the redis stream of run 2026-05-27T20-42-38-7dc8: 1384
+  events, 0× LlmCallStarted, 0× LlmCallFinished, 0× ToolCall/Result):
+
+  D1 — EventPublishingChatClient.cs:53 hard-codes `CostUsd: 0m` on
+  every LlmCallFinishedEvent it publishes. Pricing lives in
+  PipelineCostTracker.EstimateCostUsd() (per-skill, scope-aware via
+  SkillCostScopeManager); the decorator has no pricing-resolver handle,
+  so the field is structurally always zero even when events do flow.
+
+  D2 — The EventPublishing decorators are wired into ONE call site
+  only: SkillCallRuntime.TryInvokeAsync (line 110, `new
+  EventPublishingChatClient(inner, ...)`). Every other IChatClient
+  consumer obtains a bare client via `chatClientFactory.Create(...)`
+  and calls `.GetResponseAsync` directly, bypassing the decorator
+  entirely. Non-instrumented consumers: ProjectAnalyzer,
+  BootstrapDiscoverHandler, BootstrapRoundHandler,
+  BootstrapDocumentHandler, AgenticExecuteHandler, GeneratePlanHandler,
+  GenerateDocsHandler, FilterRoundHandler, ConvergenceEvaluator,
+  PlanConsolidator, CompileKnowledgeHandler, GateRetryCoordinator.
+
+requires: ["p0175"]
+
+scope:
+  in: |
+    Structural fix (per [[feedback_no_heuristic_for_missing_data]] +
+    [[feedback_safety_in_api_not_process]]) — repair the producer; do
+    not patch the dashboard or paper over silent producers downstream.
+
+    1. Pricing-resolver split — extract a pure `IModelPricingResolver`
+       from PipelineCostTracker (model → ModelPricing lookup with the
+       longest-prefix fallback). Tracker keeps `Track / Estimate /
+       BuildSummary` for the per-pipeline aggregate; the new resolver
+       is what the decorator asks.
+
+    2. Decorator emits real cost — EventPublishingChatClient takes
+       IModelPricingResolver as a ctor dep; computes per-call cost
+       from `response.Usage` (input, output, cache_read,
+       cache_creation) at LlmCallFinished emission time. CostUsd on
+       the event becomes the truth, not a placeholder.
+
+    3. Factory-level decoration — ChatClientFactory.Create wraps the
+       returned client in EventPublishingChatClient + the AI-function
+       decorator unconditionally. SkillCallRuntime's manual `new
+       EventPublishingChatClient(...)` deletes. The factory is the
+       only path to an IChatClient, so future call sites cannot
+       silently regress past D2.
+
+    4. Run-end cost truth on RunFinishedEvent — ExecutePipelineUseCase
+       reads PipelineCostTracker.EstimateCostUsd() at run end and
+       includes it on RunFinishedEvent (new optional CostUsd field).
+       RunSnapshot.Apply(RunFinishedEvent) writes CostUsd from the
+       finished event when present, overriding per-call accumulation.
+       Defence in depth against a producer leak slipping past fix #3.
+
+  out: |
+    Per-call metadata on events (role, phase, repoName) and the
+    AsyncLocal call-scope plumbing the 12 D2 handlers need to attribute
+    cost — [[p0176a-call-scope-attribution]].
+
+    Per-repo cost section in result.md — needs the call-scope above;
+    [[p0176a-call-scope-attribution]].
+
+    Roslyn build-time gate that every .GetResponseAsync sits inside a
+    BeginCallScope — needs the scope contract above;
+    [[p0176a-call-scope-attribution]].
+
+    In-flight cost broadcast — [[p0176g]].
+    cache_read=0 root cause / prompt-cache cost magnitude — [[p0176e]].
+    Failure surfacing / not-started sandboxes — [[p0176b]].
+
+decisions:
+  - key: |
+      Factory-level wrap, not per-call-site opt-in — every handler
+      that bypassed the decorator is evidence that opt-in does not
+      work. Fix the producer, not the consumers.
+      alternatives: audit each call site + add wrapping (rejected:
+      same shape that produced D2; the next handler regresses).
+
+  - key: |
+      Pricing resolver extracted as IModelPricingResolver, tracker
+      stays — the tracker still owns aggregation + scope mgmt + the
+      24h rolling cost API. Only the pricing-lookup table moves out.
+      One source of truth on the model → ModelPricing map, two
+      consumers (decorator for per-call, tracker for per-pipeline).
+      alternatives: pass tracker into the decorator (rejected: cyclic
+      dependency tracker ↔ decorator ↔ ChatClient builders).
+
+  - key: |
+      RunFinishedEvent gains optional CostUsd field rather than a new
+      RunCostFinalized event — the consumer of run-end cost (snapshot,
+      result.md, /system rollup) reads it from the same record that
+      already drives the "run finished" transition. One event-type
+      adds zero parsing surface vs. a new event type with a separate
+      ordering contract. alternatives: dedicated event (rejected:
+      ordering edge case where RunFinished arrives before the cost
+      event and the snapshot transitions to recent without the
+      number).
+
+  - key: |
+      Split slice a into baseline + attribution — baseline (this spec)
+      closes the loudest lie (cost=$0, calls=0) by fixing producer
+      wiring; attribution adds per-call metadata + per-repo cost. PR
+      reviewer for the baseline sees decorator+factory only;
+      reviewer for attribution sees AsyncLocal + 12 handler edits +
+      Roslyn test separately. Buddy's original single slice modified
+      17+ files in one PR, against the small-shippable-units intent.
+      alternatives: ship as one slice (rejected: too many seams in
+      one review surface).
+
+steps:
+  - id: pricing-resolver
+    action: |
+      Extract IModelPricingResolver from PipelineCostTracker.
+      Tracker takes IModelPricingResolver as ctor dep; resolver owns
+      the model → ModelPricing map + longest-prefix fallback.
+    new:
+      - "src/backend/AgentSmith.Application/Services/IModelPricingResolver.cs"
+      - "src/backend/AgentSmith.Application/Services/ModelPricingResolver.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs"
+      - "src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs"
+
+  - id: decorator-emits-cost
+    action: |
+      EventPublishingChatClient takes IModelPricingResolver. Computes
+      per-call cost from response.Usage at LlmCallFinished emission
+      time (billable input = input − cache_read; output billed full;
+      cache_creation billed per provider rate). EventPublishingAIFunction
+      is unchanged in this slice — it already publishes ToolCall events;
+      no cost field on those.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Events/EventPublishingChatClient.cs"
+
+  - id: factory-level-decoration
+    action: |
+      ChatClientFactory.Create wraps the returned IChatClient with
+      EventPublishingChatClient unconditionally. Resolves
+      IEventPublisher + IRunContextAccessor + IModelPricingResolver
+      from DI. SkillCallRuntime drops the manual `new
+      EventPublishingChatClient(...)`. Tool-wrapping helper in
+      SkillCallRuntime.Wrap is reviewed separately — out of this
+      slice unless it blocks the decorator wrap.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs"
+
+  - id: runfinished-cost
+    action: |
+      RunFinishedEvent gains optional CostUsd. ExecutePipelineUseCase
+      reads PipelineCostTracker.EstimateCostUsd() at run end and sets
+      it on the event. RunSnapshot.Apply(RunFinishedEvent) overrides
+      accumulated CostUsd with the finished value when present.
+      Envelope serializer round-trips the new field.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs"
+      - "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+      - "src/dashboard/src/types/hub-events.ts"
+
+  - id: tests
+    action: |
+      Producer-side coverage: decorator computes real cost from a
+      stubbed pricing resolver; factory wraps the inner client; the
+      run-end cost lands on RunFinished + overrides the accumulated
+      total in the snapshot.
+    new:
+      - "tests/AgentSmith.Tests/Events/EventPublishingChatClientCostTests.cs"
+      - "tests/AgentSmith.Tests/Factories/ChatClientFactoryDecorationTests.cs"
+      - "tests/AgentSmith.Tests/Services/RunFinishedCostFieldTests.cs"
+
+tests:
+  - "EventPublishingChatClient_GetResponseAsync_EmitsLlmCallFinishedWithRealCostFromPricing"
+  - "EventPublishingChatClient_ResponseWithCacheReadTokens_CostExcludesBilledCacheReads"
+  - "ChatClientFactory_Create_ReturnsClientWrappedInEventPublishingChain"
+  - "ExecutePipelineUseCase_RunCompletes_RunFinishedEventCarriesTrackerCost"
+  - "RunSnapshot_ApplyRunFinishedWithCostUsd_OverridesAccumulatedTotal"
+  - "EventEnvelopeSerializer_RunFinishedWithCost_RoundTrips"
+
+done:
+  - "Decorator computes per-call cost from response.Usage + pricing; LlmCallFinishedEvent.CostUsd > 0 on a non-free model run."
+  - "ChatClientFactory.Create returns a client wrapped in EventPublishingChatClient; SkillCallRuntime no longer constructs the decorator by hand."
+  - "RunFinishedEvent carries CostUsd from PipelineCostTracker; RunSnapshot.Apply prefers the finished value over the accumulated total."
+  - "Smoke: re-run init-project against a multi-repo sample target — /system CostRollupCard shows non-zero $ AND non-zero LLM-calls counter (because factory wrap closes D2 for every handler)."
+  - "Backend + dashboard build + tests green. Existing PipelineCostTracker tests still pass (tracker behaviour unchanged from outside)."

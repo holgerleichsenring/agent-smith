@@ -39,10 +39,15 @@ public sealed record RunSnapshot(
             Pipeline = e.Pipeline, Trigger = e.Trigger, Repos = e.Repos,
             Status = "running", StartedAt = e.StartedAt, LastEventType = e.Type.ToString()
         },
+        // p0176b: RunFinished.CostUsd, when present, overrides the per-call
+        // accumulation. Defence in depth: even if a producer leaked LLM
+        // calls past the factory wrap, the run-end truth lands here.
         RunFinishedEvent e => this with
         {
             Status = e.Status, PrUrl = e.PrUrl, Summary = e.Summary,
-            FinishedAt = e.FinishedAt, LastEventType = e.Type.ToString()
+            FinishedAt = e.FinishedAt,
+            CostUsd = e.CostUsd ?? CostUsd,
+            LastEventType = e.Type.ToString()
         },
         SandboxCreatedEvent => this with
         {

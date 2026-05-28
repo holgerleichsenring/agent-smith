@@ -45,7 +45,7 @@ public sealed class PipelineStepRunner(
     {
         var cmd = current.Value;
         var total = commands.Count;
-        var label = CommandNames.GetLabel(cmd.Name);
+        var label = ComposeStepLabel(cmd);
 
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
@@ -240,6 +240,22 @@ public sealed class PipelineStepRunner(
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
             new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow), ct);
+    }
+
+    // p0176c: step-name composition appends a (repo, component) suffix when
+    // the PipelineCommand carries RepoName / ContextName so multi-repo
+    // BootstrapRound dispatches render as one operator-readable row per
+    // (repo, component) pair instead of N identical "Producing bootstrap
+    // files" rows. The base label still comes from CommandNames.GetLabel.
+    internal static string ComposeStepLabel(PipelineCommand cmd)
+    {
+        var label = CommandNames.GetLabel(cmd.Name);
+        var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
+        var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
+        if (!hasRepo && !hasContext) return label;
+        if (hasRepo && hasContext) return $"{label} ({cmd.RepoName}, {cmd.ContextName})";
+        if (hasRepo) return $"{label} ({cmd.RepoName})";
+        return $"{label} ({cmd.ContextName})";
     }
 
     private Task PublishStepFinishedAsync(

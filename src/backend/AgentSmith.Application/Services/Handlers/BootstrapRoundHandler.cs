@@ -1,6 +1,7 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -22,6 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapRoundHandler(
     IChatClientFactory chatClientFactory,
     BootstrapToolHostFactory toolHostFactory,
+    IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -74,8 +76,11 @@ public sealed class BootstrapRoundHandler(
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
         var options = new ChatOptions { Tools = tools, MaxOutputTokens = maxTokens };
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
+        var roleName = role.Role ?? "producer";
         using var _ = costTracker.BeginCall(
-            context.SkillName, role.Role ?? "producer", SkillExecutionPhase.Bootstrap);
+            context.SkillName, roleName, SkillExecutionPhase.Bootstrap, context.RepoName);
+        using var _scope = runContext.BeginCallScope(
+            roleName, SkillExecutionPhase.Bootstrap.ToString(), context.RepoName);
         var response = await chat.GetResponseAsync(
             [new(ChatRole.System, system), new(ChatRole.User, user)], options, cancellationToken);
         costTracker.Track(response);
