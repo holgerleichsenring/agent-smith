@@ -1,5 +1,7 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Services.Events;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
@@ -64,7 +66,8 @@ public sealed class PromptHashTests
     }
 
     private static EventPublishingChatClient NewClient(IEventPublisher publisher) =>
-        new(new StubChat(), publisher, new ScopedRunContext("2026-05-27T12-00-00-cccc"), role: "Lead");
+        new(new StubChat(), publisher, new ScopedRunContext("2026-05-27T12-00-00-cccc"),
+            new ModelPricingResolver(), role: "Lead");
 
     private static Task CallAsync(EventPublishingChatClient client, string prompt) =>
         client.GetResponseAsync(

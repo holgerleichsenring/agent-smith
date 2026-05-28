@@ -10,7 +10,7 @@ public sealed class PipelineCostTrackerPrefixFallbackTests
     [Fact]
     public void EstimateCostUsd_DateSuffixedAzureModel_UsesBaseModelPricing()
     {
-        var tracker = new PipelineCostTracker(new PricingConfig
+        var tracker = new PipelineCostTracker(config: new PricingConfig
         {
             Models = new() { ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m } }
         });
@@ -22,7 +22,7 @@ public sealed class PipelineCostTrackerPrefixFallbackTests
     [Fact]
     public void EstimateCostUsd_DateSuffixedClaude_UsesBaseModelPricing()
     {
-        var tracker = new PipelineCostTracker(new PricingConfig
+        var tracker = new PipelineCostTracker(config: new PricingConfig
         {
             Models = new() { ["claude-sonnet-4-5"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m } }
         });
@@ -34,7 +34,7 @@ public sealed class PipelineCostTrackerPrefixFallbackTests
     [Fact]
     public void EstimateCostUsd_UnknownModelNoPrefix_ReturnsZero()
     {
-        var tracker = new PipelineCostTracker(new PricingConfig
+        var tracker = new PipelineCostTracker(config: new PricingConfig
         {
             Models = new() { ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m } }
         });
@@ -46,7 +46,7 @@ public sealed class PipelineCostTrackerPrefixFallbackTests
     [Fact]
     public void EstimateCostUsd_LongestPrefixWins()
     {
-        var tracker = new PipelineCostTracker(new PricingConfig
+        var tracker = new PipelineCostTracker(config: new PricingConfig
         {
             Models = new()
             {
