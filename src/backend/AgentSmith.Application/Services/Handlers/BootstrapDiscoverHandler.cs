@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -32,6 +33,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapDiscoverHandler(
     IChatClientFactory chatClientFactory,
     IDialogueTransport? dialogueTransport,
+    IRunContextAccessor runContext,
     ILogger<BootstrapDiscoverHandler> logger)
     : ICommandHandler<BootstrapDiscoverContext>
 {
@@ -160,7 +162,7 @@ public sealed class BootstrapDiscoverHandler(
         var isInteractive = dialogueTransport is not null;
         var (system, user) = BootstrapDiscoverPromptFactory.Build(
             skill, repository, repo.Name, projectMap, isInteractive);
-        var responseText = await CallSkillAsync(context, skill, system, user, tools, ct);
+        var responseText = await CallSkillAsync(context, skill, system, user, tools, repo.Name, ct);
 
         return ParseAndProject(repo, responseText, context.Pipeline);
     }
@@ -174,14 +176,17 @@ public sealed class BootstrapDiscoverHandler(
 
     private async Task<string> CallSkillAsync(
         BootstrapDiscoverContext context, RoleSkillDefinition skill,
-        string system, string user, IList<AITool> tools, CancellationToken ct)
+        string system, string user, IList<AITool> tools, string repoName, CancellationToken ct)
     {
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
         var options = new ChatOptions { Tools = tools, MaxOutputTokens = maxTokens };
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
+        var roleName = skill.Role ?? "producer";
         using var _ = costTracker.BeginCall(
-            skill.Name, skill.Role ?? "producer", SkillExecutionPhase.BootstrapDiscover);
+            skill.Name, roleName, SkillExecutionPhase.BootstrapDiscover, repoName);
+        using var _scope = runContext.BeginCallScope(
+            roleName, SkillExecutionPhase.BootstrapDiscover.ToString(), repoName);
         var response = await chat.GetResponseAsync(
             [new(ChatRole.System, system), new(ChatRole.User, user)], options, ct);
         costTracker.Track(response);

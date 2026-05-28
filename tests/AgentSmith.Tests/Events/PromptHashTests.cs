@@ -67,7 +67,7 @@ public sealed class PromptHashTests
 
     private static EventPublishingChatClient NewClient(IEventPublisher publisher) =>
         new(new StubChat(), publisher, new ScopedRunContext("2026-05-27T12-00-00-cccc"),
-            new ModelPricingResolver(), role: "Lead");
+            new ModelPricingResolver());
 
     private static Task CallAsync(EventPublishingChatClient client, string prompt) =>
         client.GetResponseAsync(
@@ -92,7 +92,9 @@ public sealed class PromptHashTests
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor
     {
         public string? CurrentRunId => runId;
+        public CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string id) => new NoOpScope();
+        public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 }

@@ -9,6 +9,14 @@ public sealed record CallCostRecord
     public required string SkillName { get; init; }
     public required string Role { get; init; }
     public required SkillExecutionPhase Phase { get; init; }
+
+    /// <summary>
+    /// p0176a: per-repo attribution for multi-repo runs. Null when no
+    /// repo-scoped caller opened the scope (single-repo runs, legacy
+    /// handler paths). PipelineCostTracker.BuildSummary groups by repo
+    /// when any record has this set.
+    /// </summary>
+    public string? RepoName { get; init; }
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
     public long CacheCreateTokens { get; init; }

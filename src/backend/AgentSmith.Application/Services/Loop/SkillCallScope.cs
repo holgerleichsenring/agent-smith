@@ -19,11 +19,12 @@ public sealed class SkillCallScope : IDisposable
     private LimitEnforcer? _enforcer;
 
     public SkillCallScope(string skillName, string role, SkillExecutionPhase phase,
-        PipelineCostTracker tracker, DateTimeOffset startedAt)
+        PipelineCostTracker tracker, DateTimeOffset startedAt, string? repoName = null)
     {
         SkillName = skillName;
         Role = role;
         Phase = phase;
+        RepoName = repoName;
         _tracker = tracker;
         _startedAt = startedAt;
     }
@@ -31,6 +32,7 @@ public sealed class SkillCallScope : IDisposable
     public string SkillName { get; }
     public string Role { get; }
     public SkillExecutionPhase Phase { get; }
+    public string? RepoName { get; }
     public DateTimeOffset StartedAt => _startedAt;
     public long InputTokens { get; private set; }
     public long OutputTokens { get; private set; }
@@ -62,6 +64,7 @@ public sealed class SkillCallScope : IDisposable
             SkillName = SkillName,
             Role = Role,
             Phase = Phase,
+            RepoName = RepoName,
             InputTokens = InputTokens,
             OutputTokens = OutputTokens,
             CacheCreateTokens = CacheCreateTokens,

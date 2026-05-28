@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -28,6 +29,7 @@ public sealed class GeneratePlanHandler(
     PlanOutputValidator planValidator,
     PlanParser planParser,
     IPlanOpenQuestionExtractor questionExtractor,
+    IRunContextAccessor runContext,
     ILogger<GeneratePlanHandler> logger)
     : ICommandHandler<GeneratePlanContext>
 {
@@ -62,6 +64,7 @@ public sealed class GeneratePlanHandler(
     {
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Planning);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Planning);
+        using var _scope = runContext.BeginCallScope("planner", SkillExecutionPhase.Plan.ToString());
         var response = await chat.GetResponseAsync(
             [new(ChatRole.System, system), new(ChatRole.User, user)],
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);

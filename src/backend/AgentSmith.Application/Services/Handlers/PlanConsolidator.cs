@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -18,6 +19,7 @@ public sealed class PlanConsolidator(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     ConsolidationResponseParser responseParser,
+    IRunContextAccessor runContext,
     ILogger<PlanConsolidator> logger)
 {
     private const string AssessmentJsonExample =
@@ -60,6 +62,8 @@ public sealed class PlanConsolidator(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, userPrompt),
         };
+        using var _scope = runContext.BeginCallScope(
+            "plan-consolidator", SkillExecutionPhase.Synthesize.ToString());
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);

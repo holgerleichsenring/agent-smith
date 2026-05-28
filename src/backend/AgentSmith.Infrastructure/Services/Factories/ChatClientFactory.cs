@@ -52,8 +52,9 @@ public sealed class ChatClientFactory(
         // p0176b: wrap innermost with EventPublishingChatClient BEFORE
         // FunctionInvokingChatClient so each provider call (including
         // tool-loop iterations) produces its own LlmCallStarted/Finished
-        // pair. Role lives on per-call ambient scope in slice a; for now
-        // the event-level role stays empty.
+        // pair. Role / phase / repoName flow in via the ambient CallScope
+        // on IRunContextAccessor (p0176a), opened by each handler around
+        // its .GetResponseAsync invocation.
         var instrumented = new EventPublishingChatClient(
             bare, eventPublisher, runContext, pricingResolver);
 

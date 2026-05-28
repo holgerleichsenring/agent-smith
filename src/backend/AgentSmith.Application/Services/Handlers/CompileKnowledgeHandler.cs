@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -19,6 +20,7 @@ public sealed class CompileKnowledgeHandler(
     KnowledgePromptBuilder promptBuilder,
     ISandboxFileReaderFactory readerFactory,
     WikiUpdateParser wikiUpdateParser,
+    IRunContextAccessor runContext,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
 {
@@ -78,6 +80,8 @@ public sealed class CompileKnowledgeHandler(
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, userPrompt),
         };
+        using var _scope = runContext.BeginCallScope(
+            "knowledge-compiler", SkillExecutionPhase.Synthesize.ToString());
         var response = await chat.GetResponseAsync(messages,
             new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);

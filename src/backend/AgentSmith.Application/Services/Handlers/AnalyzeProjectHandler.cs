@@ -65,7 +65,7 @@ public sealed class AnalyzeProjectHandler(
         {
             logger.LogInformation("{Key}: ProjectMap cache miss — running analyzer at {Path}", key, subTreePath);
             var agent = context.Pipeline.Resolved().Agent;
-            map = await analyzer.AnalyzeAsync(subTreePath, agent, sandbox, ct);
+            map = await analyzer.AnalyzeAsync(subTreePath, agent, sandbox, ct, repoName: key);
             await PersistCacheAsync(cacheDir, map, cacheKey, ct);
             logger.LogInformation(
                 "{Key}: analyzed lang={Lang}, modules={Modules}, test_projects={Tests}",

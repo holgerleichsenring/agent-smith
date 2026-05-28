@@ -130,7 +130,7 @@ public sealed class EventSequenceCompletenessTests
     {
         var client = new EventPublishingChatClient(
             new StubChat(), publisher, new ScopedRunContext(RunId),
-            new ModelPricingResolver(), role: "Lead");
+            new ModelPricingResolver());
         await client.GetResponseAsync(
             new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
     }
@@ -187,7 +187,9 @@ public sealed class EventSequenceCompletenessTests
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor
     {
         public string? CurrentRunId => runId;
+        public CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string id) => new NoOpScope();
+        public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 
