@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173e-typed-message-contracts
+
+decisions:
+  - category: Architecture
+    chose: |
+      IDomainEvent is implemented via explicit interface implementation
+      on the RunEvent + SystemEvent base records; the four properties
+      (EventId, OccurredAt, Origin, ParentEventId) derive from existing
+      fields and never appear in the JSON envelope.
+    over: |
+      Auto-property IDomainEvent members on the base records with
+      [JsonIgnore] to suppress emission.
+    reason: |
+      Explicit interface impl keeps the on-wire JSON envelope byte-identical
+      to the pre-p0173e state, so every frozen fixture under
+      tests/AgentSmith.Tests/Events/fixtures/events/ stays compatible
+      without a migration step. EventId is captured once per record
+      instance via a private readonly field so consumers that read it
+      across method calls see a stable value.
+
+  - category: Implementation
+    chose: |
+      Existing StepStartedEvent + StepFinishedEvent (in L1StepEvents.cs)
+      stay; spec's "L1StepStartedEvent + L1StepCompletedEvent" naming
+      maps to these already-typed records.
+    over: |
+      Add new L1StepStarted/Completed record types alongside the
+      existing StepStartedEvent/StepFinishedEvent.
+    reason: |
+      The existing records already carry typed fields (stepIndex,
+      stepName, status, durationMs); the spec's intent — kill the
+      string commandName on ReportProgressAsync — is satisfied without
+      adding duplicate event types on the bus. p0173e's
+      out-of-scope clause ("Retroactive renaming or restructuring of
+      existing event records → out") aligns: we don't rename, we just
+      replace the IProgressReporter signature.
+
+  - category: Implementation
+    chose: |
+      L1StepDetailEvent is a brand-new record (EventType.L1StepDetail = 25)
+      carrying (RunId, StepIndex, Origin, Detail, Timestamp).
+    reason: |
+      ReportDetailAsync(string text) had no structural binding —
+      it was a free-form blob that the dashboard rendered as repeated
+      identical rows. The typed Origin field gives the dashboard a
+      grouping axis; StepIndex binds the detail to its enclosing step.
+
+  - category: Implementation
+    chose: |
+      FileToolHandler / HumanQuestionToolHandler / CommandRunner remove
+      their IProgressReporter dependency and replace ReportDetail calls
+      with logger.LogDebug.
+    over: |
+      Wire IEventPublisher + RunId through these handlers' constructors.
+    reason: |
+      Grep shows these three classes have no callers in the current
+      pipeline graph (likely dead-code remnants from a pre-p0145
+      refactor). Adding IEventPublisher wiring would force ctor changes
+      on hypothetical future callers; killing the IProgressReporter
+      dependency keeps the files compiling after the interface change
+      without overbuilding.
+
+  - category: Tooling
+    chose: |
+      Drift detector at tools/build-hub-event-types.mjs walks every
+      public record under Events/ and asserts the dashboard TS mirror
+      has a corresponding interface; --check exits 1 on drift.
+    over: |
+      Per-enum-only comparison (the pre-p0173e state).
+    reason: |
+      Enum-level comparison misses a record that drifts its field shape
+      without changing the type discriminator. Record-level comparison
+      catches an added field that is only declared in C# (the TS mirror
+      goes stale silently).
+
+  - category: Scope
+    chose: |
+      Pre-existing main build error (ExecutePipelineUseCase.cs:144
+      missing costUsd arg in the catch-block PublishRunFinishedAsync
+      call) fixed in the step-3 commit.
+    reason: |
+      Phase work cannot start on a broken main; the fix is a one-line
+      argument addition that reuses PipelineCostTracker.EstimateCostUsd
+      in the same way the success path does. Not in p0173e's scope but
+      structurally required to land any further changes.
+
+  - category: Scope
+    chose: |
+      CLAUDE.md reference (spec step 2) skipped — no CLAUDE.md exists
+      in the repo root; created src/backend/AgentSmith.Contracts/README.md
+      with a pointer to docs/event-schema-policy.md instead.
+    reason: |
+      Spec assumed CLAUDE.md exists. Creating it just to host a
+      one-line policy reference is scope creep with no payoff; the
+      Contracts README is the natural anchor for event-contract
+      guidance and is reachable from the directory the discipline
+      governs.

@@ -16,6 +16,7 @@ export const L1_TYPES: ReadonlySet<EventType> = new Set([
   EventType.RunStarted, EventType.RunFinished,
   EventType.SandboxCreated, EventType.SandboxDisposed,
   EventType.StepStarted, EventType.StepFinished,
+  EventType.L1StepDetail,
 ]);
 
 export const L2_TYPES: ReadonlySet<EventType> = new Set([
@@ -53,6 +54,8 @@ const TYPE_KEYS: Record<string, EventType> = {
   SandboxResult: EventType.SandboxResult,
   ToolCall: EventType.ToolCall,
   ToolResult: EventType.ToolResult,
+  L1StepDetail: EventType.L1StepDetail,
+  CatalogIssue: EventType.CatalogIssue,
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

@@ -242,6 +242,16 @@ function projectEvent(event: RunEvent): RowView {
         severity: e.severity === "error" ? "error" : "warn",
       };
     }
+    case EventType.L1StepDetail: {
+      const e = event as Extract<RunEvent, { type: EventType.L1StepDetail }>;
+      return {
+        icon: "·",
+        label: "Step detail",
+        detail: `${e.stepIndex} ${e.origin}: ${e.detail}`,
+        reason: null,
+        severity: "info",
+      };
+    }
   }
 }
 
