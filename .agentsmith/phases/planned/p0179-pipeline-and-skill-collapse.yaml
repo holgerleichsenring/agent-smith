@@ -1,0 +1,265 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179-pipeline-and-skill-collapse
+goal: |
+  Collapse the choreography apparatus (Triage / SkillRound /
+  ConvergenceCheck / SwitchSkill / CompressSecurityFindings) and the
+  role-routing taxonomy (producer / investigator / judge / filter +
+  Category / InvestigatorMode / SurveyScope / BlockCondition / Loop /
+  ActivatesWhen) that p0177 made redundant. After p0177 the master
+  decides and sub-agents do parallel work; the pre-master
+  Triage→SkillRound→Convergence shape exists to coordinate small
+  skills and has no consumer left. Same logic kills the role schema:
+  with no router, no judge, no producer slot, the four labels are
+  schema cosplay.
+
+  Shape per pipeline after p0179:
+    - fix-bug / add-feature / fix-no-test: one master skill, three
+      internal phase sections (Plan / Execute / Verify); master
+      decides re-loop; no external VerifyRound wrapper.
+    - api-scan / security-scan: one master skill, n sub-agents, typed
+      bus (p0177) carries detail.
+    - mad-discussion: n master skills (one per perspective), each can
+      spawn sub-agents, typed master↔master event channel + one
+      mad-synthesizer master that reads only the typed channel.
+    - legal-analysis: shape decided per content during slice d/e.
+
+  Umbrella. Slices a..e execute it.
+
+requires:
+  - p0173e-typed-message-contracts
+  - p0177
+
+scope:
+  in: |
+    p0179a-master-prompt-as-skill — embedded prompts under
+    AgentSmith.Application/Prompts/Resources/ move to the external
+    agentsmith-skills repo as role:master skills. IPromptCatalog
+    becomes a thin adapter over ISkillBodyResolver. SourceAnchoringPreamble's
+    p0177 step-11 sub-agent guidance reverts from the C# string and
+    lands in the master skill where spawn_agents actually exists.
+
+    p0179b-role-taxonomy-removal — RoleSkillDefinition flattens to
+    { Name, DisplayName, Emoji, Description, Triggers, Rules, Source,
+    SkillDirectory, output_schema (master-only) }. Role / Category /
+    InvestigatorMode / SurveyScope / ScopeHint / BlockCondition /
+    Loop / ActivatesWhen / ConvergenceCriteria retire across schema,
+    validators, tests, consumers. ITriageStrategy /
+    ActivationSkillFilter / ConvergenceEvaluator /
+    DiscussionRoundToolPolicy / SkillRoundHandler family /
+    SwitchSkillHandler / GateRetryCoordinator /
+    CompressSecurityFindingsHandler retire. Pipeline presets shed
+    Triage / SkillRound* / ConvergenceCheck / SwitchSkill / Compress
+    entries (except mad-discussion — slice e owns MAD's residual
+    coordination).
+
+    p0179c-coding-pipeline-collapse — fix-bug, add-feature,
+    fix-no-test, skill-manager (where AgenticExecute used to follow
+    Approval) collapse to one AgenticMaster step that loads the
+    coding-agent master skill and runs Plan / Execute / Verify as
+    internal phase sections. AgenticMasterHandler (renamed from
+    AgenticExecuteHandler) emits MasterPhaseStartedEvent /
+    MasterPhaseCompletedEvent on each phase transition. Master
+    decides Execute re-loop on its own Verify output.
+    VerifyRoundHandler + VerifyRoundCoordinator + ConvergenceCheck
+    retire.
+
+    p0179d-scan-pipeline-collapse — api-scan + security-scan +
+    legal-analysis (where it fits) collapse to one master per
+    pipeline, fan-out via spawn_agents, lazy detail via
+    read_sub_agent_observations. Triage / Compress retire here too.
+    Deterministic patterns/*.yaml detection stays — it runs upstream
+    of the master, not as a skill. Master skills:
+    api-security-master, security-master, legal-analyst-master.
+    First step of the slice extracts domain content from the
+    existing investigator skills (JWT/auth-config rules, IDOR/BOLA
+    probing, upload-validator review, recon flows, security-header
+    audit, ZAP/Nuclei output interpretation, dependency-audit
+    triage, controller-implementation review, …) into the new
+    master-skill bodies as named sections. The source skills get
+    tombstoned only after the master loop runs against the
+    extracted content — no empty-shell master ships.
+
+    p0179e-mad-master-protocol — new EventType range 70..7N for
+    L2MadMaster typed records (MadOpinionDeliveredEvent,
+    MadReplyEvent); range reserved per p0173e's additive-enum
+    discipline, no collision with existing 0..30 / 40..53 / 60..65
+    allocations. mad-discussion runs n parallel masters (one per
+    perspective skill). One mad-synthesizer master reads only the
+    typed records via a new read_mad_opinions(perspective?,
+    max_results?) tool host — never sees the perspective masters'
+    full event streams. CompileDiscussionHandler retires. Dashboard
+    renders the multi-master view via the new event records.
+    Like slice d, the first step extracts the current MAD
+    perspective-skill content (the existing stances + their
+    convergence criteria) into per-perspective master-skill bodies
+    before the source skill files tombstone.
+
+  out: |
+    Cache architecture for InheritedContext (cache_control breakpoints,
+    prefix warming, byte-identical fork) → p0178. p0179 ships the
+    typed records that make caching viable; the cache wiring itself
+    is p0178's job.
+    Self-generated skills by master → p0178.
+    External agentsmith-skills repo file edits (writing the new
+    master-skill YAML/Markdown, applying tombstone markers on the
+    extracted-from skills, version-pin bump) ship cross-repo — but
+    the decision of WHAT goes into the new master skills is
+    in-scope here (slices c/d/e each name their content-source
+    skills + their tombstone targets explicitly). The cross-repo
+    work just applies the result; it never decides scope.
+    Sub-agent loop-host instrumentation (per-child Observation /
+    FileWritten / ToolCall events from AgenticLoopRunner) — open
+    follow-up from p0177, lands independently.
+    p0173f's TrailAssembler integration of SubAgentTreeNode under
+    master nodes — open follow-up from p0173f, independent.
+    Backward-compatibility shims for retired pipeline steps → out
+    (per [[feedback_no_wrapper_shims]]); slices migrate callers
+    directly.
+
+decisions:
+  - key: |
+      The role-routing taxonomy was operational machinery for the
+      Triage→SkillRound→Convergence shape. With the master deciding
+      and sub-agents doing parallel work, no role has a job: no
+      router selecting investigators, no judge filtering findings,
+      no producer slot, no filter slot. Keeping the fields in
+      RoleSkillDefinition would be schema cosplay. alternatives:
+      keep as informational metadata (rejected — dead schema rots
+      faster than no schema).
+  - key: |
+      output_schema stays — but only at the master-skill level.
+      Reason: master output is a downstream pipeline contract (next
+      step / result.md writer / cost summary consume it).
+      Investigator skills are gone so their output_schema values
+      have no home. alternatives: drop output_schema entirely
+      (rejected — pipeline-next-step contract needs typed handoff);
+      keep at every skill (rejected — investigator skills are gone).
+  - key: |
+      Master ↔ master communication in MAD = typed records on the
+      existing run-event bus, new EventType range. Reason: the bus
+      is already the single source of truth (p0173e + p0177); adding
+      a separate channel doubles infra for the same semantics. Records
+      are typed so caching profits — each master pulls only the typed
+      peer messages into its window, not the full stream.
+      alternatives: dedicated WebSocket / dedicated Redis Stream per
+      discussion (rejected — two-source drift that p0173e exists to
+      abolish); in-memory channel only (rejected — replay + dashboard
+      visibility lost).
+  - key: |
+      Coding master runs Plan / Execute / Verify as internal phase
+      sections, NOT as separate pipeline steps. Master decides phase
+      transitions and re-loop. Reason: internal phases preserve the
+      LLM's context window (no re-prompting per phase), reduce token
+      cost, unify the decision surface — the master that wrote the
+      plan also runs execute and decides whether verify passed.
+      alternatives: keep Plan / Execute / Verify as separate pipeline
+      steps with three master calls (rejected — three cold starts,
+      three re-promptings, decision split across three call sites).
+  - key: |
+      VerifyRoundHandler + ConvergenceCheck retire. Reason: their job
+      was to loop Execute when Verify produced blocking observations.
+      With Verify as a master-internal phase the master decides
+      whether to loop. alternatives: keep VerifyRound as a safety
+      wrapper (rejected — duplicates the master's decision; second
+      loop control can disagree with the master).
+  - key: |
+      Slice order a → b → c → d → e. Reason: a removes embedded
+      prompt hardcoding so b..e have a place to land new master
+      skills. b cleans the schema so c..e don't need to write into
+      both shapes. c first because coding-pipeline is the most
+      user-visible hot path; a design flaw discovered there lets d/e
+      adjust before shipping. e last because MAD's master↔master
+      protocol is the most novel (new event range, new skill kind)
+      and benefits from prior slices proving the master-skill load
+      path.
+  - key: |
+      Extract domain content from investigator skills into the new
+      master skills FIRST; tombstone the source skills only after
+      the master loop runs against the extracted content. Reason: a
+      tombstone before extraction leaves the new master skill an
+      empty shell with no domain rules — the operator sees a
+      capability regression, not a refactor. The extraction is the
+      load-bearing step; tombstoning is bookkeeping. alternatives:
+      tombstone first, fill the master skill incrementally
+      afterwards (rejected — interrupts the operator's working
+      pipeline); keep investigator skills loaded but unused
+      alongside the master skill (rejected — two-source confusion
+      the whole collapse is built to abolish).
+  - key: |
+      EventType range 70..7N reserved for L2MadMaster in slice e.
+      Reason: p0173e's schema-evolution policy is additive within
+      each tier. Existing allocations: 0..5 L1 Run/Step/Sandbox,
+      10..14 L2 Llm/Orchestrator, 20..24 L3 Sandbox/Tool, 25
+      L1StepDetail, 30 CatalogIssue, 40..45 SystemEvent
+      poller/webhook, 50..53 SystemEvent chat/config/catalog,
+      60..65 L2SubAgent. 70-block opens a fresh tier for the
+      master↔master family without collision. Specific codes get
+      assigned in slice e's spec.
+  - key: |
+      The 33+ existing investigator skills in agentsmith-skills get
+      tombstoned (after extraction, per the decision above), not
+      deleted. Reason: the dashboard's wiki + run history still
+      references them by name; deletion would break wiki retrieval
+      against historical runs. Tombstone marker on each retired
+      skill points at the master skill that absorbs its domain.
+      alternatives: hard delete (rejected — breaks history); silent
+      retire (rejected — operator can't tell why a familiar skill
+      stopped firing).
+
+steps:
+  - id: a-master-prompt-as-skill
+    action: |
+      Embedded prompts retire. IPromptCatalog → adapter over
+      ISkillBodyResolver. SourceAnchoringPreamble step-11 guidance
+      reverts; master-skill absorbs it. Slice spec ships separately
+      as p0179a-master-prompt-as-skill.yaml.
+  - id: b-role-taxonomy-removal
+    action: |
+      RoleSkillDefinition flattens. Triage / SkillRound* /
+      ConvergenceCheck / SwitchSkill / Compress / their consumers
+      and tests retire. Pipeline presets shed those steps. Slice
+      spec ships as p0179b-role-taxonomy-removal.yaml.
+  - id: c-coding-pipeline-collapse
+    action: |
+      AgenticMasterHandler with Plan / Execute / Verify internal
+      phases. MasterPhaseStarted/Completed events. fix-bug,
+      add-feature, fix-no-test, skill-manager presets rewritten.
+      VerifyRound retires. Slice spec ships as
+      p0179c-coding-pipeline-collapse.yaml.
+  - id: d-scan-pipeline-collapse
+    action: |
+      api-scan + security-scan + legal-analysis collapse to one
+      master + n sub-agents. Deterministic patterns/*.yaml stays
+      upstream. Slice spec ships as
+      p0179d-scan-pipeline-collapse.yaml.
+  - id: e-mad-master-protocol
+    action: |
+      L2MadMaster event family (EventType 70..7N). n perspective
+      masters + 1 synthesizer master. read_mad_opinions tool host.
+      CompileDiscussionHandler retires. Dashboard adds the
+      multi-master view. Slice spec ships as
+      p0179e-mad-master-protocol.yaml.
+  - id: verify-umbrella
+    action: |
+      All five slices merged. dotnet build + dotnet test green;
+      pnpm build + pnpm test green; TS drift detector green.
+      External agentsmith-skills version pin updated; new master
+      skills present, deprecated investigator skills tombstoned.
+      grep for Triage / SkillRound* / ConvergenceCheck /
+      SwitchSkill / Compress / VerifyRound in src/backend returns
+      no hits. End-to-end smoke per pipeline on a fixture target.
+
+# umbrella has no own tests; each slice declares its own test set.
+tests: []
+
+done:
+  - "Embedded Prompts/Resources/*.md retired from source — all master prompts live in the external agentsmith-skills repo."
+  - "RoleSkillDefinition shrunk to the post-p0179b schema (compile-time field removal pinned by reflection test)."
+  - "Triage / SkillRound* / ConvergenceCheck / SwitchSkill / CompressSecurityFindings / VerifyRound retired from PipelinePresets and source — grep returns no hits."
+  - "fix-bug / add-feature / fix-no-test run one AgenticMaster step with a single coding-agent master skill; Plan / Execute / Verify are internal phases visible via MasterPhaseStartedEvent / MasterPhaseCompletedEvent."
+  - "api-scan / security-scan run one master + n sub-agents; typed bus (p0177) carries detail."
+  - "mad-discussion runs n perspective masters + one synthesizer over the new L2MadMaster typed records (EventType 70..7N)."
+  - "Dashboard renders the new event family + Phase node kind + MAD multi-master tree; drift detector green."
+  - "Domain content from the retired investigator skills (security patterns, IDOR/auth/upload rules, header audit, MAD perspective stances, …) extracted into the new master-skill bodies BEFORE the source skills tombstone — no empty-shell master ships at any point."
+  - "External agentsmith-skills repo version pin landed; new master skills present, deprecated investigator skills tombstoned with migration pointer."
+  - "dotnet build + dotnet test + pnpm build + pnpm test all green; per-pipeline end-to-end smoke green against fixtures."
