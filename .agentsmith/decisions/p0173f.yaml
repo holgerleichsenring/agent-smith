@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0173f-dashboard-typed-render
+
+decisions:
+  - category: Architecture
+    chose: |
+      Dimension filtering lives in a separate state slice (DimensionFilterState)
+      with its own URL params (d.agent / d.sandbox / d.pipeline / d.activity)
+      composed into the existing EventFilterContext. The context provider
+      writes both slices through writeFilterToQuery + writeDimensionsToQuery
+      to the same URL.
+    over: |
+      Fold dimensions into the existing EventFilterState shape.
+    reason: |
+      Existing tests + URL-round-trip code for L1/L2/L3 toggles stay
+      structurally identical. Adding a parallel slice avoids breaking
+      the parsers and lets dimension values be strings (Agent name,
+      Sandbox repo) instead of forcing them into the EventType enum.
+
+  - category: Implementation
+    chose: |
+      FilterRail takes observedDimensions via props instead of pulling
+      from the run-event stream itself.
+    over: |
+      FilterRail subscribes to useRunEvents internally and derives
+      values for the four dimension groups.
+    reason: |
+      Keeps the rail pure UI — the derivation lives one level up where
+      the run-event stream is already in scope (jobs/[id]/page.tsx).
+      Easier to test in isolation; the upstream computation can be
+      unit-tested separately when it lands.
+
+  - category: Implementation
+    chose: |
+      useSubAgentObservations is split into a hook (useSubAgentObservations)
+      and a pure filter helper (filterSubAgentObservations).
+    over: |
+      Test the hook directly via @testing-library/react-hooks or
+      renderHook.
+    reason: |
+      The hook depends on useRunEvents which depends on useJobsHub
+      which depends on a context provider hierarchy. The pure-helper
+      seam makes the filter logic testable without spinning up the
+      full hub mock. The component tests cover the hook integration.
+
+  - category: Implementation
+    chose: |
+      SubAgentTimelinePanel filters via local state of activeKinds; an
+      empty set means "show all kinds" (translated to undefined for the
+      hook).
+    reason: |
+      Symmetric with the FilterRail's per-level on/off semantics — an
+      empty set in the URL means "level off"; here it means "no kind
+      filter, show all." The local-state shape matches what the kind
+      chips toggle most ergonomically.
+
+  - category: Scope
+    chose: |
+      SandboxBox gains an `operatingSubAgentName` prop. The
+      derivation (latest SubAgentToolCallEvent or SubAgentFileWrittenEvent
+      for that sandbox) is left to the caller for this slice.
+    over: |
+      Resolve the operator name inside SandboxBox using a hook.
+    reason: |
+      Keeps SandboxBox a presentational component. The resolver lives
+      upstream once the SubAgent events fire from the loop runner
+      (currently only Spawned + Completed do — see p0177 PR body for
+      the loop-instrumentation follow-up).
+
+  - category: Scope
+    chose: |
+      Step 5's "typed step detail renderer" is satisfied by the
+      ActivityRow switch case added in p0173e for L1StepDetail +
+      the existing StepStarted/StepFinished cases. No new component
+      added.
+    reason: |
+      ActivityRow already routes per-EventType with typed field
+      extraction; the L1StepDetail case shipped in p0173e renders
+      stepIndex + origin + detail as typed fields, not a JSON dump.
+      The TypedStepDetailRender tests pin this. A separate component
+      would duplicate routing without behaviour change.
+
+  - category: Scope
+    chose: |
+      TrailTab is NOT modified in this slice to embed SubAgentTreeNode
+      under master nodes. SubAgentTreeNode is shipped as a usable
+      component (with the spec-listed render + selection contract) but
+      the master-node child-placement happens when TrailAssembler is
+      extended to project SubAgentSpawnedEvent into the tree.
+    reason: |
+      The TrailAssembler change is a non-trivial p0169h-era refactor
+      (it owns the run→step→skill-call→tool-pair tree shape). Shipping
+      SubAgentTreeNode + tests for the rendering contract here lets
+      the assembler change land in a follow-up without forcing this
+      slice to grow.
