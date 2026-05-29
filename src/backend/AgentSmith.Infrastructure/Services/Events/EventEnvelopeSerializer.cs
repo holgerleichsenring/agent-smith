@@ -93,6 +93,12 @@ public static class EventEnvelopeSerializer
         EventType.ToolResult => typeof(ToolResultEvent),
         EventType.L1StepDetail => typeof(L1StepDetailEvent),
         EventType.CatalogIssue => typeof(CatalogIssueEvent),
+        EventType.SubAgentSpawned => typeof(SubAgentSpawnedEvent),
+        EventType.SubAgentObservation => typeof(SubAgentObservationEvent),
+        EventType.SubAgentFinding => typeof(SubAgentFindingEvent),
+        EventType.SubAgentFileWritten => typeof(SubAgentFileWrittenEvent),
+        EventType.SubAgentToolCall => typeof(SubAgentToolCallEvent),
+        EventType.SubAgentCompleted => typeof(SubAgentCompletedEvent),
         _ => null
     };
 }

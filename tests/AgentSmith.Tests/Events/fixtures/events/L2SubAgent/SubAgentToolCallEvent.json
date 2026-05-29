@@ -1,0 +1,11 @@
+{
+  "t": 64,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "toolName": "read_file",
+    "argsSummary": "read_file src/Server/UploadController.cs",
+    "type": 64,
+    "timestamp": "2026-05-20T10:17:03Z"
+  }
+}

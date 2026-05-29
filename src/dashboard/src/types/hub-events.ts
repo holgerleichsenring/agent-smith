@@ -21,6 +21,12 @@ export enum EventType {
   ToolResult = 24,
   L1StepDetail = 25,
   CatalogIssue = 30,
+  SubAgentSpawned = 60,
+  SubAgentObservation = 61,
+  SubAgentFinding = 62,
+  SubAgentFileWritten = 63,
+  SubAgentToolCall = 64,
+  SubAgentCompleted = 65,
 }
 
 interface RunEventBase {
@@ -190,6 +196,54 @@ export interface CatalogIssueEvent extends RunEventBase {
   message: string;
 }
 
+export interface SubAgentSpawnedEvent extends RunEventBase {
+  type: EventType.SubAgentSpawned;
+  subAgentId: string;
+  name: string;
+  activity: string;
+  parentSubAgentId: string | null;
+  inheritedContextHash: string;
+}
+
+export interface SubAgentObservationEvent extends RunEventBase {
+  type: EventType.SubAgentObservation;
+  subAgentId: string;
+  text: string;
+}
+
+export interface SubAgentFindingEvent extends RunEventBase {
+  type: EventType.SubAgentFinding;
+  subAgentId: string;
+  severity: string;
+  title: string;
+  detail: string;
+}
+
+export interface SubAgentFileWrittenEvent extends RunEventBase {
+  type: EventType.SubAgentFileWritten;
+  subAgentId: string;
+  path: string;
+  bytes: number;
+}
+
+export interface SubAgentToolCallEvent extends RunEventBase {
+  type: EventType.SubAgentToolCall;
+  subAgentId: string;
+  toolName: string;
+  argsSummary: string | null;
+}
+
+export interface SubAgentCompletedEvent extends RunEventBase {
+  type: EventType.SubAgentCompleted;
+  subAgentId: string;
+  status: string;
+  observationsCount: number;
+  findingsCount: number;
+  filesWrittenCount: number;
+  toolCalls: number;
+  costUsd: number;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -208,7 +262,13 @@ export type RunEvent =
   | ToolCallEvent
   | ToolResultEvent
   | L1StepDetailEvent
-  | CatalogIssueEvent;
+  | CatalogIssueEvent
+  | SubAgentSpawnedEvent
+  | SubAgentObservationEvent
+  | SubAgentFindingEvent
+  | SubAgentFileWrittenEvent
+  | SubAgentToolCallEvent
+  | SubAgentCompletedEvent;
 
 export interface RunSnapshot {
   runId: string;
